@@ -435,10 +435,10 @@ def _mine_strategy(stats: list, key_cards: list) -> list[dict]:
         if abs(wf - ws) >= 0.12:
             if wf > ws:
                 add("tempo", "先攻を取れた方が有利",
-                    f"先攻時の勝率 {wf * 100:.0f}%、 後攻時 {ws * 100:.0f}%。 先攻できた試合で押し切りやすい。", wf - ws)
+                    "先攻できた試合で押し切りやすい。 先攻を取れたら攻めを緩めない。", wf - ws)
             else:
                 add("tempo", "後攻から捲る展開が得意",
-                    f"後攻時の勝率 {ws * 100:.0f}%、 先攻時 {wf * 100:.0f}%。 受けてから返す試合で勝っている。", ws - wf)
+                    "受けてから返す試合で勝っている。 後攻でも慌てず捌く。", ws - wf)
 
     # ② 速攻 vs コントロール (= 相手ライフを削り始めたターンで割る)。
     early = [g for g in stats if g.first_hit_given_turn is not None and g.first_hit_given_turn <= 4]
@@ -448,10 +448,10 @@ def _mine_strategy(stats: list, key_cards: list) -> list[dict]:
         if abs(we - wsl) >= 0.12:
             if we > wsl:
                 add("playstyle", "先に攻めて削り切る（速攻寄り）",
-                    f"4ターン目までに相手ライフを削り始めた試合の勝率 {we * 100:.0f}%、 遅れた試合は {wsl * 100:.0f}%。 早く詰めるほど勝つ。", we - wsl)
+                    "4ターン目までに相手ライフを削り始めると勝ちやすい。 早く詰めにいく。", we - wsl)
             else:
                 add("playstyle", "急がず受けて長期戦（コントロール寄り）",
-                    f"序盤に攻めた試合は勝率 {we * 100:.0f}% と低く、 遅く攻めた試合が {wsl * 100:.0f}%。 盤面を整えてから攻めるべき。", wsl - we)
+                    "序盤の無理攻めより、 盤面を整えてから攻めた方が勝てる。", wsl - we)
 
     # ③ 攻撃の手数 (= 相手ライフに通した攻撃数を中央値で割る)。
     vals = sorted(g.attacks_life_hit for g in stats)
@@ -460,7 +460,7 @@ def _mine_strategy(stats: list, key_cards: list) -> list[dict]:
     lo = [g for g in stats if g.attacks_life_hit <= med]
     if len(hi) >= MIN_BUCKET and len(lo) >= MIN_BUCKET and wr(hi) - wr(lo) >= 0.12:
         add("tempo", "攻撃を通す手数が勝敗を分ける",
-            f"相手ライフへの攻撃が多かった試合の勝率 {wr(hi) * 100:.0f}%、 少ない試合は {wr(lo) * 100:.0f}%。 手数が足りないと押し切れない。",
+            "相手ライフへ攻撃を通す手数が多いほど勝ちやすい。 手数が足りないと押し切れない。",
             wr(hi) - wr(lo))
 
     # ④ 除去 (= 相手キャラを KO できたか)。
@@ -468,7 +468,7 @@ def _mine_strategy(stats: list, key_cards: list) -> list[dict]:
     noko = [g for g in stats if sum(g.ko_targets.values()) == 0]
     if len(ko) >= MIN_BUCKET and len(noko) >= MIN_BUCKET and wr(ko) - wr(noko) >= 0.12:
         add("removal", "相手キャラをKOできると勝つ（除去が鍵）",
-            f"相手キャラを除去できた試合の勝率 {wr(ko) * 100:.0f}%、 できない試合は {wr(noko) * 100:.0f}%。 盤面を捌けるかが重要。",
+            "相手キャラを除去できた試合で勝ちやすい。 盤面を捌けるかが重要。",
             wr(ko) - wr(noko))
 
     # ⑤ キーカードのタイミング/機能条件 (= Nターンまでに着地→機能、 or 出せた/出せない)。
@@ -492,14 +492,14 @@ def _mine_strategy(stats: list, key_cards: list) -> list[dict]:
         if best and best[0] >= 0.12:
             gap, K, wb, wl = best
             add("key_play", f"{name} は {K} ターン目までに着地させたい",
-                f"{K}ターン目までに {name} を出せた試合の勝率 {wb * 100:.0f}%、 遅れた/出せなかった試合は {wl * 100:.0f}%。 着地が遅れると機能しにくい。",
+                f"{K}ターン目までに {name} を着地させると機能しやすい。 遅れると活かせない。",
                 gap)
             continue
         wg = [g for g in stats if g.cards_played.get(name, 0) > 0]
         wo = [g for g in stats if g.cards_played.get(name, 0) == 0]
         if len(wg) >= MIN_BUCKET and len(wo) >= MIN_BUCKET and wr(wg) - wr(wo) >= 0.12:
             add("key_card", f"{name} の着地が生命線",
-                f"{name} を出せた試合の勝率 {wr(wg) * 100:.0f}%、 出せない試合は {wr(wo) * 100:.0f}%。 盤面に出せるかが機能条件。",
+                f"{name} を盤面に出せるかが機能条件。 出せない試合は苦しい。",
                 wr(wg) - wr(wo))
 
     # 効果量の大きい順 (= 強い相関を優先) に上位を採用。

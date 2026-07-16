@@ -134,8 +134,6 @@ function ReportBody({
   onReanalyze: () => void;
   requesting: boolean;
 }) {
-  const played = report.matchups.filter((m) => m.n > 0);
-  const avgPct = Math.round(report.matchup_summary.avg * 100);
   return (
     <div className="space-y-3">
       {!running && (
@@ -144,12 +142,6 @@ function ReportBody({
             <span className="rounded px-2 py-0.5 text-xs font-bold text-white" style={{ background: "var(--brand)" }}>
               {report.archetype}
             </span>
-            {played.length > 0 && (
-              <span className="text-sm text-[color:var(--text-default)]">
-                メタ{played.length}デッキ相手の平均勝率{" "}
-                <span className="font-semibold text-[color:var(--text-strong)]">{avgPct}%</span>
-              </span>
-            )}
           </div>
           {stale && (
             <button
@@ -179,25 +171,17 @@ function ReportBody({
       {report.matchup_plans && report.matchup_plans.length > 0 && (
         <Section title="相手タイプ別の立ち回り">
           <div className="space-y-1.5">
-            {report.matchup_plans.map((p) => {
-              const pct = Math.round(p.win_rate * 100);
-              const tone = pct >= 55 ? "var(--brand)" : pct <= 45 ? "var(--danger)" : "var(--text-muted)";
-              return (
-                <div
-                  key={p.archetype}
-                  className="rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-2)] px-3 py-2"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-[color:var(--text-strong)]">vs {p.archetype}</span>
-                    <span className="text-xs font-semibold" style={{ color: tone }}>
-                      勝率 {pct}%
-                    </span>
-                    <span className="text-[10px] text-[color:var(--text-muted)]">（{p.n}戦）</span>
-                  </div>
-                  <div className="mt-0.5 text-xs leading-relaxed text-[color:var(--text-default)]">{p.detail}</div>
+            {report.matchup_plans.map((p) => (
+              <div
+                key={p.archetype}
+                className="rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-2)] px-3 py-2"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-[color:var(--text-strong)]">vs {p.archetype}</span>
                 </div>
-              );
-            })}
+                <div className="mt-0.5 text-xs leading-relaxed text-[color:var(--text-default)]">{p.detail}</div>
+              </div>
+            ))}
           </div>
         </Section>
       )}
@@ -233,19 +217,15 @@ function ReportBody({
             {report.mulligan.map((m) => (
               <span
                 key={m.name}
-                title={`初手にあると勝率 ${Math.round(m.win_rate_with * 100)}%、 無いと ${Math.round(m.win_rate_without * 100)}%`}
                 className="rounded-[var(--radius)] border border-l-[3px] bg-[color:var(--surface-2)] px-2 py-0.5 text-xs text-[color:var(--text-default)]"
                 style={{ borderColor: "var(--border-1)", borderLeftColor: "#16a34a" }}
               >
                 {m.name}
-                <span className="ml-1 text-[10px] font-semibold text-[color:var(--brand)]">
-                  +{Math.round(m.strength * 100)}pt
-                </span>
               </span>
             ))}
           </div>
           <div className="text-[11px] text-[color:var(--text-muted)]">
-            初手にあると勝率が上がる札（＝マリガンで狙って残す）。 +pt は初手にある/ない試合の勝率差。
+            初手にあると展開が良くなる札（＝マリガンで狙って残す）。
           </div>
         </Section>
       )}
@@ -264,8 +244,7 @@ function ReportBody({
                   {c.cards.join(" ＋ ")}
                 </div>
                 <div className="mt-0.5 text-xs leading-relaxed text-[color:var(--text-default)]">
-                  揃った試合の勝率 <span className="font-semibold">{Math.round(c.win_rate * 100)}%</span>
-                  （片方だけ/未達 {Math.round(c.base_win_rate * 100)}%）。 この組み合わせが決め手になる。
+                  この組み合わせが揃った試合で勝ちやすい。 決め手として狙う。
                 </div>
               </div>
             ))}
@@ -319,35 +298,13 @@ function ReportBody({
       )}
 
       {/* キーカードは「戦略概要」に役割別で出るので、 ここでは重複表示しない (統合)。 */}
-
-      {played.length > 0 && (
-        <Section title="メタ相性（AI対戦で計測）">
-          <ul className="space-y-1">
-            {[...played]
-              .sort((a, b) => b.win_rate - a.win_rate)
-              .map((m) => {
-                const pct = Math.round(m.win_rate * 100);
-                const tone = pct >= 60 ? "var(--brand)" : pct <= 40 ? "var(--danger)" : "var(--border-2)";
-                return (
-                  <li key={m.slug} className="flex items-center gap-2 text-xs">
-                    <span className="w-28 shrink-0 truncate text-[color:var(--text-default)]">
-                      {m.leader_name || m.name}
-                    </span>
-                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-[color:var(--surface-2)]">
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: tone }} />
-                    </div>
-                    <span className="w-9 shrink-0 text-right font-mono text-[color:var(--text-strong)]">{pct}%</span>
-                  </li>
-                );
-              })}
-          </ul>
-        </Section>
-      )}
+      {/* 勝率の数値は表示しない (= 基準 AI が探索した副産物であり、 掘り当てた知識を使って
+          戦った勝率ではないため誤解を招く)。 勝率は洞察の発掘に内部利用するのみ。 */}
 
       {!running && (
         <p className="text-[11px] leading-relaxed text-[color:var(--text-muted)]">
-          ※ 両者を同じ基準 AI が操縦した時の相対勝率です（理論上の有利不利ではなく、
-          現状の AI がこのデッキを操縦した場合の目安）。1マッチアップ {report.n_games_per_matchup} 戦。
+          ※ 現状の AI 同士を対戦させ、 その挙動から発掘した傾向です（理論上の最適ではなく、
+          このデッキの回り方・機能条件の手がかり）。 メタ16デッキ＋ミラーで探索。
         </p>
       )}
     </div>
@@ -391,7 +348,7 @@ function InsightCard({ insight }: { insight: { kind: string; title: string; deta
             {insight.strength != null && (
               <span
                 className="inline-flex items-center gap-1 text-[10px] text-[color:var(--text-muted)]"
-                title={`勝率差 ${Math.round(strength * 100)}pt`}
+                title="この傾向の相関の強さ"
               >
                 <span className="h-1 w-10 overflow-hidden rounded-full bg-[color:var(--surface-3)]">
                   <span className="block h-full rounded-full" style={{ width: `${strength * 100}%`, background: meta.color }} />
