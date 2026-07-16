@@ -175,6 +175,33 @@ function ReportBody({
         </Section>
       )}
 
+      {/* ⭐ 相手タイプ別の立ち回り (#8)。 */}
+      {report.matchup_plans && report.matchup_plans.length > 0 && (
+        <Section title="相手タイプ別の立ち回り">
+          <div className="space-y-1.5">
+            {report.matchup_plans.map((p) => {
+              const pct = Math.round(p.win_rate * 100);
+              const tone = pct >= 55 ? "var(--brand)" : pct <= 45 ? "var(--danger)" : "var(--text-muted)";
+              return (
+                <div
+                  key={p.archetype}
+                  className="rounded-[var(--radius)] border border-[color:var(--border-1)] bg-[color:var(--surface-2)] px-3 py-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-[color:var(--text-strong)]">vs {p.archetype}</span>
+                    <span className="text-xs font-semibold" style={{ color: tone }}>
+                      勝率 {pct}%
+                    </span>
+                    <span className="text-[10px] text-[color:var(--text-muted)]">（{p.n}戦）</span>
+                  </div>
+                  <div className="mt-0.5 text-xs leading-relaxed text-[color:var(--text-default)]">{p.detail}</div>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+      )}
+
       {/* 回り方サマリ (= 勝敗に依らず常に出る記述統計)。 */}
       {report.profile && Object.keys(report.profile).length > 0 && (
         <Section title="このデッキの回り方（平均）">

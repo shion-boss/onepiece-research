@@ -125,6 +125,7 @@ def _load_meta_decklists(repo) -> list:
         return _meta_cache
     from engine.deck import make_deck_from_dict
 
+    roles = _load_roles()
     slugs = json.loads(_META_PATH.read_text(encoding="utf-8")).get("meta_deck_slugs", [])
     out = []
     for slug in slugs:
@@ -142,8 +143,10 @@ def _load_meta_decklists(repo) -> list:
                 leader_name = repo.get(d.get("leader", "")).name
             except KeyError:
                 leader_name = d.get("leader", "")
-        out.append({"slug": slug, "name": d.get("name", slug),
-                    "leader": d.get("leader", ""), "leader_name": leader_name, "decklist": dl})
+        # 相手のアーキタイプ (= 相手別プランのグループキー)。
+        arch = _role_breakdown(d.get("main", []), roles)["archetype"]
+        out.append({"slug": slug, "name": d.get("name", slug), "leader": d.get("leader", ""),
+                    "leader_name": leader_name, "archetype": arch, "decklist": dl})
     _meta_cache = out
     return out
 
@@ -201,6 +204,50 @@ def _top_cards(stats: list, main_entries: list, repo, top_n: int = 6) -> list[di
         if len(out) >= top_n:
             break
     return out
+
+
+def _matchup_plans(stats: list) -> list[dict]:
+    """相手のアーキタイプ別に「どう戦えば勝つか」を集計する (= #8 相手別プラン)。
+
+    各相手タイプ (アグロ/ミッドレンジ/コントロール) で、 勝率 + 勝ち試合の攻め方 (速攻か
+    受けか) を出す。 AI がこのデッキで相手に合わせて立ち回るのに要る情報 = 攻略記事の核。"""
+    from collections import defaultdict
+    from statistics import mean
+
+    by_arch: dict = defaultdict(list)
+    for g in stats:
+        arch = getattr(g, "opp_archetype", None)
+        if arch:
+            by_arch[arch].append(g)
+
+    order = {"アグロ": 0, "ミッドレンジ": 1, "コントロール": 2}
+    plans = []
+    for arch, games in by_arch.items():
+        if len(games) < 10:  # そのタイプの相手が少ない時は出さない
+            continue
+        won = [g for g in games if g.won]
+        lost = [g for g in games if not g.won]
+        wr = len(won) / len(games)
+        detail = ""
+        # 勝ち/負けが両方十分あれば「攻め始めるターン」で勝ち方を導く。
+        if len(won) >= 4 and len(lost) >= 4:
+            def _fh(xs):
+                v = [g.first_hit_given_turn for g in xs if g.first_hit_given_turn is not None]
+                return mean(v) if v else None
+            wh, lh = _fh(won), _fh(lost)
+            if wh is not None and lh is not None:
+                if wh <= lh - 0.7:
+                    detail = f"勝った試合は平均 {wh:.1f} ターン目から攻めており、 先に詰めるほど勝つ（速攻寄りで対応）。"
+                elif wh >= lh + 0.7:
+                    detail = f"勝った試合は攻め始めが平均 {wh:.1f} ターンと遅く、 受けて捌いてから攻めるべき（コントロール寄りで対応）。"
+        if not detail:
+            fh = [g.first_hit_given_turn for g in games if g.first_hit_given_turn is not None]
+            avg_fh = mean(fh) if fh else None
+            detail = (f"平均 {avg_fh:.1f} ターン目から攻める展開。" if avg_fh else "") + "明確な勝ちパターンはまだ出ていない。"
+        plans.append({"archetype": arch, "win_rate": round(wr, 3), "n": len(games), "detail": detail})
+
+    plans.sort(key=lambda p: order.get(p["archetype"], 9))
+    return plans
 
 
 def _mine_strategy(stats: list, key_cards: list) -> list[dict]:
@@ -312,7 +359,7 @@ def _mine_strategy(stats: list, key_cards: list) -> list[dict]:
 def _assemble_report(comp: dict, curve: dict, matchups: list, n_games: int,
                      n_opponents: int, rhash: str, *, partial: bool,
                      insights: Optional[list] = None, profile: Optional[dict] = None,
-                     top_cards: Optional[list] = None) -> dict:
+                     top_cards: Optional[list] = None, matchup_plans: Optional[list] = None) -> dict:
     """計算済みの部分/全体から report dict を組む (= 途中経過も同じ形で保存できる)。"""
     played = [x for x in matchups if x.get("n")]
     avg = round(sum(x["win_rate"] for x in played) / len(played), 3) if played else 0.0
@@ -338,6 +385,7 @@ def _assemble_report(comp: dict, curve: dict, matchups: list, n_games: int,
         "insights": insights or [],    # ⭐ 戦い方の型・機能条件 (= 探索で発掘した洞察)
         "profile": profile or {},      # 回り方サマリ (= 勝敗に依らず常に出る記述統計)
         "top_cards": top_cards or [],  # よく盤面に出る主戦力カード (使用率つき)
+        "matchup_plans": matchup_plans or [],  # ⭐ 相手タイプ別の立ち回り (#8)
         "partial": partial,            # True = まだ全マッチアップ揃っていない
     }
 
@@ -405,6 +453,7 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
                         winner_pidx = 1 - hero_idx
                     gs = parse_game_log(gr.log, winner_pidx, gr.turns, hero_idx)
                     gs.went_first = (gr.first_player == 0)  # hero(deck1) が先攻だったか
+                    gs.opp_archetype = m.get("archetype")   # 相手別プランのグループキー
                     stats_accum.append(gs)
                 except Exception:
                     continue
@@ -414,13 +463,17 @@ def compute_deck_report(deck_dict: dict, *, n_games: int = 8, seed: int = 0,
             insights = _mine_strategy(stats_accum, comp["key_cards"])
             profile = _deck_profile(stats_accum)
             top = _top_cards(stats_accum, main, repo)
+            plans = _matchup_plans(stats_accum)
             on_progress(i + 1, n_opponents, m["name"],
                         _assemble_report(comp, curve, matchups, n_games, n_opponents,
                                          recipe_hash, partial=(i + 1 < n_opponents),
-                                         insights=insights, profile=profile, top_cards=top))
+                                         insights=insights, profile=profile, top_cards=top,
+                                         matchup_plans=plans))
 
     insights = _mine_strategy(stats_accum, comp["key_cards"])
     profile = _deck_profile(stats_accum)
     top = _top_cards(stats_accum, main, repo)
+    plans = _matchup_plans(stats_accum)
     return _assemble_report(comp, curve, matchups, n_games, n_opponents, recipe_hash,
-                            partial=False, insights=insights, profile=profile, top_cards=top)
+                            partial=False, insights=insights, profile=profile, top_cards=top,
+                            matchup_plans=plans)

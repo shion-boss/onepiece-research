@@ -226,6 +226,7 @@ export type DeckReportBody = {
     counter_uses: number;
   }>;
   top_cards?: { card_id: string; name: string; play_rate: number }[];
+  matchup_plans?: { archetype: string; win_rate: number; n: number; detail: string }[];
   partial?: boolean;
 };
 export type DeckReport = {

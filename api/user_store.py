@@ -156,6 +156,14 @@ def sanitize_report(report) -> dict:
         for x in tc_in[:8] if isinstance(x, dict)
     ]
 
+    # 相手タイプ別プラン (#8)。
+    mp_in = report.get("matchup_plans") if isinstance(report.get("matchup_plans"), list) else []
+    matchup_plans = [
+        {"archetype": _cs(x.get("archetype"), 20), "win_rate": _cf(x.get("win_rate"), 0.0, 1.0),
+         "n": _ci(x.get("n"), 0, 100000), "detail": _cs(x.get("detail"), 300)}
+        for x in mp_in[:6] if isinstance(x, dict)
+    ]
+
     def _buckets(d, keys):
         d = d if isinstance(d, dict) else {}
         return {k: _ci(d.get(k), 0, 500) for k in keys}
@@ -186,6 +194,7 @@ def sanitize_report(report) -> dict:
         "insights": insights,
         "profile": profile,
         "top_cards": top_cards,
+        "matchup_plans": matchup_plans,
         "partial": bool(report.get("partial")),
     }
 
