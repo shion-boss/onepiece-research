@@ -7251,6 +7251,24 @@
           }
         }
       ]
+    },
+    {
+      "_text": "“五老星”ここに!!! トリガー: 【トリガー】このカードの【メイン】効果を発動する。",
+      "when": "trigger",
+      "do": [
+        {
+          "search_top_n": {
+            "depth": 3,
+            "filter": {
+              "feature": "天竜人",
+              "exclude_card_id": "OP13-096"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "trash"
+          }
+        }
+      ]
     }
   ],
   "OP13-098": [
@@ -21401,6 +21419,15 @@
           "ko": "one_opponent_character_power_le_3000"
         }
       ]
+    },
+    {
+      "_text": "刻蹄・桜吹雪 トリガー: 【トリガー】相手のパワー4000以下のキャラ1枚までを、KOする。",
+      "when": "trigger",
+      "do": [
+        {
+          "ko": "one_opponent_character_power_le_4000"
+        }
+      ]
     }
   ],
   "EB02-021": [
@@ -21424,6 +21451,20 @@
           "stay_rested_next_refresh": "self_just_buffed"
         }
       ]
+    },
+    {
+      "_text": "ゴムゴムの巨人の銃 トリガー: 【トリガー】相手のコスト4以下のキャラ1枚までを、レストにする。",
+      "when": "trigger",
+      "do": [
+        {
+          "rest": {
+            "type": "one_opp_chara_filtered",
+            "filter": {
+              "cost_le": 4
+            }
+          }
+        }
+      ]
     }
   ],
   "EB02-030": [
@@ -21433,6 +21474,15 @@
       "do": [
         {
           "grant_turn_battle_ko_save_discard": true
+        }
+      ]
+    },
+    {
+      "_text": "仲間の夢を笑われた時だ!!!! トリガー: 【トリガー】カード1枚を引く。",
+      "when": "trigger",
+      "do": [
+        {
+          "draw": 1
         }
       ]
     }
@@ -22736,6 +22786,15 @@
           }
         }
       ]
+    },
+    {
+      "_text": "ゴムゴムの白いスタンプ トリガー: 【トリガー】カード1枚を引く。",
+      "when": "trigger",
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
     }
   ],
   "OP12-006": [
@@ -23595,6 +23654,15 @@
           }
         }
       ]
+    },
+    {
+      "_text": "ゴムゴムの王蛇 トリガー: 【トリガー】コスト2以下のキャラ1枚までを、持ち主の手札に戻す。",
+      "when": "trigger",
+      "do": [
+        {
+          "return_to_hand": "one_opponent_character_cost_le_2cost"
+        }
+      ]
     }
   ],
   "OP11-063": [
@@ -23713,6 +23781,15 @@
               }
             ]
           }
+        }
+      ]
+    },
+    {
+      "_text": "男の勝負に…!!!薄っぺらい援護などするな!!!! トリガー: 【トリガー】カード1枚を引く。",
+      "when": "trigger",
+      "do": [
+        {
+          "draw": 1
         }
       ]
     }
@@ -24909,6 +24986,20 @@
           }
         }
       ]
+    },
+    {
+      "_text": "魂のフランキー風速計BOXING喪剣 トリガー: 【トリガー】相手のコスト4以下のキャラ1枚までを、レストにする。",
+      "when": "trigger",
+      "do": [
+        {
+          "rest": {
+            "type": "one_opp_chara_filtered",
+            "filter": {
+              "cost_le": 4
+            }
+          }
+        }
+      ]
     }
   ],
   "OP09-050": [
@@ -24968,6 +25059,15 @@
         },
         {
           "mill_self_top": 2
+        }
+      ]
+    },
+    {
+      "_text": "湯けむり殺人事件 トリガー: 【トリガー】カード1枚を引く。",
+      "when": "trigger",
+      "do": [
+        {
+          "draw": 1
         }
       ]
     }
@@ -29540,6 +29640,18 @@
               }
             ]
           }
+        }
+      ]
+    },
+    {
+      "_text": "モンキー・D・ルフィ トリガー: 【トリガー】カード1枚を引き、相手のコスト2以下のキャラ1枚までを、KOする。",
+      "when": "trigger",
+      "do": [
+        {
+          "draw": 1
+        },
+        {
+          "ko": "one_opponent_character_cost_le_2cost"
         }
       ]
     }
@@ -59005,6 +59117,17 @@
           }
         }
       ]
+    },
+    {
+      "_text": "シャンブルズ トリガー: 【トリガー】このカードの【メイン】効果を発動する。",
+      "when": "trigger",
+      "do": [
+        {
+          "bounce_self_chara_then_play_diff_color": {
+            "play_cost_le": 2
+          }
+        }
+      ]
     }
   ],
   "EB01-027": [
@@ -65420,6 +65543,15 @@
               }
             ]
           }
+        }
+      ]
+    },
+    {
+      "_text": "皇帝剣破々刃 トリガー: 【トリガー】ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
+      "when": "trigger",
+      "do": [
+        {
+          "add_don": 1
         }
       ]
     }
@@ -72102,6 +72234,19 @@
                 }
               }
             ]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "鉄塊 トリガー: 【トリガー】自分のリーダーかキャラ1枚までを、このターン中、パワー+1000。",
+      "when": "trigger",
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 1000,
+            "duration": "turn"
           }
         }
       ]

@@ -3581,6 +3581,34 @@ def test_stage_activate_main_is_offered_and_fires():
     assert not am_again, "once_per_turn なのに 起動メイン が 再提示 されている (= 無限ループ源)"
 
 
+def test_all_trigger_text_cards_have_trigger_overlay():
+    """回帰 (2026-07-17): 【トリガー】テキストを持つカードは overlay に when:"trigger" 効果を
+    持たねばならない。 無いと _resolve_life_taken の has_trigger=False になり、 ライフから出ても
+    人間にトリガー使用選択が提示されず「トリガー使えなかった」バグになる (= ohtsuki 報告)。
+    13 枚 (EB02-007/021/030, EB01-020, OP13-096/117, OP11-059/079/081, OP09-041/059,
+    OP07-095, P-106) を実装済。 パラレル (_p/_r) は base と同一なので除外。"""
+    import json
+
+    with open("db/cards.json", encoding="utf-8") as f:
+        cards = json.load(f)
+    overlay = _overlay()
+    missing = []
+    for c in cards:
+        if not (c.get("trigger") or "").strip():
+            continue
+        cid = c["card_id"]
+        if "_p" in cid or "_r" in cid:
+            continue
+        bundle = overlay.get(cid)
+        effs = bundle.effects if bundle else []
+        if not any(e.get("when") == "trigger" for e in effs):
+            missing.append(cid)
+    assert not missing, (
+        f"【トリガー】持ちだが overlay に when:trigger が無いカード {len(missing)} 枚: "
+        f"{missing} (= ライフから出てもトリガー選択が出ない)"
+    )
+
+
 def test_attach_rested_don_up_to_human_count_choice():
     """OP15-058 紫エネル「自分のキャラ1枚にレストのドン4枚まで付与」= up_to。
     人間は付与枚数(1..max)を選べる: target_pick(キャラ) → option_pick(枚数) → その枚数だけ付与。
