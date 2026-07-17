@@ -347,15 +347,87 @@ def _opponent_pool(state: GameState, opp_idx: int) -> list[CardDef]:
     return list(opp.deck) + list(opp.hand)
 
 
+# --- counter-event の守備価値評価 (= 2026-07-17、 ONEPIECE_COUNTER_EVENT_DEF gate) ---
+# shield-counter (.counter 値) だけでなく、 【カウンター】EVENT (神避+3000 / 放電+2000 等、
+# .counter=0 で効果 pump) の守備 pump も「実効カウンター値」として算入する。 旧実装は
+# .counter しか見ず、 エネル系の守備札を防御量推定でゼロ扱い → AI が通らないリーサルに
+# 突っ込む / 自 counter-event を守備資源として過小評価していた ([[bug_ai_dies_holding_counter_events]]
+# の value 側)。 gate OFF (既定) は旧挙動 = 完全後方互換。
+_CE_PUMP_CACHE: dict = {}
+
+
+def _pump_targets_leader(target, leader_name: str) -> bool:
+    """counter-event の power_pump target が leader_name の自リーダーに乗るか (= 守備で使える)。
+    engine.exploit_beam_ai._pump_can_save_leader の name-based 版 (pool は CardDef のみで
+    live Player を持たないため名前で判定)。"""
+    if target in ("self_leader", "self", "self_inplay"):
+        return True
+    if isinstance(target, dict):
+        t = target.get("type", "")
+        if t in ("self_chara_or_leader_named", "self_leader_named"):
+            return target.get("name", "") == leader_name
+        if t in ("self_inplay_choice", "self_leader_or_chara", "self_chara_or_leader_any"):
+            return True
+    return False
+
+
+def _counter_event_leader_pump(card, overlay, leader_name: str) -> int:
+    """card を counter step に打って leader_name の自リーダーに乗せられる power_pump 値 (無ければ 0)。
+    (card_id, leader_name) で memo (overlay は静的 singleton 前提)。"""
+    cid = getattr(card, "card_id", None)
+    key = (cid, leader_name)
+    hit = _CE_PUMP_CACHE.get(key)
+    if hit is not None:
+        return hit
+    val = 0
+    try:
+        from .core import Category
+        if overlay is not None and getattr(card, "category", None) == Category.EVENT:
+            bundle = overlay.get(cid)
+            effs = getattr(bundle, "effects", None)
+            if effs is None and isinstance(bundle, list):
+                effs = bundle
+            for eff in (effs or []):
+                if eff.get("when") != "counter":
+                    continue
+                for prim in eff.get("do", []):
+                    pp = prim.get("power_pump")
+                    if pp and _pump_targets_leader(pp.get("target"), leader_name):
+                        val = max(val, int(pp.get("amount", 0) or 0))
+    except Exception:
+        val = 0
+    _CE_PUMP_CACHE[key] = val
+    return val
+
+
+def _effective_counter_value(card, overlay, leader_name: str) -> int:
+    """カード1枚の守備での実効カウンター値 = max(shield-counter, counter-event pump)。"""
+    base = int(getattr(card, "counter", 0) or 0)
+    return max(base, _counter_event_leader_pump(card, overlay, leader_name))
+
+
 def expected_counter_per_card(state: GameState, opp_idx: int) -> float:
     """opp の deck+hand プール上での 1 枚あたり期待カウンター値。
 
     例: プールに [2000, 1000, 0, 0, 1000] のカウンター値なら平均 800。
     既にトラッシュに行ったカウンター持ちカードは自動的に除外される。
+
+    ONEPIECE_COUNTER_EVENT_DEF=1 で 【カウンター】EVENT の守備 pump も実効カウンター値
+    として算入する (= 神避/放電 等を防御量に反映)。 既定 OFF で旧挙動 (.counter のみ)。
     """
     pool = _opponent_pool(state, opp_idx)
     if not pool:
         return 0.0
+    import os as _os_ce
+    if _os_ce.environ.get("ONEPIECE_COUNTER_EVENT_DEF") == "1":
+        overlay = getattr(state, "effects_overlay", None)
+        try:
+            leader_name = state.players[opp_idx].leader.card.name
+        except Exception:
+            leader_name = ""
+        return sum(
+            _effective_counter_value(c, overlay, leader_name) for c in pool
+        ) / len(pool)
     return sum(c.counter for c in pool) / len(pool)
 
 
