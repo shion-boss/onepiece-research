@@ -185,45 +185,88 @@ def setup_game(
     )
 
     # リーダーの「ゲーム開始時」 効果を発火 (= OP13-079 黒イム の デッキから
-    # 聖地マリージョア ステージ登場 等)。 公式: setup の最後 = ライフ配布後 ~ 1 ターン目
-    # 開始前の隙間で 1 度のみ。 対応 primitive:
-    # - summon_stage_from_deck_with_feature: 自デッキから 特徴 X を持つ STAGE 1 枚を
-    #   登場、 デッキから除去 + 残りデッキ シャッフル。
-    if effects_overlay:
-        for p in state.players:
-            bundle = effects_overlay.get(p.leader.card.card_id)
-            if bundle is None:
-                continue
-            for eff in bundle.effects:
-                if eff.get("when") != "game_start":
-                    continue
-                for prim in eff.get("do", []):
-                    if not isinstance(prim, dict):
-                        continue
-                    feat = prim.get("summon_stage_from_deck_with_feature")
-                    if not feat:
-                        continue
-                    # 自デッキから feat を含む特徴を持つ STAGE 1 枚を探す
-                    target_idx = None
-                    for i, c in enumerate(p.deck):
-                        if c.category != Category.STAGE:
-                            continue
-                        if feat in (c.features or ""):
-                            target_idx = i
-                            break
-                    if target_idx is not None:
-                        card = p.deck.pop(target_idx)
-                        ip = InPlay.of(card, rested=False, sickness=False)
-                        p.stages.append(ip)
-                        # search 後はデッキシャッフル (公式)
-                        p.shuffle_deck(rng)
-                        state.push_log(
-                            f"  game_start: {p.name} ({p.leader.card.name}) "
-                            f"→ ステージ登場: {card.name}"
-                        )
+    # 聖地マリージョア ステージ登場 等)。 AI vs AI 経路 (= 人間なし) なので全自動。
+    _apply_game_start_stage_summons(state, rng, effects_overlay, human_player_idx=None)
 
     _recompute_static(state)
     return state
+
+
+def _apply_game_start_stage_summons(
+    state: GameState,
+    rng: random.Random,
+    effects_overlay: Optional[dict],
+    human_player_idx: Optional[int] = None,
+) -> None:
+    """リーダーの game_start 「デッキから特徴Xのステージ1枚まで登場」 を適用。
+
+    対応 primitive: summon_stage_from_deck_with_feature (feat: 特徴名)。
+    公式は 「1枚まで」 = 該当ステージが複数ある場合 (= OP13-079 イムで 聖地マリージョア +
+    虚の玉座 の両方が特徴《聖地マリージョア》を持つ) プレイヤーがどれを出すか (0枚含む) を選ぶ。
+    - 人間 (= human_player_idx と一致) かつ 該当 2 枚以上 → pending_choice を立てて選ばせる。
+    - AI / 該当 1 枚以下 → 自動で最良 (= 最高コスト) の 1 枚を登場。
+    人間の選択は resolve_pending_choice("game_start_stage_pick") で summon される。
+    """
+    if not effects_overlay:
+        return
+    for pidx, p in enumerate(state.players):
+        bundle = effects_overlay.get(p.leader.card.card_id)
+        if bundle is None:
+            continue
+        for eff in bundle.effects:
+            if eff.get("when") != "game_start":
+                continue
+            for prim in eff.get("do", []):
+                if not isinstance(prim, dict):
+                    continue
+                feat = prim.get("summon_stage_from_deck_with_feature")
+                if not feat:
+                    continue
+                # 該当する STAGE の deck index を全部集める
+                qualifying = [
+                    i for i, c in enumerate(p.deck)
+                    if c.category == Category.STAGE and feat in (c.features or ())
+                ]
+                if not qualifying:
+                    continue
+                is_human = (
+                    human_player_idx is not None and pidx == human_player_idx
+                )
+                if is_human and len(qualifying) >= 2:
+                    # 公式「1枚まで」= 人間が どのステージ (0枚含む) を出すか選ぶ
+                    cand_list = [
+                        {
+                            "deck_idx": i,
+                            "card_id": p.deck[i].card_id,
+                            "name": p.deck[i].name,
+                            "cost": int(p.deck[i].cost or 0),
+                            "power": int(p.deck[i].power or 0),
+                        }
+                        for i in qualifying
+                    ]
+                    state.pending_choice = {
+                        "kind": "game_start_stage_pick",
+                        "candidates": cand_list,
+                        "limit": 1,
+                        "_player_idx": pidx,
+                        "description": "ゲーム開始時: 登場させるステージを選択 (1枚まで)",
+                    }
+                    state.push_log(
+                        f"  game_start: {p.name} ({p.leader.card.name}) "
+                        f"→ ステージ選択待ち ({len(qualifying)}枚候補)"
+                    )
+                    # この player は resolve で登場。 他 player は継続処理。
+                    continue
+                # AI or 単一候補: 最良 (= 最高コスト) を自動登場
+                best_i = max(qualifying, key=lambda i: (p.deck[i].cost or 0))
+                card = p.deck.pop(best_i)
+                ip = InPlay.of(card, rested=False, sickness=False)
+                p.stages.append(ip)
+                p.shuffle_deck(rng)  # search 後はデッキシャッフル (公式)
+                state.push_log(
+                    f"  game_start: {p.name} ({p.leader.card.name}) "
+                    f"→ ステージ登場: {card.name}"
+                )
 
 
 def finalize_setup_after_mulligan(
@@ -271,37 +314,10 @@ def finalize_setup_after_mulligan(
         f"start: P0={p0.leader.card.name}({p0.leader.card.life}L) "
         f"vs P1={p1.leader.card.name}({p1.leader.card.life}L)"
     )
-    # リーダー game_start 効果
-    if effects_overlay:
-        for p in state.players:
-            bundle = effects_overlay.get(p.leader.card.card_id)
-            if bundle is None:
-                continue
-            for eff in bundle.effects:
-                if eff.get("when") != "game_start":
-                    continue
-                for prim in eff.get("do", []):
-                    if not isinstance(prim, dict):
-                        continue
-                    feat = prim.get("summon_stage_from_deck_with_feature")
-                    if not feat:
-                        continue
-                    target_idx = None
-                    for i, c in enumerate(p.deck):
-                        if c.category != Category.STAGE:
-                            continue
-                        if feat in (c.features or ""):
-                            target_idx = i
-                            break
-                    if target_idx is not None:
-                        card = p.deck.pop(target_idx)
-                        ip = InPlay.of(card, rested=False, sickness=False)
-                        p.stages.append(ip)
-                        p.shuffle_deck(rng)
-                        state.push_log(
-                            f"  game_start: {p.name} ({p.leader.card.name}) "
-                            f"→ ステージ登場: {card.name}"
-                        )
+    # リーダー game_start 効果 (= 人間 player は該当ステージ複数なら選択制)
+    _apply_game_start_stage_summons(
+        state, rng, effects_overlay, human_player_idx=human_player_idx
+    )
     _recompute_static(state)
     state._pre_mulligan_pending = False  # type: ignore[attr-defined]
 

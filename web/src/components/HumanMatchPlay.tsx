@@ -2313,7 +2313,12 @@ export function HumanMatchPlay({
             onSubmit={handleChoiceSubmit}
             busy={busy}
           />
-        ) : state.pending_payload.kind === "summon_from_deck_pick" ? (
+        ) : state.pending_payload.kind === "summon_from_deck_pick" ||
+          state.pending_payload.kind === "game_start_stage_pick" ? (
+          // summon_from_deck_pick: 効果でデッキから登場。
+          // game_start_stage_pick: ゲーム開始時にデッキから特徴一致ステージを登場 (= イム、
+          //   聖地マリージョア / 虚の玉座 の 2 枚から選ぶ)。 どちらも candidates=[{deck_idx,...}]、
+          //   picks=候補 index、 0 枚 = 登場させない、 で PlayFromTrashPickModal を流用。
           <PlayFromTrashPickModal
             payload={{ ...state.pending_payload, _source_zone: "deck" }}
             onSubmit={handleChoiceSubmit}

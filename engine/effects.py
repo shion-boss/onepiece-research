@@ -8649,6 +8649,29 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             execute_effect({"play_from_trash": new_spec}, state, me, opp, self_inplay)
         return
 
+    if kind == "game_start_stage_pick":
+        # ゲーム開始時「デッキから特徴Xのステージ1枚まで登場」の人間選択 (= イム)。
+        # picks: candidates[] の index (0 or 1)。 空 = 登場させない (公式「まで」)。
+        candidates = choice.get("candidates", [])
+        pidx = int(choice.get("_player_idx", state.turn_player_idx))
+        p = state.players[pidx]
+        state.pending_choice = None
+        valid = [i for i in picks if 0 <= i < len(candidates)]
+        if not valid:
+            state.push_log(f"  game_start: {p.name} ステージ登場なし (選択スキップ)")
+            return
+        deck_idx = int(candidates[valid[0]]["deck_idx"])
+        if not (0 <= deck_idx < len(p.deck)):
+            return
+        card = p.deck.pop(deck_idx)
+        ip = InPlay.of(card, rested=False, sickness=False)
+        p.stages.append(ip)
+        p.shuffle_deck(state.rng)  # search 後はデッキシャッフル (公式)
+        state.push_log(
+            f"  game_start: {p.name} ({p.leader.card.name}) → ステージ登場: {card.name}"
+        )
+        return
+
     if kind in ("play_from_trash_pick", "summon_from_deck_pick"):
         # picks: candidates[] の index list → trash_idx / deck_idx へ。 空 = skip。
         candidates = choice.get("candidates", [])
