@@ -750,6 +750,13 @@ def advance_phase(state: GameState) -> None:
             state.turn_player_idx = 1 - state.turn_player_idx
             state.turn_number += 1
         state.phase = Phase.REFRESH
+        # ⚠ ターンが切り替わった瞬間に所有者ターンフラグを更新する (= DON+1000 は所有者の
+        #   ターン中のみ有効、 公式 6-5-5)。 これを末尾の _recompute_static まで遅らせると、
+        #   直後の resolve_triggers (下) が push_log → snapshot を記録する際に、 前ターンの
+        #   プレイヤーの leader/キャラの is_owners_turn が True のまま = DON 分が乗ったパワーが
+        #   相手ターンの snapshot に焼き込まれ、 防御表示が「前の攻撃の値を引きずる」 バグに
+        #   なる (ohtsuki 報告: 7000攻撃を10000表示なのにライフ受け)。 2026-07-17 修正。
+        _update_ownership_flags(state)
 
     # 各 trigger_* が enqueue しただけで終わっているケースに備え、
     # フェーズ境界でもキューを掃く。
