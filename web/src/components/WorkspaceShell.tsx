@@ -355,7 +355,7 @@ function SidebarPanel({ view, path }: { view: ActivityView; path: string }) {
         <PanelHeader>戦いの歴史</PanelHeader>
         <PanelLink href="/history" active={path === "/history"}>月ごとの戦績を見る</PanelLink>
         <p className="px-4 pt-2 text-[11px] leading-relaxed text-[color:var(--text-muted)]">
-          月ごとの戦績を記録。今は陣取り、 今後は他コンテンツも。人類 vs AI の歩みを振り返る。
+          月ごとの戦績を記録。今は陣取りの月末勢力図、 今後は他コンテンツも。あとから振り返れる。
         </p>
       </div>
     );

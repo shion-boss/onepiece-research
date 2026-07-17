@@ -104,7 +104,7 @@ export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-[color:var(--text-muted)]">
             対戦が積み重なると、月ごとの記録がここに残ります。
-            まずは陣取りの月末凍結（その月の「人類 vs AI」の戦況）から。
+            まずは陣取りの月末凍結（その月末の勢力図＝どのリーダーがどれだけ占領したか）から。
             今後、陣取り以外のコンテンツの記録も加わります。
           </p>
         </div>
