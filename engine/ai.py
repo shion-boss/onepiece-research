@@ -1996,6 +1996,32 @@ class GreedyAI:
         # 3) その他の効果型 (search / draw 等): 通常通り発動
         return True
 
+    @staticmethod
+    def _pump_can_save_leader(target, defender: Player) -> bool:
+        """counter-event の power_pump target が「守っている自リーダー」を強化できるか。
+
+        単純 self 系 string (self_leader/self/self_inplay) に加え、 named/filtered な
+        dict target も対象にする。 named 系 (self_chara_or_leader_named 等) は engine が
+        [leader, *characters] の先頭一致を選ぶので、 リーダー名が一致すればリーダーに乗る
+        (= 放電/神の裁き/雷獣 の「エネル」指定を、 エネルリーダー防御で認識できる)。
+        """
+        if target in ("self_leader", "self", "self_inplay"):
+            return True
+        if isinstance(target, dict):
+            t = target.get("type", "")
+            if t in ("self_chara_or_leader_named", "self_leader_named"):
+                return defender.leader.card.name == target.get("name", "")
+            if t in ("self_inplay_choice", "self_leader_or_chara",
+                     "self_chara_or_leader_any"):
+                return True
+            if t == "one_self_chara_or_leader_filtered":
+                from .effects import _matches_filter
+                try:
+                    return _matches_filter(defender.leader.card, target.get("filter", {}))
+                except Exception:
+                    return False
+        return False
+
     def _counter_event_options(
         self, state: GameState, defender: Player
     ) -> list[tuple[int, int, int]]:
@@ -2033,13 +2059,18 @@ class GreedyAI:
                 if eff.get("when") != "counter":
                     continue
                 do = eff.get("do", [])
-                # 単純 power_pump のみ (target が自陣 + amount>0)
+                # power_pump が 自リーダーを強化できる target のみ (= 致死のリーダー攻撃を
+                # 凌ぐ用途)。 単純 self 系 string に加え、 named/filtered dict target
+                # (= 放電/神の裁き/雷獣 の self_chara_or_leader_named「エネル」等、 リーダーが
+                # その名前なら リーダーに乗る) も認識する。 ⚠ 旧実装は string 3 種しか見ず、
+                # エネル系デッキの守備札 4/5 が AI から不可視 → 致死打を凌げず自滅していた
+                # (ohtsuki 2026-07-17 実戦報告)。
                 pump = 0
                 for prim in do:
                     pp = prim.get("power_pump")
                     if not pp:
                         continue
-                    if pp.get("target") in ("self_leader", "self", "self_inplay"):
+                    if self._pump_can_save_leader(pp.get("target"), defender):
                         pump = max(pump, int(pp.get("amount", 0) or 0))
                 if pump <= 0:
                     continue

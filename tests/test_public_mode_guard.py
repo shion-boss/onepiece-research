@@ -12,12 +12,14 @@ def test_blocked_endpoints_403_in_public_mode(monkeypatch):
     monkeypatch.setenv("PUBLIC_MODE", "1")
     # 研究/管理/重い/生成 系は 403 (= 実行前にミドルウェアで遮断)。
     assert client.post("/api/research/sessions", json={}).status_code == 403
-    assert client.post("/api/match", json={}).status_code == 403
+    # ⚠ POST /api/match (= AI vs AI) は 2026-07 の guest-access-policy で middleware ブロック
+    #   対象外に変更 (= ログインユーザーに開放、 endpoint 側で auth + 日次cap)。 もう 403 では
+    #   ない (未ログイン=401/429、 認証+cap内=200)。 [[project_guest_access_policy]]。
+    assert client.post("/api/match", json={}).status_code != 403
     assert client.get("/api/meta/matrix").status_code == 403
     assert client.get("/api/audit/coverage").status_code == 403
     assert client.get("/api/combos/OP01-001").status_code == 403
     assert client.post("/api/decks/generate", json={}).status_code == 403
-    assert client.post("/api/decks/build", json={}).status_code == 403
 
 
 def test_allowed_endpoints_open_in_public_mode(monkeypatch):
@@ -29,6 +31,8 @@ def test_allowed_endpoints_open_in_public_mode(monkeypatch):
     # 対戦 (human_match) は公開機能なのでガード対象外 (= 403 にはならない)。
     r = client.get("/api/human_match/stats")
     assert r.status_code != 403
+    # /api/decks/build (コアカード固定型・軽い決定的 fill) は generate と違い公開許可。
+    assert client.post("/api/decks/build", json={}).status_code != 403
 
 
 def test_not_blocked_without_public_mode(monkeypatch):
