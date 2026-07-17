@@ -278,8 +278,9 @@ export function SpectateBoard({
       setPlaying(false);
       return;
     }
-    // 基準 1800ms/手 (= 1x)。 攻撃ビーム/矢印 (~1.3s) が収まる速度。 2x=900 / 4x=450。
-    timerRef.current = setTimeout(() => setIdx((i) => i + 1), 1800 / speed);
+    // 基準 2500ms/手 (= 1x)。 人間が指しているように1手ずつ追える速度 (ohtsuki 2026-07-17
+    // 「1倍速をもう少し遅く」)。 攻撃宣言→ブロック→対象変更 の演出も収まる。 2x=1250 / 4x=625。
+    timerRef.current = setTimeout(() => setIdx((i) => i + 1), 2500 / speed);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };

@@ -1489,6 +1489,24 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     f"  ブロッカー無効: {blocker.card.name} (rested/blocker特性なし/発動不可)"
                 )
             else:
+                # ⭐ 人間の手順を演出で再現 (ohtsuki 2026-07-17): ①攻撃側がリーダーへアタック
+                # 宣言 (= 矢印をリーダーへ) → ②防御側がブロッカーをレストして対象変更 (= 矢印が
+                # ブロッカーへ)。 この宣言フレームを出さないと、 いきなりブロッカーへの矢印になり
+                # 「最初からブロッカーを狙って攻撃した」ように見える。 pending_event は演出専用で
+                # ゲーム進行 (battle 解決 / KO 判定) には一切影響しない。
+                state.pending_event = {
+                    "type": "attack",
+                    "attacker_iid": attacker.instance_id,
+                    "target_iid": opp.leader.instance_id,
+                    "target_kind": "leader",
+                    "atk_power": attacker.power,
+                    "defender_power": opp.leader.power,
+                }
+                state.push_log(
+                    f"atk宣言: {attacker.card.name}(P={attacker.power}) -> "
+                    f"{opp.leader.card.name}"
+                )
+                # ② ブロッカーをレスト → アタック対象をブロッカーへ変更
                 blocker.rested = True
                 actual_target = blocker
                 target_iid = blocker.instance_id
@@ -1738,6 +1756,21 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 )
                 blocker = None
             if blocker is not None:
+                # ⭐ AttackLeader と同様、 ①元キャラへのアタック宣言 (= 矢印を元対象へ) →
+                # ②ブロッカーをレストして対象変更、 の順で演出する (ohtsuki 2026-07-17)。
+                state.pending_event = {
+                    "type": "attack",
+                    "attacker_iid": attacker.instance_id,
+                    "target_iid": target.instance_id,
+                    "target_kind": "character",
+                    "atk_power": attacker.power,
+                    "defender_power": target.power,
+                }
+                state.push_log(
+                    f"atk宣言: {attacker.card.name}(P={attacker.power}) -> "
+                    f"{target.card.name}"
+                )
+                # ② ブロッカーをレスト → アタック対象をブロッカーへ変更
                 blocker.rested = True
                 actual_target = blocker
                 state.push_log(f"  blocker: {blocker.card.name}")
