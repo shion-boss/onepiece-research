@@ -458,16 +458,38 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
     from .eval import _player_metrics
     me = _player_metrics(state.players[me_idx])
     opp = _player_metrics(state.players[1 - me_idx])
+    # 手札の質 nudge (= ONEPIECE_HAND_QUALITY_W、 既定 0 で完全 no-op)。 GBM の hand feature は
+    # 枚数しか見ず、 勝ち札(finisher)を握っているかの「質」を区別できない。 my_hand/opp_hand を
+    # finisher 数で弱く底上げして「良い手札を保持する価値」を value に薄く乗せる。 discount と
+    # 同じく balanced sweep 用 (ohtsuki 2026-07-17「係数で微調整・比較して balance」)。
+    mh, oh = me["hand"], opp["hand"]
+    import os as _os_hq
+    _hqw = 0.0
+    try:
+        _hqw = float(_os_hq.environ.get("ONEPIECE_HAND_QUALITY_W", "0"))
+    except Exception:
+        _hqw = 0.0
+    if _hqw > 0.0:
+        # 質 = 手札の「実戦力」= 高パワー(≥5000)脅威 + 高counter(≥2000)守備札 の枚数。
+        # finisher role は分類が疎で no-op になりやすいので、 直接計算できる robust な proxy を使う。
+        def _hq(p):
+            return sum(
+                1 for c in p.hand
+                if int(getattr(c, "power", 0) or 0) >= 5000
+                or int(getattr(c, "counter", 0) or 0) >= 2000
+            )
+        mh = me["hand"] + _hqw * _hq(state.players[me_idx])
+        oh = opp["hand"] + _hqw * _hq(state.players[1 - me_idx])
     base = [
         me["life"] - opp["life"],
         me["field_count"] - opp["field_count"],
         me["field_power"] - opp["field_power"],
-        me["hand"] - opp["hand"],
+        mh - oh,
         me["don"] - opp["don"],
         me["blocker"] - opp["blocker"],
         me["attached_don"] - opp["attached_don"],
         me["active_chara"] - opp["active_chara"],
-        me["life"], opp["life"], me["hand"], opp["hand"],
+        me["life"], opp["life"], mh, oh,
         me["field_count"], opp["field_count"], me["field_power"], opp["field_power"],
         int(getattr(state, "turn_number", 0)),
     ]

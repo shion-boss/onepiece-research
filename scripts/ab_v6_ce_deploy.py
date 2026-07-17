@@ -35,10 +35,19 @@ def _load(slug):
     return make_deck_from_dict(json.loads((ROOT/"decks"/f"{slug}.json").read_text(encoding="utf-8")), REPO)
 
 
+HQ_W = float(os.environ.get("HQ_W", "0"))  # >0 なら counter-event でなく hand-quality nudge を test
+
+
 def _hero_ai(seed, *, ce):
+    kw = {}
+    if ce:
+        if HQ_W > 0:
+            kw["hand_quality_w"] = HQ_W          # 手札の質 nudge を test arm に
+        else:
+            kw["counter_event_def"] = True        # 従来 = counter-event を test arm に
     return ExploitBeamAI(rng=random.Random(seed), beam_width=BW, max_depth=BD,
                          deck_analysis={"deck_slug": HERO},
-                         gbm_path=(CE_GBM if ce else BASE_GBM), counter_event_def=ce)
+                         gbm_path=(CE_GBM if ce else BASE_GBM), **kw)
 
 
 def _opp_ai(opp, seed):
