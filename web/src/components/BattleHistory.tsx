@@ -100,11 +100,12 @@ export function BattleHistory({ leaders }: { leaders: BoardLeader[] }) {
           style={{ borderColor: "var(--border-1)", borderLeftColor: "var(--brand)" }}
         >
           <h1 className="text-lg font-semibold tracking-tight text-[color:var(--text-strong)]">
-            まだ対戦履歴がありません
+            まだ記録がありません
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-[color:var(--text-muted)]">
-            対戦が積み重なると、月ごとの陣取りの記録がここに保存されます。
-            月末に凍結したその月の「人類 vs AI」の戦況を、あとから振り返れます。
+            対戦が積み重なると、月ごとの記録がここに残ります。
+            まずは陣取りの月末凍結（その月の「人類 vs AI」の戦況）から。
+            今後、陣取り以外のコンテンツの記録も加わります。
           </p>
         </div>
       </div>
