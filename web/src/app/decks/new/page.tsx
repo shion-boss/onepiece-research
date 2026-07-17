@@ -9,6 +9,7 @@ import { CardSearchPane } from "@/components/builder/CardSearchPane";
 import { BuilderSidebar } from "@/components/builder/BuilderSidebar";
 import { CostCurveMini } from "@/components/builder/CostCurveMini";
 import { CardImage } from "@/components/CardImage";
+import { LoginRequired } from "@/components/LoginRequired";
 import { ResizeHandle } from "@/components/ResizeHandle";
 import { useResizable } from "@/lib/useResizable";
 import { useWorkspace } from "@/lib/workspace";
@@ -22,9 +23,12 @@ import {
 
 export default function NewDeckPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-[color:var(--text-muted)]">読み込み中…</div>}>
-      <NewDeckPageContent />
-    </Suspense>
+    // マイデッキの作成はログイン必須 (= ゲストはゲート表示、 ビルダー本体を mount しない)。
+    <LoginRequired feature="マイデッキの作成">
+      <Suspense fallback={<div className="p-6 text-sm text-[color:var(--text-muted)]">読み込み中…</div>}>
+        <NewDeckPageContent />
+      </Suspense>
+    </LoginRequired>
   );
 }
 
