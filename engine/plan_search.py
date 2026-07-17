@@ -68,12 +68,54 @@ from .game import (
     AttackCharacter,
     AttackLeader,
     EndPhase,
+    PlayCharacter,
     apply_action,
     legal_actions,
 )
 
 if TYPE_CHECKING:
     from .core import GameState
+
+
+# DON 有効活用: 弱い低パワー body (= 攻めにも守りにもなりにくい) の重複展開を beam 選別で
+# 抑制するための penalty。 GBM value の feature は field_power(raw 合計)しか見ず、 5×2000 と
+# 2×5000 を区別できない盲点を、 plan 選別 bonus (= GBM leaf に非wash の上乗せ) で補う。
+# ohtsuki 2026-07-17「2000 と 5000 は別、 2000 にドン付ける vs ドンで 2000 を増やすは DON の
+# 有効活用で検討」。 ramp/集中デッキで 2000 キャラを並べるより DON を集中/温存させたい。
+_DON_EFF_WEAK_POWER = 2000  # これ以下 = 弱 body
+
+
+def weak_body_deploy_penalty(cur_state, action, me_idx: int) -> float:
+    """PlayCharacter が「攻めにも守りにもなりにくい弱 body」を登場させる時だけ penalty (0〜1)。
+
+    弱 body = power ≤ _DON_EFF_WEAK_POWER・非ブロッカー・counter < 2000。 強いキャラ
+    (= 実脅威、 5000/8000 等) / ブロッカー / 高 counter の登場は 0 (= 罰しない)。 既に場に
+    弱 body があるほど redundancy で penalty 増 (= 重複展開ほど DON 浪費)。 ⚠ 盤面 state で
+    なく「登場するカードそのもの」を見る (= 強いキャラ登場を巻き込んで罰しないため)。"""
+    try:
+        me = cur_state.players[me_idx]
+        idx = getattr(action, "hand_idx", None)
+        if idx is None or not (0 <= idx < len(me.hand)):
+            return 0.0
+        card = me.hand[idx]
+        if int(getattr(card, "power", 0) or 0) > _DON_EFF_WEAK_POWER:
+            return 0.0  # 実脅威は罰しない
+        if int(getattr(card, "counter", 0) or 0) >= 2000:
+            return 0.0  # 高 counter = 守備リソース
+        text = getattr(card, "text", "") or ""
+        if "【ブロッカー】" in text:
+            return 0.0  # 守備価値 (block_icon はカウンター表示で blocker 判定に使えない)
+        # cantrip (= 登場時にドロー/サーチ = カードアドバンテージ) は「弱 body だが有用」なので
+        # 罰しない (= この判定を怠ると draw engine の展開まで抑制して card advantage を損なう)。
+        if any(k in text for k in ("を引く", "手札に加える", "デッキの上から", "デッキの上")):
+            return 0.0
+        existing = sum(
+            1 for c in me.characters
+            if c.power <= _DON_EFF_WEAK_POWER and not getattr(c, "is_blocker_now", False)
+        )
+        return min(1.0, 0.3 + 0.3 * existing)  # 1体目=0.3、 以降 redundancy で増
+    except Exception:
+        return 0.0
 
 
 def fast_clone(state: "GameState") -> "GameState":
@@ -417,6 +459,10 @@ def search_turn_plan(
     _USE_CONCEPT_PRIOR = _W_CONCEPT_PRIOR > 0.0
     if _USE_CONCEPT_PRIOR:
         from .concept_play_prior import concept_play_bonus  # 動的 import
+    # DON 有効活用 penalty (= ONEPIECE_DON_EFFICIENCY_W): 弱 body の重複展開を beam 選別で抑制。
+    # concept_prior と同じ scale / beam-only 規律 (= 最終 value には足さない prior)。 W は P(win)単位。
+    _W_DON_EFF = float(_os.environ.get("ONEPIECE_DON_EFFICIENCY_W", "0"))
+    _USE_DON_EFF = _W_DON_EFF > 0.0
     if _USE_PLAY_PRIOR:
         from .deck_play_prior import play_prior_bonus  # 動的 import (= 無効時 skip)
         try:
@@ -692,6 +738,19 @@ def search_turn_plan(
                                          if _os.environ.get("ONEPIECE_GBM_VALUE_PATH")
                                          else _PP_LINEAR_SCALE)
                             score = score + _W_CONCEPT_PRIOR * _cb * _cp_scale
+                    except Exception:
+                        pass
+
+                # DON 有効活用: PlayCharacter が「弱 body そのもの」を登場させる時だけ plan スコアを減点
+                # (= GBM が field_power raw で 5×2000 を過大評価する盲点を beam 選別で補正)。
+                if _USE_DON_EFF and isinstance(action, PlayCharacter):
+                    try:
+                        _de = weak_body_deploy_penalty(cur_state, action, me_idx)
+                        if _de:
+                            _de_scale = (_PP_GBM_SCALE
+                                         if _os.environ.get("ONEPIECE_GBM_VALUE_PATH")
+                                         else _PP_LINEAR_SCALE)
+                            score = score - _W_DON_EFF * _de * _de_scale
                     except Exception:
                         pass
 
