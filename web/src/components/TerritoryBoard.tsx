@@ -8,7 +8,7 @@ import { useResizable } from "@/lib/useResizable";
 import { ResizeHandle } from "./ResizeHandle";
 import { useTerritoryBoard } from "@/lib/useTerritory";
 import { useIsGuest } from "@/lib/useIsGuest";
-import { LoginButton, LockIcon } from "./LoginButton";
+import { LockIcon } from "./LoginButton";
 import type { TerritoryBoard as TerritoryBoardData } from "@/lib/api";
 
 // 陣取り盤: 1024 マス (32×32)。 各マスは占領者(人間)の推しリーダーの色。 空きマスは中立。
@@ -244,13 +244,16 @@ export function TerritoryBoard({
             active != null ? (
               selected != null ? (
                 isGuest ? (
-                  // ゲスト: 陣取り挑戦はログイン必須 → ロック表示 + ログイン誘導。
-                  <LoginButton
-                    title="陣取りへの挑戦にはログインが必要です"
+                  // ゲスト: 陣取り挑戦はログイン必須。 クリックで挑戦タブを開き、 ページ側の
+                  // LoginRequired ゲートで誘導する (= 即モーダルは出さない)。 鍵アイコンで明示。
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/territory/play?cell=${selected}`)}
+                    title="ログインすると挑戦できます"
                     className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-[var(--radius)] border border-[color:var(--warning)]/50 bg-[color:var(--surface-2)] px-3 py-2.5 text-sm font-semibold text-[color:var(--warning)] transition-colors hover:bg-[var(--list-hover)]"
                   >
                     <LockIcon /> ログインして挑戦
-                  </LoginButton>
+                  </button>
                 ) : (
                   <button
                     type="button"
