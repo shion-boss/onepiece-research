@@ -4144,6 +4144,19 @@ function sanitizeLogLine(line: string, aiIdx: number): string {
   return out;
 }
 
+// ログ行の主行動タイプ → アクセント色 (= 一覧でパッと種類が分かる。 game-feed 化)。
+function logActionAccent(body: string): string | null {
+  const b = body.replace(/^\s+/, "");
+  if (b.startsWith("atk:") || b.includes("アタック")) return "#fb7185"; // 攻撃 (rose)
+  if (b.startsWith("KO") || b.includes("KO:")) return "#f87171"; // KO (red)
+  if (b.includes("counter") || b.includes("blocked") || b.includes("ブロック")) return "#22d3ee"; // 防御 (cyan)
+  if (b.startsWith("play:") || b.startsWith("event:")) return "#34d399"; // 登場/イベント (emerald)
+  if (b.startsWith("起動メイン") || b.startsWith("効果") || b.includes("効果:")) return "#a78bfa"; // 効果 (violet)
+  if (b.startsWith("draw")) return "#38bdf8"; // ドロー (sky)
+  if (b.startsWith("don") || b.includes("DON") || b.includes("ドン")) return "#fbbf24"; // DON (amber)
+  return null;
+}
+
 export function LogSidebar({
   log,
   aiIdx,
@@ -4175,14 +4188,14 @@ export function LogSidebar({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded bg-black/50 p-2 text-xs text-zinc-200">
       <div className="mb-1 flex shrink-0 items-center justify-between">
-        <div className="text-sm font-bold">LOG</div>
+        <div className="text-sm font-bold">対戦ログ</div>
         <div className="text-[10px] text-zinc-400">
-          行を 右クリックで メモ
+          行を右クリック → バグ報告・AI改善の提案
         </div>
       </div>
       <div
         ref={scrollRef}
-        className="log-scroll flex-1 overflow-y-auto font-mono"
+        className="log-scroll flex-1 space-y-px overflow-y-auto leading-snug"
       >
         {(() => {
           // 各行は engine で 「T{turn} P{idx}: {msg}」 の形。 idx で 手番 (あなた/相手) を
@@ -4254,10 +4267,10 @@ export function LogSidebar({
                 }
                 title={
                   hasComment
-                    ? `${shown} (コメント済)`
+                    ? `${shown} (記入済)`
                     : canJump
-                      ? `${shown} — クリックでこの盤面へ / 右クリックで メモ`
-                      : `${shown} — 右クリックで メモ`
+                      ? `${shown} — クリックでこの盤面へ / 右クリックで バグ報告・改善提案`
+                      : `${shown} — 右クリックで バグ報告・改善提案`
                 }
                 onContextMenu={(e) => {
                   if (!sessionId) return;
@@ -4265,7 +4278,15 @@ export function LogSidebar({
                   setCommentTarget({ index: i, text: shown });
                 }}
               >
-                {isSub ? body.replace(/^\s+/, "") : body || shown}
+                {!isSub && logActionAccent(body) && (
+                  <span
+                    className="mr-1.5 inline-block h-2 w-2 shrink-0 rounded-full align-middle"
+                    style={{ background: logActionAccent(body)! }}
+                  />
+                )}
+                <span className="align-middle">
+                  {isSub ? body.replace(/^\s+/, "") : body || shown}
+                </span>
               </div>,
             );
           });
@@ -4335,7 +4356,13 @@ function LogCommentModal({
         className="w-full max-w-md rounded-lg border border-zinc-700 bg-zinc-900 p-4 text-sm text-zinc-100 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-2 text-xs text-zinc-400">この log 行 に メモ</div>
+        <div className="mb-1 text-sm font-semibold text-zinc-100">
+          バグ報告・AI改善のアドバイス
+        </div>
+        <div className="mb-2 text-[11px] leading-relaxed text-zinc-400">
+          この場面について、 バグ・違和感や「AI はこう指すべき」という改善のヒントを書いてください。
+          開発・AI強化に活用します。
+        </div>
         <div className="mb-3 max-h-24 overflow-y-auto rounded bg-zinc-800 p-2 font-mono text-[11px] text-zinc-300">
           {target.text}
         </div>
@@ -4343,7 +4370,7 @@ function LogCommentModal({
           ref={textareaRef}
           value={comment}
           onChange={(e) => setComment(e.target.value)}
-          placeholder="バグ報告 / 違和感 / メモ など"
+          placeholder="例: この場面で AI は顔を殴るべき / ○○の効果が発動していない など"
           className="h-24 w-full resize-none rounded border border-zinc-700 bg-zinc-950 p-2 text-sm text-zinc-100 outline-none focus:border-amber-400"
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
