@@ -513,8 +513,24 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         return base
     from .eval import lethal_estimate
     me_p, opp_p = state.players[me_idx], state.players[1 - me_idx]
-    my_counter = sum(int(getattr(c, "counter", 0) or 0) for c in me_p.hand)
-    opp_counter = sum(int(getattr(c, "counter", 0) or 0) for c in opp_p.hand)
+    # my_counter/opp_counter = 手札の守備資源。 既定は shield counter (= .counter 値) の合計だが、
+    # ⚠ 旧実装は【カウンター】EVENT (神避/放電 等、 .counter=0 で効果 pump) を 0 と数え、
+    #   守備 counter-event を手札に温存する価値が value に全く乗らなかった (= ohtsuki 2026-07-17
+    #   「カウンターがついてるカードは手札で持っても価値がある、 盤面展開だけ良しとする構造はだめ」)。
+    #   ONEPIECE_COUNTER_EVENT_DEF=1 で counter-event の pump も実効カウンター値に算入する。
+    #   ⚠ GBM は旧定義 (shield のみ) で学習済 = 有効化時は my_counter 分布が OOD にずれるので、
+    #   本来は再学習が要る (= まず gated で構造の正しさを確認 → A/B → 再学習)。
+    import os as _os_ce
+    if _os_ce.environ.get("ONEPIECE_COUNTER_EVENT_DEF") == "1":
+        from .hand_estimator import _effective_counter_value as _ecv
+        ov = getattr(state, "effects_overlay", None)
+        my_ln = getattr(getattr(me_p.leader, "card", None), "name", "")
+        opp_ln = getattr(getattr(opp_p.leader, "card", None), "name", "")
+        my_counter = sum(_ecv(c, ov, my_ln) for c in me_p.hand)
+        opp_counter = sum(_ecv(c, ov, opp_ln) for c in opp_p.hand)
+    else:
+        my_counter = sum(int(getattr(c, "counter", 0) or 0) for c in me_p.hand)
+        opp_counter = sum(int(getattr(c, "counter", 0) or 0) for c in opp_p.hand)
     out = base + [
         float(lethal_estimate(state, me_idx)),
         float(lethal_estimate(state, 1 - me_idx)),
