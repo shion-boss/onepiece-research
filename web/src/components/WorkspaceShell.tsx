@@ -82,6 +82,18 @@ const COLOR_HEX: Record<string, string> = {
   赤: "#f14c4c", 緑: "#4ec9b0", 青: "#3794ff", 紫: "#c586c0", 黒: "#6a6a72", 黄: "#cca700",
 };
 
+// 現在のルート → アクティビティ view。 タブ/URL/リンクで移動した時に左メニューを同期する用。
+// ⚠ /territory/play (陣取り挑戦) は「対戦」、 /territory は「ゲーム」なので順序に注意。
+function routeToView(path: string): ActivityView | null {
+  if (["/play", "/watch", "/winrate", "/territory/play"].includes(path)) return "play";
+  if (path === "/territory" || path.startsWith("/territory/")) return "grow";
+  if (path.startsWith("/decks")) return "explorer";
+  if (path.startsWith("/cards")) return "cards";
+  if (path.startsWith("/faq")) return "faq";
+  if (path.startsWith("/history")) return "history";
+  return null;
+}
+
 export function WorkspaceShell({ children }: { children: ReactNode }) {
   const path = usePathname() || "/";
   const router = useRouter();
@@ -116,6 +128,14 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isPlayRoute) setMatchActive(false);
   }, [isPlayRoute]);
+
+  // 現在のルートに左メニュー(activity/sidebar パネル)を同期。 deps=[path] のみなので、
+  // ナビ時だけ同期し、 手動でアクティビティを切り替えた時 (= 非ナビ) は上書きしない。
+  useEffect(() => {
+    const v = routeToView(path);
+    if (v && v !== activeView) setView(v);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path]);
 
   // 対戦中 (full-screen board) はシェルの chrome (activity bar / sidebar / tab bar /
   // status bar) を隠す。 ⚠ 早期 return で <>{children}</> に差し替えてはいけない: {children}

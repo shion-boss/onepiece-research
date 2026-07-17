@@ -122,6 +122,8 @@ export default function FaqPage() {
       >
         {TABS.map((tab) => {
           const count = byTab.get(tab.key) ?? 0;
+          // 0 件のカテゴリタブは隠す ("all" は常に表示)。 データが増えれば自動で再表示。
+          if (count === 0 && tab.key !== "all") return null;
           const active = activeTab === tab.key;
           return (
             <button
