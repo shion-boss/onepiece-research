@@ -1877,12 +1877,29 @@ export function AttackTargetArrowOverlay({
       });
     }
     update();
+    // 攻撃元/対象 が 盤 から 消えたら (= KO/退場 → カード詰め直し) 即座に矢印を消す。
+    // = 詰め直し後の別カードを指してしまう不具合の防止 (rAF で存在監視。 座標は再測しない)。
+    let raf = 0;
+    const watch = () => {
+      if (
+        !board.querySelector(`[data-iid="${attackerIid}"]`) ||
+        !board.querySelector(`[data-iid="${targetIid}"]`)
+      ) {
+        setCoords(null);
+        return;
+      }
+      raf = requestAnimationFrame(watch);
+    };
+    raf = requestAnimationFrame(watch);
     if (persistent) {
-      // defense 中 は user が 手札 hover 等 で 場 が 動かない 想定、 1 回 算出 で十分
-      return;
+      // defense 中 は場が動かない想定だが、 対象消失時のクリアだけ watch で担保。
+      return () => cancelAnimationFrame(raf);
     }
     const timer = setTimeout(() => setCoords(null), 1300);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      cancelAnimationFrame(raf);
+    };
   }, [attackerIid, targetIid, tickId, boardRef, persistent]);
 
   if (!coords) return null;
