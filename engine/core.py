@@ -835,6 +835,27 @@ class GameState:
         return snap
 
 
+def _inplay_status(ip) -> list:
+    """効果で今このカードに付与されている「普通でない」状態/制限だけを短文で列挙 (= UI hover 用)。
+    アクティブ/レスト等の当たり前の状態は含めない (= 盤面を見れば分かる為)。"""
+    out: list = []
+    if (
+        getattr(ip, "cannot_attack_until_turn_end", False)
+        or getattr(ip, "cannot_attack_static", False)
+        or getattr(ip, "cannot_attack_through_opp_turn", False)
+    ):
+        out.append("攻撃できない")
+    if getattr(ip, "stay_rested_next_refresh", False):
+        out.append("次のリフレッシュで回復しない")
+    if getattr(ip, "effect_disabled_through_opp_turn", False):
+        out.append("効果が無効")
+    if getattr(ip, "ko_immune_until_turn_end", False) or getattr(ip, "static_ko_immune", False):
+        out.append("KO されない")
+    if getattr(ip, "attack_taunt", False):
+        out.append("相手はこのキャラを狙う（挑発）")
+    return out
+
+
 def _inplay_snapshot(ip) -> dict:
     return {
         "instance_id": ip.instance_id,
@@ -852,6 +873,8 @@ def _inplay_snapshot(ip) -> dict:
             *(["バニッシュ"] if ip.is_banish_now else []),
             *(["ブロック不可"] if ip.has_no_block_now else []),
         }),
+        # 効果で付与された「普通でない」状態/制限 (= UI hover で明示)。
+        "status": _inplay_status(ip),
     }
 
 

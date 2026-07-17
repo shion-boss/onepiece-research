@@ -3729,22 +3729,36 @@ function CharacterRow({
 
 // 盤面カードの hover tooltip = カード名でなく「今の状態」(= 攻撃/起動できるか正確に分かる)。
 // summoning_sickness=登場ターン (= 攻撃不可)、 rested=レスト (= 次のリフレッシュまでアクティブ不可)。
+// 盤面 hover で「今このカードに起きている、 普通でない事」だけを見せる。
+// アクティブ/レスト等 見れば分かる普通の状態や、 キーワード効果の説明 は 書かない。
 function charStateTooltip(ch: CharSnapshot, isLeader: boolean): string {
   const lines: string[] = [];
-  if (ch.rested) {
-    lines.push("レスト中");
-    lines.push("・攻撃 / ブロック できない");
-    lines.push("・次の自分のターン開始（リフレッシュ）でアクティブに戻る");
-  } else if (!isLeader && ch.summoning_sickness) {
-    lines.push("召喚酔い（このターンに登場）");
-    lines.push("・このターンは攻撃できない（ラッシュ持ちを除く）");
-    lines.push("・ブロック / 起動メイン は可能");
-  } else {
-    lines.push("アクティブ");
-    if (!isLeader) lines.push("・攻撃できる");
+  // 現在パワー (= ドン付与/効果 で 印刷値 から 変わっている時だけ)
+  if (ch.power !== ch.base_power) {
+    const diff = ch.power - ch.base_power;
+    lines.push(
+      `パワー ${ch.power.toLocaleString()}（基本 ${ch.base_power.toLocaleString()} ${diff >= 0 ? "+" : "−"}${Math.abs(diff).toLocaleString()}）`,
+    );
   }
+  // 付与ドン
+  if (ch.attached_dons > 0) {
+    lines.push(`ドン付与 ${ch.attached_dons}`);
+  }
+  // 今 有効な キーワード (= 条件付き速攻 なども「今の状態」で反映済)
   if (ch.keywords && ch.keywords.length > 0) {
-    lines.push("キーワード: " + ch.keywords.join("・"));
+    lines.push(ch.keywords.join("・"));
+  }
+  // 効果で今 付与されている 制限/状態
+  if (ch.status && ch.status.length > 0) {
+    lines.push(...ch.status);
+  }
+  // 召喚酔い (= 今 攻撃できない 時だけ。 速攻 を 今 持つなら 攻撃可 なので 出さない)
+  if (
+    !isLeader &&
+    ch.summoning_sickness &&
+    !(ch.keywords && ch.keywords.includes("速攻"))
+  ) {
+    lines.push("召喚酔い（このターンは攻撃できない）");
   }
   return lines.join("\n");
 }

@@ -286,6 +286,8 @@ export type CharSnapshot = {
   power: number;
   base_power: number;
   keywords: string[];
+  /** 効果で今付与されている「普通でない」状態/制限 (= 攻撃できない 等)。 */
+  status?: string[];
 };
 
 export type PlayerSnapshot = {
