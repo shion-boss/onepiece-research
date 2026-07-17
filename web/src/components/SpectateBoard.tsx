@@ -278,9 +278,10 @@ export function SpectateBoard({
       setPlaying(false);
       return;
     }
-    // 基準 2500ms/手 (= 1x)。 人間が指しているように1手ずつ追える速度 (ohtsuki 2026-07-17
-    // 「1倍速をもう少し遅く」)。 攻撃宣言→ブロック→対象変更 の演出も収まる。 2x=1250 / 4x=625。
-    timerRef.current = setTimeout(() => setIdx((i) => i + 1), 2500 / speed);
+    // 基準 4000ms/手 (= 1x)。 人間が指しているように1手ずつゆっくり追える速度 (ohtsuki
+    // 2026-07-17「1倍速をもっと遅く」で 2500→4000)。 攻撃宣言→ブロック→対象変更 の演出も余裕。
+    // 2x=2000 / 4x=1000。
+    timerRef.current = setTimeout(() => setIdx((i) => i + 1), 4000 / speed);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
