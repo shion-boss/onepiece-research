@@ -1063,6 +1063,33 @@ export function HumanMatchPlay({
   const opp = snap.players[state.ai_idx];
   const canAct = isHumanTurn && isActionPending && !busy;
 
+  // 防御中に手札カウンターを切ったら、 その加算値を防御対象カード (= リーダー or 攻撃された
+  // キャラ) のパワー表示に即時プレビュー反映する (ohtsuki 要望)。 counterIdxs (= まだ確定前の
+  // 選択) × counter_values の合計を防御対象 iid に紐付ける。
+  const counterPreview: { iid: number; bonus: number } | null = (() => {
+    if (!isDefensePending || counterIdxs.length === 0) return null;
+    const payload = state.pending_payload as
+      | {
+          counter_values?: Record<string, number>;
+          is_leader_attack?: boolean;
+          target_iid?: number;
+        }
+      | undefined;
+    const counterValues = payload?.counter_values;
+    const bonus = counterIdxs.reduce(
+      (s, idx) => s + (counterValues?.[String(idx)] ?? 1000),
+      0,
+    );
+    if (bonus <= 0) return null;
+    const targetIid = payload?.is_leader_attack
+      ? me.leader.instance_id
+      : typeof payload?.target_iid === "number"
+        ? payload.target_iid
+        : null;
+    if (targetIid == null) return null;
+    return { iid: targetIid, bonus };
+  })();
+
   // 防御 pending 中 の 「相手のアタック時」 効果 を iid → effects[] map に
   type OppAttackEff = {
     source_iid: number;
@@ -1758,6 +1785,7 @@ export function HumanMatchPlay({
             onDragStart={(p) => setDrag(p)}
             onDragEnd={() => setDrag(null)}
             onTrashClick={() => setTrashViewer("me")}
+            counterPreview={counterPreview}
             lifeDamageTickId={
               frameDiff.lifeDelta[state.human_idx] > 0
                 ? frameDiff.eventTickId
@@ -3018,6 +3046,7 @@ export function PlayerMat({
   lifeDamageTickId,
   oppAttackEffectAvailableIids,
   blockableIids,
+  counterPreview,
 }: {
   player: PlayerSnapshot;
   isMe: boolean;
@@ -3040,6 +3069,8 @@ export function PlayerMat({
   lifeDamageTickId?: number;
   oppAttackEffectAvailableIids?: Set<number>;
   blockableIids?: Set<number>;
+  // 防御中カウンターの pending パワー加算 (= 防御対象 iid + 加算値)。
+  counterPreview?: { iid: number; bonus: number } | null;
 }) {
   // どの drag を 受け入れる か
   const acceptHandDrop = isMe && drag?.kind === "hand";
@@ -3135,6 +3166,7 @@ export function PlayerMat({
             onDragEnd={onDragEnd}
             oppAttackEffectAvailableIids={oppAttackEffectAvailableIids}
             blockableIids={blockableIids}
+            counterPreview={counterPreview}
           />
         )}
 
@@ -3162,6 +3194,11 @@ export function PlayerMat({
             selection.iid === player.stages[0]?.instance_id
           }
           onStageClick={isMe ? onSelfStageClick : () => {}}
+          leaderPowerBonus={
+            counterPreview?.iid === player.leader.instance_id
+              ? counterPreview.bonus
+              : 0
+          }
           drag={drag}
           onDropTarget={onDropTarget}
           onHover={onHover}
@@ -3183,6 +3220,7 @@ export function PlayerMat({
             drag={drag}
             onDropTarget={onDropTarget}
             onHover={onHover}
+            counterPreview={counterPreview}
           />
         ) : (
           <DonRow
@@ -3430,6 +3468,7 @@ function CenterRow({
   isStageActable,
   isStageSelected,
   onStageClick,
+  leaderPowerBonus,
   drag,
   onDropTarget,
   onHover,
@@ -3446,6 +3485,7 @@ function CenterRow({
   isStageActable: boolean;
   isStageSelected: boolean;
   onStageClick: (iid: number) => void;
+  leaderPowerBonus?: number;
   drag: DragPayload | null;
   onDropTarget: (t: DropTarget) => void;
   onHover: (h: HoverInfo) => void;
@@ -3508,6 +3548,7 @@ function CenterRow({
             onHover={onHover}
             draggable={false}
             dropHint={acceptOnLeader}
+            powerBonus={leaderPowerBonus}
             hasOppAttackEffect={oppAttackEffectAvailableIids?.has(
               player.leader.instance_id,
             )}
@@ -3614,6 +3655,7 @@ function CharacterRow({
   onDragEnd,
   oppAttackEffectAvailableIids,
   blockableIids,
+  counterPreview,
 }: {
   chars: CharSnapshot[];
   attackerIid: number | null;
@@ -3630,6 +3672,7 @@ function CharacterRow({
   onDragEnd?: () => void;
   oppAttackEffectAvailableIids?: Set<number>;
   blockableIids?: Set<number>;
+  counterPreview?: { iid: number; bonus: number } | null;
 }) {
   const slots: (CharSnapshot | null)[] = [...chars];
   while (slots.length < 5) slots.push(null);
@@ -3757,6 +3800,11 @@ function CharacterRow({
                 onDragEnd={onDragEnd}
                 dropHint={acceptOnThis}
                 hasOppAttackEffect={hasOppAttackEff}
+                powerBonus={
+                  counterPreview?.iid === c.instance_id
+                    ? counterPreview.bonus
+                    : 0
+                }
               />
             </motion.div>
           );
@@ -3818,6 +3866,7 @@ function CharCard({
   dropHint,
   hasOppAttackEffect,
   isStage,
+  powerBonus,
 }: {
   ch: CharSnapshot;
   isLeader: boolean;
@@ -3835,6 +3884,8 @@ function CharCard({
   onDragEnd?: () => void;
   dropHint?: boolean;
   hasOppAttackEffect?: boolean;
+  // 防御中に手札カウンターを切った際の pending なパワー加算 (= 盤面へ即時プレビュー反映)。
+  powerBonus?: number;
 }) {
   const dim = size === "leader" ? "h-40 w-28" : "h-32 w-24";
   // 防御 pending 中 の 「相手のアタック時」 効果 持ち は 水色 ring を 最優先 で 表示。
@@ -3895,10 +3946,23 @@ function CharCard({
           className={`${dim} object-cover`}
         />
       </div>
-      {/* ステージはパワーを持たないので power badge を出さない (= 0 表示の防止) */}
+      {/* ステージはパワーを持たないので power badge を出さない (= 0 表示の防止)。
+          防御中に手札カウンターを切ると powerBonus 分だけ加算した合計を緑で表示 (+N 併記)。 */}
       {!isStage && (
-        <span className="absolute top-0 left-0 rounded-br bg-black/80 px-1 text-xs font-bold text-white">
-          {ch.power}
+        <span
+          className={
+            "absolute top-0 left-0 rounded-br px-1 text-xs font-bold " +
+            (powerBonus && powerBonus > 0
+              ? "bg-emerald-700 text-emerald-100"
+              : "bg-black/80 text-white")
+          }
+        >
+          {ch.power + (powerBonus ?? 0)}
+          {powerBonus && powerBonus > 0 ? (
+            <span className="ml-0.5 text-emerald-300">
+              (+{powerBonus.toLocaleString()})
+            </span>
+          ) : null}
         </span>
       )}
       {ch.attached_dons > 0 && (
