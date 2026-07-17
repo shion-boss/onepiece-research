@@ -3727,6 +3727,28 @@ function CharacterRow({
   );
 }
 
+// 盤面カードの hover tooltip = カード名でなく「今の状態」(= 攻撃/起動できるか正確に分かる)。
+// summoning_sickness=登場ターン (= 攻撃不可)、 rested=レスト (= 次のリフレッシュまでアクティブ不可)。
+function charStateTooltip(ch: CharSnapshot, isLeader: boolean): string {
+  const lines: string[] = [];
+  if (ch.rested) {
+    lines.push("レスト中");
+    lines.push("・攻撃 / ブロック できない");
+    lines.push("・次の自分のターン開始（リフレッシュ）でアクティブに戻る");
+  } else if (!isLeader && ch.summoning_sickness) {
+    lines.push("召喚酔い（このターンに登場）");
+    lines.push("・このターンは攻撃できない（ラッシュ持ちを除く）");
+    lines.push("・ブロック / 起動メイン は可能");
+  } else {
+    lines.push("アクティブ");
+    if (!isLeader) lines.push("・攻撃できる");
+  }
+  if (ch.keywords && ch.keywords.length > 0) {
+    lines.push("キーワード: " + ch.keywords.join("・"));
+  }
+  return lines.join("\n");
+}
+
 function CharCard({
   ch,
   isLeader,
@@ -3809,7 +3831,7 @@ function CharCard({
       }
       onMouseLeave={() => onHover(null)}
       className={`group relative inline-block ${cursor} transition`}
-      title={ch.name}
+      title={charStateTooltip(ch, isLeader)}
     >
       <div
         className={`overflow-hidden rounded ${ringClass} ${ch.rested ? "rotate-90" : ""}`}

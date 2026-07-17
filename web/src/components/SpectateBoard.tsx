@@ -140,21 +140,21 @@ function ResultStamp({ side, win }: { side: "top" | "bottom"; win: boolean }) {
     >
       <motion.div
         className={
-          "rounded-2xl border-2 px-10 py-3 shadow-2xl backdrop-blur-[2px] " +
+          "rounded-2xl border-2 px-16 py-6 shadow-2xl backdrop-blur-[2px] " +
           (win
             ? "border-amber-300 bg-amber-500/15 ring-4 ring-amber-400/40"
             : "border-zinc-500/70 bg-black/55 ring-2 ring-zinc-600/30")
         }
-        initial={{ scale: 0.4, rotate: win ? -12 : 8 }}
-        animate={{ scale: 1, rotate: win ? -7 : 5 }}
+        initial={{ scale: 0.4, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", stiffness: 280, damping: 15, delay: 0.05 }}
       >
         <div
           className={
-            "text-5xl font-extrabold tracking-[0.18em] " +
+            "text-8xl font-black tracking-[0.12em] " +
             (win ? "text-amber-200" : "text-zinc-400/90")
           }
-          style={win ? { textShadow: "0 0 26px rgba(251,191,36,0.65)" } : undefined}
+          style={win ? { textShadow: "0 0 34px rgba(251,191,36,0.7)" } : undefined}
         >
           {win ? "WIN" : "LOSE"}
         </div>
