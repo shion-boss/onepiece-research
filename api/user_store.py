@@ -385,6 +385,16 @@ def init_schema() -> None:
             ]:
                 if not _column_exists(cur, "user_decks", col):
                     cur.execute(f"ALTER TABLE user_decks ADD COLUMN {col} {coltype}")
+            # migration: ログメモの対応ライフサイクル。 status=open|addressed|wontfix、
+            # resolution=対応内容/理由。 確認時は open だけ出す (= 対応済みを再掲しない、
+            # ohtsuki 2026-07-17)。 source=どこ由来か (spectate=AIvsAI観戦 / humanlog=旧ファイル)。
+            for col, coltype in [
+                ("status", "TEXT DEFAULT 'open'"),
+                ("resolution", "TEXT"),
+                ("source", "TEXT"),
+            ]:
+                if not _column_exists(cur, "human_log_comments", col):
+                    cur.execute(f"ALTER TABLE human_log_comments ADD COLUMN {col} {coltype}")
     finally:
         conn.close()
     _SCHEMA_READY = True
@@ -980,23 +990,81 @@ def record_log_comment(
             "log_text": log_text, "comment": comment, "created_at": ts}
 
 
-def get_log_comments(sid: Optional[str] = None, limit: int = 500) -> list[dict]:
-    """コメント一覧を新しい順に。 sid 指定でそのセッション分だけ。"""
+def get_log_comments(
+    sid: Optional[str] = None, status: Optional[str] = None, limit: int = 500,
+) -> list[dict]:
+    """コメント一覧を新しい順に。 sid 指定でそのセッション分だけ。
+    status 指定 (= "open" 等) でそのステータスだけ (= 確認時に対応済みを出さない用)。"""
     init_schema()
+    conds, args = [], []
+    if sid:
+        conds.append(f"sid = {_PH}")
+        args.append(sid)
+    if status:
+        conds.append(f"status = {_PH}")
+        args.append(status)
+    where = (" WHERE " + " AND ".join(conds)) if conds else ""
+    order = "ASC" if sid else "DESC"
+    args.append(int(limit))
     conn = _conn()
     try:
         cur = conn.cursor()
-        if sid:
-            cur.execute(
-                f"SELECT * FROM human_log_comments WHERE sid = {_PH} "
-                f"ORDER BY created_at ASC LIMIT {_PH}",
-                (sid, int(limit)),
-            )
-        else:
-            cur.execute(
-                f"SELECT * FROM human_log_comments ORDER BY created_at DESC LIMIT {_PH}",
-                (int(limit),),
-            )
+        cur.execute(
+            f"SELECT * FROM human_log_comments{where} ORDER BY created_at {order} LIMIT {_PH}",
+            tuple(args),
+        )
         return [dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+def set_log_comment_status(comment_id: str, status: str, resolution: Optional[str] = None) -> bool:
+    """ログメモの status (open|addressed|wontfix) と resolution を更新。 True=更新できた。"""
+    init_schema()
+    conn = _conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute(
+                f"UPDATE human_log_comments SET status = {_PH}, resolution = {_PH} WHERE id = {_PH}",
+                (status, resolution, comment_id),
+            )
+            return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def import_log_comment(
+    *, sid: str, log_index: Optional[int], log_text: Optional[str], comment: str,
+    user_id: Optional[str], created_at: Optional[str], status: str = "open",
+    resolution: Optional[str] = None, source: str = "humanlog",
+) -> Optional[str]:
+    """旧 human_play_log 由来などのメモを table に取り込む (= (sid, log_index, comment) で冪等)。
+    取り込んだら id を、 既存で skip したら None を返す。"""
+    comment = (comment or "").strip()
+    if not sid or not comment:
+        return None
+    init_schema()
+    conn = _conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute(
+                f"SELECT id FROM human_log_comments WHERE sid = {_PH} AND log_index = {_PH} "
+                f"AND comment = {_PH} LIMIT 1",
+                (sid, log_index, comment),
+            )
+            if cur.fetchone() is not None:
+                return None  # 既取り込み
+            entry_id = uuid.uuid4().hex
+            cols = ("id", "sid", "log_index", "log_text", "comment", "user_id",
+                    "created_at", "status", "resolution", "source")
+            vals = (entry_id, sid, log_index, log_text, comment, user_id,
+                    created_at or _now(), status, resolution, source)
+            ph = ", ".join([_PH] * len(cols))
+            cur.execute(
+                f"INSERT INTO human_log_comments ({', '.join(cols)}) VALUES ({ph})", vals
+            )
+            return entry_id
     finally:
         conn.close()
