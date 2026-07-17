@@ -245,23 +245,35 @@ def _is_event_main_effect_unfirable(
     return True
 
 
+def _is_effect_ko_immune(c) -> bool:
+    """効果による KO に対する無条件耐性を持つか (= ko primitive が対象にできない)。
+    条件付き耐性 (source-power/attribute 依存) は不確実なので免疫扱いしない (= 保守的)。"""
+    return bool(
+        getattr(c, "ko_immune_until_turn_end", False)
+        or getattr(c, "static_ko_immune", False)
+        or getattr(c, "ko_immune_through_opp_turn", False)
+    )
+
+
 def _main_effect_does_nothing_no_opp_char(opp, eff) -> bool:
-    """eff の do が **全て**「相手キャラを対象にする除去/移動」で、 相手キャラが 0 体なら
-    True (= 対象不在で何もしない)。 保守的: 対象が one_opponent_character_* /
-    all_opponent_*character* のみ。 draw/search/self系/相手リーダー/相手ドン対象が 1 つでも
-    あれば False (= 何かする ので prune しない)。"""
+    """eff の do が **全て**「相手キャラを対象にする除去/移動」で、 その対象が実在しないなら
+    True (= 何もしない)。 保守的: 対象が one_opponent_character_* / all_opponent_*character*
+    のみ。 draw/search/self系/相手リーダー/相手ドン対象が 1 つでもあれば False (= 撃つ)。
+    KO 系 (ko/ko_multi) は「効果KO耐性でない相手キャラ」が 0 体なら何もしない (ohtsuki 報告
+    「盤面に効果KOされないキャラしかいない」、 2026-07-18)。 rest/return 系は相手キャラ 0 体で判定。"""
     do = eff.get("do") or []
     if not do:
         return False
-    OPP_CHAR_PRIMS = {
-        "ko", "ko_multi", "rest", "return_to_hand",
+    KO_PRIMS = {"ko", "ko_multi"}
+    MOVE_PRIMS = {
+        "rest", "return_to_hand",
         "return_to_deck_bottom", "return_to_deck_bottom_multi",
     }
     for prim in do:
         if not isinstance(prim, dict):
             return False
         for k, v in prim.items():
-            if k not in OPP_CHAR_PRIMS:
+            if k not in KO_PRIMS and k not in MOVE_PRIMS:
                 return False
             tgt = v.get("target") if isinstance(v, dict) else (v if isinstance(v, str) else None)
             if not (isinstance(tgt, str) and (
@@ -269,7 +281,14 @@ def _main_effect_does_nothing_no_opp_char(opp, eff) -> bool:
                 or (tgt.startswith("all_opponent") and "character" in tgt)
             )):
                 return False
-    return len(opp.characters) == 0
+            if k in KO_PRIMS:
+                # 効果KO 耐性でない相手キャラが 1 体でもあれば KO できる → 何かする
+                if any(not _is_effect_ko_immune(c) for c in opp.characters):
+                    return False
+            else:  # rest / return: 相手キャラが 1 体でもあれば効く
+                if opp.characters:
+                    return False
+    return True
 
 
 def _can_attack_this_turn(state: GameState, target: InPlay, is_leader: bool) -> bool:

@@ -303,3 +303,25 @@ def test_opp_char_removal_event_unfirable_when_no_opp_char():
     assert _is_event_main_effect_unfirable(state, me, opp, ev, overlay) is False, (
         "相手キャラがいれば KO イベントは firable"
     )
+
+
+def test_ko_event_unfirable_when_all_opp_chars_ko_immune():
+    """回帰 (2026-07-18、 ohtsuki 報告「盤面に効果KOされないキャラしかいない」): 相手キャラは
+    いるが全員が効果KO耐性 (static_ko_immune 等) の場合、 KO イベントは対象実在せず何もしない
+    → unfirable=True。 1 体でも非免疫がいれば firable。"""
+    repo = _repo()
+    overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    ev = repo.get("OP06-019")  # 青龍印 流水: ko one_opponent_character
+    state = _make_state(repo, my_don_active=8)
+    me, opp = state.players[0], state.players[1]
+
+    opp.characters = [InPlay.of(repo.get("OP01-013"), sickness=False) for _ in range(2)]
+    for c in opp.characters:
+        c.static_ko_immune = True
+    assert _is_event_main_effect_unfirable(state, me, opp, ev, overlay) is True, (
+        "全員 効果KO耐性なら KO イベントは対象実在せず unfirable"
+    )
+    opp.characters[0].static_ko_immune = False  # 1 体 非免疫
+    assert _is_event_main_effect_unfirable(state, me, opp, ev, overlay) is False, (
+        "非免疫キャラが 1 体でもいれば KO イベントは firable"
+    )
