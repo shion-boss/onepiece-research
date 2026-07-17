@@ -2368,7 +2368,7 @@
       ]
     },
     {
-      "_text": "緑ミホーク 起動メイン: 自レスト + コスト5+キャラいる時のみ → ドン3活性化 + 登場禁止",
+      "_text": "緑ミホーク 起動メイン: 自分のカード1枚レスト(選択) + コスト5+キャラいる時のみ → ドン3活性化 + 登場禁止",
       "when": "activate_main",
       "if": {
         "self_chara_filtered_count_ge": {
@@ -2379,8 +2379,8 @@
         }
       },
       "cost": {
-        "rest_self": true,
-        "once_per_turn": true
+        "once_per_turn": true,
+        "rest_own_card": 1
       },
       "do": [
         {

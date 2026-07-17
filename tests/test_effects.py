@@ -4499,3 +4499,55 @@ def test_op16_002_reveal_8000_to_draw():
     trigger_on_play(state, me, opp, ip, overlay)
     assert big in me.hand            # 公開しただけ → 手札に残る
     assert len(me.hand) == 2         # +1 ドロー (8000 + 引いた札)
+
+
+def test_rest_own_card_activate_cost_human_choice_and_leader_rested():
+    """回帰 (2026-07-18、 ohtsuki 報告): OP14-020 緑ミホーク leader の起動メインコスト
+    「自分のカード1枚をレストにできる」が rest_self (リーダー自動レスト) で実装され、
+    (1) 人間が選べない (2) カード選択が出ない (3) リーダーがレスト(攻撃後)だと使えない、
+    バグだった。 rest_own_card コストに変更: 人間は場の任意カード(leader/char)を選択、
+    リーダーがレストでも他の active カードで払える。"""
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.game import legal_actions, apply_action, ActivateMain
+    from engine.effects import evaluate_static_effects, resolve_pending_choice
+
+    repo = _repo()
+    overlay = _overlay()
+
+    def mk(leader_rested=False):
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP14-020"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        big = InPlay.of(repo.get("OP13-084"), sickness=False)  # cost7 (if 条件)
+        small = InPlay.of(repo.get("OP01-016"), sickness=False)
+        p0.characters = [big, small]
+        p0.don_active = 3
+        if leader_rested:
+            p0.leader.rested = True
+        s = GameState(players=[p0, p1])
+        s.turn_player_idx = 0
+        s.phase = Phase.MAIN
+        s.turn_number = 3
+        s.effects_overlay = overlay
+        s.human_player_idx = 0
+        evaluate_static_effects(s, overlay)
+        return s, p0, small
+
+    def am(s, p0):
+        return [a for a in legal_actions(s)
+                if isinstance(a, ActivateMain) and a.source_iid == p0.leader.instance_id]
+
+    # 人間: cost で場のカードを選ぶ modal + リーダーを勝手にレストしない
+    s, p0, small = mk()
+    assert am(s, p0), "起動メインが使える"
+    apply_action(s, am(s, p0)[0])
+    pc = s.pending_choice
+    assert pc and pc.get("kind") == "activate_main_cost_pick" and pc.get("cost_kind") == "rest_own_card"
+    assert any(c["is_leader"] for c in pc["candidates"]), "候補にリーダーも含む (= 自分のカード)"
+    idx = next(i for i, c in enumerate(pc["candidates"]) if c["iid"] == small.instance_id)
+    resolve_pending_choice(s, [idx])
+    assert small.rested is True, "選んだキャラがレストされる"
+    assert p0.leader.rested is False, "リーダーは勝手にレストされない (= 人間が選んだのはキャラ)"
+
+    # リーダーがレスト(攻撃後)でも、 active なキャラで払えるので起動メインが使える
+    s2, p2, _ = mk(leader_rested=True)
+    assert am(s2, p2), "リーダーがレストでも他の active カードで払えて起動メインが使える"

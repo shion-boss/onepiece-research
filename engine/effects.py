@@ -9577,6 +9577,8 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             prior_picks["ko_iid"] = int(picked_cand["iid"])
         elif cost_kind == "rest_self_target_name":
             prior_picks["rest_iid"] = int(picked_cand["iid"])
+        elif cost_kind == "rest_own_card":
+            prior_picks["rest_own_iids"] = [int(candidates[i]["iid"]) for i in valid_picks]
         elif cost_kind == "trash_filtered_chara":
             # OP13-079 イム leader の choice cost (= 「天竜人キャラ か 手札1枚」 統合 modal)。
             # 候補は キャラ axis と 手札 axis が 混在しうる。 axis フィールドで 振り分ける
@@ -12234,6 +12236,18 @@ def _can_pay_activate_cost(
         ]
         if not cands:
             return False
+    # rest_own_card: 「自分のカード1枚をレストにできる」 (= OP14-020 緑ミホーク leader)。
+    #   対象は自分の場のカード (leader/character/stage) 任意 = アクティブが count 枚以上必要。
+    rest_own = cost.get("rest_own_card")
+    if rest_own is not None:
+        _ro_n = int(rest_own.get("count", 1)) if isinstance(rest_own, dict) else int(rest_own)
+        _ro_filt = rest_own.get("filter", {}) if isinstance(rest_own, dict) else {}
+        _ro_pool = [
+            ip for ip in ([me.leader] + list(me.characters) + list(me.stages))
+            if ip is not None and not ip.rested and _matches_filter(ip.card, _ro_filt)
+        ]
+        if len(_ro_pool) < _ro_n:
+            return False
     # 選択コスト: 「特徴X を持つキャラ か 手札1枚をトラッシュ」 (= OP13-079 イム leader)。
     # spec: {"discard_hand_or_trash_filtered_chara": {"filter": {"feature": "天竜人"}, "n": 1}}
     # 払える条件: 手札 ≥ 1 OR filter 一致の自キャラ ≥ 1 (= どちらか一方で足りる)。
@@ -12820,6 +12834,59 @@ def fire_activate_main(
                 target_ip = rest_candidates[0]
             target_ip.rested = True
             state.push_log(f"  起動メインコスト: 自レスト {target_ip.card.name}")
+    # rest_own_card: 「自分のカード1枚をレストにできる」= 場の任意カード(leader/char/stage)を選択。
+    #   人間 acting + 候補 > count + pick 未指定 → modal halt。 AI は 非リーダー + power 低い順で自動
+    #   (= 攻撃に使いたいリーダー/高power キャラを温存)。 OP14-020 緑ミホーク leader。
+    rest_own = cost.get("rest_own_card")
+    if rest_own is not None:
+        ro_n = int(rest_own.get("count", 1)) if isinstance(rest_own, dict) else int(rest_own)
+        ro_filt = rest_own.get("filter", {}) if isinstance(rest_own, dict) else {}
+        ro_pool = [
+            ip for ip in ([me.leader] + list(me.characters) + list(me.stages))
+            if ip is not None and not ip.rested and _matches_filter(ip.card, ro_filt)
+        ]
+        if ro_pool:
+            chosen = []
+            if "rest_own_iids" in cost_picks:
+                _want = set(cost_picks["rest_own_iids"])
+                chosen = [ip for ip in ro_pool if ip.instance_id in _want][:ro_n]
+            elif len(ro_pool) > ro_n and _should_human_pick(state):
+                eff_idx = _find_effect_index(state, inplay, eff)
+                if eff_idx is not None:
+                    state.pending_choice = {
+                        "kind": "activate_main_cost_pick",
+                        "cost_kind": "rest_own_card",
+                        "source_iid": inplay.instance_id,
+                        "effect_index": eff_idx,
+                        "candidates": [
+                            {
+                                "iid": ip.instance_id,
+                                "card_id": ip.card.card_id,
+                                "name": ip.card.name,
+                                "cost": int(ip.card.cost) if ip.card.cost is not None else 0,
+                                "power": int(ip.power),
+                                "rested": bool(ip.rested),
+                                "attached_dons": int(ip.attached_dons),
+                                "owner": "self",
+                                "is_leader": ip is me.leader,
+                            }
+                            for ip in ro_pool
+                        ],
+                        "prior_picks": dict(cost_picks),
+                        "limit": ro_n,
+                        "primitive_kind": "rest_own_card",
+                        "description": "起動メインコスト: レストにする自分のカードを選択",
+                    }
+                    state.push_log(
+                        f"  起動メインコスト 候補 {len(ro_pool)} 枚 → 人間 選択 待ち (= 自レスト任意)"
+                    )
+                    return
+            if not chosen:
+                ro_pool.sort(key=lambda ip: (0 if ip is not me.leader else 1, ip.power))
+                chosen = ro_pool[:ro_n]
+            for ip in chosen:
+                ip.rested = True
+                state.push_log(f"  起動メインコスト: 自レスト {ip.card.name}")
     # once_per_turn フラグ
     if cost.get("once_per_turn", True):
         setattr(inplay, "_act_used", True)
