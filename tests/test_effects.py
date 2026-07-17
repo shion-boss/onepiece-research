@@ -3581,6 +3581,46 @@ def test_stage_activate_main_is_offered_and_fires():
     assert not am_again, "once_per_turn なのに 起動メイン が 再提示 されている (= 無限ループ源)"
 
 
+def test_attach_rested_don_up_to_human_count_choice():
+    """OP15-058 紫エネル「自分のキャラ1枚にレストのドン4枚まで付与」= up_to。
+    人間は付与枚数(1..max)を選べる: target_pick(キャラ) → option_pick(枚数) → その枚数だけ付与。
+    AI は従来通り最大付与。 回帰 (2026-07-17、 ohtsuki 要望「4枚以下を選択できるように」)。"""
+    from engine.effects import execute_effect, resolve_pending_choice
+
+    repo = _repo()
+    overlay = _overlay()
+    # --- 人間: 4 レストドン中 2 枚だけ付与を選べる ---
+    state = _make_state(repo, "OP15-058", overlay=overlay)
+    me = state.players[0]
+    state.human_player_idx = 0
+    chara = InPlay.of(repo.get("OP01-016"), sickness=False)
+    me.characters = [chara]
+    me.don_active = 0
+    me.don_rested = 4
+    spec = {"attach_rested_don": {"target": "one_self_character_any", "count": 4, "up_to": True}}
+    execute_effect(spec, state, me, state.players[1], me.leader)
+    assert state.pending_choice.get("kind") == "target_pick", "まず対象キャラを選ぶ"
+    resolve_pending_choice(state, [0])  # 唯一のキャラを選択
+    assert state.pending_choice.get("kind") == "option_pick", "次に付与枚数を選ぶ"
+    labels = [o["label"] for o in state.pending_choice["options"]]
+    assert labels == ["ドン!!4枚 付与", "ドン!!3枚 付与", "ドン!!2枚 付与", "ドン!!1枚 付与"], labels
+    resolve_pending_choice(state, [2])  # "2枚" (options=[4,3,2,1] の idx2)
+    assert state.pending_choice is None
+    assert chara.attached_dons == 2, f"2枚のはず: {chara.attached_dons}"
+    assert me.don_rested == 2, f"レスト残 2 のはず: {me.don_rested}"
+
+    # --- AI (人間文脈なし): 選択なしで最大 4 付与 ---
+    st2 = _make_state(repo, "OP15-058", overlay=overlay)
+    m2 = st2.players[0]
+    c2 = InPlay.of(repo.get("OP01-016"), sickness=False)
+    m2.characters = [c2]
+    m2.don_active = 0
+    m2.don_rested = 4
+    execute_effect(spec, st2, m2, st2.players[1], m2.leader)
+    assert st2.pending_choice is None, "AI は modal を出さない"
+    assert c2.attached_dons == 4, f"AI は最大4付与: {c2.attached_dons}"
+
+
 def test_cost_le_dynamic_self_don_total_resolution():
     """_resolve_dynamic_filter の `self_don_total` source: me.don_active + me.don_rested
     + 付与 ドン の 合計 で cost_le を 静的化。"""

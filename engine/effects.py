@@ -5257,6 +5257,48 @@ def _execute_effect_body(
             )
             if not targets:
                 continue
+            # up_to: 公式「ドン!!N枚まで付与」 = 人間は付与枚数(1..max)を選べる
+            # (= OP15-058 紫エネル)。 target は既に target_pick で確定済。 human + max>=2
+            # のときだけ option_pick を出す (= AI は従来通り最大付与、 max<2 は選択不要)。
+            up_to = isinstance(v, dict) and bool(v.get("up_to"))
+            if (up_to and not per_target and not to_opp
+                    and targets and _should_human_pick(state)):
+                avail = don_owner.don_rested + (
+                    don_owner.don_active if from_cost_area else 0
+                )
+                max_n = min(n, avail)
+                if max_n >= 2:
+                    tgt_iid = targets[0].instance_id
+                    base = {kk: vv for kk, vv in v.items() if kk != "up_to"}
+                    opts = []
+                    for cnt in range(max_n, 0, -1):
+                        inner = dict(base)
+                        inner["count"] = cnt
+                        inner["target"] = {"_iid_picks": [tgt_iid]}
+                        opts.append(
+                            {"label": f"ドン!!{cnt}枚 付与",
+                             "do": [{"attach_rested_don": inner}]}
+                        )
+                    state.pending_choice = {
+                        "kind": "option_pick",
+                        "optional": True,
+                        "options": [
+                            {"idx": i, "label": o["label"]}
+                            for i, o in enumerate(opts)
+                        ],
+                        "_full_options": opts,
+                        "_self_inplay_iid": (
+                            self_inplay.instance_id if self_inplay else None
+                        ),
+                        "description": (
+                            f"{targets[0].card.name} に付与するドン!!枚数を選択 "
+                            f"(0〜{max_n}枚)"
+                        ),
+                    }
+                    state.push_log(
+                        f"  効果: レストドン付与 枚数選択待ち (最大 {max_n}枚)"
+                    )
+                    return True
             if per_target:
                 attached_log: list[str] = []
                 for t in targets:
