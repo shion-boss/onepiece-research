@@ -8693,16 +8693,25 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
 
     if kind == "game_start_stage_pick":
         # ゲーム開始時「デッキから特徴Xのステージ1枚まで登場」の人間選択 (= イム)。
-        # picks: candidates[] の index (0 or 1)。 空 = 登場させない (公式「まで」)。
+        # picks: candidates[] の index (0 or 1)。
+        # ⚠ 空 picks (= モーダル未対応の古いフロント / 汎用 skip) では「登場させない」でなく
+        #   最良 (= 最高コスト) を自動登場させる。 理由: 無 stage は旧挙動 (全員自動登場) からの
+        #   regression + イムは開始 stage をほぼ常に出したい。 backend/frontend の別々デプロイの
+        #   タイミング差 (= 新 pending_choice が古いフロントに届く窓) でも stage を失わない。
         candidates = choice.get("candidates", [])
         pidx = int(choice.get("_player_idx", state.turn_player_idx))
         p = state.players[pidx]
         state.pending_choice = None
         valid = [i for i in picks if 0 <= i < len(candidates)]
-        if not valid:
-            state.push_log(f"  game_start: {p.name} ステージ登場なし (選択スキップ)")
+        if valid:
+            deck_idx = int(candidates[valid[0]]["deck_idx"])
+        elif candidates:
+            # 空 picks → 最高コストを自動登場 (= 無 stage 回避)
+            best = max(candidates, key=lambda c: int(c.get("cost", 0)))
+            deck_idx = int(best["deck_idx"])
+            state.push_log(f"  game_start: {p.name} ステージ自動選択 (skip → 最良)")
+        else:
             return
-        deck_idx = int(candidates[valid[0]]["deck_idx"])
         if not (0 <= deck_idx < len(p.deck)):
             return
         card = p.deck.pop(deck_idx)

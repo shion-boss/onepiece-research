@@ -73,8 +73,13 @@ def test_human_path_offers_choice_and_summons_picked_stage():
             assert s.pending_choice is None
             picked_ok = True
         elif not skip_ok:
-            resolve_pending_choice(s, [])  # 0 枚 = 登場させない
-            assert s.players[0].stages == []
+            # 空 picks (= 古いフロント / 汎用 skip) → 最良(=最高コスト 虚の玉座)を自動登場。
+            # 無 stage regression 回避 + backend/frontend デプロイ差の窓を吸収。
+            resolve_pending_choice(s, [])
+            assert [ip.card.card_id for ip in s.players[0].stages] == ["OP13-099"], (
+                "空 picks は最高コストの虚の玉座を自動登場すべき"
+            )
+            assert s.pending_choice is None
             skip_ok = True
         if picked_ok and skip_ok:
             break
