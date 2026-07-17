@@ -59,6 +59,7 @@ type Selection =
   | null
   | { kind: "hand"; handIdx: number }
   | { kind: "self_chara"; iid: number }
+  | { kind: "self_stage"; iid: number }
   | { kind: "self_leader" }
   | { kind: "attack_pending"; attackerIid: number };
 
@@ -1178,6 +1179,15 @@ export function HumanMatchPlay({
     setSelection({ kind: "self_chara", iid });
   }
 
+  function clickSelfStage(iid: number) {
+    // ステージ (= 虚の玉座 等) の起動メインを盤面クリックで選ぶ。 起動メインを
+    // 持たない (= actionsByIid に無い) ステージはクリックしても無反応。
+    if (!canAct) return;
+    const actions = actionsByIid.get(iid) ?? [];
+    if (actions.length === 0) return;
+    setSelection({ kind: "self_stage", iid });
+  }
+
   function clickOppLeader() {
     if (!canAct) return;
     if (selection?.kind !== "attack_pending") return;
@@ -1371,6 +1381,8 @@ export function HumanMatchPlay({
     } else if (selection.kind === "self_leader") {
       acts = actionsByIid.get(me.leader.instance_id) ?? [];
     } else if (selection.kind === "self_chara") {
+      acts = actionsByIid.get(selection.iid) ?? [];
+    } else if (selection.kind === "self_stage") {
       acts = actionsByIid.get(selection.iid) ?? [];
     }
     const result: SelectionAction[] = [];
@@ -1710,6 +1722,7 @@ export function HumanMatchPlay({
             onCharaClick={clickOppChara}
             onSelfCharaClick={() => {}}
             onSelfLeaderClick={() => {}}
+            onSelfStageClick={() => {}}
             actionsByIid={actionsByIid}
             canAct={false}
             drag={drag}
@@ -1735,6 +1748,7 @@ export function HumanMatchPlay({
             onCharaClick={() => {}}
             onSelfCharaClick={clickSelfChara}
             onSelfLeaderClick={clickSelfLeader}
+            onSelfStageClick={clickSelfStage}
             actionsByIid={actionsByIid}
             canAct={canAct}
             selection={selection}
@@ -2991,6 +3005,7 @@ export function PlayerMat({
   onCharaClick,
   onSelfLeaderClick,
   onSelfCharaClick,
+  onSelfStageClick,
   actionsByIid,
   canAct,
   selection,
@@ -3012,6 +3027,7 @@ export function PlayerMat({
   onCharaClick: (iid: number) => void;
   onSelfLeaderClick: () => void;
   onSelfCharaClick: (iid: number) => void;
+  onSelfStageClick: (iid: number) => void;
   actionsByIid: Map<number, HumanLegalAction[]>;
   canAct: boolean;
   selection?: Selection;
@@ -3134,6 +3150,18 @@ export function PlayerMat({
           isLeaderSelected={isMe && selection?.kind === "self_leader"}
           isLeaderAttacker={attackerIid === player.leader.instance_id}
           onLeaderClick={isMe ? onSelfLeaderClick : onLeaderClick}
+          isStageActable={
+            canAct &&
+            isMe &&
+            (actionsByIid.get(player.stages[0]?.instance_id ?? -1)?.length ??
+              0) > 0
+          }
+          isStageSelected={
+            isMe &&
+            selection?.kind === "self_stage" &&
+            selection.iid === player.stages[0]?.instance_id
+          }
+          onStageClick={isMe ? onSelfStageClick : () => {}}
           drag={drag}
           onDropTarget={onDropTarget}
           onHover={onHover}
@@ -3399,6 +3427,9 @@ function CenterRow({
   isLeaderSelected,
   isLeaderAttacker,
   onLeaderClick,
+  isStageActable,
+  isStageSelected,
+  onStageClick,
   drag,
   onDropTarget,
   onHover,
@@ -3412,6 +3443,9 @@ function CenterRow({
   isLeaderSelected: boolean;
   isLeaderAttacker: boolean;
   onLeaderClick: () => void;
+  isStageActable: boolean;
+  isStageSelected: boolean;
+  onStageClick: (iid: number) => void;
   drag: DragPayload | null;
   onDropTarget: (t: DropTarget) => void;
   onHover: (h: HoverInfo) => void;
@@ -3489,9 +3523,9 @@ function CenterRow({
               isMine={isMe}
               isAttacker={false}
               isTarget={false}
-              isActable={false}
-              isSelected={false}
-              onClick={() => {}}
+              isActable={isStageActable}
+              isSelected={isStageSelected}
+              onClick={() => onStageClick(player.stages[0]!.instance_id)}
               size="small"
               onHover={onHover}
               draggable={false}
@@ -4700,6 +4734,9 @@ function ActionButtonGrid({
       { kinds: ["AttackLeader", "AttackCharacter"], label: "Attack" },
       { kinds: ["ActivateMain"], label: "起動メイン" },
     ];
+  } else if (selection.kind === "self_stage") {
+    // ステージは起動メインのみ (= 虚の玉座 等)
+    groups = [{ kinds: ["ActivateMain"], label: "起動メイン" }];
   } else {
     groups = [];
   }
