@@ -401,9 +401,22 @@ def _counter_event_leader_pump(card, overlay, leader_name: str) -> int:
 
 
 def _effective_counter_value(card, overlay, leader_name: str) -> int:
-    """カード1枚の守備での実効カウンター値 = max(shield-counter, counter-event pump)。"""
+    """カード1枚の守備での実効カウンター値 = max(shield-counter, counter-event pump × 割引)。
+
+    counter-event は shield と違い DON/discard コスト・状況依存があるので、 pump を full で
+    数えると過大評価 (= 温存し過ぎ)。 ONEPIECE_CE_DISCOUNT (既定 1.0) で pump を割り引き、
+    balance 点を sweep できるようにする (ohtsuki 2026-07-17「両極でなく微調整・比較で balance」)。
+    """
     base = int(getattr(card, "counter", 0) or 0)
-    return max(base, _counter_event_leader_pump(card, overlay, leader_name))
+    pump = _counter_event_leader_pump(card, overlay, leader_name)
+    if pump:
+        import os as _os_cd
+        try:
+            d = float(_os_cd.environ.get("ONEPIECE_CE_DISCOUNT", "1.0"))
+        except Exception:
+            d = 1.0
+        pump = int(pump * d)
+    return max(base, pump)
 
 
 def expected_counter_per_card(state: GameState, opp_idx: int) -> float:
