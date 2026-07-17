@@ -1440,6 +1440,62 @@ def _maybe_autotune_deck(deck_dict: dict) -> None:
         pass  # auto-tune の失敗は deck 保存を妨げない
 
 
+def _learn_deck_config_from_human_play(deck_human_slug: Optional[str], user_id: Optional[str]) -> None:
+    """人間がそのデッキ(=自作 user deck)を操作した実績から config 調整を **提案** し、 config に
+    proposal として記録する (ohtsuki 2026-07-17「人間の行動から config を学習して調整」)。
+
+    ⚠ **提案のみ・自動適用しない**。 human_play_proposal は lever でない metadata key なので
+    ExploitBeam._load_deck_config は無視する = AI 挙動は不変。 適用は deploy gate (A/B) で現行超えを
+    確認してから (= 未検証で ship しない)。 meta デッキ (= canonical) には書かない (user deck 限定)。
+    現状 signal は勝敗/ターン数のみ (= 粗い)。 細かい「どの効果をいつ」は Blob action ログ + Claude 教師。
+    """
+    if not deck_human_slug or not user_id:
+        return
+    try:
+        d = user_store.get_deck(user_id, deck_human_slug)
+        if not d or not d.get("leader") or not d.get("main"):
+            return  # user deck でない (= meta 等) → 学習対象外
+        matches = user_store.get_human_matches(deck_human_slug, limit=200)
+        mine = [m for m in matches if m.get("deck_human_slug") == deck_human_slug]
+        n = len(mine)
+        if n < 10:
+            return
+        wins = sum(1 for m in mine if m.get("winner_for_human") == 1)
+        turns = [m.get("turns") for m in mine if m.get("turns")]
+        stats = {"n": n, "human_win_rate": wins / n,
+                 "avg_turns": (sum(turns) / len(turns) if turns else 0.0)}
+        from engine.deck_config import (
+            recipe_hash, propose_config_from_human_play, write_deck_config,
+        )
+        prop = propose_config_from_human_play(stats)
+        h = recipe_hash(d["leader"], d["main"])
+        write_deck_config({"human_play_proposal": prop}, deck_hash=h)
+    except Exception:
+        pass  # 学習の失敗は対戦保存を妨げない
+
+
+def _ensure_deck_config_on_save(deck_dict: dict) -> None:
+    """user deck 保存時に、 内容ハッシュ keyed の config を **即時** 用意する (ohtsuki 2026-07-17:
+    「ユーザー作成デッキは保存時に config を設定」)。 既に config があれば触らない (= tune/human-play で
+    育った値を壊さない)。 無ければ default_config_for_deck (= 危険 lever 無し + value_defense heuristic)
+    を書く。 重い tune は別途 _maybe_autotune_deck (gated) が background で上書きする。"""
+    try:
+        from engine.deck_config import (
+            recipe_hash, hash_config_path, default_config_for_deck, write_deck_config,
+        )
+        leader = deck_dict.get("leader", "")
+        main = deck_dict.get("main", [])
+        if not leader or not main:
+            return
+        h = recipe_hash(leader, main)
+        if hash_config_path(h).exists():
+            return  # 既存 config (tune 済 or 前回 default) は尊重
+        cfg = default_config_for_deck(leader, main, repo=get_repo())
+        write_deck_config(cfg, deck_hash=h)
+    except Exception:
+        pass  # config 用意の失敗は保存を妨げない
+
+
 def _slugify(s: str) -> str:
     """name から英数字スラグを生成。日本語は失敗 (空文字)、呼び出し側で fallback。"""
     s = re.sub(r"[^\w-]+", "_", (s or "").strip().lower())
@@ -1501,6 +1557,7 @@ def create_deck(req: CreateDeckRequest, user_id: str = Depends(current_user_id))
         )
     except ValueError:
         raise HTTPException(409, f"slug already exists: {slug}")
+    _ensure_deck_config_on_save(deck_dict)  # 保存時に config を即時用意 (無ければ default)
     _maybe_autotune_deck(deck_dict)  # 新規 deck を background で自動最適化 (= ONEPIECE_AUTOTUNE=1)
     return CreateDeckResponse(slug=slug, path=f"user:{user_id}/{slug}", warnings=[])
 
@@ -1544,6 +1601,7 @@ def update_deck(slug: str, req: CreateDeckRequest, user_id: str = Depends(curren
         user_id, slug, name=deck_dict["name"], leader=req.leader,
         main=deck_dict["main"], regulation=req.regulation, overwrite=True,
     )
+    _ensure_deck_config_on_save(deck_dict)  # 保存時に config を即時用意 (無ければ default)
     _maybe_autotune_deck(deck_dict)  # 内容変化時のみ tune (= hash 既存なら skip)
     return CreateDeckResponse(slug=slug, path=f"user:{user_id}/{slug}", warnings=[])
 
@@ -4863,6 +4921,8 @@ def human_match_save_result(
                 non_stakes=bool(territory_meta.get("non_stakes", False)),
                 user_id=user_id or "anonymous",  # ゲスト対戦は anonymous として残す
             )
+            # 人間が自作デッキを操作した実績から config 調整を学習 (= 提案として記録、 未適用)。
+            _learn_deck_config_from_human_play(payload["metadata"].get("deck_human_slug"), user_id)
         except Exception as e:
             print(f"[human_history] record failed (sid={sid}): {e}")
 
