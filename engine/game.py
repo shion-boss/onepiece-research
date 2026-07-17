@@ -661,6 +661,12 @@ def advance_phase(state: GameState) -> None:
             # ステージのレスト解除 (3-8 + 6-2-4)
             for s in me.stages:
                 s.rested = False
+                # ⚠ ステージの起動メイン once_per_turn マーカーもクリアする。
+                #   旧実装は char/leader だけ reset していて stage を漏らしており、 ステージの
+                #   起動メイン (= 虚の玉座 等) が「1 game 1 回」になっていた (ohtsuki 報告、
+                #   2026-07-18)。 公式: 起動メインの「ターン1回」は毎ターン回復する。
+                if hasattr(s, "_act_used"):
+                    delattr(s, "_act_used")
             for c in me.characters:
                 c.summoning_sickness = False
             if hasattr(me.leader, "_act_used"):

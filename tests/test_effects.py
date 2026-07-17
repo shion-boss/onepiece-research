@@ -3581,6 +3581,52 @@ def test_stage_activate_main_is_offered_and_fires():
     assert not am_again, "once_per_turn なのに 起動メイン が 再提示 されている (= 無限ループ源)"
 
 
+def test_stage_activate_main_recovers_next_turn():
+    """回帰 (2026-07-18、 ohtsuki 報告): ステージの起動メイン once_per_turn が「1 game 1 回」に
+    なっていた。 REFRESH の _act_used クリアが char/leader のみで me.stages を漏らしていたため。
+    使用 → 次の自分ターンで **再び使える** (= 毎ターン回復) ことを確認。"""
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.game import (
+        legal_actions, apply_action, advance_phase, ActivateMain, EndPhase,
+    )
+    from engine.effects import evaluate_static_effects
+
+    repo = _repo()
+    overlay = _overlay()
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP13-079"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    throne = InPlay.of(repo.get("OP13-099"), rested=False, sickness=False)
+    p0.stages = [throne]
+    p0.hand = [repo.get("OP13-083")] * 3
+    p0.don_active = 6
+    p0.deck = [repo.get("OP01-013")] * 30
+    p1.deck = [repo.get("OP01-013")] * 30
+    state = GameState(players=[p0, p1])
+    state.turn_player_idx = 0
+    state.phase = Phase.MAIN
+    state.effects_overlay = overlay
+    evaluate_static_effects(state, overlay)
+
+    def throne_am():
+        return [a for a in legal_actions(state)
+                if isinstance(a, ActivateMain) and a.source_iid == throne.instance_id]
+
+    assert throne_am(), "T1: 起動メインが使えるべき"
+    apply_action(state, throne_am()[0])
+    assert not throne_am(), "使用直後は once_per_turn で不可"
+
+    # 自分の END → 相手ターン → 自分ターン (REFRESH で _act_used クリア)
+    for _ in range(30):
+        if state.turn_player_idx == 0 and state.phase == Phase.MAIN and state.turn_number >= 3:
+            break
+        advance_phase(state)
+        if state.turn_player_idx == 1 and state.phase == Phase.MAIN:
+            apply_action(state, EndPhase())
+    p0.don_active = 6  # DON を戻して cost 条件を満たす
+    assert not hasattr(throne, "_act_used"), "REFRESH で _act_used がクリアされるべき"
+    assert throne_am(), "次の自分ターンで起動メインが再び使えるべき (= 毎ターン回復、 1 game 1 回でない)"
+
+
 def test_all_trigger_text_cards_have_trigger_overlay():
     """回帰 (2026-07-17): 【トリガー】テキストを持つカードは overlay に when:"trigger" 効果を
     持たねばならない。 無いと _resolve_life_taken の has_trigger=False になり、 ライフから出ても
