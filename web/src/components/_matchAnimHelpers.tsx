@@ -1886,69 +1886,79 @@ export function AttackTargetArrowOverlay({
   }, [attackerIid, targetIid, tickId, boardRef, persistent]);
 
   if (!coords) return null;
-  // arrow head 角度 計算
-  const angle = Math.atan2(
-    coords.y2 - coords.y1,
-    coords.x2 - coords.x1,
-  );
-  // 三角ヘッド を target 手前 で 描画 (= 中心 を target 寄り に 配置)
-  const headLen = 26;
-  const baseX = coords.x2 - Math.cos(angle) * headLen;
-  const baseY = coords.y2 - Math.sin(angle) * headLen;
-  const leftX = baseX - Math.sin(angle) * 14;
-  const leftY = baseY + Math.cos(angle) * 14;
-  const rightX = baseX + Math.sin(angle) * 14;
-  const rightY = baseY - Math.cos(angle) * 14;
+  const { x1, y1, x2, y2 } = coords;
+  // 直線でなく緩い弧を描く (= ゲームらしい躍動感)。 垂直方向へ距離比で張り出す。
+  const dx = x2 - x1, dy = y2 - y1;
+  const dist = Math.hypot(dx, dy) || 1;
+  const nx = -dy / dist, ny = dx / dist;            // 垂直単位ベクトル
+  const arc = Math.min(70, dist * 0.16);
+  const cx = (x1 + x2) / 2 + nx * arc;
+  const cy = (y1 + y2) / 2 + ny * arc;
+  const path = `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`;
+  // 矢印ヘッド向き = 終点での接線 (control→end)。 弧に沿って自然に刺さる。
+  const ang = Math.atan2(y2 - cy, x2 - cx);
+  const hl = 30, hw = 15;
+  const bx = x2 - Math.cos(ang) * hl, by = y2 - Math.sin(ang) * hl;
+  const lX = bx - Math.sin(ang) * hw, lY = by + Math.cos(ang) * hw;
+  const rX = bx + Math.sin(ang) * hw, rY = by - Math.cos(ang) * hw;
 
   return (
     <svg className="pointer-events-none absolute inset-0 z-30 h-full w-full">
       <defs>
-        <filter id="arrowGlow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="3" result="b" />
+        <filter id="arrowGlow" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="3.2" result="b" />
           <feMerge>
             <feMergeNode in="b" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
+        <linearGradient id="atkArrowGrad" gradientUnits="userSpaceOnUse" x1={x1} y1={y1} x2={x2} y2={y2}>
+          <stop offset="0%" stopColor="#e11d48" stopOpacity="0.45" />
+          <stop offset="55%" stopColor="#fb7185" />
+          <stop offset="100%" stopColor="#ffe4e6" />
+        </linearGradient>
       </defs>
-      <motion.line
-        x1={coords.x1}
-        y1={coords.y1}
-        x2={coords.x2}
-        y2={coords.y2}
-        stroke="#fb7185"
-        strokeWidth={persistent ? 7 : 6}
-        strokeLinecap="round"
-        strokeDasharray={persistent ? "16 10" : "14 8"}
-        filter="url(#arrowGlow)"
-        initial={{ opacity: 0, pathLength: 0 }}
-        animate={
-          persistent
-            ? { opacity: 1, pathLength: 1 }
-            : { opacity: [0, 1, 1, 1, 0], pathLength: [0, 1, 1, 1, 1] }
-        }
-        transition={
-          persistent
-            ? { duration: 0.5, ease: "easeOut" }
-            : { duration: 1.3, times: [0, 0.2, 0.5, 0.9, 1] }
-        }
+      {/* 外周グロー (aura) */}
+      <path d={path} fill="none" stroke="rgba(251,113,133,0.30)" strokeWidth={16} strokeLinecap="round" filter="url(#arrowGlow)" />
+      {/* ビーム本体 (draw-in) */}
+      <motion.path
+        d={path} fill="none" stroke="url(#atkArrowGrad)" strokeWidth={6.5} strokeLinecap="round" filter="url(#arrowGlow)"
+        initial={{ pathLength: 0, opacity: 0 }}
+        animate={persistent ? { pathLength: 1, opacity: 1 } : { pathLength: [0, 1, 1, 1, 1], opacity: [0, 1, 1, 1, 0] }}
+        transition={persistent ? { duration: 0.45, ease: "easeOut" } : { duration: 1.3, times: [0, 0.2, 0.5, 0.9, 1] }}
       />
+      {/* 流れるエネルギーコア (marching dashes = 対象へ energy が流れる) */}
+      <motion.path
+        d={path} fill="none" stroke="#fff" strokeWidth={2.4} strokeLinecap="round" strokeDasharray="3 15"
+        initial={{ opacity: 0 }}
+        animate={persistent ? { opacity: 0.85, strokeDashoffset: [0, -180] } : { opacity: [0, 0, 0.85, 0.85, 0], strokeDashoffset: [0, -180] }}
+        transition={{
+          opacity: persistent ? { duration: 0.5 } : { duration: 1.3, times: [0, 0.2, 0.35, 0.9, 1] },
+          strokeDashoffset: { repeat: Infinity, duration: 0.55, ease: "linear" },
+        }}
+      />
+      {/* 矢印ヘッド */}
       <motion.polygon
-        points={`${coords.x2},${coords.y2} ${leftX},${leftY} ${rightX},${rightY}`}
-        fill="#fb7185"
-        filter="url(#arrowGlow)"
+        points={`${x2},${y2} ${lX},${lY} ${rX},${rY}`} fill="url(#atkArrowGrad)" filter="url(#arrowGlow)"
         initial={{ opacity: 0, scale: 0 }}
-        animate={
-          persistent
-            ? { opacity: 1, scale: 1 }
-            : { opacity: [0, 1, 1, 1, 0], scale: [0, 1, 1.1, 1, 0.9] }
-        }
-        transition={
-          persistent
-            ? { duration: 0.4, ease: "easeOut" }
-            : { duration: 1.3, times: [0, 0.25, 0.5, 0.9, 1] }
-        }
-        style={{ transformOrigin: `${coords.x2}px ${coords.y2}px` }}
+        animate={persistent ? { opacity: 1, scale: 1 } : { opacity: [0, 1, 1, 1, 0], scale: [0, 1, 1.15, 1, 0.9] }}
+        transition={persistent ? { duration: 0.4, ease: "easeOut" } : { duration: 1.3, times: [0, 0.25, 0.5, 0.9, 1] }}
+        style={{ transformOrigin: `${x2}px ${y2}px` }}
+      />
+      {/* 対象レティクル (= 何を狙っているか明示。 persistent は脈動) */}
+      <motion.circle
+        cx={x2} cy={y2} r={20} fill="none" stroke="#fb7185" strokeWidth={2.5}
+        initial={{ opacity: 0, scale: 1.7 }}
+        animate={persistent ? { opacity: [0.45, 0.9, 0.45], scale: [1, 1.12, 1] } : { opacity: [0, 0.9, 0.6, 0], scale: [1.7, 1, 1.1, 1.2] }}
+        transition={persistent ? { duration: 1.1, repeat: Infinity, ease: "easeInOut" } : { duration: 1.3, times: [0, 0.3, 0.7, 1] }}
+        style={{ transformOrigin: `${x2}px ${y2}px` }}
+      />
+      {/* 発射点フレア */}
+      <motion.circle
+        cx={x1} cy={y1} r={6} fill="#ffe4e6" filter="url(#arrowGlow)"
+        initial={{ opacity: 0, scale: 0 }}
+        animate={persistent ? { opacity: 0.9, scale: 1 } : { opacity: [0, 1, 0.7, 0], scale: [0, 1.3, 1, 0.8] }}
+        transition={persistent ? { duration: 0.4 } : { duration: 1.0, times: [0, 0.15, 0.6, 1] }}
       />
     </svg>
   );
