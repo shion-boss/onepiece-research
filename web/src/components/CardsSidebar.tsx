@@ -41,6 +41,16 @@ export function CardsSidebar() {
       >
         すべてのカードを開く
       </Link>
+      <Link
+        href="/cards/sources"
+        className={`block px-4 py-1.5 text-[13px] hover:bg-[var(--list-hover)] hover:text-white ${
+          pathname === "/cards/sources"
+            ? "bg-[var(--list-hover)] text-white"
+            : "text-[color:var(--text-default)]"
+        }`}
+      >
+        カード参照先
+      </Link>
 
       <div className="flex items-center justify-between px-4 pb-1 pt-3">
         <span className="text-[10px] uppercase tracking-wider text-[color:var(--text-muted)]">

@@ -954,6 +954,41 @@ def list_sets():
     ]
 
 
+def _card_source_links() -> list[dict]:
+    """カードデータのスクレイプ対象 = 公式カードリストの弾(series)別ページ一覧。
+    db/cards.json の series_id / series_name で弾ごとに集計 (= カード参照先タブ用)。"""
+    try:
+        data = json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    cards = data if isinstance(data, list) else data.get("cards", [])
+    by_series: dict[str, dict] = {}
+    for c in cards:
+        sid = c.get("series_id")
+        if not sid:
+            continue
+        e = by_series.setdefault(sid, {"count": 0, "name": c.get("series_name") or sid})
+        e["count"] += 1
+    out = [
+        {
+            "source": sid,
+            "label": e["name"],
+            "source_url": f"https://www.onepiece-cardgame.com/cardlist/?series={sid}",
+            "count": e["count"],
+        }
+        for sid, e in by_series.items()
+    ]
+    out.sort(key=lambda x: str(x["source"]), reverse=True)  # 新しい series_id (数字大) 順
+    return out
+
+
+# ⚠ /api/cards/{card_id} より前に定義 (= 動的ルートに "source-links" を食われないため)。
+@app.get("/api/cards/source-links")
+def card_source_links():
+    """カードデータのスクレイプ対象リンク一覧 (= カード参照先タブ用)。"""
+    return _card_source_links()
+
+
 @app.get("/api/cards/{card_id}", response_model=CardOut)
 def get_card(card_id: str):
     try:

@@ -863,6 +863,19 @@ export async function fetchFaqSourceLinks(headers?: HeadersInit): Promise<FaqSou
   return res.json();
 }
 
+export type CardSourceLink = {
+  source: string;
+  label: string;
+  source_url: string | null;
+  count: number;
+};
+
+export async function fetchCardSourceLinks(headers?: HeadersInit): Promise<CardSourceLink[]> {
+  const res = await fetch(`${API}/api/cards/source-links`, { cache: "no-store", headers });
+  if (!res.ok) throw new Error(`fetchCardSourceLinks failed: ${res.status}`);
+  return res.json();
+}
+
 // ---- Phase A: 人間 vs AI 対戦 セッション API ---- //
 
 export type HumanLegalAction = {
