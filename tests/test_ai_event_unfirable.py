@@ -281,3 +281,25 @@ def test_prune_keeps_endphase_when_all_others_wasteful():
     pruned = prune_mechanical_waste(state, actions)
     assert any(isinstance(a, EndPhase) for a in pruned)
     assert not any(isinstance(a, PlayEvent) for a in pruned)
+
+
+def test_opp_char_removal_event_unfirable_when_no_opp_char():
+    """回帰 (2026-07-18、 ohtsuki 報告「イベント効果の対象がいない時に使ってる」):
+    相手キャラ除去だけの main event (= OP06-019 青龍印 流水 ko one_opponent_character) は、
+    相手キャラが 0 体なら対象不在で何もしない → unfirable=True (撃たない)。 相手キャラが
+    いれば firable=False (撃つ)。"""
+    repo = _repo()
+    overlay = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    ev = repo.get("OP06-019")  # 青龍印 流水: ko one_opponent_character (main, cost/if 無し)
+    state = _make_state(repo, my_don_active=8)
+    me = state.players[0]
+    opp = state.players[1]
+
+    opp.characters = []
+    assert _is_event_main_effect_unfirable(state, me, opp, ev, overlay) is True, (
+        "相手キャラ 0 体なら KO イベントは対象不在で unfirable"
+    )
+    opp.characters = [InPlay.of(repo.get("OP01-013"), sickness=False)]
+    assert _is_event_main_effect_unfirable(state, me, opp, ev, overlay) is False, (
+        "相手キャラがいれば KO イベントは firable"
+    )

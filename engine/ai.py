@@ -237,8 +237,39 @@ def _is_event_main_effect_unfirable(
             continue
         if not eval_all_conditions(eff, state, me, None):
             continue
-        return False  # 1 つでも fire 可能
+        if _main_effect_does_nothing_no_opp_char(opp, eff):
+            # 相手キャラ 0 体で「相手キャラ除去/移動」だけの効果 → 何もしない (= 対象不在)。
+            # firable 扱いせず、 撃たない (ohtsuki 報告: 対象いない時に使ってる、 2026-07-18)。
+            continue
+        return False  # 1 つでも fire 可能 (= 何かする)
     return True
+
+
+def _main_effect_does_nothing_no_opp_char(opp, eff) -> bool:
+    """eff の do が **全て**「相手キャラを対象にする除去/移動」で、 相手キャラが 0 体なら
+    True (= 対象不在で何もしない)。 保守的: 対象が one_opponent_character_* /
+    all_opponent_*character* のみ。 draw/search/self系/相手リーダー/相手ドン対象が 1 つでも
+    あれば False (= 何かする ので prune しない)。"""
+    do = eff.get("do") or []
+    if not do:
+        return False
+    OPP_CHAR_PRIMS = {
+        "ko", "ko_multi", "rest", "return_to_hand",
+        "return_to_deck_bottom", "return_to_deck_bottom_multi",
+    }
+    for prim in do:
+        if not isinstance(prim, dict):
+            return False
+        for k, v in prim.items():
+            if k not in OPP_CHAR_PRIMS:
+                return False
+            tgt = v.get("target") if isinstance(v, dict) else (v if isinstance(v, str) else None)
+            if not (isinstance(tgt, str) and (
+                tgt.startswith("one_opponent_character")
+                or (tgt.startswith("all_opponent") and "character" in tgt)
+            )):
+                return False
+    return len(opp.characters) == 0
 
 
 def _can_attack_this_turn(state: GameState, target: InPlay, is_leader: bool) -> bool:
