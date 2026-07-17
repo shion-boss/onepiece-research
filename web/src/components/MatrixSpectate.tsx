@@ -126,17 +126,19 @@ export function MatrixSpectate({
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between text-xs text-[color:var(--text-muted)]">
                   <span>2 体の AI が全ターンを計算しています…</span>
-                  <span>通常 3〜5 秒</span>
+                  <span>約 10 秒</span>
                 </div>
                 {/* 実 % は取れない (= 1 回の同期計算) ので、 経過時間ベースで減速しながら
-                    伸びるゲージ。 完了すると盤面 replay に切り替わる。 */}
+                    伸びるゲージ。 計算時間はデッキ依存 (軽い~1s / value-defense系~9s) なので
+                    遅い方 (~10s) に合わせて 92% まで伸ばし、 完了で盤面 replay に切り替わる
+                    (= 早く終われば途中で切替、 遅くても 92% で待てる)。 */}
                 <div className="h-2 w-full overflow-hidden rounded-full bg-[color:var(--surface-2)]">
                   <motion.div
                     className="h-full rounded-full"
                     style={{ background: "var(--brand)" }}
-                    initial={{ width: "5%" }}
+                    initial={{ width: "4%" }}
                     animate={{ width: "92%" }}
-                    transition={{ duration: 4.5, ease: "easeOut" }}
+                    transition={{ duration: 10, ease: "easeOut" }}
                   />
                 </div>
               </div>
