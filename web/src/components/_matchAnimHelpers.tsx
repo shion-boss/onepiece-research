@@ -1887,16 +1887,9 @@ export function AttackTargetArrowOverlay({
 
   if (!coords) return null;
   const { x1, y1, x2, y2 } = coords;
-  // 直線でなく緩い弧を描く (= ゲームらしい躍動感)。 垂直方向へ距離比で張り出す。
-  const dx = x2 - x1, dy = y2 - y1;
-  const dist = Math.hypot(dx, dy) || 1;
-  const nx = -dy / dist, ny = dx / dist;            // 垂直単位ベクトル
-  const arc = Math.min(70, dist * 0.16);
-  const cx = (x1 + x2) / 2 + nx * arc;
-  const cy = (y1 + y2) / 2 + ny * arc;
-  const path = `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`;
-  // 矢印ヘッド向き = 終点での接線 (control→end)。 弧に沿って自然に刺さる。
-  const ang = Math.atan2(y2 - cy, x2 - cx);
+  // 直線 (= 攻撃/ブロックのアニメーションと向きを揃える)。 弧は付けない。
+  const path = `M ${x1} ${y1} L ${x2} ${y2}`;
+  const ang = Math.atan2(y2 - y1, x2 - x1);
   const hl = 30, hw = 15;
   const bx = x2 - Math.cos(ang) * hl, by = y2 - Math.sin(ang) * hl;
   const lX = bx - Math.sin(ang) * hw, lY = by + Math.cos(ang) * hw;
