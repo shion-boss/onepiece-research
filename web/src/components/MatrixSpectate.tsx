@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { runMatrixSampleReplay } from "@/lib/api";
 import type { ReplayResponse } from "@/lib/types";
 import { SpectateBoard } from "@/components/SpectateBoard";
@@ -122,7 +123,23 @@ export function MatrixSpectate({
               {running ? "開始中..." : "▶ 観戦 開始"}
             </button>
             {running && (
-              <span className="text-sm text-[color:var(--text-muted)]">シミュレート中...（通常 3〜5 秒）</span>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between text-xs text-[color:var(--text-muted)]">
+                  <span>2 体の AI が全ターンを計算しています…</span>
+                  <span>通常 3〜5 秒</span>
+                </div>
+                {/* 実 % は取れない (= 1 回の同期計算) ので、 経過時間ベースで減速しながら
+                    伸びるゲージ。 完了すると盤面 replay に切り替わる。 */}
+                <div className="h-2 w-full overflow-hidden rounded-full bg-[color:var(--surface-2)]">
+                  <motion.div
+                    className="h-full rounded-full"
+                    style={{ background: "var(--brand)" }}
+                    initial={{ width: "5%" }}
+                    animate={{ width: "92%" }}
+                    transition={{ duration: 4.5, ease: "easeOut" }}
+                  />
+                </div>
+              </div>
             )}
             {error && <span className="text-sm text-[color:var(--danger)]">{error}</span>}
           </div>
