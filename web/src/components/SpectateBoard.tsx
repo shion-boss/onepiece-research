@@ -119,6 +119,16 @@ const METRIC_LABELS: Record<string, string> = {
   int_late_game_solver: "終盤の解決力",
   int_ko_immune_finisher: "KO耐性フィニッシャー",
   int_blocker_with_taunt: "挑発持ちブロッカー",
+  // 相互作用指標 (追加分 = 手番×時期 / リーダー効果flag×状態)
+  int_first_player_early_adv: "先攻×序盤展開",
+  int_second_player_late_swing: "後攻×終盤の巻き返し",
+  int_exposed_finisher: "フィニッシャーが被弾圏",
+  int_draw_advantage: "ドロー優位",
+  int_have_ramp_low_don: "ランプ持ち×DON不足",
+  int_have_burst_finisher_late: "バースト持ち×終盤",
+  int_have_search_loop_low_hand: "サーチ持ち×手札少",
+  int_have_removal_arsenal_opp_strong: "除去豊富×相手盤面強",
+  int_have_draw_engine_low_hand: "ドローエンジン×手札少",
 };
 
 const fmt = (n: number) =>
