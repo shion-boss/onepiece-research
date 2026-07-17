@@ -373,9 +373,9 @@ function SidebarPanel({ view, path }: { view: ActivityView; path: string }) {
     return (
       <div className="py-2">
         <PanelHeader>戦いの歴史</PanelHeader>
-        <PanelLink href="/history" active={path === "/history"}>月ごとの戦績を見る</PanelLink>
+        <PanelLink href="/history" active={path === "/history"}>月末の勢力図を見る</PanelLink>
         <p className="px-4 pt-2 text-[11px] leading-relaxed text-[color:var(--text-muted)]">
-          月ごとの戦績を記録。今は陣取りの月末勢力図、 今後は他コンテンツも。あとから振り返れる。
+          陣取りボードの月末に凍結した勢力図（どのリーダーがどれだけ占領したか）を、月ごとにあとから振り返れる。
         </p>
       </div>
     );
