@@ -795,16 +795,19 @@ def _pay_counter_cost(
     if cost.get("rest_self") and self_inplay is not None:
         self_inplay.rested = True
         state.push_log(f"  cost: {self_inplay.card.name} をレスト")
-    # return_self_don_to_deck N: 場のドン (active 優先 → rested) を N 枚 ドンデッキへ。
+    # return_self_don_to_deck N: 場のドン N 枚を ドンデッキへ。 ⭐ rested (= 既に使用済) を
+    # 優先して返す (ohtsuki 2026-07-17「アクティブでなくレストのドンを戻したい」)。 総ドンは
+    # どちらを返しても -1 だが、 rested を返せば今ターン使える active DON を温存できる = 常に
+    # tempo が同等以上 (= active を先に返すのは純粋に損。 人間が最適に選ぶ手を自動で採る)。
     rdon = int(cost.get("return_self_don_to_deck", 0) or 0)
     if rdon > 0:
-        from_active = min(me.don_active, rdon)
-        me.don_active -= from_active
-        me.don_remaining_in_deck += from_active
-        from_rested = min(rdon - from_active, me.don_rested)
+        from_rested = min(me.don_rested, rdon)
         me.don_rested -= from_rested
         me.don_remaining_in_deck += from_rested
-        moved = from_active + from_rested
+        from_active = min(rdon - from_rested, me.don_active)
+        me.don_active -= from_active
+        me.don_remaining_in_deck += from_active
+        moved = from_rested + from_active
         if moved:
             state.push_log(f"  cost: 自ドン {moved} 枚をドンデッキに戻す")
             if state.effects_overlay:
