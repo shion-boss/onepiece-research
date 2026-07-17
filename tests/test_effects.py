@@ -3541,6 +3541,46 @@ def test_op13_099_uses_play_from_hand_with_dynamic_cost():
     assert filt.get("feature") == "五老星", f"feature 五老星 で ない: {filt.get('feature')}"
 
 
+def test_stage_activate_main_is_offered_and_fires():
+    """回帰 (2026-07-17): ステージの起動メインが legal_actions に一切出ず「機能しない」
+    バグ。 list_activate_main_effects と ActivateMain の apply が leader+characters のみ
+    走査し me.stages を無視していた。 OP13-099 虚の玉座 (= 起動メインを持つ STAGE 41 枚の代表)
+    を場に置き、 起動メインが (1) 提示され (2) 実行でき (3) 手札の《五老星》を登場させ
+    (4) コスト (自身レスト + ドン3レスト) を払い (5) once_per_turn で再提示されないことを確認。"""
+    from engine.effects import evaluate_static_effects
+    from engine.game import legal_actions, apply_action, ActivateMain
+
+    repo = _repo()
+    overlay = _overlay()
+    # イム leader + 手札に サターン聖 (cost4 / 黒 / 五老星)
+    state = _make_state(repo, "OP13-079", hand_ids=("OP13-083",), overlay=overlay)
+    me = state.players[0]
+    throne = InPlay.of(repo.get("OP13-099"), rested=False, sickness=False)
+    me.stages = [throne]
+    me.don_active = 5
+    me.don_rested = 0
+    evaluate_static_effects(state, overlay)
+
+    am = [
+        a for a in legal_actions(state)
+        if isinstance(a, ActivateMain) and a.source_iid == throne.instance_id
+    ]
+    assert am, "ステージ (虚の玉座) の 起動メイン が legal_actions に 出ない (= 旧 bug)"
+
+    before = {id(c) for c in me.characters}
+    apply_action(state, am[0])
+    added = [c.card.card_id for c in me.characters if id(c) not in before]
+    assert added == ["OP13-083"], f"《五老星》 サターン聖 が 登場していない: {added}"
+    assert throne.rested, "起動 後 に 虚の玉座 が レスト していない (= cost 未払い)"
+    assert me.don_rested == 3, f"ドン3 レスト の cost が 払われていない: don_rested={me.don_rested}"
+
+    am_again = [
+        a for a in legal_actions(state)
+        if isinstance(a, ActivateMain) and a.source_iid == throne.instance_id
+    ]
+    assert not am_again, "once_per_turn なのに 起動メイン が 再提示 されている (= 無限ループ源)"
+
+
 def test_cost_le_dynamic_self_don_total_resolution():
     """_resolve_dynamic_filter の `self_don_total` source: me.don_active + me.don_rested
     + 付与 ドン の 合計 で cost_le を 静的化。"""

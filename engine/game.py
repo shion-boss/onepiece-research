@@ -1885,7 +1885,15 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
 
     if isinstance(action, ActivateMain):
         from .effects import fire_activate_main
-        source = _find_attacker(me, action.source_iid)
+        # 起動メイン の source は leader / character だけでなく stage も ありうる
+        # (= OP13-099 虚の玉座 等)。 _find_attacker は stage を 見ないので 明示 検索。
+        source = next(
+            (c for c in [me.leader] + list(me.characters) + list(me.stages)
+             if c.instance_id == action.source_iid),
+            None,
+        )
+        if source is None:
+            raise ValueError(f"ActivateMain source not found iid={action.source_iid}")
         bundle = state.effects_overlay.get(source.card.card_id)
         if bundle is None:
             raise ValueError("ActivateMain no effect bundle")

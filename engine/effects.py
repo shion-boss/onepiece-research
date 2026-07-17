@@ -12335,7 +12335,10 @@ def list_activate_main_effects(
     once_per_turn=True として扱う (無限ループ回避)。
     """
     out: list[tuple[InPlay, EffectSpec]] = []
-    candidates: list[InPlay] = [me.leader] + list(me.characters)
+    # ⚠ ステージ (= me.stages) も 起動メイン を 持つ (= OP13-099 虚の玉座 等 41 枚)。
+    #   旧実装は leader + characters のみ 走査していて、 ステージの activate_main が
+    #   一切 legal_actions に出ず 「機能しない」 バグ だった (2026-07-17 修正)。
+    candidates: list[InPlay] = [me.leader] + list(me.characters) + list(me.stages)
     for inplay in candidates:
         bundle = effects_overlay.get(inplay.card.card_id)
         if bundle is None:
