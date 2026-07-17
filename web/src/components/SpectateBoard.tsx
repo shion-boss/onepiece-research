@@ -124,6 +124,45 @@ const METRIC_LABELS: Record<string, string> = {
 const fmt = (n: number) =>
   Number.isInteger(n) ? `${n}` : `${Math.round(n * 10) / 10}`;
 
+// 対戦終了スタンプ: 勝者側の盤面に WIN、 敗者側に LOSE をスタンプ表示 (= 決着を各盤面で明示)。
+// side="top" = 盤上半分 (P1)、 "bottom" = 下半分 (P0)。
+function ResultStamp({ side, win }: { side: "top" | "bottom"; win: boolean }) {
+  return (
+    <motion.div
+      className={
+        "pointer-events-none absolute inset-x-0 z-[70] flex items-center justify-center " +
+        (side === "top" ? "top-0 h-1/2" : "bottom-0 h-1/2")
+      }
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      <motion.div
+        className={
+          "rounded-2xl border-2 px-10 py-3 shadow-2xl backdrop-blur-[2px] " +
+          (win
+            ? "border-amber-300 bg-amber-500/15 ring-4 ring-amber-400/40"
+            : "border-zinc-500/70 bg-black/55 ring-2 ring-zinc-600/30")
+        }
+        initial={{ scale: 0.4, rotate: win ? -12 : 8 }}
+        animate={{ scale: 1, rotate: win ? -7 : 5 }}
+        transition={{ type: "spring", stiffness: 280, damping: 15, delay: 0.05 }}
+      >
+        <div
+          className={
+            "text-5xl font-extrabold tracking-[0.18em] " +
+            (win ? "text-amber-200" : "text-zinc-400/90")
+          }
+          style={win ? { textShadow: "0 0 26px rgba(251,191,36,0.65)" } : undefined}
+        >
+          {win ? "WIN" : "LOSE"}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 // ドン付与 pulse: attached_dons が増えた card (= leader/chara) の上に「+DON」 を浮かせる。
 // 専用 overlay が _matchAnimHelpers に無い (= ドン付与は tempo action) ため観戦用に自作。
 // iids は前フレーム比較で attached_dons が増えた instance_id。 boardRef + data-iid で位置解決。
@@ -584,34 +623,13 @@ export function SpectateBoard({
           tickId={frameDiff.eventTickId}
           persistent
         />
-        {/* 対戦終了時の勝者表示 (= 盤面中央に大きく明示、 ohtsuki 2026-06-16)。
-            ヘッダの小バッジに加え、 終了が一目で分かる overlay。 */}
+        {/* 対戦終了: 勝者デッキ名のモーダルでなく、 各盤面に WIN / LOSE を表示 (ohtsuki 2026-07)。
+            上=P1(deckTop) / 下=P0(deckBottom)。 */}
         <AnimatePresence>
-          {atEnd && winner != null && winner >= 0 && (
-            <motion.div
-              key="winner-banner"
-              className="pointer-events-none absolute inset-0 z-[70] flex items-center justify-center"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.35 }}
-            >
-              <motion.div
-                className="rounded-2xl border-2 border-amber-300 bg-black/80 px-12 py-7 text-center shadow-2xl ring-4 ring-amber-400/40 backdrop-blur-sm"
-                initial={{ scale: 0.85, y: 8 }}
-                animate={{ scale: 1, y: 0 }}
-                transition={{ duration: 0.4, ease: "easeOut" }}
-              >
-                <div className="text-xs font-bold tracking-[0.35em] text-amber-200">
-                  WINNER
-                </div>
-                <div className="mt-2 text-3xl font-extrabold text-white">
-                  {winner === 0 ? deckBottomName ?? "P0" : deckTopName ?? "P1"}
-                </div>
-                <div className="mt-1 text-xs text-amber-100/70">P{winner} の勝利</div>
-              </motion.div>
-            </motion.div>
-          )}
+          {atEnd && winner != null && winner >= 0 && [
+            <ResultStamp key="rs-top" side="top" win={winner === 1} />,
+            <ResultStamp key="rs-bottom" side="bottom" win={winner === 0} />,
+          ]}
         </AnimatePresence>
         {/* ドン付与 pulse (= attached_dons 増加 card に「+DON」) */}
         <DonAttachPulseOverlay
