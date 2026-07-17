@@ -571,6 +571,7 @@ export function SpectateBoard({
           onCharaClick={NOOP}
           onSelfLeaderClick={NOOP}
           onSelfCharaClick={NOOP}
+          onSelfStageClick={NOOP}
           actionsByIid={EMPTY_ACTIONS}
           canAct={false}
           drag={null}
@@ -588,6 +589,7 @@ export function SpectateBoard({
           onCharaClick={NOOP}
           onSelfLeaderClick={NOOP}
           onSelfCharaClick={NOOP}
+          onSelfStageClick={NOOP}
           actionsByIid={EMPTY_ACTIONS}
           canAct={false}
           drag={null}
