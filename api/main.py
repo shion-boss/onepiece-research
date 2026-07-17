@@ -394,6 +394,52 @@ def _practice_run_kwargs(slug_a: Optional[str], slug_b: Optional[str],
     return kw
 
 
+def _flip_prefix_player(log_line: str) -> str:
+    """log 行頭の turn-prefix 「T{n} P{idx}:」 の player index だけを 0↔1 反転。
+    counter/defense 判定は この prefix の P-index を読むので、 席入替え表示時は これも合わせる。
+    """
+    import re as _re
+    return _re.sub(
+        r"^(T\d+ )P([01]):",
+        lambda m: f"{m.group(1)}P{'1' if m.group(2) == '0' else '0'}:",
+        log_line,
+    )
+
+
+def _snapshot_deck_a_to_front(snap: dict) -> dict:
+    """players[0]=先攻デッキ の snapshot を players[0]=deck_a に正規化 (= 表示専用)。
+
+    run_matchup は 先攻デッキを players[0] に座らせる (= 手前)。 deck_b 先攻の時に deck_b が
+    手前に来てしまうので、 replay response のコピーにだけ players を入替えて deck_a を常に
+    手前 (players[0]) にする (ohtsuki 2026-07-17「P0が常に手前」)。 game 進行・保存 snapshot・
+    学習用データは無改変。 board_eval_detail は players[0] 視点なので self↔opp + 符号反転する。
+    """
+    s = dict(snap)
+    pl = s.get("players")
+    if isinstance(pl, list) and len(pl) == 2:
+        s["players"] = [pl[1], pl[0]]
+    tpi = s.get("turn_player_idx")
+    if tpi in (0, 1):
+        s["turn_player_idx"] = 1 - tpi
+    w = s.get("winner")
+    if w in (0, 1):
+        s["winner"] = 1 - w
+    det = s.get("board_eval_detail")
+    if isinstance(det, dict):
+        s["board_eval_detail"] = {
+            k: {
+                "self": v.get("opp"),
+                "opp": v.get("self"),
+                "diff": -(v.get("diff") or 0),
+                "contribution": -(v.get("contribution") or 0),
+            }
+            for k, v in det.items()
+        }
+    if isinstance(s.get("log"), str):
+        s["log"] = _flip_prefix_player(s["log"])
+    return s
+
+
 @app.post("/api/matrix/sample/replay")
 def matrix_sample_replay(req: MatrixSampleRequest, user_id: str = Depends(current_user_id)):
     """指定 2 デッキで 1 試合シミュレートして 盤面 snapshot 付き replay を返す。
@@ -426,6 +472,11 @@ def matrix_sample_replay(req: MatrixSampleRequest, user_id: str = Depends(curren
         **_practice_run_kwargs(req.deck_a, req.deck_b),
     )
     g = rep.games[fp]
+    # deck_a を常に手前 (players[0]) に正規化 (= deck_b 先攻だと run_matchup が deck_b を
+    # players[0] に座らせるため)。 表示専用で g.winner (deck 正規化: 0=deck_a) とも整合する。
+    snaps = g.snapshots
+    if g.first_player == 1:
+        snaps = [_snapshot_deck_a_to_front(s) for s in snaps]
     # ReplayResponse は file 末尾で定義されているため文字列名で response_model 指定。
     # 実体は dict で返してもエンドポイント契約に従う (Pydantic ↔ FastAPI が validate)。
     return {
@@ -436,7 +487,7 @@ def matrix_sample_replay(req: MatrixSampleRequest, user_id: str = Depends(curren
         "first_player": g.first_player,
         "winner": g.winner if g.winner is not None else -1,
         "turns": g.turns,
-        "snapshots": g.snapshots,
+        "snapshots": snaps,
     }
 
 
