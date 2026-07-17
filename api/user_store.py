@@ -334,6 +334,22 @@ def init_schema() -> None:
             PRIMARY KEY (user_id, day, kind)
         )
         """,
+        # 人間が対戦ログの1行に付けた「バグ報告・AI改善アドバイス」。 セッションの生死や
+        # Blob upload の冪等性に依存しない耐久保存 (= コメントは AI 改善の一次信号なので
+        # セッション evict / serverless instance 分裂 でも絶対に失わない)。 sid で後から
+        # Blob ログと突き合わせる。 [[project_human_play_data_collection]]。
+        """
+        CREATE TABLE IF NOT EXISTS human_log_comments (
+            id TEXT PRIMARY KEY,
+            sid TEXT NOT NULL,
+            log_index INTEGER,
+            log_text TEXT,
+            comment TEXT NOT NULL,
+            user_id TEXT,
+            created_at TEXT NOT NULL
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_log_comments_sid ON human_log_comments(sid, created_at)",
     ]
     conn = _conn()
     try:
@@ -927,6 +943,60 @@ def get_human_matches(slug: str, limit: int = 15) -> list[dict]:
             f"ORDER BY created_at DESC LIMIT {_PH}",
             (slug, slug, int(limit)),
         )
+        return [dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+def record_log_comment(
+    *, sid: str, log_index: Optional[int], log_text: Optional[str],
+    comment: str, user_id: Optional[str], created_at: Optional[str] = None,
+) -> dict:
+    """対戦ログ1行への「バグ報告・AI改善アドバイス」を耐久保存し、 保存した1件を返す。
+
+    セッション cache や Blob upload の冪等性に一切依存しない (= コメントは AI 改善の
+    一次信号なので、 セッション evict / uvicorn reload / serverless instance 分裂 でも
+    失わない)。 後で sid をキーに Blob の対戦ログと突き合わせて解析する。
+    """
+    comment = (comment or "").strip()
+    if not sid or not comment:
+        return {}
+    init_schema()
+    entry_id = uuid.uuid4().hex
+    ts = created_at or _now()
+    cols = ("id", "sid", "log_index", "log_text", "comment", "user_id", "created_at")
+    vals = (entry_id, sid, log_index, log_text, comment, user_id, ts)
+    ph = ", ".join([_PH] * len(cols))
+    conn = _conn()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute(
+                f"INSERT INTO human_log_comments ({', '.join(cols)}) VALUES ({ph})", vals
+            )
+    finally:
+        conn.close()
+    return {"id": entry_id, "sid": sid, "log_index": log_index,
+            "log_text": log_text, "comment": comment, "created_at": ts}
+
+
+def get_log_comments(sid: Optional[str] = None, limit: int = 500) -> list[dict]:
+    """コメント一覧を新しい順に。 sid 指定でそのセッション分だけ。"""
+    init_schema()
+    conn = _conn()
+    try:
+        cur = conn.cursor()
+        if sid:
+            cur.execute(
+                f"SELECT * FROM human_log_comments WHERE sid = {_PH} "
+                f"ORDER BY created_at ASC LIMIT {_PH}",
+                (sid, int(limit)),
+            )
+        else:
+            cur.execute(
+                f"SELECT * FROM human_log_comments ORDER BY created_at DESC LIMIT {_PH}",
+                (int(limit),),
+            )
         return [dict(r) for r in cur.fetchall()]
     finally:
         conn.close()

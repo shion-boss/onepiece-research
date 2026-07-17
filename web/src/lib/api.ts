@@ -1198,7 +1198,7 @@ export async function addHumanMatchLogComment(
   log_index: number,
   log_text: string | null,
   comment: string,
-): Promise<{ entry: unknown; total: number }> {
+): Promise<{ entry: unknown; total: number | null; durable?: boolean }> {
   const res = await fetch(`${API}/api/human_match/${sid}/log_comment`, {
     method: "POST",
     headers: { "content-type": "application/json" },

@@ -4597,20 +4597,48 @@ def human_match_end(sid: str):
 
 
 @app.post("/api/human_match/{sid}/log_comment")
-def human_match_log_comment(sid: str, req: HumanLogCommentIn):
-    """log の 指定 行 に 試合中の bug 報告 / メモ を 紐付け。
+def human_match_log_comment(
+    sid: str,
+    req: HumanLogCommentIn,
+    user_id: Optional[str] = Depends(optional_user_id),
+):
+    """log の 指定 行 に 試合中の bug 報告 / AI改善アドバイス を 紐付け。
 
-    名前 / id 不要、 comment 1 つ だけ。 serialize_for_log で 一緒に Blob upload される。
+    コメント は AI 改善 の 一次信号 なので、 セッション の 生死 に 一切依存 せず 耐久保存する
+    (= user_store の human_log_comments テーブル、 SQLite/Postgres)。 旧実装 は in-memory
+    session cache 必須 で、 game_over 後 や uvicorn reload / serverless instance 分裂 で
+    session が evict されると 404 になり コメント を 失っていた (= ohtsuki 報告)。
+
+    セッション が まだ生きて いれば best-effort で session.log_comments にも 足す (= 進行中の
+    試合 なら serialize_for_log 経由 で Blob ログ にも 同梱される)。 死んでいても 上の耐久保存で
+    確実 に 残る。
     """
-    cached = _HUMAN_SESSIONS.get(sid)
-    if cached is None:
-        raise HTTPException(404, "session not found")
-    session, _log = cached
     comment_text = (req.comment or "").strip()
     if not comment_text:
         raise HTTPException(400, "comment is empty")
-    entry = session.add_log_comment(req.log_index, comment_text, req.log_text)
-    return {"entry": entry, "total": len(session.log_comments)}
+
+    # 1) 耐久保存 (= 絶対 に 失わ ない)。
+    from api import user_store
+    entry = user_store.record_log_comment(
+        sid=sid,
+        log_index=req.log_index,
+        log_text=req.log_text,
+        comment=comment_text,
+        user_id=user_id,
+    )
+
+    # 2) best-effort: セッション が cache に 生きて いれば log_comments にも 反映
+    #    (= 進行中 なら 後続 の Blob save で 同梱)。 無ければ 何も しない (404 に しない)。
+    total = None
+    cached = _HUMAN_SESSIONS.get(sid)
+    if cached is not None:
+        session, _log = cached
+        try:
+            session.add_log_comment(req.log_index, comment_text, req.log_text)
+            total = len(session.log_comments)
+        except Exception:
+            pass
+    return {"entry": entry, "total": total, "durable": True}
 
 
 @app.post("/api/human_match/{sid}/save_replay")
