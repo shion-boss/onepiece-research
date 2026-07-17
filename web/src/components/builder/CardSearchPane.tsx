@@ -8,6 +8,43 @@ import { useDeckBuilderStore } from "@/stores/deckBuilder";
 
 const CATEGORIES: CardCategory[] = ["CHARACTER", "EVENT", "STAGE"];
 
+// パックの新しさ order を card_id から導出 (= series_id の並び ST<OP<EB<PRB と同じ)。
+// series_id は Card に無いので prefix + 弾番号で近似。 大きいほど新しい弾。
+const _PACK_RANK: Record<string, number> = { ST: 0, P: 500, OP: 1000, EB: 2000, PRB: 3000 };
+function packSortKey(cardId: string): number {
+  const m = /^([A-Za-z]+)(\d+)?-/.exec(cardId);
+  const prefix = (m?.[1] ?? "").toUpperCase();
+  const packNum = m?.[2] ? parseInt(m[2], 10) : 0;
+  return (_PACK_RANK[prefix] ?? 0) + packNum;
+}
+
+type SortKey = "pack_new" | "pack_old" | "cost_asc" | "cost_desc" | "power_desc";
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "pack_new", label: "パック新しい順" },
+  { key: "pack_old", label: "パック古い順" },
+  { key: "cost_asc", label: "コスト昇順" },
+  { key: "cost_desc", label: "コスト降順" },
+  { key: "power_desc", label: "パワー高い順" },
+];
+function sortCards(cards: Card[], by: SortKey): Card[] {
+  const arr = [...cards];
+  const byCardId = (a: Card, b: Card) => a.card_id.localeCompare(b.card_id);
+  switch (by) {
+    case "pack_new":
+      return arr.sort((a, b) => packSortKey(b.card_id) - packSortKey(a.card_id) || byCardId(a, b));
+    case "pack_old":
+      return arr.sort((a, b) => packSortKey(a.card_id) - packSortKey(b.card_id) || byCardId(a, b));
+    case "cost_asc":
+      return arr.sort((a, b) => a.cost - b.cost || byCardId(a, b));
+    case "cost_desc":
+      return arr.sort((a, b) => b.cost - a.cost || byCardId(a, b));
+    case "power_desc":
+      return arr.sort((a, b) => (b.power || 0) - (a.power || 0) || byCardId(a, b));
+    default:
+      return arr;
+  }
+}
+
 type ContextMenuState = { card: Card; x: number; y: number };
 
 export function CardSearchPane({
@@ -39,6 +76,7 @@ export function CardSearchPane({
   const [costGe, setCostGe] = useState("");
   const [costLe, setCostLe] = useState("");
   const [name, setName] = useState("");
+  const [sortBy, setSortBy] = useState<SortKey>("pack_new");  // 既定 = パック新しい順
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   useEffect(() => {
@@ -68,7 +106,9 @@ export function CardSearchPane({
       cost_le: costLe ? Number(costLe) : undefined,
       name_contains: name || undefined,
       block_icon_ge: regulation === "standard" ? 2 : undefined,
-      limit: 200,
+      // 1 色 最大 ~813 枚。 「パック新しい順」 が truncate で新弾を落とさないよう全件取得
+      // (= CardImage は lazy 読込なのでタイル数が多くても軽い)。
+      limit: 1000,
     })
       .then((all) => {
         const colorSet = new Set(leaderColors);
@@ -145,6 +185,20 @@ export function CardSearchPane({
           ))}
         </select>
 
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as SortKey)}
+          aria-label="並び替え"
+          title="並び替え"
+          className="rounded-[var(--radius-sm)] border border-[color:var(--border-2)] bg-[color:var(--surface-2)] px-2 py-1 text-sm text-[color:var(--text-default)] outline-none focus:border-[color:var(--brand)]"
+        >
+          {SORT_OPTIONS.map((o) => (
+            <option key={o.key} value={o.key}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+
         <label className="flex items-center gap-1 text-xs text-[color:var(--text-muted)]">
           cost
           <input
@@ -205,7 +259,7 @@ export function CardSearchPane({
           fillHeight ? "min-h-0 flex-1" : "max-h-[60vh]"
         }`}
       >
-        {cards.map((c) => {
+        {sortCards(cards, sortBy).map((c) => {
           const used = countOf(c.card_id);
           const disabled = used >= 4;
           const isCore = coreCardIds?.has(c.card_id) ?? false;
