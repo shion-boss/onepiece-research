@@ -99,12 +99,19 @@ def setup_game(
     deck1_analysis: Optional[dict] = None,
     deck2_analysis: Optional[dict] = None,
     do_mulligan_and_finalize: bool = True,
+    human_player_idx: Optional[int] = None,
 ) -> GameState:
     """試合 初期化。
 
-    do_mulligan_and_finalize=False で 「5 枚 draw 段階」 で 一旦 停止、 マリガン適用 +
-    ライフ配布 + game_start 効果 は 行わない。 呼び出し側 が finalize_setup_after_mulligan
-    で 後段 を 実行 する 用 (= human session で user マリガン 選択 modal を 挿入)。
+    セットアップ順 (公式): game_start ステージ登場 (= イム、 手札ドロー前) → ライフ配置 →
+    手札 5 枚 → マリガン。 game_start の ステージ登場 は draw より前 に 行う (公式 FAQ)。
+
+    do_mulligan_and_finalize=False で 一旦 停止 して 呼び出し側 (= human session) に 委ねる。
+    human_player_idx を 渡すと、 その player が イム等で 該当ステージ複数を持つ場合、 手札ドロー
+    **前** に game_start_stage_pick pending を 立てて 停止する (= マリガン前のステージ選択)。
+    停止点は (1) game_start ステージ選択 (= _pre_stage_choice_pending) または (2) 手札ドロー済
+    マリガン前 (= _pre_mulligan_pending)。 (1) の resolve 後は finish_pre_mulligan_setup →
+    マリガン、 どちらも 最後に finalize_setup_after_mulligan で 完了。
     """
     if rng is None:
         rng = random.Random()
@@ -151,15 +158,27 @@ def setup_game(
     else:
         analyses = [deck2_analysis, deck1_analysis]
 
-    # 公式 5-2 セットアップ 順序: ライフ配置 → 手札 5 枚 → マリガン。
-    # 旧 implementation は 「手札 → マリガン → ライフ」 で 逆順 だった。
-    for p in state.players:
-        for _ in range(p.leader.card.life):
-            if p.deck:
-                p.life.append(p.deck.pop(0))
-    for p in state.players:
-        p.draw(5)
     state._mulligan_analyses = analyses  # type: ignore[attr-defined]
+
+    # ⭐ リーダーの「ゲーム開始時」ステージ登場 (= OP13-079 イム: デッキから特徴《聖地マリージョア》
+    #    のステージ1枚まで登場)。 公式 FAQ (cardqa_op_13): 「先攻後攻の決定をした後、最初の手札を
+    #    準備する前に」処理する = ライフ配置・手札ドロー・マリガンより **前**。 ここで先に処理する
+    #    ことで (1) ステージが手札に流れて登場不可になるのを防ぎ (2) 人間はマリガン前にステージを
+    #    選べる。 人間 (human_player_idx) で該当ステージ複数なら pending_choice で中断する。
+    _apply_game_start_stage_summons(
+        state, rng, effects_overlay, human_player_idx=human_player_idx
+    )
+    if state.pending_choice is not None:
+        # 人間のステージ選択待ち (= 手札ドロー前)。 呼び出し側 (human_session) が resolve 後に
+        # finish_pre_mulligan_setup(state) で ライフ配置+手札ドローを行い、 マリガン pending を立てる。
+        if human_player_idx is not None:
+            state.human_player_idx = human_player_idx
+        state._pre_stage_choice_pending = True  # type: ignore[attr-defined]
+        return state
+
+    # 公式 5-2 セットアップ 順序: ライフ配置 → 手札 5 枚 → マリガン。
+    _place_life_and_draw(state)
+
     if do_mulligan_and_finalize:
         # AI vs AI 試合 用 (= 全 player AI 自動判定)、 結果 を log に 明示
         for p, a in zip(state.players, analyses):
@@ -183,13 +202,28 @@ def setup_game(
         f"start: P0={p1.leader.card.name}({p1.leader.card.life}L) "
         f"vs P1={p2.leader.card.name}({p2.leader.card.life}L)"
     )
-
-    # リーダーの「ゲーム開始時」 効果を発火 (= OP13-079 黒イム の デッキから
-    # 聖地マリージョア ステージ登場 等)。 AI vs AI 経路 (= 人間なし) なので全自動。
-    _apply_game_start_stage_summons(state, rng, effects_overlay, human_player_idx=None)
-
     _recompute_static(state)
     return state
+
+
+def _place_life_and_draw(state: GameState) -> None:
+    """ライフ配置 (デッキ上から leader.life 枚) + 手札 5 枚ドロー。
+    公式順: game_start ステージ登場 の 後、 マリガン の 前。"""
+    for p in state.players:
+        for _ in range(p.leader.card.life):
+            if p.deck:
+                p.life.append(p.deck.pop(0))
+    for p in state.players:
+        p.draw(5)
+
+
+def finish_pre_mulligan_setup(state: GameState) -> None:
+    """人間の「ゲーム開始時」ステージ選択 (game_start_stage_pick) を resolve した後に、
+    ライフ配置 + 手札 5 枚ドローを行い、 マリガン前の状態にする (= human_session が呼ぶ)。
+    公式 FAQ: ステージ登場 → 最初の手札を準備 (draw) → マリガン。"""
+    _place_life_and_draw(state)
+    state._pre_stage_choice_pending = False  # type: ignore[attr-defined]
+    state._pre_mulligan_pending = True  # type: ignore[attr-defined]
 
 
 def _apply_game_start_stage_summons(
@@ -277,8 +311,9 @@ def finalize_setup_after_mulligan(
     human_player_idx: Optional[int] = None,
     human_already_processed: bool = False,
 ) -> None:
-    """setup_game(do_mulligan_and_finalize=False) で 留めた state に マリガン適用 +
-    ライフ配布 + game_start 効果 を 後段適用 して 試合 を 開始可能 状態 にする。
+    """setup_game(do_mulligan_and_finalize=False) で 留めた state に **マリガンのみ** 適用して
+    試合を開始可能状態にする。 ⚠ ライフ配置・手札ドロー・game_start ステージ登場 は setup_game
+    (+ finish_pre_mulligan_setup) で マリガン前 に 済ませてある (= 公式 FAQ 順)。 ここでは やらない。
 
     human_mulligan: 人間 player の マリガン 選択 (= True 引き直し / False keep / None なら
        _should_mulligan で auto)。 None なら AI 側 と 同じ logic。
@@ -314,10 +349,8 @@ def finalize_setup_after_mulligan(
         f"start: P0={p0.leader.card.name}({p0.leader.card.life}L) "
         f"vs P1={p1.leader.card.name}({p1.leader.card.life}L)"
     )
-    # リーダー game_start 効果 (= 人間 player は該当ステージ複数なら選択制)
-    _apply_game_start_stage_summons(
-        state, rng, effects_overlay, human_player_idx=human_player_idx
-    )
+    # ⚠ game_start ステージ登場は setup_game (= マリガン前、 公式 FAQ) で処理済み。
+    #   ここでは再度呼ばない (= 旧実装はマリガン後に登場させていて公式順と逆だった)。
     _recompute_static(state)
     state._pre_mulligan_pending = False  # type: ignore[attr-defined]
 

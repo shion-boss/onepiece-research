@@ -210,7 +210,13 @@ class HumanSession:
         if human_first is None:
             human_first = self.rng.random() < 0.5
         first_player = 0 if human_first else 1
-        # マリガン skip path で 5 枚 draw 段階 で 一旦 停止 (= user に keep/引き直し 委ね)
+        # human_idx は human_first から確定 (= setup_game に渡す = game_start ステージ選択の
+        # actor 判定に必要)。 setup_game は first_player=0 強制なので players 並びは固定。
+        self.human_idx = 0 if human_first else 1
+        self.ai_idx = 1 - self.human_idx
+        # マリガン skip path で draw 段階 で 一旦 停止 (= user に keep/引き直し 委ね)。
+        # game_start ステージ選択 (= イム) は公式 FAQ で マリガン前 なので human_player_idx を
+        # 渡し、 draw 前 に人間のステージ選択 pending を立てさせる。
         self.state = setup_game(
             deck_a if human_first else deck_b,
             deck_b if human_first else deck_a,
@@ -220,6 +226,7 @@ class HumanSession:
             deck1_analysis=deck_a_analysis if human_first else deck_b_analysis,
             deck2_analysis=deck_b_analysis if human_first else deck_a_analysis,
             do_mulligan_and_finalize=False,
+            human_player_idx=self.human_idx,
         )
         self.state.record_snapshots = True
         # 効果ランタイム・レフェリー (= カード保存則を read-only 監視、 誤検出ゼロ)。
@@ -228,21 +235,25 @@ class HumanSession:
         self.referee = SemanticReferee(strict=False)
         self.referee.observe(self.state)  # baseline 確定 (= setup 直後 = 各50枚)
         self.referee_violations: list[str] = []
-        # human_idx は human_first から 直接 算出 (= setup_game で first_player=0 強制)
-        self.human_idx = 0 if human_first else 1
-        self.ai_idx = 1 - self.human_idx
-        # マリガン pending を 設定 (= user 確認 を 待つ)
+        # human_idx / ai_idx は 上 (setup_game 前) で 算出済。
         self.state.human_player_idx = self.human_idx
-        me_hand = self.state.players[self.human_idx].hand
-        self.state.pending_choice = {
-            "kind": "mulligan_confirm",
-            "cards": [
-                {"card_id": c.card_id, "name": c.name} for c in me_hand
-            ],
-        }
-        self.state.push_log(
-            f"マリガン: {self.state.players[self.human_idx].name} 手札確認 (keep/引き直し)"
-        )
+        # 最初の pending: game_start ステージ選択 (= イムで該当2枚) が setup_game で立っていれば
+        # それを先に (公式 FAQ: マリガン前)。 無ければ通常どおりマリガン確認 pending。
+        gsp = self.state.pending_choice
+        if gsp is not None and gsp.get("kind") == "game_start_stage_pick":
+            # ステージ選択 → apply_human_choice で resolve 後に life+draw+マリガン pending。
+            self.state.push_log("ゲーム開始時: 登場ステージ選択 (マリガン前)")
+        else:
+            me_hand = self.state.players[self.human_idx].hand
+            self.state.pending_choice = {
+                "kind": "mulligan_confirm",
+                "cards": [
+                    {"card_id": c.card_id, "name": c.name} for c in me_hand
+                ],
+            }
+            self.state.push_log(
+                f"マリガン: {self.state.players[self.human_idx].name} 手札確認 (keep/引き直し)"
+            )
         # frame 再生 用: 前回 payload を 返した 時点 の snapshot 数。
         # snapshot_payload で 新規 frames を 返却 → ベースライン 更新。
         self._last_seen_snapshot_count = 0
@@ -352,6 +363,26 @@ class HumanSession:
             raise ValueError("not waiting for human choice")
         # マリガン pending 系 は 特別処理
         choice = self.state.pending_choice or {}
+        if choice.get("kind") == "game_start_stage_pick":
+            # 公式 FAQ: ゲーム開始時ステージ選択はマリガン前。 選んだステージを登場 →
+            # ライフ配置+手札ドロー (finish_pre_mulligan_setup) → マリガン確認 pending。
+            from .effects import resolve_pending_choice
+            from .game import finish_pre_mulligan_setup
+            resolve_pending_choice(self.state, picks)  # 選んだステージを登場 (空=最良自動)
+            finish_pre_mulligan_setup(self.state)      # life + draw (= マリガン前状態)
+            me_hand = self.state.players[self.human_idx].hand
+            self.state.pending_choice = {
+                "kind": "mulligan_confirm",
+                "cards": [
+                    {"card_id": c.card_id, "name": c.name} for c in me_hand
+                ],
+            }
+            self.state.push_log(
+                f"マリガン: {self.state.players[self.human_idx].name} 手札確認 (keep/引き直し)"
+            )
+            self.pending_kind = "choice"
+            self.pending_payload = dict(self.state.pending_choice)
+            return
         if choice.get("kind") == "mulligan_confirm":
             do_mulligan = bool(picks and picks[0] == 1)
             self.state.pending_choice = None
