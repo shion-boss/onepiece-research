@@ -1,0 +1,21 @@
+{
+  "deck_slug": "cardrush_1439",
+  "source": "pros_02_signals",
+  "mulligan_keep_card_ids": [
+    "EB04-058",
+    "PRB02-008"
+  ],
+  "pros02_signals": {
+    "protect_card_ids": [
+      "OP14-104",
+      "OP13-042",
+      "EB04-058",
+      "PRB02-008",
+      "OP14-110",
+      "OP14-102"
+    ],
+    "avoid_overpump": true,
+    "attack_count_priority": false,
+    "aggression": "grind"
+  }
+}

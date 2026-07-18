@@ -1,0 +1,17 @@
+{
+  "deck_slug": "cardrush_1453",
+  "source": "pros_02_signals",
+  "mulligan_keep_card_ids": [
+    "OP13-031",
+    "ST24-002",
+    "OP12-034"
+  ],
+  "pros02_signals": {
+    "protect_card_ids": [
+      "OP13-031"
+    ],
+    "avoid_overpump": true,
+    "attack_count_priority": true,
+    "aggression": "balanced"
+  }
+}

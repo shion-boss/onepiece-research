@@ -1,0 +1,15 @@
+{
+  "deck_slug": "tcgportal_corazon",
+  "source": "pros_02_signals",
+  "mulligan_keep_card_ids": [
+    "OP12-073"
+  ],
+  "pros02_signals": {
+    "protect_card_ids": [
+      "OP12-073"
+    ],
+    "avoid_overpump": true,
+    "attack_count_priority": false,
+    "aggression": "grind"
+  }
+}

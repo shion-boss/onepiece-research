@@ -1,0 +1,22 @@
+{
+  "deck_slug": "tcgportal_calgara",
+  "source": "pros_02_signals",
+  "mulligan_keep_card_ids": [
+    "EB03-053",
+    "OP08-098",
+    "OP08-110",
+    "EB04-058",
+    "OP05-117",
+    "OP08-115"
+  ],
+  "pros02_signals": {
+    "protect_card_ids": [
+      "EB03-053",
+      "OP08-098",
+      "EB04-058"
+    ],
+    "avoid_overpump": true,
+    "attack_count_priority": true,
+    "aggression": "balanced"
+  }
+}

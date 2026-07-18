@@ -1,0 +1,13 @@
+{
+  "deck_slug": "tcgportal_bonney",
+  "source": "pros_02_signals",
+  "mulligan_keep_card_ids": [
+    "EB04-001"
+  ],
+  "pros02_signals": {
+    "protect_card_ids": [],
+    "avoid_overpump": true,
+    "attack_count_priority": false,
+    "aggression": "grind"
+  }
+}

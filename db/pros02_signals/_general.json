@@ -1,0 +1,4 @@
+{
+  "_comment": "pros_02 の共通ノウハウ = 全デッキ (ユーザーデッキ含む) 適用の deck-agnostic signal。 有料proseでなく事実/フラグなのでコミット可 (本番 配備AI が読む)。 per-deck signal が同 key を持てば上書き。 attack順(低→高)/counter最小限/ライフ受け は既に engine heuristic 実装済。 [[project_note_pros02_ingestion]]",
+  "avoid_overpump": true
+}

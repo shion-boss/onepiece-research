@@ -1,0 +1,21 @@
+{
+  "deck_slug": "tcgportal_hancock",
+  "source": "pros_02_signals",
+  "mulligan_keep_card_ids": [
+    "OP14-041",
+    "OP14-113",
+    "OP08-050"
+  ],
+  "pros02_signals": {
+    "protect_card_ids": [
+      "OP14-041",
+      "OP15-113",
+      "OP14-104",
+      "OP14-105",
+      "OP08-050"
+    ],
+    "avoid_overpump": true,
+    "attack_count_priority": false,
+    "aggression": "grind"
+  }
+}

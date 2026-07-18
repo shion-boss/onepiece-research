@@ -214,33 +214,40 @@ _DEFAULT_OVERLAY_PATH = (
 
 
 def _merge_pros02_overlay(d: dict, slug: str) -> dict:
-    """Merge the gitignored pros_02 piloting overlay if present.
-    db/note_pros02/applied/<slug>.json は有料note由来の派生知識で **非コミット**
-    (storage decision Option A)。 runtime でのみ merge = pros02_piloting を注入し
-    mulligan_keep_card_ids を additive に拡張する。 不在なら無変化。"""
+    """pros_02 由来知識を deck_analysis に merge。 2 層構成 (storage decision):
+    - **committed** db/pros02_signals/<slug>.json = signals (card ID + フラグ、 事実で有料prose無し)
+      → 本番 配備AI が読む。 mulligan_keep 拡張 + pros02_signals (beam 消費) 注入。
+    - **gitignored** db/note_pros02/applied/<slug>.json = pros02_piloting (有料prose)
+      → 教師 curriculum / local のみ (本番には無い)。
+    ONEPIECE_NO_PROS02=1 で無効化 (A/B control + kill switch)。"""
     import json
     import os as _os
     if _os.environ.get("ONEPIECE_NO_PROS02") == "1":
-        return d  # A/B control + kill switch
+        return d
     root = Path(__file__).resolve().parent.parent
-    for cand in (Path("db") / "note_pros02" / "applied" / f"{slug}.json",
-                 root / "db" / "note_pros02" / "applied" / f"{slug}.json"):
-        if cand.exists():
-            try:
-                ov = json.loads(cand.read_text(encoding="utf-8"))
-            except Exception:
-                return d
-            if ov.get("pros02_piloting") is not None:
-                d["pros02_piloting"] = ov["pros02_piloting"]
-            if ov.get("pros02_signals") is not None:
-                d["pros02_signals"] = ov["pros02_signals"]  # beam 消費用 (機械可読)
-            keep = list(d.get("mulligan_keep_card_ids", []))
-            for cid in ov.get("mulligan_keep_card_ids", []):
-                if cid not in keep:
-                    keep.append(cid)
-            if keep:
-                d["mulligan_keep_card_ids"] = keep
-            return d
+
+    def _read(rel):
+        for cand in (Path(rel), root / rel):
+            if cand.exists():
+                try:
+                    return json.loads(cand.read_text(encoding="utf-8"))
+                except Exception:
+                    return None
+        return None
+
+    sig = _read(Path("db") / "pros02_signals" / f"{slug}.json")  # committed
+    if sig is not None:
+        if sig.get("pros02_signals") is not None:
+            d["pros02_signals"] = sig["pros02_signals"]
+        keep = list(d.get("mulligan_keep_card_ids", []))
+        for cid in sig.get("mulligan_keep_card_ids", []):
+            if cid not in keep:
+                keep.append(cid)
+        if keep:
+            d["mulligan_keep_card_ids"] = keep
+    prose = _read(Path("db") / "note_pros02" / "applied" / f"{slug}.json")  # gitignored/local
+    if prose is not None and prose.get("pros02_piloting") is not None:
+        d["pros02_piloting"] = prose["pros02_piloting"]
     return d
 
 

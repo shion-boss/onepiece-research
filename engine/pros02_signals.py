@@ -23,12 +23,41 @@ import os as _os
 _STATS = {"action_calls": 0, "action_nonzero": 0, "leaf_calls": 0, "leaf_nonzero": 0}
 
 
+_GENERAL: dict | None = None
+
+
+def _load_general() -> dict:
+    """全デッキ共通の pros_02 signal (deck-agnostic、 一般化ノウハウ)。 一度だけ load。"""
+    global _GENERAL
+    if _GENERAL is None:
+        from pathlib import Path
+        import json
+        # committed (= 本番 配備AI が読める、 有料proseでなく事実/フラグ)
+        p = Path(__file__).resolve().parent.parent / "db" / "pros02_signals" / "_general.json"
+        try:
+            _GENERAL = {k: v for k, v in json.loads(p.read_text("utf-8")).items()
+                        if not k.startswith("_")}
+        except Exception:
+            _GENERAL = {}
+    return _GENERAL
+
+
 def get_signals(deck_analysis) -> dict | None:
+    """一般層 (全デッキ共通) + per-deck層 (overlay 由来) を merge。
+    per-deck が同 key を持てば上書き。 = ユーザーは「共通ノウハウは全デッキ、 デッキ特有は
+    そのデッキに」 の指示 (ohtsuki 2026-07-19)。 両方無ければ None (= mechanism no-op)。"""
+    gen = _load_general()
+    deck_sig = None
     if isinstance(deck_analysis, dict):
         s = deck_analysis.get("pros02_signals")
         if isinstance(s, dict):
-            return s
-    return None
+            deck_sig = s
+    if deck_sig is None and not gen:
+        return None
+    merged = dict(gen)
+    if deck_sig:
+        merged.update(deck_sig)  # per-deck が general を上書き
+    return merged
 
 
 def action_bonus(cur_state, action, me_idx: int, sig: dict) -> float:

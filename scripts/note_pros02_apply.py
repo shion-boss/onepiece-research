@@ -116,7 +116,8 @@ def resolve_name(raw: str, pool: list[dict]) -> str | None:
     return scored[0][2]["card_id"]
 
 
-APPLIED = ROOT / "db" / "note_pros02" / "applied"  # gitignored runtime overlay
+APPLIED = ROOT / "db" / "note_pros02" / "applied"  # gitignored: prose (有料) を含む
+SIGNALS = ROOT / "db" / "pros02_signals"           # committed: signals のみ (事実/フラグ、 本番配備)
 
 
 def _derive_signals(dj: dict) -> dict:
@@ -173,17 +174,18 @@ def apply_one(distilled_slug: str, deck_slug: str, cards: dict) -> dict:
             keep_add.append(kc["card_id"])
 
     signals = _derive_signals(dj)
+    # (1) committed: signals のみ (card ID + フラグ = 事実、 有料prose無し → 本番 配備AI が読む)
+    SIGNALS.mkdir(parents=True, exist_ok=True)
+    (SIGNALS / f"{deck_slug}.json").write_text(json.dumps({
+        "deck_slug": deck_slug, "source": "pros_02_signals",
+        "mulligan_keep_card_ids": keep_add, "pros02_signals": signals,
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    # (2) gitignored: prose (pros02_piloting = 有料note由来) → 教師 curriculum / local のみ
     APPLIED.mkdir(parents=True, exist_ok=True)
-    overlay = {
-        "deck_slug": deck_slug,
-        "source": "pros_02",
-        "distilled_slug": distilled_slug,
-        "mulligan_keep_card_ids": keep_add,
-        "pros02_signals": signals,
+    (APPLIED / f"{deck_slug}.json").write_text(json.dumps({
+        "deck_slug": deck_slug, "source": "pros_02", "distilled_slug": distilled_slug,
         "pros02_piloting": dj,
-    }
-    (APPLIED / f"{deck_slug}.json").write_text(
-        json.dumps(overlay, ensure_ascii=False, indent=2), encoding="utf-8")
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"deck_slug": deck_slug, "resolved": len(resolved), "unresolved": unresolved,
             "keep_add": len(keep_add), "signals": signals}
 
