@@ -279,3 +279,4 @@ db/_analyst/
 
 # 有料 note (pros_02) の取得コンテンツ + 認証状態 はコミットしない
 db/note_pros02/
+docs/cloud_push_test.md
