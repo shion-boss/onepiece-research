@@ -1,0 +1,69 @@
+{
+  "name": "紫カタクリ (pros02)",
+  "slug": "pros02_katakuri_p",
+  "leader": "OP11-062",
+  "leader_name": "シャーロット・カタクリ",
+  "source": "pros02+net",
+  "main": [
+    {
+      "card_id": "OP15-078",
+      "count": 4
+    },
+    {
+      "card_id": "ST34-001",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-071",
+      "count": 4
+    },
+    {
+      "card_id": "ST34-003",
+      "count": 4
+    },
+    {
+      "card_id": "PRB02-010",
+      "count": 3
+    },
+    {
+      "card_id": "OP11-070",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-076",
+      "count": 3
+    },
+    {
+      "card_id": "OP11-067",
+      "count": 4
+    },
+    {
+      "card_id": "ST34-002",
+      "count": 4
+    },
+    {
+      "card_id": "ST34-005",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-077",
+      "count": 2
+    },
+    {
+      "card_id": "OP07-077",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-035",
+      "count": 2
+    },
+    {
+      "card_id": "ST34-004",
+      "count": 2
+    },
+    {
+      "card_id": "OP08-062",
+      "count": 2
+    }
+  ]
+}

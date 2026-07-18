@@ -1,0 +1,65 @@
+{
+  "name": "赤ルフィ (pros02)",
+  "slug": "pros02_luffy_r",
+  "leader": "ST21-001",
+  "leader_name": "モンキー・D・ルフィ",
+  "source": "pros02+net",
+  "main": [
+    {
+      "card_id": "OP04-016",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-015",
+      "count": 4
+    },
+    {
+      "card_id": "ST01-011",
+      "count": 2
+    },
+    {
+      "card_id": "ST31-002",
+      "count": 3
+    },
+    {
+      "card_id": "ST31-005",
+      "count": 4
+    },
+    {
+      "card_id": "ST21-003",
+      "count": 3
+    },
+    {
+      "card_id": "ST30-016",
+      "count": 4
+    },
+    {
+      "card_id": "ST31-001",
+      "count": 4
+    },
+    {
+      "card_id": "OP01-016",
+      "count": 4
+    },
+    {
+      "card_id": "ST31-004",
+      "count": 4
+    },
+    {
+      "card_id": "ST21-017",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-005",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-007",
+      "count": 4
+    },
+    {
+      "card_id": "ST21-014",
+      "count": 2
+    }
+  ]
+}

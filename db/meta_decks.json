@@ -1,21 +1,29 @@
 {
-  "_comment": "メタ(環境)デッキの正準登録リスト = 単一の真実。 接頭辞でなくこれで is_meta 判定する。 月次メタ更新 (select_cardrush_representatives) 後に再生成。 ここに無い deck はユーザーデッキ扱い。",
-  "meta_deck_slugs": [
-    "cardrush_1342",
-    "cardrush_1385",
-    "cardrush_1392",
-    "cardrush_1399",
-    "cardrush_1439",
-    "cardrush_1453",
-    "cardrush_1454",
-    "cardrush_1455",
-    "cardrush_1456",
-    "tcgportal_bonney",
-    "tcgportal_calgara",
-    "tcgportal_coby",
-    "tcgportal_corazon",
-    "tcgportal_hancock",
-    "tcgportal_op11_luffy",
-    "tcgportal_op13_luffy"
-  ]
+ "_comment": "メタ(環境)デッキの正準登録リスト = 単一の真実。 接頭辞でなくこれで is_meta 判定する。 月次メタ更新 (select_cardrush_representatives) 後に再生成。 ここに無い deck はユーザーデッキ扱い。",
+ "meta_deck_slugs": [
+  "cardrush_1342",
+  "cardrush_1385",
+  "cardrush_1392",
+  "cardrush_1399",
+  "cardrush_1439",
+  "cardrush_1453",
+  "cardrush_1454",
+  "cardrush_1455",
+  "cardrush_1456",
+  "tcgportal_bonney",
+  "tcgportal_calgara",
+  "tcgportal_coby",
+  "tcgportal_corazon",
+  "tcgportal_hancock",
+  "tcgportal_op11_luffy",
+  "tcgportal_op13_luffy",
+  "pros02_luffy_gb",
+  "cardrush_1594",
+  "pros02_sabo_rb",
+  "pros02_katakuri_p",
+  "pros02_zoro_g",
+  "pros02_kuzan_b",
+  "pros02_kid_y",
+  "pros02_luffy_r"
+ ]
 }

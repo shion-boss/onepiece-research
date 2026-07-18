@@ -1,0 +1,65 @@
+{
+  "name": "緑ゾロ (pros02)",
+  "slug": "pros02_zoro_g",
+  "leader": "OP12-020",
+  "leader_name": "ロロノア・ゾロ",
+  "source": "pros02+net",
+  "main": [
+    {
+      "card_id": "OP14-026",
+      "count": 4
+    },
+    {
+      "card_id": "ST32-002",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-031",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-034",
+      "count": 4
+    },
+    {
+      "card_id": "ST12-003",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-037",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-039",
+      "count": 4
+    },
+    {
+      "card_id": "ST32-003",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-031",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-026",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-037",
+      "count": 1
+    },
+    {
+      "card_id": "ST32-005",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-028",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-040",
+      "count": 1
+    }
+  ]
+}

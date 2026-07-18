@@ -1,0 +1,73 @@
+{
+  "name": "緑青ルフィ (pros02)",
+  "slug": "pros02_luffy_gb",
+  "leader": "OP16-022",
+  "leader_name": "モンキー・Ｄ・ルフィ",
+  "source": "pros02+net",
+  "main": [
+    {
+      "card_id": "OP06-056",
+      "count": 2
+    },
+    {
+      "card_id": "OP16-034",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-048",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-054",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-042",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-056",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-023",
+      "count": 2
+    },
+    {
+      "card_id": "ST30-014",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-050",
+      "count": 2
+    },
+    {
+      "card_id": "OP16-045",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-056",
+      "count": 2
+    },
+    {
+      "card_id": "OP16-032",
+      "count": 2
+    },
+    {
+      "card_id": "OP16-027",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-038",
+      "count": 2
+    },
+    {
+      "card_id": "OP16-055",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-061",
+      "count": 2
+    }
+  ]
+}
