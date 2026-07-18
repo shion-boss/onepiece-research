@@ -5,6 +5,13 @@
 > ([[feedback_evaluation_axis]])。 一次情報は末尾のソース。 2026-07-18 初版 (ohtsuki 方針転換)。
 >
 > **AI 実装状況の凡例**: ✅=実装済 / ⚠=部分 / ❌=未実装(=beam value フロンティア [[project_block_value_architecture]])
+>
+> **📚 このファイルは AI 実装状況つきの定石チートシート。 より詳細な専門知識ベースは
+> [`docs/optcg/`](./optcg/README.md) を参照** (2026-07-18 に 6 並列ネット調査で構築):
+> [offense](./optcg/offense.md) (攻撃) / [defense](./optcg/defense.md) (防御) /
+> [deckbuilding](./optcg/deckbuilding.md) (構築) / [archetypes_matchups](./optcg/archetypes_matchups.md)
+> (アーキ・色・マッチ) / [meta_2026-07](./optcg/meta_2026-07.md) (現環境) /
+> [advanced_mastery](./optcg/advanced_mastery.md) (NNA・アド論・上達)。
 
 ---
 

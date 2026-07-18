@@ -276,3 +276,6 @@ db/*_scoreboard*.json
 # [[project_rollout_teacher_loop]] / [[project_multi_eval_functions]] / [[project_block_value_architecture]]
 db/_analyst/
 !db/_analyst/fleet_block_status.json
+
+# 有料 note (pros_02) の取得コンテンツ + 認証状態 はコミットしない
+db/note_pros02/

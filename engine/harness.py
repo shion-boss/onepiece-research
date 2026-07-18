@@ -213,9 +213,37 @@ _DEFAULT_OVERLAY_PATH = (
 )
 
 
+def _merge_pros02_overlay(d: dict, slug: str) -> dict:
+    """Merge the gitignored pros_02 piloting overlay if present.
+    db/note_pros02/applied/<slug>.json は有料note由来の派生知識で **非コミット**
+    (storage decision Option A)。 runtime でのみ merge = pros02_piloting を注入し
+    mulligan_keep_card_ids を additive に拡張する。 不在なら無変化。"""
+    import json
+    root = Path(__file__).resolve().parent.parent
+    for cand in (Path("db") / "note_pros02" / "applied" / f"{slug}.json",
+                 root / "db" / "note_pros02" / "applied" / f"{slug}.json"):
+        if cand.exists():
+            try:
+                ov = json.loads(cand.read_text(encoding="utf-8"))
+            except Exception:
+                return d
+            if ov.get("pros02_piloting") is not None:
+                d["pros02_piloting"] = ov["pros02_piloting"]
+            keep = list(d.get("mulligan_keep_card_ids", []))
+            for cid in ov.get("mulligan_keep_card_ids", []):
+                if cid not in keep:
+                    keep.append(cid)
+            if keep:
+                d["mulligan_keep_card_ids"] = keep
+            return d
+    return d
+
+
 def _try_load_deck_analysis(deck: DeckList) -> Optional[dict]:
     """deck.slug があれば decks/<slug>.analysis.json をロード。
-    2026-05-17: slug を analysis dict に注入 (= AI が nn_per_deck preference を引ける)。"""
+    2026-05-17: slug を analysis dict に注入 (= AI が nn_per_deck preference を引ける)。
+    2026-07-18: pros_02 piloting overlay (db/note_pros02/applied/<slug>.json、 gitignore、
+    有料note由来で非コミット) を runtime merge (= [[project_note_pros02_ingestion]])。"""
     if not getattr(deck, "slug", None):
         return None
     path = Path("decks") / f"{deck.slug}.analysis.json"
@@ -223,14 +251,14 @@ def _try_load_deck_analysis(deck: DeckList) -> Optional[dict]:
         path = Path(__file__).resolve().parent.parent / "decks" / f"{deck.slug}.analysis.json"
     if not path.exists():
         # analysis 不在でも slug だけは渡す (= adaptive NN 判定で使う)
-        return {"deck_slug": deck.slug}
+        return _merge_pros02_overlay({"deck_slug": deck.slug}, deck.slug)
     try:
         import json
         d = json.loads(path.read_text(encoding="utf-8"))
         d["deck_slug"] = deck.slug  # 注入
-        return d
+        return _merge_pros02_overlay(d, deck.slug)
     except Exception:
-        return {"deck_slug": deck.slug}
+        return _merge_pros02_overlay({"deck_slug": deck.slug}, deck.slug)
 
 
 def _construct_ai(factory, rng, deck_analysis):
