@@ -72,15 +72,19 @@ def action_bonus(cur_state, action, me_idx: int, sig: dict) -> float:
     # (2) 攻撃回数を評価 (race / 圧をかける)
     if sig.get("attack_count_priority") and isinstance(action, (AttackLeader, AttackCharacter)):
         b += 1.0
-    # (3) 過剰パンプ penalty (opp leader +2000 を超えるキャラへの追加付与は無駄)
+    # (3) 過剰パンプ penalty (opp leader +2000 超のキャラへの追加付与は無駄)。
+    # ⚠ 相手ライフが詰め圏 (≤2) の時は リーサルの大型パンプなので罰さない (= ace -13pt 回帰の修正)。
     if sig.get("avoid_overpump") and isinstance(action, AttachDonToCharacter):
         me = cur_state.players[me_idx]
         opp = cur_state.players[1 - me_idx]
-        tgt = next((c for c in me.characters if c.instance_id == action.target_iid), None)
-        if tgt is not None:
-            opp_leader_pow = opp.leader.power if getattr(opp, "leader", None) else 5000
-            if int(tgt.power) >= int(opp_leader_pow) + 2000:
-                b -= 1.0
+        _ol = getattr(opp, "life", 5)
+        opp_life = len(_ol) if isinstance(_ol, (list, tuple)) else int(_ol)
+        if opp_life > 2:  # 詰め(lethal push)でない時だけ過剰パンプを抑制
+            tgt = next((c for c in me.characters if c.instance_id == action.target_iid), None)
+            if tgt is not None:
+                opp_leader_pow = opp.leader.power if getattr(opp, "leader", None) else 5000
+                if int(tgt.power) >= int(opp_leader_pow) + 2000:
+                    b -= 1.0
     if _os.environ.get("ONEPIECE_PROS02_DEBUG") == "1":
         _STATS["action_calls"] += 1
         if b:
