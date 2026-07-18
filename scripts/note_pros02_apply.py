@@ -119,6 +119,39 @@ def resolve_name(raw: str, pool: list[dict]) -> str | None:
 APPLIED = ROOT / "db" / "note_pros02" / "applied"  # gitignored runtime overlay
 
 
+def _derive_signals(dj: dict) -> dict:
+    """distilled JSON から 対戦AIが消費する 機械可読 signal を抽出 (Claude変換)。
+    - protect_card_ids: 盤面に残す/優先展開したい key card (role で判定、 ID解決済のみ)
+    - avoid_overpump: 過剰パンプを罰する (= 攻撃回数優先 / DON効率)
+    - attack_count_priority: 攻撃回数を評価する (race / 圧をかける)
+    - aggression: archetype 由来の race|grind|balanced
+    """
+    kc = dj.get("key_cards", [])
+    protect = [k["card_id"] for k in kc if k.get("card_id") and re.search(
+        r"フィニッシャー|メインアタッカー|エンジン|ドローエンジン|ブロッカー|加速|蘇生|フィニッシュ", k.get("role", ""))]
+    # 重複除去 (順序保持)
+    protect = list(dict.fromkeys(protect))
+    text = " ".join([dj.get("notes_for_ai", ""), dj.get("don_attach_notes", ""),
+                     dj.get("strategy_summary", ""), dj.get("win_condition", ""),
+                     " ".join(dj.get("common_mistakes", []))])
+    arche = dj.get("archetype", "")
+    avoid_overpump = bool(re.search(
+        r"過剰(パンプ|打点)|パンプ.*(戒|しない|偏重|避)|尖らせ(ない|ず)|均等|付与.*もったい|"
+        r"攻撃回数|6000.*(殴|攻撃|ライン)|打点を(伸ばさ|上げ)ない", text))
+    attack_count_kw = bool(re.search(
+        r"攻撃回数|殴り続け|圧をかけ|カウンター.*(吐か|消費|枯ら)|波状|横展開|殴っ", text))
+    if "アグロ" in arche:
+        aggr = "race"
+    elif "コントロール" in arche:
+        aggr = "grind"
+    else:
+        aggr = "balanced"
+    # grind (コントロール) は over-attack で不利トレードを踏むので攻撃回数優先を切る (安全側)
+    attack_count = (aggr != "grind") and (attack_count_kw or aggr == "race")
+    return {"protect_card_ids": protect, "avoid_overpump": avoid_overpump,
+            "attack_count_priority": attack_count, "aggression": aggr}
+
+
 def apply_one(distilled_slug: str, deck_slug: str, cards: dict) -> dict:
     """Write a gitignored overlay db/note_pros02/applied/<deck_slug>.json that the
     engine merges at runtime. NEVER writes into the committed decks/*.analysis.json —
@@ -139,18 +172,20 @@ def apply_one(distilled_slug: str, deck_slug: str, cards: dict) -> dict:
                 and kc["card_id"] not in keep_add:
             keep_add.append(kc["card_id"])
 
+    signals = _derive_signals(dj)
     APPLIED.mkdir(parents=True, exist_ok=True)
     overlay = {
         "deck_slug": deck_slug,
         "source": "pros_02",
         "distilled_slug": distilled_slug,
         "mulligan_keep_card_ids": keep_add,
+        "pros02_signals": signals,
         "pros02_piloting": dj,
     }
     (APPLIED / f"{deck_slug}.json").write_text(
         json.dumps(overlay, ensure_ascii=False, indent=2), encoding="utf-8")
-    return {"deck_slug": deck_slug, "resolved": len(resolved),
-            "unresolved": unresolved, "keep_add": len(keep_add)}
+    return {"deck_slug": deck_slug, "resolved": len(resolved), "unresolved": unresolved,
+            "keep_add": len(keep_add), "signals": signals}
 
 
 def main() -> None:
@@ -165,8 +200,10 @@ def main() -> None:
         print(__doc__); sys.exit(2)
     for dslug, deck in pairs:
         r = apply_one(dslug, deck, cards)
-        print(f"{dslug:14s} -> {deck:20s} resolved={r['resolved']} "
-              f"keep_add={r['keep_add']} unresolved={r['unresolved']}")
+        s = r["signals"]
+        print(f"{dslug:14s} -> {deck:20s} resolved={r['resolved']} keep_add={r['keep_add']} "
+              f"| signals: protect={len(s['protect_card_ids'])} "
+              f"overpump={int(s['avoid_overpump'])} atk_cnt={int(s['attack_count_priority'])} {s['aggression']}")
 
 
 if __name__ == "__main__":

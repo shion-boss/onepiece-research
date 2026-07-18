@@ -498,6 +498,23 @@ def search_turn_plan(
             elif hasattr(state, "players") and hasattr(state.players[me_idx], "deck_analysis"):
                 _me_deck_analysis = state.players[me_idx].deck_analysis
 
+    # === pros_02 signals (= 2026-07-19, ONEPIECE_PROS02_W): Claude が pros_02 有料note を
+    # 機械可読 signal (protect/attack_count/avoid_overpump) 化 → beam 選別で消費。 overlay 由来
+    # (= deck_analysis['pros02_signals'])。 concept_prior と同じ beam-only 規律。
+    _W_PROS02 = float(_os.environ.get("ONEPIECE_PROS02_W", "0"))
+    _USE_PROS02 = _W_PROS02 > 0
+    _pros02_sig = None
+    if _USE_PROS02:
+        if _me_deck_analysis is None:  # turn_plan と同じ fallback
+            if hasattr(state, "deck_analyses") and isinstance(state.deck_analyses, dict):
+                _me_deck_analysis = state.deck_analyses.get(me_idx)
+            elif hasattr(state, "players") and hasattr(state.players[me_idx], "deck_analysis"):
+                _me_deck_analysis = state.players[me_idx].deck_analysis
+        from .pros02_signals import get_signals as _pros02_get, action_bonus as _pros02_ab
+        _pros02_sig = _pros02_get(_me_deck_analysis)
+        if _pros02_sig is None:
+            _USE_PROS02 = False
+
     # === Plan H (= 2026-05-19): goal-directed target bonus ===
     # Claude が 書いた target spec (= decks/<slug>.target_v1.json) を 読み込み、
     # leaf state が target condition match で bonus 加算。
@@ -751,6 +768,18 @@ def search_turn_plan(
                                          if _os.environ.get("ONEPIECE_GBM_VALUE_PATH")
                                          else _PP_LINEAR_SCALE)
                             score = score - _W_DON_EFF * _de * _de_scale
+                    except Exception:
+                        pass
+
+                # pros_02 signal: 守るカードの展開 / 攻撃回数 を加点、 過剰パンプ を減点。
+                if _USE_PROS02:
+                    try:
+                        _p2 = _pros02_ab(cur_state, action, me_idx, _pros02_sig)
+                        if _p2:
+                            _p2_scale = (_PP_GBM_SCALE
+                                         if _os.environ.get("ONEPIECE_GBM_VALUE_PATH")
+                                         else _PP_LINEAR_SCALE)
+                            score = score + _W_PROS02 * _p2 * _p2_scale
                     except Exception:
                         pass
 

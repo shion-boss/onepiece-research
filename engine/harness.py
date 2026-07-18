@@ -232,6 +232,8 @@ def _merge_pros02_overlay(d: dict, slug: str) -> dict:
                 return d
             if ov.get("pros02_piloting") is not None:
                 d["pros02_piloting"] = ov["pros02_piloting"]
+            if ov.get("pros02_signals") is not None:
+                d["pros02_signals"] = ov["pros02_signals"]  # beam 消費用 (機械可読)
             keep = list(d.get("mulligan_keep_card_ids", []))
             for cid in ov.get("mulligan_keep_card_ids", []):
                 if cid not in keep:
