@@ -1422,9 +1422,12 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 from .effects import trigger_on_attack, trigger_on_opp_attack, trigger_on_opp_attack_on_leader
                 # 7-1-1-3: 【アタック時】と【相手のアタック時】が同時に発動可
                 trigger_on_attack(state, me, opp, attacker, state.effects_overlay)
-                trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay)
+                # defended_target = 攻撃されている opp のリーダー (= 過剰防御判定用)
+                trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay,
+                                      defended_target=opp.leader)
                 # defender=リーダー 限定の opp_attack (OP03-001 エース等)
-                trigger_on_opp_attack_on_leader(state, opp, me, attacker, state.effects_overlay)
+                trigger_on_opp_attack_on_leader(state, opp, me, attacker, state.effects_overlay,
+                                                defended_target=opp.leader)
         # アタック対象変更チェック (OP14-060 紫ドフラ等。redirect_attack プリミティブが set)
         if state.pending_attack_redirect is not None:
             redirect_iid = state.pending_attack_redirect
@@ -1780,10 +1783,16 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
             opp_pre_fired = getattr(state, "_opp_attack_pre_fired_id", None) == id(attacker)
             if not opp_pre_fired:
                 from .effects import trigger_on_attack, trigger_on_opp_attack, trigger_on_opp_attack_on_chara
+                # defended_target = 攻撃されている opp のキャラ (= 過剰防御判定用)
+                _def_chara = next(
+                    (c for c in opp.characters if c.instance_id == action.target_iid), None
+                )
                 trigger_on_attack(state, me, opp, attacker, state.effects_overlay)
-                trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay)
+                trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay,
+                                      defended_target=_def_chara)
                 # defender=キャラ 限定の opp_attack
-                trigger_on_opp_attack_on_chara(state, opp, me, attacker, state.effects_overlay)
+                trigger_on_opp_attack_on_chara(state, opp, me, attacker, state.effects_overlay,
+                                               defended_target=_def_chara)
         # 対象消失チェック: trigger_on_attack/opp_attack が target を KO してしまうケースに対応 (= 空打ち)
         target = next(
             (c for c in opp.characters if c.instance_id == action.target_iid),

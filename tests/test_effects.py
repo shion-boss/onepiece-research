@@ -4551,3 +4551,40 @@ def test_rest_own_card_activate_cost_human_choice_and_leader_rested():
     # リーダーがレスト(攻撃後)でも、 active なキャラで払えるので起動メインが使える
     s2, p2, _ = mk(leader_rested=True)
     assert am(s2, p2), "リーダーがレストでも他の active カードで払えて起動メインが使える"
+
+
+def test_ai_skips_overdefense_when_defended_survives():
+    """回帰 (2026-07-18、 ohtsuki 報告 idx25「リーダー効果だけでカウンター値足りてる」= AI 過剰防御):
+    エース OP13-002 の【相手アタック時】手札1捨て→攻撃者-2000(このバトル中) を、 防御対象が
+    効果なしでも耐える (defended_power > attacker_power) 時は発動しない (手札温存)。 耐えられない
+    時は従来どおり発動。 defended_target 無し (= 旧 heuristic path) は後方互換で不変。"""
+    from engine.core import GameState, InPlay, Player
+    from engine.effects import _ai_should_fire_opp_attack_cost
+
+    repo = _repo()
+    overlay = _overlay()
+    ace_eff = next(e for e in overlay["OP13-002"].effects if e.get("when") == "opp_attack")
+    p0 = Player(name="AI", leader=InPlay.of(repo.get("OP13-002"), sickness=False))
+    p1 = Player(name="atk", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p0.hand = [repo.get("OP01-013")] * 2
+    p0.life = [repo.get("OP01-013")] * 3
+    state = GameState(players=[p0, p1])
+    state.effects_overlay = overlay
+    ld_power = p0.leader.power
+
+    def atk(power):
+        a = InPlay.of(repo.get("OP01-013"), sickness=False)
+        a.static_buff = power - a.power
+        return a
+
+    # 効果なしで耐える (attacker < leader) → skip
+    assert _ai_should_fire_opp_attack_cost(
+        state, p0, p0.leader, ace_eff, attacker=atk(ld_power - 1000),
+        defended_target=p0.leader) is False
+    # 耐えられない (attacker >= leader) → 発動 (必要)
+    assert _ai_should_fire_opp_attack_cost(
+        state, p0, p0.leader, ace_eff, attacker=atk(ld_power),
+        defended_target=p0.leader) is True
+    # defended_target 無し = 旧 heuristic (発動)、 後方互換
+    assert _ai_should_fire_opp_attack_cost(
+        state, p0, p0.leader, ace_eff, attacker=atk(ld_power - 1000)) is True

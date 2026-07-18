@@ -10771,6 +10771,7 @@ def _ai_should_fire_opp_attack_cost(
     source_inplay: InPlay,
     eff: dict,
     attacker: Optional[InPlay] = None,
+    defended_target: Optional[InPlay] = None,
 ) -> bool:
     """AI defender が cost 付き opp_attack 効果 を 発動 すべきか の EV 判定。
 
@@ -10799,6 +10800,22 @@ def _ai_should_fire_opp_attack_cost(
     for prim in do_list:
         if isinstance(prim, dict):
             do_keys.update(prim.keys())
+
+    # ⭐ 過剰防御防止 (ohtsuki 報告 idx25「リーダー効果だけでカウンター値足りてる」= AI が
+    #   不要な時も手札を捨てて -2000 防御): 効果が「このバトル中の power 増減」だけ (= 恒久
+    #   価値なし、 純粋にこのバトルの防御用) で、 防御対象が効果なしでも この攻撃を耐える
+    #   (defended_power > attacker_power、 counter 前でも生存) なら発動不要 → skip (手札等を温存)。
+    #   defended_target を渡された時のみ (= game.py の attack step)。 それ以外は従来 heuristic。
+    if (attacker is not None and defended_target is not None
+            and do_keys == {"power_pump"}
+            and not os.environ.get("ONEPIECE_NO_OVERDEFENSE_SKIP")):  # A/B 用 opt-out
+        _all_battle = all(
+            isinstance(p.get("power_pump"), dict)
+            and p["power_pump"].get("duration") == "battle"
+            for p in do_list if "power_pump" in p
+        )
+        if _all_battle and int(defended_target.power or 0) > int(attacker.power or 0):
+            return False
 
     benefit = 0
     if do_keys & {"ko", "ko_multi", "return_to_hand", "return_to_hand_multi"}:
@@ -10838,6 +10855,7 @@ def _enqueue_opp_attack_with_cost(
     when_key: str,
     effects_overlay: dict[str, CardEffectBundle],
     attacker: Optional[InPlay] = None,
+    defended_target: Optional[InPlay] = None,
 ) -> None:
     """【相手のアタック時】 系 を 処理。
     人間 defender + cost 持ち: pending_choice "on_opp_attack_optional" で user 確認。
@@ -10917,7 +10935,8 @@ def _enqueue_opp_attack_with_cost(
                 pending_costed_human.append((source_inplay, idx, eff))
                 continue
             # AI: EV 判定 → 発動 価値 低い なら skip (= 旧 「常 fire」 から 改善)
-            if not _ai_should_fire_opp_attack_cost(state, me, source_inplay, eff, attacker):
+            if not _ai_should_fire_opp_attack_cost(
+                    state, me, source_inplay, eff, attacker, defended_target):
                 continue
             # AI: 即時 支払 + fire。 全 cost キーを _pay_counter_cost に委譲して漏れなく支払う
             # (= 旧実装は pay_don/rest_self_don/discard_hand のみ inline で、 rest_self/trash_self/
@@ -10978,15 +10997,19 @@ def trigger_on_opp_attack(
     opp: Player,
     attacker: InPlay,
     effects_overlay: dict[str, CardEffectBundle],
+    defended_target: Optional[InPlay] = None,
 ) -> None:
     """【相手のアタック時】(opp_attack) を enqueue (10-2-16-1)。
     me = アタックを受けているプレイヤー (= 効果の「自分」側)。
-    opp = アタックしているプレイヤー。
+    opp = アタックしているプレイヤー。 defended_target = 攻撃されている自カード (leader/chara)。
     cost 持ち effect は 人間 defender に optional 確認 modal を 立てる。
     """
     if not effects_overlay:
         return
-    _enqueue_opp_attack_with_cost(state, me, "opp_attack", effects_overlay, attacker=attacker)
+    _enqueue_opp_attack_with_cost(
+        state, me, "opp_attack", effects_overlay,
+        attacker=attacker, defended_target=defended_target,
+    )
     _maybe_resolve(state)
 
 
@@ -10996,13 +11019,17 @@ def trigger_on_opp_attack_on_leader(
     opp: Player,
     attacker: InPlay,
     effects_overlay: dict[str, CardEffectBundle],
+    defended_target: Optional[InPlay] = None,
 ) -> None:
     """【相手のアタック時】 (defender=自リーダー 限定) (opp_attack_on_leader)。
     OP03-001 ポートガス・D・エース等。
     AttackLeader 時のみ発火 (= opp_attack と並行)。 me = defender 側。"""
     if not effects_overlay:
         return
-    _enqueue_opp_attack_with_cost(state, me, "opp_attack_on_leader", effects_overlay, attacker=attacker)
+    _enqueue_opp_attack_with_cost(
+        state, me, "opp_attack_on_leader", effects_overlay,
+        attacker=attacker, defended_target=defended_target,
+    )
     _maybe_resolve(state)
 
 
@@ -11012,12 +11039,16 @@ def trigger_on_opp_attack_on_chara(
     opp: Player,
     attacker: InPlay,
     effects_overlay: dict[str, CardEffectBundle],
+    defended_target: Optional[InPlay] = None,
 ) -> None:
     """【相手のアタック時】 (defender=自キャラ 限定) (opp_attack_on_chara)。
     AttackCharacter 時のみ発火 (= opp_attack と並行)。 me = defender 側。"""
     if not effects_overlay:
         return
-    _enqueue_opp_attack_with_cost(state, me, "opp_attack_on_chara", effects_overlay, attacker=attacker)
+    _enqueue_opp_attack_with_cost(
+        state, me, "opp_attack_on_chara", effects_overlay,
+        attacker=attacker, defended_target=defended_target,
+    )
     _maybe_resolve(state)
 
 
