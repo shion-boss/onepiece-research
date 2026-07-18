@@ -20,6 +20,7 @@ AI プレイヤー
 from __future__ import annotations
 
 import copy
+import os
 import random
 import re
 from typing import Optional
@@ -2913,7 +2914,15 @@ class DeepPlanningAI(GreedyAI):
             # ブロッカー 持ち は ブロッカー 役 を 失いたくない ので 後回し
             non_blocker_attackers = [c for c in char_attackers if not c.is_blocker_now]
             preferred = non_blocker_attackers or char_attackers
-            preferred.sort(key=lambda c: -c.power)
+            # ⭐ 攻撃順: 低パワー → 高パワー (研究の定石。 弱い攻撃から要求値を積み上げ相手の
+            #   カウンターを効率的に枯らす。 高パワー先行はライフ受けされるとドンが無駄)。 更に
+            #   DON 無しで既に届く(free)キャラを、 DON が要る(boost)キャラより先に (= free を素で
+            #   殴ってから boost、 弱い free を強い free の前に)。 旧実装は -c.power (高→低) で逆。
+            #   env opt-out で A/B (ONEPIECE_ATK_ORDER_HIGH_FIRST)。 [[reference_optcg_don_attach_strategy]]
+            if os.environ.get("ONEPIECE_ATK_ORDER_HIGH_FIRST"):
+                preferred.sort(key=lambda c: -c.power)  # 旧挙動 (A/B 用)
+            else:
+                preferred.sort(key=lambda c: (c.power < opp.leader.power, c.power))
             for atk in preferred:
                 chara_atk_actions = [
                     a for a in actions
