@@ -568,6 +568,17 @@ def _can_pay_counter_cost(
     # trash_self / self_ko (= このキャラ自身をトラッシュ/KO): source 不在なら払えない。
     if (cost.get("trash_self") or cost.get("self_ko")) and self_inplay is None:
         return False
+    # flip_life_face_down (= 「自分のライフの上か下から1枚を裏向きにできる：」 cost、 ST36-005 キッド):
+    # 表向きのライフが 1 枚以上 必要 (= leader 等で表向きにした分を裏向きに戻す)。
+    if cost.get("flip_life_face_down"):
+        if min(me.face_up_life_count, len(me.life)) < 1:
+            return False
+    # flip_life_face_up (= 「自分のライフの上か下から1枚を表向きにできる：」 cost、 ST36-005 キッド):
+    # 裏向き (= 通常) のライフが 1 枚以上 必要 (= 表向き枚数 < ライフ総数)。
+    if cost.get("flip_life_face_up"):
+        fu = min(me.face_up_life_count, len(me.life))
+        if len(me.life) - fu < 1:
+            return False
     return True
 
 
@@ -834,6 +845,15 @@ def _pay_counter_cost(
     if isinstance(rhf, dict):
         cnt = int(rhf.get("count", 1))
         state.push_log(f"  cost: 手札から該当 {cnt} 枚を公開")
+    # flip_life_face_down: ライフ1枚を裏向きに (= face_up_life_count を 1 減らす)、 ST36-005 キッド。
+    # engine のライフモデルは「上か下」 の物理位置を区別せず face_up_life_count で表向き枚数のみ管理。
+    if cost.get("flip_life_face_down"):
+        me.face_up_life_count = max(0, min(me.face_up_life_count, len(me.life)) - 1)
+        state.push_log("  cost: ライフ1枚を裏向き")
+    # flip_life_face_up: ライフ1枚を表向きに (= face_up_life_count を 1 増やす)、 ST36-005 キッド。
+    if cost.get("flip_life_face_up"):
+        me.face_up_life_count = min(me.face_up_life_count + 1, len(me.life))
+        state.push_log("  cost: ライフ1枚を表向き")
     # trash_self / self_ko: source 自身を 場から除去 → トラッシュ。
     if (cost.get("trash_self") or cost.get("self_ko")) and self_inplay is not None:
         is_ko = bool(cost.get("self_ko"))
@@ -3335,11 +3355,34 @@ def _execute_effect_body(
             # 「自分のキャラ N 枚 まで を、 このターン中、 パワー+M」 等。
             # spec: {target_specs: [...], amount: M, duration: "turn"|"next_opp_turn_end"}
             # 同 target を 二重 pump しない よう dedup。
+            #
+            # 動的 target 数 (count_source): 対象数 N を場の状況から算出し、 同一
+            # target_spec を N 回 並べる。 公式 「自分の場の特徴《F》を持つカード1枚に
+            # つき、 相手のキャラ1枚までを、 パワー-M」 (= ST31-004 ルフィ) 用。
+            #   spec: {"count_target": "one_opponent_character_any",
+            #          "count_source": "self_field_feature_count", "feature": "麦わらの一味",
+            #          "amount": -1000, "duration": "turn"}
+            #   count_source:
+            #     - self_field_feature_count: 自分の場 (リーダー+キャラ+ステージ) の
+            #       特徴《feature》を持つカード数 (公式「自分の場の…カード」)。
+            #     - self_chara_feature_count: 自分のキャラのみ で 特徴《feature》を持つ数。
             if not isinstance(v, dict):
                 continue
             target_specs = v.get("target_specs", [])
             amount = int(v.get("amount", 0))
             duration = v.get("duration", "turn")
+            count_source = v.get("count_source")
+            if count_source:
+                feat = v.get("feature", "")
+                if count_source == "self_field_feature_count":
+                    field = [me.leader, *me.characters, *me.stages]
+                    n_targets = sum(1 for ip in field if feat in ip.card.features)
+                elif count_source == "self_chara_feature_count":
+                    n_targets = sum(1 for c in me.characters if feat in c.card.features)
+                else:
+                    n_targets = 0
+                ct = v.get("count_target", "one_opponent_character_any")
+                target_specs = [ct for _ in range(n_targets)]
             if not isinstance(target_specs, list):
                 continue
             already = set()
@@ -10832,6 +10875,12 @@ def _ai_should_fire_opp_attack_cost(
         benefit += 5000 if life <= 1 else 3000 if life <= 2 else 1500
     if do_keys & {"add_don", "attach_don", "attach_active_don"}:
         benefit += 1000
+    if do_keys & {"redirect_attack"}:
+        # アタック対象変更 (= ST36-005 キッド 等): リーダー/弱キャラへの攻撃を、 パワーの高い
+        # 自キャラ (= 攻撃を耐える or 交換で得) に受け流す 防御価値。 leader への攻撃を逸らすと
+        # ライフ/リーサルを守れるので、 ライフ残量が少ないほど価値が高い。
+        life = len(me.life)
+        benefit += 4000 if life <= 1 else 3000 if life <= 2 else 2000
 
     # 攻撃 確実失敗 推定 (= 発動 不要)
     if attacker is not None:

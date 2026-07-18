@@ -1,6 +1,6 @@
 # Q&A データ INDEX
 
-取得日: 2026-06-15T09:10:25.367900Z
+取得日: 2026-07-18T17:55:42.866254Z
 
 ## よくある質問 (FAQ)
 
@@ -33,9 +33,9 @@
 | ブースターパック 神速の拳【OP-11】 | 92 | `db/faq/cardqa_op_11.json` |
 | ブースターパック 師弟の絆【OP-12】 | 128 | `db/faq/cardqa_op_12.json` |
 | ブースターパック 受け継がれる意志【OP-13】 | 88 | `db/faq/cardqa_op_13.json` |
-| ブースターパック 蒼海の七傑【OP-14】 | 110 | `db/faq/cardqa_op_14.json` |
+| ブースターパック 蒼海の七傑【OP-14】 | 112 | `db/faq/cardqa_op_14.json` |
 | ブースターパック 神の島の冒険【OP-15】 | 218 | `db/faq/cardqa_op_15.json` |
-| ブースターパック 決戦の刻【OP-16】 | 116 | `db/faq/cardqa_op_16.json` |
+| ブースターパック 決戦の刻【OP-16】 | 118 | `db/faq/cardqa_op_16.json` |
 | プレミアムブースター ONE PIECE CARD THE BEST【PRB-01】 | 8 | `db/faq/cardqa_prb_01.json` |
 | プレミアムブースター ONE PIECE CARD THE BEST vol.2【PRB-02】 | 22 | `db/faq/cardqa_prb_02.json` |
 | スタートデッキ 麦わらの一味【ST-01】 | 28 | `db/faq/cardqa_st_01.json` |
@@ -68,6 +68,12 @@
 | スタートデッキ 緑黄 ヤマト【ST-28】 | 2 | `db/faq/cardqa_st_28.json` |
 | スタートデッキ EGGHEAD【ST-29】 | 14 | `db/faq/cardqa_st_29.json` |
 | スタートデッキEX ルフィ&エース【ST-30】 | 30 | `db/faq/cardqa_st_30.json` |
+| スタートデッキ 赤 モンキー・D・ルフィ【ST-31】 | 8 | `db/faq/cardqa_st_31.json` |
+| スタートデッキ 緑 ロロノア・ゾロ【ST-32】 | 4 | `db/faq/cardqa_st_32.json` |
+| スタートデッキ 青 クザン【ST-33】 | 10 | `db/faq/cardqa_st_33.json` |
+| スタートデッキ 紫 シャーロット・カタクリ【ST-34】 | 10 | `db/faq/cardqa_st_34.json` |
+| スタートデッキ 赤黒 サボ【ST-35】 | 4 | `db/faq/cardqa_st_35.json` |
+| スタートデッキ 黄 ユースタス・キッド【ST-36】 | 12 | `db/faq/cardqa_st_36.json` |
 
 ## 検索方法
 

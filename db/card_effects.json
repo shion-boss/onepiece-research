@@ -106056,5 +106056,2317 @@
         }
       ]
     }
+  ],
+  "ST31-001": [
+    {
+      "_text": "ST31-001 サンジ 【ドン!!×2】このキャラは【速攻】を得る。",
+      "when": "on_attached_don",
+      "n": 2,
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "ST31-001 サンジ 【登場時】カード1枚を引き、自分の手札から「サンジ」以外のコスト5以下の特徴《麦わらの一味》を持つキャラカード1枚までを、登場させる。",
+      "when": "on_play",
+      "do": [
+        {
+          "draw": 1
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 5,
+              "feature": "麦わらの一味",
+              "exclude_name": "サンジ"
+            },
+            "limit": 1
+          }
+        }
+      ]
+    }
+  ],
+  "ST31-002": [
+    {
+      "_text": "ST31-002 ジンベエ 【登場時】カード1枚を引き、自分の手札からコスト1の特徴《麦わらの一味》を持つカード1枚までを、登場させる。 (【ブロッカー】は innate keyword としてテキストから自動判定)",
+      "when": "on_play",
+      "do": [
+        {
+          "draw": 1
+        },
+        {
+          "play_from_hand": {
+            "filter": {
+              "cost_eq": 1,
+              "feature": "麦わらの一味"
+            },
+            "limit": 1
+          }
+        }
+      ]
+    }
+  ],
+  "ST31-003": [
+    {
+      "_text": "ST31-003 ブルック 【相手のターン中】自分の付与されているドン!!が合計3枚以上ある場合、このキャラは【ブロッカー】を得て、パワー+3000。",
+      "when": "on_attached_don",
+      "n": 0,
+      "conditions": [
+        {
+          "opp_turn": true
+        },
+        {
+          "self_attached_don_ge": 3
+        }
+      ],
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ブロッカー"
+          }
+        },
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": 3000
+          }
+        }
+      ]
+    }
+  ],
+  "ST31-004": [
+    {
+      "_text": "ST31-004 モンキー・D・ルフィ 自分の付与されているドン!!が合計3枚以上ある場合、このキャラは【速攻】を得る。",
+      "when": "on_attached_don",
+      "n": 0,
+      "conditions": [
+        {
+          "self_attached_don_ge": 3
+        }
+      ],
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "ST31-004 モンキー・D・ルフィ 【登場時】自分の場の特徴《麦わらの一味》を持つカード1枚につき、相手のキャラ1枚までを、このターン中、パワー-1000。",
+      "when": "on_play",
+      "do": [
+        {
+          "power_pump_multi": {
+            "count_source": "self_field_feature_count",
+            "feature": "麦わらの一味",
+            "count_target": "one_opponent_character_any",
+            "amount": -1000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
+  "ST31-005": [
+    {
+      "_text": "ST31-005 サウザンド・サニー号 【登場時】自分のデッキの上から5枚を見て、特徴《麦わらの一味》を持つカード1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
+      "when": "on_play",
+      "do": [
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "feature": "麦わらの一味"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "ST31-005 サウザンド・サニー号 【起動メイン】このステージをレストにできる：自分の「モンキー・D・ルフィ」1枚にレストのドン!!1枚までを、付与する。",
+      "when": "activate_main",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "rest_self": true
+              }
+            ],
+            "effect": [
+              {
+                "attach_rested_don": {
+                  "target": {
+                    "type": "self_chara_named",
+                    "name": "モンキー・D・ルフィ"
+                  },
+                  "count": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "ST32-001": [
+    {
+      "_text": "ST32-001 錦えもん 【登場時】自分の、属性(斬)を持つリーダーかドン!!1枚をレストにできる：カード2枚を引き、自分の手札1枚を捨てる。",
+      "when": "on_play",
+      "_unimplemented": "任意コスト『自分の、属性(斬)を持つリーダーかドン!!1枚をレストにできる』が、リーダー(属性(斬)で filter)とドン!!の二者択一(OR)コスト。DSL に leader-filtered と don の択一コストを表す primitive が無く、cost 配列は AND のみ (OR-cost 機構が無い)。leader だけ / don だけへの近似は忠実主義違反のため未実装マーク。効果本体は『カード2枚を引き、自分の手札1枚を捨てる』(draw:2 + trash_self_hand_random:1)。engine に rest_self_leader_filtered_or_don 択一コスト primitive を追加すれば実装可能。"
+    }
+  ],
+  "ST32-002": [
+    {
+      "_text": "ST32-002 光月おでん 【登場時】カード1枚を引き、相手の元々のコスト6以下のキャラ1枚までは、次の相手のエンドフェイズ終了時まで、レストにできない。",
+      "when": "on_play",
+      "do": [
+        {
+          "draw": 1
+        },
+        {
+          "set_cannot_rest": {
+            "target": "one_opponent_character_cost_le_6",
+            "count": 1,
+            "duration": "next_opp_turn_end"
+          }
+        }
+      ]
+    }
+  ],
+  "ST32-003": [
+    {
+      "_text": "ST32-003 ジュラキュール・ミホーク 【自分のターン中】このキャラがレストになった時、カード1枚を引き、自分の手札1枚を捨てる。",
+      "when": "on_self_rested",
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "draw": 1
+        },
+        {
+          "trash_self_hand_random": 1
+        }
+      ]
+    },
+    {
+      "_text": "ST32-003 ジュラキュール・ミホーク 【登場時】自分のリーダーが属性(斬)を持つ場合、自分の手札からコスト5以下の、「ペローナ」か属性(斬)を持つキャラカード1枚までを、登場させる。",
+      "when": "on_play",
+      "if": {
+        "leader_attribute": "斬"
+      },
+      "do": [
+        {
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_le": 5,
+              "or_clauses": [
+                {
+                  "name": "ペローナ"
+                },
+                {
+                  "attribute": "斬"
+                }
+              ]
+            },
+            "limit": 1
+          }
+        }
+      ]
+    }
+  ],
+  "ST32-004": [
+    {
+      "_text": "ST32-004 シルバーズ・レイリー 自分のリーダーが属性(斬)を持つ場合、このキャラは【速攻：キャラ】を得る。(このカードは登場したターンにキャラへアタックできる)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_attribute": "斬"
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻：キャラ"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "ST32-004 シルバーズ・レイリー 【登場時】相手のコスト2以下のキャラ2枚までを、レストにする。",
+      "when": "on_play",
+      "do": [
+        {
+          "rest_multi": {
+            "target": "any_opponent_character_cost_le_2",
+            "count": 2
+          }
+        }
+      ]
+    }
+  ],
+  "ST32-005": [
+    {
+      "_text": "ST32-005 ロロノア・ゾロ 【速攻：キャラ】(このカードは登場したターンにキャラへアタックできる)",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "速攻：キャラ"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "ST32-005 ロロノア・ゾロ 【登場時】自分のリーダーが属性(斬)を持つ場合、相手のコスト2以下のキャラ1枚までを、レストにする。",
+      "when": "on_play",
+      "if": {
+        "leader_attribute": "斬"
+      },
+      "do": [
+        {
+          "rest": "one_opponent_character_cost_le_2"
+        }
+      ]
+    }
+  ],
+  "ST33-001": [
+    {
+      "_text": "ST33-001 コビー 【ブロッカー】(intrinsic, overlay 不要) + 【登場時】自分の手札1枚を捨てることができる：カード1枚を引く。",
+      "when": "on_play",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {}
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 1
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "ST33-002": [
+    {
+      "_text": "ST33-002 サカズキ 【アタック時】自分の手札1枚を捨てることができる：相手の手札が6枚以上ある場合、相手は自身の手札1枚を捨てる。",
+      "when": "on_attack",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {}
+                }
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "opp_hand_count_ge": 6
+                  },
+                  "do": [
+                    {
+                      "force_opp_discard": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "ST33-002 サカズキ 【KO時】自分の手札からコスト4以下の特徴《海軍》を持つキャラカード1枚までを、登場させる。",
+      "when": "on_ko",
+      "do": [
+        {
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "feature": "海軍",
+              "cost_le": 4
+            },
+            "limit": 1
+          }
+        }
+      ]
+    }
+  ],
+  "ST33-003": [
+    {
+      "_text": "ST33-003 スモーカー 【登場時】自分の手札1枚を捨てることができる：相手のコスト2以下のキャラ2枚までを、持ち主のデッキの下に置く。",
+      "when": "on_play",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "count": 1,
+                  "filter": {}
+                }
+              }
+            ],
+            "effect": [
+              {
+                "return_to_deck_bottom_multi": [
+                  "one_opponent_character_cost_le_2cost",
+                  "one_opponent_character_cost_le_2cost"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "ST33-004": [
+    {
+      "_text": "ST33-004 ボルサリーノ 手札のこのカードは、効果で自分の手札が捨てられているターン中、コスト-3。【ブロッカー】は intrinsic(overlay 不要)。",
+      "when": "in_hand",
+      "do": [
+        {
+          "_unimplemented": "手札のこのカードは、効果で自分の手札が捨てられているターン中、コスト-3。 -- 「効果で自分の手札が捨てられたターン中」 を判定する eval_condition キー (= その turn 中に効果由来の hand discard が発生したかの持続フラグ) が engine に無い。 現状 state.last_discard_count は transient (直近の discard のみ) で turn 単位では残らない。 in_hand_cost_minus と組む条件が無いため近似せず未実装マーク。 engine 側に self_hand_discarded_by_effect_this_turn の per-turn フラグ + eval_condition キーを追加した上で {\"when\":\"in_hand\",\"if\":{\"self_hand_discarded_by_effect_this_turn\":true},\"do\":[{\"in_hand_cost_minus\":3}]} とすべき。"
+        }
+      ]
+    }
+  ],
+  "ST33-005": [
+    {
+      "_text": "ST33-005 モンキー・Ｄ・ガープ 【登場時】自分のリーダーが特徴《海軍》を持つ場合、自分の手札から「モンキー・Ｄ・ガープ」以外のパワー8000以下の青の特徴《海軍》を持つキャラカード1枚までを、登場させる。",
+      "when": "on_play",
+      "if": {
+        "leader_feature": "海軍"
+      },
+      "do": [
+        {
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "color": "青",
+              "feature": "海軍",
+              "power_le": 8000,
+              "exclude_name": "モンキー・Ｄ・ガープ"
+            },
+            "limit": 1
+          }
+        }
+      ]
+    }
+  ],
+  "ST34-001": [
+    {
+      "_text": "ST34-001 【自分のターン中】【ターン1回】自分の場のドン‼がドン‼デッキに戻された時、自分のリーダーが特徴《ビッグ・マム海賊団》を持つ場合、ドン‼デッキからドン‼2枚までを、レストで追加する。",
+      "when": "on_self_don_returned_to_deck",
+      "conditions": [
+        {
+          "self_turn": true
+        },
+        {
+          "leader_feature": "ビッグ・マム海賊団"
+        }
+      ],
+      "once_per_turn": true,
+      "do": [
+        {
+          "add_rested_don": 2
+        }
+      ]
+    },
+    {
+      "_text": "ST34-001 【KO時】自分の手札からパワー8000以下のキャラカード1枚までを、登場させる。",
+      "when": "on_ko",
+      "do": [
+        {
+          "play_from_hand": {
+            "filter": {
+              "category": "CHARACTER",
+              "power_le": 8000
+            },
+            "limit": 1
+          }
+        }
+      ]
+    }
+  ],
+  "ST34-002": [
+    {
+      "_text": "ST34-002 【登場時】自分のリーダーが特徴《ビッグ・マム海賊団》を持つ場合、ドン‼デッキからドン‼1枚までを、レストで追加する。その後、相手のコスト2以下のキャラ1枚までを、KOする。",
+      "when": "on_play",
+      "if": {
+        "leader_feature": "ビッグ・マム海賊団"
+      },
+      "do": [
+        {
+          "add_rested_don": 1
+        },
+        {
+          "ko": "one_opponent_character_cost_le_2cost"
+        }
+      ]
+    }
+  ],
+  "ST34-003": [
+    {
+      "_text": "ST34-003 【登場時】自分のデッキの上から3枚を見て、特徴《ビッグ・マム海賊団》を持つカード1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
+      "when": "on_play",
+      "do": [
+        {
+          "search_top_n": {
+            "depth": 3,
+            "filter": {
+              "feature": "ビッグ・マム海賊団"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
+        }
+      ]
+    }
+  ],
+  "ST34-004": [
+    {
+      "_text": "ST34-004 【登場時】ドン‼-4,自分の手札1枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。その後、相手のキャラ1枚までを、このターン中、元々のパワー0にする。",
+      "when": "on_play",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "pay_don": 4
+              },
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              },
+              {
+                "set_base_power_timed": {
+                  "target": "one_opponent_character_any",
+                  "amount": 0,
+                  "duration": "turn"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "ST34-005": [
+    {
+      "_text": "ST34-005 【アタック時】ドン‼-1：相手の元々のパワー2000以下のキャラ1枚までを、KOする。",
+      "when": "on_attack",
+      "cost": {
+        "pay_don": 1
+      },
+      "do": [
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 2000
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "ST35-001": [
+    {
+      "_text": "ST35-001 ハック on_play: 相手の元々のパワー2000以下のキャラ1枚までを、KOする。 (【ブロッカー】は intrinsic keyword)",
+      "when": "on_play",
+      "do": [
+        {
+          "ko": {
+            "type": "one_opponent_character_filtered",
+            "filter": {
+              "truly_original_power_le": 2000
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "ST35-002": [
+    {
+      "_text": "ST35-002 リンドバーグ on_play: 相手のキャラ1枚までを、このターン中、パワー-3000。",
+      "when": "on_play",
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -3000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
+  "ST35-003": [
+    {
+      "_text": "ST35-003 カラス on_attack: 自分のデッキの上から2枚をトラッシュに置くことができる：相手の手札が7枚以上ある場合、相手は自身の手札1枚を捨てる。",
+      "when": "on_attack",
+      "if": {
+        "opp_hand_count_ge": 7
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_top": 2
+              }
+            ],
+            "effect": [
+              {
+                "trash_opp_hand_random": 1
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "ST35-004": [
+    {
+      "_text": "ST35-004 コアラ: このキャラは【ブロッカー】を得て、コスト+1。",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ブロッカー"
+          }
+        },
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 1
+          }
+        }
+      ]
+    },
+    {
+      "_text": "ST35-004 コアラ on_play: 自分のリーダーにレストのドン‼1枚までを、付与する。その後、自分の手札かトラッシュからパワー4000以下の特徴《革命軍》を持つキャラカード1枚までを、登場させる。",
+      "when": "on_play",
+      "do": [
+        {
+          "attach_rested_don": {
+            "target": "self_leader",
+            "count": 1
+          }
+        },
+        {
+          "play_from_hand_or_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "feature": "革命軍",
+              "power_le": 4000
+            },
+            "limit": 1
+          }
+        }
+      ]
+    }
+  ],
+  "ST35-005": [
+    {
+      "_text": "ST35-005 バーソロミュー・くま: このキャラのコスト+3。",
+      "when": "on_attached_don",
+      "n": 0,
+      "do": [
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 3
+          }
+        }
+      ]
+    },
+    {
+      "_text": "ST35-005 バーソロミュー・くま on_play: 自分のリーダーにレストのドン‼1枚までを、付与する。その後、自分の手札かトラッシュからパワー4000以下の特徴《革命軍》を持つキャラカード1枚までを、登場させる。",
+      "when": "on_play",
+      "do": [
+        {
+          "attach_rested_don": {
+            "target": "self_leader",
+            "count": 1
+          }
+        },
+        {
+          "play_from_hand_or_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "feature": "革命軍",
+              "power_le": 4000
+            },
+            "limit": 1
+          }
+        }
+      ]
+    }
+  ],
+  "ST36-001": [
+    {
+      "_text": "ST36-001 キャベンディッシュ 【KO時】自分の手札1枚を捨てることができる：自分のデッキの上から1枚までを、ライフの上に加える。",
+      "when": "on_ko",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "put_top_to_life": 1
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "ST36-002": [
+    {
+      "_text": "ST36-002 キラー 【自分のターン中】【登場時】自分のリーダーが特徴《キッド海賊団》を持つ場合、自分のデッキの上から1枚までを、ライフの上に加える。",
+      "when": "on_play",
+      "conditions": [
+        {
+          "self_turn": true
+        },
+        {
+          "leader_feature": "キッド海賊団"
+        }
+      ],
+      "do": [
+        {
+          "put_top_to_life": 1
+        }
+      ]
+    },
+    {
+      "_text": "ST36-002 キラー 【トリガー】相手のライフが3枚以下の場合、このカードを登場させる。",
+      "when": "trigger",
+      "if": {
+        "opp_life_le": 3
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
+  "ST36-003": [
+    {
+      "_text": "ST36-003 スクラッチメン・アプー 【トリガー】カード1枚を引き、自分の特徴《超新星》を持つリーダーを、このターン中、元々のパワー7000にする。",
+      "when": "trigger",
+      "do": [
+        {
+          "draw": 1
+        },
+        {
+          "conditional": {
+            "if": {
+              "leader_feature": "超新星"
+            },
+            "do": [
+              {
+                "set_base_power_timed": {
+                  "target": "self_leader",
+                  "amount": 7000,
+                  "duration": "turn"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "ST36-004": [
+    {
+      "_text": "ST36-004 バルトロメオ 【登場時】自分の手札から特徴《超新星》を持つカード1枚を捨てることができる：カード2枚を引く。",
+      "when": "on_play",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand_with_filter": {
+                  "filter": {
+                    "feature": "超新星"
+                  },
+                  "count": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "draw": 2
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "ST36-005": [
+    {
+      "_text": "ST36-005 ユースタス・キッド 【相手のアタック時】【ターン1回】自分のライフの上か下から1枚を裏向きにできる：アタックの対象を自分の元々のパワー5000以上の「ユースタス・キッド」にする。 (engine のライフモデルは「上か下」 の物理位置を区別せず表向き枚数 face_up_life_count のみ管理。 flip_life_face_down cost = 表向き1枚を裏向きに)",
+      "when": "opp_attack",
+      "cost": {
+        "once_per_turn": true,
+        "flip_life_face_down": true
+      },
+      "do": [
+        {
+          "redirect_attack": {
+            "candidates": [
+              {
+                "type": "all_self_chara_filtered",
+                "filter": {
+                  "name": "ユースタス・キッド",
+                  "truly_original_power_ge": 5000
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "ST36-005 ユースタス・キッド 【起動メイン】【ターン1回】自分のライフの上か下から1枚を表向きにできる：自分のリーダーにレストのドン!!1枚までを、付与する。 (flip_life_face_up cost = 裏向き1枚を表向きに)",
+      "when": "activate_main",
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "flip_life_face_up": true
+              }
+            ],
+            "effect": [
+              {
+                "attach_rested_don": {
+                  "target": "self_leader",
+                  "count": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "OP11-081_r1": [
+    {
+      "_text": "OP11-081 main: 任意のコストを宣言し、相手のデッキの上から1枚を公開する。公開したカードが宣言したコストと同じ場合、相手の元々のコスト8以下のキャラ1枚までを、KOする。",
+      "when": "main",
+      "do": [
+        {
+          "declare_cost_reveal_then": {
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_8"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "皇帝剣破々刃 トリガー: 【トリガー】ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
+      "when": "trigger",
+      "do": [
+        {
+          "add_don": 1
+        }
+      ]
+    }
+  ],
+  "OP12-039_p1": [
+    {
+      "_text": "OP12-039 main: 自分のリーダーの「ロロノア・ゾロ」を、アクティブにする。",
+      "when": "main",
+      "do": [
+        {
+          "untap": "self_leader"
+        }
+      ],
+      "if": {
+        "leader_name": "ロロノア・ゾロ"
+      }
+    },
+    {
+      "_text": "OP12-039 trigger: 自分のリーダーかキャラ1枚までを、このターン中、パワー+1000。",
+      "when": "trigger",
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 1000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
+  "OP13-004_p2": [
+    {
+      "_text": "OP13-004: 自分のライフが4枚以上の場合、このリーダーのパワー-1000 (static)",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_life_ge": 4
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": -1000,
+            "duration": "static"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "on_attached_don n=1: 自分のコスト8以上のキャラがいる場合、自分のリーダーとキャラすべてを、パワー+1000",
+      "when": "on_attached_don",
+      "n": 1,
+      "do": [
+        {
+          "power_pump": {
+            "target": "all_self_team",
+            "amount": 1000,
+            "duration": "static"
+          }
+        }
+      ],
+      "if": {
+        "self_chara_cost_ge_count": {
+          "cost_ge": 8,
+          "n": 1
+        }
+      }
+    }
+  ],
+  "OP13-081_r1": [
+    {
+      "_text": "OP13-081 activate_main: 【ターン1回】自分のトラッシュからカード1枚をデッキの下に置くことができる：自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
+      "when": "activate_main",
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_to_deck": {
+                  "limit": 1
+                }
+              }
+            ],
+            "effect": [
+              {
+                "attach_rested_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "自分のリーダーが特徴《革命軍》を持つ場合、このキャラのコスト+3。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_feature": "革命軍"
+      },
+      "do": [
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 3
+          }
+        }
+      ]
+    }
+  ],
+  "OP11-079_r1": [
+    {
+      "_text": "OP11-079 counter: 任意のコストを宣言し、相手のデッキの上から1枚を公開する。公開したカードが宣言したコストと同じ場合、自分のリーダーかキャラ1枚までを、このバトル中、パワー+50",
+      "when": "counter",
+      "do": [
+        {
+          "declare_cost_reveal_then": {
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 5000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "男の勝負に…!!!薄っぺらい援護などするな!!!! トリガー: 【トリガー】カード1枚を引く。",
+      "when": "trigger",
+      "do": [
+        {
+          "draw": 1
+        }
+      ]
+    }
+  ],
+  "OP13-116_r1": [
+    {
+      "_text": "OP13-116 main: 自分のデッキの上から5枚を見て、特徴《超新星》を持つキャラカード1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置く。",
+      "when": "main",
+      "do": [
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "feature": "超新星"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP13-116 trigger: このカードの【メイン】効果を発動する。",
+      "when": "trigger",
+      "do": [
+        {
+          "fire_self_effect": {
+            "when_kind": "main"
+          }
+        }
+      ]
+    }
+  ],
+  "OP12-050_r1": [],
+  "OP12-020_p4": [
+    {
+      "_text": "don×3 activate_main: 【ターン1回】このターン中、このリーダーが相手のキャラとバトルしている場合、このリーダーをアクティブにする。その後、この",
+      "when": "activate_main",
+      "do": [
+        {
+          "untap": "self_leader"
+        },
+        {
+          "set_cannot_attack_target_cost_le": {
+            "target": "self_leader",
+            "cost_le": 7
+          }
+        }
+      ],
+      "if": {
+        "self_attached_don_ge": 3
+      },
+      "cost": {
+        "once_per_turn": true
+      }
+    }
+  ],
+  "OP12-057_r1": [
+    {
+      "_text": "OP12-057 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。その後、自分の手札1枚を捨てる。 [dd-fix]",
+      "when": "counter",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 4000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP12-057 trigger: 自分の手札1枚を捨てることができる：カード1枚を引く。",
+      "when": "trigger",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "draw": 1
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "OP12-028_r1": [
+    {
+      "_text": "OP12-028 activate_main: 自分のドン‼1枚とこのキャラをレストにできる：自分のリーダーが「ロロノア・ゾロ」の場合、自分のデッキの上から5枚を見て、属性(斬)を持つカードか緑のイベント1枚",
+      "when": "activate_main",
+      "do": [
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "or_clauses": [
+                {
+                  "attribute": "斬"
+                },
+                {
+                  "category": "EVENT",
+                  "color": "緑"
+                }
+              ]
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
+        }
+      ],
+      "if": {
+        "leader_name": "ロロノア・ゾロ"
+      },
+      "cost": {
+        "rest_self_don": 1,
+        "rest_self": true
+      }
+    }
+  ],
+  "OP12-046_r1": [
+    {
+      "_text": "OP12-046 on_play: 自分の手札2枚を捨てる。 [dd-mand]",
+      "when": "on_play",
+      "do": [
+        {
+          "trash_self_hand_random": 2
+        }
+      ]
+    },
+    {
+      "_text": "OP12-046 activate_main: このキャラをトラッシュに置くことができる：コスト5以下のキャラ1枚までを、持ち主の手札に戻す。",
+      "when": "activate_main",
+      "do": [
+        {
+          "return_to_hand": "one_opponent_character_cost_le_5"
+        }
+      ],
+      "cost": {
+        "trash_self": true
+      }
+    }
+  ],
+  "OP10-103_r1": [
+    {
+      "_text": "OP10-103 on_play: 自分のライフの上か下から1枚を手札に加えることができる：自分の手札から特徴《超新星》を持つキャラカード1枚までを、ライフの上に表向きで加える。",
+      "when": "on_play",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "hand_to_self_life": {
+                  "filter": {
+                    "category": "CHARACTER",
+                    "feature": "超新星"
+                  },
+                  "count": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "ST24-005_r1": [
+    {
+      "_text": "ST24-005 on_play: 自分のリーダーが特徴《超新星》を持つ場合、相手のコスト5以下のキャラ1枚までを、レストにする。その後、このターン終了時、自分のドン!!1枚までを、アクティブにす",
+      "when": "on_play",
+      "do": [
+        {
+          "rest": "one_opponent_character_cost_le_5cost"
+        },
+        {
+          "schedule_at_self_turn_end": {
+            "untap_don": 1
+          }
+        }
+      ],
+      "if": {
+        "leader_feature": "超新星"
+      }
+    }
+  ],
+  "OP12-090_r1": [
+    {
+      "_text": "OP12-090 on_attack: 自分のデッキの上から2枚をトラッシュに置くことができる：相手のキャラ1枚までを、このターン中、コスト-2。 [opt-cost化]",
+      "when": "on_attack",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "mill_self_top": 2
+              }
+            ],
+            "effect": [
+              {
+                "cost_minus": {
+                  "target": "one_opponent_character_any",
+                  "amount": 2
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "P-085_r2": [
+    {
+      "_text": "P-085 on_play: 自分のリーダーが特徴《超新星》を持ち、自分のライフの枚数が相手のライフの枚数以下の場合、相手のコスト4以下のキャラ1枚までを、持ち主のライフの上か下に表向きで加",
+      "when": "on_play",
+      "do": [
+        {
+          "to_opp_life": "one_opponent_character_cost_le_4cost"
+        }
+      ],
+      "conditions": [
+        {
+          "leader_feature": "超新星"
+        },
+        {
+          "self_life_le_opp": true
+        }
+      ]
+    }
+  ],
+  "OP13-008_r1": [
+    {
+      "_text": "自分の特徴《革命軍》を持つキャラが相手の効果でKOされる場合、代わりにこのキャラをトラッシュに置くことができる。",
+      "when": "replace_ko",
+      "if": {
+        "target": "any_self_chara",
+        "target_feature": "革命軍",
+        "by_opp_effect": true
+      },
+      "do": [
+        {
+          "return_self_to_trash": true
+        }
+      ],
+      "optional": true
+    }
+  ],
+  "OP10-099_p2": [
+    {
+      "_text": "【自分のターン終了時】自分のライフの上から1枚を表向きにできる：自分のコスト3から8の特徴《超新星》を持つキャラ1枚までを、アクティブにし、そのキャラは、次の相手のターン終了時まで、【ブロッカー】を得る。",
+      "_approx_note": "cost: 自ライフ表向き は 簡略 (engine 未対応)",
+      "when": "end_of_turn",
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "untap_chara": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "超新星",
+                "cost_ge": 3,
+                "cost_le": 8
+              }
+            }
+          }
+        },
+        {
+          "give_keyword": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "feature": "超新星",
+                "cost_ge": 3,
+                "cost_le": 8
+              }
+            },
+            "keyword": "ブロッカー",
+            "duration": "next_opp_turn_end"
+          }
+        }
+      ]
+    }
+  ],
+  "OP12-043_r1": [
+    {
+      "_text": "OP12-043 クザン 登場時: 手札捨て → 相手キャラ次相手リフレッシュ非アクティブ",
+      "when": "on_play",
+      "do": [
+        {
+          "stay_rested_next_refresh": "one_opponent_character_any"
+        }
+      ],
+      "cost": {
+        "discard_hand": 1
+      }
+    },
+    {
+      "_text": "OP12-043 static: 手札5以上で cost+1",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_hand_count_ge": 5
+      },
+      "do": [
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 1
+          }
+        }
+      ]
+    }
+  ],
+  "OP12-093_r1": [
+    {
+      "_text": "OP12-093 on_attached_don (パターン未一致): 自分のリーダーが特徴《革命軍》を持つ場合、このキャラのコスト+4。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_feature": "革命軍"
+      },
+      "do": [
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 4
+          }
+        }
+      ]
+    }
+  ],
+  "OP01-016_p8": [
+    {
+      "_text": "OP01-016 ナミ 登場時: デッキ上5を見て 麦わら (除く自身) 1を手札 残デッキ底",
+      "when": "on_play",
+      "do": [
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "feature": "麦わらの一味",
+              "exclude_name": "ナミ"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
+        }
+      ]
+    }
+  ],
+  "P-105_r1": [
+    {
+      "_text": "P-105 on_play: 自分のライフの上か下から1枚を手札に加えることができる：自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
+      "when": "on_play",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "life_top_or_bottom_to_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "attach_rested_don": {
+                  "target": "self_inplay_choice",
+                  "count": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "P-105 自分のリーダーが特徴《革命軍》を持つ場合、このキャラは【ブロッカー】を得て、コスト+4。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "leader_feature": "革命軍"
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ブロッカー"
+          }
+        },
+        {
+          "set_base_cost": {
+            "target": "self",
+            "delta": 4
+          }
+        }
+      ],
+      "_fidelity_note": "text「ブロッカーを得て、コスト+4」のうち コスト+4 (自分field 自己 static cost+N) が未実装 (architectural、 OP08-084 と同class)。 ブロッカーのみ実装"
+    }
+  ],
+  "OP11-066_r1": [
+    {
+      "_text": "OP11-066 activate_main: このキャラをレストにできる：任意のコストを宣言し、相手のデッキの上から1枚を公開する。公開したカードが宣言したコストと同じ場合、相手の元々のコスト3以下のキャラ",
+      "when": "activate_main",
+      "cost": {
+        "rest_self": true
+      },
+      "do": [
+        {
+          "declare_cost_reveal_then": {
+            "effect": [
+              {
+                "ko": "one_opponent_character_cost_le_3"
+              },
+              {
+                "add_rested_don": 1
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "OP12-113_r1": [
+    {
+      "_text": "OP12-113 on_ko: 自分のリーダーが特徴《超新星》を持つ場合、自分の手札からコスト4以下の特徴《超新星》を持つキャラカード1枚までを、レストで登場させる。",
+      "when": "on_ko",
+      "do": [
+        {
+          "play_from_hand": {
+            "filter": {
+              "cost_le": 4,
+              "feature": "超新星"
+            },
+            "limit": 1,
+            "rested": true
+          }
+        }
+      ],
+      "if": {
+        "leader_feature": "超新星"
+      }
+    },
+    {
+      "_text": "OP12-113 trigger: 相手のコスト1以下のキャラ1枚までを、KOし、このカードを手札に加える。",
+      "when": "trigger",
+      "do": [
+        {
+          "ko": "one_opponent_character_cost_le_1cost"
+        },
+        {
+          "to_hand_self_trigger": true
+        }
+      ]
+    }
+  ],
+  "OP13-021_r1": [
+    {
+      "_text": "OP13-021 main: 自分の「モンキー・Ｄ・ルフィ」1枚にレストのドン‼1枚までを、付与する。その後、相手のキャラ1枚までを、このターン中、パワー-2000。",
+      "when": "main",
+      "do": [
+        {
+          "attach_rested_don": {
+            "target": {
+              "type": "one_self_chara_filtered",
+              "filter": {
+                "name": "モンキー・Ｄ・ルフィ"
+              }
+            },
+            "count": 1
+          }
+        },
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -2000,
+            "duration": "turn"
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP13-021 trigger: 相手のキャラ1枚までを、このターン中、パワー-2000。",
+      "when": "trigger",
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -2000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
+  "OP10-101_r1": [],
+  "OP15-036_r1": [
+    {
+      "_text": "OP15-036 on_attack: 相手のレストのコスト4以下のキャラ1枚までを、KOする。",
+      "when": "on_attack",
+      "do": [
+        {
+          "ko": "one_opponent_rested_character_cost_le_4cost"
+        }
+      ]
+    },
+    {
+      "_text": "OP15-036 on_play: 相手のレストのコスト4以下のキャラ1枚までを、KOする。",
+      "when": "on_play",
+      "do": [
+        {
+          "ko": "one_opponent_rested_character_cost_le_4cost"
+        }
+      ]
+    }
+  ],
+  "OP11-071_r1": [
+    {
+      "_text": "OP11-071 activate_main: 【ターン1回】自分の手札1枚を捨てることができる：任意のコストを宣言し、相手のデッキの上から1枚を公開する。公開したカードが宣言したコストと同じ場合、カード1枚 [dd-fix]",
+      "when": "activate_main",
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "declare_cost_reveal_then": {
+                  "effect": [
+                    {
+                      "draw": 1
+                    },
+                    {
+                      "add_don": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "OP04-016_p3": [
+    {
+      "_text": "OP04-016 counter: 自分の手札1枚を捨てることができる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+3000。 [dd-fix]",
+      "when": "counter",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 3000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP04-016 trigger: 相手のリーダーかキャラ1枚までを、このターン中、パワー-3000。",
+      "when": "trigger",
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_opponent_inplay_any",
+            "amount": -3000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
+  "ST21-001_r1": [
+    {
+      "_text": "ST21-001 【起動メイン】【ターン1回】自分のキャラ1枚にレストのドン!!2枚までを、付与する。 [don-gate2]",
+      "when": "activate_main",
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "attach_rested_don": {
+            "target": "one_self_character_any",
+            "count": 2
+          }
+        }
+      ],
+      "if": {
+        "self_attached_don_ge": 1
+      }
+    }
+  ],
+  "OP12-031_r1": [
+    {
+      "_text": "OP12-031 on_play: 相手の元々のコスト6以下のキャラ1枚までを、レストにする。その後、自分のリーダーの「ロロノア・ゾロ」にレストのドン‼3枚までを、付与する。",
+      "when": "on_play",
+      "do": [
+        {
+          "rest": "one_opponent_character_cost_le_6cost"
+        }
+      ]
+    }
+  ],
+  "P-088_r2": [
+    {
+      "_text": "trigger: 条件 ({'leader_feature': '超新星', 'total_life_le': 5}) で 自身登場",
+      "when": "trigger",
+      "if": {
+        "leader_feature": "超新星",
+        "total_life_le": 5
+      },
+      "do": [
+        {
+          "play_self": true
+        }
+      ]
+    }
+  ],
+  "OP13-005_r1": [
+    {
+      "_text": "OP13-005 on_play: 自分のリーダーにレストのドン‼1枚までを、付与する。",
+      "when": "on_play",
+      "do": [
+        {
+          "attach_rested_don": {
+            "target": "self_leader",
+            "count": 1
+          }
+        }
+      ]
+    }
+  ],
+  "OP11-003_r1": [],
+  "EB03-032_r1": [
+    {
+      "_text": "EB03-032 on_play: 自分の「シャーロット・カタクリ」1枚までを、このターン中、パワー+2000。",
+      "when": "on_play",
+      "do": [
+        {
+          "power_pump": {
+            "target": {
+              "type": "self_chara_or_leader_named",
+              "name": "シャーロット・カタクリ"
+            },
+            "amount": 2000,
+            "duration": "turn"
+          }
+        }
+      ],
+      "conditions": [
+        {
+          "self_turn": true
+        }
+      ]
+    }
+  ],
+  "EB03-035_r1": [
+    {
+      "_text": "EB03-035 on_play: 自分の場のドン‼が相手の場のドン‼の枚数以下の場合、ドン‼デッキからドン‼1枚までを、レストで追加する。",
+      "when": "on_play",
+      "do": [
+        {
+          "add_rested_don": 1
+        }
+      ],
+      "if": {
+        "don_diff_le": 0
+      }
+    }
+  ],
+  "OP13-017_r1": [
+    {
+      "_text": "自《革命軍》 効果離脱 → holder パワー-2000 (turn、 1回)",
+      "when": "replace_leave",
+      "if": {
+        "target": "any_self_chara",
+        "target_feature": "革命軍",
+        "by_opp_effect": true
+      },
+      "cost": [
+        {
+          "once_per_turn": true
+        }
+      ],
+      "do": [
+        {
+          "power_pump": {
+            "target": "self",
+            "amount": -2000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
+  "OP10-111_r1": [
+    {
+      "_text": "OP10-111 on_play: 自分のデッキの上から5枚を見て、「モンキー・D・ルフィ」以外の特徴《超新星》を持つカード1枚までを公開し、手札に加える。その後、残りを好きな順番でデッキの下に置",
+      "when": "on_play",
+      "do": [
+        {
+          "search_top_n": {
+            "depth": 5,
+            "filter": {
+              "feature": "超新星",
+              "exclude_name": "モンキー・D・ルフィ"
+            },
+            "limit": 1,
+            "destination": "hand",
+            "rest_remain": "bottom"
+          }
+        }
+      ]
+    }
+  ],
+  "OP12-098_r1": [
+    {
+      "_text": "OP12-098 カウンター:自リーダーかキャラ+2000、自コスト8以上革命軍キャラがいればそのカード更に+2000",
+      "when": "counter",
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_inplay",
+            "amount": 2000,
+            "duration": "battle"
+          }
+        },
+        {
+          "conditional": {
+            "if": {
+              "self_chara_filtered_count_ge": {
+                "filter": {
+                  "feature": "革命軍",
+                  "cost_ge": 8
+                },
+                "count": 1
+              }
+            },
+            "do": [
+              {
+                "power_pump": {
+                  "target": "self_inplay",
+                  "amount": 2000,
+                  "duration": "battle"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "_text": "OP12-098 trigger: カード1枚を引き、自分のデッキの上から1枚をトラッシュに置く。",
+      "when": "trigger",
+      "do": [
+        {
+          "mill_self_top": 1
+        }
+      ]
+    }
+  ],
+  "OP12-045_r1": [],
+  "OP12-047_r1": [
+    {
+      "_text": "OP12-047 on_play: 自分の手札1枚を捨てることができる：自分のデッキの上から5枚を見て、「センゴク」以外の特徴《海軍》を持つカード2枚までを公開し、手札に加える。その後、残りを好き [dd-fix]",
+      "when": "on_play",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "search_top_n": {
+                  "depth": 5,
+                  "filter": {
+                    "feature": "海軍",
+                    "exclude_name": "センゴク"
+                  },
+                  "limit": 2,
+                  "destination": "hand",
+                  "rest_remain": "bottom"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "OP10-036_r1": [
+    {
+      "_text": "OP10-036 【自分のターン中】【ターン1回】キャラが自分の効果でレストになった時、自分のドン!!1枚までを、アクティブにする。",
+      "when": "on_self_chara_rested_by_self_effect",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "untap_don": 1
+        }
+      ]
+    }
+  ],
+  "OP11-062_p2": [
+    {
+      "_text": "OP11-062 【アタック時】/",
+      "when": "on_attack",
+      "do": [
+        {
+          "peek_opp_deck_top": 1
+        },
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "battle"
+          }
+        }
+      ],
+      "cost": {
+        "once_per_turn": true,
+        "pay_don": 1
+      }
+    },
+    {
+      "_text": "OP11-062 【相手のアタック時】【ターン1回】ドン‼-1：相手のデッキの上から1枚を見る。その後、このリーダーは、このバトル中、パワー+1000。",
+      "when": "opp_attack",
+      "do": [
+        {
+          "peek_opp_deck_top": 1
+        },
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 1000,
+            "duration": "battle"
+          }
+        }
+      ],
+      "cost": {
+        "once_per_turn": true,
+        "pay_don": 1
+      }
+    }
+  ],
+  "OP12-027_r1": [
+    {
+      "_text": "コウシロウ replace_ko: 自分の他のコスト5以下属性(斬)が相手効果でKOされる場合、代わりに自身レスト",
+      "when": "replace_ko",
+      "if": {
+        "target": "other_self_chara",
+        "target_attribute": "斬",
+        "target_cost_le": 5,
+        "by_opp_effect": true
+      },
+      "do": [
+        {
+          "rest": "self"
+        }
+      ],
+      "optional": true
+    }
+  ],
+  "OP10-114_r2": [
+    {
+      "_text": "OP10-114 activate_main: このキャラをレストにできる：自分のライフの枚数が相手のライフの枚数以下の場合、相手のコスト4以下のキャラ1枚までを、レストにする。",
+      "when": "activate_main",
+      "do": [
+        {
+          "rest": "one_opponent_character_cost_le_4cost"
+        }
+      ],
+      "cost": {
+        "rest_self": true
+      },
+      "if": {
+        "self_life_le_opp": true
+      }
+    }
+  ],
+  "OP12-040_p2": [
+    {
+      "_text": "自分の特徴《海軍》を持つカードの効果で自分の手札からカードが捨てられた時、捨てた枚数分カードを引く。",
+      "when": "on_self_hand_discarded",
+      "if": {
+        "actor_source_feature_contains": "海軍"
+      },
+      "do": [
+        {
+          "draw_per_self_hand_discarded": true
+        }
+      ]
+    }
+  ],
+  "OP12-026_r1": [
+    {
+      "_text": "OP12-026 activate_main: このキャラをレストにできる：相手の元々のコスト4以下のキャラ1枚までを、レストにする。その後、自分のリーダーの「ロロノア・ゾロ」にレストのドン‼3枚までを、付与",
+      "when": "activate_main",
+      "do": [
+        {
+          "rest": "one_opponent_character_cost_le_4cost"
+        },
+        {
+          "conditional": {
+            "if": {
+              "leader_name": "ロロノア・ゾロ"
+            },
+            "do": [
+              {
+                "attach_rested_don": {
+                  "target": "self_leader",
+                  "count": 3
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "cost": {
+        "rest_self": true
+      }
+    }
+  ],
+  "OP13-019_p2": [
+    {
+      "_text": "OP13-019 main: 自分のドン‼4枚をレストにできる：相手のキャラ1枚までを、このターン中、パワー-3000。その後、相手のパワー3000以下のキャラ1枚までを、KOする。",
+      "when": "main",
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -3000,
+            "duration": "turn"
+          }
+        },
+        {
+          "ko": "one_opponent_character_power_le_3000"
+        }
+      ],
+      "cost": {
+        "rest_self_don": 4
+      }
+    },
+    {
+      "_text": "OP13-019 counter: 自分のリーダーを、このバトル中、パワー+3000。",
+      "when": "counter",
+      "do": [
+        {
+          "power_pump": {
+            "target": "self_leader",
+            "amount": 3000,
+            "duration": "battle"
+          }
+        }
+      ]
+    }
+  ],
+  "P-090_r1": [
+    {
+      "_text": "P-090 on_ko: ドン‼-1：自分の手札から「シャーロット・スムージー」以外の相手の場のドン‼の枚数以下のコストを持ち、特徴《ビッグ・マム海賊団》を持つキャラカード1枚までを、登",
+      "when": "on_ko",
+      "do": [
+        {
+          "play_from_hand_named_with_dynamic_cost": {
+            "name_filter": {
+              "feature": "ビッグ・マム海賊団",
+              "exclude_name": "シャーロット・スムージー"
+            },
+            "cost_ge": 0,
+            "cost_le_source": "opp_don_total"
+          }
+        }
+      ],
+      "cost": {
+        "pay_don": 1
+      },
+      "if": {
+        "opp_turn": true
+      }
+    }
+  ],
+  "EB04-026_r1": [
+    {
+      "_text": "EB04-026 on_play: 相手のコスト1以下のキャラ1枚までを、持ち主のデッキの下に置く。",
+      "when": "on_play",
+      "do": [
+        {
+          "return_to_deck_bottom": "one_opponent_character_cost_le_1cost"
+        }
+      ]
+    },
+    {
+      "_text": "EB04-026 on_attack: カード1枚を引き、自分の手札1枚を捨てる。 [dd-mand]",
+      "when": "on_attack",
+      "do": [
+        {
+          "draw": 1
+        },
+        {
+          "trash_self_hand_random": 1
+        }
+      ]
+    }
+  ],
+  "P-101_r1": [
+    {
+      "_text": "P-101 on_play: 自分のリーダーにレストのドン‼1枚までを、付与する。",
+      "when": "on_play",
+      "do": [
+        {
+          "attach_rested_don": {
+            "target": "self_leader",
+            "count": 1
+          }
+        }
+      ]
+    }
+  ],
+  "OP10-109_r2": [
+    {
+      "_text": "OP10-109 on_ko: 相手のライフの上から1枚までを、トラッシュに置く。",
+      "when": "on_ko",
+      "do": [
+        {
+          "mill_opp_life_to_trash": 1
+        }
+      ]
+    },
+    {
+      "_text": "OP10-109 trigger: カード2枚を引き、自分の手札1枚を捨てる。 [mdraw]",
+      "when": "trigger",
+      "do": [
+        {
+          "draw": 2
+        },
+        {
+          "trash_self_hand_random": 1
+        }
+      ]
+    }
+  ],
+  "EB04-028_p2": [
+    {
+      "_text": "EB04-028 main: 自分の手札1枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、相手のパワー10000以下のキャラ2枚までは、次の相手のエンドフェイズ終了時まで、ア [dd-fix]",
+      "when": "main",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "trash_self_hand_random": 1
+              }
+            ],
+            "effect": [
+              {
+                "set_cannot_attack": {
+                  "target": "one_opponent_character_power_le_10000",
+                  "duration": "next_opp_turn_end",
+                  "count": 2
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "if": {
+        "leader_feature": "海軍"
+      }
+    },
+    {
+      "_text": "EB04-028 trigger: コスト5以下のキャラ1枚までを、持ち主の手札に戻す。",
+      "when": "trigger",
+      "do": [
+        {
+          "return_to_hand": "one_opponent_character_cost_le_5cost"
+        }
+      ]
+    }
+  ],
+  "ST23-004_r1": [
+    {
+      "_text": "ST23-004 activate_main: 自分のドン‼1枚とこのキャラをレストにできる：相手のキャラ1枚までを、このターン中、パワー-1000。",
+      "when": "activate_main",
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -1000,
+            "duration": "turn"
+          }
+        }
+      ],
+      "cost": {
+        "rest_self_don": 1,
+        "rest_self": true
+      }
+    }
+  ],
+  "OP12-023_r1": [],
+  "OP14-015_r1": [
+    {
+      "_text": "OP14-015 on_attack: 相手のキャラ1枚までを、このターン中、パワー-1000。",
+      "when": "on_attack",
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -1000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
+  "OP11-068_r1": [],
+  "OP12-052_r1": [],
+  "OP11-065_r1": [
+    {
+      "_text": "OP11-065 「シャーロット・アナナ」以外の自分の紫の特徴《ビッグ・マム海賊団》を持つキャラがいる場合、このキャラは【ブロッカー】を得る。",
+      "when": "on_attached_don",
+      "n": 0,
+      "if": {
+        "self_chara_filtered_count_ge": {
+          "filter": {
+            "color": "紫",
+            "feature": "ビッグ・マム海賊団",
+            "exclude_name": "シャーロット・アナナ"
+          },
+          "count": 1
+        }
+      },
+      "do": [
+        {
+          "give_keyword": {
+            "target": "self",
+            "keyword": "ブロッカー"
+          }
+        }
+      ]
+    }
+  ],
+  "OP11-012_r1": [
+    {
+      "_text": "OP11-012 【自分のターン中】【ターン1回】相手がイベントを発動した時、自分のキャラすべてを、このターン中、パワー+2000。",
+      "when": "opp_event_or_trigger_fired",
+      "if": {
+        "self_turn": true
+      },
+      "cost": {
+        "once_per_turn": true
+      },
+      "do": [
+        {
+          "power_pump": {
+            "target": "all_self_characters",
+            "amount": 2000,
+            "duration": "turn"
+          }
+        }
+      ]
+    }
+  ],
+  "OP11-009_r1": [
+    {
+      "_text": "OP11-009 on_attack: 相手のキャラ1枚までを、次の相手のターン終了時まで、パワー-2000。 [don-gate]",
+      "when": "on_attack",
+      "do": [
+        {
+          "power_pump": {
+            "target": "one_opponent_character_any",
+            "amount": -2000,
+            "duration": "next_opp_turn_end"
+          }
+        }
+      ],
+      "if": {
+        "self_attached_don_ge": 2
+      }
+    }
+  ],
+  "P-150": [
+    {
+      "_text": "P-150 クザン 【自分のターン中】【登場時】自分のトラッシュからコスト1の【トリガー】を持つキャラカード1枚までを、登場させる。",
+      "when": "on_play",
+      "if": {
+        "self_turn": true
+      },
+      "do": [
+        {
+          "play_from_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "cost_eq": 1,
+              "has_trigger": true
+            },
+            "limit": 1
+          }
+        }
+      ]
+    },
+    {
+      "_text": "P-150 クザン 【トリガー】カード1枚を引き、相手のコスト6以下のキャラ1枚までは、このターン中、アタックできない。",
+      "when": "trigger",
+      "do": [
+        {
+          "draw": 1
+        },
+        {
+          "set_cannot_attack": {
+            "target": "one_opponent_character_cost_le_6cost",
+            "duration": "turn",
+            "count": 1
+          }
+        }
+      ]
+    }
+  ],
+  "P-151": [
+    {
+      "_text": "P-151 スモーカー 【登場時】自分の手札1枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、ドン!!デッキからドン!!1枚までを、レストで追加する。その後、自分のデッキの上から5枚を見て、特徴《海軍》を持つカード1枚までを公開し、手札に加え、残りを好きな順番でデッキの下に置く。",
+      "when": "on_play",
+      "do": [
+        {
+          "optional_cost_then": {
+            "cost": [
+              {
+                "discard_hand": 1
+              }
+            ],
+            "effect": [
+              {
+                "conditional": {
+                  "if": {
+                    "leader_feature": "海軍"
+                  },
+                  "do": [
+                    {
+                      "add_rested_don": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "search_top_n": {
+                  "depth": 5,
+                  "filter": {
+                    "feature": "海軍"
+                  },
+                  "limit": 1,
+                  "destination": "hand",
+                  "rest_remain": "bottom"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
   ]
 }

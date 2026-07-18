@@ -1,6 +1,6 @@
 # DSL Primitive Audit
 
-全 primitive: 368, 実装済: 341, 未実装/未検出: 27
+全 primitive: 370, 実装済: 343, 未実装/未検出: 27
 
 ## Missing (= 未実装 / 検出不可) primitives
 
@@ -8,7 +8,7 @@
 |---|---|---|---|---|---|---|
 | `set_protect_from_opp_effect_static` | 8 | 8 | 0 | 0 | 0 | EB04-057, EB03-018, EB03-018_p1 |
 | `_text` | 7 | 7 | 0 | 0 | 0 | OP05-074_p4, OP05-074_r1, OP05-074_r2 |
-| `on_self_chara_rested_by_self_effect` | 5 | 0 | 0 | 0 | 5 | OP07-031_p1, OP07-031_r2, OP10-036 |
+| `on_self_chara_rested_by_self_effect` | 6 | 0 | 0 | 0 | 6 | OP07-031_p1, OP07-031_r2, OP10-036 |
 | `target_name` | 4 | 0 | 0 | 4 | 0 | OP12-061, OP12-061_p1, OP09-012 |
 | `on_self_battled` | 4 | 0 | 0 | 0 | 4 | ST08-013, ST02-010, ST02-010_r1 |
 | `target_rested` | 4 | 0 | 0 | 4 | 0 | OP05-030_p2, OP05-030_r1, OP05-030 |
@@ -38,53 +38,53 @@
 
 | primitive | total | category |
 |---|---|---|
-| `on_play` | 1685 | when |
-| `power_pump` | 880 | do |
-| `trigger` | 793 | when |
-| `activate_main` | 687 | when |
-| `optional_cost_then` | 663 | do |
-| `once_per_turn` | 609 | cost |
-| `draw` | 544 | do |
-| `on_attached_don` | 510 | when |
-| `on_attack` | 473 | when |
-| `main` | 405 | when |
-| `search_top_n` | 395 | do |
-| `leader_feature` | 369 | if |
-| `ko` | 363 | do |
-| `pay_don` | 328 | do/cost |
-| `counter` | 301 | when |
-| `give_keyword` | 277 | do |
-| `self_attached_don_ge` | 276 | if |
-| `rest` | 244 | do |
-| `on_ko` | 235 | when |
-| `trash_self_hand_random` | 227 | do |
-| `play_from_hand` | 209 | do |
-| `attach_rested_don` | 188 | do |
-| `rest_self` | 177 | cost |
-| `play_self` | 166 | do |
-| `self_turn` | 134 | if |
-| `opp_turn` | 128 | if |
-| `add_don` | 127 | do |
+| `on_play` | 1724 | when |
+| `power_pump` | 900 | do |
+| `trigger` | 821 | when |
+| `activate_main` | 699 | when |
+| `optional_cost_then` | 686 | do |
+| `once_per_turn` | 619 | cost |
+| `draw` | 558 | do |
+| `on_attached_don` | 524 | when |
+| `on_attack` | 482 | when |
+| `main` | 411 | when |
+| `search_top_n` | 402 | do |
+| `leader_feature` | 378 | if |
+| `ko` | 369 | do |
+| `pay_don` | 332 | do/cost |
+| `counter` | 306 | when |
+| `give_keyword` | 286 | do |
+| `self_attached_don_ge` | 279 | if |
+| `rest` | 252 | do |
+| `on_ko` | 241 | when |
+| `trash_self_hand_random` | 231 | do |
+| `play_from_hand` | 216 | do |
+| `attach_rested_don` | 194 | do |
+| `rest_self` | 181 | cost |
+| `play_self` | 168 | do |
+| `self_turn` | 139 | if |
+| `opp_turn` | 129 | if |
+| `add_don` | 129 | do |
 | `self_life_le` | 122 | if |
+| `leader_name` | 116 | if |
 | `cost_minus` | 115 | do |
-| `leader_name` | 114 | if |
-| `trash_self` | 111 | cost |
-| `untap_don` | 110 | do |
-| `end_of_turn` | 108 | when |
-| `discard_hand` | 107 | cost |
-| `rest_self_don` | 107 | do/cost |
-| `fire_self_effect` | 107 | do |
-| `return_to_hand` | 101 | do |
-| `target` | 101 | if |
-| `add_rested_don` | 101 | do |
-| `conditional` | 100 | do |
-| `return_to_deck_bottom` | 90 | do |
-| `self_chara_filtered_count_ge` | 83 | if |
-| `by_opp_effect` | 80 | if |
-| `opp_attack` | 78 | when |
+| `trash_self` | 112 | cost |
+| `untap_don` | 111 | do |
+| `rest_self_don` | 110 | do/cost |
+| `end_of_turn` | 109 | when |
+| `discard_hand` | 108 | cost |
+| `fire_self_effect` | 108 | do |
+| `return_to_hand` | 104 | do |
+| `target` | 104 | if |
+| `add_rested_don` | 104 | do |
+| `conditional` | 103 | do |
+| `return_to_deck_bottom` | 91 | do |
+| `self_chara_filtered_count_ge` | 84 | if |
+| `by_opp_effect` | 83 | if |
+| `opp_attack` | 80 | when |
 | `self_hand_count_le` | 68 | if |
-| `put_top_to_life` | 66 | do |
-| `play_from_trash` | 66 | do |
-| `untap` | 65 | do |
+| `put_top_to_life` | 67 | do |
+| `untap` | 67 | do |
+| `play_from_trash` | 67 | do |
+| `mill_self_top` | 58 | do |
 | `leader_features_any` | 57 | if |
-| `mill_self_top` | 57 | do |
