@@ -219,6 +219,9 @@ def _merge_pros02_overlay(d: dict, slug: str) -> dict:
     (storage decision Option A)。 runtime でのみ merge = pros02_piloting を注入し
     mulligan_keep_card_ids を additive に拡張する。 不在なら無変化。"""
     import json
+    import os as _os
+    if _os.environ.get("ONEPIECE_NO_PROS02") == "1":
+        return d  # A/B control + kill switch
     root = Path(__file__).resolve().parent.parent
     for cand in (Path("db") / "note_pros02" / "applied" / f"{slug}.json",
                  root / "db" / "note_pros02" / "applied" / f"{slug}.json"):
