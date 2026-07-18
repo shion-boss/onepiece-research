@@ -8,7 +8,7 @@ import api.main as m
 
 def test_meta_registry_is_canonical_set():
     metas = m._meta_deck_slugs_set()
-    assert len(metas) == 16
+    assert len(metas) == 24  # 16 base + pros02由来7新デッキ + 黒黄ティーチ登録 (2026-07-18)
     assert m._is_meta_deck("cardrush_1342")
     assert m._is_meta_deck("tcgportal_coby")
     assert not m._is_meta_deck("user_anything")

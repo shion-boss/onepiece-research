@@ -3388,9 +3388,14 @@ def _execute_effect_body(
             already = set()
             for spec in target_specs:
                 target_spec = spec if isinstance(spec, str) else (spec or {}).get("target", "self")
+                # 人間 target_pick 解決時、 outer_value が power_pump 再実行の spec になる
+                # (= _resolve_pending_choice_inner が {primitive_kind: outer_value+_iid_picks} を
+                #  execute_effect する)。 amount / duration を載せないと再実行 power_pump が
+                #  amount=0 になり debuff/buff が喪失する (ST31-004 ルフィ 等の count_source 系)。
+                outer_v = {"target": target_spec, "amount": amount, "duration": duration}
                 targets = _resolve_target(
                     target_spec, state, me, opp, self_inplay,
-                    outer_kind="power_pump", outer_value=target_spec,
+                    outer_kind="power_pump", outer_value=outer_v,
                 )
                 if state.pending_choice is not None:
                     return True
@@ -7750,6 +7755,13 @@ def _execute_effect_body(
                             not any(c.name == _nm for c in me.hand):
                         can_pay = False
                         break
+                elif "discard_hand" in cs:
+                    # 任意 discard cost (= 「自分の手札 N 枚を捨てることができる：」、 例 P-151 スモーカー)。
+                    # 手札が N 枚以上必要。 filter なしの単純枚数指定。
+                    n = int(cs.get("discard_hand", 0))
+                    if len(me.hand) < n:
+                        can_pay = False
+                        break
                 elif "discard_hand_with_filter" in cs:
                     # filter 付き discard cost。 手札に filter 一致が count 以上必要。
                     df_spec = cs["discard_hand_with_filter"]
@@ -8033,6 +8045,42 @@ def _execute_effect_body(
                                 me.don_rested += self_inplay.attached_dons
                                 self_inplay.attached_dons = 0
                             state.push_log(f"  効果コスト: {self_inplay.card.name} を デッキ下へ")
+                    continue
+                if "discard_hand" in cs:
+                    # 任意 discard cost (= 「自分の手札 N 枚を捨てることができる：」、 例 P-151 スモーカー)。
+                    # 人間 acting + 候補 > N なら どの手札を捨てるか 選ばせる (= _continuation で
+                    # 残 cost + effect を継続)。 AI は _worst_hand_idx (= 温存価値の低い札) を捨てる。
+                    n = int(cs.get("discard_hand", 0))
+                    if n > 0:
+                        if _should_human_pick(state) and len(me.hand) > n:
+                            _oidx = state.players.index(me)
+                            _sid = self_inplay.instance_id if self_inplay is not None else None
+                            state.pending_choice = {
+                                "kind": "self_hand_discard_pick",
+                                "discard_only": True,
+                                "candidates": [
+                                    {"hand_idx": hi, "card_id": c.card_id, "name": c.name,
+                                     "cost": int(c.cost) if c.cost is not None else 0,
+                                     "power": int(c.power) if c.power is not None else 0}
+                                    for hi, c in enumerate(me.hand)
+                                ],
+                                "limit": n,
+                                "source_iid": _sid,
+                                "_continuation": {
+                                    "do": list(cost_specs[_ci + 1:]) + list(effect_specs),
+                                    "owner_idx": _oidx,
+                                    "source_iid": _sid,
+                                },
+                            }
+                            state.push_log(
+                                f"  効果コスト: 自手札 {n} 枚 捨て → 人間 選択 待ち(候補 {len(me.hand)})"
+                            )
+                            return False
+                        # AI / 候補 <= N: 温存価値の低い札から N 枚捨てる。
+                        for _ in range(min(n, len(me.hand))):
+                            c = me.hand.pop(_worst_hand_idx(me.hand))
+                            me.trash.append(c)
+                            state.push_log(f"  効果コスト: 手札捨て → {c.name}")
                     continue
                 if "discard_hand_with_filter" in cs:
                     df_spec = cs["discard_hand_with_filter"]
