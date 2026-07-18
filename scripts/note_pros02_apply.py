@@ -37,8 +37,12 @@ DECK_MAP = {
     "rucy_rb": "cardrush_1399",     # 赤青ルーシー OP15-002
     "ace_rb": "cardrush_1456",      # 赤(青)エース OP13-002
     "teach_by": "cardrush_1594",    # 黒黄ティーチ OP16-080 (register as meta)
+    "crocodile_k": "cardrush_1385", # 黒クロコダイル OP14-079
+    "calgara_y": "tcgportal_calgara",  # 黄カルガラ OP08-098
+    "bonney_g": "tcgportal_bonney", # 緑ボニー EB04-001
     # OP16.5 new leaders with no existing deck -> handled separately (new deck build)
     "luffy_gb": None,               # 緑青ルフィ
+    "sabo_rb": None,                # 赤黒サボ
 }
 
 
