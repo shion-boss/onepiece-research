@@ -12,3 +12,4 @@ anthropic>=0.40
 psycopg[binary]>=3.1
 # 本番認証 (Clerk) の JWT (RS256) 検証用。 AUTH_PROVIDER 未設定のローカルでは未使用。
 pyjwt[crypto]>=2.9.0
+cryptography>=42

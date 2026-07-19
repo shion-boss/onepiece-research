@@ -279,5 +279,8 @@ db/_analyst/
 !db/_analyst/fleet_block_status.json
 
 # 有料 note (pros_02) の取得コンテンツ + 認証状態 はコミットしない
-db/note_pros02/
+db/note_pros02/*
+!db/note_pros02/enc/
+db/note_pros02/enc/*
+!db/note_pros02/enc/*.enc
 docs/cloud_push_test.md
