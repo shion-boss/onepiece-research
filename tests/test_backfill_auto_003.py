@@ -387,14 +387,51 @@ def test_eb01_040_kyros_activate_main_listed_and_once_per_turn():
     assert len(mine2) == 0, "【ターン1回】なのに同ターンで再度 起動メインが出る"
 
 
-@pytest.mark.skip(
-    reason="engine 限界: KO 対象 filter {cost_eq:0} は _matches_filter で CardDef.cost "
-    "(印刷コスト) を見るため、 コスト軽減で 0 になったキャラを拾えない。 印刷コスト0の "
-    "キャラは存在しないため 現状 KO を再現できない。 base_cost (実効コスト) 参照への修正 "
-    "が必要 = 人間レビュー。 EB01-040 のKO盤面変化テストは保留。")
-def test_eb01_040_kyros_ko_cost0_target():  # pragma: no cover
-    """(保留) コスト軽減で 0 になった相手キャラを KO できることの検証。"""
-    raise AssertionError("engine 修正待ち")
+def test_eb01_040_kyros_ko_cost0_target():
+    """コスト軽減で 実効0 になった相手キャラを KO できる (現在コスト参照)。
+
+    公式 EB01-040 の平文「相手のコスト0のキャラ」 = 現在(実効)コスト。 印刷コスト0の
+    キャラは存在しないため、 overlay を printed-cost の filter {cost_eq:0} のまま置くと
+    KO が永久に不発だった。 filter を {current_cost_eq:0} に直し、
+    one_opponent_character_filtered resolver が InPlay.base_cost を見るよう修正済み。
+    """
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, "OP01-040", overlay)  # ダミー起動元 (do を直接検証)
+    me, opp = st.players[0], st.players[1]
+    # コスト軽減で実効0 になった相手キャラ (印刷0キャラは存在しないため override で再現)
+    victim = InPlay.of(repo.get("OP01-016"), sickness=False)  # 印刷 cost2
+    victim.base_cost_override = 0
+    # 実効コストが 0 でない別キャラ (= KO 対象外) も並べて選別を検証
+    bystander = InPlay.of(repo.get("OP11-015"), sickness=False)  # 高コスト
+    opp.characters = [victim, bystander]
+    assert victim.base_cost == 0, "override が効いていない"
+
+    do, _ = _do(overlay, "EB01-040", "activate_main")
+    for prim in do:
+        execute_effect(prim, st, me, opp,
+                       InPlay.of(repo.get("EB01-040"), sickness=False))
+
+    assert victim not in opp.characters, "実効コスト0の相手キャラが KO されていない"
+    assert repo.get("OP01-016") in opp.trash, "KO したキャラが相手トラッシュにない"
+    assert bystander in opp.characters, "実効コスト0でないキャラまで KO されている"
+
+
+def test_eb01_040_kyros_ko_ignores_printed_cost0_absent():
+    """印刷コスト2 だが軽減されていない相手キャラは (現在コスト!=0 なので) KO されない。"""
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, "OP01-040", overlay)
+    me, opp = st.players[0], st.players[1]
+    normal = InPlay.of(repo.get("OP01-016"), sickness=False)  # 印刷 cost2、 軽減なし
+    opp.characters = [normal]
+
+    do, _ = _do(overlay, "EB01-040", "activate_main")
+    for prim in do:
+        execute_effect(prim, st, me, opp,
+                       InPlay.of(repo.get("EB01-040"), sickness=False))
+
+    assert normal in opp.characters, "現在コスト0でないキャラが誤って KO された"
 
 
 # --------------------------------------------------------------------------- #
@@ -461,16 +498,47 @@ def test_eb01_042_scarlet_cost_minus_human_pick():
     assert b.base_cost == repo.get("OP01-016").cost, "選ばなかったキャラにコスト減が乗っている"
 
 
-@pytest.mark.skip(
-    reason="engine bug: cost_minus を 人間 target_pick 経路 (resolve_pending_choice) で "
-    "解決すると amount が pending_choice の primitive_value に載らず (execute_effect は "
-    "outer_value=target_spec で target 文字列のみ渡す)、 再実行時に amount=1 default に "
-    "なる。 公式 EB01-042 は コスト-2 だが 人間経路では -1 しか適用されない。 "
-    "outer_value に spec 全体 (v) を渡す修正が必要 = 人間レビュー。 "
-    "(AI 経路は正しく -2 適用、 test_eb01_042_scarlet_activate_main_ai 参照)")
-def test_eb01_042_cost_minus_amount_carries_through_human_resolve():  # pragma: no cover
-    """(保留) 人間 resolve でも 公式どおり コスト-2 が適用されることの検証。"""
-    raise AssertionError("engine 修正待ち")
+def test_eb01_042_cost_minus_amount_carries_through_human_resolve():
+    """人間 resolve でも 公式どおり コスト-2 が適用される (amount が pending_choice の
+    primitive_value に載り、 再実行で復元される)。
+
+    修正前は execute_effect が outer_value=target_spec (target 文字列のみ) を渡して
+    いたため、 resolve_pending_choice の再実行時に amount=1 default に落ち、 公式 -2 が
+    -1 になっていた (power_pump_multi と同型の bug)。 outer_value に spec 全体
+    ({target, amount, duration}) を載せる修正で amount/duration が保持される。
+    """
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, "OP01-001", overlay, human_idx=0)
+    me, opp = st.players[0], st.players[1]
+    a = InPlay.of(repo.get("OP11-015"), sickness=False)   # 高コスト
+    b = InPlay.of(repo.get("OP01-016"), sickness=False)    # cost2
+    opp.characters = [a, b]
+    a_cost_before = a.base_cost
+
+    do, _ = _do(overlay, "EB01-042", "activate_main")
+    # 2 番目の primitive = cost_minus (1 番目は play_from_hand)
+    execute_effect(do[1], st, me, opp, None)
+
+    assert st.pending_choice is not None, "人間 + 複数候補で cost_minus modal が立たない"
+    assert st.pending_choice.get("primitive_kind") == "cost_minus", \
+        "primitive_kind が cost_minus でない"
+    # 公式仕様の amount(=2、 コスト-2)/duration が primitive_value に保持されていること
+    # (overlay は cost_minus の amount を正の数で表す = base_cost から差し引かれる量)。
+    pv = st.pending_choice.get("primitive_value")
+    assert isinstance(pv, dict) and pv.get("amount") == 2, \
+        f"primitive_value に amount=2 (コスト-2) が載っていない: {pv}"
+
+    cands = st.pending_choice.get("candidates", [])
+    a_idx = next(i for i, c in enumerate(cands) if c["iid"] == a.instance_id)
+    resolve_pending_choice(st, [a_idx])
+    assert st.pending_choice is None, "解決後も modal が残る"
+    # 公式 EB01-042 は コスト-2。 人間 resolve 経路でも -2 (max 0 clamp) が適用される。
+    assert a.base_cost == max(0, a_cost_before - 2), \
+        f"人間 resolve で 公式どおり コスト-2 が適用されていない: " \
+        f"{a_cost_before} -> {a.base_cost} (期待 {max(0, a_cost_before - 2)})"
+    assert b.base_cost == repo.get("OP01-016").cost, \
+        "選ばなかったキャラにコスト減が乗っている"
 
 
 # --------------------------------------------------------------------------- #

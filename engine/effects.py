@@ -2090,6 +2090,17 @@ def _resolve_target(
                     continue
                 if "current_power_le" in filt and ip.power > int(filt["current_power_le"]):
                     continue
+                # 現在(実効)コスト条件 (= base_cost、 cost_minus/軽減 反映)。 公式の 平文
+                # 「コスト N の…」 は現在コスト参照 (「元々のコスト」 は printed=_matches_filter の
+                # cost_eq を使う)。 CardDef を受ける _matches_filter では実効コストを見られない
+                # ため、 InPlay を持つ この resolver で判定する (= current_power_le と同じ扱い)。
+                # 例: EB01-040 キュロス「相手のコスト0のキャラをKO」 = 軽減で0になったキャラも対象。
+                if "current_cost_eq" in filt and ip.base_cost != int(filt["current_cost_eq"]):
+                    continue
+                if "current_cost_le" in filt and ip.base_cost > int(filt["current_cost_le"]):
+                    continue
+                if "current_cost_ge" in filt and ip.base_cost < int(filt["current_cost_ge"]):
+                    continue
                 cands.append(ip)
             if iid_picks is not None:
                 return [ip for ip in cands if ip.instance_id in iid_picks][:1]
@@ -5168,7 +5179,16 @@ def _execute_effect_body(
             target_spec = spec.get("target", "one_opponent_character_any")
             amount = int(spec.get("amount", 1))
             duration = spec.get("duration", "turn")
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="cost_minus", outer_value=target_spec)
+            # 人間 target_pick 解決時、 outer_value が cost_minus 再実行の spec になる
+            # (= resolve_pending_choice が primitive_value に _iid_picks を注入して
+            #  execute_effect する)。 amount / duration を outer_value に載せないと再実行
+            #  時に amount=1 default に落ち、 公式 -2 が -1 になる (EB01-042 スカーレット等、
+            #  power_pump_multi と同型の bug)。 spec 全体を渡して amount/duration を保持する。
+            outer_v = {"target": target_spec, "amount": amount, "duration": duration}
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="cost_minus", outer_value=outer_v)
+            if state.pending_choice is not None:
+                # 人間 target pick 待ち → halt (= power_pump と同様)。
+                return True
             for t in targets:
                 if duration == "next_opp_turn_end":
                     t.cost_minus_through_opp_turn += amount

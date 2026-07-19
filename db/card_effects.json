@@ -11425,7 +11425,7 @@
             "target": {
               "type": "one_opponent_character_filtered",
               "filter": {
-                "cost_le": 0
+                "current_cost_le": 0
               }
             }
           }
@@ -12678,7 +12678,7 @@
           "ko": {
             "type": "one_opponent_character_filtered",
             "filter": {
-              "cost_eq": 0
+              "current_cost_eq": 0
             }
           }
         }
@@ -13360,7 +13360,7 @@
           "ko": {
             "type": "one_opponent_character_filtered",
             "filter": {
-              "cost_eq": 0
+              "current_cost_eq": 0
             }
           }
         }
@@ -13379,7 +13379,7 @@
           "ko": {
             "type": "one_opponent_character_filtered",
             "filter": {
-              "cost_eq": 0
+              "current_cost_eq": 0
             }
           }
         }
@@ -17831,7 +17831,7 @@
           "ko": {
             "type": "one_opponent_character_filtered",
             "filter": {
-              "cost_eq": 0
+              "current_cost_eq": 0
             }
           }
         }
@@ -29256,7 +29256,7 @@
                 "ko": {
                   "type": "one_opponent_character_filtered",
                   "filter": {
-                    "cost_le": 0
+                    "current_cost_le": 0
                   }
                 }
               }
@@ -29495,7 +29495,7 @@
                 "ko": {
                   "type": "one_opponent_character_filtered",
                   "filter": {
-                    "cost_le": 0
+                    "current_cost_le": 0
                   }
                 }
               }
