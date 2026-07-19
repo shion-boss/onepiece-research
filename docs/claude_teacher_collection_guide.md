@@ -10,6 +10,25 @@
 - **全コマンド先頭に `ONEPIECE_DIVLOG=1`**(各 MAIN 決定の v6 38次元特徴を `pending_<slug>.jsonl`
   に記録 → game_over で勝敗ラベル付与し `distill_<slug>.jsonl` へ flush)。
 
+## ★手の質を分別マーク: `flag-mistake` / `flag-discovery`(= 情報を捨てず 重みづけ・レビュー)
+> **マークは hard-exclude ではない**(ohtsuki)。ミスからの学び(ミス局面の (state, outcome) も
+> 実 signal)や「ミスと思ったが実は有効だった新発見」も拾う。マークは **重みづけ・分別・
+> 新発見レビュー**のためであり、情報を捨てるためではない。
+- 教師(Claude / pros02)も人間同様ミスる。**ミスに気づいたら、続けて `flag-mistake <理由>`**。
+  直近の MAIN 決定局面(pending の最後の記録)に `mistake: true` が付与される。
+  - 例: `flag-mistake 対象選択を index/iid 取り違えた`
+  - 例: `flag-mistake 6コスエネルをブロッカーと誤認して防御札を攻撃に使った`
+  - 例: `flag-mistake 過剰攻撃で不用意にライフを晒した`
+  - distiller の既定は **`--mistakes keep`(全部含める、ミス局面も部分利用)**。
+    `--mistakes downweight`(sample_weight を下げて部分利用)/ `--mistakes exclude`(clean のみ、
+    実験用)も選べる。除外/減量した件数は print される。
+- **定石(brief)に無いが効果的だった手・意外な良手**に気づいたら `flag-discovery <理由>`。
+  `discovery: true` が付与され、**絶対に除外されず** distiller の report に件数が出る
+  (= 後で人間/私がレビューして brief に還元する)。
+- 理由は任意(未指定でも動く)。**直近1件のみ**マークするので、その手を打った直後に打つ。
+- マークしても対戦は続行できる(盤面は残る)。マークは pending に効き、game_over で勝敗ラベルと
+  共に distill へ透過的にコピーされる。
+
 ## ★基礎操作術を適用して打つ (= 教師の質の本体、 2026-07-18 ohtsuki 方針)
 > **`docs/optcg_fundamentals.md` を必ず読んでから打つ。** 教師データの価値は「人間として上手い
 > 操作」= この基礎操作術を体現した手を記録すること。 特に配備 AI が苦手な **攻め側** を demonstrate。

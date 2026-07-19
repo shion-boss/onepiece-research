@@ -250,6 +250,37 @@ def _flush_distill(session) -> None:
         pass
 
 
+def _flag_last_record(kind: str, reason: str = "") -> None:
+    """pending_<slug>.jsonl の最後の記録 (= 直近の MAIN 決定局面) に kind マークを付与して書き戻す。
+    kind="mistake" → mistake=True/mistake_reason (= distill で重みづけ/除外の対象)。
+    kind="discovery" → discovery=True/discovery_reason (= 定石外の良手候補、 絶対に除外せず report で拾う)。
+    教師 (Claude/pros02) もミスるが、 ミスは hard-exclude が誤り (ohtsuki): ①ミス局面も実 signal で
+    部分利用可 ②「ミスと思ったが実は有効」= discovery もある。 マークは 情報を捨てず 重みづけ・分別・
+    新発見レビューのため。 直近1件のみマーク (冪等でなくてよい)。"""
+    meta = json.loads(META.read_text(encoding="utf-8")) if META.exists() else {}
+    slug = meta.get("deck", "unknown")
+    path = PLAY_DIR / f"pending_{slug}.jsonl"
+    if not path.exists():
+        print("マーク対象の記録がまだ無い (pending が空)")
+        return
+    lines = [ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    if not lines:
+        print("マーク対象の記録がまだ無い (pending が空)")
+        return
+    try:
+        rec = json.loads(lines[-1])
+    except Exception:
+        print("直近の pending 記録を解釈できなかった")
+        return
+    rec[kind] = True
+    rec[f"{kind}_reason"] = reason
+    lines[-1] = json.dumps(rec, ensure_ascii=False)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    turn = rec.get("turn", "?")
+    label = "ミス" if kind == "mistake" else "定石外の良手 (discovery)"
+    print(f"直近の手 (turn {turn}) を {label} としてマーク: {reason or '(理由なし)'}")
+
+
 def _find_don_idx(session: HumanSession, iid: str):
     """iid (= leader iid or キャラ iid) への DON+1 アクション idx を返す。"""
     actions = legal_actions(session.state)
@@ -583,6 +614,20 @@ def main() -> None:
     rd.add_argument("--source", type=int, default=None, help="効果source iid (省略時=自リーダー)")
     rd.add_argument("--effect", type=int, default=0, help="effect_idx (default 0)")
 
+    fm = sub.add_parser(
+        "flag-mistake",
+        help="直近の MAIN 決定 (pending の最後の記録) を 教師ミス手 としてマーク "
+             "(蒸留で重みづけ/除外の対象、 hard-exclude ではない)",
+    )
+    fm.add_argument("reason", nargs="*", help="ミスの理由 (任意、 例: 対象index取り違え)")
+
+    fd = sub.add_parser(
+        "flag-discovery",
+        help="直近の MAIN 決定を 定石外だが効果的だった良手 (discovery) としてマーク "
+             "(絶対に除外せず、 レビューして brief に還元)",
+    )
+    fd.add_argument("reason", nargs="*", help="良手だった理由 (任意)")
+
     args = ap.parse_args()
 
     if args.cmd == "start":
@@ -617,6 +662,13 @@ def main() -> None:
         first = "私(先攻)" if session.human_idx == 0 else "ExploitBeam(先攻)"
         print(f"=== 新ゲーム: {mode} / {first} ===")
         _render(session)
+        return
+
+    if args.cmd == "flag-mistake":
+        _flag_last_record("mistake", " ".join(args.reason).strip())
+        return
+    if args.cmd == "flag-discovery":
+        _flag_last_record("discovery", " ".join(args.reason).strip())
         return
 
     session = _load()
