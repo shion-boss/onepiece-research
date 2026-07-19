@@ -10,11 +10,16 @@ load 時に meta.json の deck slug から再注入する (= state/rng/pending �
 
   start [--deck SLUG] [--first|--second|--random] [--seed N]
   show
+  plan | lethal                     # リーサル/防御の補助サマリ (相手ライフ/DON/ブロッカー/自アタッカー)
   mulligan keep|redraw|ok
   move <idx>
   choice [<idx> ...]
   defense <blocker_iid|none> [--counter <hand_idx> ...]
   counter-event <hand_idx>
+
+attack/defense/counter-event の後は「[結果]」 行で相手ライフ/手札の増減・カウンター消費・
+ブロッカーのレスト等の帰結を 1〜2 行で表示する (= 攻撃が通ったかを session.pkl inspect なしで読める)。
+show の自リーダー行には iid を表示する (= attack/don の iid 指定に使える)。
 """
 
 from __future__ import annotations
@@ -273,6 +278,167 @@ def _find_attack_idx(session: HumanSession, attacker_iid: int, target: str):
 
 
 # --------------------------------------------------------------------------- #
+# バトル結果サマリ (= 2026-07-19): attack/defense/counter-event 後、 相手ライフ/手札の
+# 増減・カウンター消費・ブロッカーのレストを 1〜2 行で表示。 教師(cloud/ローカル)が
+# session.pkl を手動 inspect せず攻防の帰結を読めるようにする (= 教師データ品質↑)。
+# action 適用の前後で state を snapshot し diff する (= 新探索は不要、 engine 値の差分のみ)。
+# --------------------------------------------------------------------------- #
+def _board_snapshot(session: HumanSession) -> dict:
+    """diff 用の軽量スナップショット (= life/hand 枚数 + 場キャラ {iid: (name, power, rested)})。"""
+    st = session.state
+    me = st.players[session.human_idx]
+    opp = st.players[session.ai_idx]
+
+    def _chars(p):
+        return {
+            c.instance_id: (c.card.name, c.power, c.rested, c.is_blocker_now)
+            for c in p.characters
+        }
+
+    return {
+        "my_life": len(me.life),
+        "opp_life": len(opp.life),
+        "my_hand": len(me.hand),
+        "opp_hand": len(opp.hand),
+        "opp_don_active": opp.don_active,
+        "my_chars": _chars(me),
+        "opp_chars": _chars(opp),
+    }
+
+
+def _battle_summary(before: dict, after: dict) -> None:
+    """before/after スナップショットの差分を「[結果]」 として 1〜2 行で表示。 攻防コマンド後は
+    必ず 1 行出す (= 変化ゼロなら「通らず/凌いだ」 と明示 → 教師が結果を必ず読める)。"""
+    life_hand: list[str] = []
+    for label, key in (
+        ("相手ライフ", "opp_life"),
+        ("相手手札", "opp_hand"),
+        ("自ライフ", "my_life"),
+        ("自手札", "my_hand"),
+        ("相手アクティブDON", "opp_don_active"),
+    ):
+        b, a = before[key], after[key]
+        if b != a:
+            life_hand.append(f"{label} {b}→{a}({a - b:+d})")
+
+    # KO / レスト変化 (= ブロッカーが立った/寝た、 相手キャラが消えた 等)
+    events: list[str] = []
+    for side_label, key in (("相手", "opp_chars"), ("自", "my_chars")):
+        bch, ach = before[key], after[key]
+        for iid, (name, pw, rested, _blk) in bch.items():
+            if iid not in ach:
+                events.append(f"{side_label}キャラ {name}(P{pw}) がKO/退場")
+            else:
+                _, apw, arested, _ = ach[iid]
+                if (not rested) and arested:
+                    events.append(f"{side_label}キャラ {name} がレスト(ブロック等)")
+                elif rested and (not arested):
+                    events.append(f"{side_label}キャラ {name} がアクティブ化")
+        for iid, (name, pw, _rested, _blk) in ach.items():
+            if iid not in bch:
+                events.append(f"{side_label}キャラ {name}(P{pw}) が登場")
+
+    print("[結果]")
+    if life_hand:
+        print("  " + "  ".join(life_hand))
+    if events:
+        print("  " + " / ".join(events))
+    if not life_hand and not events:
+        # 攻撃がパワー差で通らなかった / 完全にブロック+カウンターで凌がれた 等 = 盤面変化なし
+        print("  盤面に変化なし (= アタックがパワー差で通らず、 または完全に防御された)")
+
+
+# --------------------------------------------------------------------------- #
+# plan / lethal 補助 (= 2026-07-19): 詰め判断を engine 値から要約。 新探索は不要。
+#   - 相手リーダー現ライフ / 相手アクティブDON (ブロック・パンプ余力)
+#   - 相手の場のブロッカー一覧 (power)
+#   - 自分の各アタッカーの現パワーと攻撃可能性
+#   - 相手が手札を全カウンターに使った場合の粗い想定防御力 (手札枚数×2000 上限)
+# --------------------------------------------------------------------------- #
+def _print_plan(session: HumanSession) -> None:
+    st = session.state
+    me = st.players[session.human_idx]
+    opp = st.players[session.ai_idx]
+
+    print()
+    print("[plan / リーサル補助] (粗い見積り、 engine 値のみ。 相手手札の中身は不可視)")
+    print(
+        f"  相手リーダー: {opp.leader.card.name} ライフ{len(opp.life)}枚 / "
+        f"相手アクティブDON {opp.don_active}枚 (ブロック/パンプ余力)"
+    )
+
+    # 相手ブロッカー
+    blockers = [c for c in opp.characters if c.is_blocker_now and not c.rested]
+    if blockers:
+        print("  相手ブロッカー(アクティブ):")
+        for c in blockers:
+            print(f"    - iid{c.instance_id} {c.card.name}(Power{c.power})")
+    else:
+        print("  相手ブロッカー(アクティブ): なし")
+
+    # 相手の粗い想定防御力 (手札全カウンター上限 + DON パンプ)
+    opp_hand = len(opp.hand)
+    counter_cap = opp_hand * 2000
+    don_pump = opp.don_active * 1000
+    print(
+        f"  相手の想定最大防御(粗い上限): 手札{opp_hand}枚×2000 = {counter_cap} "
+        f"+ DONパンプ {don_pump} = ~{counter_cap + don_pump}"
+    )
+
+    # 自分のアタッカー
+    attackers = [
+        c
+        for c in me.characters
+        if not c.rested and not (c.summoning_sickness and not c.is_rush_now)
+    ]
+    leader_can_attack = not me.leader.rested
+    print("  自アタッカー:")
+    if leader_can_attack:
+        print(f"    - リーダー iid{me.leader.instance_id} {me.leader.card.name}(Power{me.leader.power})")
+    for c in attackers:
+        kw = []
+        if c.is_rush_now:
+            kw.append("速攻")
+        tag = f" [{','.join(kw)}]" if kw else ""
+        print(f"    - iid{c.instance_id} {c.card.name}(Power{c.power}){tag}")
+    if not leader_can_attack and not attackers:
+        print("    (攻撃可能なアタッカーなし)")
+
+    # 合計攻撃力 (リーダー攻撃想定) と相手ライフを対比
+    total_atk = (me.leader.power if leader_can_attack else 0) + sum(c.power for c in attackers)
+    n_atk = (1 if leader_can_attack else 0) + len(attackers)
+    print(
+        f"  参考: アタッカー{n_atk}体の合計パワー {total_atk} / 相手ライフ{len(opp.life)}枚。 "
+        f"リーサルは 各攻撃が相手の要求値(=手札カウンター+DON)を貫くかで判断。"
+    )
+    print()
+
+
+# --------------------------------------------------------------------------- #
+# トリガー無しの life_taken_choice を自動解決 (= 2026-07-19 任意改善#4)。
+# ライフを受けたカードにトリガーが無い場合、 選択の余地は無い (= 手札に加わるだけ) ので、
+# 教師が毎回 `choice` を打つ手間を省く。 トリガー有りは判断が要るので触らない。
+# --------------------------------------------------------------------------- #
+def _auto_resolve_trivial_life_choices(session: HumanSession) -> bool:
+    """no-trigger の life_taken_choice を最大数回まで自動解決。 1 つでも解決したら True。"""
+    resolved = False
+    for _ in range(12):  # 多段ヒット (= 複数ライフ同時) でも収束させる上限ガード
+        if session.pending_kind != "choice":
+            break
+        pp = session.pending_payload or {}
+        if pp.get("kind") != "life_taken_choice" or pp.get("has_trigger"):
+            break
+        try:
+            name = pp.get("name", "?")
+            session.apply_human_choice([])  # picks=[] = トリガー不使用 (= 手札に加えるだけ)
+            print(f"[自動] ライフ受け ({name}) トリガー無し → 手札に加えて続行")
+            resolved = True
+        except Exception:
+            break
+    return resolved
+
+
+# --------------------------------------------------------------------------- #
 # 私視点 (human_idx 固定) の盤面 + pending 表示
 # --------------------------------------------------------------------------- #
 def _render(session: HumanSession) -> None:
@@ -282,7 +448,16 @@ def _render(session: HumanSession) -> None:
     opp = st.players[session.ai_idx]
 
     print()
-    print(R._render_side("[私 Claude]", me, hidden_hand=False))
+    # 自リーダーの iid を表示 (= attack/don の iid 指定に必要。 従来は pickle inspect が必要だった)。
+    # _render_side はリーダー行に iid を出さないので、 自側だけ後付けで iid を注入する。
+    my_side = R._render_side("[私 Claude]", me, hidden_hand=False)
+    lid = me.leader.instance_id
+    my_side = my_side.replace(
+        f"  リーダー: {me.leader.card.name}",
+        f"  リーダー: iid{lid} {me.leader.card.name}",
+        1,
+    )
+    print(my_side)
     print(R._render_side("[ExploitBeam]", opp, hidden_hand=True))
     ph = getattr(st.phase, "name", st.phase)
     first = "私" if session.human_idx == 0 else "ExploitBeam"
@@ -379,6 +554,8 @@ def main() -> None:
     s.add_argument("--seed", type=int, default=42)
 
     sub.add_parser("show")
+    sub.add_parser("plan", help="リーサル/防御の補助サマリ (相手ライフ/DON/ブロッカー/自アタッカー)")
+    sub.add_parser("lethal", help="plan の別名")
     m = sub.add_parser("mulligan")
     m.add_argument("what", choices=["keep", "redraw", "ok"])
     mv = sub.add_parser("move")
@@ -444,8 +621,21 @@ def main() -> None:
 
     session = _load()
     if args.cmd == "show":
+        if _auto_resolve_trivial_life_choices(session):
+            _flush_distill(session)
+            _save(session)
         _render(session)
         return
+    if args.cmd in ("plan", "lethal"):
+        _auto_resolve_trivial_life_choices(session) and _save(session)
+        _print_plan(session)
+        return
+
+    # 攻防コマンドは適用の前後で盤面 diff を取り「[結果]」 として帰結を 1〜2 行表示する
+    # (= 教師が session.pkl を inspect せず攻撃が通ったか/カウンター/ブロックを読める)。
+    _battle_before = None
+    if args.cmd in ("attack", "defense", "counter-event"):
+        _battle_before = _board_snapshot(session)
 
     try:
         if args.cmd == "mulligan":
@@ -493,6 +683,18 @@ def main() -> None:
         print(f"[不正な手] {e}")
         _render(session)
         return
+
+    # トリガー無しの life_taken_choice は自動解決 (= 攻防後に相手/自分がライフを受けて手札に
+    # 加わるだけの局面で、 教師が余計な `choice` を打たずに済む)。 攻防サマリの前に解決して
+    # 最終盤面を diff に反映する。
+    _auto_resolve_trivial_life_choices(session)
+
+    # 攻防の帰結サマリ (= 相手ライフ/手札の増減・カウンター消費・ブロッカーのレスト) を表示
+    if _battle_before is not None:
+        try:
+            _battle_summary(_battle_before, _board_snapshot(session))
+        except Exception:
+            pass  # サマリはベストエフォート (= 対戦を止めない)
 
     _flush_distill(session)  # game_over なら pending 特徴量に勝敗ラベルを付与し distill corpus へ
     _save(session)
