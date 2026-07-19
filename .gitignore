@@ -279,8 +279,13 @@ db/_analyst/
 !db/_analyst/fleet_block_status.json
 
 # 有料 note (pros_02) の取得コンテンツ + 認証状態 はコミットしない
+# pros02: transformed 成果物(私の合成=distilled/brief)は公開OK、 raw prose(bodies/text/catalog/applied)は非公開
 db/note_pros02/*
-!db/note_pros02/enc/
-db/note_pros02/enc/*
-!db/note_pros02/enc/*.enc
+!db/note_pros02/distilled/
+db/note_pros02/distilled/*
+!db/note_pros02/distilled/*.json
+!db/note_pros02/teacher_briefs/
+db/note_pros02/teacher_briefs/*
+!db/note_pros02/teacher_briefs/*.md
+!db/note_pros02/general_teacher_brief.md
 docs/cloud_push_test.md
