@@ -253,8 +253,9 @@ logs/
 # 評 価 結 果
 eval_results/
 
-# Claude 対戦 CLI の一時状態
-db/claude_play/
+# Claude 対戦 CLI の一時状態 (distill 数値コーパス = 38次元特徴+勝敗のみ、 prose無し = commit可)
+db/claude_play/*
+!db/claude_play/distill_*.jsonl
 
 # claude_play 生成データ
 db/claude_play/divergence_*.jsonl
