@@ -187,30 +187,86 @@ def test_eb02_026_vivi_condition_fails_with_6_hand():
 
 # --------------------------------------------------------------------------- #
 #  EB02-027 ビスタ: 【登場時】相手のパワー1000以下のキャラ1枚までを デッキ下へ
-#  ⚠ overlay の spec が {"type","filter"} で primitive は {"target"} を読むため
-#     current_power_le=1000 フィルタが無視され、 パワー>1000 も対象化される engine/overlay
-#     バグを検出 (パワー5000 キャラが デッキ下に置かれる)。 engine 修正は 人間レビュー
-#     に回す (= このタスクでは engine を編集しない) ため skip。
+#  overlay の spec は canonical な {"type","filter": {"current_power_le": 1000}} 形式。
+#  return_to_deck_bottom primitive が ko / return_to_hand と同様に v を直接
+#  _resolve_target へ渡すよう修正済 (= filter が効く)。 パワー>1000 のキャラは
+#  対象化されない (公式は パワー1000以下 限定)。
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason="EB02-027 overlay: return_to_deck_bottom の spec が 'type'+'filter' "
-                         "だが primitive は 'target' を参照するため power_le=1000 が無視され、 "
-                         "パワー>1000 のキャラも対象化される (公式は パワー1000以下 限定)。 "
-                         "engine/overlay の修正が必要 → 人間レビューへ。")
-def test_eb02_027_vista_on_play_return_power_le1000():
-    """登場時: 相手のパワー1000以下のキャラ1枚を デッキ下へ (パワー>1000 は対象外)。"""
+def test_eb02_027_vista_on_play_return_power_le1000_ai():
+    """AI: 相手のパワー1000以下のキャラ1枚を デッキ下へ (= 場から消え デッキ末尾に入る)。"""
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, "OP01-001", overlay)
     me, opp = st.players[0], st.players[1]
-    high = InPlay.of(repo.get("EB01-049"), sickness=False)  # power 5000 (= 対象外のはず)
-    opp.characters = [high]
+    low = InPlay.of(repo.get("EB01-015"), sickness=False)  # power 1000 (= 対象)
+    assert low.power <= 1000, f"前提: EB01-015 が パワー1000以下 でない ({low.power})"
+    opp.characters = [low]
+    deck_before = len(opp.deck)
 
     do, _ = _do(overlay, "EB02-027", "on_play")
     for prim in do:
         execute_effect(prim, st, me, opp,
                        InPlay.of(repo.get("EB02-027"), sickness=False))
-    # 公式では パワー5000 は対象外 → 場に残るべき
+
+    assert low not in opp.characters, "パワー1000以下のキャラが 場から消えていない"
+    assert len(opp.deck) == deck_before + 1, "相手デッキの枚数が1増えていない"
+    assert opp.deck[-1] is low.card, "対象カードが 持ち主デッキの末尾 (底) に置かれていない"
+
+
+def test_eb02_027_vista_on_play_power_over_1000_not_targetable():
+    """AI: パワー1000超のキャラは 対象にできない (= 場に残る、 デッキも増えない)。"""
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, "OP01-001", overlay)
+    me, opp = st.players[0], st.players[1]
+    high = InPlay.of(repo.get("EB01-049"), sickness=False)  # power 5000 (= 対象外)
+    assert high.power > 1000, f"前提: EB01-049 が パワー1000超 でない ({high.power})"
+    opp.characters = [high]
+    deck_before = len(opp.deck)
+
+    do, _ = _do(overlay, "EB02-027", "on_play")
+    for prim in do:
+        execute_effect(prim, st, me, opp,
+                       InPlay.of(repo.get("EB02-027"), sickness=False))
+
     assert high in opp.characters, "パワー1000超のキャラは デッキ下に置かれてはいけない"
+    assert len(opp.deck) == deck_before, "対象0のはずが 相手デッキ枚数が変化している"
+
+
+def test_eb02_027_vista_on_play_human_modal_filters_candidates():
+    """人間: パワー1000以下2枚 + パワー1000超1枚 → target_pick modal の候補は
+    パワー1000以下の2枚のみ (filter で高パワーは除外)。 選んだ1枚がデッキ下へ。"""
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, "OP01-001", overlay, human_idx=0)
+    me, opp = st.players[0], st.players[1]
+    lo_a = InPlay.of(repo.get("EB01-015"), sickness=False)  # power 1000
+    lo_b = InPlay.of(repo.get("EB04-032"), sickness=False)  # power 1000
+    high = InPlay.of(repo.get("EB01-049"), sickness=False)  # power 5000 (= 候補外)
+    assert lo_a.power <= 1000 and lo_b.power <= 1000 and high.power > 1000
+    opp.characters = [lo_a, high, lo_b]
+
+    do, _ = _do(overlay, "EB02-027", "on_play")
+    execute_effect(do[0], st, me, opp,
+                   InPlay.of(repo.get("EB02-027"), sickness=False))
+
+    assert st.pending_choice is not None, "人間 + 複数候補で target_pick modal が立たない"
+    assert st.pending_choice.get("kind") == "target_pick", \
+        f"kind が target_pick でない: {st.pending_choice.get('kind')}"
+    cands = st.pending_choice.get("candidates", [])
+    cand_iids = {c["iid"] for c in cands}
+    assert cand_iids == {lo_a.instance_id, lo_b.instance_id}, \
+        f"候補が パワー1000以下の2枚に絞られていない: {cand_iids}"
+    assert high.instance_id not in cand_iids, "パワー1000超が候補に混入している"
+
+    b_idx = next(i for i, c in enumerate(cands) if c["iid"] == lo_b.instance_id)
+    deck_before = len(opp.deck)
+    resolve_pending_choice(st, [b_idx])
+    assert lo_b not in opp.characters, "人間が選んだキャラが 場から消えていない"
+    assert opp.deck[-1] is lo_b.card, "人間が選んだキャラが デッキ底に置かれていない"
+    assert lo_a in opp.characters, "選ばなかったキャラはデッキ下に置かれないべき"
+    assert high in opp.characters, "パワー1000超は 影響を受けないべき"
+    assert len(opp.deck) == deck_before + 1, "デッキ枚数が1だけ増えていない"
 
 
 # --------------------------------------------------------------------------- #

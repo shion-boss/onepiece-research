@@ -4936,7 +4936,19 @@ def _execute_effect_body(
             state.push_log(f"  効果: 相手手札 {n} 枚捨て (force)")
         elif k == "return_to_deck_bottom":
             # 対象 (相手 or 自分のキャラ) を持ち主のデッキの下に置く
-            target_spec = v if isinstance(v, str) else (v.get("target", "one_opponent_character_le_5000") if isinstance(v, dict) else "one_opponent_character_le_5000")
+            #   v の 3 形式に対応 (ko / return_to_hand と 同じ target 解決):
+            #     (1) str        → そのまま target 文字列
+            #     (2) {type,filter} → v を そのまま _resolve_target へ (canonical、
+            #         current_power_le 等の filter を 正しく効かせる。 EB02-027 等)
+            #     (3) {target: ...} → 従来通り 内側 spec を 抽出 (OP04-056 等)
+            if isinstance(v, dict) and "target" in v:
+                target_spec = v.get("target", "one_opponent_character_le_5000")
+            elif isinstance(v, dict):
+                target_spec = v
+            elif isinstance(v, str):
+                target_spec = v
+            else:
+                target_spec = "one_opponent_character_le_5000"
             targets = _resolve_target(
                 target_spec, state, me, opp, self_inplay,
                 outer_kind="return_to_deck_bottom", outer_value=v,
