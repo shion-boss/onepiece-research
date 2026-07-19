@@ -4588,3 +4588,103 @@ def test_ai_skips_overdefense_when_defended_survives():
     # defended_target 無し = 旧 heuristic (発動)、 後方互換
     assert _ai_should_fire_opp_attack_cost(
         state, p0, p0.leader, ace_eff, attacker=atk(ld_power - 1000)) is True
+
+
+# ===========================================================================
+# 観戦コメント (2026-05 batch) 由来 回帰テスト:
+#   条件付きキーワード付与 (速攻/ブロッカー) が 条件未達で 発火しない こと + on_play。
+#   ohtsuki さん 報告: 「トラッシュ足りないのに速攻/Bマーク」「登場時効果使えてない」。
+#   → 現行 HEAD では 正しく 条件 gate されている ことを ロックする。
+# ===========================================================================
+def test_op13_080_rush_requires_trash_7():
+    """OP13-080 イーザンバロン: 自トラッシュ7枚以上でのみ 速攻 + KO耐性。
+    観戦コメント「トラッシュ指定枚数無いのに速攻を得ている」 の回帰。"""
+    repo = _repo()
+    overlay = _overlay()
+    for tc, expect in [(0, False), (6, False), (7, True), (10, True)]:
+        state = _make_state(repo, "OP01-001", overlay=overlay)
+        me = state.players[0]
+        ip = InPlay.of(repo.get("OP13-080"), sickness=False)
+        me.characters = [ip]
+        me.trash = [repo.get("OP01-013")] * tc
+        evaluate_static_effects(state, overlay)
+        assert ("速攻" in ip.static_granted_keywords) is expect, (
+            f"trash={tc}: 速攻 は trash>=7 の時のみ (got {ip.static_granted_keywords})")
+        assert ip.static_ko_immune is expect, f"trash={tc}: KO耐性 も trash>=7 の時のみ"
+
+
+def test_op13_089_blocker_requires_trash_7():
+    """OP13-089 ウォーキュリー: 自トラッシュ7枚以上でのみ ブロッカー。
+    観戦コメント「トラッシュ足りないのにBマークついてる」 の回帰。"""
+    repo = _repo()
+    overlay = _overlay()
+    for tc, expect in [(0, False), (6, False), (7, True)]:
+        state = _make_state(repo, "OP01-001", overlay=overlay)
+        me = state.players[0]
+        ip = InPlay.of(repo.get("OP13-089"), sickness=False)
+        me.characters = [ip]
+        me.trash = [repo.get("OP01-013")] * tc
+        evaluate_static_effects(state, overlay)
+        assert ("ブロッカー" in ip.static_granted_keywords) is expect, (
+            f"trash={tc}: ブロッカー は trash>=7 の時のみ")
+
+
+def test_eb04_056_pacifista_blocker_requires_boni_and_life0():
+    """EB04-056 パシフィスタ: 自「ジュエリー・ボニー」がいて 自ライフ0 の時のみ ブロッカー。
+    観戦コメント「条件満たしてないのにBマークついてるバグ」 の回帰。"""
+    repo = _repo()
+    overlay = _overlay()
+    BONI = "ST02-007"  # ジュエリー・ボニー cost1
+    for has_boni, life, expect in [
+        (False, 3, False), (True, 3, False), (False, 0, False), (True, 0, True)]:
+        state = _make_state(repo, "OP01-001", overlay=overlay)
+        me = state.players[0]
+        ip = InPlay.of(repo.get("EB04-056"), sickness=False)
+        chars = [ip]
+        if has_boni:
+            chars.append(InPlay.of(repo.get(BONI), sickness=False))
+        me.characters = chars
+        me.life = [repo.get("OP01-013")] * life
+        evaluate_static_effects(state, overlay)
+        assert ("ブロッカー" in ip.static_granted_keywords) is expect, (
+            f"boni={has_boni} life={life}: ブロッカー は ボニー在場 かつ ライフ0 の時のみ")
+
+
+def test_op13_092_myosgard_on_play_marijoa_stage():
+    """OP13-092 ミョスガルド 登場時: 自ライフ3以下で トラッシュから コスト1 聖地マリージョア
+    ステージ (OP05-097) を 登場。 観戦コメント「登場時効果使えてない」 の回帰。"""
+    repo = _repo()
+    overlay = _overlay()
+    for life, has_stage, expect_play in [(4, True, False), (3, True, True), (3, False, False)]:
+        state = _make_state(repo, "OP01-001", overlay=overlay)
+        me = state.players[0]
+        opp = state.players[1]
+        me.life = [repo.get("OP01-013")] * life
+        if has_stage:
+            me.trash = [repo.get("OP05-097")]
+        ip = InPlay.of(repo.get("OP13-092"), sickness=True)
+        me.characters.append(ip)
+        stages_before = len(me.stages)
+        trigger_on_play(state, me, opp, ip, overlay)
+        played = len(me.stages) > stages_before
+        assert played is expect_play, (
+            f"life={life} stageInTrash={has_stage}: ステージ登場={played}, expect={expect_play}")
+
+
+def test_op13_002_ace_opp_attack_minus2000():
+    """OP13-002 エース リーダー 相手アタック時: 手札1捨て + 相手リーダー/キャラ -2000 (battle)。
+    観戦コメント「何の効果で-2000？ルール守ってる？」 の回帰 (= 正しい 反応型 防御効果)。"""
+    repo = _repo()
+    overlay = _overlay()
+    ace_eff = None
+    for eff in overlay["OP13-002"].effects:
+        if eff.get("when") == "opp_attack":
+            ace_eff = eff
+            break
+    assert ace_eff is not None, "OP13-002 に opp_attack 反応効果があるはず"
+    # -2000 / battle / 相手リーダーかキャラ / 手札1捨てコスト を overlay が正しく持つ
+    pp = ace_eff["do"][0]["power_pump"]
+    assert pp["amount"] == -2000 and pp["duration"] == "battle"
+    assert pp["target"] == "one_opp_chara_or_leader"
+    assert ace_eff["cost"]["discard_hand"] == 1
+    assert ace_eff["cost"]["once_per_turn"] is True

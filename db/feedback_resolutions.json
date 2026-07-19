@@ -117,6 +117,150 @@
       "commit": "e3c01bb",
       "reason": "速攻で攻撃できたのでは=AI が速攻活用せず。 futility 系 + bonus 学習で速攻優先を学習",
       "date": "2026-06-01"
+    },
+    "spectate:8ab32c8d45f6458a9185f1a69f9c7561": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "A/verified-fixed: 'rested target' UI badge の同名2枚false-positive。 MatchReplayComments.tsx detectBadges が allRested (全同名キャラrested) の時のみbadge発火に修正済 (line 299 コメント '観戦コメント#7由来の修正')。 現HEADで再現せず。 dup: UI badge fix",
+      "date": "2026-07-20"
+    },
+    "spectate:9eabf7df428d496f84110b2120329342": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "A/verified: 'このドン付与意味ない'(シャルリア宮 P=1000にドン)。 attach先が非攻撃キャラ=futility。 dup: 無意味ドン付与 (attach_don抑制 e3c01bb 系)。 user-note",
+      "date": "2026-07-20"
+    },
+    "spectate:7c4eb49bdec44704a8f0fdd3ac66d4e7": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "A/verified-fixed: 'トラッシュ無いのに速攻'(OP13-080 ナス寿郎聖)。 現HEADで再現テスト=trash0/6で速攻付与されず、trash7/10でのみ付与 (条件self_trash_count_ge:7 正しくgate)。 test_op13_080_rush_requires_trash_7 緑",
+      "date": "2026-07-20"
+    },
+    "spectate:1530a99cddfe4f069f0d5050b3c301d4": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "A/verified-fixed: 'トラッシュ足りないのにBマーク'(OP13-089 ウォーキュリー聖)。 現HEADでtrash0/6でブロッカー付与されず、trash7でのみ付与。 test_op13_089_blocker_requires_trash_7 緑",
+      "date": "2026-07-20"
+    },
+    "spectate:6bcc09032d65480a90d39fadf439c01f": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "A/verified-fixed: '登場時効果使えてない'(OP13-092 ミョスガルド聖)。 現HEADでlife<=3+トラッシュにOP05-097有る時のみ on_play でステージ登場、それ以外no-op。 test_op13_092_myosgard_on_play_marijoa_stage 緑。 コメントは登場時条件(life<=3)未達 or 対象ステージ不在の局面と推測",
+      "date": "2026-07-20"
+    },
+    "spectate:04bce3b5c1254eafa1921075d1c417f3": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "A/verified-fixed: '登場時効果使えてない'(OP13-092 ミョスガルド聖、上と同カード)。 同上、on_play は条件成立時に正しく発火 (test緑)。 dup: OP13-092",
+      "date": "2026-07-20"
+    },
+    "spectate:3eb3d3103fbd4185bd421e149a89fd1e": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "A/verified-fixed: '条件満たしてないのにBマーク'(EB04-056 パシフィスタ)。 現HEADでブロッカーは 自ジュエリー・ボニー在場 かつ 自ライフ0 の時のみ付与。 test_eb04_056_pacifista_blocker_requires_boni_and_life0 緑",
+      "date": "2026-07-20"
+    },
+    "spectate:3f21be68f4a041349d450c05ae1f5e58": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "A/verified-correct: '何の効果で-2000？ルール守ってる？'。 OP13-002 エース リーダーの【相手アタック時】(ターン1回,手札1捨て)相手リーダー/キャラ-2000(battle)=正しい反応型防御効果。 test_op13_002_ace_opp_attack_minus2000 緑。 'パワー低いのに気づかず攻撃'部分=反応型防御なので攻撃前は不可視、AI攻撃判断はforce-attack軸(既知value天井)",
+      "date": "2026-07-20"
+    },
+    "spectate:cf22d46bbfe542a9a21213a6ccf3aa52": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "B/dup: 'ドン付けたのに何もしない'(デリンジャーにドン→未使用)。 既解決テーマ '無意味ドン付与/attach後放置=futility' の重複 (attach_don抑制 e3c01bb + force-attack)。 既知value天井",
+      "date": "2026-07-20"
+    },
+    "spectate:88b81ee9005940a3977a4df31c137b2e": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "B/dup: 'このドン付与意味ない'(ウソ八 P=4000にドン)。 既解決テーマ '無意味ドン付与=futility' の重複 (attach_don抑制 e3c01bb)",
+      "date": "2026-07-20"
+    },
+    "spectate:a1476a3bbaa34292b7dab9a7caf5e5ce": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "B/dup: '5000ブロッカーを+1000カウンターで守るのは損'。 既解決テーマ 防御効率 (defense/counter最小化) + futility の重複。 KO時効果無しなら素受け優位=既知value天井",
+      "date": "2026-07-20"
+    },
+    "spectate:1d0d2e5cb991414aa44ca838d48fe26a": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "B/dup: 'この攻撃の意味は？'(ミキータ2000→ボニー6000)。 既解決テーマ '無意味攻撃/f29b656d 速攻活用' の重複。 攻撃圧=force-attack軸 (既知value天井)",
+      "date": "2026-07-20"
+    },
+    "spectate:6ba8bfa8df224958b8f3be6925bb3667": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "B/dup: 'この攻撃何の意味？'(ビビ3000→Mr.4 5000)。 既解決テーマ '無意味攻撃=futility' の重複。 相手手札にcounter強制の圧=force-attack軸 (既知value天井)",
+      "date": "2026-07-20"
+    },
+    "spectate:5ca0698227a9446593df024450c0a175": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "B/dup: 'この攻撃いみない'(ビビ2000→クロコ5000)。 既解決テーマ '無意味攻撃=futility' の重複。 force-attack軸 (既知value天井)",
+      "date": "2026-07-20"
+    },
+    "spectate:5244572dc26b4112913ca7ca15f17630": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "B/dup: 'イムが攻撃しなかったのなぜ'。 既解決テーマ '配備AI消極的すぎ=攻撃しない (feedback_ai_too_passive_attack_pressure)' の重複。 _offense_force_attack=True 再有効化済 (2026-07-08)。 既知value天井",
+      "date": "2026-07-20"
+    },
+    "spectate:e61629340d2b4b1eadcf556793128200": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "C/user-note: '紫ドフラのリーダーが攻撃しなかったのは判断？警戒？'。 攻撃/非攻撃の判断を問う戦術Q。 コード変更不要。 攻撃圧=force-attack軸 (既知value天井)",
+      "date": "2026-07-20"
+    },
+    "spectate:d77e26adc5084129b16fefde720419c5": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "C/user-note: 'このドン付与はトリガー/イベントカウンター警戒？'。 相手の防御札警戒についての戦術Q (Mr.4に+2000)。 コード変更不要。 belief/threat軸 (既知)",
+      "date": "2026-07-20"
+    },
+    "spectate:be6c784c0d9a4ea9b6e6b3131de39766": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "C/user-note: 'リーダー効果を使うため1ドンはリーダーに付与してから攻撃'。 正しいDON規律の操作助言 (赤緑ルフィ)。 バグでない。 DON付与タイミング=force-attack/DON規律の既知軸",
+      "date": "2026-07-20"
+    },
+    "spectate:5a659c87800a4de88233d2d6453d3eda": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "C/user-note: 'アタックしないキャラにドン付与は無意味、リーダーに1ドンで2ドンアクティブ終了がベスト→相手ターン4000カウンター'。 正しい戦術メモ。 バグでない。 futility/DON規律の既知軸",
+      "date": "2026-07-20"
+    },
+    "spectate:d0130e2bb23e448899d1ae792837f777": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "C/user-note: 'リーダーに1ドンついていないからリーダー効果は使えない'。 正しいルール観察 (赤緑ルフィ リーダー効果のDON条件)。 バグでない (engineは条件self_attached_don_ge等でgate済)",
+      "date": "2026-07-20"
+    },
+    "spectate:81f98694636e4a11b95fe4bd5eab940d": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "C/user-note: 'リーダーは既にレストだからトリガー効果使う必要なし'。 正しい戦術観察 (舞踏石トリガー)。 バグでない。 効果任意発動=optional_cost_then/人間選択の既知軸",
+      "date": "2026-07-20"
+    },
+    "spectate:5e4bc43e12f4417a99ade8f74240b77e": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "C/user-note: '虚の玉座op13-099セット手順+毎ターン効果使用'。 デッキ操作手順のメモ (赤緑ルフィ OP13)。 バグでない、コード変更不要",
+      "date": "2026-07-20"
+    },
+    "spectate:1cce7e4e11ca442288a5f39a99a2bd21": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "D/ux: 'ブロック演出で矢印を自分に向けてブロック演出'。 UI演出要望 (ブロック時の攻撃矢印リダイレクト)。 MatchReplay演出の軽微deferred。 engine影響なし",
+      "date": "2026-07-20"
+    },
+    "spectate:c427209f779543abbffe5e49a1137630": {
+      "resolved": true,
+      "commit": "d522c4d",
+      "reason": "D/ux: 'ターン1回のリーダー効果かlogに表示しすぎ'(SWORD速攻付与log連発)。 既解決34681f00(log順整理)と近いlog冗長。 静的効果evaluate_static_effects毎回のlog抑制=軽微deferred UX",
+      "date": "2026-07-20"
     }
   }
 }
