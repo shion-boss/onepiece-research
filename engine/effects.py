@@ -2491,6 +2491,14 @@ def _resolve_target(
             n = int(m.group(1))
             return [c for c in opp.characters if c.card.cost <= n]
 
+        # any_opponent_character_power_le_N (全員、パワー N 以下)
+        # set_cannot_attack 等の count 指定と併用 (= EB04-028 アイスタイム
+        # 「相手のパワー10000以下のキャラ2枚まで」)。count は呼び出し側で適用。
+        m = re.match(r"any_opponent_character_power_le_(\d+)$", target_spec)
+        if m:
+            n = int(m.group(1))
+            return [c for c in opp.characters if c.power <= n]
+
         # one_opponent_rested_character_cost_le_N (レスト + コスト N 以下、1 体)
         m = re.match(r"one_opponent_rested_character_cost_le_(\d+)(?:cost)?$", target_spec)
         if m:

@@ -230,12 +230,6 @@ def test_eb04_027_hancock_trigger_summon_trigger_char_ai():
 #             次の相手エンド終了時までアタックできない /
 #    【トリガー】コスト5以下のキャラ1枚までを持ち主の手札に戻す
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason=(
-    "overlay/engine 実バグ (人間レビュー行き): EB04-028 メインの set_cannot_attack が "
-    "target='one_opponent_character_power_le_10000' + count:2 だが、 one_ セレクタは 1 体しか "
-    "解決しないため『相手のパワー10000以下のキャラ2枚まで』の 2 枚目がアタック不可にならない。 "
-    "公式テキスト忠実には target を any_opponent_character_power_le_10000 にする必要がある "
-    "(engine 側 count 適用は any_ 前提)。 このタスクでは engine/overlay を編集しないため skip。"))
 def test_eb04_028_ice_time_main_cannot_attack_ai():
     """メイン (海軍リーダー): 手札1捨てて相手キャラ2枚までを 次相手ターン中 アタック不可 (AI)。"""
     repo = _repo()

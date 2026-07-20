@@ -10545,28 +10545,20 @@
       "when": "activate_main",
       "do": [
         {
-          "optional_cost_then": {
-            "cost": [
-              {
-                "trash_self": true
-              }
-            ],
-            "effect": [
-              {
-                "play_from_hand_or_trash": {
-                  "filter": {
-                    "category": "CHARACTER",
-                    "feature": "SWORD",
-                    "cost_le": 3,
-                    "exclude_name": "ヘルメッポ"
-                  },
-                  "limit": 1
-                }
-              }
-            ]
+          "play_from_hand_or_trash": {
+            "filter": {
+              "category": "CHARACTER",
+              "feature": "SWORD",
+              "cost_le": 3,
+              "exclude_name": "ヘルメッポ"
+            },
+            "limit": 1
           }
         }
-      ]
+      ],
+      "cost": {
+        "trash_self": true
+      }
     }
   ],
   "OP11-092": [
@@ -10622,7 +10614,7 @@
       "do": [
         {
           "set_cannot_rest": {
-            "target": "one_opponent_character_cost_le_5cost",
+            "target": "any_opponent_character_cost_le_5cost",
             "count": 2,
             "duration": "next_opp_turn_end"
           }
@@ -21106,7 +21098,7 @@
             "effect": [
               {
                 "set_cannot_attack": {
-                  "target": "one_opponent_character_power_le_10000",
+                  "target": "any_opponent_character_power_le_10000",
                   "duration": "next_opp_turn_end",
                   "count": 2
                 }
@@ -35429,7 +35421,7 @@
       "do": [
         {
           "set_cannot_rest": {
-            "target": "one_opponent_character_cost_le_5cost",
+            "target": "any_opponent_character_cost_le_5cost",
             "count": 2,
             "duration": "next_opp_turn_end"
           }
@@ -43960,7 +43952,7 @@
       "do": [
         {
           "set_cannot_rest": {
-            "target": "one_opponent_character_cost_le_5cost",
+            "target": "any_opponent_character_cost_le_5cost",
             "count": 2,
             "duration": "next_opp_turn_end"
           }
@@ -44638,7 +44630,7 @@
             "effect": [
               {
                 "set_cannot_attack": {
-                  "target": "one_opponent_character_power_le_10000",
+                  "target": "any_opponent_character_power_le_10000",
                   "duration": "next_opp_turn_end",
                   "count": 2
                 }
@@ -108166,7 +108158,7 @@
             "effect": [
               {
                 "set_cannot_attack": {
-                  "target": "one_opponent_character_power_le_10000",
+                  "target": "any_opponent_character_power_le_10000",
                   "duration": "next_opp_turn_end",
                   "count": 2
                 }

@@ -393,13 +393,6 @@ def test_eb04_046_doll_static_no_effect_on_own_turn():
 #    【起動メイン】このキャラをトラッシュ：手札/トラッシュから「ヘルメッポ」以外の
 #                 コスト3以下の特徴《SWORD》キャラ1枚まで登場
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason=(
-    "overlay/engine 実バグ (人間レビュー行き): EB04-047 の起動メインは 自身を トラッシュに置く "
-    "コスト が optional_cost_then の cost 配列 (= [{trash_self: true}]) に 入っている が、 "
-    "optional_cost_then の cost 支払い loop も execute_effect も trash_self を 処理せず 黙って "
-    "無視する (= 実測: 効果の SWORD キャラ登場は 発火するが 自身は 場に残り コスト踏み倒し)。 "
-    "公式テキスト忠実には EB04-039 と同じ top-level cost {trash_self: true} 形式にするか、 "
-    "engine 側で optional_cost_then の trash_self cost を実装する必要。 engine/overlay 非編集のため skip。"))
 def test_eb04_047_helmeppo_activate_main_summon_sword_ai():
     """起動メイン: 自身をトラッシュ + トラッシュから SWORD キャラを登場 (AI)。"""
     repo = _repo()
