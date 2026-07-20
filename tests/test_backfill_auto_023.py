@@ -262,11 +262,8 @@ def test_op01_071_jinbe_on_play_human_target_pick():
 
 # --------------------------------------------------------------------------- #
 #  OP01-072 スマイリー: 【ドン‼×1】【自分のターン中】自分の手札1枚につきパワー+1000。
-#    → engine 未対応 (power_pump amount_per source="self_hand_count" が未実装で常に+0)。
+#    (power_pump amount_per source="self_hand_count" を engine に実装済 = 2026-07-21)。
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason="engine gap: power_pump amount_per の source='self_hand_count' が "
-                         "engine/effects.py の対応 source 一覧に無く、 static_buff が常に +0 に "
-                         "なる (手札依存 pump が発火しない)。 engine 修正は人間レビュー案件。")
 def test_op01_072_smiley_static_pump_per_hand():
     repo = _repo()
     overlay = _overlay()

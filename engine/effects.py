@@ -3305,6 +3305,9 @@ def _execute_effect_body(
                     src_val = me.don_active + me.don_rested + me.leader.attached_dons + sum(c.attached_dons for c in me.characters)
                 elif src == "self_field_count":
                     src_val = len(me.characters)
+                elif src == "self_hand_count":
+                    # 「自分の手札1枚につき パワー+N」 (= OP01-072 スマイリー 等)。
+                    src_val = len(me.hand)
                 elif src == "self_trash_count":
                     src_val = len(me.trash)
                 elif src == "self_trash_event_count":
