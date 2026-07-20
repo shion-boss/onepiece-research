@@ -132,5 +132,15 @@
   ],
   "ST10-014": [
     "don_count_condition_unmodeled"
-  ]
+  ],
+  "OP09-097": [
+    "faq_attention_6",
+    "faq_negation"
+  ],
+  "_acknowledge_note_op09_097": "2026-07-21 acknowledged: 闇水 overlay (counter: negate_effect + power_pump -4000) は公式テキストに忠実。 faq_attention_6 は faq 6件の注目度のみ。 faq_negation の『いいえ』は (1) 別カードの【メイン】効果でトラッシュの闇水を回収できるか=No (= OP09-097 自身の効果と無関係) (2) リーダー『ブルック』の deck-out 回避効果を闇水で無効化した際の敗北判定 (= engine ruling、 overlay の誤許可でない)。 いずれも overlay バグでない false positive。",
+  "ST34-001": [
+    "don_count_condition_unmodeled",
+    "faq_negation"
+  ],
+  "_acknowledge_note_st34_001": "2026-07-21 acknowledged: カタクリ overlay (on_self_don_returned_to_deck + self_turn/leader_feature 条件 + once_per_turn + add_rested_don 2) は公式テキストに忠実。 don_count_condition_unmodeled は false positive (『ドン!!2枚まで』は追加枚数であり、 モデル化すべきドン枚数『条件』ではない)。 faq_negation の『いいえ』は 2枚コピー時の once-per-turn 多重発動不可という intrinsic な多コピー timing ruling (= overlay の誤許可でない)。"
 }
