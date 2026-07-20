@@ -80,7 +80,9 @@ def _play(deck_t, deck_o, slug_t, slug_o, seed):
         cur = st.turn_player_idx
         if st.phase == Phase.MAIN and cur == 0 and cur != last_tp:  # target 手番頭のみ
             try:
-                if _FEAT == "v12":
+                if _FEAT == "v13":
+                    feat = features(st, 0, v13=True)
+                elif _FEAT == "v12":
                     feat = features(st, 0, v12=True)
                 elif _FEAT == "v11":
                     feat = features(st, 0, v11=True)
@@ -118,8 +120,9 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--value-path", default=None,
                     help="bootstrap 元 value pkl (既定 db/value_gbm_<deck>.pkl)")
-    ap.add_argument("--feat", default="v6", choices=["v6", "v11", "v12"],
-                    help="記録する特徴 (v11 = v6 + 防御-threat 3、 v12 = v11 + 中身バレ相手 4)")
+    ap.add_argument("--feat", default="v6", choices=["v6", "v11", "v12", "v13"],
+                    help="記録する特徴 (v11 = v6 + 防御-threat 3、 v12 = v11 + 中身バレ相手 4、 "
+                         "v13 = v6 + reserve×lethal 4 = パターンA 修正)")
     ap.add_argument("--seed-base", type=int, default=900,
                     help="対局 seed の基点 (= ラウンド毎に変えて新規対局を生成)")
     ap.add_argument("--my-temperature", type=float, default=0.0,

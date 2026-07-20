@@ -42,6 +42,7 @@ BEAM_W, BEAM_D = 8, 6  # 既定 moderate(速度)。 配備忠実 deploy 用に m
 TRAIN_POSTOPP_TURNS = 1  # 訓練時の手選択の多ターン探索深さ (1=現挙動)。 >1 で多ターン探索データ生成
 TRAIN_TEMP = 0.0  # 訓練時の温度探索 (0=argmax)。 >0 で beam 候補を softmax サンプル = uncertain な手を試す
 OPP_AI = "exploitbeam"  # 相手 AI。 "racer"=AggressiveRacerAI(顔詰め)で消極性を罰し「圧をかける/受ける」を学ばせる
+FEATURE_VER = "v2"  # 学習 feature version (--feature-ver)。 "v2"=既定(21dim)/"v13"=reserve×lethal(42dim)
 
 
 def _dl(s):
@@ -130,7 +131,8 @@ def gen_one(task):
     while not st.game_over and n < 400:
         me = st.turn_player_idx
         try:
-            recs.append(features(st, ei, rich=True))
+            # FEATURE_VER で学習 feature version を切替 (v13 = reserve×lethal board-interactive、 42dim)。
+            recs.append(features(st, ei, rich=True, v13=(FEATURE_VER == "v13")))
         except Exception:
             pass
         try:
@@ -192,9 +194,14 @@ def main():
                     help="訓練時の手選択の多ターン探索深さ (1=現挙動/2=多ターン探索でデータ生成)。 eval は常に 1(高速配備)")
     ap.add_argument("--train-temp", type=float, default=0.0,
                     help="訓練時の温度探索 (0=argmax/0.5〜1.0=uncertain な手を試す)。 eval は常に 0(argmax配備)")
+    ap.add_argument("--feature-ver", default="v2", choices=["v2", "v13"],
+                    help="学習 feature version。 v2=既定(21dim)/v13=reserve×lethal board-interactive(42dim、 パターンA修正)")
+    ap.add_argument("--arm", default=None,
+                    help="候補 pkl の arm 名 (= 出力を db/_selfplay/mcab_<deck>_<arm>.pkl にも保存)")
     a = ap.parse_args()
-    global DECK, OPP, OPPS, TRAIN_POSTOPP_TURNS, TRAIN_TEMP, OPP_AI
+    global DECK, OPP, OPPS, TRAIN_POSTOPP_TURNS, TRAIN_TEMP, OPP_AI, FEATURE_VER
     DECK = a.deck
+    FEATURE_VER = a.feature_ver
     OPPS = [s.strip() for s in a.opp.split(",")]  # comma list = 累積相手集合
     OPP = OPPS[0]  # primary 標的 (eval/gate/命名)
     TRAIN_POSTOPP_TURNS = a.train_postopp_turns
@@ -221,6 +228,10 @@ def main():
             learn_gbm = str(outdir / f"beamloop_{DECK}_iter{it}.pkl")
             with open(learn_gbm, "wb") as f:
                 pickle.dump(model, f)
+            if a.arm:  # arm 名指定時は候補 pkl にも保存 (= A/B の arm slot)
+                arm_path = str(outdir / f"mcab_{DECK}_{a.arm}.pkl")
+                with open(arm_path, "wb") as f:
+                    pickle.dump(model, f)
         except ValueError:
             print("    (単一クラス、 学習skip)", flush=True)
         et = [(learn_gbm, 90000 + it * 1000 + e) for e in range(a.eval)]

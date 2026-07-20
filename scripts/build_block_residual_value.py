@@ -27,9 +27,17 @@ def main():
     ap.add_argument("--opponents", nargs="+", required=True)
     ap.add_argument("--n-games", type=int, default=10)
     ap.add_argument("--lam", type=float, default=0.5, help="塊target blend λ")
-    ap.add_argument("--deploy-lam", type=float, default=0.5, help="残差配備 λ")
+    ap.add_argument("--deploy-lam", type=float, default=0.5,
+                    help="残差配備 λ (単一。 複数候補は --deploy-lams)")
+    ap.add_argument("--deploy-lams", type=float, nargs="+", default=None,
+                    help="複数 deploy-lam。 各 lam で候補 pkl を出力(A/B の arm 別)。 例: 0.15 0.3 0.5")
     ap.add_argument("--anchor", default=None, help="配備 value pkl(既定 db/value_gbm_<deck>.pkl)")
-    ap.add_argument("--skip-gen", action="store_true", help="既存 v11 data を再利用")
+    ap.add_argument("--feat", default="v11", choices=["v11", "v12", "v13"],
+                    help="残差 feature version (v13 = v6 + reserve×lethal 4 = パターンA 修正)")
+    ap.add_argument("--out-prefix", default=None,
+                    help="出力 pkl の basename prefix (既定 mcab_<deck>_<feat>cent)。 lam ごとに "
+                         "'_res<lam>' を suffix 付与 (--deploy-lams 時)")
+    ap.add_argument("--skip-gen", action="store_true", help="既存 data を再利用")
     a = ap.parse_args()
 
     anchor = a.anchor or f"db/value_gbm_{a.deck}.pkl"
@@ -37,25 +45,43 @@ def main():
         print(f"!! anchor {anchor} 無し → この deck は残差アンカー不可(base value を先に用意 or --anchor 指定)")
         return 1
 
-    data = ROOT / "db" / "_analyst" / f"blockval_{a.deck}_v11.jsonl"
+    feat = a.feat
+    data = ROOT / "db" / "_analyst" / f"blockval_{a.deck}_{feat}.jsonl"
     if not a.skip_gen or not data.exists():
-        print(f"=== [1/2] gen v11 塊帰結 data ({a.deck}) ===", flush=True)
+        print(f"=== [1/2] gen {feat} 塊帰結 data ({a.deck}) ===", flush=True)
         r = subprocess.run([PY, str(ROOT / "scripts" / "gen_block_value_targets.py"),
                             "--deck", a.deck, "--opponents", *a.opponents,
-                            "--n-games", str(a.n_games), "--feat", "v11",
-                            "--out", f"db/_analyst/blockval_{a.deck}_v11.jsonl"])
+                            "--n-games", str(a.n_games), "--feat", feat,
+                            "--out", f"db/_analyst/blockval_{a.deck}_{feat}.jsonl"])
         if r.returncode != 0:
             return r.returncode
 
-    out = f"db/_selfplay/mcab_{a.deck}_v11cent.pkl"
-    print(f"=== [2/2] train centered residual (anchor={anchor}, deploy_lam={a.deploy_lam}) ===", flush=True)
-    r = subprocess.run([PY, str(ROOT / "scripts" / "train_block_value.py"),
-                        "--in", f"db/_analyst/blockval_{a.deck}_v11.jsonl",
-                        "--lam", str(a.lam), "--residual", anchor,
-                        "--deploy-lam", str(a.deploy_lam), "--center", "--out", out])
-    if r.returncode != 0:
-        return r.returncode
-    print(f"\n[done] {out}  → A/B: matchup_value_deploy_ab.py --deck {a.deck} --arms default,v11cent")
+    lams = a.deploy_lams if a.deploy_lams is not None else [a.deploy_lam]
+    prefix = a.out_prefix or f"mcab_{a.deck}_{feat}cent"
+    outs = []
+    for i, lam in enumerate(lams):
+        if len(lams) > 1:
+            # lam タグ (0.15 -> res015, 0.3 -> res03, 0.5 -> res05) = A/B の arm 名に一致。
+            # 小数点以下 2 桁 zero-pad ("0.15"->"015", "0.3"->"03") で衝突しない一意 tag に。
+            frac = f"{lam:.2f}".split(".")[1]  # "15" / "30" / "50"
+            frac = frac.rstrip("0") or "0"     # "15" / "3" / "5"
+            tag = f"res0{frac}"                # res015 / res03 / res05
+            out = f"db/_selfplay/mcab_{a.deck}_{tag}.pkl"
+        else:
+            out = f"db/_selfplay/{prefix}.pkl"
+        print(f"=== [2/2] train centered residual [{i+1}/{len(lams)}] "
+              f"(anchor={anchor}, feat={feat}, deploy_lam={lam}) ===", flush=True)
+        r = subprocess.run([PY, str(ROOT / "scripts" / "train_block_value.py"),
+                            "--in", f"db/_analyst/blockval_{a.deck}_{feat}.jsonl",
+                            "--lam", str(a.lam), "--residual", anchor,
+                            "--deploy-lam", str(lam), "--center", "--out", out])
+        if r.returncode != 0:
+            return r.returncode
+        outs.append(out)
+
+    print(f"\n[done] {len(outs)} candidate(s):")
+    for o in outs:
+        print(f"  {o}")
     return 0
 
 

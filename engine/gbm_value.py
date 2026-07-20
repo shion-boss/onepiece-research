@@ -214,6 +214,60 @@ FEATURE_KEYS_V12 = FEATURE_KEYS_V11 + (
     "opp_known_finisher", "opp_known_removal", "opp_known_counter", "ix_known_fin_expo",
 )
 
+# v13 = 42 (2026-07-20): **非致死ターンにカウンター/除去を吐き出し丸腰→次ターンのリーサルで死ぬ**
+# パターンA の修正(Claude 採点者ループ、 紫エネル cardrush_1454 が 10/12 敗戦で守備カウンター
+# (万雷/放電/神の裁き/雷獣/雷龍/神避/ガンマナイフ)を攻めに吐いて手札から枯らし、 次ターンの単純
+# リーサルで死ぬ)。 board_eval では盤面除去=eval上昇で不可視。 pros02「0コストカウンターを厚く
+# 抱え守る」違反。 v6(38)を prefix に拡張(v6⊂v13 prefix-safe)。 4 列すべて公開情報 + engine 実値
+# (counter値 = _effective_counter_value の overlay pump / lethal圧 = project_opp_next_turn_lethal)
+# で計算し、 創作しない。 ★board-interactive(静的でなく交互作用項)= 手ごとに変わる selection-
+# relevant 信号(静的 feature 追加は過去 deploy-null 頻発、 board×matchup interaction のみ効いた)。
+#  - retained_counter_in_hand : 自手札の温存カウンター価値 = Σ _effective_counter_value(shield-counter
+#      と counter-event pump の max)。 counter を discard/攻めに吐くと **手ごとに減る** board 信号。
+#      = board_eval が counter-event(.counter=0)を 0 と見る穴の直接修正。
+#  - opp_lethal_pressure : 相手の次ターン想定リーサル圧 = project_opp_next_turn_lethal(engine 実値、
+#      相手 active 総打点 vs 自ライフ×5000+自期待カウンター、 0..1)。 = 「詰め圏か」の engine 判定。
+#  - ix_reserve_vs_lethal : ★相互作用「守れる量」= 詰め圏(pressure)での温存カウンターの効き。
+#      = pressure × min(retained, needed) を正規化 = 「詰められそうな時に守備を残しているか」。
+#      counter を吐くと retained↓ → **この値が下がる = value 低下**(丸腰×詰め圏を罰する)。
+#  - ix_bare_under_pressure : ★丸腰フラグ = pressure × max(0, 1 − retained/needed)。 詰め圏で守備が
+#      閾値以下(needed=1 shield ぶん)だと大きく、 十分残すと 0。 = パターンA の直接ペナルティ。
+# 相手ターン後フレーム(= 自次ターン開始 = ExploitBeam の post-opp rerank frame)で評価されるのが理想
+# = features() が受け取る state がその frame。 lethal 圧はそのフレームで相手の実盤面から計算される。
+_V13_REF_COUNTER = 2000.0  # 「1 shield ぶんの守備」正規化基準 (= needed。 needed 未満で丸腰扱い)
+
+
+def _reserve_lethal_features(state: Any, me_idx: int) -> list:
+    """v13: 温存カウンター × 相手リーサル圧 の board-interactive 4 特徴。 全て engine 実値・公開情報。
+    counter を攻めに吐くと retained↓ → interaction が下がる = 「丸腰×詰め圏」を罰する(パターンA 修正)。"""
+    from .eval import project_opp_next_turn_lethal
+    from .hand_estimator import _effective_counter_value
+    try:
+        me_p = state.players[me_idx]
+        ov = getattr(state, "effects_overlay", None)
+        my_ln = getattr(getattr(me_p.leader, "card", None), "name", "")
+        # 自手札の温存カウンター価値 (= shield-counter と counter-event pump の実効値の合計)
+        retained = float(sum(_effective_counter_value(c, ov, my_ln) for c in me_p.hand))
+    except Exception:
+        return [0.0, 0.0, 0.0, 0.0]
+    try:
+        pressure = float(project_opp_next_turn_lethal(state, me_idx))  # 0..1、 engine 実値
+    except Exception:
+        pressure = 0.0
+    # needed = 「1 shield ぶんの守備を確保」基準。 詰め圏で needed 未満なら丸腰。
+    needed = _V13_REF_COUNTER
+    # ix_reserve_vs_lethal: 詰め圏で温存カウンターが効く量 (= 守れる度合い)。 高いほど安全。
+    reserve_vs_lethal = pressure * (min(retained, needed) / needed)
+    # ix_bare_under_pressure: 丸腰ペナルティ (= 詰め圏で守備が閾値以下だと大)。 パターンA の直接罰。
+    bare = pressure * max(0.0, 1.0 - retained / needed)
+    return [retained, pressure, reserve_vs_lethal, bare]
+
+
+FEATURE_KEYS_V13 = FEATURE_KEYS_V6 + (
+    "retained_counter_in_hand", "opp_lethal_pressure",
+    "ix_reserve_vs_lethal", "ix_bare_under_pressure",
+)
+
 
 def v2_anchor_value(state: Any, me_idx: int, anchor_path: str) -> float:
     """companion v2 model(21-dim)の P(win) を anchor feature として返す。 失敗時 0.5(neutral)。"""
@@ -449,7 +503,8 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
              v5: Optional[bool] = None, v6: Optional[bool] = None,
              v7: Optional[bool] = None, v8: Optional[bool] = None,
              v6don: Optional[bool] = None, v10: Optional[bool] = None,
-             v11: Optional[bool] = None, v12: Optional[bool] = None) -> list:
+             v11: Optional[bool] = None, v12: Optional[bool] = None,
+             v13: Optional[bool] = None) -> list:
     """GameState + me_idx → feature vector。 rich=True で v2 (21)、 既定は env
     ONEPIECE_GBM_RICH (= 学習時に set)。 推論は gbm_score が model 次元で自動判別。
     v5=True (env ONEPIECE_GBM_V5) で 相手 leader の matchup tag 13 列を追加 (= 34、 matchup-条件付き)。
@@ -515,6 +570,10 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         v11 = os.environ.get("ONEPIECE_GBM_V11") == "1"
     if v12 is None:
         v12 = os.environ.get("ONEPIECE_GBM_V12") == "1"
+    if v13 is None:
+        v13 = os.environ.get("ONEPIECE_GBM_V13") == "1"
+    if v13:
+        v6 = True  # v13 ⊃ v6 (+ reserve×lethal interaction)。 v6 末尾に 4 列 append。
     if v12:
         v11 = True  # v12 ⊃ v11 (+ 中身バレ相手カード)。 v11 の 3 列の後に 3 列 append。
     if v11:
@@ -590,6 +649,10 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         out += _defense_threat_features(state, me_idx)
     if v12:
         out += _revealed_opp_features(state, me_idx)
+    if v13:
+        # 温存カウンター × 相手リーサル圧 の board-interactive interaction (= パターンA 修正)。
+        # v6 末尾に append し FEATURE_KEYS_V13 = FEATURE_KEYS_V6 + reserve×lethal の列順と一致。
+        out += _reserve_lethal_features(state, me_idx)
     return out
 
 
@@ -614,11 +677,12 @@ def _feat_for_dim(state, me_idx, n):
                     v6=(n == len(FEATURE_KEYS_V6)), v7=(n == len(FEATURE_KEYS_V7)),
                     v8=(n == len(FEATURE_KEYS_V8)), v6don=(n == len(FEATURE_KEYS_V6DON)),
                     v10=(n == len(FEATURE_KEYS_V10)), v11=(n == len(FEATURE_KEYS_V11)),
-                    v12=(n == len(FEATURE_KEYS_V12)))
+                    v12=(n == len(FEATURE_KEYS_V12)), v13=(n == len(FEATURE_KEYS_V13)))
 
 
 # prefix 一致で slice 再利用できる次元(V1⊂V2⊂V5⊂V6⊂V11⊂V12 の chain のみ。 v3/v4/v9/v6don/v8/v10 は
-# v2 から分岐するので不可)。 _feats[:n] は n がこの集合のときだけ安全。
+# v2 から分岐するので不可。 v13(42)も v6(38) から列 38 で v11/v12 と分岐するので不可 = _feat_for_dim で
+# 都度再計算)。 _feats[:n] は n がこの集合のときだけ安全。
 _PREFIX_SAFE_DIMS = frozenset({17, 21, 34, 38, 41, 45})
 
 
@@ -659,11 +723,14 @@ def _model_pwin(model: Any, state: Any, me_idx: int, _feats: Optional[list] = No
         return min(1.0, max(0.0, p_anchor + float(model.get("lam", 1.0)) * resid))
     if isinstance(model, dict) and model.get("kind") == "block_residual":
         rn = int(getattr(model["resid"], "n_features_in_", len(FEATURE_KEYS_V11)))
-        rfeat = _feats[:rn] if _reuse_ok(_feats, rn) \
-            else features(state, me_idx, v12=(rn == len(FEATURE_KEYS_V12)),
-                          v11=(rn == len(FEATURE_KEYS_V11)))
-        # anchor は rfeat の prefix を再利用(v6⊂v11⊂v12 の prefix 一致)
-        p_anchor = _model_pwin(model["anchor"], state, me_idx, _feats=rfeat)
+        # ⚠ v13(42)は v6(38) から列 38 で分岐する非 prefix 版なので _reuse_ok 対象外
+        # (_PREFIX_SAFE_DIMS に 42 は無い)。 _feat_for_dim で v13 を含む全次元を正しく判別。
+        rfeat = _feats[:rn] if _reuse_ok(_feats, rn) else _feat_for_dim(state, me_idx, rn)
+        # anchor に rfeat を渡せるのは rfeat が prefix-chain 版 (= rn が _PREFIX_SAFE_DIMS) の時だけ。
+        # v13(42)は v6(38) の後に reserve 4 列を持つ非 prefix 版なので、 rfeat[:41] は v11 と一致せず
+        # nested anchor を壊す → その場合は _feats=None で anchor に自前再計算させる(安全)。
+        anchor_feats = rfeat if rn in _PREFIX_SAFE_DIMS else None
+        p_anchor = _model_pwin(model["anchor"], state, me_idx, _feats=anchor_feats)
         resid = _fast_val(model["resid"], rfeat)
         return min(1.0, max(0.0, p_anchor + float(model.get("lam", 1.0)) * resid))
     # plain sklearn model (次元自動判別、 classifier/regressor 両対応)
