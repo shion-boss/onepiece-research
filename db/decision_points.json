@@ -1,0 +1,110 @@
+{
+  "records": [
+    {
+      "source": "pros02_course",
+      "course_id": "luffygb_vs_enel",
+      "step": 0,
+      "turn": 2,
+      "my_deck": "pros02_luffy_gb",
+      "opp_deck": "cardrush_1454",
+      "ai_line": {
+        "value_pwin": 0.463,
+        "facts": {
+          "opp_life_dealt": 0,
+          "opp_chars_kod": 0,
+          "my_chars_added": 2,
+          "my_board_power": 9000,
+          "don_unused": 1,
+          "my_hand": 1
+        }
+      },
+      "reference": {
+        "kind": "pro",
+        "summary": "3ドンを分散: リーダー1ドン(6000) + アーロン2ドン(5000) で相手リーダーへ『顔2回』。 リーダーは8000まで盛らない。",
+        "actions": [
+          "リーダーに1ドン付与 (5000→6000)、 相手リーダーへアタック (2000カウンター1枚要求)",
+          "アーロン(3000)に2ドン付与 (→5000)、 相手リーダーへアタック (残り2ドンの使い道はこれ)",
+          "リーダー効果で8000にも盛れるが盛らない (1体に集中させず2体で殴る方が要求値が高い)"
+        ],
+        "reasoning": "3ドンを1体(リーダー8000)に集中させると攻撃は1回・要求値8000で、 余りドンも無く手の内もバレる。 代わりに『リーダー6000 + アーロン5000』へ分散すると顔2回=カウンター2枚要求で相手の手札をより削れる。 6000/5000 はそれぞれ2000カウンター1枚要求の絶妙なライン。 序盤はライフを詰めるより相手のカウンター/選択肢を削るのが強い。"
+      },
+      "divergence": {
+        "flag": true,
+        "kind": "aggro_vs_develop",
+        "note": "プロは攻めるが AI は展開 (顔ダメージ0)。 レース vs 盤面の判断が要検証。"
+      },
+      "content_ready": true
+    },
+    {
+      "source": "pros02_course",
+      "course_id": "luffygb_vs_enel",
+      "step": 1,
+      "turn": 3,
+      "my_deck": "pros02_luffy_gb",
+      "opp_deck": "cardrush_1454",
+      "ai_line": {
+        "value_pwin": 0.675,
+        "facts": {
+          "opp_life_dealt": 0,
+          "opp_chars_kod": 0,
+          "my_chars_added": 2,
+          "my_board_power": 11000,
+          "don_unused": 1,
+          "my_hand": 2
+        }
+      },
+      "reference": {
+        "kind": "pro",
+        "summary": "5ドン: 4コスト『クロコダイル』(ブロッカー)を展開し、 残り1ドンをアーロンに付与して攻める。 守り札を作りつつライフを詰める。",
+        "actions": [
+          "4コスト『クロコダイル』(OP16-045、 ブロッカー) を展開 (4ドン)",
+          "残り1ドンをアーロン(3000→4000)に付与、 相手リーダーへアタック",
+          "リーダー(5000)でも相手リーダー/キャラへアタック (0ドン)"
+        ],
+        "reasoning": "本来は5バギー展開だが状況に応じ、 まず守り札の『ブロッカー4クロコダイル』を作る手に切り替える。 相手6エネルの大型アタックを受けきるにはブロッカーが要る。 攻撃で相手ライフ/手札を削りながら、 次ターン以降の守りを整える。 引きに応じて最善の展開を選ぶ柔軟性が肝。"
+      },
+      "divergence": {
+        "flag": false,
+        "kind": "aligned",
+        "note": "AI の手はプロの意図と概ね整合 (乖離なし)。"
+      },
+      "content_ready": true
+    },
+    {
+      "source": "pros02_course",
+      "course_id": "luffygb_vs_enel",
+      "step": 2,
+      "turn": 4,
+      "my_deck": "pros02_luffy_gb",
+      "opp_deck": "cardrush_1454",
+      "ai_line": {
+        "value_pwin": 0.894,
+        "facts": {
+          "opp_life_dealt": 2,
+          "opp_chars_kod": 0,
+          "my_chars_added": 3,
+          "my_board_power": 20000,
+          "don_unused": 0,
+          "my_hand": 2
+        }
+      },
+      "reference": {
+        "kind": "pro",
+        "summary": "『7ハンコック』は出さず、 7ドンで小型(5バギー + 2ベンサム)を横に展開して盤面枚数を作る。",
+        "actions": [
+          "5コスト『バギー』(OP16-048) を展開 (5ドン)",
+          "2コスト『ベンサム』(OP16-055) を展開 (残り2ドン)",
+          "アタックで相手盤面/リーダーを削る",
+          "7ハンコック(OP16-032)は温存 (盤面が整ってから)"
+        ],
+        "reasoning": "7ハンコックを出したくなるが、 自分の盤面展開が遅れている状況で単体の大型を出しても、 相手の除去/展開に対して盤面差を埋められず逆効果になりやすい。 まず小型で横に展開して盤面の枚数を作り(5バギー+2ベンサムで7ドン完結)、 フィニッシャーは盤面が整ってから。 『盤面が遅れている時ほど finisher を急がない』。"
+      },
+      "divergence": {
+        "flag": false,
+        "kind": "aligned",
+        "note": "AI の手はプロの意図と概ね整合 (乖離なし)。"
+      },
+      "content_ready": true
+    }
+  ]
+}
