@@ -228,6 +228,49 @@ def health():
 
 
 # --------------------------------------------------------------------------- #
+# エンドポイント: pros02 マッチアップ操縦コース (人間向けパズル教材)
+#   db/pros02_courses.json を配布。 各カード ID を {name,power,cost,img} に enrich。
+#   ideal_summary/reasoning は「答えを見る」用にそのまま渡す (frontend で隠す)。
+# --------------------------------------------------------------------------- #
+_COURSES_PATH = ROOT / "db" / "pros02_courses.json"
+
+
+def _card_brief(spec):
+    """card_id 文字列 or {cid,dons} → 描画用 dict。"""
+    cid = spec.get("cid") if isinstance(spec, dict) else spec
+    dons = int(spec.get("dons", 0)) if isinstance(spec, dict) else 0
+    try:
+        c = get_repo().get(cid)
+        name = c.name
+        power = getattr(c, "power", None)
+    except Exception:
+        name, power = cid, None
+    return {"card_id": cid, "name": name, "power": power, "dons": dons}
+
+
+@app.get("/api/training/courses")
+def training_courses():
+    """pros02 進行記事由来のマッチアップ操縦コース (盤面 + プロの理想手 + 理由)。"""
+    if not _COURSES_PATH.exists():
+        raise HTTPException(404, "pros02_courses.json が無い")
+    data = json.loads(_COURSES_PATH.read_text(encoding="utf-8"))
+    for course in data.get("courses", []):
+        for step in course.get("steps", []):
+            st = step.get("state", {})
+            step["board"] = {
+                "my_leader": _card_brief(st.get("my_leader")),
+                "my_chars": [_card_brief(x) for x in st.get("my_chars", [])],
+                "opp_leader": _card_brief(st.get("opp_leader")),
+                "opp_chars": [_card_brief(x) for x in st.get("opp_chars", [])],
+                "my_hand": [_card_brief(x) for x in st.get("my_hand", [])],
+                "opp_hand_count": len(st.get("opp_hand", [])),
+                "opp_life": st.get("opp_life"),
+                "my_don": st.get("my_don"),
+            }
+    return data
+
+
+# --------------------------------------------------------------------------- #
 # エンドポイント: meta matchup matrix (事前計算)
 # --------------------------------------------------------------------------- #
 _MATRIX_PATH = ROOT / "db" / "matchup_matrix.json"
