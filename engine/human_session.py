@@ -306,8 +306,11 @@ class HumanSession:
             from .deck import CardRepository
             repo = CardRepository.from_json("db/cards.json")
 
+        def _cid(spec):
+            return spec.get("cid") if isinstance(spec, dict) else spec
+
         def mk_inplay(spec):
-            cid = spec.get("cid") if isinstance(spec, dict) else spec
+            cid = _cid(spec)
             ip = InPlay.of(repo.get(cid), sickness=bool(isinstance(spec, dict) and spec.get("sick", False)))
             if isinstance(spec, dict):
                 ip.attached_dons = int(spec.get("dons", 0))
@@ -326,16 +329,29 @@ class HumanSession:
         opp.stages = []
         me.hand = [repo.get(h) for h in ps.get("my_hand", [])]
         opp.hand = [repo.get(h) for h in ps.get("opp_hand", [])]
-        me.life = [dummy] * int(ps.get("my_life", 3))
+        # ライフ: 指定が無ければリーダーの life 値 (= 満タン) を既定にする (旧: 一律3 は誤り)。
+        me_life_n = int(ps.get("my_life", int(getattr(repo.get(_cid(ps["my_leader"])), "life", 5) or 5)))
+        me.life = [dummy] * me_life_n
         opp.life = [dummy] * int(ps["opp_life"])
-        me.deck = [dummy] * 20
-        opp.deck = [dummy] * 20
         me.trash = [repo.get(t) for t in ps.get("my_trash", [])]
         opp.trash = [repo.get(t) for t in ps.get("opp_trash", [])]
+        # デッキ枚数を legal な見た目に (= 50 - 手札 - 盤面 - ライフ - トラッシュ。 旧: 一律20 は誤り)。
+        me.deck = [dummy] * max(0, 50 - len(me.hand) - len(me.characters) - len(me.life) - len(me.trash))
+        opp.deck = [dummy] * max(0, 50 - len(opp.hand) - len(opp.characters) - len(opp.life) - len(opp.trash))
         me.don_active = int(ps["my_don"])
         me.don_rested = 0
         opp.don_active = int(ps.get("opp_don", 0))
         opp.don_rested = 0
+        # DON デッキ枚数を補正: cost area / キャラ付与に置いた分だけ DON デッキから減らす
+        # (= game 内 総 DON = leader の DON デッキ上限。 補正無しだと 10+2=12 等 legal 超過)。
+        for pl in (me, opp):
+            committed = (
+                pl.don_active
+                + pl.don_rested
+                + pl.leader.attached_dons
+                + sum(c.attached_dons for c in pl.characters)
+            )
+            pl.don_remaining_in_deck = max(0, int(pl.don_remaining_in_deck) - committed)
         st.turn_player_idx = self.human_idx
         st.turn_number = int(ps.get("turn", 5))
         st.phase = Phase.MAIN
