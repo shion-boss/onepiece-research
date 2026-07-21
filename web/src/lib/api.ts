@@ -932,7 +932,7 @@ export type HumanMatchState = {
   phase: string;
   human_idx: number;
   ai_idx: number;
-  pending_kind: "action" | "defense" | "choice" | null;
+  pending_kind: "action" | "defense" | "choice" | "turn_done" | null;
   pending_payload: Record<string, unknown> | null;
   log: string[];
   snapshot: Record<string, unknown> | null;
@@ -987,6 +987,25 @@ export async function startHumanMatch(
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`startHumanMatch failed: ${res.status} ${text}`);
+  }
+  return res.json();
+}
+
+export async function startPuzzleMatch(
+  puzzleState: Record<string, unknown>,
+  myDeck: string,
+  oppDeck: string,
+  seed = 7,
+): Promise<HumanMatchState> {
+  const res = await fetch(`${API}/api/puzzle_match`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    body: JSON.stringify({ puzzle_state: puzzleState, my_deck: myDeck, opp_deck: oppDeck, seed }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`startPuzzleMatch failed: ${res.status} ${text}`);
   }
   return res.json();
 }

@@ -16,6 +16,7 @@ import {
   endHumanMatch,
   saveHumanMatchResult,
   startHumanMatch,
+  startPuzzleMatch,
   type HumanActionLog,
   type HumanLegalAction,
   type HumanMatchState,
@@ -101,6 +102,7 @@ export function HumanMatchPlay({
   challengeCellId,
   defenderLeaderId,
   defenderVariantId,
+  puzzle,
 }: {
   decks: DeckOption[];
   initialDeckA?: string;
@@ -110,6 +112,14 @@ export function HumanMatchPlay({
   // 開始画面で AI 側にそのリーダーカードを表示する。 空きマス (ランダム AI) では未指定。
   defenderLeaderId?: string | null;
   defenderVariantId?: string | null;
+  // 操縦コース (パズル): 指定時は開始画面を skip し mid-game 盤面 (puzzle.state) から
+  // 人間ターンを開始する。 人間ターン終了 (pending_kind='turn_done') で onTurnDone を呼ぶ。
+  puzzle?: {
+    state: Record<string, unknown>;
+    myDeck: string;
+    oppDeck: string;
+    onTurnDone?: () => void;
+  };
 }) {
   // 人間側 = 自分のデッキ (kind:user) を既定に、 AI 側 = メタデッキ (kind:meta) を既定に。
   // 陣取り挑戦 (challengeCellId) では 非公開デッキ は人間側に使えない (勝つと占領で露出) → 除外。
@@ -132,6 +142,21 @@ export function HumanMatchPlay({
     "random",
   );
   const [state, setState] = useState<HumanMatchState | null>(null);
+  // 操縦コース (パズル): 指定時は開始画面を skip し、 puzzle 盤面から自動起動する。
+  const puzzleStartedRef = useRef(false);
+  useEffect(() => {
+    if (!puzzle || puzzleStartedRef.current) return;
+    puzzleStartedRef.current = true;
+    startPuzzleMatch(puzzle.state, puzzle.myDeck, puzzle.oppDeck)
+      .then(setState)
+      .catch((e) => console.error("puzzle start failed", e));
+  }, [puzzle]);
+  // 人間ターン終了 (single_turn 停止 = pending_kind 'turn_done') を検出して親に通知 → モーダル。
+  useEffect(() => {
+    if (puzzle && state?.pending_kind === "turn_done") {
+      puzzle.onTurnDone?.();
+    }
+  }, [state?.pending_kind, puzzle]);
   // 陣取り挑戦の情報 (= start 応答の challenge)。 保存時に占領を試みる際に使う。
   const [challenge, setChallenge] = useState<HumanMatchState["challenge"] | null>(null);
   // 保存後の占領結果 (= 占領成功 / レース負けで奪取ならず)。 完了バナー表示用。
@@ -1003,6 +1028,14 @@ export function HumanMatchPlay({
       : frameDiff.trashAdded[aiIdxSafe];
 
   if (!state) {
+    if (puzzle) {
+      // 操縦コース: 開始画面を出さず、 自動起動の完了 (setState) まで loading。
+      return (
+        <div className="flex items-center justify-center py-20 text-sm text-[var(--text-muted)]">
+          盤面を準備中...
+        </div>
+      );
+    }
     if (preloading) {
       const humanDeck = decks.find((d) => d.slug === deckA);
       const aiDeck = decks.find((d) => d.slug === deckB);
