@@ -353,7 +353,14 @@ class HumanSession:
             )
             pl.don_remaining_in_deck = max(0, int(pl.don_remaining_in_deck) - committed)
         st.turn_player_idx = self.human_idx
-        st.turn_number = int(ps.get("turn", 5))
+        # コースの turn は「自分の N ターン目」(pros02 の 先攻/後攻 N ターン目) を表す。
+        # engine の turn_number は両者通算 (turn1=先攻1T, turn2=後攻1T, turn3=先攻2T...) で、
+        # can_battle = turn_number > 2 が攻撃可否条件。 先攻2ターン目 = 通算3 に変換しないと
+        # リーダー/キャラが攻撃できない (=「リーダーで攻撃できない」バグの原因)。
+        course_turn = int(ps.get("turn", 2))
+        st.turn_number = (2 * course_turn - 1) if self.human_idx == 0 else (2 * course_turn)
+        # 盤面/badge 表示は「自分の N ターン目」で統一する (= コース表示・記事と一致)。
+        self._display_turn = course_turn
         st.phase = Phase.MAIN
         st.pending_choice = None
         try:
@@ -367,7 +374,7 @@ class HumanSession:
         except Exception:
             pass
         # snapshot を1枚生成 (= snapshot_payload が盤面を返せる様に)。
-        st.push_log(f"操縦コース: {st.turn_number}ターン目 開始 (あなたの手番)")
+        st.push_log(f"操縦コース: {course_turn}ターン目 開始 (あなたの手番)")
         self.pending_kind = "action"
         self.pending_payload = {}
 
@@ -970,10 +977,13 @@ class HumanSession:
             live_combos = live_deck_combos(self.state, self.human_idx)
         except Exception:
             live_combos = []
+        # puzzle/コース時は「自分の N ターン目」で表示 (= engine の通算 turn_number でなく
+        # プレイヤー個別のターン数。 相手ターンで自分のカウントは増やさない)。
+        _disp_turn = getattr(self, "_display_turn", None)
         return {
             "game_over": self.state.game_over,
             "winner": self.state.winner,
-            "turn": self.state.turn_number,
+            "turn": _disp_turn if _disp_turn is not None else self.state.turn_number,
             "turn_player_idx": self.state.turn_player_idx,
             "phase": (
                 self.state.phase.name
