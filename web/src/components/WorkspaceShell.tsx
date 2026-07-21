@@ -123,8 +123,9 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     return () =>
       window.removeEventListener("match-state-change", onChange as EventListener);
   }, []);
-  // 通常対戦 (/play) と陣取り挑戦 (/territory/play) の両方が full-screen 対戦ルート。
-  const isPlayRoute = path === "/play" || path === "/territory/play";
+  // 通常対戦 (/play) と陣取り挑戦 (/territory/play) と操縦コース (/training) が full-screen 対戦ルート。
+  const isPlayRoute =
+    path === "/play" || path === "/territory/play" || path === "/training";
   useEffect(() => {
     if (!isPlayRoute) setMatchActive(false);
   }, [isPlayRoute]);

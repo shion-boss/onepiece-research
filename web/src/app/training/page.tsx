@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PageShell } from "@/components/ui/PageShell";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { Badge } from "@/components/ui/Badge";
 import { HumanMatchPlay } from "@/components/HumanMatchPlay";
 
@@ -27,7 +25,6 @@ type Course = {
 
 export default function TrainingPage() {
   const [courses, setCourses] = useState<Course[]>([]);
-  const [ci, setCi] = useState(0);
   const [si, setSi] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -39,24 +36,15 @@ export default function TrainingPage() {
       .catch(() => setErr("コースの読み込みに失敗しました (API 未起動の可能性)"));
   }, []);
 
-  if (err) {
+  if (err || !courses.length) {
     return (
-      <PageShell>
-        <PageHeader title="操縦コース" />
-        <p className="text-sm text-[var(--text-muted)]">{err}</p>
-      </PageShell>
-    );
-  }
-  if (!courses.length) {
-    return (
-      <PageShell>
-        <PageHeader title="操縦コース" />
-        <p className="text-sm text-[var(--text-muted)]">読み込み中...</p>
-      </PageShell>
+      <main className="flex w-full flex-1 items-center justify-center p-8 text-sm text-[var(--text-muted)]">
+        {err ?? "読み込み中..."}
+      </main>
     );
   }
 
-  const course = courses[ci];
+  const course = courses[0];
   const step = course.steps[si];
   const isLast = si === course.steps.length - 1;
   const decks = [
@@ -68,46 +56,42 @@ export default function TrainingPage() {
     setShowAnswer(false);
     if (!isLast) setSi((s) => s + 1);
   };
-  const restart = () => setShowAnswer(false);
 
   return (
-    <PageShell>
-      <PageHeader
-        title="操縦コース"
-        description="プロの盤面で1ターンの理想操縦を実際に打って学ぶ (pros02 進行記事より)"
-        meta={<span className="text-xs text-[var(--text-muted)]">{course.source}</span>}
-      />
-
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm font-medium text-[var(--text-strong)]">{course.title}</span>
+    <main className="relative flex w-full flex-1 flex-col">
+      {/* 操縦コースの薄い上部バー (= 対戦盤面はこの下に full-width) */}
+      <div className="flex items-center gap-3 border-b border-[var(--border-1)] bg-[var(--surface-1)] px-4 py-2">
+        <span className="text-sm font-medium text-[var(--text-strong)]">操縦コース</span>
+        <span className="text-xs text-[var(--text-muted)]">{course.title}</span>
         <Badge tone="brand">{step.turn}ターン目</Badge>
         <span className="text-xs text-[var(--text-muted)]">
-          ステップ {si + 1} / {course.steps.length}
+          {si + 1} / {course.steps.length}
         </span>
         <button
           onClick={() => setShowAnswer(true)}
-          className="ml-auto rounded-[var(--radius-sm)] border border-[var(--border-1)] px-3 py-1.5 text-xs text-[var(--text-muted)]"
+          className="ml-auto rounded-[var(--radius-sm)] border border-[var(--border-1)] px-3 py-1 text-xs text-[var(--text-muted)]"
         >
           答えを見る / 降参
         </button>
       </div>
-      <p className="text-xs text-[var(--text-muted)]">{course.matchup_note}</p>
 
-      {/* 本物の対戦盤面で puzzle 局面を操作。 ターン終了で onTurnDone → モーダル */}
-      <HumanMatchPlay
-        key={`${course.course_id}-${si}`}
-        decks={decks}
-        puzzle={{
-          state: step.state,
-          myDeck: course.my_deck,
-          oppDeck: course.opp_deck,
-          onTurnDone: () => setShowAnswer(true),
-        }}
-      />
+      {/* 本物の対戦ボードで puzzle 局面を操作。 ターン終了 (turn_done) で onTurnDone → モーダル */}
+      <div className="flex flex-1 flex-col">
+        <HumanMatchPlay
+          key={`${course.course_id}-${si}`}
+          decks={decks}
+          puzzle={{
+            state: step.state,
+            myDeck: course.my_deck,
+            oppDeck: course.opp_deck,
+            onTurnDone: () => setShowAnswer(true),
+          }}
+        />
+      </div>
 
       {/* プロの理想手モーダル */}
       {showAnswer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
           <div className="max-h-[85vh] w-full max-w-lg overflow-auto rounded-[var(--radius)] border border-[var(--border-1)] bg-[var(--surface-1)] p-5 shadow-xl">
             <div className="mb-3 flex items-center gap-2">
               <Badge tone="brand">{step.turn}ターン目</Badge>
@@ -127,7 +111,7 @@ export default function TrainingPage() {
             </div>
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
-                onClick={restart}
+                onClick={() => setShowAnswer(false)}
                 className="rounded-[var(--radius-sm)] border border-[var(--border-1)] px-3 py-1.5 text-sm text-[var(--text-muted)]"
               >
                 この局面をもう一度
@@ -146,6 +130,6 @@ export default function TrainingPage() {
           </div>
         </div>
       )}
-    </PageShell>
+    </main>
   );
 }
