@@ -36,6 +36,21 @@
 
     {"name": "P9 手札読み: trashにカウンター多数(life2)", "kind": "judge", "pro_answer": "trashに2000cが多数=手札のカウンター薄いと読める→リーサル前倒しで攻める",
      "my_leader": "OP15-058", "my_chars": [{"cid": "OP02-013"}, {"cid": "ST01-013"}],
-     "opp_leader": "OP01-001", "opp_chars": [], "opp_life": 2, "opp_hand": ["ST01-004"], "opp_trash": ["PRB02-006", "PRB02-006", "PRB02-014", "PRB02-014", "PRB02-016"], "my_don": 4}
+     "opp_leader": "OP01-001", "opp_chars": [], "opp_life": 2, "opp_hand": ["ST01-004"], "opp_trash": ["PRB02-006", "PRB02-006", "PRB02-014", "PRB02-014", "PRB02-016"], "my_don": 4},
+
+    {"name": "P10 攻撃圧T2 (緑青ルフィvsエネル進行記事)", "kind": "judge",
+     "pro_answer": "序盤から顔(リーダー)を殴りカウンター/圧をかける。中庸6000で相手に選択肢を残し過剰に盛らない。受動的にパスしない (記事:先攻2ターン目リーダー6000で顔2回)",
+     "my_leader": "OP16-022", "my_chars": [{"cid": "OP16-034"}, {"cid": "OP16-034"}, {"cid": "OP16-054"}],
+     "opp_leader": "OP15-058", "opp_chars": [{"cid": "OP15-061"}, {"cid": "OP12-071"}],
+     "opp_life": 5, "opp_hand": ["PRB02-006", "PRB02-006"], "opp_trash": [], "my_don": 2,
+     "my_deck_slug": "pros02_luffy_gb", "def_deck_slug": "cardrush_1454"},
+
+    {"name": "P11 finisher timing (盤面遅れ時は7ハンコック急がない)", "kind": "judge",
+     "pro_answer": "盤面が遅れている時は finisher(7ハンコック OP16-032)を急がず小型展開で盤面を作る (記事:先攻4ターン目、展開遅れなので7ハンコックを出さない)",
+     "my_leader": "OP16-022", "my_chars": [{"cid": "OP16-034"}],
+     "opp_leader": "OP15-058", "opp_chars": [{"cid": "OP15-061"}, {"cid": "OP15-061"}, {"cid": "OP12-071"}],
+     "opp_life": 4, "opp_hand": ["PRB02-006"], "opp_trash": [],
+     "my_hand": ["OP16-032", "OP16-023", "OP16-027"], "my_don": 7,
+     "my_deck_slug": "pros02_luffy_gb", "def_deck_slug": "cardrush_1454"}
   ]
 }

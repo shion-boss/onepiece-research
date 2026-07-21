@@ -31,6 +31,7 @@ ROOT = Path(__file__).resolve().parent.parent
 _repo = CardRepository.from_json(str(ROOT / "db" / "cards.json"))
 _overlay = load_effect_overlay(str(ROOT / "db" / "card_effects.json"))
 _ATK = re.compile(r"atk: .+?\(P=(\d+)\) -> (.+)")
+_PLAY = re.compile(r"play: (.+?) \(cost")
 
 
 def _inplay(spec: dict) -> InPlay:
@@ -83,6 +84,7 @@ def solve(p: dict):
     me_ai.set_ai_opp(def_ai)   # 攻撃者の sim も本物の防御 AI を使う
     seen = 0
     atks: list[tuple[int, str]] = []
+    plays: list[str] = []
     for _ in range(60):
         if st.game_over or st.turn_player_idx != 0 or st.phase != Phase.MAIN:
             break
@@ -91,10 +93,13 @@ def solve(p: dict):
             m = _ATK.search(line)
             if m:
                 atks.append((int(m.group(1)), m.group(2)[:8]))
+            mp = _PLAY.search(line)
+            if mp:
+                plays.append(mp.group(1)[:10])
         seen = len(st.log)
         if isinstance(a, EndPhase):
             break
-    return atks, len(st.players[1].life), st.game_over, getattr(st, "winner", None)
+    return atks, plays, len(st.players[1].life), st.game_over, getattr(st, "winner", None)
 
 
 def main() -> None:
@@ -103,13 +108,13 @@ def main() -> None:
     n_lethal = n_lethal_pass = 0
     divergences = []
     for p in puzzles:
-        atks, opp_life, over, winner = solve(p)
+        atks, plays, opp_life, over, winner = solve(p)
         lethal = (opp_life == 0) or (over and winner == 0)
         lost = over and winner == 1
         kind = p["kind"]
         print(f"=== {p['name']} [{kind}] ===")
         print(f"  プロ: {p['pro_answer']}")
-        print(f"  AI攻撃: {atks} / opp life={opp_life} / over={over}")
+        print(f"  AI攻撃: {atks} / AIプレイ: {plays} / opp life={opp_life} / over={over}")
         if kind == "lethal":
             n_lethal += 1
             n_lethal_pass += 1 if lethal else 0
