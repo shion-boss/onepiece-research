@@ -1,0 +1,52 @@
+{
+  "_comment": "pros02 進行記事由来の『マッチアップ操縦コース』(形C ガイド付き通しプレイ)。 1コース = (自デッキ vs 相手デッキ) のターン毎ステップ。 各ステップ = そのターンの盤面(プロの line) + プロの理想アクション + 理由。 人間がそのターンを打つ→答え合わせ(あなたの手 vs 理想)→理想ムーブ実演→次ステップ(プロのN+1盤面)へ。 盤面はプロの line で on-rails(人間のズレを引きずらない)。 ⚠ 盤面は記事から faithful-enough に再構成(人間教材なので exact でなく妥当性重視)。 judgment 手はプロの line を script(配備AIは乖離しうる)。 lethal/defense は配備AIが理想を導出。",
+  "_state_schema": "step.state = {my_leader, my_chars[{cid,dons?}], opp_leader, opp_chars[], opp_life, opp_hand[], opp_trash[], my_don, my_hand[]} (パズルと同一 → scripts/eval_pros02_puzzles.py の _make_state で読める)",
+  "courses": [
+    {
+      "course_id": "luffygb_vs_enel",
+      "title": "緑青ルフィ (先攻) vs 紫エネル 操縦コース",
+      "my_deck": "pros02_luffy_gb",
+      "opp_deck": "cardrush_1454",
+      "source": "pros_02 進行記事 (n036405d6d6e5) 徹底解説 16弾緑青ルフィ vs 紫エネル",
+      "matchup_note": "先攻・微有利。 序盤はライフを守りつつインペルダウン軸を展開し、 中盤に押し返す。 相手6エネルの大型アタックを受けきれる様ライフを安く受けすぎない。",
+      "steps": [
+        {
+          "turn": 2,
+          "state": {
+            "my_leader": "OP16-022", "my_chars": [{"cid": "OP16-034"}, {"cid": "OP16-034"}, {"cid": "OP16-054"}],
+            "opp_leader": "OP15-058", "opp_chars": [{"cid": "OP15-061"}, {"cid": "OP12-071"}],
+            "opp_life": 5, "opp_hand": ["PRB02-006", "PRB02-006"], "opp_trash": [],
+            "my_don": 2, "my_hand": ["OP16-048"]
+          },
+          "ideal_summary": "リーダーに1ドン付与(6000)で相手リーダーへアタック。 8000まで盛らない。",
+          "ideal_actions": ["attach_don leader x1 (→6000)", "attack leader → opp_leader(5000)"],
+          "reasoning": "リーダー効果で8000にも出来るが、 あえて6000で殴り『相手に選択肢を与える』。 6000は2000カウンター1枚要求で相手の手札を削れる一方、 過剰に盛るとドンを無駄にし手の内もバレる。 序盤はライフを詰めるより相手のカウンター/選択肢を削るのが強い。"
+        },
+        {
+          "turn": 3,
+          "state": {
+            "my_leader": "OP16-022", "my_chars": [{"cid": "OP16-054"}],
+            "opp_leader": "OP15-058", "opp_chars": [{"cid": "OP15-061"}, {"cid": "OP12-071"}],
+            "opp_life": 4, "opp_hand": ["PRB02-006"], "opp_trash": [],
+            "my_don": 4, "my_hand": ["OP16-045", "OP16-054", "OP16-023"]
+          },
+          "ideal_summary": "『2ダズ』でアタックしつつ『ブロッカー4クロコダイル』を展開。 リーダー効果でドン起こしてリーダー7000でも殴る。",
+          "ideal_actions": ["attack 2ダズ(3000)+効果 → opp_leader", "play ブロッカー4クロコダイル(OP16-045)", "leader効果でドン2枚アクティブ", "attack leader(7000) → opp_leader"],
+          "reasoning": "本来は5バギー展開だが『インペルダウンの囚人』が手札に無いため、 2ダズで攻めつつ盤面(ブロッカー4クロコダイル)を作る手に切り替える。 攻撃で相手ライフ/手札を削りながら、 次ターン以降の守り札(ブロッカー)を残す。 引きに応じて最善の展開を選ぶ柔軟性が肝。"
+        },
+        {
+          "turn": 4,
+          "state": {
+            "my_leader": "OP16-022", "my_chars": [{"cid": "OP16-034"}, {"cid": "OP16-045"}],
+            "opp_leader": "OP15-058", "opp_chars": [{"cid": "OP15-061"}, {"cid": "OP15-061"}, {"cid": "OP12-071"}],
+            "opp_life": 3, "opp_hand": ["PRB02-006", "PRB02-014"], "opp_trash": [],
+            "my_don": 7, "my_hand": ["OP16-032", "OP16-048", "OP16-055"]
+          },
+          "ideal_summary": "『7ハンコック』は出さず、 小型(5バギー/2ベンサム)展開 + アタックで盤面を作る。",
+          "ideal_actions": ["play 5バギー(OP16-048) 展開", "play 2ベンサム(OP16-055) 展開", "attack で盤面/リーダーを削る", "7ハンコック(OP16-032)は温存"],
+          "reasoning": "7ハンコックを出したくなるが、 自分の盤面展開が遅れている状況で単体の大型を出しても、 相手の除去/展開に対して盤面差を埋められず逆効果になりやすい。 まず小型で横に展開して盤面の枚数を作り、 フィニッシャーは盤面が整ってから。 『盤面が遅れている時ほど finisher を急がない』。"
+        }
+      ]
+    }
+  ]
+}
