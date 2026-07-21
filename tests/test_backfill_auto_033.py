@@ -190,12 +190,9 @@ def test_op02_093_smoker_leader_activate_main_once_per_turn():
 # --------------------------------------------------------------------------- #
 #  OP02-095 オニグモ (CHARACTER): コスト0のキャラがいる場合 このキャラは【バニッシュ】を得る
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason=(
-    "overlay の条件 opp_or_self_chara_cost_eq_0_exists は 印刷コスト (c.card.cost==0) を "
-    "見るが、 cards.json に コスト0 の CHARACTER は 1 枚も存在せず、 公式の「コスト0のキャラ」"
-    "(= OP02-093 等で 実効コストが0になったキャラ) を 捕捉できない → 効果が発火不能。 "
-    "engine/overlay 実バグ (実効コスト exists_chara_cost_le を使うべき)。 人間レビューへ。"
-))
+# 2026-07-21 修正済 (commit 8212a29): overlay の条件を印刷コスト opp_or_self_chara_cost_eq_0_exists
+# から実効コスト exists_chara_cost_le:0 に変更 (OP02-093/101/102/113 と同型)。 これで実効コスト0の
+# キャラ存在時にバニッシュが付与される様になった → skip 解除。 詳細 tests/test_op02_095_onigumo_fix.py。
 def test_op02_095_onigumo_static_vanish():
     """コスト0のキャラがいる場合 このキャラは【バニッシュ】を得る (静的付与)。"""
     repo = _repo()
