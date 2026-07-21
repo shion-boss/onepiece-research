@@ -205,8 +205,13 @@ class HumanSession:
         deck_a_analysis: Optional[dict] = None,
         deck_b_analysis: Optional[dict] = None,
         human_first: Optional[bool] = None,
+        card_repo=None,
+        puzzle_state: Optional[dict] = None,
+        single_turn: bool = False,
     ):
         self.rng = random.Random(seed)
+        self.single_turn = single_turn
+        self._card_repo = card_repo
         if human_first is None:
             human_first = self.rng.random() < 0.5
         first_player = 0 if human_first else 1
@@ -285,6 +290,70 @@ class HumanSession:
         self._pending_defense: Optional[tuple] = None
         self.deck_a_slug = getattr(deck_a, "slug", None) or deck_a.name
         self.deck_b_slug = getattr(deck_b, "slug", None) or deck_b.name
+        # パズル/操縦コース: 指定 mid-game 盤面で state を上書き (= マリガン skip、 人間ターン開始)。
+        if puzzle_state is not None:
+            self._inject_puzzle(puzzle_state)
+
+    def _inject_puzzle(self, ps: dict) -> None:
+        """パズル盤面 (ps) で state を上書きし、 人間の MAIN ターン開始局面にする。
+        ps schema: {my_leader, my_chars[{cid,dons?,rested?}], opp_leader, opp_chars[],
+                    my_hand[], opp_hand[], my_life, opp_life, my_don, opp_don?}
+        human_idx 側 = my_*、 ai_idx 側 = opp_*。 mid-game なので保存則 referee は再 baseline。"""
+        from .core import InPlay, Player, Phase
+
+        repo = self._card_repo
+        if repo is None:
+            from .deck import CardRepository
+            repo = CardRepository.from_json("db/cards.json")
+
+        def mk_inplay(spec):
+            cid = spec.get("cid") if isinstance(spec, dict) else spec
+            ip = InPlay.of(repo.get(cid), sickness=bool(isinstance(spec, dict) and spec.get("sick", False)))
+            if isinstance(spec, dict):
+                ip.attached_dons = int(spec.get("dons", 0))
+                ip.rested = bool(spec.get("rested", False))
+            return ip
+
+        st = self.state
+        dummy = repo.get("ST01-004")
+        me = st.players[self.human_idx]
+        opp = st.players[self.ai_idx]
+        me.leader = mk_inplay(ps["my_leader"])
+        opp.leader = mk_inplay(ps["opp_leader"])
+        me.characters = [mk_inplay(c) for c in ps.get("my_chars", [])]
+        opp.characters = [mk_inplay(c) for c in ps.get("opp_chars", [])]
+        me.stages = []
+        opp.stages = []
+        me.hand = [repo.get(h) for h in ps.get("my_hand", [])]
+        opp.hand = [repo.get(h) for h in ps.get("opp_hand", [])]
+        me.life = [dummy] * int(ps.get("my_life", 3))
+        opp.life = [dummy] * int(ps["opp_life"])
+        me.deck = [dummy] * 20
+        opp.deck = [dummy] * 20
+        me.trash = [repo.get(t) for t in ps.get("my_trash", [])]
+        opp.trash = [repo.get(t) for t in ps.get("opp_trash", [])]
+        me.don_active = int(ps["my_don"])
+        me.don_rested = 0
+        opp.don_active = int(ps.get("opp_don", 0))
+        opp.don_rested = 0
+        st.turn_player_idx = self.human_idx
+        st.turn_number = int(ps.get("turn", 5))
+        st.phase = Phase.MAIN
+        st.pending_choice = None
+        try:
+            from .game import _recompute_static
+            _recompute_static(st)
+        except Exception:
+            pass
+        # 保存則 referee を新盤面で再 baseline (= mid-game 局面を基準にする)。
+        try:
+            self.referee.observe(st)
+        except Exception:
+            pass
+        # snapshot を1枚生成 (= snapshot_payload が盤面を返せる様に)。
+        st.push_log(f"操縦コース: {st.turn_number}ターン目 開始 (あなたの手番)")
+        self.pending_kind = "action"
+        self.pending_payload = {}
 
     def advance_until_pause(self, max_actions: int = 200) -> None:
         """ゲーム 終了 か 人間 input 必要 まで AI を 進める。"""
@@ -296,6 +365,15 @@ class HumanSession:
             if self.state.game_over:
                 self.pending_kind = None
                 self.pending_payload = None
+                return
+            # 単ターンパズル: 人間ターン終了 → AI ターンに移ったら停止 (= AI は打たせない)。
+            if (
+                self.single_turn
+                and self.state.pending_choice is None
+                and self.state.turn_player_idx == self.ai_idx
+            ):
+                self.pending_kind = "turn_done"
+                self.pending_payload = {}
                 return
             # 余 イベント が キュー に 残って いる なら drain (= 任意効果 解決後 の cleanup)
             if (

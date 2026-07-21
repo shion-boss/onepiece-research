@@ -4090,6 +4090,10 @@ class HumanSessionSpec(BaseModel):
     # echo する)。 メタデッキは slug で解決できるので通常 None ({leader, main, ...})。
     deck_a_inline: Optional[dict] = None
     deck_b_inline: Optional[dict] = None
+    # 操縦コース (パズル): mid-game 盤面から人間ターンを開始する上書き state。 spec に含めるので
+    # serverless 再構成時も同一盤面になる (deterministic)。 single_turn=人間ターン終了で停止。
+    puzzle_state_override: Optional[dict] = None
+    single_turn: bool = False
 
 
 class HumanActionLog(BaseModel):
@@ -4261,6 +4265,9 @@ def _build_human_session(spec: HumanSessionSpec):
         deck_a_analysis=deck_a_analysis,
         deck_b_analysis=deck_b_analysis,
         human_first=spec.human_first,
+        card_repo=get_repo() if spec.puzzle_state_override else None,
+        puzzle_state=spec.puzzle_state_override,
+        single_turn=spec.single_turn,
     )
 
 
@@ -4456,6 +4463,37 @@ def human_match_start(req: HumanMatchStart, user_id: Optional[str] = Depends(opt
     payload["actions"] = []
     if challenge is not None:
         payload["challenge"] = challenge
+    return payload
+
+
+class PuzzleMatchStart(BaseModel):
+    """操縦コース (パズル) 起動: mid-game 盤面から人間ターンを開始。 以降の action/defense/choice は
+    既存の /api/human_match/{sid}/* エンドポイントを そのまま使う (= human session として動く)。"""
+    puzzle_state: dict          # {my_leader, my_chars, opp_leader, opp_chars, opp_life, my_hand, my_don, ...}
+    my_deck: str                # 人間 (= player0) が操縦するデッキ slug
+    opp_deck: str = "cardrush_1454"  # AI 相手デッキ (単ターンなので AI は打たないが value 用)
+    seed: Optional[int] = 7
+
+
+@app.post("/api/puzzle_match")
+def puzzle_match_start(req: PuzzleMatchStart):
+    """操縦コースの1ステップを対戦画面 (HumanMatchPlay) で操作するための session を起動。"""
+    spec = HumanSessionSpec(
+        seed=req.seed or 7,
+        deck_a_slug=req.my_deck,
+        deck_b_slug=req.opp_deck,
+        human_first=True,  # 人間 = player0 (puzzle_state の my_* 側)
+        puzzle_state_override=req.puzzle_state,
+        single_turn=True,  # 人間ターン終了で停止 (AI は打たない)
+    )
+    session = _build_human_session(spec)
+    session.advance_until_pause()
+    sid = uuid.uuid4().hex[:16]
+    _HUMAN_SESSIONS[sid] = (session, [])
+    payload = session.snapshot_payload()
+    payload["session_id"] = sid
+    payload["session_spec"] = spec.model_dump()
+    payload["actions"] = []
     return payload
 
 
