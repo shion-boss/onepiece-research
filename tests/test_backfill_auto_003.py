@@ -467,9 +467,10 @@ def test_eb01_042_scarlet_activate_main_ai():
 def test_eb01_042_scarlet_cost_minus_human_pick():
     """人間 + 相手キャラ複数 → cost_minus target_pick modal → resolve で対象にコスト減。
 
-    注意: 減少量そのもの (公式 -2) の検証は下の skip テスト参照 (engine bug: 人間 resolve
-    経路で amount が失われ -1 になる)。 ここでは modal が正しく立ち、 人間の選んだ対象に
-    コスト減が乗る (= コスト減が発生する) ことのみ assert する。
+    減少量そのもの (公式 -2) の検証は下の
+    test_eb01_042_cost_minus_amount_carries_through_human_resolve で行う (engine 修正済:
+    outer_value に spec 全体を載せ、 人間 resolve 再実行でも amount=-2 が保持される)。
+    ここでは modal が正しく立ち、 人間の選んだ対象にコスト減が乗ることを assert する。
     """
     repo = _repo()
     overlay = _overlay()

@@ -10,9 +10,9 @@ OP01-074 / OP01-077 / OP01-078 / OP01-079 の 10 枚 (青)。
   (3) 同じ効果を AI 文脈 (human_player_idx=None) で回しても crash せず自動解決する
       (= AI が選べる)
 
-注記: OP01-072 スマイリーは engine 側の未実装 (power_pump amount_per の
-      source="self_hand_count" が engine/effects.py の対応 source 一覧に無く、
-      常に +0 になる) のため skip している。 engine 修正は人間レビュー案件。
+注記: OP01-072 スマイリー (power_pump amount_per source="self_hand_count") は
+      2026-07-21 に engine/effects.py へ実装済 (= 手札1枚につき +1000)。
+      test_op01_072_smiley_static_pump_per_hand で検証する (= 旧 skip は解消)。
 """
 
 from __future__ import annotations
