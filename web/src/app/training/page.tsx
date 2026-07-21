@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { HumanMatchPlay } from "@/components/HumanMatchPlay";
+import {
+  gradeTrainingMove,
+  type TrainingGrade,
+  type HumanSessionSpec,
+  type HumanActionLog,
+} from "@/lib/api";
 
 const API = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 
@@ -27,6 +33,8 @@ export default function TrainingPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [si, setSi] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
+  const [grade, setGrade] = useState<TrainingGrade | null>(null);
+  const [grading, setGrading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -54,7 +62,23 @@ export default function TrainingPage() {
 
   const nextStep = () => {
     setShowAnswer(false);
+    setGrade(null);
     if (!isLast) setSi((s) => s + 1);
+  };
+
+  // 人間がターンを打ち終えたら採点 API を呼ぶ (= あなたの手 vs 最善 の勝率差 + 事実差)。
+  const onTurnDone = (ctx: {
+    sessionId?: string;
+    sessionSpec?: HumanSessionSpec;
+    actions?: HumanActionLog[];
+  }) => {
+    setShowAnswer(true);
+    if (!ctx.sessionId) return;
+    setGrading(true);
+    gradeTrainingMove(ctx.sessionId, course.course_id, si, ctx.sessionSpec, ctx.actions)
+      .then(setGrade)
+      .catch((e) => console.error("grade failed", e))
+      .finally(() => setGrading(false));
   };
 
   return (
@@ -68,7 +92,7 @@ export default function TrainingPage() {
           state: { ...step.state, turn: step.turn },
           myDeck: course.my_deck,
           oppDeck: course.opp_deck,
-          onTurnDone: () => setShowAnswer(true),
+          onTurnDone,
         }}
       />
 
@@ -88,12 +112,66 @@ export default function TrainingPage() {
         </button>
       </div>
 
-      {/* プロの理想手モーダル */}
+      {/* 採点 + プロの理想手モーダル */}
       {showAnswer && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
-          <div className="max-h-[85vh] w-full max-w-lg overflow-auto rounded-[var(--radius)] border border-[var(--border-1)] bg-[var(--surface-1)] p-5 shadow-xl">
+          <div className="max-h-[88vh] w-full max-w-lg overflow-auto rounded-[var(--radius)] border border-[var(--border-1)] bg-[var(--surface-1)] p-5 shadow-xl">
             <div className="mb-3 flex items-center gap-2">
               <Badge tone="brand">{step.turn}ターン目</Badge>
+              <span className="text-sm font-medium text-[var(--text-strong)]">あなたの手の採点</span>
+            </div>
+
+            {/* === あなたの手の採点 (= どのくらい悪いか + なぜ悪いか) === */}
+            {grading && (
+              <p className="text-sm text-[var(--text-muted)]">あなたの手を採点中...</p>
+            )}
+            {grade && grade.verdict && (
+              <div
+                className={`mb-4 rounded-[var(--radius-sm)] border p-3 ${
+                  grade.verdict.tone === "green"
+                    ? "border-green-500/40 bg-green-500/10"
+                    : grade.verdict.tone === "amber"
+                      ? "border-amber-500/40 bg-amber-500/10"
+                      : "border-red-500/40 bg-red-500/10"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-sm font-semibold ${
+                      grade.verdict.tone === "green"
+                        ? "text-green-300"
+                        : grade.verdict.tone === "amber"
+                          ? "text-amber-300"
+                          : "text-red-300"
+                    }`}
+                  >
+                    {grade.verdict.label}
+                  </span>
+                  {grade.p_user != null && grade.p_best != null && (
+                    <span className="text-xs text-[var(--text-muted)]">
+                      あなたの手の勝率 約{Math.round(grade.p_user * 100)}% / 最善 約
+                      {Math.round(grade.p_best * 100)}%
+                      {grade.gap_pt != null && grade.gap_pt > 0.5 && (
+                        <span className="ml-1 font-medium text-[var(--text-strong)]">
+                          (−{grade.gap_pt}pt)
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">{grade.verdict.note}</p>
+                {grade.reasons.length > 0 && (
+                  <ul className="mt-2 ml-4 list-disc text-xs text-[var(--text-muted)]">
+                    {grade.reasons.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {/* === プロの定石 (= 原理) === */}
+            <div className="mb-1 flex items-center gap-2">
               <span className="text-sm font-medium text-[var(--text-strong)]">プロの理想手</span>
             </div>
             <p className="text-sm text-[var(--text-strong)]">{step.ideal_summary}</p>

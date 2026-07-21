@@ -118,7 +118,12 @@ export function HumanMatchPlay({
     state: Record<string, unknown>;
     myDeck: string;
     oppDeck: string;
-    onTurnDone?: () => void;
+    // 人間ターン終了時に session 情報を渡す (= 採点 API 用: sid + spec + 適用済 actions)。
+    onTurnDone?: (ctx: {
+      sessionId?: string;
+      sessionSpec?: HumanSessionSpec;
+      actions?: HumanActionLog[];
+    }) => void;
   };
 }) {
   // 人間側 = 自分のデッキ (kind:user) を既定に、 AI 側 = メタデッキ (kind:meta) を既定に。
@@ -154,7 +159,11 @@ export function HumanMatchPlay({
   // 人間ターン終了 (single_turn 停止 = pending_kind 'turn_done') を検出して親に通知 → モーダル。
   useEffect(() => {
     if (puzzle && state?.pending_kind === "turn_done") {
-      puzzle.onTurnDone?.();
+      puzzle.onTurnDone?.({
+        sessionId: state.session_id,
+        sessionSpec: state.session_spec,
+        actions: state.actions,
+      });
     }
   }, [state?.pending_kind, puzzle]);
   // 陣取り挑戦の情報 (= start 応答の challenge)。 保存時に占領を試みる際に使う。

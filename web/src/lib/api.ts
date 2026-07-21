@@ -1010,6 +1010,47 @@ export async function startPuzzleMatch(
   return res.json();
 }
 
+export type TrainingGrade = {
+  p_user: number | null;
+  p_best: number | null;
+  gap_pt: number | null;
+  verdict: { tier: string; label: string; tone: string; note: string } | null;
+  user_facts: Record<string, number>;
+  best_facts: Record<string, number>;
+  reasons: string[];
+  pro_line: {
+    ideal_summary?: string;
+    ideal_actions?: string[];
+    reasoning?: string;
+  } | null;
+};
+
+// 操縦コース: 人間が打ち終えたターンを配備 value + 機械的事実で採点する。
+export async function gradeTrainingMove(
+  sid: string,
+  courseId: string,
+  stepIndex: number,
+  sessionSpec?: HumanSessionSpec,
+  priorActions?: HumanActionLog[],
+): Promise<TrainingGrade> {
+  const res = await fetch(`${API}/api/training/grade/${sid}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    body: JSON.stringify({
+      course_id: courseId,
+      step_index: stepIndex,
+      session_spec: sessionSpec,
+      prior_actions: priorActions,
+    }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`gradeTrainingMove failed: ${res.status} ${text}`);
+  }
+  return res.json();
+}
+
 export async function fetchHumanMatch(sid: string): Promise<HumanMatchState> {
   const res = await fetch(`${API}/api/human_match/${sid}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`fetchHumanMatch failed: ${res.status}`);

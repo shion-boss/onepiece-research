@@ -4497,6 +4497,75 @@ def puzzle_match_start(req: PuzzleMatchStart):
     return payload
 
 
+class TrainingGradeIn(BaseModel):
+    """操縦コースの『あなたの手』採点リクエスト。 sid = 人間が打ち終えた session。"""
+    course_id: str
+    step_index: int
+    session_spec: Optional[HumanSessionSpec] = None
+    prior_actions: Optional[list[HumanActionLog]] = None
+
+
+def _training_ai_best_end(spec: HumanSessionSpec, max_actions: int = 40):
+    """puzzle spec から新規 session を作り、 配備 AI に人間ターンを打たせて終局面(state)を返す。"""
+    import random as _random
+    from engine.ai import play_one_action
+
+    sess = _build_human_session(spec)
+    sess.advance_until_pause()
+    hidx = sess.human_idx
+    human_ai = _build_default_ai_factory(spec.deck_a_slug, spec.deck_b_slug)(_random.Random(11))
+    opp_ai = _build_default_ai_factory(spec.deck_b_slug, spec.deck_a_slug)(_random.Random(12))
+    for _ in range(max_actions):
+        if sess.state.turn_player_idx != hidx or sess.state.game_over:
+            break
+        try:
+            play_one_action(sess.state, human_ai, opp_ai)
+        except Exception:
+            break
+    return sess.state
+
+
+@app.post("/api/training/grade/{sid}")
+def training_grade(sid: str, req: TrainingGradeIn):
+    """人間が打ったターン (session sid) を配備 value(P(win)) + 機械的事実で採点し、
+    プロの定石を添えて返す。 『どのくらい悪いか(勝率差)』『なぜ悪いか(事実差)』を返す教材の核。"""
+    import copy as _copy
+    from engine.training_grader import grade_turn
+
+    session, _log = _resume_or_reconstruct_session(sid, req.session_spec, req.prior_actions)
+    spec = req.session_spec
+    if spec is None:
+        raise HTTPException(400, "session_spec required for grading")
+    if isinstance(spec, dict):
+        spec = HumanSessionSpec(**spec)
+    hidx = session.human_idx
+    user_end = session.state
+
+    # start state (= 手を打つ前) と AI 最善終局面 を新規 session で再構成 (user_end と同 phase)。
+    start_sess = _build_human_session(spec)
+    start_sess.advance_until_pause()
+    start_state = _copy.deepcopy(start_sess.state)
+    best_end = _training_ai_best_end(spec)
+
+    grade = grade_turn(start_state, user_end, best_end, hidx)
+
+    # プロの定石 (course step) を添える (= value/事実 の後に『原理』を教える)。
+    try:
+        courses = json.loads(
+            (ROOT / "db" / "pros02_courses.json").read_text(encoding="utf-8")
+        )["courses"]
+        course = next(c for c in courses if c["course_id"] == req.course_id)
+        step = course["steps"][req.step_index]
+        grade["pro_line"] = {
+            "ideal_summary": step.get("ideal_summary"),
+            "ideal_actions": step.get("ideal_actions", []),
+            "reasoning": step.get("reasoning"),
+        }
+    except Exception:
+        grade["pro_line"] = None
+    return grade
+
+
 def _human_match_response(
     sid: str, session, action_log: list[HumanActionLog], spec: Optional[HumanSessionSpec]
 ) -> dict:
