@@ -340,8 +340,9 @@ class HumanSession:
         opp.deck = [dummy] * max(0, 50 - len(opp.hand) - len(opp.characters) - len(opp.life) - len(opp.trash))
         me.don_active = int(ps["my_don"])
         me.don_rested = 0
-        opp.don_active = int(ps.get("opp_don", 0))
-        opp.don_rested = 0
+        # 相手は自分のターン中なので DON は rested 扱い (= このターン相手は行動しない)。
+        opp.don_active = 0
+        opp.don_rested = int(ps.get("opp_don", 0))
         # DON デッキ枚数を補正: cost area / キャラ付与に置いた分だけ DON デッキから減らす
         # (= game 内 総 DON = leader の DON デッキ上限。 補正無しだと 10+2=12 等 legal 超過)。
         for pl in (me, opp):
