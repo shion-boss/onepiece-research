@@ -101403,7 +101403,7 @@
       "when": "on_attached_don",
       "n": 0,
       "if": {
-        "opp_or_self_chara_cost_eq_0_exists": 0
+        "exists_chara_cost_le": 0
       },
       "do": [
         {
