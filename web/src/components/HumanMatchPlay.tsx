@@ -810,9 +810,10 @@ export function HumanMatchPlay({
       });
   }, [sessionId, state?.game_over]);
 
-  // 対戦 開始 / 終了 を Sidebar に 通知 (= 開始済 なら sidebar 非表示 = fullscreen)
+  // 対戦 開始 / 終了 を Sidebar に 通知 (= 開始済 なら sidebar 非表示 = fullscreen)。
+  // 操縦コース (puzzle) は load 中 (state null) から fullscreen にして sidebar (人間 vs AI 等) を出さない。
   useEffect(() => {
-    const active = !!state;
+    const active = !!state || !!puzzle;
     window.dispatchEvent(
       new CustomEvent("match-state-change", { detail: active }),
     );
@@ -2057,19 +2058,22 @@ export function HumanMatchPlay({
       <ManualLifeFlashOverlay />
 
       {/* ターン 切替 banner (= YOUR TURN / OPPONENT TURN 大型) */}
-      <TurnBannerOverlay
-        turnPlayerIdx={
-          (state.snapshot as StateSnapshot | null)?.turn_player_idx ??
-          state.turn_player_idx
-        }
-        humanIdx={state.human_idx}
-        hasMulliganPending={
-          isChoicePending &&
-          (state.pending_payload?.kind === "mulligan_confirm" ||
-            state.pending_payload?.kind === "mulligan_redrawn")
-        }
-        pendingKind={state.pending_kind}
-      />
+      {/* 操縦コース (puzzle) は mid-game の単ターンなので 先攻/後攻・ターン banner を出さない。 */}
+      {!puzzle && (
+        <TurnBannerOverlay
+          turnPlayerIdx={
+            (state.snapshot as StateSnapshot | null)?.turn_player_idx ??
+            state.turn_player_idx
+          }
+          humanIdx={state.human_idx}
+          hasMulliganPending={
+            isChoicePending &&
+            (state.pending_payload?.kind === "mulligan_confirm" ||
+              state.pending_payload?.kind === "mulligan_redrawn")
+          }
+          pendingKind={state.pending_kind}
+        />
+      )}
 
       {/* 自ターン中 AI 効果 play (= 「相手ターン開始時」 trigger 等) 通知 */}
       <OppActionBanner

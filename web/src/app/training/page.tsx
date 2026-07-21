@@ -58,35 +58,34 @@ export default function TrainingPage() {
   };
 
   return (
+    // /play と同じ full-screen 構造 (盤面は h-[100dvh])。 コース情報は絶対配置で盤面の高さを圧迫しない。
     <main className="relative flex w-full flex-1 flex-col">
-      {/* 操縦コースの薄い上部バー (= 対戦盤面はこの下に full-width) */}
-      <div className="flex items-center gap-3 border-b border-[var(--border-1)] bg-[var(--surface-1)] px-4 py-2">
-        <span className="text-sm font-medium text-[var(--text-strong)]">操縦コース</span>
-        <span className="text-xs text-[var(--text-muted)]">{course.title}</span>
+      <HumanMatchPlay
+        key={`${course.course_id}-${si}`}
+        decks={decks}
+        puzzle={{
+          // turn を state に含めて盤面を正しいターン表示にする (= コースと一致)。
+          state: { ...step.state, turn: step.turn },
+          myDeck: course.my_deck,
+          oppDeck: course.opp_deck,
+          onTurnDone: () => setShowAnswer(true),
+        }}
+      />
+
+      {/* 左上 コース情報 + 答えを見る (= 盤面 overlay。 右上は対戦終了/速度なので左上に) */}
+      <div className="absolute left-2 top-2 z-40 flex items-center gap-2 rounded-lg border border-white/15 bg-zinc-900/85 px-2.5 py-1 shadow-lg backdrop-blur">
+        <span className="text-xs font-semibold text-white">操縦コース</span>
+        <span className="text-xs text-zinc-300">{course.title.split(" 操縦")[0]}</span>
         <Badge tone="brand">{step.turn}ターン目</Badge>
-        <span className="text-xs text-[var(--text-muted)]">
-          {si + 1} / {course.steps.length}
+        <span className="text-xs text-zinc-400">
+          {si + 1}/{course.steps.length}
         </span>
         <button
           onClick={() => setShowAnswer(true)}
-          className="ml-auto rounded-[var(--radius-sm)] border border-[var(--border-1)] px-3 py-1 text-xs text-[var(--text-muted)]"
+          className="rounded border border-amber-400/60 px-2 py-0.5 text-xs font-semibold text-amber-200 hover:bg-amber-900/40"
         >
-          答えを見る / 降参
+          答えを見る
         </button>
-      </div>
-
-      {/* 本物の対戦ボードで puzzle 局面を操作。 ターン終了 (turn_done) で onTurnDone → モーダル */}
-      <div className="flex flex-1 flex-col">
-        <HumanMatchPlay
-          key={`${course.course_id}-${si}`}
-          decks={decks}
-          puzzle={{
-            state: step.state,
-            myDeck: course.my_deck,
-            oppDeck: course.opp_deck,
-            onTurnDone: () => setShowAnswer(true),
-          }}
-        />
       </div>
 
       {/* プロの理想手モーダル */}
