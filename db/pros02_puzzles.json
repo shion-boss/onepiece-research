@@ -1,56 +1,289 @@
 {
-  "_comment": "pros02 由来の pro-line 評価問題集 (詰将棋型)。 局面を engine に再構成 → 配備 ExploitBeam に解かせ → プロの手と一致するか。 kind=lethal/nosuicide は客観判定、 judge は挙動記録 (Claude/人間 採点)。 defender は独立した強い AI (play_one_action) が最善防御。 scripts/eval_pros02_puzzles.py で実行。",
-  "_schema": "each: {name, kind(lethal|nosuicide|judge), pro_answer, my_leader, my_chars[{cid,dons?,sick?}], opp_leader, opp_chars[], opp_life, opp_hand[], opp_trash[], my_don, my_deck_slug?, def_deck_slug?}",
-  "puzzles": [
-    {"name": "P1 ブロッカー1枚(life1)", "kind": "lethal", "pro_answer": "ブロッカーに1回吸わせ、別アタッカーで詰める",
-     "my_leader": "OP15-058", "my_chars": [{"cid": "OP02-013"}, {"cid": "ST01-013"}],
-     "opp_leader": "OP01-001", "opp_chars": [{"cid": "PRB02-004"}], "opp_life": 1, "opp_hand": [], "opp_trash": [], "my_don": 3},
-
-    {"name": "P2 ブロッカー2枚(life1/3000+4000)", "kind": "lethal", "pro_answer": "2枚のブロッカーを吸わせ3体目で詰める",
-     "my_leader": "OP15-058", "my_chars": [{"cid": "OP02-013"}, {"cid": "ST01-013"}, {"cid": "OP01-025"}],
-     "opp_leader": "OP01-001", "opp_chars": [{"cid": "PRB02-004"}, {"cid": "PRB02-006"}], "opp_life": 1, "opp_hand": [], "opp_trash": [], "my_don": 4},
-
-    {"name": "P3 6000ブロッカー+2000c(life2)", "kind": "lethal", "pro_answer": "6000ブロッカーを吸わせ、2000カウンター越えの打点で2点",
-     "my_leader": "OP15-058", "my_chars": [{"cid": "OP02-013"}, {"cid": "ST01-013"}],
-     "opp_leader": "OP01-001", "opp_chars": [{"cid": "PRB02-008"}], "opp_life": 2, "opp_hand": ["PRB02-006"], "opp_trash": [], "my_don": 6},
-
-    {"name": "P4 カウンター壁 2000x2(life1)", "kind": "lethal", "pro_answer": "4000カウンター越えの打点 or 連打でカウンターを枯らして詰める",
-     "my_leader": "OP15-058", "my_chars": [{"cid": "OP02-013"}, {"cid": "ST01-013"}],
-     "opp_leader": "OP01-001", "opp_chars": [], "opp_life": 1, "opp_hand": ["PRB02-006", "PRB02-014"], "opp_trash": [], "my_don": 6},
-
-    {"name": "P5 詰まない重防御(life3/手札4/blocker)", "kind": "nosuicide", "pro_answer": "無理に詰めず、不利交換の自殺攻撃をしない(盤面/圧を作る)",
-     "my_leader": "OP15-058", "my_chars": [{"cid": "ST01-013"}],
-     "opp_leader": "OP01-001", "opp_chars": [{"cid": "PRB02-008"}], "opp_life": 3, "opp_hand": ["PRB02-006", "PRB02-014", "PRB02-001", "PRB02-002"], "opp_trash": [], "my_don": 2},
-
-    {"name": "P6 要求値(life3/手札2/非致死)", "kind": "judge", "pro_answer": "5000リーダーに7000で殴り2枚要求(over-pumpしない)。※opp高life時は相手が受けるだけの場合も=要検証",
-     "my_leader": "OP15-058", "my_chars": [{"cid": "ST01-013"}],
-     "opp_leader": "OP01-001", "opp_chars": [], "opp_life": 3, "opp_hand": ["PRB02-006", "PRB02-014"], "opp_trash": [], "my_don": 2},
-
-    {"name": "P7 over-pump回避(life3/手札1/DON6)", "kind": "judge", "pro_answer": "7000で足りる(相手1枚)。6ドン全部を1体に過剰付与しない",
-     "my_leader": "OP15-058", "my_chars": [{"cid": "ST01-013"}],
-     "opp_leader": "OP01-001", "opp_chars": [], "opp_life": 3, "opp_hand": ["PRB02-006"], "opp_trash": [], "my_don": 6},
-
-    {"name": "P8 圧をかける(life2/手札1/非致死)", "kind": "judge", "pro_answer": "顔を殴りカウンターを吐かせ圧をかける(消極的に控えない)",
-     "my_leader": "OP15-058", "my_chars": [{"cid": "OP02-013"}, {"cid": "ST01-013"}],
-     "opp_leader": "OP01-001", "opp_chars": [], "opp_life": 2, "opp_hand": ["PRB02-006"], "opp_trash": [], "my_don": 3},
-
-    {"name": "P9 手札読み: trashにカウンター多数(life2)", "kind": "judge", "pro_answer": "trashに2000cが多数=手札のカウンター薄いと読める→リーサル前倒しで攻める",
-     "my_leader": "OP15-058", "my_chars": [{"cid": "OP02-013"}, {"cid": "ST01-013"}],
-     "opp_leader": "OP01-001", "opp_chars": [], "opp_life": 2, "opp_hand": ["ST01-004"], "opp_trash": ["PRB02-006", "PRB02-006", "PRB02-014", "PRB02-014", "PRB02-016"], "my_don": 4},
-
-    {"name": "P10 攻撃圧T2 (緑青ルフィvsエネル進行記事)", "kind": "judge",
-     "pro_answer": "序盤から顔(リーダー)を殴りカウンター/圧をかける。中庸6000で相手に選択肢を残し過剰に盛らない。受動的にパスしない (記事:先攻2ターン目リーダー6000で顔2回)",
-     "my_leader": "OP16-022", "my_chars": [{"cid": "OP16-034"}, {"cid": "OP16-034"}, {"cid": "OP16-054"}],
-     "opp_leader": "OP15-058", "opp_chars": [{"cid": "OP15-061"}, {"cid": "OP12-071"}],
-     "opp_life": 5, "opp_hand": ["PRB02-006", "PRB02-006"], "opp_trash": [], "my_don": 2,
-     "my_deck_slug": "pros02_luffy_gb", "def_deck_slug": "cardrush_1454"},
-
-    {"name": "P11 finisher timing (盤面遅れ時は7ハンコック急がない)", "kind": "judge",
-     "pro_answer": "盤面が遅れている時は finisher(7ハンコック OP16-032)を急がず小型展開で盤面を作る (記事:先攻4ターン目、展開遅れなので7ハンコックを出さない)",
-     "my_leader": "OP16-022", "my_chars": [{"cid": "OP16-034"}],
-     "opp_leader": "OP15-058", "opp_chars": [{"cid": "OP15-061"}, {"cid": "OP15-061"}, {"cid": "OP12-071"}],
-     "opp_life": 4, "opp_hand": ["PRB02-006"], "opp_trash": [],
-     "my_hand": ["OP16-032", "OP16-023", "OP16-027"], "my_don": 7,
-     "my_deck_slug": "pros02_luffy_gb", "def_deck_slug": "cardrush_1454"}
-  ]
+ "_comment": "pros02 由来の pro-line 評価問題集 (詰将棋型)。 局面を engine に再構成 → 配備 ExploitBeam に解かせ → プロの手と一致するか。 kind=lethal/nosuicide は客観判定、 judge は挙動記録 (Claude/人間 採点)。 defender は独立した強い AI (play_one_action) が最善防御。 scripts/eval_pros02_puzzles.py で実行。",
+ "_schema": "each: {name, kind(lethal|nosuicide|judge), pro_answer, my_leader, my_chars[{cid,dons?,sick?}], opp_leader, opp_chars[], opp_life, opp_hand[], opp_trash[], my_don, my_deck_slug?, def_deck_slug?}",
+ "puzzles": [
+  {
+   "name": "P1 ブロッカー1枚(life1)",
+   "kind": "lethal",
+   "pro_answer": "ブロッカーに1回吸わせ、別アタッカーで詰める",
+   "my_leader": "OP15-058",
+   "my_chars": [
+    {
+     "cid": "OP02-013"
+    },
+    {
+     "cid": "ST01-013"
+    }
+   ],
+   "opp_leader": "OP01-001",
+   "opp_chars": [
+    {
+     "cid": "PRB02-004"
+    }
+   ],
+   "opp_life": 1,
+   "opp_hand": [],
+   "opp_trash": [],
+   "my_don": 3
+  },
+  {
+   "name": "P2 ブロッカー2枚(life1/3000+4000)",
+   "kind": "lethal",
+   "pro_answer": "2枚のブロッカーを吸わせ3体目で詰める",
+   "my_leader": "OP15-058",
+   "my_chars": [
+    {
+     "cid": "OP02-013"
+    },
+    {
+     "cid": "ST01-013"
+    },
+    {
+     "cid": "OP01-025"
+    }
+   ],
+   "opp_leader": "OP01-001",
+   "opp_chars": [
+    {
+     "cid": "PRB02-004"
+    },
+    {
+     "cid": "PRB02-006"
+    }
+   ],
+   "opp_life": 1,
+   "opp_hand": [],
+   "opp_trash": [],
+   "my_don": 4
+  },
+  {
+   "name": "P3 6000ブロッカー+2000c(life2)",
+   "kind": "lethal",
+   "pro_answer": "6000ブロッカーを吸わせ、2000カウンター越えの打点で2点",
+   "my_leader": "OP15-058",
+   "my_chars": [
+    {
+     "cid": "OP02-013"
+    },
+    {
+     "cid": "ST01-013"
+    }
+   ],
+   "opp_leader": "OP01-001",
+   "opp_chars": [
+    {
+     "cid": "PRB02-008"
+    }
+   ],
+   "opp_life": 2,
+   "opp_hand": [
+    "PRB02-006"
+   ],
+   "opp_trash": [],
+   "my_don": 6
+  },
+  {
+   "name": "P4 カウンター壁 2000x2(life1)",
+   "kind": "lethal",
+   "pro_answer": "4000カウンター越えの打点 or 連打でカウンターを枯らして詰める",
+   "my_leader": "OP15-058",
+   "my_chars": [
+    {
+     "cid": "OP02-013"
+    },
+    {
+     "cid": "ST01-013"
+    }
+   ],
+   "opp_leader": "OP01-001",
+   "opp_chars": [],
+   "opp_life": 1,
+   "opp_hand": [
+    "PRB02-006",
+    "PRB02-014"
+   ],
+   "opp_trash": [],
+   "my_don": 6
+  },
+  {
+   "name": "P5 詰まない重防御(life3/手札4/blocker)",
+   "kind": "nosuicide",
+   "pro_answer": "無理に詰めず、不利交換の自殺攻撃をしない(盤面/圧を作る)",
+   "my_leader": "OP15-058",
+   "my_chars": [
+    {
+     "cid": "ST01-013"
+    }
+   ],
+   "opp_leader": "OP01-001",
+   "opp_chars": [
+    {
+     "cid": "PRB02-008"
+    }
+   ],
+   "opp_life": 3,
+   "opp_hand": [
+    "PRB02-006",
+    "PRB02-014",
+    "PRB02-001",
+    "PRB02-002"
+   ],
+   "opp_trash": [],
+   "my_don": 2
+  },
+  {
+   "name": "P6 要求値(life3/手札2/非致死)",
+   "kind": "judge",
+   "pro_answer": "5000リーダーに7000で殴り2枚要求(over-pumpしない)。※opp高life時は相手が受けるだけの場合も=要検証",
+   "my_leader": "OP15-058",
+   "my_chars": [
+    {
+     "cid": "ST01-013"
+    }
+   ],
+   "opp_leader": "OP01-001",
+   "opp_chars": [],
+   "opp_life": 3,
+   "opp_hand": [
+    "PRB02-006",
+    "PRB02-014"
+   ],
+   "opp_trash": [],
+   "my_don": 2
+  },
+  {
+   "name": "P7 over-pump回避(life3/手札1/DON6)",
+   "kind": "judge",
+   "pro_answer": "7000で足りる(相手1枚)。6ドン全部を1体に過剰付与しない",
+   "my_leader": "OP15-058",
+   "my_chars": [
+    {
+     "cid": "ST01-013"
+    }
+   ],
+   "opp_leader": "OP01-001",
+   "opp_chars": [],
+   "opp_life": 3,
+   "opp_hand": [
+    "PRB02-006"
+   ],
+   "opp_trash": [],
+   "my_don": 6
+  },
+  {
+   "name": "P8 圧をかける(life2/手札1/非致死)",
+   "kind": "judge",
+   "pro_answer": "顔を殴りカウンターを吐かせ圧をかける(消極的に控えない)",
+   "my_leader": "OP15-058",
+   "my_chars": [
+    {
+     "cid": "OP02-013"
+    },
+    {
+     "cid": "ST01-013"
+    }
+   ],
+   "opp_leader": "OP01-001",
+   "opp_chars": [],
+   "opp_life": 2,
+   "opp_hand": [
+    "PRB02-006"
+   ],
+   "opp_trash": [],
+   "my_don": 3
+  },
+  {
+   "name": "P9 手札読み: trashにカウンター多数(life2)",
+   "kind": "judge",
+   "pro_answer": "trashに2000cが多数=手札のカウンター薄いと読める→リーサル前倒しで攻める",
+   "my_leader": "OP15-058",
+   "my_chars": [
+    {
+     "cid": "OP02-013"
+    },
+    {
+     "cid": "ST01-013"
+    }
+   ],
+   "opp_leader": "OP01-001",
+   "opp_chars": [],
+   "opp_life": 2,
+   "opp_hand": [
+    "ST01-004"
+   ],
+   "opp_trash": [
+    "PRB02-006",
+    "PRB02-006",
+    "PRB02-014",
+    "PRB02-014",
+    "PRB02-016"
+   ],
+   "my_don": 4
+  },
+  {
+   "name": "P10 攻撃圧T2 (緑青ルフィvsエネル・合法盤面)",
+   "kind": "judge",
+   "pro_answer": "序盤から顔(リーダー)を殴りカウンター/圧をかける。中庸6000で相手に選択肢を残し過剰に盛らない。受動的にパスしない (記事:先攻2ターン目リーダー6000で顔2回)",
+   "my_leader": "OP16-022",
+   "my_chars": [
+    {
+     "cid": "OP16-023"
+    }
+   ],
+   "opp_leader": "OP15-058",
+   "opp_chars": [
+    {
+     "cid": "OP15-061"
+    },
+    {
+     "cid": "OP12-071"
+    }
+   ],
+   "opp_life": 5,
+   "opp_hand": [
+    "PRB02-006",
+    "PRB02-006"
+   ],
+   "opp_trash": [],
+   "my_don": 3,
+   "my_deck_slug": "pros02_luffy_gb",
+   "def_deck_slug": "cardrush_1454"
+  },
+  {
+   "name": "P11 finisher timing (盤面遅れ時は7ハンコック急がない)",
+   "kind": "judge",
+   "pro_answer": "盤面が遅れている時は finisher(7ハンコック OP16-032)を急がず小型展開で盤面を作る (記事:先攻4ターン目、展開遅れなので7ハンコックを出さない)",
+   "my_leader": "OP16-022",
+   "my_chars": [
+    {
+     "cid": "OP16-034"
+    }
+   ],
+   "opp_leader": "OP15-058",
+   "opp_chars": [
+    {
+     "cid": "OP15-061"
+    },
+    {
+     "cid": "OP15-061"
+    },
+    {
+     "cid": "OP12-071"
+    }
+   ],
+   "opp_life": 4,
+   "opp_hand": [
+    "PRB02-006"
+   ],
+   "opp_trash": [],
+   "my_hand": [
+    "OP16-032",
+    "OP16-023",
+    "OP16-027"
+   ],
+   "my_don": 7,
+   "my_deck_slug": "pros02_luffy_gb",
+   "def_deck_slug": "cardrush_1454"
+  }
+ ]
 }
