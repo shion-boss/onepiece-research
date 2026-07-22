@@ -132,7 +132,8 @@ def gen_one(task):
         me = st.turn_player_idx
         try:
             # FEATURE_VER で学習 feature version を切替 (v13 = reserve×lethal board-interactive、 42dim)。
-            recs.append(features(st, ei, rich=True, v13=(FEATURE_VER == "v13")))
+            recs.append(features(st, ei, rich=True, v13=(FEATURE_VER == "v13"),
+                                 v14=(FEATURE_VER == "v14")))
         except Exception:
             pass
         try:
@@ -194,8 +195,8 @@ def main():
                     help="訓練時の手選択の多ターン探索深さ (1=現挙動/2=多ターン探索でデータ生成)。 eval は常に 1(高速配備)")
     ap.add_argument("--train-temp", type=float, default=0.0,
                     help="訓練時の温度探索 (0=argmax/0.5〜1.0=uncertain な手を試す)。 eval は常に 0(argmax配備)")
-    ap.add_argument("--feature-ver", default="v2", choices=["v2", "v13"],
-                    help="学習 feature version。 v2=既定(21dim)/v13=reserve×lethal board-interactive(42dim、 パターンA修正)")
+    ap.add_argument("--feature-ver", default="v2", choices=["v2", "v13", "v14"],
+                    help="学習 feature version。 v2=既定(21dim)/v13=reserve×lethal(42dim)/v14=駒種ラベル分解(29dim、 piece-aware)")
     ap.add_argument("--arm", default=None,
                     help="候補 pkl の arm 名 (= 出力を db/_selfplay/mcab_<deck>_<arm>.pkl にも保存)")
     a = ap.parse_args()

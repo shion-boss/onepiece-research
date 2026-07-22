@@ -52,6 +52,9 @@ def main():
         r = subprocess.run([PY, str(ROOT / "scripts" / "gen_block_value_targets.py"),
                             "--deck", a.deck, "--opponents", *a.opponents,
                             "--n-games", str(a.n_games), "--feat", feat,
+                            # anchor value を生成ポリシー(--my-gbm-path)と target 値(--value-path)にも渡す。
+                            # per-deck pkl 不在時に None フォールバック(bootstrap 無し)になる bug を防ぐ。
+                            "--value-path", anchor, "--my-gbm-path", anchor,
                             "--out", f"db/_analyst/blockval_{a.deck}_{feat}.jsonl"])
         if r.returncode != 0:
             return r.returncode
