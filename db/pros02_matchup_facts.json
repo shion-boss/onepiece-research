@@ -1,0 +1,664 @@
+{
+ "_meta": {
+  "built": "2026-07-22",
+  "source": "note.com/pros_02 383記事を3並列エージェントで抽出・カードID検証",
+  "usage": "engine/card_knowledge.matchup_facts_for(leader_id) / format_matchup_facts_for_teacher。 ~95%はfuzzy=Claude教師のcontext、 少数の機構的factのみhard rule化",
+  "fact_types": "recovery/effective_life=実効ライフ厚い削るな | ko_immune/protect=KO効かないバウンス | key_threat=優先除去警戒 | board_wipe/over_extend=並べすぎ禁物 | negate=自効果過信禁 | counter_timing=温存"
+ },
+ "OP15-058": {
+  "name": "紫エネル",
+  "facts": [
+   {
+    "fact_type": "ko_immune",
+    "card_id": "OP15-060",
+    "rule": "6エネルは自場ドン6枚以下で相手効果で場を離れず+2000。ただしレスト/バインド/マイナスは通る=それで無力化・バトルKOは可能",
+    "article": "nd947bd1d441d"
+   },
+   {
+    "fact_type": "key_threat",
+    "card_id": "OP15-074",
+    "rule": "エネルのイベントカウンター(放電/神の裁き/雷獣)は名称『エネル』のキャラ/リーダーしか守れない=エネル以外への攻撃は守備が薄い",
+    "article": "nd947bd1d441d"
+   },
+   {
+    "fact_type": "key_threat",
+    "card_id": "OP15-071",
+    "rule": "ホーリーは付与時攻8000+ダブルアタックだが相手ターン6000。アクティブで残す方が圧力高い",
+    "article": "nd947bd1d441d"
+   },
+   {
+    "fact_type": "counter_timing",
+    "card_id": "OP15-060",
+    "rule": "6エネルを安易にレストにするな。アクティブなら除去2枚要求だがレストだとガンマナイフ1本でバトルKO",
+    "article": "neee791184156"
+   },
+   {
+    "fact_type": "over_extend",
+    "card_id": null,
+    "rule": "除去型/ミラーは神の裁き・マイナスで盤面一掃される=低コストを安易にレストにし続けない",
+    "article": "nf76476bb10a5"
+   }
+  ]
+ },
+ "OP11-041": {
+  "name": "青黄ナミ",
+  "facts": [
+   {
+    "fact_type": "recovery",
+    "card_id": "OP14-104",
+    "rule": "回復札多数(8モリア/7ロビン/5ボルサ/8ティーチ)で実効ライフ厚い。7000+で確実にライフ割れ、中途半端に顔を殴らない",
+    "article": "nec2dabae8ba9"
+   },
+   {
+    "fact_type": "effective_life",
+    "card_id": "OP11-041",
+    "rule": "リーダーはドン付与時に手札1枚で相手ターン7000へ上昇=5000-6000はリーダーに通らない前提で要求値7000+",
+    "article": "n27c8d893e571"
+   },
+   {
+    "fact_type": "key_threat",
+    "card_id": "OP14-111",
+    "rule": "4ペローナはコスト6以下1体をアタック不可ロック。リーサル前にコストを上げるか6コス以下主力を先に殴る",
+    "article": "nec2dabae8ba9"
+   },
+   {
+    "fact_type": "key_threat",
+    "card_id": "EB03-055",
+    "rule": "7ロビンはKO時に相手へ1ダメージ=相手ライフ0でKOすると即敗北。ナミのライフ0付近で7ロビンをバトルKOしない",
+    "article": "n27c8d893e571"
+   },
+   {
+    "fact_type": "counter_timing",
+    "card_id": "OP11-041",
+    "rule": "手札8枚以上のとき5000級の安い攻撃をするな(手札7以下ドローを誘発)。相手手札枚数を常に確認",
+    "article": "nec2dabae8ba9"
+   }
+  ]
+ },
+ "OP14-020": {
+  "name": "緑ミホーク",
+  "facts": [
+   {
+    "fact_type": "key_threat",
+    "card_id": "OP14-119",
+    "rule": "9ミホークは毎ターン相手1体をレストロック=場に出たら最優先で除去",
+    "article": "n41112028e8c0"
+   },
+   {
+    "fact_type": "over_extend",
+    "card_id": null,
+    "rule": "序中盤の6000-7000連続攻撃(アグロ)に弱い(素2000カウンター薄)=盤面を整える前に速いライフ詰めで押す",
+    "article": "n101f5b960189"
+   },
+   {
+    "fact_type": "recovery",
+    "card_id": "ST24-004",
+    "rule": "ロー&ベポ(10)着地後はリーダーパンプ+アクティブドンでライフ0でも受け切る=大型着地前に決める",
+    "article": "n1ee4d394ea8a"
+   },
+   {
+    "fact_type": "protect",
+    "card_id": "OP15-035",
+    "rule": "ラブーンがあるとレスト可能札を対価に元P7000以下を除去から守る=除去進行はラブーン優先処理",
+    "article": "n1ee4d394ea8a"
+   },
+   {
+    "fact_type": "counter_timing",
+    "card_id": "OP12-037",
+    "rule": "リーサル時に軽ドンの重イベントカウンター(亡者戯/全開)で実効防御が跳ねる=表面カウンター値だけで貫通判断しない",
+    "article": "n1ee4d394ea8a"
+   }
+  ]
+ },
+ "OP14-079": {
+  "name": "黒クロコダイル",
+  "facts": [
+   {
+    "fact_type": "board_wipe",
+    "card_id": "OP14-120",
+    "rule": "8クロコは登場時コスト9以下1体を効果対象不可+アタック不可でロック連打=コスト9以下を並べすぎず、コスト10/速攻で攻める",
+    "article": "n95ed10822082"
+   },
+   {
+    "fact_type": "over_extend",
+    "card_id": null,
+    "rule": "速攻(アグロ)に弱い(速攻キャラは8クロコ範囲外)=序中盤に攻撃回数を稼がれると8クロコ着地前に押し切られる",
+    "article": "n95ed10822082"
+   },
+   {
+    "fact_type": "effective_life",
+    "card_id": null,
+    "rule": "長引くほど得なコントロール=ライフ価値を7000+と見て8クロコ着地まで高く保つ(登場ターンにライフ2枚目安)",
+    "article": "necc382e0d573"
+   },
+   {
+    "fact_type": "negate",
+    "card_id": "OP14-096",
+    "rule": "浸食輪廻はコスト5以下の効果を無効+ブロッカー/永続効果を無視して攻撃=ブロッカー頼りのリーサル防御を過信しない",
+    "article": "n95ed10822082"
+   },
+   {
+    "fact_type": "key_threat",
+    "card_id": "OP14-120",
+    "rule": "8クロコ(と7ミス・オールサンデー多面)を最優先警戒=連打を許すと攻撃回数激減で盤面ロック",
+    "article": "nb69e51c69d31"
+   }
+  ]
+ },
+ "OP13-002": {
+  "name": "赤(青)エース",
+  "facts": [
+   {
+    "fact_type": "protect",
+    "card_id": "PRB02-008",
+    "rule": "4マルコはKO耐性+ブロッカー。神避は1ターン1枚制限なので6ウタ/4マルコを大型の横に添えると処理困難",
+    "article": "n3a3218562df6"
+   },
+   {
+    "fact_type": "protect",
+    "card_id": null,
+    "rule": "vs青黄ハンコック: 4ハンコック/ラン/ゴルゴンをKOすると相手リーダー効果でライフを削られる=KOでなくバウンスで処理",
+    "article": "n51203bc7b322"
+   },
+   {
+    "fact_type": "key_threat",
+    "card_id": "OP14-105",
+    "rule": "vsハンコック: ゴルゴン三姉妹は6ジョズ(OP16-007)でしか処理できない=6ジョズを必ず盤面に絡ませる",
+    "article": "n51203bc7b322"
+   },
+   {
+    "fact_type": "effective_life",
+    "card_id": null,
+    "rule": "vsハンコック: 1体目の9ハンコック登場時にライフ1枚以上残っていないと次ターン貫通リーサル=序盤からライフ慎重管理",
+    "article": "n51203bc7b322"
+   },
+   {
+    "fact_type": "key_threat",
+    "card_id": "OP14-061",
+    "rule": "vs紫ドフラ: 10/9ニューゲートは10ドフラで処理不能=大型+ブロッカーを並べ処理要求を突き付ける",
+    "article": "n3a3218562df6"
+   }
+  ]
+ },
+ "OP16-001": {
+  "name": "赤エース",
+  "facts": [
+   {
+    "fact_type": "protect",
+    "card_id": "OP16-014",
+    "rule": "マルコは自軍全キャラに除去耐性付与+自KOで8000捨て盤面復帰。ただしバトルKOからは他キャラを守れない",
+    "article": "n71389d2d2051"
+   },
+   {
+    "fact_type": "key_threat",
+    "card_id": "OP09-118",
+    "rule": "10ロジャーは相手ライフ0にしてから出すと対大型ブロッカーのフィニッシャー",
+    "article": "n71389d2d2051"
+   }
+  ]
+ },
+ "OP15-002": {
+  "name": "赤青ルーシー",
+  "facts": [
+   {
+    "fact_type": "ko_immune",
+    "card_id": "OP15-046",
+    "rule": "7サボはロック系(ルナ/ローベポ)相手には最後のライフを取り切れる時以外アクティブのまま返す",
+    "article": "n2f13cd41f73d"
+   },
+   {
+    "fact_type": "board_wipe",
+    "card_id": "OP10-060",
+    "rule": "バリバリの銃は回復/KO時効果ブロッカー(5ボルサ/4ハンコック)をボトム送りで無力化。ドン付き6000超は不可",
+    "article": "n19f444058efe"
+   },
+   {
+    "fact_type": "counter_timing",
+    "card_id": "OP09-118",
+    "rule": "10ロジャーでリーサル時はトリガーでリーサルが消えるのを避け、他アタックを全解決した最後に出す",
+    "article": "ndbbec0b4c649"
+   },
+   {
+    "fact_type": "protect",
+    "card_id": "OP15-052",
+    "rule": "除去(ゲダツ/2ゼウス)でキャベンディッシュを取られる対面は、出す前にレオ(OP15-052)を先置きで除去耐性",
+    "article": "ne6b916db03c6"
+   },
+   {
+    "fact_type": "effective_life",
+    "card_id": null,
+    "rule": "速い盤面対面では5000-7000は基本ライフで受けカウンター温存、7サボが並ぶまでライフをリソースに使う",
+    "article": "n2f13cd41f73d"
+   }
+  ]
+ },
+ "OP16-022": {
+  "name": "緑青ルフィ",
+  "facts": [
+   {
+    "fact_type": "protect",
+    "card_id": null,
+    "rule": "7ハンコックはコスト指定なしのレストストップ+ブロック不可で大型を1体ずつ出す相手を機能不全に=攻守の要",
+    "article": "n0a0ef2ed385e"
+   },
+   {
+    "fact_type": "counter_timing",
+    "card_id": "OP15-078",
+    "rule": "5000-6000同値を連打して相手にカウンター(神の裁き/雷獣/万雷)を道中で吐かせ、大きくドンを振らない",
+    "article": "na2c254a5c1a7"
+   },
+   {
+    "fact_type": "effective_life",
+    "card_id": "OP16-022",
+    "rule": "ドロー効果でガード値担保=ライフ1枚目は守らず受ける(以降は対面判断)",
+    "article": "n0a0ef2ed385e"
+   },
+   {
+    "fact_type": "key_threat",
+    "card_id": "OP15-071",
+    "rule": "苦手の紫エネル相手はホーリーを最速で出されると勝ち筋細る=天叢雲剣等で低コスト除去を厚く",
+    "article": "n0a0ef2ed385e"
+   }
+  ]
+ },
+ "OP15-098": {
+  "name": "黄(空島)ルフィ",
+  "facts": [
+   {
+    "fact_type": "ko_immune",
+    "card_id": "OP15-098",
+    "rule": "リーダー効果で《空島》6000以上が相手により場を離れる時ライフ1枚を得て残る=アタック/KO/バウンス全耐性",
+    "article": "n521937bdc4f0"
+   },
+   {
+    "fact_type": "effective_life",
+    "card_id": "OP15-098",
+    "rule": "リーダー5000で盤面残る=序中盤の手札1枚で守れる5000-6000は全て守る(連続攻撃で詰む)",
+    "article": "n521937bdc4f0"
+   },
+   {
+    "fact_type": "board_wipe",
+    "card_id": "OP15-114",
+    "rule": "5ワイパーはパワー0以下を全KO、外れても相手全体-2000=低コストブロッカー/1コス依存に最速で当てる",
+    "article": "n521937bdc4f0"
+   },
+   {
+    "fact_type": "key_threat",
+    "card_id": "OP15-071",
+    "rule": "紫エネルのホーリー放置は負け=3ベティ/ゲダツで最速処理(先2ホーリーはゲダツ間に合わずベティ必須)",
+    "article": "n521937bdc4f0"
+   },
+   {
+    "fact_type": "counter_timing",
+    "card_id": null,
+    "rule": "紫エネル/赤青ルーシーのダブルアタック(ホーリー/メラメラ)が来るターンだけ他を受け、それを全力で守る",
+    "article": "nd7a793fa504b"
+   }
+  ]
+ },
+ "OP11-040": {
+  "name": "青紫ルフィ",
+  "facts": [
+   {
+    "fact_type": "protect",
+    "card_id": "OP11-067",
+    "rule": "8カタクリはターン終了時アクティブに戻る8000ブロッカー+ドン+1=大型選択に迷ったら守り優先で8カタクリ",
+    "article": "ndbf347892b1c"
+   },
+   {
+    "fact_type": "recovery",
+    "card_id": "OP08-069",
+    "rule": "初期ライフ3の低さを9リンリン(登場時ライフ回復+除去)で補い速攻対面の耐久札にする",
+    "article": "ndbf347892b1c"
+   },
+   {
+    "fact_type": "counter_timing",
+    "card_id": "OP09-078",
+    "rule": "ゴムゴムの巨人(手札消費なし4000カウンター)は1ターン1回まで(リーダー効果維持に10ドン必要)",
+    "article": "ndbf347892b1c"
+   },
+   {
+    "fact_type": "effective_life",
+    "card_id": "OP11-040",
+    "rule": "10ドン到達までじり貧=手札1枚で守れるライフ攻撃は全て守り無駄にライフを減らさない",
+    "article": "ndbf347892b1c"
+   }
+  ]
+ },
+ "OP13-001": {
+  "name": "赤ルフィ",
+  "facts": [
+   {
+    "fact_type": "key_threat",
+    "card_id": "ST31-004",
+    "rule": "7ルフィは付与ドン3枚以上で速攻+麦わら数分の相手マイナス+9000打点=多面展開後の大型除去+詰め",
+    "article": "n7f9d7c1b54c8"
+   },
+   {
+    "fact_type": "over_extend",
+    "card_id": "ST31-001",
+    "rule": "5サンジ(P3000)にドンを付け速攻させても返しに取られる=目先の攻撃にレストドンを付与しすぎない",
+    "article": "n7f9d7c1b54c8"
+   },
+   {
+    "fact_type": "effective_life",
+    "card_id": "OP13-001",
+    "rule": "防御薄くロングゲームで負け=序盤ライフは基本受け、多面展開で早めにライフレースを決める",
+    "article": "n7f9d7c1b54c8"
+   }
+  ]
+ },
+ "OP14-060": {
+  "name": "紫ドフラミンゴ",
+  "facts": [
+   {
+    "fact_type": "key_threat",
+    "card_id": "OP14-069",
+    "rule": "10ドフラのKOは相手コスト8以下限定=コスト9以上(10/9ニューゲート/五老星)は神避-8000やノロノロでレスト処理",
+    "article": "ne19b47e5eb0a"
+   },
+   {
+    "fact_type": "key_threat",
+    "card_id": "OP07-076",
+    "rule": "vs赤青エース/黒イム: ノロノロビームソードが最重要詰め札(大型ブロッカーをレスト無効化)=5ロシナンテで捨てるな",
+    "article": "n09e169acd9ff"
+   },
+   {
+    "fact_type": "protect",
+    "card_id": "OP14-061",
+    "rule": "大型を盤面に残すにはヴェルゴが必要(不在だと業火拳銃/6ジョズ/浸食輪廻で崩される)=最優先サーチ・展開",
+    "article": "n09e169acd9ff"
+   },
+   {
+    "fact_type": "effective_life",
+    "card_id": "OP14-072",
+    "rule": "4ベビー5が終盤にいるとリーダー効果の攻撃誘導+KO時回復でライフ0でもカウンター無しで2回耐える",
+    "article": "n92b508936236"
+   },
+   {
+    "fact_type": "over_extend",
+    "card_id": "OP14-061",
+    "rule": "vs黒イム: ヴェルゴは2体展開(1体だと浸食輪廻+マーズ聖で1対2交換される)",
+    "article": "n25da88339947"
+   }
+  ]
+ },
+ "OP14-041": {
+  "name": "青黄ハンコック",
+  "facts": [
+   {
+    "fact_type": "recovery",
+    "card_id": "OP15-113",
+    "rule": "回復連打+4ゾロをトラッシュから蘇生=実効ライフは4を大きく超える。0へのレース単体では詰まない",
+    "article": "n0ff0a1c9614e"
+   },
+   {
+    "fact_type": "ko_immune",
+    "card_id": "OP14-041",
+    "rule": "ドン1枚付与でハンコックキャラがKOされると相手ライフが飛ぶ=KO除去は罰される、バウンス/ボトム除去を優先",
+    "article": "n0ff0a1c9614e"
+   },
+   {
+    "fact_type": "key_threat",
+    "card_id": "OP14-112",
+    "rule": "9ハンコック(10000, 強制ライフ焼き)がデッキの目的=安着させない/着く前に決める",
+    "article": "n0ff0a1c9614e"
+   },
+   {
+    "fact_type": "key_threat",
+    "card_id": "OP14-105",
+    "rule": "ゴルゴン三姉妹が出ると全アタッカーが約6000=毎攻撃2000カウンター要求、着地後は要求値が上がる",
+    "article": "n6dfa10c202dc"
+   },
+   {
+    "fact_type": "over_extend",
+    "card_id": null,
+    "rule": "バウンス/ボトム/緑の盤面ロックに耐性ゼロ、大半コスト7以下=並べすぎるとリセットされる。非KO除去が解",
+    "article": "n1b112ea045cf"
+   }
+  ]
+ },
+ "OP08-098": {
+  "name": "カルガラ",
+  "facts": [
+   {
+    "fact_type": "key_threat",
+    "card_id": "EB02-035",
+    "rule": "vs緑紫ルフィ: 相手1体目/2体目(特にサンジ&プリン)を着地狩り=放置すると毎ターンダメージ源に",
+    "article": "nb65ecb33a7b1"
+   },
+   {
+    "fact_type": "recovery",
+    "card_id": "OP08-109",
+    "rule": "ノーランドがあるとライフ全受けして耐え、2枚でロングゲーム可=7000攻撃対面は4枚積み",
+    "article": "nb65ecb33a7b1"
+   },
+   {
+    "fact_type": "counter_timing",
+    "card_id": null,
+    "rule": "vsアグロ: イベントカウンター約10+2000カウンター約10でライフ1から2ターン守る=早撃ちせず温存",
+    "article": "nb65ecb33a7b1"
+   }
+  ]
+ },
+ "OP12-040": {
+  "name": "青クザン",
+  "facts": [
+   {
+    "fact_type": "effective_life",
+    "card_id": "EB04-028",
+    "rule": "アイスタイムはパワー10000以下2体を凍結=相手のクロックを止め実質クザンのライフを延ばす",
+    "article": "n05b2ce576d07"
+   },
+   {
+    "fact_type": "key_threat",
+    "card_id": "OP06-043",
+    "rule": "最大打点8000ラインが弱み=大型/ブロッカーを抜けづらい。アラマキ(OP06-043)踏み倒しで盤面圧を作る",
+    "article": "n05b2ce576d07"
+   },
+   {
+    "fact_type": "counter_timing",
+    "card_id": null,
+    "rule": "vs7000+攻撃(緑ミホーク): 8ガープ展開の返しに相手が lethal=カウンターを早めに切りライフを守る",
+    "article": "n4b59c93aacdb"
+   }
+  ]
+ },
+ "OP16-080": {
+  "name": "黒黄ティーチ",
+  "facts": [
+   {
+    "fact_type": "protect",
+    "card_id": "OP16-080",
+    "rule": "リーダー効果で毎ターン相手攻撃1回を実質手札1枚で守る=防御力に『無料で守る1回』を織り込む",
+    "article": "ndae5700bc10c"
+   },
+   {
+    "fact_type": "effective_life",
+    "card_id": null,
+    "rule": "黄の耐久デッキ=ライフ回復1枚で要求値が大きく変わる、回復の枚数/使い所が勝敗を左右=固定 lethal を仮定しない",
+    "article": "ndae5700bc10c"
+   },
+   {
+    "fact_type": "protect",
+    "card_id": "OP16-106",
+    "rule": "サンファン・ウルフは連続攻撃に対しリーダーを7000に=要求値を上げ多面攻撃弱点を補う",
+    "article": "ndae5700bc10c"
+   },
+   {
+    "fact_type": "negate",
+    "card_id": "OP16-119",
+    "rule": "10ティーチ(ゼハハで踏み倒し)は相手1体(リーダーにも)の行動封じ=ブロッカー/起動/アタック時を無効、リーダー効果依存デッキを壊す",
+    "article": "ndae5700bc10c"
+   }
+  ]
+ },
+ "OP13-079": {
+  "name": "黒イム(五老星)",
+  "facts": [
+   {
+    "fact_type": "ko_immune",
+    "card_id": "OP13-099",
+    "rule": "虚の玉座はトラッシュ7枚以上で全五老星が相手効果で場を離れない=ほぼ完全な除去/バウンス耐性、テンポで上回る",
+    "article": "nf3f634392d37"
+   },
+   {
+    "fact_type": "board_wipe",
+    "card_id": "OP13-082",
+    "rule": "10ドン以降、毎ターン五老星5面(10五老星~3ドン+トラッシュ蘇生)を展開=勝てないグラインドに入らない",
+    "article": "nf3f634392d37"
+   },
+   {
+    "fact_type": "key_threat",
+    "card_id": "OP13-091",
+    "rule": "マーズ聖は元コスト5以下を全て確定KO(コストアップで回避不可)+ブロッカー除去でリーサルを開く",
+    "article": "nf3f634392d37"
+   },
+   {
+    "fact_type": "effective_life",
+    "card_id": null,
+    "rule": "10ドンまでライフを貯める=中盤ライフ2-3、手札1枚で守れる攻撃を止め7000+は全て守る。10ドン前に押し切られると負け",
+    "article": "nf3f634392d37"
+   },
+   {
+    "fact_type": "counter_timing",
+    "card_id": "OP13-095",
+    "rule": "vs速いデッキ(赤ゾロ/赤レイリー): ロズワード聖が登場時コスト3以下2体をKO=対アグロ",
+    "article": "nf3f634392d37"
+   }
+  ]
+ },
+ "OP12-061": {
+  "name": "紫黄ロシナンテ",
+  "facts": [
+   {
+    "fact_type": "ko_immune",
+    "card_id": null,
+    "rule": "リーダー効果はロー名称1体をKOから1回守るのみ=バウンス/ボトム/トラッシュ送りには耐性なし、それらを優先",
+    "article": "nd6fbcd13d25a"
+   },
+   {
+    "fact_type": "recovery",
+    "card_id": "EB04-058",
+    "rule": "ボルサリーノ(海軍サーチ)がライフ回復+ブロッカー=何枚絡むかで耐久プランが変わる(特にvs紫エネル)",
+    "article": "nd6fbcd13d25a"
+   },
+   {
+    "fact_type": "board_wipe",
+    "card_id": "OP16-065",
+    "rule": "7サカズキ(-6000)+ゴムゴムの雷で12000ラインまで除去(10ニューゲート/10ティーチ)",
+    "article": "nd6fbcd13d25a"
+   },
+   {
+    "fact_type": "key_threat",
+    "card_id": null,
+    "rule": "ブロック不可キャラ(黒ヤマト/緑青ルフィ)がロシナンテのブロッカー壁を貫通する=主要な解答が効かない",
+    "article": "nd6fbcd13d25a"
+   }
+  ]
+ },
+ "OP13-004": {
+  "name": "赤黒サボ",
+  "facts": [
+   {
+    "fact_type": "key_threat",
+    "card_id": null,
+    "rule": "リーダー+1000はコスト8以上が必要=序盤は4000リーダー、中盤から6000。クロックが逓増する",
+    "article": "n0b9c97330112"
+   },
+   {
+    "fact_type": "key_threat",
+    "card_id": "OP13-017",
+    "rule": "元コスト参照除去(黒5マーズ聖/黄6レイリー)には抗えず、押されつつ6サボを6レイリーで失うのが負け筋",
+    "article": "n0b9c97330112"
+   },
+   {
+    "fact_type": "board_wipe",
+    "card_id": "OP12-095",
+    "rule": "リンドバーグ(-3000)+コアラ(-3000)=-6000でレスト後バトルKO=盤面が整うと-6000除去ラインが飛ぶ",
+    "article": "n0b9c97330112"
+   },
+   {
+    "fact_type": "key_threat",
+    "card_id": "OP13-064",
+    "rule": "10ロジャーは対ブロッカー/耐久のフィニッシャーだが6サボが盤面に無いと打点が下がる=6サボ設置を妨害",
+    "article": "n0b9c97330112"
+   }
+  ]
+ },
+ "OP12-020": {
+  "name": "緑ゾロ",
+  "facts": [
+   {
+    "fact_type": "key_threat",
+    "card_id": "OP12-020",
+    "rule": "リーダーに3ドン以上でキャラ攻撃後にリーダー/コスト8以上へ再攻撃、キャラに当てれば再アクティブ=ブロックされても2回振る。実効+1アタッカー/ターン",
+    "article": "n5f605d935347"
+   },
+   {
+    "fact_type": "over_extend",
+    "card_id": null,
+    "rule": "弱点は防御(ドロー/手札交換薄でカウンターレスが手札に詰まる)=攻撃は強いがライフレースで負けうる、手札を圧迫",
+    "article": "n5f605d935347"
+   },
+   {
+    "fact_type": "counter_timing",
+    "card_id": null,
+    "rule": "2000カウンター12枚以上(メタが1ターンに6000攻撃を複数作るため)=6000ラインは十分守られる前提",
+    "article": "n5f605d935347"
+   },
+   {
+    "fact_type": "key_threat",
+    "card_id": "OP14-026",
+    "rule": "元コスト/パワー6以下のレストロック(5おでん/4くいな/5たしぎ)で6エネルやブロッカー4レイジュを1ターン機能不全",
+    "article": "n5f605d935347"
+   }
+  ]
+ },
+ "OP10-099": {
+  "name": "黄キッド",
+  "facts": [
+   {
+    "fact_type": "protect",
+    "card_id": "OP10-099",
+    "rule": "リーダー効果(自ライフ公開)でアタックしたキャラを再アクティブ=ブロッカー運用。黄の回復と合わせ消耗戦に強く単発の一撃では倒せない=多ターンリーサル計画",
+    "article": "n0051e66e694a"
+   },
+   {
+    "fact_type": "protect",
+    "card_id": "ST36-005",
+    "rule": "6キッドは元パワー5000以上のアタックをキッド名称へ誘導=6000ラインの攻撃を実質無効化",
+    "article": "n0051e66e694a"
+   },
+   {
+    "fact_type": "board_wipe",
+    "card_id": "OP15-114",
+    "rule": "5ワイパー(全体-2000+パワー0以下全KO)でエネル1コス/緑青ルフィ2コス/ティーチ囮を一掃=小型を並べすぎない",
+    "article": "n0051e66e694a"
+   }
+  ]
+ },
+ "OP11-062": {
+  "name": "紫カタクリ",
+  "facts": [
+   {
+    "fact_type": "counter_timing",
+    "card_id": null,
+    "rule": "リーダー+1000は6000攻撃に無力かつターン1回=6000連続攻撃でカウンター不足、盤面が整う前のアグロに弱い",
+    "article": "n6786e71c8781"
+   },
+   {
+    "fact_type": "recovery",
+    "card_id": "ST34-004",
+    "rule": "10リンリンがフィニッシャー=ライフ増やしつつ相手キャラを実質処理(-4ドンは5/8カタクリで賄い連打)",
+    "article": "n6786e71c8781"
+   },
+   {
+    "fact_type": "protect",
+    "card_id": "OP11-067",
+    "rule": "8カタクリは毎ターン起き上がる8000ブロッカーで対象2枚=自キャラへの攻撃も防ぐ盤面防御の核",
+    "article": "n6786e71c8781"
+   }
+  ]
+ }
+}

@@ -120,3 +120,48 @@ def opp_invalidates_life_pressure(leader_id: str) -> bool:
     """相手リーダーが『ライフ圧の naive 評価(opp_life=0=near-win)』を無効化するか。
     = 回復リーダー(エネル等)。 lethal 判定と value 割引のフックが参照する。"""
     return bool(build_all().get(leader_id, {}).get("recovers_at_zero"))
+
+
+# --- pros02 matchup 知見 (db/pros02_matchup_facts.json、 leader_id キー) --- #
+# 3 並列エージェントが note.com/pros_02 383記事から抽出・カードID検証した対戦知見。
+# ~95% は fuzzy(位置取り/実効ライフ/優先除去) = Claude 教師の採点 context 用、
+# 少数の機構的 fact のみ hard rule フックが参照。 builder=scripts/build_pros02_matchup_facts.py
+_PROS_MATCHUP: Optional[dict] = None
+
+
+def _pros_matchup() -> dict:
+    global _PROS_MATCHUP
+    if _PROS_MATCHUP is None:
+        try:
+            _PROS_MATCHUP = json.loads(
+                (_ROOT / "db" / "pros02_matchup_facts.json").read_text(encoding="utf-8"))
+        except Exception:
+            _PROS_MATCHUP = {}
+    return _PROS_MATCHUP
+
+
+def matchup_facts_for(leader_id: str, fact_type: Optional[str] = None) -> list:
+    """leader_id に対する pros02 知見のリスト。 fact_type で絞り込み可
+    (recovery/effective_life/ko_immune/protect/key_threat/board_wipe/over_extend/negate/counter_timing)。"""
+    rec = _pros_matchup().get(leader_id)
+    if not rec:
+        return []
+    facts = rec.get("facts", [])
+    if fact_type:
+        facts = [f for f in facts if f.get("fact_type") == fact_type]
+    return facts
+
+
+def format_matchup_facts_for_teacher(leader_id: str) -> str:
+    """相手 leader の pros02 知見を Claude 教師の採点 prompt 用テキストに整形。
+    ~95% の fuzzy 知見の主 consumer = 教師が『プロならこう指す』の基準に使う。"""
+    rec = _pros_matchup().get(leader_id)
+    if not rec:
+        return ""
+    lines = [f"【相手 {rec.get('name', leader_id)} への pros02 定石】"]
+    for f in rec.get("facts", []):
+        cid = f.get("card_id")
+        tag = f.get("fact_type", "")
+        card = f" ({cid})" if cid else ""
+        lines.append(f"  - [{tag}]{card} {f.get('rule', '')}")
+    return "\n".join(lines)
