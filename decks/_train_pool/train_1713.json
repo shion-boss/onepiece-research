@@ -1,0 +1,65 @@
+{
+  "name": "黒ヤマト",
+  "slug": "cardrush_1713",
+  "leader": "OP16-079",
+  "leader_name": "ヤマト",
+  "source": "https://cardrush.media/onepiece/decks/1713",
+  "score": "優勝",
+  "tournament_name": "天竜杯",
+  "tournament_date": "2026-06-01",
+  "fetched_at": "2026-07-21T16:47:04Z",
+  "main": [
+    {
+      "card_id": "OP16-091",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-092",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-081",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-095",
+      "count": 2
+    },
+    {
+      "card_id": "OP16-087",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-084",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-085",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-098",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-097",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-096",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-082",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-099",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-096",
+      "count": 4
+    }
+  ]
+}

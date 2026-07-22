@@ -1,0 +1,85 @@
+{
+  "name": "緑青ゾロ&サンジ",
+  "slug": "cardrush_1618",
+  "leader": "ST12-001",
+  "leader_name": "ロロノア・ゾロ＆サンジ",
+  "source": "https://cardrush.media/onepiece/decks/1618",
+  "score": "優勝",
+  "tournament_name": "フラッグシップバトル",
+  "tournament_date": "2026-06-16",
+  "fetched_at": "2026-07-21T16:45:59Z",
+  "main": [
+    {
+      "card_id": "OP12-034",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-054",
+      "count": 3
+    },
+    {
+      "card_id": "OP16-055",
+      "count": 2
+    },
+    {
+      "card_id": "OP06-033",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-027",
+      "count": 4
+    },
+    {
+      "card_id": "ST12-003",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-029",
+      "count": 3
+    },
+    {
+      "card_id": "OP10-045",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-023",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-031",
+      "count": 1
+    },
+    {
+      "card_id": "OP11-028",
+      "count": 1
+    },
+    {
+      "card_id": "EB04-018",
+      "count": 2
+    },
+    {
+      "card_id": "OP08-023",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-054",
+      "count": 1
+    },
+    {
+      "card_id": "OP13-031",
+      "count": 3
+    },
+    {
+      "card_id": "OP13-118",
+      "count": 3
+    },
+    {
+      "card_id": "OP13-040",
+      "count": 2
+    },
+    {
+      "card_id": "OP12-037",
+      "count": 1
+    }
+  ]
+}

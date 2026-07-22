@@ -1,0 +1,73 @@
+{
+  "name": "赤シャンクス",
+  "slug": "cardrush_1745",
+  "leader": "OP09-001",
+  "leader_name": "シャンクス",
+  "source": "https://cardrush.media/onepiece/decks/1745",
+  "score": "優勝",
+  "tournament_name": "スタンダードバトル",
+  "tournament_date": "2026-07-05",
+  "fetched_at": "2026-07-21T16:44:23Z",
+  "main": [
+    {
+      "card_id": "OP16-018",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-002",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-014",
+      "count": 2
+    },
+    {
+      "card_id": "OP09-011",
+      "count": 4
+    },
+    {
+      "card_id": "PRB02-003",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-013",
+      "count": 2
+    },
+    {
+      "card_id": "OP16-012",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-008",
+      "count": 2
+    },
+    {
+      "card_id": "OP06-007",
+      "count": 2
+    },
+    {
+      "card_id": "ST23-002",
+      "count": 4
+    },
+    {
+      "card_id": "ST23-001",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-009",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-004",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-020",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-019",
+      "count": 2
+    }
+  ]
+}

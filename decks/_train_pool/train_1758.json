@@ -1,0 +1,81 @@
+{
+  "name": "緑ミホーク",
+  "slug": "cardrush_1758",
+  "leader": "OP14-020",
+  "leader_name": "ジュラキュール・ミホーク",
+  "source": "https://cardrush.media/onepiece/decks/1758",
+  "score": "優勝",
+  "tournament_name": "フラッグシップバトルEX",
+  "tournament_date": "2026-07-20",
+  "fetched_at": "2026-07-21T16:44:00Z",
+  "main": [
+    {
+      "card_id": "OP13-040",
+      "count": 3
+    },
+    {
+      "card_id": "OP01-055",
+      "count": 3
+    },
+    {
+      "card_id": "OP14-037",
+      "count": 1
+    },
+    {
+      "card_id": "OP06-038",
+      "count": 1
+    },
+    {
+      "card_id": "ST32-002",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-033",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-034",
+      "count": 4
+    },
+    {
+      "card_id": "ST32-005",
+      "count": 4
+    },
+    {
+      "card_id": "ST32-003",
+      "count": 3
+    },
+    {
+      "card_id": "OP13-031",
+      "count": 3
+    },
+    {
+      "card_id": "OP12-037",
+      "count": 3
+    },
+    {
+      "card_id": "ST16-004",
+      "count": 1
+    },
+    {
+      "card_id": "OP14-119",
+      "count": 2
+    },
+    {
+      "card_id": "OP14-023",
+      "count": 4
+    },
+    {
+      "card_id": "ST32-001",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-030",
+      "count": 3
+    },
+    {
+      "card_id": "ST24-004",
+      "count": 3
+    }
+  ]
+}

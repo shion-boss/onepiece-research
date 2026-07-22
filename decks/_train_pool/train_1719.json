@@ -1,0 +1,77 @@
+{
+  "name": "赤エース",
+  "slug": "cardrush_1719",
+  "leader": "OP16-001",
+  "leader_name": "ポートガス・Ｄ・エース",
+  "source": "https://cardrush.media/onepiece/decks/1719",
+  "score": "優勝",
+  "tournament_name": "スタンダードバトル",
+  "tournament_date": "2026-07-05",
+  "fetched_at": "2026-07-21T16:44:27Z",
+  "main": [
+    {
+      "card_id": "OP16-003",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-005",
+      "count": 4
+    },
+    {
+      "card_id": "ST15-002",
+      "count": 2
+    },
+    {
+      "card_id": "OP16-004",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-011",
+      "count": 3
+    },
+    {
+      "card_id": "OP16-014",
+      "count": 4
+    },
+    {
+      "card_id": "EB01-002",
+      "count": 2
+    },
+    {
+      "card_id": "OP16-118",
+      "count": 3
+    },
+    {
+      "card_id": "OP16-017",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-015",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-016",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-005",
+      "count": 3
+    },
+    {
+      "card_id": "OP13-007",
+      "count": 2
+    },
+    {
+      "card_id": "OP16-010",
+      "count": 1
+    },
+    {
+      "card_id": "ST30-016",
+      "count": 2
+    },
+    {
+      "card_id": "OP16-021",
+      "count": 4
+    }
+  ]
+}

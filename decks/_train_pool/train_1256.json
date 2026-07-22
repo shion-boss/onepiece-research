@@ -1,0 +1,69 @@
+{
+  "name": "緑ジンベエ",
+  "slug": "cardrush_1256",
+  "leader": "OP11-021",
+  "leader_name": "ジンベエ",
+  "source": "https://cardrush.media/onepiece/decks/1256",
+  "score": "ベスト4",
+  "tournament_name": "あかなし杯",
+  "tournament_date": "2026-04-09",
+  "fetched_at": "2026-07-21T16:51:24Z",
+  "main": [
+    {
+      "card_id": "EB04-015",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-031",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-032",
+      "count": 2
+    },
+    {
+      "card_id": "OP14-033",
+      "count": 4
+    },
+    {
+      "card_id": "P-063",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-018",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-023",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-032",
+      "count": 4
+    },
+    {
+      "card_id": "OP06-033",
+      "count": 2
+    },
+    {
+      "card_id": "OP11-030",
+      "count": 4
+    },
+    {
+      "card_id": "OP06-025",
+      "count": 4
+    },
+    {
+      "card_id": "OP08-036",
+      "count": 2
+    },
+    {
+      "card_id": "EB04-020",
+      "count": 4
+    },
+    {
+      "card_id": "OP13-040",
+      "count": 4
+    }
+  ]
+}

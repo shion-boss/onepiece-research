@@ -1,0 +1,73 @@
+{
+  "name": "緑紫ルフィ",
+  "slug": "cardrush_1230",
+  "leader": "EB02-010",
+  "leader_name": "モンキー・D・ルフィ",
+  "source": "https://cardrush.media/onepiece/decks/1230",
+  "score": "ベスト4",
+  "tournament_name": "あかなし杯",
+  "tournament_date": "2026-04-02",
+  "fetched_at": "2026-07-21T16:51:55Z",
+  "main": [
+    {
+      "card_id": "PRB02-012",
+      "count": 4
+    },
+    {
+      "card_id": "EB02-017",
+      "count": 4
+    },
+    {
+      "card_id": "ST18-001",
+      "count": 4
+    },
+    {
+      "card_id": "OP07-064",
+      "count": 4
+    },
+    {
+      "card_id": "EB02-035",
+      "count": 4
+    },
+    {
+      "card_id": "ST18-004",
+      "count": 4
+    },
+    {
+      "card_id": "EB02-061",
+      "count": 4
+    },
+    {
+      "card_id": "PRB02-005",
+      "count": 2
+    },
+    {
+      "card_id": "OP14-031",
+      "count": 4
+    },
+    {
+      "card_id": "OP12-037",
+      "count": 1
+    },
+    {
+      "card_id": "OP13-040",
+      "count": 3
+    },
+    {
+      "card_id": "OP05-076",
+      "count": 2
+    },
+    {
+      "card_id": "OP15-078",
+      "count": 2
+    },
+    {
+      "card_id": "OP08-036",
+      "count": 4
+    },
+    {
+      "card_id": "OP09-078",
+      "count": 4
+    }
+  ]
+}

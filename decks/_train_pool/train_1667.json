@@ -1,0 +1,69 @@
+{
+  "name": "黒クロコダイル",
+  "slug": "cardrush_1667",
+  "leader": "OP14-079",
+  "leader_name": "クロコダイル",
+  "source": "https://cardrush.media/onepiece/decks/1667",
+  "score": "優勝",
+  "tournament_name": "フラッグシップバトル",
+  "tournament_date": "2026-06-28",
+  "fetched_at": "2026-07-21T16:44:58Z",
+  "main": [
+    {
+      "card_id": "OP14-083",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-085",
+      "count": 2
+    },
+    {
+      "card_id": "OP14-087",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-088",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-091",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-093",
+      "count": 2
+    },
+    {
+      "card_id": "OP14-090",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-094",
+      "count": 3
+    },
+    {
+      "card_id": "OP14-084",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-120",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-092",
+      "count": 4
+    },
+    {
+      "card_id": "OP05-094",
+      "count": 3
+    },
+    {
+      "card_id": "OP14-099",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-096",
+      "count": 4
+    }
+  ]
+}

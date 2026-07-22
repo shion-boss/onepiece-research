@@ -1,0 +1,69 @@
+{
+  "name": "青黄ナミ",
+  "slug": "cardrush_1726",
+  "leader": "OP11-041",
+  "leader_name": "ナミ",
+  "source": "https://cardrush.media/onepiece/decks/1726",
+  "score": "優勝",
+  "tournament_name": "しゅーまい杯3on3",
+  "tournament_date": "2026-06-28",
+  "fetched_at": "2026-07-21T16:45:00Z",
+  "main": [
+    {
+      "card_id": "OP14-102",
+      "count": 4
+    },
+    {
+      "card_id": "OP11-106",
+      "count": 4
+    },
+    {
+      "card_id": "OP06-106",
+      "count": 2
+    },
+    {
+      "card_id": "OP06-104",
+      "count": 2
+    },
+    {
+      "card_id": "OP14-110",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-111",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-056",
+      "count": 3
+    },
+    {
+      "card_id": "PRB02-008",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-104",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-053",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-058",
+      "count": 4
+    },
+    {
+      "card_id": "EB03-055",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-119",
+      "count": 4
+    },
+    {
+      "card_id": "EB01-059",
+      "count": 3
+    }
+  ]
+}

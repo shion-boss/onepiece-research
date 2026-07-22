@@ -1,0 +1,65 @@
+{
+  "name": "赤エース",
+  "slug": "cardrush_1718",
+  "leader": "OP16-001",
+  "leader_name": "ポートガス・Ｄ・エース",
+  "source": "https://cardrush.media/onepiece/decks/1718",
+  "score": "準優勝",
+  "tournament_name": "第31回うにぐんCS",
+  "tournament_date": "2026-07-04",
+  "fetched_at": "2026-07-21T16:44:35Z",
+  "main": [
+    {
+      "card_id": "OP13-016",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-015",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-017",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-011",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-014",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-004",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-003",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-005",
+      "count": 4
+    },
+    {
+      "card_id": "EB01-002",
+      "count": 4
+    },
+    {
+      "card_id": "OP10-011",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-002",
+      "count": 4
+    },
+    {
+      "card_id": "OP14-018",
+      "count": 2
+    },
+    {
+      "card_id": "OP16-021",
+      "count": 4
+    }
+  ]
+}

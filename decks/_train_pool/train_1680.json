@@ -1,0 +1,77 @@
+{
+  "name": "紫黄ロシナンテ",
+  "slug": "cardrush_1680",
+  "leader": "OP12-061",
+  "leader_name": "ドンキホーテ・ロシナンテ",
+  "source": "https://cardrush.media/onepiece/decks/1680",
+  "score": "優勝",
+  "tournament_name": "フラッグシップバトル",
+  "tournament_date": "2026-07-01",
+  "fetched_at": "2026-07-21T16:44:52Z",
+  "main": [
+    {
+      "card_id": "OP12-108",
+      "count": 3
+    },
+    {
+      "card_id": "ST10-010",
+      "count": 3
+    },
+    {
+      "card_id": "OP07-076",
+      "count": 1
+    },
+    {
+      "card_id": "OP15-114",
+      "count": 1
+    },
+    {
+      "card_id": "OP16-064",
+      "count": 4
+    },
+    {
+      "card_id": "P-093",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-078",
+      "count": 3
+    },
+    {
+      "card_id": "OP16-065",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-058",
+      "count": 4
+    },
+    {
+      "card_id": "OP16-067",
+      "count": 2
+    },
+    {
+      "card_id": "OP10-114",
+      "count": 2
+    },
+    {
+      "card_id": "OP09-077",
+      "count": 3
+    },
+    {
+      "card_id": "OP12-115",
+      "count": 4
+    },
+    {
+      "card_id": "OP15-078",
+      "count": 4
+    },
+    {
+      "card_id": "EB04-038",
+      "count": 4
+    },
+    {
+      "card_id": "P-088",
+      "count": 4
+    }
+  ]
+}
