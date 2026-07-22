@@ -503,6 +503,12 @@ def search_turn_plan(
     # (= deck_analysis['pros02_signals'])。 concept_prior と同じ beam-only 規律。
     _W_PROS02 = float(_os.environ.get("ONEPIECE_PROS02_W", "0"))
     _USE_PROS02 = _W_PROS02 > 0
+    # 相手カード identity: 攻撃対象の脅威度/相手リーダー耐久を見る decision-層ボーナス (path A、 opp_threat)。
+    _W_OPPCARD = float(_os.environ.get("ONEPIECE_OPPCARD_W", "0"))
+    _USE_OPPCARD = _W_OPPCARD > 0
+    _oc_ab = None
+    if _USE_OPPCARD:
+        from .opp_threat import attack_target_bonus as _oc_ab
     _pros02_sig = None
     if _USE_PROS02:
         if _me_deck_analysis is None:  # turn_plan と同じ fallback
@@ -780,6 +786,19 @@ def search_turn_plan(
                                          if _os.environ.get("ONEPIECE_GBM_VALUE_PATH")
                                          else _PP_LINEAR_SCALE)
                             score = score + _W_PROS02 * _p2 * _p2_scale
+                    except Exception:
+                        pass
+
+                # 相手カード identity (path A): 攻撃対象を「そのキャラが何なのか・リーダーが誰なのか」で
+                # 区別。 拘束脅威(9ミホーク等)/除去/エンジンを優先攻撃、 回復リーダーの chip を軽減。
+                if _USE_OPPCARD:
+                    try:
+                        _oc = _oc_ab(cur_state, action, me_idx)
+                        if _oc:
+                            _oc_scale = (_PP_GBM_SCALE
+                                         if _os.environ.get("ONEPIECE_GBM_VALUE_PATH")
+                                         else _PP_LINEAR_SCALE)
+                            score = score + _W_OPPCARD * _oc * _oc_scale
                     except Exception:
                         pass
 
@@ -1115,6 +1134,20 @@ def search_turn_plan(
         except Exception:
             return 0.0
 
+    # ⭐ 相手カード identity (2026-07-22、 path A、 ONEPIECE_OPPCARD_W): 「そのキャラが何なのか・
+    # リーダーが誰なのか」 を見て攻撃対象を選ぶ。 拘束脅威(9ミホーク/8クロコ/4ペローナ)/除去/エンジンを
+    # 優先攻撃、 回復リーダーの chip を軽減。 plan 中の攻撃 action を card-identity で採点し post-opp
+    # 最終 value に加算 (= face_add と同型の plan-level 決定バイアス、 value 特徴でなく決定層で argmax を動かす)。
+    def _oppcard_add(plan):
+        if _W_OPPCARD == 0.0:
+            return 0.0
+        try:
+            from .opp_threat import attack_target_bonus as _oc
+            total = sum(_oc(state, a, me_idx) for a in plan)
+            return _W_OPPCARD * total * 10000.0
+        except Exception:
+            return 0.0
+
     scored = []
     if _eval_combiner:
         from .gbm_value import SCALE as _CSCALE
@@ -1146,11 +1179,11 @@ def search_turn_plan(
                 s = _eval_state(cur_state, plan, _postopp_turns) + _penalty(cur_state, plan)
             else:
                 s = s1  # 上位以外は 1-round のまま(深 rollout を cap)
-            scored.append((s + _nb_add(cur_state, plan) + _face_add(plan), plan))
+            scored.append((s + _nb_add(cur_state, plan) + _face_add(plan) + _oppcard_add(plan), plan))
     else:
         for cur_state, plan in completed:
             s = _eval_state(cur_state, plan, _postopp_turns) + _penalty(cur_state, plan)
-            scored.append((s + _nb_add(cur_state, plan) + _face_add(plan), plan))
+            scored.append((s + _nb_add(cur_state, plan) + _face_add(plan) + _oppcard_add(plan), plan))
     if not scored:
         return [], -float("inf")
     # ⭐ 温度サンプリング (訓練時の探索、 ONEPIECE_PLAN_TEMPERATURE、 単位=score の標準偏差):
