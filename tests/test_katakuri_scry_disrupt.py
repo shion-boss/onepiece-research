@@ -9,12 +9,13 @@
 """
 import json
 import random
+from pathlib import Path
 
 from engine.core import GameState, InPlay, Phase, Player
 from engine.deck import CardRepository
 from engine.effects import load_effect_overlay, execute_effect
 
-_ROOT = "/home/ohtsuki/projects/onepiece_research"
+_ROOT = str(Path(__file__).resolve().parent.parent)
 _repo = CardRepository.from_json(f"{_ROOT}/db/cards.json")
 _overlay = load_effect_overlay(f"{_ROOT}/db/card_effects.json")
 _raw = json.load(open(f"{_ROOT}/db/card_effects.json"))
