@@ -6797,7 +6797,15 @@ def _execute_effect_body(
             already_kod = set()
             _kom_any = False
             for spec in v:
-                target_spec = spec if isinstance(spec, str) else (spec or {}).get("target", "one_opponent_character_any")
+                if isinstance(spec, str):
+                    target_spec = spec
+                elif isinstance(spec, dict) and ("type" in spec or "filter" in spec):
+                    # dict 形式 {"type": "...filtered", "filter": {...}} を そのまま渡す
+                    # (= OP03-025 クリーク「相手レストのコスト4以下」 等。 spec.get("target") しか
+                    #  見ないと type/filter が無視され one_opponent_character_any に誤 fallback していた)。
+                    target_spec = spec
+                else:
+                    target_spec = (spec or {}).get("target", "one_opponent_character_any")
                 targets = _resolve_target(
                     target_spec, state, me, opp, self_inplay,
                     outer_kind="ko", outer_value=target_spec,

@@ -372,17 +372,13 @@ def test_op02_115_garp_overlay_don_gate_and_ko():
     on_attack = _get_eff(overlay, "OP02-115", "on_attack")
     assert on_attack.get("if", {}).get("self_attached_don_ge") == 2, \
         "overlay の ドンゲート self_attached_don_ge=2 が無い"
-    assert on_attack["do"][0].get("ko") == "one_opponent_character_cost_eq_0", \
-        "overlay の KO 対象 (相手コスト0キャラ) が無い"
+    assert on_attack["do"][0].get("ko") == "one_opponent_character_current_cost_le_0", \
+        "overlay の KO 対象 (相手 実効コスト0 キャラ) が無い"
 
 
-@pytest.mark.skip(reason=(
-    "engine bug (人間レビュー行き): KO 対象 selector 'one_opponent_character_cost_eq_0' が "
-    "実効コスト (base_cost) でなく 印刷コスト (card.cost) で照合する。 海軍アーキタイプは "
-    "相手キャラのコストを 0 まで下げてから KO するが、 印刷コスト0のキャラは DB に存在せず "
-    "実効コスト0キャラでは KO が不発になる。 OP02-095 オニグモ (commit 8212a29 で "
-    "exists_chara_cost_le:0 へ修正済) と同型の selector バグ。 engine/overlay 修正は "
-    "このバックフィルタスクの範囲外 (engine 非編集) のため skip。"))
+# 2026-07-22 修正済: selector を印刷コスト one_opponent_character_cost_eq_0 (engine 未実装で
+# silent fallback) から実効コスト one_opponent_character_current_cost_le_0 (base_cost 照合) に変更
+# → 実効コスト0キャラを KO できる (OP02-095 オニグモと同型のバグ、 同じ根で解消)。 skip 解除。
 def test_op02_115_garp_ko_effective_cost0():
     """相手の 実効コスト0 キャラを KO する (現状 engine は印刷コストで照合し不発)。"""
     repo = _repo()

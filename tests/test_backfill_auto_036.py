@@ -525,14 +525,10 @@ def test_op03_024_gin_on_play_rest_human_context_no_crash():
 #  OP03-025 クリーク (CHARACTER): 【登場時】手札1枚を捨てられる：相手のレストの
 #    コスト4以下キャラ2枚までを KO。【ドン!!×1】このキャラは【ダブルアタック】。
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason=(
-    "engine 実バグ (人間レビュー案件): OP03-025 の overlay は ko_multi の対象を "
-    "{'type': 'one_opponent_character_filtered', 'filter': {'cost_le': 4, 'rested': true}} "
-    "の dict 形式で指定しているが、 engine/effects.py の ko_multi handler (line ~6800) は "
-    "spec.get('target', ...) しか読まず、 type/filter dict を認識せず "
-    "'one_opponent_character_any' に fallback する。 このため 「相手のレストのコスト4以下」 "
-    "の絞り込み (rested/cost_le) が無視され、 アクティブや高コストの相手キャラも KO 対象に "
-    "なってしまう。 engine 修正は本タスク対象外のため skip。"))
+# 2026-07-22 修正済: ko_multi handler (engine/effects.py) が dict 形式 target
+# {"type": "...filtered", "filter": {...}} を認識せず one_opponent_character_any に誤 fallback
+# していたのを、 type/filter dict をそのまま _resolve_target に渡す様に修正 → 「相手レストの
+# コスト4以下」の絞り込みが効く (アクティブ/高コストは KO 対象外)。 skip 解除。
 def test_op03_025_krieg_on_play_discard_ko_rested():
     """【登場時】手札1枚捨て (コスト) → 相手レストのコスト4以下2枚のみを KO。"""
     repo = _repo()
