@@ -1,6 +1,6 @@
 # DSL Primitive Audit
 
-全 primitive: 370, 実装済: 343, 未実装/未検出: 27
+全 primitive: 369, 実装済: 342, 未実装/未検出: 27
 
 ## Missing (= 未実装 / 検出不可) primitives
 
@@ -42,7 +42,7 @@
 | `power_pump` | 900 | do |
 | `trigger` | 821 | when |
 | `activate_main` | 699 | when |
-| `optional_cost_then` | 686 | do |
+| `optional_cost_then` | 685 | do |
 | `once_per_turn` | 619 | cost |
 | `draw` | 558 | do |
 | `on_attached_don` | 524 | when |
@@ -68,7 +68,7 @@
 | `self_life_le` | 122 | if |
 | `leader_name` | 116 | if |
 | `cost_minus` | 115 | do |
-| `trash_self` | 112 | cost |
+| `trash_self` | 113 | cost |
 | `untap_don` | 111 | do |
 | `rest_self_don` | 110 | do/cost |
 | `end_of_turn` | 109 | when |

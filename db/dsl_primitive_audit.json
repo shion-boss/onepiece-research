@@ -1,7 +1,7 @@
 {
   "summary": {
-    "total_primitives": 370,
-    "implemented": 343,
+    "total_primitives": 369,
+    "implemented": 342,
     "missing": 27
   },
   "missing": [
@@ -432,7 +432,7 @@
     },
     {
       "name": "optional_cost_then",
-      "do": 686,
+      "do": 685,
       "cost": 0,
       "if": 0,
       "when": 0,
@@ -444,7 +444,7 @@
         "OP05-017"
       ],
       "implemented": true,
-      "total_usage": 686
+      "total_usage": 685
     },
     {
       "name": "once_per_turn",
@@ -849,7 +849,7 @@
     {
       "name": "trash_self",
       "do": 0,
-      "cost": 112,
+      "cost": 113,
       "if": 0,
       "when": 0,
       "sample_cards": [
@@ -860,7 +860,7 @@
         "OP04-032"
       ],
       "implemented": true,
-      "total_usage": 112
+      "total_usage": 113
     },
     {
       "name": "untap_don",
@@ -1424,19 +1424,19 @@
     },
     {
       "name": "play_from_hand_or_trash",
-      "do": 33,
+      "do": 34,
       "cost": 0,
       "if": 0,
       "when": 0,
       "sample_cards": [
+        "EB04-047",
         "OP14-091",
         "OP14-091_p1",
         "EB01-060_p1",
-        "EB01-060_r1",
-        "PRB02-018"
+        "EB01-060_r1"
       ],
       "implemented": true,
-      "total_usage": 33
+      "total_usage": 34
     },
     {
       "name": "set_cannot_attack",
@@ -3647,6 +3647,21 @@
       "total_usage": 4
     },
     {
+      "name": "exists_chara_cost_le",
+      "do": 0,
+      "cost": 0,
+      "if": 4,
+      "when": 0,
+      "sample_cards": [
+        "ST08-009",
+        "OP02-101",
+        "OP02-102",
+        "OP02-095"
+      ],
+      "implemented": true,
+      "total_usage": 4
+    },
+    {
       "name": "mill_self_life_until_n",
       "do": 4,
       "cost": 0,
@@ -4014,20 +4029,6 @@
         "OP02-069",
         "OP02-051",
         "OP02-051_p1"
-      ],
-      "implemented": true,
-      "total_usage": 3
-    },
-    {
-      "name": "exists_chara_cost_le",
-      "do": 0,
-      "cost": 0,
-      "if": 3,
-      "when": 0,
-      "sample_cards": [
-        "ST08-009",
-        "OP02-101",
-        "OP02-102"
       ],
       "implemented": true,
       "total_usage": 3
@@ -5320,18 +5321,6 @@
       "when": 0,
       "sample_cards": [
         "OP02-027"
-      ],
-      "implemented": true,
-      "total_usage": 1
-    },
-    {
-      "name": "opp_or_self_chara_cost_eq_0_exists",
-      "do": 0,
-      "cost": 0,
-      "if": 1,
-      "when": 0,
-      "sample_cards": [
-        "OP02-095"
       ],
       "implemented": true,
       "total_usage": 1
