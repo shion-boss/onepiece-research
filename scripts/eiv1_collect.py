@@ -1,10 +1,15 @@
 """EIV1 self-play データ収集 → 永続 append-only corpus (2026-07-23)。
 
 hero = ExploitBeam(EIV1 value or agnostic fallback) + ε探索 (探索ノイズ)、 opp = EBV2(agnostic)。
-各 hero MAIN 局面の eiv1_features を記録、 終局 outcome (0/1) でラベル → db/eiv1/corpus.jsonl に APPEND。
+各 hero MAIN 局面で ①v15 集計特徴 ②局面まるごと oracle スナップショット を記録、 終局 outcome でラベル
+→ db/eiv1/corpus.jsonl に APPEND。 各行 = {f: v15, y: 勝敗, opp: slug, state: full oracle snapshot}。
 
 = EIV1 の②永続 corpus + ⑤フライホイールの"データ生成"側 (自分側=beam+学習value+探索、 相手=EBV2)。
 「回せば貯まる」器。 rollout target(④)は現状 outcome ラベル (拡張点=--rollout-n で後日)。
+
+⭐ **盲目化しない保証**: state = snapshot_state (両者の隠匿手札/ライフ中身/デッキtop5 込み oracle)。
+将来どんな value 指標を思いついても「保存済み state の関数」で過去 corpus 全件に遡って再計算でき、
+データが無意味にならない。 完全情報学習・belief モデルも同じ corpus から後付け可能。
 
   .venv/bin/python scripts/eiv1_collect.py --games 40 --workers 12
     [--hero cardrush_1454] [--opps a,b,c] [--epsilon 0.15]
@@ -27,7 +32,7 @@ from engine.ai import play_one_action
 from engine.core import Phase
 from engine.exploit_beam_ai import ExploitBeamAI
 from engine.eiv1_features import eiv1_features
-from engine.card_embed import per_card_snapshot
+from engine.game_corpus import snapshot_state
 
 _REPO = CardRepository.from_json(str(ROOT / "db" / "cards.json"))
 _OVERLAY = load_effect_overlay(str(ROOT / "db" / "card_effects.json"))
@@ -99,15 +104,18 @@ def _collect_game(task):
     for i, x in enumerate(ais):
         if hasattr(x, "set_ai_opp"):
             x.set_ai_opp(ais[1 - i])
-    rows, seen = [], set()  # rows = (v15_features, per_card_snapshot) の対
+    rows, seen = [], set()  # rows = (v15_features, full_oracle_snapshot) の対
     n = 0
     while not st.game_over and st.turn_number < 60 and n < 800:
         cur = st.turn_player_idx
         if cur == hero_idx and st.phase == Phase.MAIN and st.turn_number not in seen:
             seen.add(st.turn_number)
             try:
-                fv = eiv1_features(st, hero_idx)       # v15 集計 (GBM が使う)
-                snap = per_card_snapshot(st, hero_idx)  # per-card 生 (identity NN 用、 育てば使う)
+                fv = eiv1_features(st, hero_idx)   # v15 集計 (今の GBM が使う、 高速用に併記)
+                # 局面まるごと oracle スナップショット (= 両者の隠匿手札/ライフ中身/デッキtop5 込み)。
+                # 将来どんな指標を足しても「保存済み state の関数」で再計算でき盲目化しない。 hero 視点を記録。
+                snap = snapshot_state(st)
+                snap["hero_idx"] = hero_idx
                 rows.append((fv, snap))
             except Exception:
                 pass
@@ -155,8 +163,9 @@ def main():
             rows.extend(r)
     with open(CORPUS, "a", encoding="utf-8") as f:
         for fv, y, opp, snap in rows:
-            # f = v15 集計特徴 (GBM 学習が使う) / cards = per-card 生 (将来の identity NN 用、 再収集不要に)
-            f.write(json.dumps({"f": fv, "y": y, "opp": opp, "cards": snap}) + "\n")
+            # f = v15 集計特徴 (今の GBM 学習が使う) / state = 局面まるごと oracle 生スナップショット
+            # (= 将来どんな指標も後から再計算でき盲目化しない = 「データが無意味にならない」保証)
+            f.write(json.dumps({"f": fv, "y": y, "opp": opp, "state": snap}) + "\n")
     total = sum(1 for _ in open(CORPUS)) if CORPUS.exists() else 0
     print(f"appended {len(rows)} samples from {n_games}/{a.games} games "
           f"({time.time()-t0:.0f}s) → corpus 総計 {total} samples", flush=True)
