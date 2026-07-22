@@ -1928,12 +1928,20 @@ def _resolve_target(
             val += 3000
         try:
             from . import card_role as _cr
-            role = _cr.get_primary_role(c.card.card_id)
+            # ⚠ 旧: get_primary_role (存在しない関数) を try/except で握り潰しており role 加点が
+            # 一切効いていなかった → サーチ/ドローエンジン等 (低コスト・低パワー) の除去優先度が
+            # 最低になり「盤面エンジンを放置してバニラアタッカーを除去」する誤判断をしていた。
+            _rec = _cr.get_card_role(c.card.card_id) or {}
+            role = _rec.get("primary_role")
             if role == "finisher":
                 val += 5000
-            elif role == "blocker":
+            elif role in ("blocker",):
                 val += 2500
-            elif role == "support":
+            # 起動メイン/登場時の draw/search エンジンは盤面に残すと毎ターン相手を利する脅威 →
+            # 優先除去対象に (= ohtsuki 指摘「サーチ系キャラが除去対象になっていない」)。
+            elif role in ("draw", "search"):
+                val += 2000
+            elif role in ("removal", "negation", "disruption", "ramp", "recovery", "support", "synergy"):
                 val += 1500
         except Exception:
             pass
