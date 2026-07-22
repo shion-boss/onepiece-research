@@ -18,6 +18,13 @@ card-aware value は cell を暗記せず card で汎化するので広プール
     [--heroes @db/eiv1/pool_all.txt] [--opps @db/eiv1/pool_all.txt] [--epsilon 0.15]
 """
 from __future__ import annotations
+import os
+# ⚠ BLAS/OpenMP スレッドを 1 に固定 (numpy/sklearn import 前に必須)。 multiprocessing の
+# worker × ライブラリ内部スレッドで過剰subscription (12worker×~8スレッド=load 96) → thrashing に
+# なるのを防ぐ。 fork した worker が単一スレッド numpy を継承 → 12worker=12コアでクリーンに回る。
+for _tv in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
+            "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
+    os.environ.setdefault(_tv, "1")
 import argparse
 import json
 import random
@@ -186,8 +193,16 @@ def main():
           f"beam={BEAM_W}/{BEAM_D} | value={'EIV1' if EIV1_VALUE.exists() else 'agnostic(iter0)'}",
           flush=True)
     t0 = time.time()
+    # 1 round の上限秒 (circuit breaker): 病的に長いゲームが pool を無限ブロックし lock を握り続ける
+    # のを防ぐ。 超えたら pool を terminate してこの round を打ち切り (lock 解放 → 次 cron が回れる)。
+    timeout_s = int(os.environ.get("EIV1_COLLECT_TIMEOUT", "900"))
     with mp.Pool(a.workers) as pool:
-        results = pool.map(_collect_game, tasks)
+        try:
+            results = pool.map_async(_collect_game, tasks).get(timeout=timeout_s)
+        except mp.TimeoutError:
+            pool.terminate()
+            print(f"!! collect timeout ({timeout_s}s) → この round を打ち切り (次へ)", flush=True)
+            results = []
     rows, n_games = [], 0
     for r in results:
         if r:

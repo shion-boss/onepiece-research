@@ -20,6 +20,10 @@ PY="$ROOT/.venv/bin/python"
 mkdir -p "$ROOT/db/eiv1"
 LOG="$ROOT/db/eiv1/loop.log"
 
+# BLAS/OpenMP スレッドを 1 に固定 (multiprocessing の worker × 内部スレッド過剰subscription 防止)。
+# eiv1_collect.py 側でも設定するが cron/任意起動でも効くよう export しておく。
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1
+
 ROUNDS="${ROUNDS:-8}"; GAMES="${GAMES:-500}"; WORKERS="${WORKERS:-12}"
 BEAM_W="${BEAM_W:-8}"; BEAM_D="${BEAM_D:-6}"
 
