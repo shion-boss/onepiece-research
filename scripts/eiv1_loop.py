@@ -29,6 +29,7 @@ def main():
     ap.add_argument("--games", type=int, default=40, help="1 ラウンドの collect ゲーム数")
     ap.add_argument("--workers", type=int, default=12)
     ap.add_argument("--epsilon", type=float, default=0.15)
+    ap.add_argument("--heroes", default=None, help="hero プール (comma-list か @file)。 未指定は --hero")
     ap.add_argument("--hero", default="cardrush_1454")
     ap.add_argument("--opps", default="cardrush_1385,tcgportal_calgara,tcgportal_bonney,cardrush_1399")
     ap.add_argument("--beam-width", type=int, default=8)
@@ -39,8 +40,9 @@ def main():
     for r in range(1, a.rounds + 1):
         print(f"\n----- round {r}/{a.rounds} -----", flush=True)
         # collect (append)
+        hero_args = ["--heroes", a.heroes] if a.heroes else ["--hero", a.hero]
         subprocess.run([PY, str(ROOT / "scripts" / "eiv1_collect.py"),
-                        "--hero", a.hero, "--opps", a.opps,
+                        *hero_args, "--opps", a.opps,
                         "--games", str(a.games), "--workers", str(a.workers),
                         "--epsilon", str(a.epsilon),
                         "--beam-width", str(a.beam_width), "--max-depth", str(a.max_depth)],
