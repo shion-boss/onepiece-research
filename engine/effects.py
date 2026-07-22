@@ -7335,19 +7335,36 @@ def _execute_effect_body(
             spec_val = v if isinstance(v, dict) else {"depth": int(v)}
             owner = spec_val.get("owner", "self")
             depth = int(spec_val.get("depth", 1))
-            # AI 簡易: owner="self_or_opp" は自ライフ優先 (= 自分のライフを最適化)
-            target_pl = me if owner in ("self", "self_or_opp") else opp
+            # owner が誰のライフを見るか。 self_or_opp (= カタクリ等) は「相手の上ライフがトリガー/
+            # 高カウンターなら相手を見て下に埋める(妨害)、 さもなくば自ライフを最適化」= 見の見えざる領域。
+            # ⚠ 相手ライフを見て埋める判断は AI のみ (人間 actor は自ライフ modal を優先し agency 保持)。
+            def _life_help(card):  # そのカードを引いた側をどれだけ助けるか
+                trig = 1 if getattr(card, "trigger", None) else 0
+                counter = int(getattr(card, "counter", 0) or 0)
+                power = int(getattr(card, "power", 0) or 0)
+                return (trig, counter, power)
+
+            def _is_good(card):  # 引いた側にとって有用 (= トリガー or 高カウンター)
+                h = _life_help(card)
+                return h[0] == 1 or h[1] >= 2000
+
+            human = _should_human_pick(state)
+            if owner == "opp":
+                target_pl = opp
+            elif owner == "self":
+                target_pl = me
+            else:  # self_or_opp
+                if (not human) and opp.life and _is_good(opp.life[0]):
+                    target_pl = opp   # AI: 相手の上ライフが強い → 妨害しに行く
+                else:
+                    target_pl = me
             if not target_pl.life:
                 return False
+            is_self = target_pl is me
             depth = min(depth, len(target_pl.life))
             seen = target_pl.life[:depth]
-            # 人間 操作中 + 対象 が 自ライフ なら user に 並び替え を 委ねる
-            # (= 相手 ライフ の scry は AI 演算 のまま、 公開時点で 露呈 する 情報 ではない)
-            if (
-                target_pl is me
-                and _should_human_pick(state)
-                and depth >= 2
-            ):
+            # 人間 操作中 + 自ライフ + depth>=2 は user に並び替えを委ねる (相手ライフ scry は AI 演算)。
+            if is_self and human and depth >= 2:
                 state.pending_choice = {
                     "kind": "scry_life_reorder",
                     "owner": "self",
@@ -7368,21 +7385,19 @@ def _execute_effect_body(
                     f"  効果: scry_life {depth} 枚 並び替え 選択 待ち"
                 )
                 return True
+            # 公式「上か下に置く」を top/bottom 二択で実行 (= depth1 の sort no-op バグ修正)。
+            #   自ライフ: 有用札(トリガー/カウンター)は【上】に残し被弾時に活かす、 不要札は【下】へ。
+            #   相手ライフ: 有用札は【下】に埋めダメージ時に引かせない(妨害)、 不要札は【上】(雑魚を引かせる)。
             rest = target_pl.life[depth:]
-            # 自ライフ: 価値の高いカード(トリガー有/カウンター大/パワー大) を上に
-            # 相手ライフ: 逆 (= 弱いカードを上にして引かせる)
-            def _life_value(card):
-                trig = 1 if getattr(card, "trigger", None) else 0
-                counter = int(getattr(card, "counter", 0) or 0)
-                power = int(getattr(card, "power", 0) or 0)
-                return (trig, counter, power)
-            if target_pl is me:
-                seen.sort(key=_life_value, reverse=True)
-            else:
-                seen.sort(key=_life_value)
-            target_pl.life = seen + rest
-            owner_label = "自" if target_pl is me else "相手"
-            state.push_log(f"  効果: {owner_label}ライフ上{depth}枚を整列")
+            top_grp, bot_grp = [], []
+            for c in seen:
+                keep_top = _is_good(c) if is_self else (not _is_good(c))
+                (top_grp if keep_top else bot_grp).append(c)
+            target_pl.life = top_grp + rest + bot_grp
+            owner_label = "自" if is_self else "相手"
+            state.push_log(
+                f"  効果: {owner_label}ライフ上{depth}枚を確認 (上{len(top_grp)}/下{len(bot_grp)})"
+            )
         elif k == "scry_deck_reorder":
             # 公式: 「自分のデッキの上から N 枚を見て、 好きな順番に並び替え、 デッキの上か下に置く」
             # spec: {"depth": N}

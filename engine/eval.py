@@ -505,6 +505,21 @@ def _player_metrics(p: Player) -> dict:
     }
 
 
+def _recovery_defense_bonus(leader) -> int:
+    """回復リーダー(エネル OP05-098 等 recovers_at_zero)は ターン1回 0→1 回復するので、
+    単ターンリーサルには実効ライフ +1 分(=5000)の壁が加わる。 = opp_life=0 は near-win でない
+    (pros02: 1ライフから3発以上通さないと締めきれない、 [[card_knowledge]])。 該当は現状エネル
+    のみ(配備プール不在) = 既存マッチアップ影響ゼロ・エネル戦の lethal 過大評価のみ是正。"""
+    try:
+        from .card_knowledge import opp_invalidates_life_pressure
+        lid = getattr(getattr(leader, "card", None), "card_id", None)
+        if lid and opp_invalidates_life_pressure(lid):
+            return 5000
+    except Exception:
+        pass
+    return 0
+
+
 def lethal_estimate(state: GameState, me_idx: int) -> float:
     """me の「次自ターン総打点」リーサル可能性を 0.0〜1.0 で返す。 boardEval.ts と同公式。
 
@@ -540,7 +555,8 @@ def lethal_estimate(state: GameState, me_idx: int) -> float:
     excesses = [max(0, p - opp_leader_p) for p in attackers]
     total_excess = sum(excesses)
     opp_counter_total = hand_estimator.expected_counter_total(state, 1 - me_idx)
-    opp_defense = len(opp_p.life) * 5000 + opp_counter_total
+    opp_defense = (len(opp_p.life) * 5000 + opp_counter_total
+                   + _recovery_defense_bonus(opp_p.leader))
     if opp_defense == 0:
         return 1.0
     ratio = total_excess / opp_defense
@@ -574,7 +590,8 @@ def project_opp_next_turn_lethal(state: GameState, me_idx: int) -> float:
     total_excess = sum(excesses)
 
     self_counter_total = hand_estimator.expected_counter_total(state, me_idx)
-    self_defense = len(self_p.life) * 5000 + self_counter_total
+    self_defense = (len(self_p.life) * 5000 + self_counter_total
+                    + _recovery_defense_bonus(self_p.leader))
     if self_defense == 0:
         return 1.0
     ratio = total_excess / self_defense
