@@ -179,7 +179,7 @@ def test_eb03_055_robin_on_play_conditional_life_add_ai():
 
 
 def test_eb03_055_robin_on_ko_opp_turn_damage_ai():
-    """【相手のターン中】【KO時】相手に1ダメージ (= 相手ライフ上1枚をトラッシュへ)。"""
+    """【相手のターン中】【KO時】相手に1ダメージ (= 標準ダメージ: ライフ上1枚を相手の手札へ)。"""
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, "PRB01-001", overlay)
@@ -188,7 +188,7 @@ def test_eb03_055_robin_on_ko_opp_turn_damage_ai():
     opp.life = [repo.get("OP01-013")] * 2
 
     opp_life_before = len(opp.life)
-    opp_trash_before = len(opp.trash)
+    opp_hand_before = len(opp.hand)
     eff = next(e for e in overlay.get("EB03-055").effects if e.get("when") == "on_ko")
     assert eval_condition({"opp_turn": True}, st, me) is True, \
         "相手ターン中の on_ko 条件 (opp_turn) が成立していない"
@@ -196,8 +196,27 @@ def test_eb03_055_robin_on_ko_opp_turn_damage_ai():
         execute_effect(prim, st, me, opp,
                        InPlay.of(repo.get("EB03-055"), sickness=False))
 
-    assert len(opp.life) == opp_life_before - 1, "相手ライフ上1枚がトラッシュへ移っていない"
-    assert len(opp.trash) == opp_trash_before + 1, "相手トラッシュが +1 されていない"
+    assert len(opp.life) == opp_life_before - 1, "相手ライフが 1 減っていない (ダメージ未処理)"
+    assert len(opp.hand) == opp_hand_before + 1, "ダメージ分のライフが相手の手札に加わっていない"
+
+
+def test_eb03_055_robin_on_ko_kills_at_zero_life():
+    """相手ライフ0で7ロビンが自KOされると【1ダメージで敗北】(pros02: 即ゲームエンド)。
+    旧 bug: deal_opp_leader_damage が 0ライフで no-op = 詰められなかった。"""
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, "PRB01-001", overlay)
+    me, opp = st.players[0], st.players[1]
+    st.turn_player_idx = 1  # 相手 (opp) のターン → opp_turn 成立
+    opp.life = []           # ★ ダメージを受ける側 (opp) のライフ 0
+
+    eff = next(e for e in overlay.get("EB03-055").effects if e.get("when") == "on_ko")
+    for prim in eff["do"]:
+        execute_effect(prim, st, me, opp,
+                       InPlay.of(repo.get("EB03-055"), sickness=False))
+
+    assert st.game_over is True, "ライフ0への効果ダメージが敗北を起こしていない"
+    assert st.winner == st.players.index(me), "ダメージ源側 (me) が勝者になっていない"
 
 
 # --------------------------------------------------------------------------- #

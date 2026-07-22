@@ -4935,12 +4935,21 @@ def _execute_effect_body(
             me.don_rested += actual
             state.push_log(f"  効果: 自アクティブドン {actual} 枚をレストへ")
         elif k == "deal_opp_leader_damage":
-            # 相手リーダーに N ダメージ (= 相手ライフ N を相手の手札 or トリガー)
-            # 簡略: mill_opp_life_to_hand と等価扱い (トリガー判定省略)
+            # 相手リーダーに N ダメージ (= 相手ライフ N を相手の手札へ、 トリガー判定は省略)。
+            # ⚠ ライフ0で受けると【敗北】(効果ダメージも戦闘同様)。 戦闘 (game.py:1691-1699) と
+            # 対称に、 まず on_life_zero (エネル等の回復) を試み、 まだ 0 なら declare_winner。
+            # (旧実装は `if not opp.life: break` で 0ライフ相手を詰められない bug、
+            #  7ロビン EB03-055 の『相手ライフ0でKOされると即敗北』が機能しなかった)
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
             for _ in range(n):
                 if not opp.life:
-                    break
+                    if state.effects_overlay:
+                        trigger_on_life_zero(state, opp, me, state.effects_overlay)
+                    if not opp.life:
+                        state.declare_winner(
+                            state.players.index(me), f"{opp.name} life=0 (効果ダメージ)")
+                        return True
+                    continue
                 taken = opp.life.pop(0)
                 opp.hand.append(taken)
             state.push_log(f"  効果: 相手リーダーに {n} ダメージ")
