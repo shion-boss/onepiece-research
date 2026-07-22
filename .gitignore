@@ -289,3 +289,6 @@ db/note_pros02/teacher_briefs/*
 !db/note_pros02/teacher_briefs/*.md
 !db/note_pros02/general_teacher_brief.md
 docs/cloud_push_test.md
+
+# EIV1 self-play corpus / value (runtime data, eiv1_loop で再生成)
+db/eiv1/

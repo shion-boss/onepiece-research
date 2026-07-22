@@ -267,6 +267,26 @@ FEATURE_KEYS_V13 = FEATURE_KEYS_V6 + (
     "retained_counter_in_hand", "opp_lethal_pressure",
     "ix_reserve_vs_lethal", "ix_bare_under_pressure",
 )
+# v14 = 29 (2026-07-22): **piece-aware value 第一歩**。 v2(21) は盤面を匿名スカラー(field_power 等)
+# でしか見ず、 「KO 効果を持つ 6000」 と 「バニラ 6000」 を score 上 区別できない (Δ=0 実証)。
+# = 将棋で飛車と歩を同じ 1 枚と数える状態。 盤面キャラを駒種ラベル(card_labels、 overlay 由来)で
+# 分解した on-board 特徴 8 列 (me/opp × removal_pw/blocker_pw/effect_pw/activatable) を v2 base に追加。
+# ⚠ 過去の静的効果 feature(v4 zone_potency 等)は deploy-null だった。 差別化点 = これは【on-board】
+# なので手ごとに変わる(selection-relevant、 v6 の教訓) + effect/vanilla を分けて Δ=0 盲目を直接破る。
+# 効くかは EBV2 ベンチ(bench_vs_ebv2)で measure-first。 v2 から分岐する非 prefix 版(dim=29 一意)。
+FEATURE_KEYS_V14 = FEATURE_KEYS_V2 + (
+    "my_removal_pw", "my_blocker_pw", "my_effect_pw", "my_activatable",
+    "opp_removal_pw", "opp_blocker_pw", "opp_effect_pw", "opp_activatable",
+)
+# v15 = 43 (2026-07-24): EIV1 の card-aware 表現 (= [[project_eiv1_expert_iteration]] の①表現)。
+# v14 に **機能×timing の grounded カテゴリ** 14 列を追加。 ohtsuki 要求「ラベル + timing (登場時
+# サーチ vs 起動メインサーチ) を区別」。 各カテゴリ = card_labels の効果ラベル × timing ラベルの組。
+# search_engine(=search×起動メイン、 時を選べる回るエンジン) と search_body(=search×登場時等、 一発)を
+# **別列**にするのが要点。 grounded(overlay 由来、 学習不要)なので data 効率良く色跨ぎ共有。
+# ⚠ card identity(強弱の微差)は別途 学習埋め込み(NN)が要る = 成長ピース。 これは grounded まで。
+_GCAT = ("search_engine", "search_body", "draw_engine", "ramp", "recovery", "negate", "aggression")
+FEATURE_KEYS_V15 = FEATURE_KEYS_V14 + (
+    tuple("my_" + c for c in _GCAT) + tuple("opp_" + c for c in _GCAT))
 
 
 def v2_anchor_value(state: Any, me_idx: int, anchor_path: str) -> float:
@@ -464,6 +484,100 @@ def _card_potency() -> dict:
     return out
 
 
+_LABELS_DB: Optional[dict] = None
+
+
+def _labels_db() -> dict:
+    global _LABELS_DB
+    if _LABELS_DB is None:
+        try:
+            from . import card_labels
+            _LABELS_DB = card_labels.build_all()
+        except Exception:
+            _LABELS_DB = {}
+    return _LABELS_DB
+
+
+def _label_board_features(state: Any, me_idx: int) -> list:
+    """v14: 盤面キャラを『駒種ラベル』別に分解した on-board 特徴 (= 手ごとに変わる selection-relevant)。
+    Δ=0 盲目(KO持ち6000 と バニラ6000 を同点)を破る狙い — field_power を effect/removal/blocker で分ける。
+    per player 4 列 × 2 = 8。 ラベルは card_labels(overlay 由来、 機械導出)。"""
+    db = _labels_db()
+
+    def _cid(c):
+        cid = getattr(c, "card_id", None)
+        if cid is None:
+            cid = getattr(getattr(c, "card", None), "card_id", None)
+        return cid
+
+    def _zone(p):
+        removal_pw = blocker_pw = effect_pw = 0
+        activatable = 0
+        for c in p.characters:
+            rec = db.get(_cid(c))
+            if not rec:
+                continue
+            labels = rec["labels"]
+            if not labels:
+                continue
+            pw = int(getattr(c, "power", 0) or 0)
+            effect_pw += pw                     # 何らかの効果を持つ駒の盤面パワー (= 非バニラ)
+            if "removal" in labels:
+                removal_pw += pw                # 除去(KO/バウンス)を持つ駒 = 盤面外の脅威
+            if "blocker" in labels:
+                blocker_pw += pw                # ブロッカーの『質』(v2 は数のみ)
+            if "t_activate_main" in rec["timings"]:
+                activatable += 1                # 時を選べる起動メイン = 潜在エンジン
+        return [removal_pw, blocker_pw, effect_pw, activatable]
+
+    me_p, opp_p = state.players[me_idx], state.players[1 - me_idx]
+    return _zone(me_p) + _zone(opp_p)
+
+
+def _grounded_category_features(state: Any, me_idx: int) -> list:
+    """v15: 機能ラベル × timing の grounded カテゴリ別 on-board 数 (7 cat × 2 player = 14)。
+    ohtsuki 要求「ラベル + timing 区別」。 要点 = **search_engine(=search×起動メイン、 毎ターン時を
+    選べる回るエンジン) と search_body(=search×登場時等、 一発) を別列** に分ける。 = 「登場時サーチ vs
+    起動メインサーチ」を value が別物として学習できる。 grounded(overlay 由来、 学習不要=data 効率良)。"""
+    db = _labels_db()
+
+    def _cid(c):
+        cid = getattr(c, "card_id", None)
+        if cid is None:
+            cid = getattr(getattr(c, "card", None), "card_id", None)
+        return cid
+
+    def _zone(p):
+        se = sb = de = ramp = rec = neg = agg = 0
+        for c in p.characters:
+            r = db.get(_cid(c))
+            if not r:
+                continue
+            L = set(r["labels"])
+            T = set(r["timings"])
+            if not L:
+                continue
+            if "search" in L:
+                if "t_activate_main" in T:
+                    se += 1                         # 起動メインサーチ = 回るエンジン(時を選べる)
+                else:
+                    sb += 1                         # 登場時等のサーチ = 一発(既に撃った盤面駒)
+            if "draw" in L and "t_activate_main" in T:
+                de += 1                             # 起動メインドロー = 回るエンジン
+            if L & {"ramp_don", "attach_don"}:
+                ramp += 1
+            if "life_recovery" in L:
+                rec += 1
+            if "negate" in L:
+                neg += 1
+            if L & {"keyword_grant", "buff_power"}:
+                agg += 1
+        return [se, sb, de, ramp, rec, neg, agg]
+
+    me_p, opp_p = state.players[me_idx], state.players[1 - me_idx]
+    return _zone(me_p) + _zone(opp_p)
+
+
 def _zone_potency(p) -> tuple:
     """player の全ゾーン (deck/hand/trash/life/場/leader) のカードの engine/recovery 密度合計。
     ≈ デッキ全体の card-advantage 密度 = ほぼ静的な archetype 記述子 (= ナミ control 高 / エネル aggro 低)。"""
@@ -504,7 +618,8 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
              v7: Optional[bool] = None, v8: Optional[bool] = None,
              v6don: Optional[bool] = None, v10: Optional[bool] = None,
              v11: Optional[bool] = None, v12: Optional[bool] = None,
-             v13: Optional[bool] = None) -> list:
+             v13: Optional[bool] = None, v14: Optional[bool] = None,
+             v15: Optional[bool] = None) -> list:
     """GameState + me_idx → feature vector。 rich=True で v2 (21)、 既定は env
     ONEPIECE_GBM_RICH (= 学習時に set)。 推論は gbm_score が model 次元で自動判別。
     v5=True (env ONEPIECE_GBM_V5) で 相手 leader の matchup tag 13 列を追加 (= 34、 matchup-条件付き)。
@@ -572,6 +687,12 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         v12 = os.environ.get("ONEPIECE_GBM_V12") == "1"
     if v13 is None:
         v13 = os.environ.get("ONEPIECE_GBM_V13") == "1"
+    if v14 is None:
+        v14 = os.environ.get("ONEPIECE_GBM_V14") == "1"
+    if v15 is None:
+        v15 = os.environ.get("ONEPIECE_GBM_V15") == "1"
+    if v15:
+        v14 = True  # v15 ⊃ v14 (+ 機能×timing カテゴリ 14 列)。 v14 の 8 列の後に append。
     if v13:
         v6 = True  # v13 ⊃ v6 (+ reserve×lethal interaction)。 v6 末尾に 4 列 append。
     if v12:
@@ -588,8 +709,8 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         v6 = True  # v8 ⊃ v6 (opp role-composition)
     if v6:
         v5 = True  # v6 ⊃ v5 (tag + interaction)
-    if v3 or v4 or v5:
-        rich = True  # v3/v4/v5 ⊃ v2
+    if v3 or v4 or v5 or v14 or v15:
+        rich = True  # v3/v4/v5/v14/v15 ⊃ v2
     if not rich:
         return base
     from .eval import lethal_estimate
@@ -653,6 +774,14 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         # 温存カウンター × 相手リーサル圧 の board-interactive interaction (= パターンA 修正)。
         # v6 末尾に append し FEATURE_KEYS_V13 = FEATURE_KEYS_V6 + reserve×lethal の列順と一致。
         out += _reserve_lethal_features(state, me_idx)
+    if v14:
+        # 盤面キャラを駒種ラベル別に分解 (= piece-aware、 Δ=0 盲目を破る)。 v2 base(21)の直後に append
+        # し FEATURE_KEYS_V14 = FEATURE_KEYS_V2 + 8列 の列順と一致 (v5/v6 は付かない = 純 v2 分岐)。
+        out += _label_board_features(state, me_idx)
+    if v15:
+        # 機能×timing の grounded カテゴリ (= 登場時サーチ vs 起動メインサーチ を別列)。 v14 の 8 列の
+        # 直後に append し FEATURE_KEYS_V15 = FEATURE_KEYS_V14 + 14列 の列順と一致。
+        out += _grounded_category_features(state, me_idx)
     return out
 
 
@@ -677,7 +806,8 @@ def _feat_for_dim(state, me_idx, n):
                     v6=(n == len(FEATURE_KEYS_V6)), v7=(n == len(FEATURE_KEYS_V7)),
                     v8=(n == len(FEATURE_KEYS_V8)), v6don=(n == len(FEATURE_KEYS_V6DON)),
                     v10=(n == len(FEATURE_KEYS_V10)), v11=(n == len(FEATURE_KEYS_V11)),
-                    v12=(n == len(FEATURE_KEYS_V12)), v13=(n == len(FEATURE_KEYS_V13)))
+                    v12=(n == len(FEATURE_KEYS_V12)), v13=(n == len(FEATURE_KEYS_V13)),
+                    v14=(n == len(FEATURE_KEYS_V14)), v15=(n == len(FEATURE_KEYS_V15)))
 
 
 # prefix 一致で slice 再利用できる次元(V1⊂V2⊂V5⊂V6⊂V11⊂V12 の chain のみ。 v3/v4/v9/v6don/v8/v10 は
