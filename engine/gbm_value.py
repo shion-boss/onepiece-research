@@ -404,6 +404,13 @@ def _mini_snap(state: Any, me_idx: int) -> dict:
         }
     return {"hero_idx": 0, "turn_number": getattr(state, "turn_number", 0),
             "phase_name": str(getattr(getattr(state, "phase", None), "name", "") or ""),
+            "recent_battle_events": list(getattr(state, "_battle_events", []) or [])[-20:],
+            "battle_stats": [list(x) for x in (getattr(state, "_battle_stats", None)
+                                               or [[0, 0, 0], [0, 0, 0]])],
+            # 相手デッキトップを覗いた私的知識 (= 効果で見た = 公平に知っている)
+            "peeked_opp_top": (getattr(state, "last_peeked_opp_deck_top", None) or {}).get(
+                "card_id") if isinstance(getattr(state, "last_peeked_opp_deck_top", None), dict)
+            else None,
             "recent_effect_events": list(getattr(state, "_effect_events", []) or [])[-20:],
             "effect_events_by_player": list(getattr(state, "_effect_events_by", [0, 0])),
             "total_effect_events_count": int(getattr(state, "_effect_events_n", 0)),

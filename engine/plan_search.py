@@ -143,6 +143,9 @@ def fast_clone(state: "GameState") -> "GameState":
     saved_ev = getattr(state, "_effect_events", None)
     if saved_ev is not None:
         state._effect_events = None  # type: ignore[attr-defined]
+    saved_be = getattr(state, "_battle_events", None)
+    if saved_be is not None:
+        state._battle_events = None  # type: ignore[attr-defined]
 
     # 元 state を一時的に空に置き換え → deepcopy → 復元
     state.log = []
@@ -179,6 +182,8 @@ def fast_clone(state: "GameState") -> "GameState":
         state.record_snapshots = saved_rec
         if saved_ev is not None:
             state._effect_events = saved_ev  # type: ignore[attr-defined]
+        if saved_be is not None:
+            state._battle_events = saved_be  # type: ignore[attr-defined]
         if saved_fired is not None:
             state._fired_target_counts = saved_fired  # type: ignore[attr-defined]
         for p, (d, h, t, l) in zip(state.players, saved_cardlists):
@@ -206,6 +211,9 @@ def fast_clone(state: "GameState") -> "GameState":
     cloned._effect_events = list(saved_ev) if saved_ev is not None else []  # type: ignore
     cloned._effect_events_n = int(getattr(state, "_effect_events_n", 0))  # type: ignore
     cloned._effect_events_by = list(getattr(state, "_effect_events_by", [0, 0]))  # type: ignore
+    cloned._battle_events = list(saved_be) if saved_be is not None else []  # type: ignore
+    cloned._battle_stats = [list(x) for x in (getattr(state, "_battle_stats", None)
+                                              or [[0, 0, 0], [0, 0, 0]])]  # type: ignore
     # cloned 内 apply_action での eval_before/after 記録を抑止 (= compute_score 二重実行カット)
     cloned.record_action_evals = False
     # plan_search 内 シミュレーション は AI vs AI として 動作 する。

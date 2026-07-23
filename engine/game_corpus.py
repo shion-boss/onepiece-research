@@ -151,6 +151,10 @@ def snapshot_state(state: Any) -> dict:
     return {
         "turn_number": state.turn_number,
         "phase_name": str(getattr(state.phase, "name", "") or ""),
+        # 攻防の履歴 (2026-07-24)。 engine は攻撃/ブロック/カウンターを記録していなかった
+        "recent_battle_events": list(getattr(state, "_battle_events", []) or [])[-20:],
+        "battle_stats": [list(x) for x in (getattr(state, "_battle_stats", None)
+                                           or [[0, 0, 0], [0, 0, 0]])],
         "active_player": state.turn_player_idx,
         "phase": str(state.phase),
         "players": [snapshot_player(p, idx) for idx, p in enumerate(state.players)],

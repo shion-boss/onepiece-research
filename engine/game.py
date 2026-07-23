@@ -1139,6 +1139,40 @@ def _build_action_context(state: GameState, action: Action) -> dict:
     return ctx
 
 
+def _record_battle(state: GameState, me: Player, attacker, action, kind: str) -> None:
+    """攻防の履歴を軽量に記録 (2026-07-24、 ohtsuki「盲目を全部塞ぐ」)。
+
+    engine は攻撃/ブロック/カウンターを **一切記録していなかった**。 「さっきこのキャラで
+    殴られてカウンターを 2 枚切らされた」 は人間が必ず覚えていて、 次ターンの守備計画に直結する。
+    tuple (turn, 攻撃側 idx, 攻撃側 card_id, 対象種別, ブロッカー有無, カウンター枚数) で
+    直近 60 件 + 席別カウンタ。 fast_clone では浅い複製 (= sim が本物を汚さない)。
+    """
+    try:
+        log = getattr(state, "_battle_events", None)
+        if log is None:
+            log = state._battle_events = []
+        n_ctr = len(getattr(action, "counter_card_idxs", ()) or ()) \
+            + len(getattr(action, "counter_event_idxs", ()) or ())
+        log.append((getattr(state, "turn_number", 0),
+                    state.players.index(me) if me in state.players else -1,
+                    getattr(getattr(attacker, "card", None), "card_id", None),
+                    kind,
+                    1 if getattr(action, "blocker_iid", None) else 0,
+                    n_ctr))
+        if len(log) > 60:
+            del log[:-60]
+        st = getattr(state, "_battle_stats", None)
+        if st is None:
+            st = state._battle_stats = [[0, 0, 0], [0, 0, 0]]   # [攻撃数, ブロック数, 切らせた counter]
+        ai = state.players.index(me) if me in state.players else -1
+        if ai in (0, 1):
+            st[ai][0] += 1
+            st[ai][2] += n_ctr
+            if getattr(action, "blocker_iid", None):
+                st[1 - ai][1] += 1
+    except Exception:
+        pass
+
 def apply_action(state: GameState, action: Action, ai=None) -> None:
     """action を state に適用。
 
@@ -1397,6 +1431,8 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
             # 攻撃者が防御解決中 (counter event/opp_attack 効果) に KO/離脱 → 攻撃不発で終了
             # (= 2026-06-05 広プール fuzz が「no char iid」 で検出。 ai.py pre-fire 修正の最終 apply 版)。
             return
+        _record_battle(state, me, attacker, action, "leader")
+
         # アタック時 手札捨てコスト (OP08-043 エドワード等)
         if attacker.attack_cost_discard_hand_n > 0:
             n_needed = attacker.attack_cost_discard_hand_n
@@ -1766,6 +1802,8 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         if attacker is None:
             # 攻撃者が防御解決中に KO/離脱 → 攻撃不発で終了 (= AttackLeader と同型)。
             return
+        _record_battle(state, me, attacker, action, "chara")
+
         if attacker.attack_cost_discard_hand_n > 0:
             n_needed = attacker.attack_cost_discard_hand_n
             if len(me.hand) < n_needed:

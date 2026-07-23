@@ -677,6 +677,11 @@ EYES_KEYS = tuple(
                  "cost_reduction", "cant_atk_leader")]
     # 相手の手札のカウンター期待値 (= belief。 デッキ残りカウンター密度 × 手札枚数)
     + ["opp_hand_counter_expected", "opp_hand_counter_per_card", "phase_is_main"]
+    # ⭐ 攻防の履歴 (2026-07-24)。 engine が記録すらしていなかった。「さっき何回殴られ、
+    # カウンターを何枚切らされたか」 は次ターンの守備計画に直結する。
+    + ["my_attacks_made", "opp_attacks_made", "my_blocks_made", "opp_blocks_made",
+       "my_counters_forced", "opp_counters_forced", "opp_attacks_recent",
+       "opp_attacked_leader_recent", "battle_pressure_diff", "peeked_opp_top_known"]
 )
 
 
@@ -869,6 +874,24 @@ def _eyes_features(snap: dict) -> dict:
         out["opp_hand_counter_expected"] = 0.0
         out["opp_hand_counter_per_card"] = 0.0
     out["phase_is_main"] = 1.0 if "MAIN" in str(snap.get("phase_name") or "").upper() else 0.0
+    # --- 攻防の履歴 ---
+    bs = snap.get("battle_stats") or [[0, 0, 0], [0, 0, 0]]
+    ms = bs[hi] if len(bs) > hi else [0, 0, 0]
+    os_ = bs[1 - hi] if len(bs) > (1 - hi) else [0, 0, 0]
+    out["my_attacks_made"] = float(ms[0])
+    out["opp_attacks_made"] = float(os_[0])
+    out["my_blocks_made"] = float(ms[1])
+    out["opp_blocks_made"] = float(os_[1])
+    # 切らせたカウンター = 攻撃で相手のリソースをどれだけ削ったか (= 攻撃の本質価値)
+    out["my_counters_forced"] = float(ms[2])
+    out["opp_counters_forced"] = float(os_[2])
+    be = list(snap.get("recent_battle_events") or [])
+    opp_be = [e for e in be if len(e) > 1 and e[1] == (1 - hi)]
+    out["opp_attacks_recent"] = float(len(opp_be))
+    out["opp_attacked_leader_recent"] = float(sum(1 for e in opp_be
+                                                  if len(e) > 3 and e[3] == "leader"))
+    out["battle_pressure_diff"] = float(ms[2] - os_[2])
+    out["peeked_opp_top_known"] = 1.0 if snap.get("peeked_opp_top") else 0.0
     for side, p_ in (("my", me), ("opp", opp)):
         out[f"{side}_blocked_chara_play"] = 1.0 if p_.get("block_chara_play_until_turn_end") else 0.0
         out[f"{side}_blocked_draw"] = 1.0 if p_.get("block_self_draw_until_turn_end") else 0.0
