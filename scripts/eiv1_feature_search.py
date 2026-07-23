@@ -104,6 +104,95 @@ def _auc(X, y, tr, te) -> float:
     return float(roc_auc_score(y[te], m.predict_proba(X[te])[:, 1]))
 
 
+def _eval_block(lines: list, spec: list) -> np.ndarray:
+    """corpus 行 × spec → 行列 (state を持つ行だけ、 _build と同じ順序)。"""
+    out = []
+    for line in lines:
+        try:
+            snap = json.loads(line).get("state")
+            if not snap:
+                continue
+            out.append(FS.evaluate(snap, spec))
+        except Exception:
+            continue
+    return np.array(out, dtype=np.float32)
+
+
+def _card_search(a, t0):
+    """カード ID 列の探索。 ⭐ 疎な列を数千本まとめて放り込むと (a) メモリと学習時間が爆発し
+    (b) 偶然効いて見える列を必ず拾う。 ブロックに割って **各ブロックごとに帰無分布 (ランダム列)
+    と比較** することで、 両方を同時に抑える。"""
+    zones = tuple(z for z in a.card_zones.split(",") if z)
+    freq = FS.card_frequency()
+    top_n = len(freq) if a.card_ids < 0 else a.card_ids
+    cards = FS.generate_card_candidates(top_n, zones)
+    print(f"カード ID 列: {len(freq)} 種中 上位 {top_n} × {len(zones)} zone = {len(cards):,} 列 "
+          f"をブロック {a.card_block} ごとに選別", flush=True)
+
+    lines = _load_rows(a.sample)
+    Xb, _, y, groups = _build(lines, [])
+    n = len(y)
+    tr, te, n_games = _split(groups)
+    print(f"n={n:,} games={n_games:,} base_dim={Xb.shape[1]} ({time.time() - t0:.0f}s)", flush=True)
+    rng = np.random.RandomState(0)
+    noise = rng.normal(size=(n, N_NOISE)).astype(np.float32)
+    sub = te if len(te) <= 8000 else rng.choice(te, 8000, replace=False)
+
+    kept, kept_imp = [], []
+    for bi in range(0, len(cards), a.card_block):
+        blk = cards[bi:bi + a.card_block]
+        Xk = _eval_block(lines, blk)
+        if len(Xk) != n:
+            print(f"  block {bi // a.card_block + 1}: 行数不一致 → skip", flush=True)
+            continue
+        X = np.hstack([Xb, Xk, noise])
+        m = HistGradientBoostingClassifier(random_state=0, **CAP)
+        m.fit(X[tr], y[tr])
+        pi = permutation_importance(m, X[sub], y[sub], n_repeats=2, random_state=0,
+                                    scoring="roc_auc", n_jobs=1)
+        imp = pi.importances_mean
+        b = Xb.shape[1]
+        ic, inz = imp[b:b + len(blk)], imp[b + len(blk):]
+        thr = float(inz.max())
+        hits = [int(i) for i in np.argsort(-ic) if ic[i] > thr]
+        for i in hits:
+            kept.append(blk[i]); kept_imp.append(float(ic[i]))
+        print(f"  block {bi // a.card_block + 1}/{-(-len(cards) // a.card_block)}: "
+              f"{len(blk)} 列中 {len(hits)} 列が閾値超え (thr={thr:.5f}) "
+              f"({time.time() - t0:.0f}s)", flush=True)
+        del X, Xk
+
+    if not kept:
+        _log({"result": "no_candidate", "mode": "card"})
+        print("採用候補なし → 終了", flush=True)
+        return
+    order = np.argsort(-np.array(kept_imp))[:a.max_keep]
+    kept = [kept[int(i)] for i in order]
+    print(f"関門1 通過 {len(kept)} 列 (上位):", flush=True)
+    for c in kept[:10]:
+        print(f"    {FS.col_name(c)}", flush=True)
+
+    Xk = _eval_block(lines, kept)
+    auc_base = _auc(Xb, y, tr, te)
+    auc_new = _auc(np.hstack([Xb, Xk]), y, tr, te)
+    d_auc = auc_new - auc_base
+    print(f"関門2: AUC {auc_base:.4f} → {auc_new:.4f} ({d_auc:+.4f}, 要求 {a.min_auc:+.4f}) "
+          f"({time.time() - t0:.0f}s)", flush=True)
+    if d_auc < a.min_auc:
+        _log({"result": "rejected_auc", "mode": "card", "n_kept": len(kept),
+              "auc_base": auc_base, "auc_new": auc_new, "d_auc": d_auc})
+        print("→ 棄却 (AUC 改善が不足)", flush=True)
+        return
+    _log({"result": "passed_auc_pending_arena", "mode": "card", "n_kept": len(kept),
+          "d_auc": d_auc, "names": [FS.col_name(c) for c in kept]})
+    print("関門2 通過 → 関門3 (arena) は別途 --no-arena を外して実行、 "
+          "または下記を spec に手動採用", flush=True)
+    FS.save_spec(EIV1_DIR / "feature_spec.card_candidate.json", kept,
+                 {"mode": "card", "d_auc": d_auc, "auc_base": auc_base, "auc_new": auc_new})
+    print(f"候補 spec を db/eiv1/feature_spec.card_candidate.json に保存 ({len(kept)} 列)",
+          flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sample", type=int, default=120000, help="探索 (関門1-2) に使う corpus 行数")
@@ -119,9 +208,19 @@ def main():
     ap.add_argument("--no-arena", action="store_true", help="関門3 を省く (探索のみ)")
     ap.add_argument("--workers", type=int, default=6)
     ap.add_argument("--dry-run", action="store_true", help="採用しない (spec を書き換えない)")
+    ap.add_argument("--card-ids", type=int, default=0,
+                    help="カード ID 列を探索する (頻出上位 N 種、 -1 = 全種)。 0 = 集計列を探索")
+    ap.add_argument("--card-zones",
+                    # opp_seen_hand = 公開サーチ/バウンスで割れた相手の手札。 2026-07-24 に記録が
+                    # 入るまで常に空だったので前回の探索では除外していた
+                    default="my_board,opp_board,my_hand,my_trash,opp_trash,opp_seen_hand")
+    ap.add_argument("--card-block", type=int, default=600,
+                    help="カード ID 列はブロックに分けて選別 (メモリと時間の上限を切る)")
     a = ap.parse_args()
     t0 = time.time()
 
+    if a.card_ids:
+        return _card_search(a, t0)
     cand_cols = FS.generate_candidates()
     print(f"候補列を機械生成: {len(cand_cols)} 列 "
           f"({len(FS.ZONES)} zone × {len(FS.CATS)} カテゴリ × 統計)", flush=True)

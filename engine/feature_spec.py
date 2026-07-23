@@ -189,6 +189,11 @@ DERIVED_KEYS = (
     "my_active_max_pw", "my_active_sum_pw", "opp_active_max_pw", "my_active_ge5000_n",
     # ⑤ 付与ドンの所在 (= 合計でなくどこに寄っているか)
     "my_attached_max", "my_attached_holders", "opp_attached_max",
+    # ⑦ 情報の非対称性 (2026-07-24)。 公開サーチ/バウンスで手札が割れている枚数。
+    # ⚠ 両方とも公開情報 (自分の割れ札は自分も見ている / 相手の割れ札はこちらが見た)。
+    # ブラフ・温存・「バレ札から切る」判断の土台になる量。
+    "my_hand_known_n", "my_hand_known_ratio",
+    "opp_hand_known_n", "opp_hand_known_ratio", "info_edge",
 )
 
 
@@ -248,6 +253,11 @@ def _derived_features(snap: dict) -> dict:
 
     att = [(float(c.get("attached_dons") or 0)) for c in _chars(me)]
     att_o = [(float(c.get("attached_dons") or 0)) for c in _chars(opp)]
+    # 情報の非対称性: 手札のうち相手に割れている枚数 (公開サーチ / バウンスで判明した分)
+    mk = float(len(me.get("known_hand_card_ids") or []))
+    ok = float(len(opp.get("known_hand_card_ids") or []))
+    mh = float(me.get("hand_count") or len(me.get("hand_card_ids") or []) or 0)
+    oh = float(opp.get("hand_count") or 0)
     return {
         "atk_best_breaks": 1.0 if (my_act and (not opp_blk or my_atk_max > opp_blk_max)) else 0.0,
         "atk_unblockable_n": float(sum(1 for p in my_act if not opp_blk or p > opp_blk_max)),
@@ -268,6 +278,10 @@ def _derived_features(snap: dict) -> dict:
         "my_attached_max": max(att, default=0.0),
         "my_attached_holders": float(sum(1 for a in att if a > 0)),
         "opp_attached_max": max(att_o, default=0.0),
+        "my_hand_known_n": mk, "my_hand_known_ratio": (mk / mh) if mh else 0.0,
+        "opp_hand_known_n": ok, "opp_hand_known_ratio": (ok / oh) if oh else 0.0,
+        # 正 = こちらの方が相手の手札を多く知っている (情報で優位)
+        "info_edge": ok - mk,
     }
 
 
@@ -286,7 +300,7 @@ def _repo():
     return _REPO_CACHE
 
 
-CARD_ZONES = ("my_board", "opp_board", "my_hand", "my_trash", "opp_trash")
+CARD_ZONES = ("my_board", "opp_board", "my_hand", "my_trash", "opp_trash", "opp_seen_hand")
 _CARD_FREQ_PATH = EIV1_DIR / "card_freq.json"
 
 
