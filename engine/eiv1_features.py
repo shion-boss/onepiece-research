@@ -33,7 +33,13 @@ from . import gbm_value
 #     v16 の追加 17 列は「保存済み state から再計算」できるので、 base を v15 に据えたまま corpus を
 #     再収集せず v16 に拡張できる (= 盲目化しない設計の payoff)。
 FEATURE_VER = "v15"        # corpus 保存 base (f フィールド)
-TRAIN_FEATURE_VER = "v18"  # 配備の実表現 (= v15 + 相手 leader matchup 17 + belief 残り防御資源 4)。
+TRAIN_FEATURE_VER = "v20"  # 配備の実表現 (= v18 + 盤面の個体解像度 20 + 除去の射程×的 10 = 94)。
+# v19/v20 = 2026-07-23。 ohtsuki 指摘「『コスト4以下をKO』と『コスト1以下をKO』は角度が同じでも
+# 矢印の長さが違う」。 card_labels は効果の向きしか持たず射程を捨てていた → card_magnitudes で
+# overlay から機械導出。 射程は盤面ではほぼ発火しない (盤面から繰り返し撃てる除去は 129/4731 枚 =
+# 除去は手札から飛ぶ) ので、 自分=手札の実カード / 相手=leader prior − 見た札 の belief で測る。
+# 実測 (12 万行 / game 単位 split): v18 0.8286 → v19 0.8302 (+0.0017) → v20 0.8323 (+0.0037)。
+# 序中盤ほど効く (turn1-4 +0.0066 / 5-7 +0.0053 / 8-10 +0.0031 / 11+ -0.0004)。
 # v18 = 見た札(場+トラッシュ+バレ手札)で相手デッキ予測 → 残りカウンター/ブロッカーを推定 (opponent_deck_model
 # seen 事後 belief − トラッシュ消費)。 生トラッシュ(旧 v17)は AUC null だったが belief と組むと +0.0039
 # (中盤 turn5-7 で +0.008〜0.010)。 保存済み state から再収集なし再計算。
@@ -189,11 +195,111 @@ def board_detail_feats_from_snapshot(snap: dict) -> list:
         return [0.0] * 20
 
 
+HAND_REACH_KEYS = [
+    # v20 = 除去の「射程」を効く場所 (= 手札 / 相手の残りデッキ) に置いた 10 列。
+    "my_hand_rm_n", "my_hand_rm_playable_n", "my_hand_rm_cover_n", "my_hand_rm_cover_pw",
+    "my_hand_rm_cover_top",
+    "opp_bel_rm_total", "opp_bel_threat_sum", "opp_bel_threat_max", "opp_bel_threat_top1",
+    "opp_bel_threat_frac",
+]
+
+_BELIEF_RM_CACHE: dict = {}
+
+
+def _belief_removal_table(leader_id: str) -> list:
+    """leader prior から [(card_id, E[枚数], 除去 cost 射程, 除去 power 射程)] を作る (leader 単位 cache)。
+
+    seen 条件付けは呼び出し側で「prior − 見た枚数」で行う (= 全 row で belief を引き直すと重い、
+    かつ 『残り』の意味としてはこれで足りる)。"""
+    tbl = _BELIEF_RM_CACHE.get(leader_id)
+    if tbl is not None:
+        return tbl
+    tbl = []
+    try:
+        from . import card_magnitudes as CM
+        from .opponent_deck_model import get_default_model
+        bel = get_default_model().belief_for_leader(leader_id, None)
+        for cid, info in (bel or {}).items():
+            m = CM.for_card(cid)
+            if m["rm_play_cost"] > 0 or m["rm_active_cost"] > 0:
+                reach_c = max(m["rm_play_cost"], m["rm_active_cost"])
+                reach_p = max(m["rm_play_pw"], m["rm_active_pw"])
+                tbl.append((cid, float(info.get("exp_count", 0.0)), reach_c, reach_p))
+    except Exception:
+        tbl = []
+    _BELIEF_RM_CACHE[leader_id] = tbl
+    return tbl
+
+
+def hand_reach_feats_from_snapshot(snap: dict) -> list:
+    """v20: 除去の射程 × 的 の interaction を **手札 (自分) と belief (相手)** で測る 10 列。
+
+    v19 で盤面に置いた射程列はほぼ発火しなかった (盤面から繰り返し撃てる除去は 129/4731 枚)。
+    この game の除去は実質 **手札から飛ぶ** ので、 射程はそこで測る:
+      - 自分側 = 手札の実カード (推論時も自分の手札は公開情報 → そのまま配備できる)
+      - 相手側 = leader prior − 見た札 (= 公開情報のみ、 v18 の belief と同じ土俵)
+    """
+    try:
+        from collections import Counter
+        from . import card_magnitudes as CM
+        repo = _repo()
+        hi = snap["hero_idx"]
+        me, opp = snap["players"][hi], snap["players"][1 - hi]
+        my_f = [c for c in (me.get("field") or []) if isinstance(c, dict)]
+        op_f = [c for c in (opp.get("field") or []) if isinstance(c, dict)]
+
+        # --- 自分の手札の除去 × 今の相手盤面 ---
+        don = float(me.get("don_active") or 0)
+        hand_rm = []
+        for cid in me.get("hand_card_ids", []) or []:
+            m = CM.for_card(cid)
+            if m["rm_play_cost"] <= 0:
+                continue
+            try:
+                cost = float(getattr(repo.get(cid), "cost", 0) or 0)
+            except Exception:
+                cost = 99.0
+            hand_rm.append((cost, m["rm_play_cost"], m["rm_play_pw"]))
+        playable = [r for r in hand_rm if r[0] <= don]
+        cover = [c for c in op_f
+                 if any(float(c.get("cost") or 0) <= rc and float(c.get("power") or 0) <= rp
+                        for _, rc, rp in playable)]
+        cov_pw = [float(c.get("power") or 0) / 1000.0 for c in cover]
+        mine = [float(len(hand_rm)), float(len(playable)), float(len(cover)),
+                sum(cov_pw), max(cov_pw, default=0.0)]
+
+        # --- 相手の残り除去 (belief) × 自分の盤面 ---
+        tbl = _belief_removal_table(opp["leader"]["card_id"])
+        if not tbl:
+            return mine + [0.0] * 5
+        seen = Counter([c["card_id"] for c in op_f] + list(opp.get("trash_card_ids", []) or [])
+                       + list(opp.get("known_hand_card_ids", []) or []))
+        rest = [(e - float(seen.get(cid, 0)), rc, rp) for cid, e, rc, rp in tbl]
+        rest = [(max(e, 0.0), rc, rp) for e, rc, rp in rest]
+        total = sum(e for e, _, _ in rest)
+        masses = []
+        for c in my_f:
+            cc, cp = float(c.get("cost") or 0), float(c.get("power") or 0)
+            masses.append(sum(e for e, rc, rp in rest if cc <= rc and cp <= rp))
+        if my_f:
+            top_i = max(range(len(my_f)), key=lambda i: float(my_f[i].get("power") or 0))
+            theirs = [total, sum(masses), max(masses), masses[top_i],
+                      float(sum(1 for m in masses if m > 0)) / float(len(my_f))]
+        else:
+            theirs = [total, 0.0, 0.0, 0.0, 0.0]
+        return mine + theirs
+    except Exception:
+        return [0.0] * 10
+
+
 def eiv1_train_vector(row: dict) -> list:
-    """corpus 行 → v18 学習ベクトル = f(v15,43) + matchup(17) + belief残り防御資源(4) = 64dim。
-    保存済み state から matchup/belief を復元して append (= 再収集なしで v18 化)。"""
+    """corpus 行 → v20 学習ベクトル = f(v15,43) + matchup(17) + belief残り防御資源(4)
+    + 盤面の個体解像度(20) + 除去の射程×的(10) = 94dim。
+    全て保存済み state から復元できる → 再収集なしで v20 化 (= 盲目化しない設計の payoff)。"""
     base = list(row.get("f", []))
     snap = row.get("state")
     mu = matchup_feats_from_snapshot(snap) if snap else [0.0] * 17
     br = belief_resource_feats_from_snapshot(snap) if snap else [0.0] * 4
-    return base + mu + br
+    bd = board_detail_feats_from_snapshot(snap) if snap else [0.0] * 20
+    hr = hand_reach_feats_from_snapshot(snap) if snap else [0.0] * 10
+    return base + mu + br + bd + hr

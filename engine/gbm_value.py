@@ -301,6 +301,60 @@ FEATURE_KEYS_V16 = FEATURE_KEYS_V15 + FEATURE_KEYS_V5[len(FEATURE_KEYS_V2):] + F
 # state(場/トラッシュ/バレ手札 + leader)から再計算でき再収集不要。 ⚠ 旧 v17(生トラッシュ)は本 belief 版に置換。
 FEATURE_KEYS_V18 = FEATURE_KEYS_V16 + (
     "opp_belief_counter", "opp_remaining_counter", "opp_belief_blocker", "opp_remaining_blocker")
+# v19 = 84 (2026-07-23): 盤面の**個体解像度**。 v15 までの盤面は「体数・合計パワー・ラベル別合計
+# パワー」で個体が潰れ、 5000×1 と 2500×2 が同じに見えていた。 top1/top2 パワー・付与ドン・パワーの
+# 散らばり・最大コスト・効果量 + 除去の射程/到達 を per player 10 列ずつ。 実測 v18→v19 AUC +0.0021。
+_BOARD_DETAIL_KEYS = ("bd_rm_reach_cost", "bd_rm_reach_pw", "bd_rm_cover_n", "bd_rm_cover_pw",
+                      "bd_top1_power", "bd_top1_don", "bd_top2_power", "bd_power_spread",
+                      "bd_max_cost", "bd_eff_magnitude")
+FEATURE_KEYS_V19 = FEATURE_KEYS_V18 + tuple(f"my_{k}" for k in _BOARD_DETAIL_KEYS) \
+    + tuple(f"opp_{k}" for k in _BOARD_DETAIL_KEYS)
+# v20 = 94 (2026-07-23): 除去の**射程 × 的** の interaction。 ohtsuki 指摘「『コスト4以下をKO』と
+# 『コスト1以下をKO』は角度が同じでも矢印の長さが違う」。 card_labels は向きしか持たず射程を捨てて
+# いた (= card_magnitudes で overlay から機械導出)。 射程は盤面ではほぼ発火しない (盤面から繰り返し
+# 撃てる除去は 129/4731 枚) ので、 自分=手札の実カード / 相手=leader prior − 見た札 の belief で測る。
+FEATURE_KEYS_V20 = FEATURE_KEYS_V19 + (
+    "my_hand_rm_n", "my_hand_rm_playable_n", "my_hand_rm_cover_n", "my_hand_rm_cover_pw",
+    "my_hand_rm_cover_top", "opp_bel_rm_total", "opp_bel_threat_sum", "opp_bel_threat_max",
+    "opp_bel_threat_top1", "opp_bel_threat_frac")
+
+
+def _mini_snap(state: Any, me_idx: int) -> dict:
+    """live state → snapshot と同じ形の最小 dict (v19/v20 の列を snapshot 版と同一実装で出すため)。
+
+    ⚠ 学習は保存済み snapshot、 推論は live state から作るので、 両者がズレると value が壊れる。
+    列の計算は eiv1_features の 1 実装に集約し、 ここは入力の形を合わせるだけにする。"""
+    def _side(p):
+        return {
+            "leader": {"card_id": p.leader.card.card_id},
+            "field": [{"card_id": ip.card.card_id, "cost": getattr(ip.card, "cost", 0),
+                       "power": ip.power, "attached_dons": getattr(ip, "attached_dons", 0)}
+                      for ip in p.characters],
+            "hand_card_ids": [c.card_id for c in p.hand],
+            "known_hand_card_ids": list(getattr(p, "known_hand_card_ids", []) or []),
+            "trash_card_ids": [c.card_id for c in getattr(p, "trash", [])],
+            "don_active": getattr(p, "don_active", 0),
+        }
+    return {"hero_idx": 0,
+            "players": [_side(state.players[me_idx]), _side(state.players[1 - me_idx])]}
+
+
+def _board_detail_features(state: Any, me_idx: int) -> list:
+    """v19: 盤面の個体解像度 20 (snapshot 版と同一実装)。"""
+    try:
+        from .eiv1_features import board_detail_feats_from_snapshot
+        return board_detail_feats_from_snapshot(_mini_snap(state, me_idx))
+    except Exception:
+        return [0.0] * 20
+
+
+def _hand_reach_features(state: Any, me_idx: int) -> list:
+    """v20: 除去の射程 × 的 (自分=手札 / 相手=belief) 10 (snapshot 版と同一実装)。"""
+    try:
+        from .eiv1_features import hand_reach_feats_from_snapshot
+        return hand_reach_feats_from_snapshot(_mini_snap(state, me_idx))
+    except Exception:
+        return [0.0] * 10
 
 
 def v2_anchor_value(state: Any, me_idx: int, anchor_path: str) -> float:
@@ -700,7 +754,8 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
              v11: Optional[bool] = None, v12: Optional[bool] = None,
              v13: Optional[bool] = None, v14: Optional[bool] = None,
              v15: Optional[bool] = None, v16: Optional[bool] = None,
-             v18: Optional[bool] = None) -> list:
+             v18: Optional[bool] = None, v19: Optional[bool] = None,
+             v20: Optional[bool] = None) -> list:
     """GameState + me_idx → feature vector。 rich=True で v2 (21)、 既定は env
     ONEPIECE_GBM_RICH (= 学習時に set)。 推論は gbm_score が model 次元で自動判別。
     v5=True (env ONEPIECE_GBM_V5) で 相手 leader の matchup tag 13 列を追加 (= 34、 matchup-条件付き)。
@@ -776,6 +831,14 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         v16 = os.environ.get("ONEPIECE_GBM_V16") == "1"
     if v18 is None:
         v18 = os.environ.get("ONEPIECE_GBM_V18") == "1"
+    if v19 is None:
+        v19 = os.environ.get("ONEPIECE_GBM_V19") == "1"
+    if v20 is None:
+        v20 = os.environ.get("ONEPIECE_GBM_V20") == "1"
+    if v20:
+        v19 = True  # v20 ⊃ v19 (+ 除去射程×的 10)。 v19 の後に append。
+    if v19:
+        v18 = True  # v19 ⊃ v18 (+ 盤面の個体解像度 20)。 v18 の後に append。
     if v18:
         v16 = True  # v18 ⊃ v16 (+ belief 残り防御資源 4)。 v16 の後に append。
     if v16:
@@ -879,6 +942,12 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
     if v18:
         # belief-based 相手 残り防御資源 (見た札→デッキ予測→残りカウンター/ブロッカー)。 v16 の後に append。
         out += _belief_resource_features(state, me_idx)
+    if v19:
+        # 盤面の個体解像度 (top1/top2 パワー・付与ドン・散らばり・最大コスト・効果量)。 v18 の後に append。
+        out += _board_detail_features(state, me_idx)
+    if v20:
+        # 除去の射程 × 的 (自分=手札の実カード / 相手=belief の残り除去)。 v19 の後に append。
+        out += _hand_reach_features(state, me_idx)
     return out
 
 
@@ -905,7 +974,8 @@ def _feat_for_dim(state, me_idx, n):
                     v10=(n == len(FEATURE_KEYS_V10)), v11=(n == len(FEATURE_KEYS_V11)),
                     v12=(n == len(FEATURE_KEYS_V12)), v13=(n == len(FEATURE_KEYS_V13)),
                     v14=(n == len(FEATURE_KEYS_V14)), v15=(n == len(FEATURE_KEYS_V15)),
-                    v16=(n == len(FEATURE_KEYS_V16)), v18=(n == len(FEATURE_KEYS_V18)))
+                    v16=(n == len(FEATURE_KEYS_V16)), v18=(n == len(FEATURE_KEYS_V18)),
+                    v19=(n == len(FEATURE_KEYS_V19)), v20=(n == len(FEATURE_KEYS_V20)))
 
 
 # prefix 一致で slice 再利用できる次元(V1⊂V2⊂V5⊂V6⊂V11⊂V12 の chain のみ。 v3/v4/v9/v6don/v8/v10 は
