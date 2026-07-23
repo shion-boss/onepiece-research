@@ -337,6 +337,8 @@ def _mini_snap(state: Any, me_idx: int) -> dict:
             "unseen_pool_card_ids": sorted(
                 [c.card_id for c in (getattr(p, "deck", []) or [])]
                 + [c.card_id for c in (getattr(p, "life", []) or [])]),
+            "known_bottom_card_ids": (p.normalize_known_bottom()
+                                      if hasattr(p, "normalize_known_bottom") else []),
             # 妨害を受けている状態 (= 今ターン キャラを出せない / ドロー封じ / ライフ回収不可)
             "block_chara_play_until_turn_end": bool(
                 getattr(p, "block_chara_play_until_turn_end", False)),

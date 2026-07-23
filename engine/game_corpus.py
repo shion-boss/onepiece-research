@@ -69,6 +69,9 @@ def snapshot_player(p: Any, idx: int) -> dict:
         # ⚠ p.deck だけを渡すと消去法でライフの中身が判ってしまうので **ライフと混ぜる**。
         # これで「人間が知り得る情報を、 人間より正確に (数え落とし無く) 追う」形になる。
         "unseen_pool_card_ids": sorted([c.card_id for c in p.deck] + [c.card_id for c in p.life]),
+        # 自分が見た上で底に送った札 (= 当分引かない = 次に引く母集団から外れる)
+        "known_bottom_card_ids": (p.normalize_known_bottom()
+                                  if hasattr(p, "normalize_known_bottom") else []),
         "trash_card_ids": [c.card_id for c in p.trash],
         "don_active": p.don_active,
         "don_rested": p.don_rested,

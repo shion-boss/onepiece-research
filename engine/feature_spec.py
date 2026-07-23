@@ -659,7 +659,12 @@ EYES_KEYS = tuple(
        "my_unseen_removal_ratio", "my_unseen_blocker_ratio",
        # 妨害を受けている状態 (snapshot にあったが特徴が 1 つも見ていなかった)
        "my_blocked_chara_play", "my_blocked_draw", "my_blocked_life_to_hand",
-       "opp_blocked_chara_play", "opp_blocked_draw", "opp_blocked_life_to_hand"]
+       "opp_blocked_chara_play", "opp_blocked_draw", "opp_blocked_life_to_hand",
+       # ⭐ サーチで底に送った札 (ohtsuki 2026-07-24)。「上から N 枚を見て 1 枚を手札、
+       # 残りをデッキの下」 は選ばなかった札の内容も位置も本人には判る = **当分引かない札**が
+       # 確定するので、 次に引く母集団 (= 有効デッキ) が変わる。 引く確率の分母が変わる話。
+       "my_known_bottom_n", "my_effective_deck_n", "my_bottom_removal_n",
+       "my_bottom_counter_total", "my_eff_removal_ratio", "my_eff_counter_per_card"]
 )
 
 
@@ -788,6 +793,24 @@ def _eyes_features(snap: dict) -> dict:
     out["my_unseen_counter_per_card"] = (ctr_tot / 1000.0 / n_pool) if n_pool else 0.0
     out["my_unseen_removal_ratio"] = (rm / n_pool) if n_pool else 0.0
     out["my_unseen_blocker_ratio"] = (blk / n_pool) if n_pool else 0.0
+    # --- サーチで底に送った札 = 「当分引かない」 が確定している分 ---
+    bottom = me.get("known_bottom_card_ids") or []
+    b_rm = b_ctr = 0.0
+    for cid in bottom:
+        meta = info.get(cid)
+        if not meta:
+            continue
+        if (meta.get("cats") or frozenset()) & {"removal", "removal_ko", "removal_bounce"}:
+            b_rm += 1
+        b_ctr += float(meta.get("counter_value") or 0.0)
+    eff_n = max(n_pool - len(bottom), 0.0)      # 実際に引きうる母集団
+    out["my_known_bottom_n"] = float(len(bottom))
+    out["my_effective_deck_n"] = eff_n
+    out["my_bottom_removal_n"] = b_rm
+    out["my_bottom_counter_total"] = b_ctr / 1000.0
+    # 底札を除いた「本当に引ける確率」 (= 分母から当分引かない札を外す)
+    out["my_eff_removal_ratio"] = ((rm - b_rm) / eff_n) if eff_n else 0.0
+    out["my_eff_counter_per_card"] = (((ctr_tot - b_ctr) / 1000.0) / eff_n) if eff_n else 0.0
     for side, p_ in (("my", me), ("opp", opp)):
         out[f"{side}_blocked_chara_play"] = 1.0 if p_.get("block_chara_play_until_turn_end") else 0.0
         out[f"{side}_blocked_draw"] = 1.0 if p_.get("block_self_draw_until_turn_end") else 0.0

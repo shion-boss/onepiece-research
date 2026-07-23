@@ -528,6 +528,12 @@ class Player:
     # 手札からの退場 (= play / counter / discard) で先頭マッチ分が削除される。
     # hand_estimator が「確定 (known) + 未知」 分離で pmf を計算する際に参照。
     known_hand_card_ids: list[str] = field(default_factory=list)
+    # ⭐ 自分がデッキの底に送ったと **見て知っている** カード (2026-07-24、 ohtsuki 指摘)。
+    # サーチ「上から N 枚を見て 1 枚を手札、 残りをデッキの下」 は、 選ばなかった札の
+    # 内容も位置も本人には判る。 = 「当分引かない札」 が確定するので、 次に引く母集団が変わる。
+    # 人間も追える情報だが数え落とす → AI は正確に追える (= 人間より正確に、 の範囲内)。
+    # ⚠ デッキシャッフルで無効化される (位置が壊れるため clear する)。
+    known_bottom_card_ids: list[str] = field(default_factory=list)
 
     def add_to_hand_publicly(self, card) -> None:
         """カードを手札に公開で追加 (Phase 7I)。
@@ -538,6 +544,23 @@ class Player:
         """
         self.hand.append(card)
         self.known_hand_card_ids.append(card.card_id)
+
+    def normalize_known_bottom(self) -> list:
+        """known_bottom_card_ids を実際のデッキ内容と突き合わせて正規化し、 その list を返す。
+
+        底に送った札はやがて引かれる (= もうデッキに無い)。 記録しっぱなしだとデッキ枚数を
+        超えて膨らむ。 **現在デッキに在る分だけ**に絞る (= 引いた札は本人が知っているので
+        除外できる = 公平)。 引く母集団の分母を出すのに使う。"""
+        from collections import Counter
+        in_deck = Counter(c.card_id for c in self.deck)
+        out: list = []
+        used: Counter = Counter()
+        for cid in self.known_bottom_card_ids:
+            if used[cid] < in_deck.get(cid, 0):
+                used[cid] += 1
+                out.append(cid)
+        self.known_bottom_card_ids = out
+        return out
 
     def normalize_known_hand(self) -> None:
         """known_hand_card_ids を hand との整合性で正規化 (Phase 7I)。

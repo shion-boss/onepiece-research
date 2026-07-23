@@ -3118,6 +3118,7 @@ def _execute_effect_body(
             opp.deck.extend(opp.hand)
             opp.hand.clear()
             state.rng.shuffle(opp.deck)
+            opp.known_bottom_card_ids.clear()
             drawn = opp.draw(n)
             state.push_log(
                 f"  効果: 相手手札 {returned} 枚 → デッキに戻しシャッフル、 相手 {len(drawn)} 枚 ドロー"
@@ -3848,6 +3849,7 @@ def _execute_effect_body(
                     state.push_log("  効果: デッキ 登場 0 枚 選択 (= skip)")
                     # 検索 後 は シャッフル (= 公式 8-7-3-3)
                     state.rng.shuffle(me.deck)
+                    me.known_bottom_card_ids.clear()
                     return False
                 chosen_indexes = sorted(
                     [i for i in picks_idx if 0 <= i < len(me.deck)],
@@ -3866,6 +3868,7 @@ def _execute_effect_body(
                     if state.effects_overlay:
                         trigger_on_play(state, me, opp, ip, state.effects_overlay)
                 state.rng.shuffle(me.deck)
+                me.known_bottom_card_ids.clear()
                 if played_count == 0:
                     return False
                 continue
@@ -3892,6 +3895,7 @@ def _execute_effect_body(
                     remaining.append(c)
             me.deck = remaining
             state.rng.shuffle(me.deck)
+            me.known_bottom_card_ids.clear()
             if not picked:
                 state.push_log(f"  効果: デッキ登場 (該当なし)")
         elif k == "search_top_n":
@@ -4000,6 +4004,11 @@ def _execute_effect_body(
             else:
                 # bottom / top_or_bottom はどちらも底へ (AI 簡易)
                 me.deck.extend(remaining)
+                # 見た上で底に送った札 = 内容も位置も本人には判る (= 当分引かない札が確定)
+                try:
+                    me.known_bottom_card_ids.extend(c.card_id for c in remaining)
+                except Exception:
+                    pass
             if not picked:
                 state.push_log(f"  効果: search_top_n 該当なし")
         elif k == "declare_cost_reveal_then":
@@ -4194,6 +4203,7 @@ def _execute_effect_body(
                 me.add_to_hand_publicly(c)
             # サーチ後はシャッフル
             state.rng.shuffle(me.deck)
+            me.known_bottom_card_ids.clear()
             state.push_log(f"  効果: サーチ → {[c.name for c in picked]}")
         elif k == "life_to_hand":
             if getattr(me, "prevent_self_life_to_hand_until_turn_end", False):
@@ -5065,6 +5075,7 @@ def _execute_effect_body(
         elif k == "shuffle_self_deck":
             # 自分のデッキをシャッフル
             state.rng.shuffle(me.deck)
+            me.known_bottom_card_ids.clear()
             state.push_log(f"  効果: 自デッキシャッフル")
         elif k == "trash_to_hand":
             # 自分のトラッシュからカード N 枚 (filter 付き) を手札に
@@ -5113,6 +5124,7 @@ def _execute_effect_body(
                 me.deck.extend(picked)
             if shuffle_after:
                 state.rng.shuffle(me.deck)
+                me.known_bottom_card_ids.clear()
             state.push_log(
                 f"  効果: trash → deck {to_pos} {len(picked)} 枚"
                 f"{' (shuffle)' if shuffle_after else ''}"
@@ -5919,6 +5931,7 @@ def _execute_effect_body(
             if found_idx is None:
                 state.push_log(f"  効果: デッキから ステージ 登場 (= 特徴《{feature}》 該当 なし)")
                 state.rng.shuffle(me.deck)
+                me.known_bottom_card_ids.clear()
                 return False
             card = me.deck.pop(found_idx)
             # 自場 ステージ 上限 (= 公式 1 枚) チェック
@@ -5931,6 +5944,7 @@ def _execute_effect_body(
             me.stages.append(InPlay.of(card, rested=False, sickness=False))
             state.push_log(f"  効果: デッキ → ステージ 登場 {card.name} (特徴《{feature}》)")
             state.rng.shuffle(me.deck)
+            me.known_bottom_card_ids.clear()
         elif k == "fire_event_main_from_trash":
             # 「自分のトラッシュにある(filter)イベント1枚までの、【メイン】効果を発動する」
             # (EB03-031 サンジ)。 AI: 該当イベントの先頭1枚の main do を発火 (イベントはトラッシュに残留)。
@@ -9139,6 +9153,7 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             # サーチ は スキップ でも シャッフル する (= 公式: 「探した」 の 行為 で
             # デッキ シャッフル 必要)
             state.rng.shuffle(me.deck)
+            me.known_bottom_card_ids.clear()
             return
         if isinstance(primitive_value, dict):
             new_spec = dict(primitive_value)
