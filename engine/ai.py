@@ -1631,7 +1631,9 @@ class GreedyAI:
                     rescue_gap = atk_p - c.power
                     if rescue_gap < 0:
                         continue  # Tier 1 で拾われるはずだが念のため
-                    combo = self._optimal_counter_combo(defender.hand, rescue_gap)
+                    combo = self._optimal_counter_combo(
+                        defender.hand, rescue_gap,
+                        known=getattr(defender, 'known_hand_card_ids', None))
                     if not combo:
                         continue
                     rescue_total = sum(defender.hand[i].counter for i in combo)
@@ -1668,7 +1670,8 @@ class GreedyAI:
             # 既に防御パワーが上回る → カウンター不要
             return block_iid, ()
 
-        spent = self._optimal_counter_combo(defender.hand, gap)
+        spent = self._optimal_counter_combo(
+            defender.hand, gap, known=getattr(defender, 'known_hand_card_ids', None))
         if not spent:
             # shield-counter だけでは wall 不能。 ⚠ 2026-06-12: 低ライフ (≤2) の leader 攻撃なら
             # counter-event (舞踏石等、 要DON) を併用して wall を試みる (= 配備AIが死蔵していた
@@ -2212,10 +2215,17 @@ class GreedyAI:
                 return chosen
         return chosen if total > gap else []
 
-    def _optimal_counter_combo(self, hand: list, gap: int) -> list[int]:
+    def _optimal_counter_combo(self, hand: list, gap: int,
+                               known: Optional[list] = None) -> list[int]:
         """gap を超える最小コンボを brute force で探す (手札 < 12 想定)。
         同点なら使うカウンター値合計が小さい方を選ぶ。
+
+        ⭐ さらに同点なら **既に相手にバレている札** から使う (ohtsuki 2026-07-23)。
+        どちらを切っても同じ効果なら、 バレている方を消費した方が「相手が知らない手札」の
+        不確実性を保てる = 情報の非対称性を減らさない。 known = 自分の known_hand_card_ids
+        (= 公開サーチ/バウンス等で相手に割れている card_id)。
         """
+        known_set = set(known or ())
         counter_idxs = [i for i, c in enumerate(hand) if c.counter > 0]
         if not counter_idxs:
             return []
@@ -2234,16 +2244,19 @@ class GreedyAI:
                     return spent
             return []
 
-        best: tuple[int, int, list[int]] | None = None  # (size, sum, idxs)
+        best: tuple[tuple, list[int]] | None = None  # (key, idxs)
         for mask in range(1, 1 << n):
             picked = [counter_idxs[i] for i in range(n) if mask & (1 << i)]
             total = sum(hand[i].counter for i in picked)
             if total <= gap:
                 continue
-            key = (len(picked), total)
-            if best is None or key < best[:2]:
-                best = (len(picked), total, picked)
-        return best[2] if best else []
+            # 3 番目のキー = バレている札を多く使う方を優先 (負値で降順)
+            n_known = sum(1 for i in picked
+                          if getattr(hand[i], "card_id", None) in known_set)
+            key = (len(picked), total, -n_known)
+            if best is None or key < best[0]:
+                best = (key, picked)
+        return best[1] if best else []
 
 
 class EvalGreedyAI(GreedyAI):

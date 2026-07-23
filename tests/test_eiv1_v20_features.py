@@ -148,3 +148,53 @@ def test_feature_blocks_are_not_silently_dead():
     live = gv.features(st, 0, v20=True)
     n16 = len(gv.FEATURE_KEYS_V16)
     assert any(abs(v) > 0 for v in live[n16:n16 + 4]), "live の belief 4 列が全ゼロ"
+
+
+def test_counter_prefers_already_revealed_card():
+    """同じ効果なら『相手にバレている札』から切る (情報の非対称性を減らさない)。"""
+    from engine.ai import GreedyAI
+
+    class _C:
+        def __init__(self, cid, counter):
+            self.card_id, self.counter = cid, counter
+    ai = GreedyAI(rng=random.Random(0))
+    # 同じ counter 値 2 枚。 片方 (index 1) だけ相手に割れている
+    hand = [_C("AAA-001", 1000), _C("BBB-002", 1000)]
+    picked = ai._optimal_counter_combo(hand, gap=500, known=["BBB-002"])
+    assert picked == [1], f"バレている札を優先すべき: {picked}"
+    # known 情報が無ければ従来通り (先頭)
+    assert ai._optimal_counter_combo(hand, gap=500) == [0]
+
+
+def test_public_search_records_known_hand_but_private_does_not():
+    """公式テキストが『公開し手札に加える』なら記録、 『見て』だけなら記録しない。"""
+    import json as _json
+    from pathlib import Path as _P
+    ov = _json.loads((_ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    pub = priv = 0
+    for cid, blocks in ov.items():
+        if cid.startswith("_") or not isinstance(blocks, list):
+            continue
+        for b in blocks:
+            if not isinstance(b, dict):
+                continue
+            text = b.get("_text") or ""
+
+            def _walk(node):
+                nonlocal pub, priv
+                if isinstance(node, dict):
+                    for k, v in node.items():
+                        if k in ("search_top_n", "search") and isinstance(v, dict) \
+                                and v.get("public") is not None:
+                            if v["public"]:
+                                pub += 1
+                                assert "公開" in text, f"{cid}: 非公開テキストに public=True"
+                            else:
+                                priv += 1
+                                assert "公開" not in text, f"{cid}: 公開テキストに public=False"
+                        _walk(v)
+                elif isinstance(node, list):
+                    for x in node:
+                        _walk(x)
+            _walk(b.get("do"))
+    assert pub > 100 and priv > 20, f"フラグ付与が不足 (公開 {pub} / 非公開 {priv})"

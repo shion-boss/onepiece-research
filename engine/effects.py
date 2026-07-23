@@ -3950,7 +3950,14 @@ def _execute_effect_body(
                     me.trash.append(c)
                     state.push_log(f"  効果: search_top_n → トラッシュ")
                 else:  # hand
-                    me.hand.append(c)
+                    # 公式テキストが「公開し、手札に加える」なら相手にカードが割れる
+                    # (= known_hand_card_ids に記録)。 「見て」だけの非公開サーチは記録しない
+                    # (= 記録すると AI が知り得ない情報を持つチートになる)。 overlay の
+                    # public フラグは _text の「公開」有無から機械付与済み。
+                    if spec_val.get("public"):
+                        me.add_to_hand_publicly(c)
+                    else:
+                        me.hand.append(c)
                     # 隠 ぺい 情 報: 手 札 入 り は card name を log に 出 さ ない (= 相 手 view 漏 洩 防 止)
                     state.push_log(f"  効果: search_top_n → 手札")
             # 残り処理
