@@ -543,8 +543,7 @@ def test_op03_011_bramenko_on_attack_debuff_human_pick():
 # --------------------------------------------------------------------------- #
 #  OP03-012 マーシャル・D・ティーチ: 【アタック時】自分のパワー4000以上の赤の
 #    キャラ1枚をトラッシュに置くことができる：カード1枚を引く。
-#    (overlay は optional_cost_then で ko(cost) → draw を実装。 「その後 +1000」 は
-#     overlay 未実装 = 人間レビュー案件。 実装済の ko-cost + draw を faithful に検証。)
+#    (overlay は optional_cost_then で ko(cost) → draw → 自身 +1000(このバトル中) を実装。)
 # --------------------------------------------------------------------------- #
 def test_op03_012_teach_on_attack_optional_ko_then_draw_ai():
     """【アタック時】赤 P4000以上キャラを犠牲 (コスト) → 1 ドロー (AI 自動発動)。"""
@@ -569,6 +568,8 @@ def test_op03_012_teach_on_attack_optional_ko_then_draw_ai():
         "AI は power 低い方 (ウタ) を犠牲にし ティーチ (6000) は残すべき"
     assert repo.get("OP01-005") in me.trash, "犠牲キャラがトラッシュに無い"
     assert len(me.hand) == hand_before + 1, "1 ドローが発生していない"
+    assert teach.power == teach.card.power + 1000, \
+        f"その後 このバトル中 +1000 が効いていない: {teach.power} (base {teach.card.power})"
 
 
 def test_op03_012_teach_on_attack_no_valid_red_body_no_draw():

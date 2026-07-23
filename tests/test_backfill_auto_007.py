@@ -119,10 +119,8 @@ def test_eb02_025_rosinante_activate_main_search_play_ai():
     assert me.don_active == don_before - 1, "起動メインコストで ドン1枚がレストされるべき"
     played = [c for c in me.characters if c.card.card_id == "OP01-016"]
     assert played, "上5枚から コスト2以下キャラが 登場していない"
-    # ⚠ 公式は「レストで登場」だが overlay の search_top_n spec に "rested": true が
-    #    無いため 現状 アクティブで登場する (= 登場自体は正しく発火)。 rested 化の
-    #    忠実性ギャップは 人間レビュー / overlay 修正へ (engine/overlay はこのタスクで
-    #    編集しない)。 ここでは 効果の核 (= 該当キャラの登場) のみを assert する。
+    # 公式「レストで登場」を忠実化 (overlay search_top_n に "rested": true を追加済)。
+    assert played[0].rested is True, "コスト2以下キャラは レストで登場するべき"
 
 
 def test_eb02_025_rosinante_activate_main_human_search_modal():

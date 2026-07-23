@@ -417,11 +417,6 @@ def test_op03_098_activate_main_cost_minus_ai():
         f"相手キャラのコストが -2 されていない: {victim.base_cost} (before {cost_before})"
 
 
-@pytest.mark.skip(reason=(
-    "engine limitation (人間レビュー行き): OP03-098 は STAGE だが【トリガー】"
-    "『このカードを登場させる』の play_self が engine では CHARACTER カテゴリ限定で"
-    " ステージを登場させない (engine/effects.py:play_self の "
-    "c.category == Category.CHARACTER 判定)。 STAGE 版 play_self 分岐が要。"))
 def test_op03_098_trigger_play_self_stage():
     """【トリガー】このステージを登場させる (= 現状 engine は STAGE 未対応)。"""
     repo = _repo()

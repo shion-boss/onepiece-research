@@ -594,6 +594,10 @@ class Player:
     # 「自分は、 このターン中、 自分の効果でライフを手札に加えられない」 (OP02-023 等)。
     # _reset_turn_buff で False に。 life_to_hand / life_top_or_bottom_to_hand (owner=self) が抑制される。
     prevent_self_life_to_hand_until_turn_end: bool = False
+    # このターン中に 効果で 自分の手札が捨てられたか (ST33-004 ボルサリーノ
+    # 「効果で自分の手札が捨てられているターン中、 コスト-3」)。 trigger_on_self_hand_discarded で
+    # True、 _reset_turn_buff でクリア。 eval_condition:self_hand_discarded_by_effect_this_turn が参照。
+    hand_discarded_by_effect_this_turn: bool = False
     # 「次の相手のメインフェイズ開始時に発動」 する遅延効果リスト (PRB02-005 ルフィ等)。
     # 自陣 player に登録 → 「相手の MAIN 開始時 (= 自分の opp 視点)」 に flush。
     delayed_at_opp_main_phase_start: list = field(default_factory=list)

@@ -3150,7 +3150,8 @@
       },
       "limit": 1,
       "destination": "play",
-      "rest_remain": "bottom"
+      "rest_remain": "bottom",
+      "rested": true
      }
     }
    ],
@@ -3999,6 +4000,13 @@
       "effect": [
        {
         "draw": 1
+       },
+       {
+        "power_pump": {
+         "target": "self",
+         "amount": 1000,
+         "duration": "battle"
+        }
        }
       ]
      }
@@ -106217,7 +106225,29 @@
   {
    "_text": "ST32-001 錦えもん 【登場時】自分の、属性(斬)を持つリーダーかドン!!1枚をレストにできる：カード2枚を引き、自分の手札1枚を捨てる。",
    "when": "on_play",
-   "_unimplemented": "任意コスト『自分の、属性(斬)を持つリーダーかドン!!1枚をレストにできる』が、リーダー(属性(斬)で filter)とドン!!の二者択一(OR)コスト。DSL に leader-filtered と don の択一コストを表す primitive が無く、cost 配列は AND のみ (OR-cost 機構が無い)。leader だけ / don だけへの近似は忠実主義違反のため未実装マーク。効果本体は『カード2枚を引き、自分の手札1枚を捨てる』(draw:2 + trash_self_hand_random:1)。engine に rest_self_leader_filtered_or_don 択一コスト primitive を追加すれば実装可能。"
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "rest_self_leader_filtered_or_don": {
+         "filter": {
+          "attribute": "斬"
+         }
+        }
+       }
+      ],
+      "effect": [
+       {
+        "draw": 2
+       },
+       {
+        "trash_self_hand_random": 1
+       }
+      ]
+     }
+    }
+   ]
   }
  ],
  "ST32-002": [
@@ -106445,9 +106475,12 @@
   {
    "_text": "ST33-004 ボルサリーノ 手札のこのカードは、効果で自分の手札が捨てられているターン中、コスト-3。【ブロッカー】は intrinsic(overlay 不要)。",
    "when": "in_hand",
+   "if": {
+    "self_hand_discarded_by_effect_this_turn": true
+   },
    "do": [
     {
-     "_unimplemented": "手札のこのカードは、効果で自分の手札が捨てられているターン中、コスト-3。 -- 「効果で自分の手札が捨てられたターン中」 を判定する eval_condition キー (= その turn 中に効果由来の hand discard が発生したかの持続フラグ) が engine に無い。 現状 state.last_discard_count は transient (直近の discard のみ) で turn 単位では残らない。 in_hand_cost_minus と組む条件が無いため近似せず未実装マーク。 engine 側に self_hand_discarded_by_effect_this_turn の per-turn フラグ + eval_condition キーを追加した上で {\"when\":\"in_hand\",\"if\":{\"self_hand_discarded_by_effect_this_turn\":true},\"do\":[{\"in_hand_cost_minus\":3}]} とすべき。"
+     "in_hand_cost_minus": 3
     }
    ]
   }

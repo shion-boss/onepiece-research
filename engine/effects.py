@@ -1079,6 +1079,11 @@ def eval_condition(
             # このターン中に自分がコスト N 以上のイベントを使用していたか (= OP15-002 ルーシー)。
             if getattr(me, "max_event_cost_this_turn", 0) < int(v):
                 return False
+        elif k == "self_hand_discarded_by_effect_this_turn":
+            # このターン中に効果で自分の手札が捨てられたか (= ST33-004 ボルサリーノ コスト-3 条件)。
+            flag = bool(getattr(me, "hand_discarded_by_effect_this_turn", False))
+            if bool(v) != flag:
+                return False
         elif k == "exists_chara_cost_ge":
             # どちらかの場にコスト N 以上のキャラがいるか (= OP10-058 「コスト8以上のキャラがいる場合」)。
             # キャラのみ (= leader 除く)。 現在コスト (base_cost) で判定。
@@ -3940,6 +3945,10 @@ def _execute_effect_body(
                     # 「ライフの上に加える」 (= OP16-119 ティーチ)。 公式 表記なし は裏向き (life 既定)。
                     me.life.insert(0, c)
                     state.push_log(f"  効果: search_top_n → ライフ上に加える ({len(me.life)} 枚)")
+                elif destination == "trash":
+                    # 「〜枚をトラッシュに置く」 (= OP03-083 コルギー等)。 picked を直接 trash へ。
+                    me.trash.append(c)
+                    state.push_log(f"  効果: search_top_n → トラッシュ")
                 else:  # hand
                     me.hand.append(c)
                     # 隠 ぺい 情 報: 手 札 入 り は card name を log に 出 さ ない (= 相 手 view 漏 洩 防 止)
@@ -5568,7 +5577,9 @@ def _execute_effect_body(
             spec_val = v if isinstance(v, dict) else {}
             target_spec = spec_val.get("target", "self")
             duration = spec_val.get("duration", "next_opp_turn_end")
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="set_base_cost_timed", outer_value=target_spec)
+            # ⚠ outer_value は spec 全体 (v) を渡す。 target_spec (文字列) だと 人間 target_pick の
+            # 再実行時に amount/delta/duration が失われ cost が変わらない (= 人間レビュー行きバグ修正)。
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="set_base_cost_timed", outer_value=v)
             me_idx = state.players.index(me)
             for t in targets:
                 if "amount" in spec_val:
@@ -5775,13 +5786,27 @@ def _execute_effect_body(
             found_card = None
             for zone_name, zone in (("trash", me.trash), ("hand", me.hand)):
                 for i, c in enumerate(zone):
-                    if c.card_id == src_cid and c.category == Category.CHARACTER:
+                    if c.card_id == src_cid and c.category in (Category.CHARACTER, Category.STAGE):
                         found_card = zone.pop(i)
                         state.push_log(f"  効果: このカードを登場 ({zone_name} → 場)")
                         break
                 if found_card:
                     break
             if not found_card:
+                continue
+            if found_card.category == Category.STAGE:
+                # STAGE 版 (= OP03-098【トリガー】このステージを登場)。 game.py:1348 と同様、 既存
+                # ステージ (MAX 超) は持ち主のトラッシュへ、 stages へ配置 (sickness/rested 無関係)。
+                if len(me.stages) >= me.MAX_STAGES:
+                    old = me.stages.pop()
+                    me.trash.append(old.card)
+                    if old.attached_dons > 0:
+                        me.don_rested += old.attached_dons
+                    state.push_log(f"  既存ステージ {old.card.name} をトラッシュへ")
+                ip = InPlay.of(found_card, rested=False, sickness=False)
+                me.stages.append(ip)
+                if state.effects_overlay:
+                    trigger_on_play(state, me, opp, ip, state.effects_overlay)
                 continue
             if not me.can_play_character():
                 me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
@@ -7967,6 +7992,16 @@ def _execute_effect_body(
                     if len(avail) < rl_n:
                         can_pay = False
                         break
+                elif "rest_self_leader_filtered_or_don" in cs:
+                    # 公式「自分の、属性X を持つリーダーかドン!!1枚を、レストにできる：効果」
+                    # (ST32-001 錦えもん等)。 filter 一致のアクティブ leader OR アクティブ DON があれば払える (OR-cost)。
+                    rd_spec = cs["rest_self_leader_filtered_or_don"]
+                    rd_filt = rd_spec.get("filter", {}) if isinstance(rd_spec, dict) else {}
+                    leader_ok = (me.leader is not None and not me.leader.rested
+                                 and _matches_filter(me.leader.card, rd_filt))
+                    if not leader_ok and me.don_active < 1:
+                        can_pay = False
+                        break
                 elif "rest_self_chara_filtered" in cs:
                     # 公式 「自分の特徴X / コストN以上 の キャラ M 枚を レストにできる：効果」
                     # (OP03-021/OP03-036/OP07-036 等)。 アクティブの自キャラから filter 一致 を count 枚。
@@ -8061,6 +8096,18 @@ def _execute_effect_body(
                     for ip in avail[:rl_n]:
                         ip.rested = True
                         state.push_log(f"  効果コスト: 自レスト {ip.card.name}")
+                    continue
+                if "rest_self_leader_filtered_or_don" in cs:
+                    rd_spec = cs["rest_self_leader_filtered_or_don"]
+                    rd_filt = rd_spec.get("filter", {}) if isinstance(rd_spec, dict) else {}
+                    # AI 簡易: DON を優先 rest (= リーダーは攻撃に使いたい)。 DON 無ければ leader を rest。
+                    if me.don_active >= 1:
+                        me.don_active -= 1
+                        me.don_rested += 1
+                        state.push_log("  効果コスト: ドン!!1枚をレスト")
+                    elif me.leader is not None and not me.leader.rested and _matches_filter(me.leader.card, rd_filt):
+                        me.leader.rested = True
+                        state.push_log(f"  効果コスト: リーダー {me.leader.card.name} をレスト")
                     continue
                 if "rest_self_chara_filtered" in cs:
                     rc_spec = cs["rest_self_chara_filtered"]
@@ -9824,6 +9871,10 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             # 「ライフの上に加える」 (= OP16-119 ティーチ)。 裏向き (life 既定)。
             me.life.insert(0, c)
             state.push_log(f"  効果: 人間選択 → ライフ上に加える ({len(me.life)} 枚)")
+        elif destination == "trash":
+            # 「〜枚をトラッシュに置く」 (= OP03-083 コルギー等)。 picked を直接 trash へ。
+            me.trash.append(c)
+            state.push_log(f"  効果: 人間選択 → トラッシュ")
         else:  # hand
             me.hand.append(c)
             # 隠 ぺい 情 報 保 護 (= card name は 自 player のみ 知 る)
@@ -11407,7 +11458,11 @@ def trigger_on_self_hand_discarded(
     source_inplay = 効果 source カード (= 「特徴《海軍》を持つカード」 判定用)。
     discard_count = 捨てた枚数 (= draw 枚数の動的 N)。
     """
-    if not effects_overlay or discard_count <= 0:
+    if discard_count <= 0:
+        return
+    # このターン中に効果で手札が捨てられた持続フラグ (= ST33-004 コスト-3 条件、 _reset_turn_buff でクリア)。
+    me.hand_discarded_by_effect_this_turn = True
+    if not effects_overlay:
         return
     state.last_discard_source_inplay = source_inplay
     state.last_discard_count = discard_count

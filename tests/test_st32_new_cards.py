@@ -84,25 +84,69 @@ def _play_chara(state, repo, owner_idx, card_id, overlay, fire=True):
 
 
 # ===========================================================================
-# ST32-001 錦えもん (_unimplemented: OR-cost)
+# ST32-001 錦えもん: 【登場時】斬leaderかDON1枚レスト(任意OR-cost) → 2ドロー+手札1捨て
 # ===========================================================================
-def test_st32_001_exists_and_no_crash():
-    """ST32-001 は _unimplemented (OR-cost) のため 効果本体は 未実装だが、
-    カードが 存在 し、 登場 (on_play trigger) で crash / pending_choice 暴発 しないこと。"""
+def test_st32_001_on_play_or_cost_draw_discard_ai_auto():
+    """AI 自動: OR-cost を DON 優先で払い、 カード2枚引き手札1枚捨てる (net +1)。"""
     repo = _repo()
     overlay = _overlay()
-    card = repo.get("ST32-001")
-    assert card is not None and card.name == "錦えもん"
-    assert "ST32-001" in overlay, "overlay に ST32-001 が 登録 されていること"
+    state = _make_state(repo, overlay)  # AI acting (human_idx=None), 斬 leader
+    me = state.players[0]
+    me.don_active = 3
+    me.hand = [repo.get("OP01-013")]  # 捨てる用に1枚
+    hand_before = len(me.hand)
 
+    _play_chara(state, repo, 0, "ST32-001", overlay)
+
+    assert state.pending_choice is None, "AI auto は modal を立てない"
+    # OR-cost = DON 優先 rest (= リーダーは攻撃用に温存)
+    assert me.don_active == 2 and me.don_rested == 1, \
+        f"DON!!1枚がレストされていない: active={me.don_active} rested={me.don_rested}"
+    assert not me.leader.rested, "DON で払えるので 斬リーダーはレストされない"
+    # draw 2 - discard 1 = net +1
+    assert len(me.hand) == hand_before + 1, f"draw2+discard1 の net (+1) が合わない: {len(me.hand)}"
+
+
+def test_st32_001_or_cost_rests_zan_leader_when_no_don():
+    """DON が無ければ 斬リーダーをレストして払う (OR-cost の leader 側)。"""
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, overlay)  # 斬 leader EB01-001 (アクティブ)
+    me = state.players[0]
+    me.don_active = 0
+    me.hand = [repo.get("OP01-013")]
+    assert not me.leader.rested
+    _play_chara(state, repo, 0, "ST32-001", overlay)
+    assert me.leader.rested, "DON 無しで 斬リーダーがレストされていない"
+    assert len(me.hand) == 1 + 1, "leader-cost でも draw2+discard1 の net(+1) が起きる"
+
+
+def test_st32_001_no_fire_without_payable_cost():
+    """DON も無く、 斬でないリーダー → OR-cost 払えず 効果不発 (手札不変)。"""
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, overlay, leader_id=NON_ZAN_LEADER)  # 打リーダー
+    me = state.players[0]
+    me.don_active = 0
+    me.hand = [repo.get("OP01-013")]
+    hand_before = len(me.hand)
+    _play_chara(state, repo, 0, "ST32-001", overlay)
+    assert len(me.hand) == hand_before, "払えないコストで効果が発動している"
+    assert not me.leader.rested, "非斬リーダーはレストされない"
+
+
+def test_st32_001_human_optional_cost_confirm_modal():
+    """人間 actor: 任意コストの confirm modal が立つ (人間が pay/skip を選べる)。"""
+    repo = _repo()
+    overlay = _overlay()
     state = _make_state(repo, overlay, human_idx=0)
     me = state.players[0]
-    hand_before = len(me.hand)
-    ip = _play_chara(state, repo, 0, "ST32-001", overlay)
-    # _unimplemented ⇒ do が無い ⇒ 盤面不変・choice も立たない
-    assert state.pending_choice is None, "_unimplemented は modal を立てない"
-    assert len(me.hand) == hand_before, "効果本体 未実装 ⇒ 手札 不変"
-    assert ip in me.characters, "登場 自体 は 成立"
+    me.don_active = 3
+    me.hand = [repo.get("OP01-013")]
+    _play_chara(state, repo, 0, "ST32-001", overlay)
+    assert state.pending_choice is not None, "人間 + 任意コストで confirm modal が立たない"
+    assert state.pending_choice.get("kind") == "optional_cost_confirm", \
+        f"kind が optional_cost_confirm でない: {state.pending_choice.get('kind')}"
 
 
 # ===========================================================================

@@ -391,9 +391,8 @@ def test_st33_004_blocker_is_intrinsic():
     assert ip.is_blocker_now, "ボルサリーノは【ブロッカー】を持つべき"
 
 
-def test_st33_004_in_hand_cost_unimplemented_no_crash():
-    """ST33-004 の in_hand cost-3 は _unimplemented (持続条件が engine 未実装)。
-    cost 計算 helper が crash せず、 コストは元の 6 のまま (軽減されない) こと。"""
+def test_st33_004_no_cost_minus_without_discard():
+    """効果で手札が捨てられていないターンは in_hand cost-3 が効かない (条件不成立)。"""
     from engine.game import _compute_in_hand_cost_minus
     repo = _repo()
     overlay = _overlay()
@@ -401,10 +400,28 @@ def test_st33_004_in_hand_cost_unimplemented_no_crash():
     me, _ = state.players
     borsalino = repo.get("ST33-004")
     me.hand = [borsalino]
-
-    # _unimplemented を含む in_hand effect でも 0 (軽減なし) を返し crash しない
+    assert not me.hand_discarded_by_effect_this_turn
     reduction = _compute_in_hand_cost_minus(state, me, borsalino)
-    assert reduction == 0, f"_unimplemented は軽減しない (cost-3 未実装): {reduction}"
+    assert reduction == 0, f"手札破棄なしで軽減してしまっている: {reduction}"
+
+
+def test_st33_004_cost_minus_3_after_hand_discard():
+    """効果で手札が捨てられたターン中は in_hand cost-3 (= 6→3) が効く。"""
+    from engine.game import _compute_in_hand_cost_minus
+    from engine.effects import trigger_on_self_hand_discarded
+    repo = _repo()
+    overlay = _overlay()
+    state = _make_state(repo, overlay=overlay)
+    me, opp = state.players
+    borsalino = repo.get("ST33-004")
+    me.hand = [borsalino]
+
+    # 効果で手札が捨てられた (= フラグが立つ) をシミュレート
+    trigger_on_self_hand_discarded(state, me, opp, None, 1, overlay)
+    assert me.hand_discarded_by_effect_this_turn, "手札破棄フラグが立っていない"
+
+    reduction = _compute_in_hand_cost_minus(state, me, borsalino)
+    assert reduction == 3, f"手札破棄ターンに cost-3 が効いていない: {reduction}"
 
 
 def test_st33_004_legal_actions_no_crash():

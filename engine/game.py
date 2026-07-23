@@ -535,6 +535,7 @@ def _reset_turn_buff(state: GameState) -> None:
         player.block_chara_play_cost_ge_threshold = -1
         player.play_cost_reductions_filtered_turn = []
         player.prevent_self_life_to_hand_until_turn_end = False
+        player.hand_discarded_by_effect_this_turn = False
         player.max_event_cost_this_turn = 0
     # 「次の相手ターン終了時まで」 disable_effect / アタック不可 は、 所有者のターン
     # 終了時にクリア (= 自分が相手ターン中に解除される動きを実現)。

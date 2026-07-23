@@ -219,11 +219,6 @@ def test_op03_081_kalifa_cost_minus_human_pick():
 #    【登場時】自分のデッキの上から5枚を見て、カード2枚までを、トラッシュに置く。
 #      その後、残りを好きな順番でデッキの下に置く。
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason=(
-    "engine bug (人間レビュー行き): search_top_n が destination='trash' を未実装。"
-    " 公式『デッキ上5枚から2枚をトラッシュに置く』だが engine は picked を"
-    " play/life/hand の else 分岐で手札に入れてしまう (=トラッシュ 0 のまま)。"
-    " engine/effects.py:search_top_n に destination=='trash' 分岐が要。"))
 def test_op03_083_corgy_on_play_mill_top5_ai():
     """【登場時】デッキ上5枚から2枚をトラッシュ、 残り3枚をデッキ下 (AI 自動)。"""
     repo = _repo()
@@ -446,12 +441,6 @@ def test_op03_091_helmeppo_on_play_set_cost0_no_effect_ai():
         f"相手の効果なしキャラが コスト0 になっていない: {victim.base_cost}"
 
 
-@pytest.mark.skip(reason=(
-    "engine bug (人間レビュー行き): set_base_cost_timed の 人間 target_pick 再実行で"
-    " amount/duration が失われる。 _resolve_target に outer_value=target_spec (文字列のみ)"
-    " を渡す為、 resolve_pending_choice 経由の再呼出で spec が文字列化し amount=0/target 既定に"
-    " 落ちて対象コストが変わらない (cost_minus/power_pump_multi と同型の bug)。"
-    " outer_value に spec_val 全体を渡す修正が要。 AI 経路 (単一対象) は正常。"))
 def test_op03_091_helmeppo_on_play_human_pick():
     """人間 + 相手の効果なしキャラ 複数 → target_pick modal が立ち resolve で コスト0。"""
     repo = _repo()
