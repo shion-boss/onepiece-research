@@ -682,6 +682,60 @@ def _request_self_hand_discard(state: GameState, me: Player, self_inplay: Option
     return True
 
 
+def _option_score(opt: dict, state: GameState, me: Player, opp: Player) -> float:
+    """choice_effect の選択肢を、 **その局面で実際に効くか** で採点する (2026-07-24)。
+
+    従来は列挙順の先頭を撃っていたため、 相手キャラが 0 体なのに「1 体を KO」を選ぶ等の
+    空振りが起きていた。 まず「対象が存在するか」で足切りし、 次に効果量で並べる。
+    ⚠ 手書きの重みなので上限は人間並み。 データ由来に置き換えるのは rollout の仕事。
+    """
+    try:
+        do = opt.get("do") if isinstance(opt, dict) else None
+        if not do:
+            return -1.0
+        prims: set = set()
+        _walk_prim_names(do, prims)
+        n_opp = len(getattr(opp, "characters", []) or [])
+        n_me = len(getattr(me, "characters", []) or [])
+        my_life = len(getattr(me, "life", []) or [])
+        score = 0.0
+        for pr in prims:
+            if pr in ("ko", "ko_multi", "ko_all_others", "return_to_hand",
+                      "return_to_hand_multi", "return_to_deck_bottom"):
+                score += 3.0 if n_opp > 0 else -0.5     # 相手が居ない除去は空振り
+            elif pr in ("rest", "rest_opp_don", "keep_opp_rested_don_next_refresh"):
+                score += 1.5 if n_opp > 0 else -0.5
+            elif pr in ("draw", "draw_per_self_hand_discarded"):
+                score += 2.0
+            elif pr in ("search", "search_top_n", "play_from_hand", "play_from_trash",
+                        "summon_from_deck"):
+                score += 1.8
+            elif pr in ("add_don", "add_rested_don", "attach_don", "attach_rested_don",
+                        "attach_active_don", "untap_don"):
+                score += 1.5
+            elif pr in ("power_pump", "give_keyword", "give_rush"):
+                score += 1.0 if n_me > 0 else -0.5      # 自分の駒が居ないパンプは空振り
+            elif pr in ("put_top_to_life", "hand_to_self_life", "life_to_hand"):
+                score += 2.5 if my_life <= 2 else 0.8   # ライフが薄い時ほど回復が効く
+            elif pr in ("trash_opp_hand_random",):
+                score += 1.2
+            else:
+                score += 0.3
+        return score
+    except Exception:
+        return 0.0
+
+
+def _walk_prim_names(node, out: set) -> None:
+    """do ツリーからプリミティブ名を集める。"""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            out.add(k)
+            _walk_prim_names(v, out)
+    elif isinstance(node, list):
+        for x in node:
+            _walk_prim_names(x, out)
+
 def _threat_key(ip) -> tuple:
     """相手キャラを「対処すべき順」に並べる key (降順ソート用に負値)。
 
@@ -3034,8 +3088,12 @@ def _execute_effect_body(
                     f"  効果: choice_effect 選択 待ち ({len(valid_options)}個 候補, optional={optional})"
                 )
                 return True
-            # AI (= actor=opp 含む): 1 つ目 valid を 発動 (= 簡略)
-            chosen_idx, chosen_opt = valid_options[0]
+            # AI: 文脈を見て最良の option を選ぶ (2026-07-24、 従来は「1 つ目」= 選んでいなかった)。
+            # ⚠ フル sim は不可: effects 実行中に fast_clone すると plan_search →
+            # _pick_activate_main → deepcopy 連鎖で hang した実例がある。 局面で「何も起きない」
+            # 選択肢を外し、 効果量で並べる軽量スコアにする。
+            chosen_idx, chosen_opt = max(
+                valid_options, key=lambda io: _option_score(io[1], state, me, opp))
             chosen_do = chosen_opt.get("do", []) if isinstance(chosen_opt, dict) else []
             state.push_log(
                 f"  効果: choice_effect [{actor}] → option {chosen_idx} ({chosen_opt.get('label','?')})"
