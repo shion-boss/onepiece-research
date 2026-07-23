@@ -134,6 +134,61 @@ def belief_resource_feats_from_snapshot(snap: dict) -> list:
         return [0.0, 0.0, 0.0, 0.0]
 
 
+BOARD_DETAIL_KEYS = [
+    # per player (my, opp) の順で 10 列ずつ = 20。 「盤面をもっと詳細に把握する」列 (v19)。
+    "rm_reach_cost", "rm_reach_pw", "rm_cover_n", "rm_cover_pw", "top1_power",
+    "top1_don", "top2_power", "power_spread", "max_cost", "eff_magnitude",
+]
+
+
+def board_detail_feats_from_snapshot(snap: dict) -> list:
+    """保存済み snapshot の field (card_id/cost/power/attached_dons) から 盤面の詳細特徴 20 を復元。
+
+    v15 までの盤面は「体数・合計パワー・ラベル別合計パワー」= 個体が潰れていた。 ここでは
+      (a) 効果の**大きさ** (card_magnitudes = 除去の射程 等、 = 矢印の長さ)
+      (b) **interaction** (自分の除去が今の相手盤面の何体に実際に届くか)
+      (c) **個体の解像度** (top1/top2 のパワー・付与ドン・パワーの散らばり・最大コスト)
+    を足す。 全て snapshot から再計算できる → 再収集なしで既存 corpus を v19 化できる。"""
+    try:
+        from . import card_magnitudes as CM
+        hi = snap["hero_idx"]
+        sides = [snap["players"][hi], snap["players"][1 - hi]]
+
+        def _chars(p):
+            return [c for c in (p.get("field") or []) if isinstance(c, dict)]
+
+        def _side(p, other):
+            fs, os_ = _chars(p), _chars(other)
+            if not fs:
+                return [0.0] * 10
+            mags = [CM.for_card(c.get("card_id") or "") for c in fs]
+            # (a) 盤面から繰り返し撃てる除去の射程 (登場時 = 使用済なので active のみ)
+            reach = [(m["rm_active_cost"], m["rm_active_pw"]) for m in mags if m["rm_active_cost"] > 0]
+            rc = max((r[0] for r in reach), default=0.0)
+            rp = max((r[1] for r in reach), default=0.0)
+            # (b) interaction: その射程が今の相手盤面の何体に届くか (union)
+            cover = [c for c in os_
+                     if any(float(c.get("cost") or 0) <= r[0] and float(c.get("power") or 0) <= r[1]
+                            for r in reach)]
+            cov_n = float(len(cover))
+            cov_pw = sum(float(c.get("power") or 0) for c in cover) / 1000.0
+            # (c) 個体の解像度
+            powers = sorted((float(c.get("power") or 0) for c in fs), reverse=True)
+            top1 = powers[0] / 1000.0
+            top2 = (powers[1] / 1000.0) if len(powers) > 1 else 0.0
+            spread = (powers[0] - powers[-1]) / 1000.0
+            best = max(fs, key=lambda c: float(c.get("power") or 0))
+            top1_don = float(best.get("attached_dons") or 0)
+            max_cost = max((float(c.get("cost") or 0) for c in fs), default=0.0)
+            mag = sum(m["draw"] + m["don"] + m["pump"] / 1000.0 + m["search"] / 2.0 + m["recover"]
+                      for m in mags)
+            return [rc, rp / 1000.0, cov_n, cov_pw, top1, top1_don, top2, spread, max_cost, mag]
+
+        return _side(sides[0], sides[1]) + _side(sides[1], sides[0])
+    except Exception:
+        return [0.0] * 20
+
+
 def eiv1_train_vector(row: dict) -> list:
     """corpus 行 → v18 学習ベクトル = f(v15,43) + matchup(17) + belief残り防御資源(4) = 64dim。
     保存済み state から matchup/belief を復元して append (= 再収集なしで v18 化)。"""
