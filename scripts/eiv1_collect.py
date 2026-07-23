@@ -290,11 +290,20 @@ def main():
     # game_id を付ける: 1 game = 5〜6 行を吐くので、 学習の held-out split を game 単位で
     # 切らないと同一 game の行が train/test に跨り AUC がリークで上振れする。
     run_tag = int(t0)   # この run の識別子 (round/日を跨いでも game_id が衝突しない)
-    rows, n_games = [], 0
+    rows, n_games, n_rated, n_wins = [], 0, 0, 0
     for gi, r in enumerate(results):
-        if r:
-            n_games += 1
-            rows.extend((f"{run_tag}-{gi}", *row) for row in r)
+        if not r:
+            continue
+        n_games += 1
+        # 現行 value 側 (hero 席) の勝敗。 _collect_game の hero_first = (seed % 2 == 0) と同じ規則で
+        # 席を復元し、 その席視点の行から y を拾う (両席記録なので行の並びからは決まらない)。
+        hero_seat = 0 if tasks[gi][0] % 2 == 0 else 1
+        for row in r:
+            if (row[4] or {}).get("hero_idx") == hero_seat:
+                n_rated += 1
+                n_wins += int(row[1])
+                break
+        rows.extend((f"{run_tag}-{gi}", *row) for row in r)
     with open(CORPUS, "a", encoding="utf-8") as f:
         for gid, fv, y, hero, opp, snap in rows:
             # f = v15 集計特徴 (今の GBM 学習が使う) / state = 局面まるごと oracle 生スナップショット
@@ -303,10 +312,13 @@ def main():
             f.write(json.dumps({"f": fv, "y": y, "hero": hero, "opp": opp, "state": snap,
                                 "g": gid}) + "\n")
     total = sum(1 for _ in open(CORPUS)) if CORPUS.exists() else 0
-    # ⚠ win率は出さない: 自己対戦では構造的に ~0.5 になるだけで強さを測れない。
-    # 強さの推移は ε=0 arena (vs EBV2 agnostic) が唯一の物差し。
+    # 現行 value が 1 世代前の相手にどれだけ勝ったか (= 世代が進んで強くなったかの早期警告)。
+    # ⚠ 相対指標: 相手も一緒に上がるので「前世代に勝ち続けているのに絶対的には停滞」もあり得る
+    # (循環)。 絶対的な強さは ε=0 arena vs EBV2 で見る。 sample 単位は両席記録で常に ~0.5 なので出さない。
+    wr = f"{n_wins / n_rated:.3f} ({n_wins}/{n_rated})" if n_rated else "n/a"
     print(f"appended {len(rows)} samples from {n_games}/{a.games} games "
-          f"({time.time()-t0:.0f}s) → corpus 総計 {total} samples", flush=True)
+          f"({time.time()-t0:.0f}s) | 現行 value の対 1 世代前 勝率 = {wr} "
+          f"→ corpus 総計 {total} samples", flush=True)
 
 
 if __name__ == "__main__":
