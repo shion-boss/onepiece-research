@@ -80,13 +80,10 @@ def main():
         print(f"!! サンプル不足 or 単一クラス (n={n}, win率={y.mean() if n else 0:.2f}) → 学習 skip")
         return
     cap = _progressive_capacity(n)
-    # win率は累積 (= 全 corpus のクラスバランス) だと 1 round 分 (~1%) では動かず固まって見えるので、
-    # 「今回の増分だけ」 を主表示にする (corpus は append-only なので末尾 = 今回分)。
-    inc = y[prev_n:] if 0 < prev_n <= n else y
-    inc_win = float(inc.mean()) if len(inc) else None
-    inc_txt = f"win率(今回 {len(inc)}件)={inc_win:.3f}" if inc_win is not None else "win率(今回)=増分なし"
-    print(f"EIV1 train: n={n} samples, dim={X.shape[1]}, {inc_txt}, "
-          f"win率(累積)={y.mean():.3f}, capacity={cap}", flush=True)
+    # ⚠ win率は出さない: 自己対戦では構造的に ~0.5 になるだけで強さを測れない
+    # (強さの推移は ε=0 arena vs EBV2 agnostic が物差し)。 増分だけ件数で示す。
+    inc = n - prev_n if 0 < prev_n <= n else n
+    print(f"EIV1 train: n={n} samples (今回 +{inc}), dim={X.shape[1]}, capacity={cap}", flush=True)
 
     # held-out AUC = game 単位 20% split (= 同一 game の行は必ず片側にまとめる → リーク無し)
     uniq = np.unique(groups)
@@ -117,8 +114,7 @@ def main():
         pass
     iters = manifest.get("train_iters", 0) + 1
     hist = manifest.get("history", [])
-    hist.append({"iter": iters, "n": n, "auc": auc, "cap": cap,
-                 "win_inc": inc_win, "n_inc": len(inc), "win_cum": float(y.mean()),
+    hist.append({"iter": iters, "n": n, "n_inc": int(inc), "auc": auc, "cap": cap,
                  "auc_split": "game", "n_games": int(len(uniq))})   # iter119 以降 = リーク無し AUC
     manifest.update({"train_iters": iters, "corpus_n": n, "dim": int(X.shape[1]),
                      "value_path": "db/eiv1/value.pkl", "history": hist[-50:]})

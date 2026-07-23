@@ -37,7 +37,11 @@ def main():
     ap.add_argument("--arena-every", type=int, default=8,
                     help="N ラウンドごとに ε=0 arena で強さを測る (0=しない)")
     ap.add_argument("--arena-pairs", type=int, default=100, help="arena の ペア数 (1 ペア=4 game)")
-    ap.add_argument("--arena-refs", default="agnostic,snapshot:oldest")
+    # 強さの物差しは EBV2(agnostic) に固定する。 自己対戦に切り替えても比較可能な唯一の基準で、
+    # 系列を通して同じ相手で測り続けることに意味がある (基準を増やすと 1 run の実測時間も倍になる)。
+    ap.add_argument("--arena-refs", default="agnostic")
+    ap.add_argument("--opp-mix", default="eiv1:0.7,snapshot:0.3",
+                    help="collect の相手 value 抽選 (自己対戦。 EBV2 は計測専用なので既定で入れない)")
     a = ap.parse_args()
     print(f"=== EIV1 loop: rounds={a.rounds} games/round={a.games} | 開始 corpus={_corpus_n()} ===",
           flush=True)
@@ -48,7 +52,7 @@ def main():
         subprocess.run([PY, str(ROOT / "scripts" / "eiv1_collect.py"),
                         *hero_args, "--opps", a.opps,
                         "--games", str(a.games), "--workers", str(a.workers),
-                        "--epsilon", str(a.epsilon),
+                        "--epsilon", str(a.epsilon), "--opp-mix", a.opp_mix,
                         "--beam-width", str(a.beam_width), "--max-depth", str(a.max_depth)],
                        check=False)
         # train (全 corpus 再学習)

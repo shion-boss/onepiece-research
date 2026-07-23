@@ -56,6 +56,49 @@ HEROES = ["cardrush_1454"]
 OPPS = ["cardrush_1385", "tcgportal_calgara", "tcgportal_bonney", "cardrush_1399"]
 EPSILON = 0.15
 BEAM_W, BEAM_D = 8, 6
+RECORD_BOTH = True   # 両席の局面を記録 (自己対戦なら同じ計算量でサンプル 2 倍)
+SNAP_DIR = EIV1_DIR / "snapshots"
+
+
+def _resolve_opp_mix(spec: str) -> list:
+    """"eiv1:0.7,snapshot:0.3" → [(value_path, weight)]。 存在しない選択肢は自動で落とす。
+
+    ⭐ 自己対戦の相手プール。 純ミラー (最新 EIV1 100%) だと双方が同じ弱点を持つため、
+    その弱点を突く打ち方が data から消える (忘却・狭窄)。 過去 snapshot を混ぜて防ぐ。
+    ⚠ EBV2(agnostic) は **強さ計測の物差し** として arena 側で使うので、 学習の相手には既定で入れない。"""
+    out = []
+    for part in (spec or "").split(","):
+        if not part.strip():
+            continue
+        name, _, w = part.partition(":")
+        try:
+            weight = float(w) if w else 1.0
+        except ValueError:
+            weight = 1.0
+        name = name.strip()
+        if name == "eiv1":
+            if EIV1_VALUE.exists():
+                out.append((str(EIV1_VALUE), weight))
+        elif name == "snapshot":
+            snaps = sorted(SNAP_DIR.glob("value_iter*.pkl"))
+            if snaps:
+                out.append(([str(p) for p in snaps], weight))
+        elif name == "agnostic":
+            out.append((AGNOSTIC, weight))
+        elif Path(name).exists():
+            out.append((name, weight))
+    return out or [(AGNOSTIC, 1.0)]
+
+
+def _pick_opp_value(mix: list, rng: random.Random) -> str:
+    total = sum(w for _, w in mix)
+    r = rng.random() * total
+    for val, w in mix:
+        r -= w
+        if r <= 0:
+            return rng.choice(val) if isinstance(val, list) else val
+    val = mix[-1][0]
+    return rng.choice(val) if isinstance(val, list) else val
 
 
 def _ref_path(ref: str) -> str:
@@ -107,7 +150,7 @@ def _hero_value_path() -> str:
 
 
 def _collect_game(task):
-    seed, hero, opp = task
+    seed, hero, opp, opp_value = task
     hero_first = (seed % 2 == 0)
     try:
         if hero_first:
@@ -127,26 +170,36 @@ def _collect_game(task):
                                  deck_analysis={**_ana(hero), "deck_slug": _slug(hero)},
                                  gbm_path=_hero_value_path(), beam_width=BEAM_W, max_depth=BEAM_D,
                                  epsilon=EPSILON)
-    # opp = EBV2 (agnostic)
-    ais[1 - hero_idx] = ExploitBeamAI(rng=random.Random(seed * 5 + 2),
-                                      deck_analysis={**_ana(opp), "deck_slug": _slug(opp)},
-                                      gbm_path=AGNOSTIC, beam_width=BEAM_W, max_depth=BEAM_D)
+    # opp = 抽選された value (自己対戦: 最新 EIV1 / 過去 snapshot / agnostic)。
+    # EIV1 系の相手には hero と同じ ε を与える (= 両席が対称。 片側だけ探索付きだと、
+    # 両席記録した時に席によってラベルのノイズ量が変わってしまう)。
+    if opp_value == AGNOSTIC:
+        ais[1 - hero_idx] = ExploitBeamAI(rng=random.Random(seed * 5 + 2),
+                                          deck_analysis={**_ana(opp), "deck_slug": _slug(opp)},
+                                          gbm_path=opp_value, beam_width=BEAM_W, max_depth=BEAM_D)
+    else:
+        ais[1 - hero_idx] = _ExploreBeam(rng=random.Random(seed * 5 + 2),
+                                         deck_analysis={**_ana(opp), "deck_slug": _slug(opp)},
+                                         gbm_path=opp_value, beam_width=BEAM_W, max_depth=BEAM_D,
+                                         epsilon=EPSILON)
     for i, x in enumerate(ais):
         if hasattr(x, "set_ai_opp"):
             x.set_ai_opp(ais[1 - i])
-    rows, seen = [], set()  # rows = (v15_features, full_oracle_snapshot) の対
+    rows, seen = [], set()  # rows = (v15_features, full_oracle_snapshot, 視点 seat)
     n = 0
     while not st.game_over and st.turn_number < 60 and n < 800:
         cur = st.turn_player_idx
-        if cur == hero_idx and st.phase == Phase.MAIN and st.turn_number not in seen:
-            seen.add(st.turn_number)
+        key = (cur, st.turn_number)
+        if st.phase == Phase.MAIN and key not in seen and (RECORD_BOTH or cur == hero_idx):
+            seen.add(key)
             try:
-                fv = eiv1_features(st, hero_idx)   # v15 集計 (今の GBM が使う、 高速用に併記)
+                fv = eiv1_features(st, cur)   # v15 集計 (今の GBM が使う、 高速用に併記)
                 # 局面まるごと oracle スナップショット (= 両者の隠匿手札/ライフ中身/デッキtop5 込み)。
-                # 将来どんな指標を足しても「保存済み state の関数」で再計算でき盲目化しない。 hero 視点を記録。
+                # 将来どんな指標を足しても「保存済み state の関数」で再計算でき盲目化しない。
+                # 手番側の視点で記録 (両席記録なら 1 game から 2 倍のサンプルが取れる)。
                 snap = snapshot_state(st)
-                snap["hero_idx"] = hero_idx
-                rows.append((fv, snap))
+                snap["hero_idx"] = cur
+                rows.append((fv, snap, cur))
             except Exception:
                 pass
         try:
@@ -156,13 +209,15 @@ def _collect_game(task):
         n += 1
     if not st.game_over:
         return []
-    y = 1 if getattr(st, "winner", -1) == hero_idx else 0
-    hs, os_ = _slug(hero), _slug(opp)
-    return [(fv, y, hs, os_, snap) for fv, snap in rows]
+    winner = getattr(st, "winner", -1)
+    decks = [None, None]
+    decks[hero_idx], decks[1 - hero_idx] = _slug(hero), _slug(opp)
+    return [(fv, 1 if winner == seat else 0, decks[seat], decks[1 - seat], snap)
+            for fv, snap, seat in rows]
 
 
 def main():
-    global HEROES, OPPS, EPSILON, BEAM_W, BEAM_D
+    global HEROES, OPPS, EPSILON, BEAM_W, BEAM_D, RECORD_BOTH
     ap = argparse.ArgumentParser()
     ap.add_argument("--heroes", default=None, help="hero プール (comma-list か @file)。 未指定は --hero")
     ap.add_argument("--hero", default="cardrush_1454", help="単一 hero (back-compat、 --heroes 未指定時)")
@@ -173,25 +228,34 @@ def main():
     ap.add_argument("--seed-base", type=int, default=None)
     ap.add_argument("--beam-width", type=int, default=BEAM_W)
     ap.add_argument("--max-depth", type=int, default=BEAM_D)
+    ap.add_argument("--opp-mix", default="eiv1:0.7,snapshot:0.3",
+                    help="相手 value の抽選 (eiv1 / snapshot / agnostic / パス:重み)。 "
+                         "既定 = 自己対戦 (最新 7 : 過去 snapshot 3)")
+    ap.add_argument("--record-both", type=int, default=1,
+                    help="1 = 両席の局面を記録 (自己対戦なら同計算量でサンプル 2 倍)")
     a = ap.parse_args()
     HEROES = _parse_pool(a.heroes) if a.heroes else [a.hero]
     OPPS = _parse_pool(a.opps)
     EPSILON = a.epsilon
     BEAM_W, BEAM_D = a.beam_width, a.max_depth
+    RECORD_BOTH = bool(a.record_both)
     EIV1_DIR.mkdir(parents=True, exist_ok=True)
     # seed-base: 既存 corpus サイズからずらして重複を避ける (毎日足しても別ゲーム)
     base = a.seed_base
     if base is None:
         base = 700000 + (CORPUS.stat().st_size if CORPUS.exists() else 0) % 500000
     # game 毎に hero/opp を seed 決定的にランダム選択 (広プールを均等に散らす)
+    mix = _resolve_opp_mix(a.opp_mix)
     tasks = []
     for i in range(a.games):
         seed = base + i
         r = random.Random(seed * 9176 + 12345)
-        tasks.append((seed, r.choice(HEROES), r.choice(OPPS)))
+        tasks.append((seed, r.choice(HEROES), r.choice(OPPS), _pick_opp_value(mix, r)))
+    mix_desc = ",".join(f"{'snapshot' if isinstance(v, list) else Path(v).stem}:{w:g}"
+                        for v, w in mix)
     print(f"EIV1 collect: heroes={len(HEROES)} × opps={len(OPPS)} | games={a.games} eps={EPSILON} "
-          f"beam={BEAM_W}/{BEAM_D} | value={'EIV1' if EIV1_VALUE.exists() else 'agnostic(iter0)'}",
-          flush=True)
+          f"beam={BEAM_W}/{BEAM_D} | value={'EIV1' if EIV1_VALUE.exists() else 'agnostic(iter0)'} "
+          f"| 相手={mix_desc} 両席記録={'on' if RECORD_BOTH else 'off'}", flush=True)
     t0 = time.time()
     # 1 round の上限秒 (circuit breaker): 病的に長いゲームが pool を無限ブロックし lock を握り続ける
     # のを防ぐ。 超えたら pool を terminate してこの round を打ち切り (lock 解放 → 次 cron が回れる)。
@@ -206,11 +270,10 @@ def main():
     # game_id を付ける: 1 game = 5〜6 行を吐くので、 学習の held-out split を game 単位で
     # 切らないと同一 game の行が train/test に跨り AUC がリークで上振れする。
     run_tag = int(t0)   # この run の識別子 (round/日を跨いでも game_id が衝突しない)
-    rows, n_games, n_wins = [], 0, 0
+    rows, n_games = [], 0
     for gi, r in enumerate(results):
         if r:
             n_games += 1
-            n_wins += int(r[0][1])   # y は 1 game 内で一定 (hero の勝敗)
             rows.extend((f"{run_tag}-{gi}", *row) for row in r)
     with open(CORPUS, "a", encoding="utf-8") as f:
         for gid, fv, y, hero, opp, snap in rows:
@@ -220,13 +283,10 @@ def main():
             f.write(json.dumps({"f": fv, "y": y, "hero": hero, "opp": opp, "state": snap,
                                 "g": gid}) + "\n")
     total = sum(1 for _ in open(CORPUS)) if CORPUS.exists() else 0
-    # この round だけの hero 勝率。 game 単位 = 素の勝率、 sample 単位 = 学習ラベルの偏り
-    # (長引く試合ほど行数が多いので両者はズレる)。 累積 win率 は train 側が出す。
-    win_g = f"{n_wins / n_games:.3f}" if n_games else "n/a"
-    win_s = f"{sum(r[2] for r in rows) / len(rows):.3f}" if rows else "n/a"
+    # ⚠ win率は出さない: 自己対戦では構造的に ~0.5 になるだけで強さを測れない。
+    # 強さの推移は ε=0 arena (vs EBV2 agnostic) が唯一の物差し。
     print(f"appended {len(rows)} samples from {n_games}/{a.games} games "
-          f"({time.time()-t0:.0f}s) | この round の hero 勝率 = {win_g} (game 単位 {n_wins}/{n_games}) "
-          f"/ {win_s} (sample 単位) → corpus 総計 {total} samples", flush=True)
+          f"({time.time()-t0:.0f}s) → corpus 総計 {total} samples", flush=True)
 
 
 if __name__ == "__main__":
