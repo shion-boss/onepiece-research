@@ -64,6 +64,11 @@ def snapshot_player(p: Any, idx: int) -> dict:
         "did_mulligan": bool(getattr(p, "did_mulligan", False)),
         "deck_count": len(p.deck),
         "trash_count": len(p.trash),
+        # ⭐ 未確認プール = デッキ + ライフ の card_id (順序を潰して sort)。 2026-07-24。
+        # 人間は「デッキリスト − (手札∪場∪トラッシュ)」を必ず把握して動く (= 残り除去は何枚か)。
+        # ⚠ p.deck だけを渡すと消去法でライフの中身が判ってしまうので **ライフと混ぜる**。
+        # これで「人間が知り得る情報を、 人間より正確に (数え落とし無く) 追う」形になる。
+        "unseen_pool_card_ids": sorted([c.card_id for c in p.deck] + [c.card_id for c in p.life]),
         "trash_card_ids": [c.card_id for c in p.trash],
         "don_active": p.don_active,
         "don_rested": p.don_rested,

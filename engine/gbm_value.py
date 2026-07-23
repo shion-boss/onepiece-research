@@ -333,6 +333,17 @@ def _mini_snap(state: Any, me_idx: int) -> dict:
             "stages": [{"card_id": ip.card.card_id} for ip in getattr(p, "stages", [])],
             "deck_count": len(getattr(p, "deck", []) or []),
             "trash_count": len(getattr(p, "trash", []) or []),
+            # 未確認プール (デッキ + ライフ)。 ⚠ deck だけだとライフの中身が消去法で漏れる
+            "unseen_pool_card_ids": sorted(
+                [c.card_id for c in (getattr(p, "deck", []) or [])]
+                + [c.card_id for c in (getattr(p, "life", []) or [])]),
+            # 妨害を受けている状態 (= 今ターン キャラを出せない / ドロー封じ / ライフ回収不可)
+            "block_chara_play_until_turn_end": bool(
+                getattr(p, "block_chara_play_until_turn_end", False)),
+            "block_self_draw_until_turn_end": bool(
+                getattr(p, "block_self_draw_until_turn_end", False)),
+            "prevent_self_life_to_hand_until_turn_end": bool(
+                getattr(p, "prevent_self_life_to_hand_until_turn_end", False)),
             "don_rested": getattr(p, "don_rested", 0),
             "don_remaining_in_deck": getattr(p, "don_remaining_in_deck", 0),
             "did_mulligan": bool(getattr(p, "did_mulligan", False)),

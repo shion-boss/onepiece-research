@@ -650,6 +650,16 @@ EYES_KEYS = tuple(
     + ["my_effects_used", "opp_effects_used", "effects_used_diff",
        "opp_recent_removal", "opp_recent_draw", "opp_recent_search",
        "recent_effects_n", "my_effects_per_turn"]
+    # ⭐ 自分の未確認プール (デッキ+ライフ) の中身 = 人間が必ず把握している情報。 2026-07-24。
+    # 「残り除去は何枚か」「カウンターは尽きたか」で人間はプランを変える。 現在の特徴は
+    # デッキ枚数すら使っていなかった = 完全な盲目。 ⚠ ライフと混ぜたプールで数える (公平性)。
+    + ["my_unseen_n", "my_unseen_counter_total", "my_unseen_ctr2000_n",
+       "my_unseen_removal_n", "my_unseen_blocker_n", "my_unseen_engine_n",
+       "my_unseen_finisher_n", "my_unseen_avg_power", "my_unseen_counter_per_card",
+       "my_unseen_removal_ratio", "my_unseen_blocker_ratio",
+       # 妨害を受けている状態 (snapshot にあったが特徴が 1 つも見ていなかった)
+       "my_blocked_chara_play", "my_blocked_draw", "my_blocked_life_to_hand",
+       "opp_blocked_chara_play", "opp_blocked_draw", "opp_blocked_life_to_hand"]
 )
 
 
@@ -741,6 +751,48 @@ def _eyes_features(snap: dict) -> dict:
     out["opp_recent_search"] = float(sum(1 for e in opp_rec if "search" in str(e[2])))
     out["recent_effects_n"] = float(len(rec))
     out["my_effects_per_turn"] = mine / max(turn, 1.0)
+
+    # --- 自分の未確認プール (デッキ + ライフ) の中身 ---
+    pool = me.get("unseen_pool_card_ids") or []
+    n_pool = float(len(pool))
+    ctr_tot = ctr2k = rm = blk = eng = fin = 0.0
+    pw_sum = 0.0
+    for cid in pool:
+        meta = info.get(cid)
+        if not meta:
+            continue
+        cats = meta.get("cats") or frozenset()
+        cv = float(meta.get("counter_value") or 0.0)
+        ctr_tot += cv
+        if cv >= 2000:
+            ctr2k += 1
+        if cats & {"removal", "removal_ko", "removal_bounce"}:
+            rm += 1
+        if "blocker" in cats:
+            blk += 1
+        if cats & {"draw", "search", "ramp_don", "recursion"}:
+            eng += 1
+        pw = float((meta.get("mags") or {}).get("_power") or 0.0)
+        pw_sum += pw
+        if pw >= 7.0:
+            fin += 1
+    out["my_unseen_n"] = n_pool
+    out["my_unseen_counter_total"] = ctr_tot / 1000.0
+    out["my_unseen_ctr2000_n"] = ctr2k
+    out["my_unseen_removal_n"] = rm
+    out["my_unseen_blocker_n"] = blk
+    out["my_unseen_engine_n"] = eng
+    out["my_unseen_finisher_n"] = fin
+    out["my_unseen_avg_power"] = (pw_sum / n_pool) if n_pool else 0.0
+    # 密度 = 「次に引く 1 枚がそれである確率」 = 人間が期待値で考える量
+    out["my_unseen_counter_per_card"] = (ctr_tot / 1000.0 / n_pool) if n_pool else 0.0
+    out["my_unseen_removal_ratio"] = (rm / n_pool) if n_pool else 0.0
+    out["my_unseen_blocker_ratio"] = (blk / n_pool) if n_pool else 0.0
+    for side, p_ in (("my", me), ("opp", opp)):
+        out[f"{side}_blocked_chara_play"] = 1.0 if p_.get("block_chara_play_until_turn_end") else 0.0
+        out[f"{side}_blocked_draw"] = 1.0 if p_.get("block_self_draw_until_turn_end") else 0.0
+        out[f"{side}_blocked_life_to_hand"] = 1.0 if p_.get(
+            "prevent_self_life_to_hand_until_turn_end") else 0.0
     return out
 
 
