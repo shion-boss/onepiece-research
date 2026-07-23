@@ -60,6 +60,16 @@ RECORD_BOTH = True   # 両席の局面を記録 (自己対戦なら同じ計算�
 SNAP_DIR = EIV1_DIR / "snapshots"
 
 
+def _snapshots() -> list:
+    """凍結世代を iter 昇順で。 ⚠ 文字列 sort だと iter130 < iter90 になるので数値で並べる。"""
+    def _it(p):
+        try:
+            return int(p.stem.replace("value_iter", ""))
+        except ValueError:
+            return -1
+    return sorted([p for p in SNAP_DIR.glob("value_iter*.pkl") if _it(p) >= 0], key=_it)
+
+
 def _resolve_opp_mix(spec: str) -> list:
     """"eiv1:0.7,snapshot:0.3" → [(value_path, weight)]。 存在しない選択肢は自動で落とす。
 
@@ -80,9 +90,19 @@ def _resolve_opp_mix(spec: str) -> list:
             if EIV1_VALUE.exists():
                 out.append((str(EIV1_VALUE), weight))
         elif name == "snapshot":
-            snaps = sorted(SNAP_DIR.glob("value_iter*.pkl"))
+            snaps = _snapshots()
             if snaps:
                 out.append(([str(p) for p in snaps], weight))
+        elif name == "prev":
+            # 直前の凍結世代 (= 常に 1 世代古い相手)。 同一 value のミラーだと両者の評価が
+            # 完全一致して「意見の相違が起きる局面」がデータに入らず、 進捗の内部信号も消える。
+            # ⚠ 1 iteration 前では差分が corpus の 1% 未満でほぼ同一モデル → 10 iter ごとの
+            # 凍結 (≈2 時間前、 差分 ~8%) を 1 世代とする。
+            snaps = _snapshots()
+            if snaps:
+                out.append((str(snaps[-1]), weight))
+            elif EIV1_VALUE.exists():
+                out.append((str(EIV1_VALUE), weight))   # 凍結がまだ無い間は現行で代替
         elif name == "agnostic":
             out.append((AGNOSTIC, weight))
         elif Path(name).exists():
@@ -228,9 +248,9 @@ def main():
     ap.add_argument("--seed-base", type=int, default=None)
     ap.add_argument("--beam-width", type=int, default=BEAM_W)
     ap.add_argument("--max-depth", type=int, default=BEAM_D)
-    ap.add_argument("--opp-mix", default="eiv1:0.7,snapshot:0.3",
-                    help="相手 value の抽選 (eiv1 / snapshot / agnostic / パス:重み)。 "
-                         "既定 = 自己対戦 (最新 7 : 過去 snapshot 3)")
+    ap.add_argument("--opp-mix", default="prev:0.7,snapshot:0.3",
+                    help="相手 value の抽選 (prev / eiv1 / snapshot / agnostic / パス:重み)。 "
+                         "既定 = 自己対戦の 1 世代前 (直前の凍結 7 : 過去 snapshot 3)")
     ap.add_argument("--record-both", type=int, default=1,
                     help="1 = 両席の局面を記録 (自己対戦なら同計算量でサンプル 2 倍)")
     a = ap.parse_args()

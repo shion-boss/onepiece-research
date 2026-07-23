@@ -40,8 +40,8 @@ def main():
     # 強さの物差しは EBV2(agnostic) に固定する。 自己対戦に切り替えても比較可能な唯一の基準で、
     # 系列を通して同じ相手で測り続けることに意味がある (基準を増やすと 1 run の実測時間も倍になる)。
     ap.add_argument("--arena-refs", default="agnostic")
-    ap.add_argument("--opp-mix", default="eiv1:0.7,snapshot:0.3",
-                    help="collect の相手 value 抽選 (自己対戦。 EBV2 は計測専用なので既定で入れない)")
+    ap.add_argument("--opp-mix", default="prev:0.7,snapshot:0.3",
+                    help="collect の相手 value 抽選 (自己対戦の 1 世代前。 EBV2 は計測専用)")
     a = ap.parse_args()
     print(f"=== EIV1 loop: rounds={a.rounds} games/round={a.games} | 開始 corpus={_corpus_n()} ===",
           flush=True)
