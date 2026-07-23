@@ -107,6 +107,14 @@ def main():
     model.fit(X, y)
     with open(VALUE, "wb") as f:
         pickle.dump(model, f)
+    # 動的 spec を model と対で保存 (= 推論側は <model>.spec.json を読むので取り違えない)。
+    # spec が空でも書く (= 「この model は v20 素のまま」を明示)。
+    try:
+        from engine.feature_spec import active_spec, save_spec, spec_path_for_model
+        save_spec(spec_path_for_model(VALUE), active_spec(),
+                  {"iter": manifest.get("train_iters", 0) + 1, "n": n, "dim": int(X.shape[1])})
+    except Exception:
+        pass
     iters = manifest.get("train_iters", 0) + 1
     hist = manifest.get("history", [])
     hist.append({"iter": iters, "n": n, "auc": auc, "cap": cap,
@@ -124,6 +132,11 @@ def main():
         snap = SNAP_DIR / f"value_iter{iters}.pkl"
         with open(snap, "wb") as f:
             pickle.dump(model, f)
+        try:   # snapshot も spec と対で残す (= 後で arena の基準として正しく復元できる)
+            from engine.feature_spec import active_spec, save_spec, spec_path_for_model
+            save_spec(spec_path_for_model(snap), active_spec(), {"iter": iters, "n": n})
+        except Exception:
+            pass
         print(f"  snapshot: {snap.name}", flush=True)
 
 

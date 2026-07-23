@@ -23,7 +23,7 @@ gbm_score は model 次元で feature 版を自動判別するので、 新次�
 """
 from __future__ import annotations
 import types
-from typing import Any
+from typing import Any, Optional
 
 from . import gbm_value
 
@@ -302,4 +302,13 @@ def eiv1_train_vector(row: dict) -> list:
     br = belief_resource_feats_from_snapshot(snap) if snap else [0.0] * 4
     bd = board_detail_feats_from_snapshot(snap) if snap else [0.0] * 20
     hr = hand_reach_feats_from_snapshot(snap) if snap else [0.0] * 10
-    return base + mu + br + bd + hr
+    return base + mu + br + bd + hr + _spec_tail(snap)
+
+
+def _spec_tail(snap: Optional[dict]) -> list:
+    """自動 feature 探索で採用された動的列 (db/eiv1/feature_spec.json)。 無ければ空 = v20 のまま。"""
+    from .feature_spec import active_spec, evaluate
+    spec = active_spec()
+    if not spec:
+        return []
+    return evaluate(snap, spec) if snap else [0.0] * len(spec)

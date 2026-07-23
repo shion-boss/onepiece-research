@@ -334,8 +334,12 @@ def _mini_snap(state: Any, me_idx: int) -> dict:
             "known_hand_card_ids": list(getattr(p, "known_hand_card_ids", []) or []),
             "trash_card_ids": [c.card_id for c in getattr(p, "trash", [])],
             "don_active": getattr(p, "don_active", 0),
+            # 文脈スカラー用 (snapshot_player と同じ key 名で揃える)
+            "life_count": len(getattr(p, "life", []) or []),
+            "hand_count": len(p.hand),
+            "field_total_power": sum(ip.power for ip in p.characters),
         }
-    return {"hero_idx": 0,
+    return {"hero_idx": 0, "turn_number": getattr(state, "turn_number", 0),
             "players": [_side(state.players[me_idx]), _side(state.players[1 - me_idx])]}
 
 
@@ -959,6 +963,20 @@ def _load(path: str):
     import pickle
     with open(path, "rb") as f:
         m = pickle.load(f)
+    # 動的 feature spec: <model>.spec.json があれば model に括り付ける (= model は自己記述的)。
+    # これで「学習時の spec」と「推論時の spec」が file 対で一致し、 取り違えが起きない。
+    try:
+        from .feature_spec import load_spec, spec_path_for_model
+        sp = spec_path_for_model(path)
+        if sp.exists():
+            cols = load_spec(sp)
+            if cols:
+                try:
+                    m._eiv1_spec = cols
+                except Exception:
+                    pass
+    except Exception:
+        pass
     _MODEL_CACHE[path] = m
     _MODEL, _MODEL_PATH = m, path  # 後方互換 (旧 single-slot を参照する箇所向け)
     return m
@@ -1033,6 +1051,13 @@ def _model_pwin(model: Any, state: Any, me_idx: int, _feats: Optional[list] = No
         return min(1.0, max(0.0, p_anchor + float(model.get("lam", 1.0)) * resid))
     # plain sklearn model (次元自動判別、 classifier/regressor 両対応)
     n = int(getattr(model, "n_features_in_", len(FEATURE_KEYS)))
+    spec = getattr(model, "_eiv1_spec", None)
+    if spec and n == len(FEATURE_KEYS_V20) + len(spec):
+        # 動的 spec 付き model (= 自動 feature 探索で採用された列を v20 の後ろに append)
+        from .feature_spec import evaluate as _spec_eval
+        snap = _mini_snap(state, me_idx)
+        v = _fast_val(model, features(state, me_idx, v20=True) + _spec_eval(snap, spec))
+        return v if hasattr(model, "predict_proba") else min(1.0, max(0.0, v))
     x = _feats[:n] if _reuse_ok(_feats, n) else _feat_for_dim(state, me_idx, n)
     v = _fast_val(model, x)
     return v if hasattr(model, "predict_proba") else min(1.0, max(0.0, v))

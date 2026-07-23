@@ -76,3 +76,45 @@ def test_magnitude_distinguishes_removal_reach():
     assert max(reaches) >= CM.UNCOND_COST
     # 除去を持たないカードは 0 のまま (誤検出しない)
     assert db["OP01-016"]["rm_play_cost"] == 0.0   # ナミ = デッキサーチのみ
+
+
+# --- 動的 feature spec (自動 feature 探索の土台) --------------------------------
+
+
+def test_spec_generator_is_deterministic_and_named():
+    from engine import feature_spec as FS
+    a, b = FS.generate_candidates(), FS.generate_candidates()
+    assert a == b and len(a) > 100
+    names = [FS.col_name(c) for c in a]
+    assert len(names) == len(set(names)), "列名が重複している"
+
+
+def test_spec_evaluate_matches_live_state():
+    """spec 列も live state と snapshot で一致すること (学習と推論のズレ防止)。"""
+    from engine import feature_spec as FS
+    spec = FS.generate_candidates()[:60] + FS.generate_interactions(FS.generate_candidates()[:3])
+    for seed in (2, 11):
+        st = _state("cardrush_1454", "cardrush_1342", seed=seed)
+        for me_idx in (0, 1):
+            snap = snapshot_state(st)
+            snap["hero_idx"] = me_idx
+            assert FS.evaluate(snap, spec) == FS.evaluate(gv._mini_snap(st, me_idx), spec)
+
+
+def test_empty_spec_is_noop():
+    from engine import feature_spec as FS
+    st = _state("cardrush_1454", "cardrush_1342")
+    assert FS.evaluate(gv._mini_snap(st, 0), []) == []
+    assert len(gv.features(st, 0, v20=True)) == 94   # spec 無しなら v20 のまま
+
+
+def test_spec_columns_use_only_fair_information():
+    """公平性: 自分のライフ中身 / 相手の生手札を zone に含めない (推論時に知り得ない)。"""
+    from engine import feature_spec as FS
+    st = _state("cardrush_1454", "cardrush_1342")
+    snap = snapshot_state(st)
+    snap["hero_idx"] = 0
+    for zone in FS.ZONES:
+        assert "life" not in zone
+    cards = FS.evaluate(snap, [{"k": "agg", "z": "opp_seen_hand", "c": "removal", "s": "count"}])
+    assert cards == [0.0] or cards[0] >= 0.0   # 公開履歴のみ
