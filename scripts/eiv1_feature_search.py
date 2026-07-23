@@ -118,16 +118,19 @@ def _eval_block(lines: list, spec: list) -> np.ndarray:
     return np.array(out, dtype=np.float32)
 
 
-def _card_search(a, t0):
+def _card_search(a, t0, cards=None, tag="card"):
     """カード ID 列の探索。 ⭐ 疎な列を数千本まとめて放り込むと (a) メモリと学習時間が爆発し
     (b) 偶然効いて見える列を必ず拾う。 ブロックに割って **各ブロックごとに帰無分布 (ランダム列)
     と比較** することで、 両方を同時に抑える。"""
-    zones = tuple(z for z in a.card_zones.split(",") if z)
-    freq = FS.card_frequency()
-    top_n = len(freq) if a.card_ids < 0 else a.card_ids
-    cards = FS.generate_card_candidates(top_n, zones)
-    print(f"カード ID 列: {len(freq)} 種中 上位 {top_n} × {len(zones)} zone = {len(cards):,} 列 "
-          f"をブロック {a.card_block} ごとに選別", flush=True)
+    if cards is None:
+        zones = tuple(z for z in a.card_zones.split(",") if z)
+        freq = FS.card_frequency()
+        top_n = len(freq) if a.card_ids < 0 else a.card_ids
+        cards = FS.generate_card_candidates(top_n, zones)
+        print(f"カード ID 列: {len(freq)} 種中 上位 {top_n} × {len(zones)} zone = "
+              f"{len(cards):,} 列 をブロック {a.card_block} ごとに選別", flush=True)
+    else:
+        print(f"{tag} 列: {len(cards):,} 列 をブロック {a.card_block} ごとに選別", flush=True)
 
     lines = _load_rows(a.sample)
     Xb, _, y, groups = _build(lines, [])
@@ -163,7 +166,7 @@ def _card_search(a, t0):
         del X, Xk
 
     if not kept:
-        _log({"result": "no_candidate", "mode": "card"})
+        _log({"result": "no_candidate", "mode": tag})
         print("採用候補なし → 終了", flush=True)
         return
     order = np.argsort(-np.array(kept_imp))[:a.max_keep]
@@ -179,17 +182,17 @@ def _card_search(a, t0):
     print(f"関門2: AUC {auc_base:.4f} → {auc_new:.4f} ({d_auc:+.4f}, 要求 {a.min_auc:+.4f}) "
           f"({time.time() - t0:.0f}s)", flush=True)
     if d_auc < a.min_auc:
-        _log({"result": "rejected_auc", "mode": "card", "n_kept": len(kept),
+        _log({"result": "rejected_auc", "mode": tag, "n_kept": len(kept),
               "auc_base": auc_base, "auc_new": auc_new, "d_auc": d_auc})
         print("→ 棄却 (AUC 改善が不足)", flush=True)
         return
-    _log({"result": "passed_auc_pending_arena", "mode": "card", "n_kept": len(kept),
+    _log({"result": "passed_auc_pending_arena", "mode": tag, "n_kept": len(kept),
           "d_auc": d_auc, "names": [FS.col_name(c) for c in kept]})
     print("関門2 通過 → 関門3 (arena) は別途 --no-arena を外して実行、 "
           "または下記を spec に手動採用", flush=True)
-    FS.save_spec(EIV1_DIR / "feature_spec.card_candidate.json", kept,
-                 {"mode": "card", "d_auc": d_auc, "auc_base": auc_base, "auc_new": auc_new})
-    print(f"候補 spec を db/eiv1/feature_spec.card_candidate.json に保存 ({len(kept)} 列)",
+    FS.save_spec(EIV1_DIR / f"feature_spec.{tag}_candidate.json", kept,
+                 {"mode": tag, "d_auc": d_auc, "auc_base": auc_base, "auc_new": auc_new})
+    print(f"候補 spec を db/eiv1/feature_spec.{tag}_candidate.json に保存 ({len(kept)} 列)",
           flush=True)
 
 
@@ -208,6 +211,8 @@ def main():
     ap.add_argument("--no-arena", action="store_true", help="関門3 を省く (探索のみ)")
     ap.add_argument("--workers", type=int, default=6)
     ap.add_argument("--dry-run", action="store_true", help="採用しない (spec を書き換えない)")
+    ap.add_argument("--group", default="",
+                    help="der / don / agg (comma 可) を探索する。 未指定はカード ID or 集計列")
     ap.add_argument("--card-ids", type=int, default=0,
                     help="カード ID 列を探索する (頻出上位 N 種、 -1 = 全種)。 0 = 集計列を探索")
     ap.add_argument("--card-zones",
@@ -219,6 +224,14 @@ def main():
     a = ap.parse_args()
     t0 = time.time()
 
+    if a.group:
+        gen = {"der": FS.generate_derived_candidates, "don": FS.generate_don_candidates,
+               "agg": FS.generate_candidates, "eye": FS.generate_eyes_candidates}
+        cols = []
+        for g in a.group.split(","):
+            if g in gen:
+                cols += gen[g]()
+        return _card_search(a, t0, cards=cols, tag=a.group.replace(",", "_"))
     if a.card_ids:
         return _card_search(a, t0)
     cand_cols = FS.generate_candidates()

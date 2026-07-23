@@ -327,14 +327,24 @@ def _mini_snap(state: Any, me_idx: int) -> dict:
     列の計算は eiv1_features の 1 実装に集約し、 ここは入力の形を合わせるだけにする。"""
     def _side(p):
         return {
-            "leader": {"card_id": p.leader.card.card_id},
+            "leader": {"card_id": p.leader.card.card_id, "power": p.leader.power,
+                       "rested": bool(getattr(p.leader, "rested", False)),
+                       "attached_dons": getattr(p.leader, "attached_dons", 0)},
+            "stages": [{"card_id": ip.card.card_id} for ip in getattr(p, "stages", [])],
+            "deck_count": len(getattr(p, "deck", []) or []),
+            "trash_count": len(getattr(p, "trash", []) or []),
+            "don_rested": getattr(p, "don_rested", 0),
+            "don_remaining_in_deck": getattr(p, "don_remaining_in_deck", 0),
+            "did_mulligan": bool(getattr(p, "did_mulligan", False)),
             # ⚠ key は snapshot_player と同一に保つ (spec 列は snapshot でも live でも同じ
             # 実装で計算するので、 片方に欠けると学習と推論がズレる)。
             "field": [{"card_id": ip.card.card_id, "cost": getattr(ip.card, "cost", 0),
                        "power": ip.power, "attached_dons": getattr(ip, "attached_dons", 0),
                        "rested": bool(getattr(ip, "rested", False)),
                        "summoning_sickness": bool(getattr(ip, "summoning_sickness", False)),
-                       "is_blocker_now": bool(getattr(ip, "is_blocker_now", False))}
+                       "is_blocker_now": bool(getattr(ip, "is_blocker_now", False)),
+                       "is_rush_now": bool(getattr(ip, "is_rush_now", False)),
+                       "granted_keywords": list(getattr(ip, "granted_keywords", set()) or [])}
                       for ip in p.characters],
             "hand_card_ids": [c.card_id for c in p.hand],
             "known_hand_card_ids": list(getattr(p, "known_hand_card_ids", []) or []),

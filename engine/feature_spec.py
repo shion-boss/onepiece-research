@@ -105,6 +105,8 @@ def col_name(col: dict) -> str:
         return f"don_{col['c']}"
     if col.get("k") == "der":
         return f"der_{col['c']}"
+    if col.get("k") == "eye":
+        return f"eye_{col['c']}"
     return f"{col['z']}_{col['c']}_{col['s']}"
 
 
@@ -189,6 +191,18 @@ DERIVED_KEYS = (
     "my_active_max_pw", "my_active_sum_pw", "opp_active_max_pw", "my_active_ge5000_n",
     # ⑤ 付与ドンの所在 (= 合計でなくどこに寄っているか)
     "my_attached_max", "my_attached_holders", "opp_attached_max",
+    # ⑧ 人間の定石をそのままスカラー化 (2026-07-24、 docs/optcg/ の一次情報)。
+    # 現行 94 列は「手札枚数」「ライフ枚数」を別々に持つだけで、 人間が全てを翻訳して使う
+    # 合成量 (NNA / 要求値 / クロック) を持っていない。 木は理論上これらを学べるが、
+    # 「hand + life×2 + 1」 のような特定の重み付き和を偶然見つけるには大量のデータが要る。
+    "my_nna", "opp_nna", "nna_diff", "my_nna_le3", "opp_nna_le3",
+    "my_attacks_per_turn", "opp_attacks_per_turn",
+    "my_clock", "opp_clock", "clock_diff",
+    "my_demand_max", "my_demand_sum", "opp_demand_max",
+    "my_counter_vs_demand", "my_life_absorb",
+    "my_pw_ge7000_n", "my_pw_5000_6999_n", "my_pw_lt3000_n",
+    "opp_pw_ge7000_n", "opp_pw_5000_6999_n", "opp_pw_lt3000_n",
+    "my_attack_ladder",
     # ⑦ 情報の非対称性 (2026-07-24)。 公開サーチ/バウンスで手札が割れている枚数。
     # ⚠ 両方とも公開情報 (自分の割れ札は自分も見ている / 相手の割れ札はこちらが見た)。
     # ブラフ・温存・「バレ札から切る」判断の土台になる量。
@@ -278,12 +292,70 @@ def _derived_features(snap: dict) -> dict:
         "my_attached_max": max(att, default=0.0),
         "my_attached_holders": float(sum(1 for a in att if a > 0)),
         "opp_attached_max": max(att_o, default=0.0),
+        **_race_scalars(me, opp, my_act, opp_act, _chars, _pw, mh, oh),
         "my_hand_known_n": mk, "my_hand_known_ratio": (mk / mh) if mh else 0.0,
         "opp_hand_known_n": ok, "opp_hand_known_ratio": (ok / oh) if oh else 0.0,
         # 正 = こちらの方が相手の手札を多く知っている (情報で優位)
         "info_edge": ok - mk,
     }
 
+
+def _race_scalars(me: dict, opp: dict, my_act: list, opp_act: list,
+                  _chars, _pw, mh: float, oh: float) -> dict:
+    """人間の定石量 (docs/optcg/)。 NNA・要求値・クロック・パワー帯。
+
+    NNA (必要攻撃回数) = 手札 + ライフ×2 + 1 = 「相手を倒すのに要る 5000 攻撃の最大回数」。
+    上達論の中核で、 攻撃も防御もこれ 1 本に翻訳して考える。 現行特徴は手札とライフを
+    別々に持つだけなので、 この特定の重み付き和は木が偶然見つけない限り使えない。
+    要求値 = 攻撃側パワー − 守備側パワー + 1000 = 相手に強いるカウンター値。"""
+    ml = float(me.get("life_count") or 0)
+    ol = float(opp.get("life_count") or 0)
+    my_nna = mh + ml * 2.0 + 1.0
+    opp_nna = oh + ol * 2.0 + 1.0
+    # 攻撃回数 = アクティブキャラ + リーダー (レストしていなければ)
+    my_atk_n = float(len(my_act)) + (0.0 if me.get("leader_rested") else 1.0)
+    # ⚠ 相手は次の自分のターンに全キャラがアクティブに戻る (召喚酔いも解ける) ので、
+    # 相手の攻撃回数/要求値は「今アクティブな駒」でなく **全キャラ** で数える。
+    # ここを今アクティブだけで数えると、 攻撃直後の相手を丸腰と誤認して脅威を過小評価する。
+    opp_all = [_pw(c) for c in _chars(opp)]
+    opp_atk_n = float(len(opp_all)) + 1.0
+    my_clock = (opp_nna / my_atk_n) if my_atk_n > 0 else 99.0
+    opp_clock = (my_nna / opp_atk_n) if opp_atk_n > 0 else 99.0
+    # 要求値 (対リーダー): 攻撃側パワー − 相手リーダーパワー + 1000
+    olp = float((opp.get("leader") or {}).get("power") or 5000)
+    mlp = float((me.get("leader") or {}).get("power") or 5000)
+    dem = [max(0.0, p - olp + 1000.0) / 1000.0 for p in my_act]
+    odem = [max(0.0, p - mlp + 1000.0) / 1000.0 for p in opp_all]
+    ctr = 0.0
+    try:
+        info = _card_info()
+        ctr = sum(float((info.get(c) or {}).get("counter_value") or 0.0)
+                  for c in (me.get("hand_card_ids") or [])) / 1000.0
+    except Exception:
+        pass
+    opp_demand_total = sum(odem)
+    my_pw = opp_all
+    return {
+        "my_nna": my_nna, "opp_nna": opp_nna, "nna_diff": opp_nna - my_nna,
+        "my_nna_le3": 1.0 if my_nna <= 3 else 0.0,
+        "opp_nna_le3": 1.0 if opp_nna <= 3 else 0.0,
+        "my_attacks_per_turn": my_atk_n, "opp_attacks_per_turn": opp_atk_n,
+        "my_clock": min(my_clock, 20.0), "opp_clock": min(opp_clock, 20.0),
+        "clock_diff": min(opp_clock, 20.0) - min(my_clock, 20.0),
+        "my_demand_max": max(dem, default=0.0), "my_demand_sum": sum(dem),
+        "opp_demand_max": max(odem, default=0.0),
+        # 次の相手ターンの要求値合計を、 手札のカウンター総量で払えるか (>1 なら守り切れる)
+        "my_counter_vs_demand": (ctr / opp_demand_total) if opp_demand_total > 0 else 2.0,
+        "my_life_absorb": ml,
+        "my_pw_ge7000_n": float(sum(1 for p in my_act if p >= 7000)),
+        "my_pw_5000_6999_n": float(sum(1 for p in my_act if 5000 <= p < 7000)),
+        "my_pw_lt3000_n": float(sum(1 for p in my_act if p < 3000)),
+        "opp_pw_ge7000_n": float(sum(1 for p in my_pw if p >= 7000)),
+        "opp_pw_5000_6999_n": float(sum(1 for p in my_pw if 5000 <= p < 7000)),
+        "opp_pw_lt3000_n": float(sum(1 for p in my_pw if p < 3000)),
+        # 攻撃順の階段 (低→高で要求値を積む) が作れるか = アタッカーのパワー幅
+        "my_attack_ladder": (max(my_act) - min(my_act)) / 1000.0 if len(my_act) > 1 else 0.0,
+    }
 
 def generate_derived_candidates() -> list:
     return [{"k": "der", "c": k} for k in DERIVED_KEYS]
@@ -475,19 +547,22 @@ def evaluate(snap: dict, spec: list) -> list:
     if not spec:
         return []
     try:
-        need, need_card, need_don, need_der = set(), set(), False, False
+        need, need_card, need_don, need_der, need_eye = set(), set(), False, False, False
         for col in spec:
             base = col["a"] if col.get("k") == "x" else col
             if base.get("k") == "don":
                 need_don = True
             elif base.get("k") == "der":
                 need_der = True
+            elif base.get("k") == "eye":
+                need_eye = True
             elif base.get("k") == "card":
                 need_card.add(base["z"])
             else:
                 need.add(base["z"])
         dons = _don_features(snap) if need_don else {}
         ders = _derived_features(snap) if need_der else {}
+        eyes = _eyes_features(snap) if need_eye else {}
         aggs = {z: (_belief_aggregates(snap) if z == "opp_belief"
                     else _zone_aggregates(_zone_cards(snap, z))) for z in need}
         # カード ID 列: zone ごとに card_id → 枚数 を 1 回だけ作る
@@ -505,6 +580,8 @@ def evaluate(snap: dict, spec: list) -> list:
                 v = dons.get(base["c"], 0.0)
             elif base.get("k") == "der":
                 v = ders.get(base["c"], 0.0)
+            elif base.get("k") == "eye":
+                v = eyes.get(base["c"], 0.0)
             elif base.get("k") == "card":
                 v = counts[base["z"]].get(base["c"], 0.0)
             else:
@@ -544,3 +621,105 @@ def save_spec(path: Any, columns: list, provenance: Optional[dict] = None) -> No
     Path(path).write_text(json.dumps(
         {"n_columns": len(columns), "columns": columns, "provenance": provenance or {}},
         ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+# === 「EIV1 に目を」 — 盤面の個体を 1 体ずつ見る + 未使用ゾーンを全部使う (2026-07-24) =======
+# ohtsuki:「ワンピースカードは複雑なはずで、 スカラーがこれで足りているとは到底思えない」。
+# 監査したら snapshot にあるのに特徴が 1 つも使っていないものが多数あった:
+#   リーダーの状態 (パワー/レスト/付与ドン) / ステージ / デッキ残枚数 / トラッシュ枚数 /
+#   レストドン / ドンデッキ残 / キーワード付与 / マリガン有無 / 効果発動の累計回数
+# さらに盤面は top1/top2 しか見ていなかった → **上位 5 体を 1 体ずつ**見る。
+
+_SLOT_N = 5
+_SLOT_ATTRS = ("power", "cost", "don", "rested", "blocker", "removal", "engine")
+EYES_KEYS = tuple(
+    [f"{side}_c{i}_{at}" for side in ("my", "opp") for i in range(_SLOT_N) for at in _SLOT_ATTRS]
+    + ["my_leader_power", "opp_leader_power", "my_leader_rested", "opp_leader_rested",
+       "my_leader_don", "opp_leader_don",
+       "my_stage_n", "opp_stage_n", "my_deck_left", "opp_deck_left",
+       "my_trash_n", "opp_trash_n", "my_don_deck_left", "opp_don_deck_left",
+       "my_mulliganed", "opp_mulliganed", "effect_events_total",
+       "my_kw_rush_n", "opp_kw_rush_n", "my_kw_granted_n", "opp_kw_granted_n",
+       "my_sick_n", "opp_sick_n", "my_rested_n", "opp_rested_n"]
+    + [f"my_hand_cost{c}_n" for c in range(1, 8)]
+    + ["my_hand_cost8plus_n", "my_hand_chara_n", "my_hand_event_n", "my_hand_stage_n",
+       "my_hand_best_playable_pw", "my_hand_avg_cost"]
+)
+
+
+def _eyes_features(snap: dict) -> dict:
+    """盤面を 1 体ずつ見る + 未使用ゾーンを全部使う。 全て snapshot / _mini_snap 共通の key。"""
+    info = _card_info()
+    hi = snap["hero_idx"]
+    me, opp = snap["players"][hi], snap["players"][1 - hi]
+    out: dict = {}
+
+    def _slots(p, side):
+        chars = sorted([c for c in (p.get("field") or []) if isinstance(c, dict)],
+                       key=lambda c: -float(c.get("power") or 0))
+        for i in range(_SLOT_N):
+            c = chars[i] if i < len(chars) else None
+            meta = info.get((c or {}).get("card_id")) or {}
+            cats = meta.get("cats") or frozenset()
+            out[f"{side}_c{i}_power"] = float(c.get("power") or 0) / 1000.0 if c else 0.0
+            out[f"{side}_c{i}_cost"] = float(c.get("cost") or 0) if c else 0.0
+            out[f"{side}_c{i}_don"] = float(c.get("attached_dons") or 0) if c else 0.0
+            out[f"{side}_c{i}_rested"] = 1.0 if (c and c.get("rested")) else 0.0
+            out[f"{side}_c{i}_blocker"] = 1.0 if (c and c.get("is_blocker_now")) else 0.0
+            out[f"{side}_c{i}_removal"] = 1.0 if (cats & {"removal", "removal_ko"}) else 0.0
+            out[f"{side}_c{i}_engine"] = 1.0 if (cats & {"draw", "search", "ramp_don"}) else 0.0
+        return chars
+
+    mc, oc = _slots(me, "my"), _slots(opp, "opp")
+    for side, p in (("my", me), ("opp", opp)):
+        ld = p.get("leader") or {}
+        out[f"{side}_leader_power"] = float(ld.get("power") or 5000) / 1000.0
+        out[f"{side}_leader_rested"] = 1.0 if ld.get("rested") else 0.0
+        out[f"{side}_leader_don"] = float(ld.get("attached_dons") or 0)
+        out[f"{side}_stage_n"] = float(len(p.get("stages") or []))
+        out[f"{side}_deck_left"] = float(p.get("deck_count") or 0)
+        out[f"{side}_trash_n"] = float(p.get("trash_count") or len(p.get("trash_card_ids") or []))
+        out[f"{side}_don_deck_left"] = float(p.get("don_remaining_in_deck") or 0)
+        out[f"{side}_mulliganed"] = 1.0 if p.get("did_mulligan") else 0.0
+    out["effect_events_total"] = float(snap.get("total_effect_events_count") or 0)
+    for side, chars in (("my", mc), ("opp", oc)):
+        out[f"{side}_kw_rush_n"] = float(sum(1 for c in chars if c.get("is_rush_now")))
+        out[f"{side}_kw_granted_n"] = float(sum(len(c.get("granted_keywords") or []) for c in chars))
+        out[f"{side}_sick_n"] = float(sum(1 for c in chars if c.get("summoning_sickness")))
+        out[f"{side}_rested_n"] = float(sum(1 for c in chars if c.get("rested")))
+    # 手札のコストカーブ (= 「何が出せるか」の形。 現行は枚数 1 列のみ)
+    costs, chara, event, stage, best_pw = [], 0, 0, 0, 0.0
+    don = float(me.get("don_active") or 0)
+    try:
+        repo = _repo()
+        for cid in (me.get("hand_card_ids") or []):
+            try:
+                card = repo.get(cid)
+            except Exception:
+                continue
+            cost = float(getattr(card, "cost", 0) or 0)
+            costs.append(cost)
+            cat = str(getattr(card, "category", "")).upper()
+            if "EVENT" in cat:
+                event += 1
+            elif "STAGE" in cat:
+                stage += 1
+            else:
+                chara += 1
+            if cost <= don:
+                best_pw = max(best_pw, float(getattr(card, "power", 0) or 0))
+    except Exception:
+        pass
+    for c in range(1, 8):
+        out[f"my_hand_cost{c}_n"] = float(sum(1 for x in costs if int(x) == c))
+    out["my_hand_cost8plus_n"] = float(sum(1 for x in costs if x >= 8))
+    out["my_hand_chara_n"] = float(chara)
+    out["my_hand_event_n"] = float(event)
+    out["my_hand_stage_n"] = float(stage)
+    out["my_hand_best_playable_pw"] = best_pw / 1000.0
+    out["my_hand_avg_cost"] = (sum(costs) / len(costs)) if costs else 0.0
+    return out
+
+
+def generate_eyes_candidates() -> list:
+    return [{"k": "eye", "c": k} for k in EYES_KEYS]
