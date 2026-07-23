@@ -11,6 +11,7 @@ GBM (= 非線形、 特徴の交互作用) を beam-vs-greedy の (盤面, 勝�
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any, Optional
 
 # feature 名 (= 学習/推論で厳密一致させる)。 v1 = 17 (基本盤面量、 2026-06-04)。
@@ -327,8 +328,13 @@ def _mini_snap(state: Any, me_idx: int) -> dict:
     def _side(p):
         return {
             "leader": {"card_id": p.leader.card.card_id},
+            # ⚠ key は snapshot_player と同一に保つ (spec 列は snapshot でも live でも同じ
+            # 実装で計算するので、 片方に欠けると学習と推論がズレる)。
             "field": [{"card_id": ip.card.card_id, "cost": getattr(ip.card, "cost", 0),
-                       "power": ip.power, "attached_dons": getattr(ip, "attached_dons", 0)}
+                       "power": ip.power, "attached_dons": getattr(ip, "attached_dons", 0),
+                       "rested": bool(getattr(ip, "rested", False)),
+                       "summoning_sickness": bool(getattr(ip, "summoning_sickness", False)),
+                       "is_blocker_now": bool(getattr(ip, "is_blocker_now", False))}
                       for ip in p.characters],
             "hand_card_ids": [c.card_id for c in p.hand],
             "known_hand_card_ids": list(getattr(p, "known_hand_card_ids", []) or []),

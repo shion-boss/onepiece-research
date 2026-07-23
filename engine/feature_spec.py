@@ -71,7 +71,10 @@ def _card_info() -> dict:
         m["_counter"] = counter / 1000.0
         m["_power"] = power / 1000.0
         m["pump"] = m.get("pump", 0.0) / 1000.0
-        info[cid] = {"cats": frozenset(cats), "mags": m}
+        info[cid] = {"cats": frozenset(cats), "mags": m, "counter_value": counter,
+                     # カウンターイベント = 手札から相手のアタック時に撃つ (ドンが要る)
+                     "counter_event": ("t_counter" in (meta.get("timings") or ())
+                                       and str(meta.get("category", "")).upper() == "EVENT")}
     _CARD_INFO = info
     return info
 
@@ -96,7 +99,240 @@ def _belief_cards(leader_id: str) -> list:
 def col_name(col: dict) -> str:
     if col.get("k") == "x":
         return f"x_{col_name(col['a'])}__{col['b']}"
+    if col.get("k") == "card":
+        return f"{col['z']}_card_{col['c']}"
+    if col.get("k") == "don":
+        return f"don_{col['c']}"
+    if col.get("k") == "der":
+        return f"der_{col['c']}"
     return f"{col['z']}_{col['c']}_{col['s']}"
+
+
+DON_KEYS = (
+    # 生の枚数 (v2 は d_don = 差 しか持たず、 active/rested を区別できない)
+    "my_don_active", "opp_don_active", "my_don_rested", "opp_don_rested",
+    "my_don_total", "opp_don_total",
+    # ⭐ 自分側: アクティブドンは「手札の何が今出せるか」を決める (盤面の集計では代替不可)
+    "my_playable_n", "my_playable_max_cost", "my_playable_ratio", "my_tapout",
+    # ⭐ 相手側: アクティブドンは「カウンターイベントを払えるか」を決める。 アクティブ 0 なら
+    # 手札に持っていても物理的に撃てない = v18 の belief 残りカウンターに掛けるべきゲート
+    "opp_tapout", "opp_counter_payable", "opp_belief_counter_payable", "opp_don_active_ge2",
+)
+
+
+def _don_features(snap: dict) -> dict:
+    """ドン状態から派生する 14 スカラー。 snapshot にも live state にも同じ形で存在する。"""
+    hi = snap["hero_idx"]
+    me, opp = snap["players"][hi], snap["players"][1 - hi]
+    ma = float(me.get("don_active") or 0)
+    oa = float(opp.get("don_active") or 0)
+    mr = float(me.get("don_rested") or 0)
+    orr = float(opp.get("don_rested") or 0)
+    # 手札で今払えるカード (= アクティブドンが実際に何を可能にしているか)
+    playable, max_cost, n_hand = 0, 0.0, 0
+    try:
+        from .deck import CardRepository
+        repo = _repo()
+        for cid in (me.get("hand_card_ids") or []):
+            n_hand += 1
+            try:
+                cost = float(getattr(repo.get(cid), "cost", 0) or 0)
+            except Exception:
+                continue
+            if cost <= ma:
+                playable += 1
+                max_cost = max(max_cost, cost)
+    except Exception:
+        pass
+    # 相手の belief 残りカウンター × 払えるか (持っていても払えなければ脅威でない)
+    bel_ctr = 0.0
+    try:
+        from . import gbm_value as G
+        from collections import Counter
+        ids = [c.get("card_id") for c in (opp.get("field") or [])] \
+            + list(opp.get("trash_card_ids") or []) + list(opp.get("known_hand_card_ids") or [])
+        seen = dict(Counter([i for i in ids if i]))
+        ec, _ = G._belief_deck_totals(opp["leader"]["card_id"], seen)
+        bel_ctr = float(ec)
+    except Exception:
+        pass
+    return {
+        "my_don_active": ma, "opp_don_active": oa, "my_don_rested": mr, "opp_don_rested": orr,
+        "my_don_total": ma + mr, "opp_don_total": oa + orr,
+        "my_playable_n": float(playable), "my_playable_max_cost": max_cost,
+        "my_playable_ratio": float(playable) / float(n_hand) if n_hand else 0.0,
+        "my_tapout": 1.0 if ma <= 0 else 0.0,
+        "opp_tapout": 1.0 if oa <= 0 else 0.0,
+        "opp_counter_payable": 1.0 if oa >= 1 else 0.0,
+        "opp_belief_counter_payable": bel_ctr if oa >= 1 else 0.0,
+        "opp_don_active_ge2": 1.0 if oa >= 2 else 0.0,
+    }
+
+
+def generate_don_candidates() -> list:
+    return [{"k": "don", "c": k} for k in DON_KEYS]
+
+
+# 「人間が区別しているのに現行 94 列が潰しているもの」の細分化 (2026-07-23 の監査より)。
+# 実測: 手札カウンター値は平均 2.41 種を 1 列 (合計) に潰していた / 相手ブロッカーは合計パワー
+# しか無く最大値 (= 壁の厚さ) が無い / 攻撃が通るかの比較列そのものが存在しなかった。
+DERIVED_KEYS = (
+    # ④ 攻防マッチアップ (= 人間が最初に見る「この攻撃は通るか」。 現行に比較列が無い)
+    "atk_best_breaks", "atk_unblockable_n", "atk_power_over_blocker",
+    "def_opp_breaks", "def_opp_unblockable_n", "blocker_wall_gap",
+    # ① 手札カウンターの内訳 (= 合計 4000 が 2000×2 か 1000×4 かで守れる回数が違う)
+    "my_ctr2000_n", "my_ctr1000_n", "my_ctr_none_n", "my_ctr_max",
+    "my_counter_event_n", "my_counter_card_n",
+    # ② ブロッカーの質 (= 壁の厚さは合計でなく最大値で決まる)
+    "my_blocker_max_pw", "opp_blocker_max_pw", "my_blocker_n", "opp_blocker_n",
+    # ③ アクティブキャラの質 (= 「殴れる駒 3 枚」が 1000×3 か 7000+2000×2 かで別物)
+    "my_active_max_pw", "my_active_sum_pw", "opp_active_max_pw", "my_active_ge5000_n",
+    # ⑤ 付与ドンの所在 (= 合計でなくどこに寄っているか)
+    "my_attached_max", "my_attached_holders", "opp_attached_max",
+)
+
+
+def _derived_features(snap: dict) -> dict:
+    """現行列が潰している区別を明示的な列にする 23 スカラー。 snapshot / live 共通。
+
+    ⚠ ライフの中身 (トリガー密度) は入れない: 自分のライフは本来非公開で、 snapshot の
+    life_card_ids は oracle。 推論時に使えない情報を学習に入れると train/serve がズレる。"""
+    hi = snap["hero_idx"]
+    me, opp = snap["players"][hi], snap["players"][1 - hi]
+    info = _card_info()
+
+    def _chars(p):
+        return [c for c in (p.get("field") or []) if isinstance(c, dict)]
+
+    def _pw(c):
+        return float(c.get("power") or 0)
+
+    def _blockers(p):
+        out = []
+        for c in _chars(p):
+            blk = c.get("is_blocker_now")
+            if blk is None:
+                blk = "blocker" in (info.get(c.get("card_id"), {}).get("cats") or ())
+            if blk:
+                out.append(_pw(c))
+        return out
+
+    def _actives(p):
+        return [_pw(c) for c in _chars(p)
+                if not c.get("rested") and not c.get("summoning_sickness")]
+
+    my_act, opp_act = _actives(me), _actives(opp)
+    my_blk, opp_blk = _blockers(me), _blockers(opp)
+    my_atk_max = max(my_act, default=0.0)
+    opp_atk_max = max([_pw(c) for c in _chars(opp)], default=0.0)
+    opp_blk_max = max(opp_blk, default=0.0)
+    my_blk_max = max(my_blk, default=0.0)
+
+    # 手札のカウンター内訳
+    c2 = c1 = c0 = ce = 0
+    cmax = 0.0
+    for cid in (me.get("hand_card_ids") or []):
+        meta = info.get(cid)
+        if not meta:
+            continue
+        cv = float(meta.get("counter_value") or 0.0)
+        if cv >= 2000:
+            c2 += 1
+        elif cv > 0:
+            c1 += 1
+        else:
+            c0 += 1
+        cmax = max(cmax, cv)
+        if meta.get("counter_event"):
+            ce += 1
+
+    att = [(float(c.get("attached_dons") or 0)) for c in _chars(me)]
+    att_o = [(float(c.get("attached_dons") or 0)) for c in _chars(opp)]
+    return {
+        "atk_best_breaks": 1.0 if (my_act and (not opp_blk or my_atk_max > opp_blk_max)) else 0.0,
+        "atk_unblockable_n": float(sum(1 for p in my_act if not opp_blk or p > opp_blk_max)),
+        "atk_power_over_blocker": (my_atk_max - opp_blk_max) / 1000.0,
+        "def_opp_breaks": 1.0 if (opp_atk_max > my_blk_max) else 0.0,
+        "def_opp_unblockable_n": float(sum(1 for c in _chars(opp)
+                                           if not my_blk or _pw(c) > my_blk_max)),
+        "blocker_wall_gap": (my_blk_max - opp_atk_max) / 1000.0,
+        "my_ctr2000_n": float(c2), "my_ctr1000_n": float(c1), "my_ctr_none_n": float(c0),
+        "my_ctr_max": cmax / 1000.0, "my_counter_event_n": float(ce),
+        "my_counter_card_n": float(c2 + c1),
+        "my_blocker_max_pw": my_blk_max / 1000.0, "opp_blocker_max_pw": opp_blk_max / 1000.0,
+        "my_blocker_n": float(len(my_blk)), "opp_blocker_n": float(len(opp_blk)),
+        "my_active_max_pw": my_atk_max / 1000.0,
+        "my_active_sum_pw": sum(my_act) / 1000.0,
+        "opp_active_max_pw": max(opp_act, default=0.0) / 1000.0,
+        "my_active_ge5000_n": float(sum(1 for p in my_act if p >= 5000)),
+        "my_attached_max": max(att, default=0.0),
+        "my_attached_holders": float(sum(1 for a in att if a > 0)),
+        "opp_attached_max": max(att_o, default=0.0),
+    }
+
+
+def generate_derived_candidates() -> list:
+    return [{"k": "der", "c": k} for k in DERIVED_KEYS]
+
+
+_REPO_CACHE = None
+
+
+def _repo():
+    global _REPO_CACHE
+    if _REPO_CACHE is None:
+        from .deck import CardRepository
+        _REPO_CACHE = CardRepository.from_json(str(ROOT / "db" / "cards.json"))
+    return _REPO_CACHE
+
+
+CARD_ZONES = ("my_board", "opp_board", "my_hand", "my_trash", "opp_trash")
+_CARD_FREQ_PATH = EIV1_DIR / "card_freq.json"
+
+
+def card_frequency(corpus_path: Any = None, sample: int = 60000) -> list:
+    """corpus に実際に現れるカードを頻度順で返す ([(card_id, 出現数), ...])。 結果は cache。
+
+    ⭐ カード ID 列を「全 4,731 枚」で作ると疎すぎて木が使えない。 実際に盤面/手札に出る
+    カードだけに絞る (= 233 デッキプールで使われている札 = 実質数百枚)。"""
+    if _CARD_FREQ_PATH.exists():
+        try:
+            return [(c, n) for c, n in json.loads(_CARD_FREQ_PATH.read_text(encoding="utf-8"))]
+        except Exception:
+            pass
+    from collections import Counter
+    cnt: Counter = Counter()
+    path = Path(corpus_path) if corpus_path else (EIV1_DIR / "corpus.jsonl")
+    lines: list = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            lines.append(line)
+            if len(lines) > sample:
+                lines.pop(0)
+    for line in lines:
+        try:
+            snap = json.loads(line).get("state") or {}
+            for p in snap.get("players", []):
+                for c in (p.get("field") or []):
+                    if c.get("card_id"):
+                        cnt[c["card_id"]] += 1
+                for cid in (p.get("hand_card_ids") or []):
+                    cnt[cid] += 1
+        except Exception:
+            continue
+    out = cnt.most_common()
+    try:
+        _CARD_FREQ_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _CARD_FREQ_PATH.write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
+    return out
+
+
+def generate_card_candidates(top_n: int = 200, zones: tuple = ("my_board", "opp_board")) -> list:
+    """頻出カード上位 N × zone のカード ID 列を生成 (= 「どのカードが居るか」を value に見せる)。"""
+    freq = card_frequency()[:top_n]
+    return [{"k": "card", "z": z, "c": cid} for z in zones for cid, _ in freq]
 
 
 def generate_candidates() -> list:
@@ -225,16 +461,40 @@ def evaluate(snap: dict, spec: list) -> list:
     if not spec:
         return []
     try:
-        need = set()
+        need, need_card, need_don, need_der = set(), set(), False, False
         for col in spec:
-            need.add((col["a"] if col.get("k") == "x" else col)["z"])
+            base = col["a"] if col.get("k") == "x" else col
+            if base.get("k") == "don":
+                need_don = True
+            elif base.get("k") == "der":
+                need_der = True
+            elif base.get("k") == "card":
+                need_card.add(base["z"])
+            else:
+                need.add(base["z"])
+        dons = _don_features(snap) if need_don else {}
+        ders = _derived_features(snap) if need_der else {}
         aggs = {z: (_belief_aggregates(snap) if z == "opp_belief"
                     else _zone_aggregates(_zone_cards(snap, z))) for z in need}
+        # カード ID 列: zone ごとに card_id → 枚数 を 1 回だけ作る
+        counts = {}
+        for z in need_card:
+            d: dict = {}
+            for cid, w in _zone_cards(snap, z):
+                d[cid] = d.get(cid, 0.0) + w
+            counts[z] = d
         ctx = _contexts(snap) if any(c.get("k") == "x" for c in spec) else {}
         out = []
         for col in spec:
             base = col["a"] if col.get("k") == "x" else col
-            v = aggs[base["z"]].get((base["c"], base["s"]), 0.0)
+            if base.get("k") == "don":
+                v = dons.get(base["c"], 0.0)
+            elif base.get("k") == "der":
+                v = ders.get(base["c"], 0.0)
+            elif base.get("k") == "card":
+                v = counts[base["z"]].get(base["c"], 0.0)
+            else:
+                v = aggs[base["z"]].get((base["c"], base["s"]), 0.0)
             if col.get("k") == "x":
                 v *= ctx.get(col["b"], 0.0)
             out.append(float(v))

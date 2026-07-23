@@ -42,6 +42,13 @@ def _iter_decklist_paths() -> Iterable[Path]:
         yield p
     for p in sorted(archive_dir.glob("*.json")):
         yield p
+    # 学習プール (= EIV1 self-play が実際に回している 153 デッキ)。 ⚠ これを入れないと
+    # プールが使う 36 leader のうち 16 が belief 未収録 → v18 の belief 特徴が
+    # 「常に 0」 になり、 配備済みなのに実質死ぬ (2026-07-23 実測で発覚)。
+    for p in sorted((meta_dir / "_train_pool").glob("*.json")):
+        if p.name.endswith(".analysis.json") or ".target" in p.name:
+            continue
+        yield p
 
 
 def _parse_decklist(path: Path) -> dict[str, Any] | None:

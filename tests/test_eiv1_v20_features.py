@@ -118,3 +118,33 @@ def test_spec_columns_use_only_fair_information():
         assert "life" not in zone
     cards = FS.evaluate(snap, [{"k": "agg", "z": "opp_seen_hand", "c": "removal", "s": "count"}])
     assert cards == [0.0] or cards[0] >= 0.0   # 公開履歴のみ
+
+
+def test_feature_blocks_are_not_silently_dead():
+    """⚠ 回帰テスト: 特徴ブロックが「例外を握り潰して常にゼロ」になっていないこと。
+
+    実例 (2026-07-23): gbm_value に `from pathlib import Path` が無く、 belief 特徴が
+    NameError → except で (0.0, 0.0) を返し続けていた。 4 列が配備直後から死んでいたのに
+    誰も気づけなかった。 ゼロ埋めの degrade は安全側に見えて **静かに壊れる**ので、
+    「実局面で意味のある値が入る」ことをテストで固定する。
+    """
+    from engine.eiv1_features import belief_resource_feats_from_snapshot
+    st = _state("cardrush_1454", "cardrush_1342", seed=5)
+    # 数ターン進めて盤面/トラッシュが動いた状態にする
+    from engine.ai import GreedyAI, play_one_action
+    ais = [GreedyAI(rng=random.Random(1)), GreedyAI(rng=random.Random(2))]
+    for _ in range(60):
+        if st.game_over:
+            break
+        try:
+            play_one_action(st, ais[st.turn_player_idx], ais[1 - st.turn_player_idx])
+        except Exception:
+            break
+    snap = snapshot_state(st)
+    snap["hero_idx"] = 0
+    bel = belief_resource_feats_from_snapshot(snap)
+    assert any(abs(v) > 0 for v in bel), f"belief 特徴が全ゼロ (degrade したまま): {bel}"
+    # live 側も同様 (v20 の belief 4 列)
+    live = gv.features(st, 0, v20=True)
+    n16 = len(gv.FEATURE_KEYS_V16)
+    assert any(abs(v) > 0 for v in live[n16:n16 + 4]), "live の belief 4 列が全ゼロ"
