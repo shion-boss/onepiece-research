@@ -105,3 +105,29 @@ def attack_target_bonus(cur_state, action, me_idx: int) -> float:
         lid = getattr(getattr(opp.leader, "card", None), "card_id", None)
         return -0.5 * _leader_durability(lid)
     return 0.0
+
+
+# === 防御側: 「どのカードを守るべきか」 (2026-07-24、 path A の対称形) ===================
+# ohtsuki:「どのカードを除去したら良くなったかとか、 どのカードを攻撃されたときに守るべきか」。
+# 攻撃側 (attack_target_bonus) が「相手のどの駒を叩くか」を決定層で区別するのに対し、 こちらは
+# 「自分のどの駒を残すか」。 value(compute_score) は失った駒をパワー/枚数でしか見ないので、
+# 効果持ち (除去/エンジン/拘束) を失う損を区別できない = 同じ盲目。
+# 守る価値は「対処すべき度」と同じ尺度で測れる (相手にとって厄介な駒 = 自分にとって残す価値)。
+
+
+def self_char_value(cid: str) -> float:
+    """自分のキャラ(cid)を『残す価値』 raw score ~[0,1] (= _char_threat の自陣版)。"""
+    return _char_threat(cid)
+
+
+def defense_loss_bonus(before_ids: list, after_ids: list) -> float:
+    """守備の結果 **失った自キャラ** の identity 価値の合計を負で返す (raw ~[-1,0])。
+
+    before/after = 防御 sim の前後の自キャラ card_id 列。 攻撃対象が生き残ったか (守れたか)
+    と、 ブロッカーが討ち死にしたか の両方が 1 つの差分に乗る = 「守るべき駒を守り、
+    捨ててよい駒で受ける」 を決定層で表現できる。"""
+    from collections import Counter
+    lost = Counter(before_ids) - Counter(after_ids)
+    if not lost:
+        return 0.0
+    return -sum(self_char_value(cid) * n for cid, n in lost.items())

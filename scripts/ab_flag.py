@@ -27,7 +27,13 @@ _OVERLAY = load_effect_overlay(REPO_ROOT / "db" / "card_effects.json")
 
 SLUG = os.environ["AB_SLUG"]
 FLAG = os.environ["AB_FLAG"]
-VALUE = os.environ.get("AB_VALUE", "False") == "True"
+_AB_RAW = os.environ.get("AB_VALUE", "False")
+# bool だけでなく数値フラグ (= _oppcard_w のような weight) も A/B できるようにする
+try:
+    VALUE = float(_AB_RAW) if _AB_RAW.replace(".", "", 1).replace("-", "", 1).isdigit() \
+        else (_AB_RAW == "True")
+except ValueError:
+    VALUE = _AB_RAW == "True"
 
 
 def _load():
