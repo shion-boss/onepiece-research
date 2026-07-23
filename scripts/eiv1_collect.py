@@ -203,22 +203,27 @@ def main():
             pool.terminate()
             print(f"!! collect timeout ({timeout_s}s) → この round を打ち切り (次へ)", flush=True)
             results = []
+    # game_id を付ける: 1 game = 5〜6 行を吐くので、 学習の held-out split を game 単位で
+    # 切らないと同一 game の行が train/test に跨り AUC がリークで上振れする。
+    run_tag = int(t0)   # この run の識別子 (round/日を跨いでも game_id が衝突しない)
     rows, n_games, n_wins = [], 0, 0
-    for r in results:
+    for gi, r in enumerate(results):
         if r:
             n_games += 1
             n_wins += int(r[0][1])   # y は 1 game 内で一定 (hero の勝敗)
-            rows.extend(r)
+            rows.extend((f"{run_tag}-{gi}", *row) for row in r)
     with open(CORPUS, "a", encoding="utf-8") as f:
-        for fv, y, hero, opp, snap in rows:
+        for gid, fv, y, hero, opp, snap in rows:
             # f = v15 集計特徴 (今の GBM 学習が使う) / state = 局面まるごと oracle 生スナップショット
             # (= 将来どんな指標も後から再計算でき盲目化しない = 「データが無意味にならない」保証)
-            f.write(json.dumps({"f": fv, "y": y, "hero": hero, "opp": opp, "state": snap}) + "\n")
+            # g = game_id (= 同一 game の行を train/test で分けないための group key)
+            f.write(json.dumps({"f": fv, "y": y, "hero": hero, "opp": opp, "state": snap,
+                                "g": gid}) + "\n")
     total = sum(1 for _ in open(CORPUS)) if CORPUS.exists() else 0
     # この round だけの hero 勝率。 game 単位 = 素の勝率、 sample 単位 = 学習ラベルの偏り
     # (長引く試合ほど行数が多いので両者はズレる)。 累積 win率 は train 側が出す。
     win_g = f"{n_wins / n_games:.3f}" if n_games else "n/a"
-    win_s = f"{sum(y for _, y, _, _, _ in rows) / len(rows):.3f}" if rows else "n/a"
+    win_s = f"{sum(r[2] for r in rows) / len(rows):.3f}" if rows else "n/a"
     print(f"appended {len(rows)} samples from {n_games}/{a.games} games "
           f"({time.time()-t0:.0f}s) | この round の hero 勝率 = {win_g} (game 単位 {n_wins}/{n_games}) "
           f"/ {win_s} (sample 単位) → corpus 総計 {total} samples", flush=True)

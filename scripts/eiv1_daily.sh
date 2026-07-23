@@ -26,6 +26,8 @@ export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_TH
 
 ROUNDS="${ROUNDS:-8}"; GAMES="${GAMES:-500}"; WORKERS="${WORKERS:-12}"
 BEAM_W="${BEAM_W:-8}"; BEAM_D="${BEAM_D:-6}"
+# ε=0 arena (強さ実測): ARENA_EVERY ラウンドごとに ARENA_PAIRS ペア (=4x game)。 0 で無効
+ARENA_EVERY="${ARENA_EVERY:-8}"; ARENA_PAIRS="${ARENA_PAIRS:-100}"
 
 # デッキ在庫フル活用: hero/opp とも全プール (233 デッキ/36 リーダー) を回転。 未生成なら自動生成。
 POOL="$ROOT/db/eiv1/pool_all.txt"
@@ -44,7 +46,8 @@ fi
 BEFORE=0; [ -f "$ROOT/db/eiv1/corpus.jsonl" ] && BEFORE=$(wc -l < "$ROOT/db/eiv1/corpus.jsonl")
 echo "[$(date '+%F %T')] EIV1 daily start: heroes=$HEROES rounds=$ROUNDS games=$GAMES beam=$BEAM_W/$BEAM_D | corpus=$BEFORE" >> "$LOG"
 "$PY" scripts/eiv1_loop.py --rounds "$ROUNDS" --games "$GAMES" --workers "$WORKERS" \
-  --beam-width "$BEAM_W" --max-depth "$BEAM_D" --heroes "$HEROES" --opps "$OPPS" >> "$LOG" 2>&1 || {
+  --beam-width "$BEAM_W" --max-depth "$BEAM_D" --heroes "$HEROES" --opps "$OPPS" \
+  --arena-every "$ARENA_EVERY" --arena-pairs "$ARENA_PAIRS" >> "$LOG" 2>&1 || {
     echo "[$(date '+%F %T')] EIV1 daily ERROR (exit $?)" >> "$LOG"; exit 1; }
 AFTER=0; [ -f "$ROOT/db/eiv1/corpus.jsonl" ] && AFTER=$(wc -l < "$ROOT/db/eiv1/corpus.jsonl")
 echo "[$(date '+%F %T')] EIV1 daily done | corpus $BEFORE -> $AFTER (+$((AFTER-BEFORE)))" >> "$LOG"

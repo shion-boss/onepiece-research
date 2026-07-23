@@ -34,6 +34,10 @@ def main():
     ap.add_argument("--opps", default="cardrush_1385,tcgportal_calgara,tcgportal_bonney,cardrush_1399")
     ap.add_argument("--beam-width", type=int, default=8)
     ap.add_argument("--max-depth", type=int, default=6)
+    ap.add_argument("--arena-every", type=int, default=8,
+                    help="N ラウンドごとに ε=0 arena で強さを測る (0=しない)")
+    ap.add_argument("--arena-pairs", type=int, default=100, help="arena の ペア数 (1 ペア=4 game)")
+    ap.add_argument("--arena-refs", default="agnostic,snapshot:oldest")
     a = ap.parse_args()
     print(f"=== EIV1 loop: rounds={a.rounds} games/round={a.games} | 開始 corpus={_corpus_n()} ===",
           flush=True)
@@ -49,6 +53,14 @@ def main():
                        check=False)
         # train (全 corpus 再学習)
         subprocess.run([PY, str(ROOT / "scripts" / "eiv1_train.py")], check=False)
+        # arena (ε=0 で 凍結基準と直接対戦 = 「強くなったか」の実測。 corpus の win率 は
+        # ε ハンデ込みなので強さ指標にならない)
+        if a.arena_every and r % a.arena_every == 0:
+            subprocess.run([PY, str(ROOT / "scripts" / "eiv1_arena.py"),
+                            "--pairs", str(a.arena_pairs), "--refs", a.arena_refs,
+                            "--workers", str(a.workers),
+                            "--beam-width", str(a.beam_width), "--max-depth", str(a.max_depth)],
+                           check=False)
     n = _corpus_n()
     hist = []
     if MANIFEST.exists():
@@ -61,6 +73,16 @@ def main():
         print("AUC 推移 (天井なしの証拠 = データ↑で単調に上がるか):", flush=True)
         for h in hist[-8:]:
             print(f"  iter{h['iter']:>3} n={h['n']:>7} AUC={h.get('auc')}", flush=True)
+    arena = ROOT / "db" / "eiv1" / "arena.jsonl"
+    if arena.exists():
+        print("強さ推移 (ε=0 arena、 = 実際に強くなったか):", flush=True)
+        for line in list(open(arena, encoding="utf-8"))[-6:]:
+            try:
+                d = json.loads(line)
+            except Exception:
+                continue
+            print(f"  iter{d['iter']:>4} vs {d['ref']:<18} 勝率={d.get('win'):.3f}"
+                  f" ±{d.get('se'):.3f} (N={d.get('n_games')})", flush=True)
 
 
 if __name__ == "__main__":
