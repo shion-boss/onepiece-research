@@ -682,6 +682,30 @@ def _request_self_hand_discard(state: GameState, me: Player, self_inplay: Option
     return True
 
 
+def _threat_key(ip) -> tuple:
+    """相手キャラを「対処すべき順」に並べる key (降順ソート用に負値)。
+
+    ⚠ 従来は power 降順だけだった (= AI 簡易) が、 効果持ちの 2000 より バニラ 5000 を
+    優先除去する等の誤りが起きる。 決定の点でカードを区別する (= opp_threat の脅威度) を
+    第 1 キーにし、 power を tie-break にする (2026-07-24、 ohtsuki「全部直して」)。
+    """
+    try:
+        from .opp_threat import _char_threat
+        t = _char_threat(getattr(getattr(ip, "card", None), "card_id", "") or "")
+    except Exception:
+        t = 0.0
+    return (-t, -float(getattr(ip, "power", 0) or 0))
+
+
+def _sacrifice_key(ip) -> tuple:
+    """自キャラを「捨ててよい順」に並べる key (昇順ソート用)。 脅威度が低く弱い駒から。"""
+    try:
+        from .opp_threat import self_char_value
+        v = self_char_value(getattr(getattr(ip, "card", None), "card_id", "") or "")
+    except Exception:
+        v = 0.0
+    return (v, float(getattr(ip, "power", 0) or 0))
+
 def _worst_hand_idx(hand: list, known: Optional[list] = None) -> int:
     """最も捨てて惜しくない手札の index(counter 低 → cost 低 → power 低)。 高 counter の防御札を温存。
     AI が手札を捨てる場面で random を使うと 探索(beam)の value 評価が その手札選択の分だけ無意味に
@@ -2074,8 +2098,8 @@ def _resolve_target(
                     description=f"自キャラ から {limit} 枚 まで 選択",
                 ):
                     return []
-                # AI 簡易: power 高い順 (= 強いキャラ優先)
-                cands.sort(key=lambda ip: -ip.power)
+                # 脅威度 (効果) 優先 + power tie-break (= カードを区別して選ぶ)
+                cands.sort(key=_threat_key)
                 return cands[:int(limit)]
             return cands
         if t == "all_self_team_filtered":
@@ -2128,7 +2152,7 @@ def _resolve_target(
                 description="相手キャラ から 1 枚 選択",
             ):
                 return []
-            cands.sort(key=lambda ip: -ip.power)
+            cands.sort(key=_threat_key)  # 脅威度優先 + power tie-break
             return cands[:1]
         if t == "all_opponent_chara_filtered":
             # 相手キャラ全員 (filter マッチ)。 limit 指定で上限あり (= 「N 枚まで」)。
@@ -2160,7 +2184,7 @@ def _resolve_target(
                 description="相手リーダー or キャラ から 1 枚 選択",
             ):
                 return []
-            cands.sort(key=lambda ip: -ip.power)
+            cands.sort(key=_threat_key)  # 脅威度優先 + power tie-break
             return cands[:1]
         if t == "one_self_stage_filtered":
             # 自分のステージから filter にマッチする 1 枚 (= レスト中優先、 human は modal で選択)。
@@ -2327,7 +2351,7 @@ def _resolve_target(
         # 全員対象 (board wipe 系)。普通のカード「1枚まで」は one_* を使うこと
         return [c for c in opp.characters if c.power <= 5000]
     # --- single-target (公式テキスト「1 枚まで」相当) ---
-    # 候補を power 高い順にソートして「最も脅威となるキャラ」を狙う簡略化 (AI 用)。
+    # 候補を 脅威度 (効果) 優先 + power tie-break で並べる (= 「最も対処すべき駒」を狙う)。
     # 人間 acting + outer_kind あり なら modal で 選ばせる (= ohtsuki さん 要望
     # 「本来 人間判断 すべき箇所が auto 実行」 修正)。
     if target_spec == "one_opponent_character_le_5000":
@@ -2541,7 +2565,7 @@ def _resolve_target(
                 description=f"相手キャラ から 1 枚 選択 (パワー≤{n})",
             ):
                 return []
-            cands.sort(key=lambda c: -c.power)
+            cands.sort(key=_threat_key)  # 脅威度優先 + power tie-break
             return cands[:1]
 
         # one_opponent_character_power_eq_N (パワー N ぴったり、 1 体)。
@@ -2555,7 +2579,7 @@ def _resolve_target(
                 description=f"相手キャラ から 1 枚 選択 (元々のパワー={n})",
             ):
                 return []
-            cands.sort(key=lambda c: -c.power)
+            cands.sort(key=_threat_key)  # 脅威度優先 + power tie-break
             return cands[:1]
 
         # one_opponent_character_attached_don_ge_N (= 相手のドン N 枚以上付与キャラ、 1 体)
@@ -2569,7 +2593,7 @@ def _resolve_target(
                 description=f"相手キャラ から 1 枚 選択 (付与ドン≥{n})",
             ):
                 return []
-            cands.sort(key=lambda c: -c.power)
+            cands.sort(key=_threat_key)  # 脅威度優先 + power tie-break
             return cands[:1]
 
         # one_self_character_cost_le_N (= 自分のキャラ コスト N 以下、 1 体, power 最大)
@@ -2621,7 +2645,7 @@ def _resolve_target(
                 description=f"相手レストキャラ から 1 枚 選択 (パワー≤{n})",
             ):
                 return []
-            cands.sort(key=lambda c: -c.power)
+            cands.sort(key=_threat_key)  # 脅威度優先 + power tie-break
             return cands[:1]
 
         # one_opponent_character_cost_eq_N / cost_0 等 (= ぴったり N コスト)
@@ -2634,7 +2658,7 @@ def _resolve_target(
                 description=f"相手キャラ から 1 枚 選択 (コスト={n})",
             ):
                 return []
-            cands.sort(key=lambda c: -c.power)
+            cands.sort(key=_threat_key)  # 脅威度優先 + power tie-break
             return cands[:1]
 
         # all_opponent_rested_characters_le_Ncost
@@ -2697,7 +2721,7 @@ def _resolve_target(
                 description=f"相手レストキャラ(コスト{cost_cap}以下) から {n} 枚 まで 選択",
             ):
                 return []
-            cands.sort(key=lambda c: -c.power)
+            cands.sort(key=_threat_key)  # 脅威度優先 + power tie-break
             return cands[:n]
 
         # any_opp_rested_chara_n_N (= 相手のレストのキャラ N 体まで)
@@ -2710,7 +2734,7 @@ def _resolve_target(
                 description=f"相手レストキャラ から {n} 枚 まで 選択",
             ):
                 return []
-            cands.sort(key=lambda c: -c.power)
+            cands.sort(key=_threat_key)  # 脅威度優先 + power tie-break
             return cands[:n]
 
         # any_opp_rested_inplay_n_N (= 相手のレスト の リーダー と キャラ 合計 N 枚 まで)
@@ -2726,7 +2750,7 @@ def _resolve_target(
                 description=f"相手レスト リーダー/キャラ から {n} 枚 まで 選択",
             ):
                 return []
-            cands.sort(key=lambda c: -c.power)
+            cands.sort(key=_threat_key)  # 脅威度優先 + power tie-break
             return cands[:n]
 
         # one_opponent_character_filtered_by_truly_power_le_N (= 元々のパワー N 以下、 1 体)
@@ -2740,7 +2764,7 @@ def _resolve_target(
                 description=f"相手キャラ から 1 枚 選択 (元々のパワー≤{n})",
             ):
                 return []
-            cands.sort(key=lambda c: -c.power)
+            cands.sort(key=_threat_key)  # 脅威度優先 + power tie-break
             return cands[:1]
 
         # one_self_character_named_X / one_self_chara_named_X (名前一致セレクタ。 X は 「エネル」 等)
@@ -3119,6 +3143,7 @@ def _execute_effect_body(
             opp.hand.clear()
             state.rng.shuffle(opp.deck)
             opp.known_bottom_card_ids.clear()
+            opp.known_top_card_ids.clear()
             drawn = opp.draw(n)
             state.push_log(
                 f"  効果: 相手手札 {returned} 枚 → デッキに戻しシャッフル、 相手 {len(drawn)} 枚 ドロー"
@@ -3221,7 +3246,7 @@ def _execute_effect_body(
                 and not (kc_excl and self_inplay is not None
                          and c.instance_id == self_inplay.instance_id)
             ]
-            cands.sort(key=lambda c: c.power)  # AI 簡易: power 低い順を犠牲
+            cands.sort(key=_sacrifice_key)  # 価値 (効果) の低い駒から犠牲 + power tie-break
             victims = cands[:kc_count]
             _ksc_any = False
             for t in victims:
@@ -3850,6 +3875,7 @@ def _execute_effect_body(
                     # 検索 後 は シャッフル (= 公式 8-7-3-3)
                     state.rng.shuffle(me.deck)
                     me.known_bottom_card_ids.clear()
+                    me.known_top_card_ids.clear()
                     return False
                 chosen_indexes = sorted(
                     [i for i in picks_idx if 0 <= i < len(me.deck)],
@@ -3869,6 +3895,7 @@ def _execute_effect_body(
                         trigger_on_play(state, me, opp, ip, state.effects_overlay)
                 state.rng.shuffle(me.deck)
                 me.known_bottom_card_ids.clear()
+                me.known_top_card_ids.clear()
                 if played_count == 0:
                     return False
                 continue
@@ -3896,6 +3923,7 @@ def _execute_effect_body(
             me.deck = remaining
             state.rng.shuffle(me.deck)
             me.known_bottom_card_ids.clear()
+            me.known_top_card_ids.clear()
             if not picked:
                 state.push_log(f"  効果: デッキ登場 (該当なし)")
         elif k == "search_top_n":
@@ -4001,8 +4029,39 @@ def _execute_effect_body(
                 state.push_log(
                     f"  効果: search_top_n 残り{len(remaining)}枚 → トラッシュ"
                 )
+            elif rest_remain == "top_or_bottom" and remaining:
+                # 公式「残りをデッキの上または下に置く」 = **上に置けば次のドローを確定できる**
+                # 強力な選択肢。 従来は一律で底に送っていた (= AI 簡易) ため、 ルール上できる
+                # ことを engine が捨てていた (2026-07-24、 ohtsuki「全部直して」)。
+                # 判断: 今すぐ払えるコストで、 最も価値の高い 1 枚を上に。 残りは底へ。
+                best_i, best_v = None, 0.0
+                for i, c in enumerate(remaining):
+                    try:
+                        cost = int(getattr(c, "cost", 0) or 0)
+                        if cost > me.don_active + 1:
+                            continue      # 次ターンでも払えない札を上に置いても腐る
+                        v = float(getattr(c, "power", 0) or 0) / 1000.0 \
+                            + float(getattr(c, "counter", 0) or 0) / 1000.0
+                        if v > best_v:
+                            best_i, best_v = i, v
+                    except Exception:
+                        continue
+                if best_i is not None:
+                    top_card = remaining.pop(best_i)
+                    me.deck.insert(0, top_card)
+                    # 上に置いた札は本人が知っている (= 次のドローが確定)
+                    try:
+                        me.known_top_card_ids.append(top_card.card_id)
+                    except Exception:
+                        pass
+                    state.push_log("  効果: 残り1枚をデッキの上へ (= 次ドロー確定)")
+                me.deck.extend(remaining)
+                try:
+                    me.known_bottom_card_ids.extend(c.card_id for c in remaining)
+                except Exception:
+                    pass
             else:
-                # bottom / top_or_bottom はどちらも底へ (AI 簡易)
+                # bottom 指定 = 底へ
                 me.deck.extend(remaining)
                 # 見た上で底に送った札 = 内容も位置も本人には判る (= 当分引かない札が確定)
                 try:
@@ -4204,6 +4263,7 @@ def _execute_effect_body(
             # サーチ後はシャッフル
             state.rng.shuffle(me.deck)
             me.known_bottom_card_ids.clear()
+            me.known_top_card_ids.clear()
             state.push_log(f"  効果: サーチ → {[c.name for c in picked]}")
         elif k == "life_to_hand":
             if getattr(me, "prevent_self_life_to_hand_until_turn_end", False):
@@ -5076,6 +5136,7 @@ def _execute_effect_body(
             # 自分のデッキをシャッフル
             state.rng.shuffle(me.deck)
             me.known_bottom_card_ids.clear()
+            me.known_top_card_ids.clear()
             state.push_log(f"  効果: 自デッキシャッフル")
         elif k == "trash_to_hand":
             # 自分のトラッシュからカード N 枚 (filter 付き) を手札に
@@ -5125,6 +5186,7 @@ def _execute_effect_body(
             if shuffle_after:
                 state.rng.shuffle(me.deck)
                 me.known_bottom_card_ids.clear()
+                me.known_top_card_ids.clear()
             state.push_log(
                 f"  効果: trash → deck {to_pos} {len(picked)} 枚"
                 f"{' (shuffle)' if shuffle_after else ''}"
@@ -5932,6 +5994,7 @@ def _execute_effect_body(
                 state.push_log(f"  効果: デッキから ステージ 登場 (= 特徴《{feature}》 該当 なし)")
                 state.rng.shuffle(me.deck)
                 me.known_bottom_card_ids.clear()
+                me.known_top_card_ids.clear()
                 return False
             card = me.deck.pop(found_idx)
             # 自場 ステージ 上限 (= 公式 1 枚) チェック
@@ -5945,6 +6008,7 @@ def _execute_effect_body(
             state.push_log(f"  効果: デッキ → ステージ 登場 {card.name} (特徴《{feature}》)")
             state.rng.shuffle(me.deck)
             me.known_bottom_card_ids.clear()
+            me.known_top_card_ids.clear()
         elif k == "fire_event_main_from_trash":
             # 「自分のトラッシュにある(filter)イベント1枚までの、【メイン】効果を発動する」
             # (EB03-031 サンジ)。 AI: 該当イベントの先頭1枚の main do を発火 (イベントはトラッシュに残留)。
@@ -6354,7 +6418,7 @@ def _execute_effect_body(
             ):
                 return False
             else:
-                cands.sort(key=lambda c: -c.power)
+                cands.sort(key=_threat_key)  # 脅威度優先 + power tie-break
                 chosen = cands[:limit]
             for t in chosen:
                 t.stay_rested_next_refresh = True
@@ -6475,7 +6539,7 @@ def _execute_effect_body(
             ):
                 return False
             else:
-                cands.sort(key=lambda ip: -ip.power)
+                cands.sort(key=_threat_key)  # 脅威度優先 + power tie-break
                 chosen = cands[:limit]
             for c in chosen:
                 c.stay_rested_next_refresh = True
@@ -9154,6 +9218,7 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             # デッキ シャッフル 必要)
             state.rng.shuffle(me.deck)
             me.known_bottom_card_ids.clear()
+            me.known_top_card_ids.clear()
             return
         if isinstance(primitive_value, dict):
             new_spec = dict(primitive_value)

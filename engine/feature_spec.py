@@ -681,7 +681,9 @@ EYES_KEYS = tuple(
     # カウンターを何枚切らされたか」 は次ターンの守備計画に直結する。
     + ["my_attacks_made", "opp_attacks_made", "my_blocks_made", "opp_blocks_made",
        "my_counters_forced", "opp_counters_forced", "opp_attacks_recent",
-       "opp_attacked_leader_recent", "battle_pressure_diff", "peeked_opp_top_known"]
+       "opp_attacked_leader_recent", "battle_pressure_diff", "peeked_opp_top_known",
+       # デッキ上に置いて次ドローが確定している札 (top_or_bottom で「上」を選んだ分)
+       "my_known_top_n", "my_known_top_counter", "my_known_top_power"]
 )
 
 
@@ -892,6 +894,12 @@ def _eyes_features(snap: dict) -> dict:
                                                   if len(e) > 3 and e[3] == "leader"))
     out["battle_pressure_diff"] = float(ms[2] - os_[2])
     out["peeked_opp_top_known"] = 1.0 if snap.get("peeked_opp_top") else 0.0
+    ktop = me.get("known_top_card_ids") or []
+    out["my_known_top_n"] = float(len(ktop))
+    out["my_known_top_counter"] = sum(
+        float((info.get(c) or {}).get("counter_value") or 0.0) for c in ktop) / 1000.0
+    out["my_known_top_power"] = sum(
+        float(((info.get(c) or {}).get("mags") or {}).get("_power") or 0.0) for c in ktop)
     for side, p_ in (("my", me), ("opp", opp)):
         out[f"{side}_blocked_chara_play"] = 1.0 if p_.get("block_chara_play_until_turn_end") else 0.0
         out[f"{side}_blocked_draw"] = 1.0 if p_.get("block_self_draw_until_turn_end") else 0.0

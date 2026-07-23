@@ -534,6 +534,9 @@ class Player:
     # 人間も追える情報だが数え落とす → AI は正確に追える (= 人間より正確に、 の範囲内)。
     # ⚠ デッキシャッフルで無効化される (位置が壊れるため clear する)。
     known_bottom_card_ids: list[str] = field(default_factory=list)
+    # 自分がデッキの上に置いた (= 次に引くと確定している) カード。 top_or_bottom の「上」を
+    # 選んだ時に入る。 引いたら pop する。 ⚠ シャッフルで無効化。
+    known_top_card_ids: list[str] = field(default_factory=list)
 
     def add_to_hand_publicly(self, card) -> None:
         """カードを手札に公開で追加 (Phase 7I)。
@@ -560,6 +563,19 @@ class Player:
                 used[cid] += 1
                 out.append(cid)
         self.known_bottom_card_ids = out
+        return out
+
+    def normalize_known_top(self) -> list:
+        """known_top_card_ids を実際のデッキ内容と突き合わせて正規化 (= 引いた分を除く)。"""
+        from collections import Counter
+        in_deck = Counter(c.card_id for c in self.deck)
+        out: list = []
+        used: Counter = Counter()
+        for cid in self.known_top_card_ids:
+            if used[cid] < in_deck.get(cid, 0):
+                used[cid] += 1
+                out.append(cid)
+        self.known_top_card_ids = out
         return out
 
     def normalize_known_hand(self) -> None:
@@ -664,6 +680,16 @@ class Player:
             drawn.append(self.deck.pop(0))
         self.hand.extend(drawn)
         self.cards_drawn_count += len(drawn)
+        # デッキ上に置いたと知っている札を引いたら、 その知識は消費される (= もう手札に在る)。
+        # 引いた札は本人が見ているので known_hand へ移す必要はない (自分の手札は全部見える)。
+        for c in drawn:
+            try:
+                if self.known_top_card_ids and self.known_top_card_ids[0] == c.card_id:
+                    self.known_top_card_ids.pop(0)
+                elif c.card_id in self.known_top_card_ids:
+                    self.known_top_card_ids.remove(c.card_id)
+            except Exception:
+                pass
         return drawn
 
     def field_count(self):

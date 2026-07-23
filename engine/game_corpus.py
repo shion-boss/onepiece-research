@@ -88,6 +88,8 @@ def snapshot_player(p: Any, idx: int) -> dict:
         # 自分が見た上で底に送った札 (= 当分引かない = 次に引く母集団から外れる)
         "known_bottom_card_ids": (p.normalize_known_bottom()
                                   if hasattr(p, "normalize_known_bottom") else []),
+        "known_top_card_ids": (p.normalize_known_top()
+                               if hasattr(p, "normalize_known_top") else []),
         "trash_card_ids": [c.card_id for c in p.trash],
         "don_active": p.don_active,
         "don_rested": p.don_rested,
