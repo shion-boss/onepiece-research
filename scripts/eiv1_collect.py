@@ -280,13 +280,32 @@ def main():
     # 1 round の上限秒 (circuit breaker): 病的に長いゲームが pool を無限ブロックし lock を握り続ける
     # のを防ぐ。 超えたら pool を terminate してこの round を打ち切り (lock 解放 → 次 cron が回れる)。
     timeout_s = int(os.environ.get("EIV1_COLLECT_TIMEOUT", "900"))
+    # ⚠ 旧実装は map_async().get(timeout) で、 timeout 時に **完了済みのゲームも全部捨てて**
+    # いた (実測: 901s × 12 コアの計算が丸ごと消えた round あり)。 imap (順序保持) で
+    # 到着したものから受け取り、 期限が来たら **そこまでの結果を活かして**打ち切る。
+    # 順序を保つのは tasks[gi] との対応 (= どちらの席が現行 value か) を壊さないため。
+    results = []
     with mp.Pool(a.workers) as pool:
-        try:
-            results = pool.map_async(_collect_game, tasks).get(timeout=timeout_s)
-        except mp.TimeoutError:
-            pool.terminate()
-            print(f"!! collect timeout ({timeout_s}s) → この round を打ち切り (次へ)", flush=True)
-            results = []
+        it = pool.imap(_collect_game, tasks)
+        deadline = time.time() + timeout_s
+        while True:
+            remain = deadline - time.time()
+            if remain <= 0:
+                print(f"!! collect timeout ({timeout_s}s) → 完了済 {len(results)} game を活かして"
+                      f"打ち切り", flush=True)
+                pool.terminate()
+                break
+            try:
+                results.append(it.next(timeout=remain))
+            except StopIteration:
+                break
+            except mp.TimeoutError:
+                print(f"!! collect timeout ({timeout_s}s) → 完了済 {len(results)} game を活かして"
+                      f"打ち切り", flush=True)
+                pool.terminate()
+                break
+            except Exception:
+                results.append([])
     # game_id を付ける: 1 game = 5〜6 行を吐くので、 学習の held-out split を game 単位で
     # 切らないと同一 game の行が train/test に跨り AUC がリークで上振れする。
     run_tag = int(t0)   # この run の識別子 (round/日を跨いでも game_id が衝突しない)
