@@ -665,6 +665,18 @@ EYES_KEYS = tuple(
        # 確定するので、 次に引く母集団 (= 有効デッキ) が変わる。 引く確率の分母が変わる話。
        "my_known_bottom_n", "my_effective_deck_n", "my_bottom_removal_n",
        "my_bottom_counter_total", "my_eff_removal_ratio", "my_eff_counter_per_card"]
+    # ⭐ 一時バフと状態異常 (2026-07-24)。 InPlay は 71 フィールド持つのに snapshot は 8 個しか
+    # 記録していなかった。「今の 7000 は素か、 一時 +2000 か」 を区別できないと次ターンが読めない。
+    + [f"{side}_{k}" for side in ("my", "opp")
+       for k in ("temp_buff_total", "base_power_total", "ko_immune_n", "cannot_attack_n",
+                 "blocker_disabled_n", "taunt_n", "buff_expiring_n")]
+    # ⭐ Player 単位の未記録スカラー。 once_per_turn_used = 「その効果は今ターンもう使った」
+    + [f"{side}_{k}" for side in ("my", "opp")
+       for k in ("once_used_n", "life_lost_turn", "ko_taken_turn", "drawn_n", "played_n",
+                 "dons_used", "dons_wasted", "discarded_turn", "faceup_life",
+                 "cost_reduction", "cant_atk_leader")]
+    # 相手の手札のカウンター期待値 (= belief。 デッキ残りカウンター密度 × 手札枚数)
+    + ["opp_hand_counter_expected", "opp_hand_counter_per_card", "phase_is_main"]
 )
 
 
@@ -811,6 +823,52 @@ def _eyes_features(snap: dict) -> dict:
     # 底札を除いた「本当に引ける確率」 (= 分母から当分引かない札を外す)
     out["my_eff_removal_ratio"] = ((rm - b_rm) / eff_n) if eff_n else 0.0
     out["my_eff_counter_per_card"] = (((ctr_tot - b_ctr) / 1000.0) / eff_n) if eff_n else 0.0
+    # --- 一時バフ / 状態異常 / Player スカラー ---
+    for side, p_ in (("my", me), ("opp", opp)):
+        chs = [c for c in (p_.get("field") or []) if isinstance(c, dict)]
+        tb = sum(int(c.get("turn_buff") or 0) + int(c.get("battle_buff") or 0) for c in chs)
+        out[f"{side}_temp_buff_total"] = tb / 1000.0
+        out[f"{side}_base_power_total"] = sum(int(c.get("base_power") or 0) for c in chs) / 1000.0
+        out[f"{side}_ko_immune_n"] = float(sum(1 for c in chs if c.get("ko_immune")
+                                               or int(c.get("ko_per_turn_immune_remaining") or 0)))
+        out[f"{side}_cannot_attack_n"] = float(sum(1 for c in chs if c.get("cannot_attack")))
+        out[f"{side}_blocker_disabled_n"] = float(sum(1 for c in chs if c.get("blocker_disabled")))
+        out[f"{side}_taunt_n"] = float(sum(1 for c in chs if c.get("attack_taunt")))
+        # ターン終了で消えるバフを持つ駒数 = 「次ターンには弱くなる駒」
+        out[f"{side}_buff_expiring_n"] = float(sum(1 for c in chs
+                                                   if int(c.get("turn_buff") or 0) > 0))
+        for key, fld in (("once_used_n", "once_per_turn_used_n"),
+                         ("life_lost_turn", "life_lost_this_turn"),
+                         ("ko_taken_turn", "chara_ko_taken_this_turn"),
+                         ("drawn_n", "cards_drawn_count"), ("played_n", "cards_played_count"),
+                         ("dons_used", "dons_used_count"),
+                         ("dons_wasted", "dons_unused_at_end_count"),
+                         ("discarded_turn", "hand_discarded_by_effect_this_turn"),
+                         ("faceup_life", "face_up_life_count"),
+                         ("cost_reduction", "play_cost_reduction")):
+            out[f"{side}_{key}"] = float(p_.get(fld) or 0)
+        out[f"{side}_cant_atk_leader"] = 1.0 if p_.get(
+            "cannot_attack_leader_until_turn_end") else 0.0
+    # 相手手札のカウンター期待値 = 未確認札のカウンター密度 × 手札枚数 (= 公開情報のみ)
+    try:
+        from . import gbm_value as _G
+        from collections import Counter as _C
+        ids = [c.get("card_id") for c in (opp.get("field") or [])] \
+            + list(opp.get("trash_card_ids") or []) + list(opp.get("known_hand_card_ids") or [])
+        seen_o = dict(_C([i for i in ids if i]))
+        ec, _eb = _G._belief_deck_totals(opp["leader"]["card_id"], seen_o)
+        trash_ctr = sum(float((info.get(c) or {}).get("counter_value") or 0.0)
+                        for c in (opp.get("trash_card_ids") or []))
+        oh_n = float(opp.get("hand_count") or 0)
+        rest_n = max(float(opp.get("deck_count") or 0) + oh_n
+                     + float(opp.get("life_count") or 0), 1.0)
+        per = max(ec - trash_ctr, 0.0) / rest_n / 1000.0
+        out["opp_hand_counter_expected"] = per * oh_n
+        out["opp_hand_counter_per_card"] = per
+    except Exception:
+        out["opp_hand_counter_expected"] = 0.0
+        out["opp_hand_counter_per_card"] = 0.0
+    out["phase_is_main"] = 1.0 if "MAIN" in str(snap.get("phase_name") or "").upper() else 0.0
     for side, p_ in (("my", me), ("opp", opp)):
         out[f"{side}_blocked_chara_play"] = 1.0 if p_.get("block_chara_play_until_turn_end") else 0.0
         out[f"{side}_blocked_draw"] = 1.0 if p_.get("block_self_draw_until_turn_end") else 0.0

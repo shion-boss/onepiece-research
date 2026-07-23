@@ -349,6 +349,20 @@ def _mini_snap(state: Any, me_idx: int) -> dict:
             "don_rested": getattr(p, "don_rested", 0),
             "don_remaining_in_deck": getattr(p, "don_remaining_in_deck", 0),
             "did_mulligan": bool(getattr(p, "did_mulligan", False)),
+            "once_per_turn_used_n": len(getattr(p, "once_per_turn_used", []) or []),
+            "life_lost_this_turn": int(getattr(p, "life_lost_this_turn", 0) or 0),
+            "chara_ko_taken_this_turn": int(getattr(p, "chara_ko_taken_this_turn", 0) or 0),
+            "cards_drawn_count": int(getattr(p, "cards_drawn_count", 0) or 0),
+            "cards_played_count": int(getattr(p, "cards_played_count", 0) or 0),
+            "dons_used_count": int(getattr(p, "dons_used_count", 0) or 0),
+            "dons_unused_at_end_count": int(getattr(p, "dons_unused_at_end_count", 0) or 0),
+            "hand_discarded_by_effect_this_turn": int(
+                getattr(p, "hand_discarded_by_effect_this_turn", 0) or 0),
+            "face_up_life_count": int(getattr(p, "face_up_life_count", 0) or 0),
+            "play_cost_reduction": int(getattr(p, "play_cost_reduction", 0) or 0),
+            "cannot_attack_leader_until_turn_end": bool(
+                getattr(p, "cannot_attack_leader_until_turn_end", False)),
+            "max_event_cost_this_turn": int(getattr(p, "max_event_cost_this_turn", 0) or 0),
             # ⚠ key は snapshot_player と同一に保つ (spec 列は snapshot でも live でも同じ
             # 実装で計算するので、 片方に欠けると学習と推論がズレる)。
             "field": [{"card_id": ip.card.card_id, "cost": getattr(ip.card, "cost", 0),
@@ -357,7 +371,27 @@ def _mini_snap(state: Any, me_idx: int) -> dict:
                        "summoning_sickness": bool(getattr(ip, "summoning_sickness", False)),
                        "is_blocker_now": bool(getattr(ip, "is_blocker_now", False)),
                        "is_rush_now": bool(getattr(ip, "is_rush_now", False)),
-                       "granted_keywords": list(getattr(ip, "granted_keywords", set()) or [])}
+                       "granted_keywords": list(getattr(ip, "granted_keywords", set()) or []),
+                       "base_power": int(getattr(ip.card, "power", 0) or 0),
+                       "turn_buff": int(getattr(ip, "turn_buff", 0) or 0),
+                       "battle_buff": int(getattr(ip, "battle_buff", 0) or 0),
+                       "next_turn_buff": int(getattr(ip, "next_turn_buff", 0) or 0),
+                       "static_buff": int(getattr(ip, "static_buff", 0) or 0),
+                       "ko_immune": bool(getattr(ip, "static_ko_immune", False)
+                                         or getattr(ip, "ko_immune_until_turn_end", False)
+                                         or getattr(ip, "ko_immune_through_opp_turn", False)
+                                         or getattr(ip, "battle_ko_immune_static", False)
+                                         or getattr(ip, "battle_ko_immune_until_turn_end", False)),
+                       "ko_per_turn_immune_remaining": int(
+                           getattr(ip, "ko_per_turn_immune_remaining", 0) or 0),
+                       "cannot_attack": bool(getattr(ip, "cannot_attack_static", False)
+                                             or getattr(ip, "cannot_attack_until_turn_end", False)
+                                             or getattr(ip, "cannot_attack_through_opp_turn", False)),
+                       "blocker_disabled": bool(
+                           getattr(ip, "blocker_disabled_until_turn_end", False)),
+                       "attack_taunt": bool(getattr(ip, "attack_taunt", False)),
+                       "counters_used_this_battle": int(
+                           getattr(ip, "counters_used_this_battle", 0) or 0)}
                       for ip in p.characters],
             "hand_card_ids": [c.card_id for c in p.hand],
             "known_hand_card_ids": list(getattr(p, "known_hand_card_ids", []) or []),
@@ -369,6 +403,7 @@ def _mini_snap(state: Any, me_idx: int) -> dict:
             "field_total_power": sum(ip.power for ip in p.characters),
         }
     return {"hero_idx": 0, "turn_number": getattr(state, "turn_number", 0),
+            "phase_name": str(getattr(getattr(state, "phase", None), "name", "") or ""),
             "recent_effect_events": list(getattr(state, "_effect_events", []) or [])[-20:],
             "effect_events_by_player": list(getattr(state, "_effect_events_by", [0, 0])),
             "total_effect_events_count": int(getattr(state, "_effect_events_n", 0)),

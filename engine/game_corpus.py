@@ -69,6 +69,22 @@ def snapshot_player(p: Any, idx: int) -> dict:
         # ⚠ p.deck だけを渡すと消去法でライフの中身が判ってしまうので **ライフと混ぜる**。
         # これで「人間が知り得る情報を、 人間より正確に (数え落とし無く) 追う」形になる。
         "unseen_pool_card_ids": sorted([c.card_id for c in p.deck] + [c.card_id for c in p.life]),
+        # ⭐ Player 37 フィールド中 12 個しか記録していなかった分の補完 (2026-07-24)。
+        # once_per_turn_used = 「その効果は今ターンもう使った」 = 使えると誤認しないための必須情報。
+        "once_per_turn_used_n": len(getattr(p, "once_per_turn_used", []) or []),
+        "life_lost_this_turn": int(getattr(p, "life_lost_this_turn", 0) or 0),
+        "chara_ko_taken_this_turn": int(getattr(p, "chara_ko_taken_this_turn", 0) or 0),
+        "cards_drawn_count": int(getattr(p, "cards_drawn_count", 0) or 0),
+        "cards_played_count": int(getattr(p, "cards_played_count", 0) or 0),
+        "dons_used_count": int(getattr(p, "dons_used_count", 0) or 0),
+        "dons_unused_at_end_count": int(getattr(p, "dons_unused_at_end_count", 0) or 0),
+        "hand_discarded_by_effect_this_turn": int(
+            getattr(p, "hand_discarded_by_effect_this_turn", 0) or 0),
+        "face_up_life_count": int(getattr(p, "face_up_life_count", 0) or 0),
+        "play_cost_reduction": int(getattr(p, "play_cost_reduction", 0) or 0),
+        "cannot_attack_leader_until_turn_end": bool(
+            getattr(p, "cannot_attack_leader_until_turn_end", False)),
+        "max_event_cost_this_turn": int(getattr(p, "max_event_cost_this_turn", 0) or 0),
         # 自分が見た上で底に送った札 (= 当分引かない = 次に引く母集団から外れる)
         "known_bottom_card_ids": (p.normalize_known_bottom()
                                   if hasattr(p, "normalize_known_bottom") else []),
@@ -89,6 +105,27 @@ def snapshot_player(p: Any, idx: int) -> dict:
                 "is_blocker_now": bool(getattr(ip, "is_blocker_now", False)),
                 "is_rush_now": bool(getattr(ip, "is_rush_now", False)),
                 "granted_keywords": list(getattr(ip, "granted_keywords", set())),
+                # ⭐ 2026-07-24: InPlay は 71 フィールド持つのに 8 個しか記録していなかった。
+                # 「今の 7000 は素の 7000 か、 5000 に一時 +2000 か」 が区別できないと
+                # 次ターンの盤面を読めない。 KO 耐性・攻撃不可も決定に直結する。
+                "base_power": int(getattr(ip.card, "power", 0) or 0),
+                "turn_buff": int(getattr(ip, "turn_buff", 0) or 0),
+                "battle_buff": int(getattr(ip, "battle_buff", 0) or 0),
+                "next_turn_buff": int(getattr(ip, "next_turn_buff", 0) or 0),
+                "static_buff": int(getattr(ip, "static_buff", 0) or 0),
+                "ko_immune": bool(getattr(ip, "static_ko_immune", False)
+                                  or getattr(ip, "ko_immune_until_turn_end", False)
+                                  or getattr(ip, "ko_immune_through_opp_turn", False)
+                                  or getattr(ip, "battle_ko_immune_static", False)
+                                  or getattr(ip, "battle_ko_immune_until_turn_end", False)),
+                "ko_per_turn_immune_remaining": int(
+                    getattr(ip, "ko_per_turn_immune_remaining", 0) or 0),
+                "cannot_attack": bool(getattr(ip, "cannot_attack_static", False)
+                                      or getattr(ip, "cannot_attack_until_turn_end", False)
+                                      or getattr(ip, "cannot_attack_through_opp_turn", False)),
+                "blocker_disabled": bool(getattr(ip, "blocker_disabled_until_turn_end", False)),
+                "attack_taunt": bool(getattr(ip, "attack_taunt", False)),
+                "counters_used_this_battle": int(getattr(ip, "counters_used_this_battle", 0) or 0),
             }
             for ip in p.characters
         ],
@@ -113,6 +150,7 @@ def snapshot_state(state: Any) -> dict:
     """GameState の dump。 active_player + phase + both players + 直近 effect 履歴。"""
     return {
         "turn_number": state.turn_number,
+        "phase_name": str(getattr(state.phase, "name", "") or ""),
         "active_player": state.turn_player_idx,
         "phase": str(state.phase),
         "players": [snapshot_player(p, idx) for idx, p in enumerate(state.players)],
