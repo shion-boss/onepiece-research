@@ -58,32 +58,49 @@ def main():
             lines.append(line)
             if len(lines) > a.sample:
                 lines.pop(0)
-    X, y = [], []
+    # ⚠ 2026-07-24 修正: 候補を「配備 value.pkl (= 全 corpus 学習)」と比べると、 候補は
+    # --sample 分しか学習していない = **データ量と次元が同時に変わる**交絡。 der/don 25 列が
+    # arena 0.409 (= 悪化) に見えたのはこれの疑い。 正しくは、 同一 sample・同一容量で
+    #   baseline = base 特徴のみ / candidate = base + 候補列
+    # の 2 本を学習し、 **candidate vs baseline** を arena する (= feature の純効果)。
+    Xb, Xc, y = [], [], []
     for line in lines:
         try:
             d = json.loads(line)
             snap = d.get("state")
             if not snap:
                 continue
-            X.append(eiv1_train_vector(d) + FS.evaluate(snap, spec))
+            base = eiv1_train_vector(d)
+            Xb.append(base)
+            Xc.append(base + FS.evaluate(snap, spec))
             y.append(int(d["y"]))
         except Exception:
             continue
-    X = np.array(X, dtype=np.float32)
+    Xb = np.array(Xb, dtype=np.float32)
+    Xc = np.array(Xc, dtype=np.float32)
     y = np.array(y, dtype=np.int32)
-    print(f"学習: n={len(y):,} dim={X.shape[1]} ({time.time() - t0:.0f}s)", flush=True)
-    m = HistGradientBoostingClassifier(random_state=0, max_iter=1000, max_leaf_nodes=63,
-                                       max_depth=None, learning_rate=0.05,
-                                       l2_regularization=1.0)
-    m.fit(X, y)
+    print(f"学習: n={len(y):,} base_dim={Xb.shape[1]} cand_dim={Xc.shape[1]} "
+          f"({time.time() - t0:.0f}s)", flush=True)
+    cap = dict(random_state=0, max_iter=1000, max_leaf_nodes=63, max_depth=None,
+               learning_rate=0.05, l2_regularization=1.0)
+    # baseline (feature 無し、 同一 sample・同一容量) を data-matched で学習
+    base_model = HistGradientBoostingClassifier(**cap)
+    base_model.fit(Xb, y)
+    BASE = EIV1_DIR / "_baseline_value.pkl"
+    with open(BASE, "wb") as f:
+        pickle.dump(base_model, f)
+    FS.save_spec(FS.spec_path_for_model(BASE), [], {"source": "data_matched_baseline"})
+    # candidate (feature あり)
+    m = HistGradientBoostingClassifier(**cap)
+    m.fit(Xc, y)
     with open(CAND, "wb") as f:
         pickle.dump(m, f)
     FS.save_spec(FS.spec_path_for_model(CAND), spec, {"source": a.spec})
-    print(f"候補 value 保存 → arena ({time.time() - t0:.0f}s)", flush=True)
+    print(f"候補 + data-matched baseline 保存 → arena ({time.time() - t0:.0f}s)", flush=True)
 
     r = subprocess.run(
         [str(ROOT / ".venv" / "bin" / "python"), str(ROOT / "scripts" / "eiv1_arena.py"),
-         "--arm", str(CAND), "--refs", str(VALUE), "--pairs", str(a.pairs),
+         "--arm", str(CAND), "--refs", str(BASE), "--pairs", str(a.pairs),
          "--workers", str(a.workers)],
         capture_output=True, text=True)
     print(r.stdout.strip(), flush=True)
