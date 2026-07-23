@@ -33,7 +33,10 @@ from . import gbm_value
 #     v16 の追加 17 列は「保存済み state から再計算」できるので、 base を v15 に据えたまま corpus を
 #     再収集せず v16 に拡張できる (= 盲目化しない設計の payoff)。
 FEATURE_VER = "v15"        # corpus 保存 base (f フィールド)
-TRAIN_FEATURE_VER = "v16"  # 学習/推論の実表現
+TRAIN_FEATURE_VER = "v16"  # 配備の実表現 (= v15 + 相手 leader matchup 17)。
+# ⚠ v17 (= v16 + トラッシュ防御資源 4) は de-risk 測定で AUC null (+0.0002) だった (トラッシュ枯渇は
+# ゲーム進行と冗長)。 有用化には「トラッシュ + 相手デッキ belief で残り防御量を推定」が要る。 gbm_value
+# v17 と trash_feats_from_snapshot は opt-in scaffold として温存 (belief 版で再利用)、 配備は v16。
 
 
 def eiv1_features(state: Any, me_idx: int) -> list:
@@ -61,10 +64,51 @@ def matchup_feats_from_snapshot(snap: dict) -> list:
         return [0.0] * 17
 
 
+_REPO = None
+
+
+def _repo():
+    global _REPO
+    if _REPO is None:
+        from pathlib import Path
+        from engine.deck import CardRepository
+        root = Path(__file__).resolve().parent.parent
+        _REPO = CardRepository.from_json(str(root / "db" / "cards.json"))
+    return _REPO
+
+
+def trash_feats_from_snapshot(snap: dict) -> list:
+    """保存済み snapshot の trash_card_ids から トラッシュ防御資源 (my/opp × counter総量, blocker数 = 4)
+    を復元。 trash は公開情報 → 再収集せず既存 corpus を v17 に拡張できる。 欠損時は全0。"""
+    try:
+        repo = _repo()
+        hi = snap["hero_idx"]
+
+        def _z(p):
+            ctr = blk = 0
+            for cid in p.get("trash_card_ids", []):
+                try:
+                    c = repo.get(cid)
+                except Exception:
+                    continue
+                ctr += int(getattr(c, "counter", 0) or 0)
+                if getattr(c, "is_blocker", False):
+                    blk += 1
+            return float(ctr), float(blk)
+        me = snap["players"][hi]
+        opp = snap["players"][1 - hi]
+        mc, mb = _z(me)
+        oc, ob = _z(opp)
+        return [mc, oc, mb, ob]  # my_ctr, opp_ctr, my_blk, opp_blk (= gbm_value._trash_resource_features 順)
+    except Exception:
+        return [0.0] * 4
+
+
 def eiv1_train_vector(row: dict) -> list:
-    """corpus 行 → v16 学習ベクトル = f(v15, 43) + matchup(state, 17) = 60dim。
-    保存済み state から matchup を復元して append (= 再収集なしで v16 化)。"""
+    """corpus 行 → v16 学習ベクトル = f(v15, 43) + matchup(state, 17) = 60dim (配備の実表現)。
+    保存済み state から matchup を復元して append (= 再収集なしで v16 化)。
+    ⚠ trash(v17) は AUC null だったので配備には足さない (trash_feats_from_snapshot は belief 版用に温存)。"""
     base = list(row.get("f", []))
     snap = row.get("state")
-    ex = matchup_feats_from_snapshot(snap) if snap else [0.0] * 17
-    return base + ex
+    mu = matchup_feats_from_snapshot(snap) if snap else [0.0] * 17
+    return base + mu

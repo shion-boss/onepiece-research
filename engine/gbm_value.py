@@ -293,6 +293,11 @@ FEATURE_KEYS_V15 = FEATURE_KEYS_V14 + (
 # 訓練/推論一致、 hidden 不要。 既存 corpus の保存済み state から再計算でき **再収集不要**。
 # 実測 (de-risk): turn1 AUC 0.633→0.712(+0.079)、 全体 0.814→0.830。 序盤ほど効果大。
 FEATURE_KEYS_V16 = FEATURE_KEYS_V15 + FEATURE_KEYS_V5[len(FEATURE_KEYS_V2):] + FEATURE_KEYS_V6[len(FEATURE_KEYS_V5):]
+# v17 = 64 (2026-07-24): ohtsuki「トラッシュは情報の宝庫」。 **トラッシュの防御資源消費** を feature 化。
+# トラッシュは公開情報 → 相手が吐いた counter/blocker が分かる = 残り防御力の signal (吐き切っていれば
+# 押し込める)。 my/opp × (trash_counter 総量, trash_blocker 数)。 保存済み trash_card_ids から再計算可。
+FEATURE_KEYS_V17 = FEATURE_KEYS_V16 + (
+    "my_trash_counter", "opp_trash_counter", "my_trash_blocker", "opp_trash_blocker")
 
 
 def v2_anchor_value(state: Any, me_idx: int, anchor_path: str) -> float:
@@ -584,6 +589,20 @@ def _grounded_category_features(state: Any, me_idx: int) -> list:
     return _zone(me_p) + _zone(opp_p)
 
 
+def _trash_resource_features(state: Any, me_idx: int) -> list:
+    """v17: トラッシュの防御資源消費 (= 公開情報)。 my/opp の trash 内 counter 総量 + blocker 数。
+    「相手が counter/blocker を吐き切ったか」 = 残り防御力の signal。 live state / snapshot 両方から
+    同値が出る (= trash の CardDef の counter/is_blocker を集計、 snapshot は trash_card_ids から復元)。"""
+    def _z(p):
+        ctr = sum(int(getattr(c, "counter", 0) or 0) for c in getattr(p, "trash", []))
+        blk = sum(1 for c in getattr(p, "trash", []) if getattr(c, "is_blocker", False))
+        return float(ctr), float(blk)
+    me_p, opp_p = state.players[me_idx], state.players[1 - me_idx]
+    mc, mb = _z(me_p)
+    oc, ob = _z(opp_p)
+    return [mc, oc, mb, ob]
+
+
 def _zone_potency(p) -> tuple:
     """player の全ゾーン (deck/hand/trash/life/場/leader) のカードの engine/recovery 密度合計。
     ≈ デッキ全体の card-advantage 密度 = ほぼ静的な archetype 記述子 (= ナミ control 高 / エネル aggro 低)。"""
@@ -625,7 +644,8 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
              v6don: Optional[bool] = None, v10: Optional[bool] = None,
              v11: Optional[bool] = None, v12: Optional[bool] = None,
              v13: Optional[bool] = None, v14: Optional[bool] = None,
-             v15: Optional[bool] = None, v16: Optional[bool] = None) -> list:
+             v15: Optional[bool] = None, v16: Optional[bool] = None,
+             v17: Optional[bool] = None) -> list:
     """GameState + me_idx → feature vector。 rich=True で v2 (21)、 既定は env
     ONEPIECE_GBM_RICH (= 学習時に set)。 推論は gbm_score が model 次元で自動判別。
     v5=True (env ONEPIECE_GBM_V5) で 相手 leader の matchup tag 13 列を追加 (= 34、 matchup-条件付き)。
@@ -699,6 +719,10 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         v15 = os.environ.get("ONEPIECE_GBM_V15") == "1"
     if v16 is None:
         v16 = os.environ.get("ONEPIECE_GBM_V16") == "1"
+    if v17 is None:
+        v17 = os.environ.get("ONEPIECE_GBM_V17") == "1"
+    if v17:
+        v16 = True  # v17 ⊃ v16 (+ トラッシュ防御資源 4)。 v16 の後に append。
     if v16:
         v15 = True  # v16 ⊃ v15 (+ 相手 leader tag 13 + interaction 4)。 v15 の後に append。
     if v15:
@@ -797,6 +821,9 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         # FEATURE_KEYS_V16 = FEATURE_KEYS_V15 + tag(13) + interaction(4) の列順と一致。
         out += _opp_matchup_tag_vector(state, me_idx)
         out += _opp_matchup_interaction_vector(state, me_idx)
+    if v17:
+        # トラッシュの防御資源消費 (= 公開情報、 「情報の宝庫」)。 v16 の後に append。
+        out += _trash_resource_features(state, me_idx)
     return out
 
 
@@ -823,7 +850,7 @@ def _feat_for_dim(state, me_idx, n):
                     v10=(n == len(FEATURE_KEYS_V10)), v11=(n == len(FEATURE_KEYS_V11)),
                     v12=(n == len(FEATURE_KEYS_V12)), v13=(n == len(FEATURE_KEYS_V13)),
                     v14=(n == len(FEATURE_KEYS_V14)), v15=(n == len(FEATURE_KEYS_V15)),
-                    v16=(n == len(FEATURE_KEYS_V16)))
+                    v16=(n == len(FEATURE_KEYS_V16)), v17=(n == len(FEATURE_KEYS_V17)))
 
 
 # prefix 一致で slice 再利用できる次元(V1⊂V2⊂V5⊂V6⊂V11⊂V12 の chain のみ。 v3/v4/v9/v6don/v8/v10 は
