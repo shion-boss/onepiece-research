@@ -198,3 +198,19 @@ def test_public_search_records_known_hand_but_private_does_not():
                         _walk(x)
             _walk(b.get("do"))
     assert pub > 100 and priv > 20, f"フラグ付与が不足 (公開 {pub} / 非公開 {priv})"
+
+
+def test_discard_prefers_already_revealed_card():
+    """捨て札も同点なら『相手にバレている札』から (カウンターと同じ原則)。"""
+    from engine.effects import _worst_hand_idx
+
+    class _C:
+        def __init__(self, cid, counter, cost, power):
+            self.card_id, self.counter, self.cost, self.power = cid, counter, cost, power
+    # 完全に同スペックの 2 枚。 index 1 だけ相手に割れている
+    hand = [_C("AAA-001", 1000, 3, 4000), _C("BBB-002", 1000, 3, 4000)]
+    assert _worst_hand_idx(hand, known=["BBB-002"]) == 1
+    assert _worst_hand_idx(hand) == 0          # known 無しは従来通り
+    # ⚠ バレていても「惜しい札」を優先して捨てはしない (counter 温存が上位キー)
+    hand2 = [_C("AAA-001", 0, 3, 4000), _C("BBB-002", 2000, 3, 4000)]
+    assert _worst_hand_idx(hand2, known=["BBB-002"]) == 0
