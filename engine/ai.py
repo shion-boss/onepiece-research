@@ -1889,12 +1889,49 @@ class GreedyAI:
                     refunded += int(v) if isinstance(v, int) else int(v.get("amount", 0))
         return refunded >= pay_don
 
+    # ノーコスト起動メインを「評価が下がるなら撃たない」に変える opt-in gate (既定 OFF)。
+    # 実測で free[0] の 21% は score delta が負だが、 eval に見えない効用 (デッキ操作/情報/布石)
+    # を持つ効果も同じく負に出るため、 既定 ON にはせず A/B で確かめる。
+    _free_activate_gate: bool = False
+    _free_activate_gate_margin: float = 0.0
+
+    def _best_free_activate(
+        self, state: GameState, free: list[ActivateMain]
+    ) -> Optional[Action]:
+        """ノーコスト候補から 1-ply eval で最良を選ぶ (gate ON なら明確に負の時は撃たない)。"""
+        from .eval import compute_score
+        from .plan_search import fast_clone
+        me_idx = state.turn_player_idx
+        try:
+            base = compute_score(state, me_idx)
+        except Exception:
+            return free[0]
+        best, best_d = None, None
+        for a in free:
+            try:
+                sim = fast_clone(state)
+                apply_action(sim, a)
+                d = compute_score(sim, me_idx) - base
+            except Exception:
+                continue
+            if best_d is None or d > best_d:
+                best, best_d = a, d
+        if best is None:
+            return free[0]
+        # gate は env でも効かせる: beam の相手ターン模擬は「相手の AI object」を呼ぶので、
+        # per-AI 属性だけだと A/B で自分の読みに反映されない (= 測りたいものが測れない)。
+        gate = self._free_activate_gate or os.environ.get("ONEPIECE_FREE_ACTIVATE_GATE") == "1"
+        if gate and best_d is not None \
+                and best_d < -self._free_activate_gate_margin:
+            return None     # 全候補が評価を下げる → 撃たずに他の行動へ
+        return best
+
     def _pick_activate_main(
         self, state: GameState, candidates: list[ActivateMain]
     ) -> Optional[Action]:
         """activate_main 候補から payoff の良いものを選ぶ。
 
-        - pay_don=0 のコスト無し効果: 即 1 つ目を返す (=従来通り)
+        - pay_don=0 のコスト無し効果: 発動する (複数あれば 1-ply eval で最良を選ぶ)
         - pay_don≥1 のドン消費型: 1-ply eval で post-pre delta を測り、 改善あれば発動。
           delta が「ドン消費分の損失」を超えるなら発動価値あり (eval 内 W_DON で
           ドン消失は既に減算されるので、 純 delta > 0 なら net gain)。
@@ -1903,13 +1940,24 @@ class GreedyAI:
         ai_params 由来のゲート (= 学習可能):
         - activate_main_don_compensated_strict: ドン相殺型でも 「DON 再投資先あり」 のみ採用
         - activate_main_min_payoff_global: ドン相殺型でも eval delta が指定値未満なら不採用
+
+        ⚠ ここは beam の中の **相手ターン模擬** (plan_search._simulate_opp_turn) からも呼ばれ、
+        実測で 1 game あたり数百回動く (= 配備 AI 自身の判断 5.6% に対し 60 倍)。 つまりこの
+        ルールの質は「AI がどう指すか」より「AI が相手をどう読むか」に効く。 実測 (6 game):
+          ノーコスト候補数 = 1 個が 94% / 2 個が 6% → 「選択」の余地は小さい (より良い候補が
+          居たのは全体の 1.9%、 ただし当たった時の delta は大きい)
+          free[0] の score delta = 正 49% / ほぼ0 29% / **負 21%** → 「撃つか否か」の方が本丸
         """
         if not candidates:
             return None
-        # ノーコスト効果は最優先
+        # ノーコスト効果は最優先 (コスト無し = 撃たない理由が基本無い)
         free = [a for a in candidates if self._activate_main_pay_don(state, a) == 0]
         if free:
-            return free[0]
+            gate_on = self._free_activate_gate or \
+                os.environ.get("ONEPIECE_FREE_ACTIVATE_GATE") == "1"
+            if len(free) == 1 and not gate_on:
+                return free[0]          # 94% はここ (= 従来と同一・追加コストゼロ)
+            return self._best_free_activate(state, free)
 
         # don 相殺型 (pay_don を untap_don/add_don で取り戻す)
         # ai_params のゲート: strict=True なら「DON 再投資先あり」 のみ、
