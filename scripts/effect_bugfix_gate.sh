@@ -26,6 +26,18 @@ if [ "$after" -gt "$before" ]; then
   echo "GATE: _unimplemented が増加 ($before → $after) → revert"; git checkout -- .; exit 1
 fi
 
+# 不変条件1b: 無条件 skip を増やしていない (= 失敗するテストを skip して green にする不正を防ぐ)。
+# _unimplemented と同じ「安易に green にする」抜け穴の tests/ 側 (2026-07-24 追加)。
+# mark.skip( のみ数える (skipif( = 条件付き data 依存 skip は正当なので除外、 "if(" 前置で不一致)。
+sk_before=$( (git ls-tree -r HEAD --name-only tests/ 2>/dev/null | while read -r f; do
+  case "$f" in *.py) git show "HEAD:$f" 2>/dev/null;; esac
+done) | grep -c "mark\.skip(" ); sk_before=${sk_before:-0}
+sk_after=$(cat tests/*.py 2>/dev/null | grep -c "mark\.skip("); sk_after=${sk_after:-0}
+if [ "$sk_after" -gt "$sk_before" ]; then
+  echo "GATE: 無条件 skip が増加 ($sk_before → $sk_after) = テストを skip して green にする不正 → revert"
+  git checkout -- .; exit 1
+fi
+
 # 不変条件2: フル pytest が green
 echo "GATE: フル pytest 実行中..."
 if ! "$PY" -m pytest tests/ -q -p no:warnings; then
