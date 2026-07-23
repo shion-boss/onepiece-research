@@ -320,11 +320,48 @@ FEATURE_KEYS_V20 = FEATURE_KEYS_V19 + (
     "opp_bel_threat_top1", "opp_bel_threat_frac")
 
 
+def _norm_read(p: Any, attr: str) -> list:
+    """known_bottom/top を現在デッキ内容と突き合わせて絞る read-only 版 (state を変えない)。"""
+    ids = getattr(p, attr, None) or []
+    if not ids:
+        return []
+    from collections import Counter
+    in_deck = Counter(c.card_id for c in getattr(p, "deck", []) or [])
+    out, used = [], Counter()
+    for cid in ids:
+        if used[cid] < in_deck.get(cid, 0):
+            used[cid] += 1
+            out.append(cid)
+    return out
+
+
+def _mini_snap_lean(state: Any, me_idx: int) -> dict:
+    """v19/v20 (board_detail + hand_reach) が読む最小フィールドだけの軽量 snap。
+
+    ⚡ 2026-07-24: _mini_snap に全フィールド (buff/状態/未確認プール/normalize) を載せた結果
+    features(v20) が 71µs → 940µs に 13x 悪化し、 self-play collect が 10x 遅くなった
+    (900s で 500→140 game)。 board_detail/hand_reach は field の基本 4 属性 + 手札/トラッシュ/
+    leader/don しか読まないので、 重いフィールドは省く。 spec 用の全 snap は _mini_snap を使う。"""
+    def _side(p):
+        return {
+            "leader": {"card_id": p.leader.card.card_id},
+            "field": [{"card_id": ip.card.card_id, "cost": getattr(ip.card, "cost", 0),
+                       "power": ip.power, "attached_dons": getattr(ip, "attached_dons", 0)}
+                      for ip in p.characters],
+            "hand_card_ids": [c.card_id for c in p.hand],
+            "known_hand_card_ids": list(getattr(p, "known_hand_card_ids", []) or []),
+            "trash_card_ids": [c.card_id for c in getattr(p, "trash", [])],
+            "don_active": getattr(p, "don_active", 0),
+        }
+    return {"hero_idx": 0,
+            "players": [_side(state.players[me_idx]), _side(state.players[1 - me_idx])]}
+
+
 def _mini_snap(state: Any, me_idx: int) -> dict:
-    """live state → snapshot と同じ形の最小 dict (v19/v20 の列を snapshot 版と同一実装で出すため)。
+    """live state → snapshot と同じ形の **全** dict (spec 列が読む重いフィールド込み)。
 
     ⚠ 学習は保存済み snapshot、 推論は live state から作るので、 両者がズレると value が壊れる。
-    列の計算は eiv1_features の 1 実装に集約し、 ここは入力の形を合わせるだけにする。"""
+    ⚠ spec が付いた value でのみ呼ぶ (= 重い)。 v19/v20 は _mini_snap_lean を使う。"""
     def _side(p):
         return {
             "leader": {"card_id": p.leader.card.card_id, "power": p.leader.power,
@@ -337,10 +374,9 @@ def _mini_snap(state: Any, me_idx: int) -> dict:
             "unseen_pool_card_ids": sorted(
                 [c.card_id for c in (getattr(p, "deck", []) or [])]
                 + [c.card_id for c in (getattr(p, "life", []) or [])]),
-            "known_bottom_card_ids": (p.normalize_known_bottom()
-                                      if hasattr(p, "normalize_known_bottom") else []),
-            "known_top_card_ids": (p.normalize_known_top()
-                                   if hasattr(p, "normalize_known_top") else []),
+            # ⚠ 推論中に live state を変えないため read-only 版 (normalize_* は mutate する)。
+            "known_bottom_card_ids": _norm_read(p, "known_bottom_card_ids"),
+            "known_top_card_ids": _norm_read(p, "known_top_card_ids"),
             # 妨害を受けている状態 (= 今ターン キャラを出せない / ドロー封じ / ライフ回収不可)
             "block_chara_play_until_turn_end": bool(
                 getattr(p, "block_chara_play_until_turn_end", False)),
@@ -419,20 +455,20 @@ def _mini_snap(state: Any, me_idx: int) -> dict:
             "players": [_side(state.players[me_idx]), _side(state.players[1 - me_idx])]}
 
 
-def _board_detail_features(state: Any, me_idx: int) -> list:
-    """v19: 盤面の個体解像度 20 (snapshot 版と同一実装)。"""
+def _board_detail_features(state: Any, me_idx: int, snap: Optional[dict] = None) -> list:
+    """v19: 盤面の個体解像度 20 (snapshot 版と同一実装)。 snap 未指定なら lean を都度構築。"""
     try:
         from .eiv1_features import board_detail_feats_from_snapshot
-        return board_detail_feats_from_snapshot(_mini_snap(state, me_idx))
+        return board_detail_feats_from_snapshot(snap or _mini_snap_lean(state, me_idx))
     except Exception:
         return [0.0] * 20
 
 
-def _hand_reach_features(state: Any, me_idx: int) -> list:
+def _hand_reach_features(state: Any, me_idx: int, snap: Optional[dict] = None) -> list:
     """v20: 除去の射程 × 的 (自分=手札 / 相手=belief) 10 (snapshot 版と同一実装)。"""
     try:
         from .eiv1_features import hand_reach_feats_from_snapshot
-        return hand_reach_feats_from_snapshot(_mini_snap(state, me_idx))
+        return hand_reach_feats_from_snapshot(snap or _mini_snap_lean(state, me_idx))
     except Exception:
         return [0.0] * 10
 
@@ -1022,12 +1058,16 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
     if v18:
         # belief-based 相手 残り防御資源 (見た札→デッキ予測→残りカウンター/ブロッカー)。 v16 の後に append。
         out += _belief_resource_features(state, me_idx)
-    if v19:
-        # 盤面の個体解像度 (top1/top2 パワー・付与ドン・散らばり・最大コスト・効果量)。 v18 の後に append。
-        out += _board_detail_features(state, me_idx)
-    if v20:
-        # 除去の射程 × 的 (自分=手札の実カード / 相手=belief の残り除去)。 v19 の後に append。
-        out += _hand_reach_features(state, me_idx)
+    if v19 or v20:
+        # ⚡ board_detail と hand_reach は同じ lean snap を読むので 1 回だけ構築して共有
+        # (= 従来は各々が _mini_snap を作り直し、 しかも重い全 snap だった → 13x 遅延)。
+        _ls = _mini_snap_lean(state, me_idx)
+        if v19:
+            # 盤面の個体解像度 (top1/top2 パワー・付与ドン・散らばり・最大コスト・効果量)。 v18 の後。
+            out += _board_detail_features(state, me_idx, _ls)
+        if v20:
+            # 除去の射程 × 的 (自分=手札の実カード / 相手=belief の残り除去)。 v19 の後。
+            out += _hand_reach_features(state, me_idx, _ls)
     return out
 
 

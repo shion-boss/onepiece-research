@@ -89,13 +89,18 @@ def main():
     BASE = EIV1_DIR / "_baseline_value.pkl"
     with open(BASE, "wb") as f:
         pickle.dump(base_model, f)
-    FS.save_spec(FS.spec_path_for_model(BASE), [], {"source": "data_matched_baseline"})
+    # baseline は base + **現 active spec** で学習される (eiv1_train_vector が active を含む)
+    # ので、 その spec を担わせないと推論で dim mismatch → baseline が壊れる (eye gate が
+    # 115dim broken baseline で 0.500 と誤判定した原因、 2026-07-24 修正)。
+    FS.save_spec(FS.spec_path_for_model(BASE), FS.active_spec(),
+                 {"source": "data_matched_baseline"})
     # candidate (feature あり)
     m = HistGradientBoostingClassifier(**cap)
     m.fit(Xc, y)
     with open(CAND, "wb") as f:
         pickle.dump(m, f)
-    FS.save_spec(FS.spec_path_for_model(CAND), spec, {"source": a.spec})
+    FS.save_spec(FS.spec_path_for_model(CAND), list(FS.active_spec()) + list(spec),
+                 {"source": a.spec})
     print(f"候補 + data-matched baseline 保存 → arena ({time.time() - t0:.0f}s)", flush=True)
 
     r = subprocess.run(
