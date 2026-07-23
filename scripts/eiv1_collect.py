@@ -203,10 +203,11 @@ def main():
             pool.terminate()
             print(f"!! collect timeout ({timeout_s}s) → この round を打ち切り (次へ)", flush=True)
             results = []
-    rows, n_games = [], 0
+    rows, n_games, n_wins = [], 0, 0
     for r in results:
         if r:
             n_games += 1
+            n_wins += int(r[0][1])   # y は 1 game 内で一定 (hero の勝敗)
             rows.extend(r)
     with open(CORPUS, "a", encoding="utf-8") as f:
         for fv, y, hero, opp, snap in rows:
@@ -214,8 +215,13 @@ def main():
             # (= 将来どんな指標も後から再計算でき盲目化しない = 「データが無意味にならない」保証)
             f.write(json.dumps({"f": fv, "y": y, "hero": hero, "opp": opp, "state": snap}) + "\n")
     total = sum(1 for _ in open(CORPUS)) if CORPUS.exists() else 0
+    # この round だけの hero 勝率。 game 単位 = 素の勝率、 sample 単位 = 学習ラベルの偏り
+    # (長引く試合ほど行数が多いので両者はズレる)。 累積 win率 は train 側が出す。
+    win_g = f"{n_wins / n_games:.3f}" if n_games else "n/a"
+    win_s = f"{sum(y for _, y, _, _, _ in rows) / len(rows):.3f}" if rows else "n/a"
     print(f"appended {len(rows)} samples from {n_games}/{a.games} games "
-          f"({time.time()-t0:.0f}s) → corpus 総計 {total} samples", flush=True)
+          f"({time.time()-t0:.0f}s) | この round の hero 勝率 = {win_g} (game 単位 {n_wins}/{n_games}) "
+          f"/ {win_s} (sample 単位) → corpus 総計 {total} samples", flush=True)
 
 
 if __name__ == "__main__":

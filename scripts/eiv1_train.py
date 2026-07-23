@@ -31,10 +31,21 @@ def _progressive_capacity(n: int) -> dict:
             "learning_rate": 0.05, "l2_regularization": 1.0}
 
 
+def _load_manifest() -> dict:
+    if MANIFEST.exists():
+        try:
+            return json.loads(MANIFEST.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
+
+
 def main():
     if not CORPUS.exists():
         print("!! corpus 無し。 先に eiv1_collect.py を回す")
         return
+    manifest = _load_manifest()
+    prev_n = int(manifest.get("corpus_n") or 0)   # 前回学習時の corpus 行数 = 今回増分の起点
     from engine.eiv1_features import eiv1_train_vector  # f(v15) + matchup(state) = v16(60)
     X, y = [], []
     for line in open(CORPUS, encoding="utf-8"):
@@ -51,7 +62,13 @@ def main():
         print(f"!! サンプル不足 or 単一クラス (n={n}, win率={y.mean() if n else 0:.2f}) → 学習 skip")
         return
     cap = _progressive_capacity(n)
-    print(f"EIV1 train: n={n} samples, dim={X.shape[1]}, win率={y.mean():.3f}, capacity={cap}", flush=True)
+    # win率は累積 (= 全 corpus のクラスバランス) だと 1 round 分 (~1%) では動かず固まって見えるので、
+    # 「今回の増分だけ」 を主表示にする (corpus は append-only なので末尾 = 今回分)。
+    inc = y[prev_n:] if 0 < prev_n <= n else y
+    inc_win = float(inc.mean()) if len(inc) else None
+    inc_txt = f"win率(今回 {len(inc)}件)={inc_win:.3f}" if inc_win is not None else "win率(今回)=増分なし"
+    print(f"EIV1 train: n={n} samples, dim={X.shape[1]}, {inc_txt}, "
+          f"win率(累積)={y.mean():.3f}, capacity={cap}", flush=True)
 
     # held-out AUC (ゲーム境界情報が corpus に無いので単純 20% split の目安値)
     rng = np.random.RandomState(0)
@@ -70,15 +87,10 @@ def main():
     model.fit(X, y)
     with open(VALUE, "wb") as f:
         pickle.dump(model, f)
-    manifest = {}
-    if MANIFEST.exists():
-        try:
-            manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
-        except Exception:
-            manifest = {}
     iters = manifest.get("train_iters", 0) + 1
     hist = manifest.get("history", [])
-    hist.append({"iter": iters, "n": n, "auc": auc, "cap": cap})
+    hist.append({"iter": iters, "n": n, "auc": auc, "cap": cap,
+                 "win_inc": inc_win, "n_inc": len(inc), "win_cum": float(y.mean())})
     manifest.update({"train_iters": iters, "corpus_n": n, "dim": int(X.shape[1]),
                      "value_path": "db/eiv1/value.pkl", "history": hist[-50:]})
     MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=1), encoding="utf-8")
