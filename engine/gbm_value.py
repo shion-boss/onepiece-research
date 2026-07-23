@@ -293,11 +293,14 @@ FEATURE_KEYS_V15 = FEATURE_KEYS_V14 + (
 # 訓練/推論一致、 hidden 不要。 既存 corpus の保存済み state から再計算でき **再収集不要**。
 # 実測 (de-risk): turn1 AUC 0.633→0.712(+0.079)、 全体 0.814→0.830。 序盤ほど効果大。
 FEATURE_KEYS_V16 = FEATURE_KEYS_V15 + FEATURE_KEYS_V5[len(FEATURE_KEYS_V2):] + FEATURE_KEYS_V6[len(FEATURE_KEYS_V5):]
-# v17 = 64 (2026-07-24): ohtsuki「トラッシュは情報の宝庫」。 **トラッシュの防御資源消費** を feature 化。
-# トラッシュは公開情報 → 相手が吐いた counter/blocker が分かる = 残り防御力の signal (吐き切っていれば
-# 押し込める)。 my/opp × (trash_counter 総量, trash_blocker 数)。 保存済み trash_card_ids から再計算可。
-FEATURE_KEYS_V17 = FEATURE_KEYS_V16 + (
-    "my_trash_counter", "opp_trash_counter", "my_trash_blocker", "opp_trash_blocker")
+# v18 = 64 (2026-07-24): belief-based 相手 **残り防御資源**。 ohtsuki「ゲーム中に見たカード(場+トラッシュ
+# +バレ手札)から相手デッキを予測 → 残りカウンター/ブロッカーを推定」。 opponent_deck_model の seen 事後
+# belief で E[デッキ counter/blocker] を出し、 トラッシュ消費を引く = 残り防御量。 seen(見た札)でレシピ絞り。
+# 生トラッシュ(v17)は AUC null(進行と冗長)だったが、 belief と組むと non-redundant: 実測 v16→v18 で
+# AUC +0.0039、 中盤(turn5-7) +0.008〜0.010 (= 残り防御が最も decision-relevant な局面)。 保存済み
+# state(場/トラッシュ/バレ手札 + leader)から再計算でき再収集不要。 ⚠ 旧 v17(生トラッシュ)は本 belief 版に置換。
+FEATURE_KEYS_V18 = FEATURE_KEYS_V16 + (
+    "opp_belief_counter", "opp_remaining_counter", "opp_belief_blocker", "opp_remaining_blocker")
 
 
 def v2_anchor_value(state: Any, me_idx: int, anchor_path: str) -> float:
@@ -589,18 +592,70 @@ def _grounded_category_features(state: Any, me_idx: int) -> list:
     return _zone(me_p) + _zone(opp_p)
 
 
-def _trash_resource_features(state: Any, me_idx: int) -> list:
-    """v17: トラッシュの防御資源消費 (= 公開情報)。 my/opp の trash 内 counter 総量 + blocker 数。
-    「相手が counter/blocker を吐き切ったか」 = 残り防御力の signal。 live state / snapshot 両方から
-    同値が出る (= trash の CardDef の counter/is_blocker を集計、 snapshot は trash_card_ids から復元)。"""
-    def _z(p):
-        ctr = sum(int(getattr(c, "counter", 0) or 0) for c in getattr(p, "trash", []))
-        blk = sum(1 for c in getattr(p, "trash", []) if getattr(c, "is_blocker", False))
-        return float(ctr), float(blk)
-    me_p, opp_p = state.players[me_idx], state.players[1 - me_idx]
-    mc, mb = _z(me_p)
-    oc, ob = _z(opp_p)
-    return [mc, oc, mb, ob]
+_BELIEF_ODM = None
+_BELIEF_REPO = None
+_BELIEF_CB: dict = {}         # card_id -> (counter, is_blocker)
+_BELIEF_TOTALS: dict = {}     # (leader, seen_items) -> (E[counter], E[blocker])
+
+
+def _belief_cb(cid):
+    v = _BELIEF_CB.get(cid)
+    if v is None:
+        try:
+            c = _BELIEF_REPO.get(cid)
+            v = (int(getattr(c, "counter", 0) or 0), 1 if getattr(c, "is_blocker", False) else 0)
+        except Exception:
+            v = (0, 0)
+        _BELIEF_CB[cid] = v
+    return v
+
+
+def _belief_deck_totals(leader_id: str, seen: dict):
+    """(E[deck counter], E[deck blocker]) を leader + seen 事後 belief から。 (leader, seen) で cache。"""
+    key = (leader_id, tuple(sorted(seen.items())))
+    c = _BELIEF_TOTALS.get(key)
+    if c is not None:
+        return c
+    global _BELIEF_ODM, _BELIEF_REPO
+    try:
+        if _BELIEF_ODM is None:
+            from .opponent_deck_model import get_default_model
+            from .deck import CardRepository
+            _BELIEF_ODM = get_default_model()
+            _BELIEF_REPO = CardRepository.from_json(str(Path(__file__).resolve().parent.parent / "db" / "cards.json"))
+        bel = _BELIEF_ODM.belief_for_leader(leader_id, seen or None)
+        ec = eb = 0.0
+        for cid, info in bel.items():
+            cc, bb = _belief_cb(cid)
+            e = float(info.get("exp_count", 0.0))
+            ec += e * cc
+            eb += e * bb
+    except Exception:
+        ec = eb = 0.0
+    if len(_BELIEF_TOTALS) < 200000:   # 無制限成長を防ぐ簡易 cap
+        _BELIEF_TOTALS[key] = (ec, eb)
+    return ec, eb
+
+
+def _belief_resource_features(state: Any, me_idx: int) -> list:
+    """v18: belief-based 相手 残り防御資源。 見た札(場+トラッシュ+バレ手札)で相手デッキを予測 →
+    E[deck counter/blocker] − トラッシュ消費 = 残り防御量。 全て公開情報。 live/snapshot 一致。"""
+    try:
+        opp = state.players[1 - me_idx]
+        lid = opp.leader.card.card_id
+        from collections import Counter as _C
+        ids = [getattr(getattr(c, "card", c), "card_id", None) for c in getattr(opp, "characters", [])]
+        ids += [getattr(c, "card_id", None) for c in getattr(opp, "trash", [])]
+        ids += list(getattr(opp, "known_hand_card_ids", []) or [])
+        seen = {k: v for k, v in _C([i for i in ids if i]).items()}
+        exp_c, exp_b = _belief_deck_totals(lid, seen)
+        if exp_c == 0.0 and exp_b == 0.0:
+            return [0.0, 0.0, 0.0, 0.0]   # 未知 leader (belief 空) → neutral (負の残りを出さない)
+        trash_c = sum(int(getattr(c, "counter", 0) or 0) for c in getattr(opp, "trash", []))
+        trash_b = sum(1 for c in getattr(opp, "trash", []) if getattr(c, "is_blocker", False))
+        return [float(exp_c), float(exp_c - trash_c), float(exp_b), float(exp_b - trash_b)]
+    except Exception:
+        return [0.0, 0.0, 0.0, 0.0]
 
 
 def _zone_potency(p) -> tuple:
@@ -645,7 +700,7 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
              v11: Optional[bool] = None, v12: Optional[bool] = None,
              v13: Optional[bool] = None, v14: Optional[bool] = None,
              v15: Optional[bool] = None, v16: Optional[bool] = None,
-             v17: Optional[bool] = None) -> list:
+             v18: Optional[bool] = None) -> list:
     """GameState + me_idx → feature vector。 rich=True で v2 (21)、 既定は env
     ONEPIECE_GBM_RICH (= 学習時に set)。 推論は gbm_score が model 次元で自動判別。
     v5=True (env ONEPIECE_GBM_V5) で 相手 leader の matchup tag 13 列を追加 (= 34、 matchup-条件付き)。
@@ -719,10 +774,10 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         v15 = os.environ.get("ONEPIECE_GBM_V15") == "1"
     if v16 is None:
         v16 = os.environ.get("ONEPIECE_GBM_V16") == "1"
-    if v17 is None:
-        v17 = os.environ.get("ONEPIECE_GBM_V17") == "1"
-    if v17:
-        v16 = True  # v17 ⊃ v16 (+ トラッシュ防御資源 4)。 v16 の後に append。
+    if v18 is None:
+        v18 = os.environ.get("ONEPIECE_GBM_V18") == "1"
+    if v18:
+        v16 = True  # v18 ⊃ v16 (+ belief 残り防御資源 4)。 v16 の後に append。
     if v16:
         v15 = True  # v16 ⊃ v15 (+ 相手 leader tag 13 + interaction 4)。 v15 の後に append。
     if v15:
@@ -821,9 +876,9 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         # FEATURE_KEYS_V16 = FEATURE_KEYS_V15 + tag(13) + interaction(4) の列順と一致。
         out += _opp_matchup_tag_vector(state, me_idx)
         out += _opp_matchup_interaction_vector(state, me_idx)
-    if v17:
-        # トラッシュの防御資源消費 (= 公開情報、 「情報の宝庫」)。 v16 の後に append。
-        out += _trash_resource_features(state, me_idx)
+    if v18:
+        # belief-based 相手 残り防御資源 (見た札→デッキ予測→残りカウンター/ブロッカー)。 v16 の後に append。
+        out += _belief_resource_features(state, me_idx)
     return out
 
 
@@ -850,7 +905,7 @@ def _feat_for_dim(state, me_idx, n):
                     v10=(n == len(FEATURE_KEYS_V10)), v11=(n == len(FEATURE_KEYS_V11)),
                     v12=(n == len(FEATURE_KEYS_V12)), v13=(n == len(FEATURE_KEYS_V13)),
                     v14=(n == len(FEATURE_KEYS_V14)), v15=(n == len(FEATURE_KEYS_V15)),
-                    v16=(n == len(FEATURE_KEYS_V16)), v17=(n == len(FEATURE_KEYS_V17)))
+                    v16=(n == len(FEATURE_KEYS_V16)), v18=(n == len(FEATURE_KEYS_V18)))
 
 
 # prefix 一致で slice 再利用できる次元(V1⊂V2⊂V5⊂V6⊂V11⊂V12 の chain のみ。 v3/v4/v9/v6don/v8/v10 は

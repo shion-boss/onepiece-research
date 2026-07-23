@@ -33,10 +33,10 @@ from . import gbm_value
 #     v16 の追加 17 列は「保存済み state から再計算」できるので、 base を v15 に据えたまま corpus を
 #     再収集せず v16 に拡張できる (= 盲目化しない設計の payoff)。
 FEATURE_VER = "v15"        # corpus 保存 base (f フィールド)
-TRAIN_FEATURE_VER = "v16"  # 配備の実表現 (= v15 + 相手 leader matchup 17)。
-# ⚠ v17 (= v16 + トラッシュ防御資源 4) は de-risk 測定で AUC null (+0.0002) だった (トラッシュ枯渇は
-# ゲーム進行と冗長)。 有用化には「トラッシュ + 相手デッキ belief で残り防御量を推定」が要る。 gbm_value
-# v17 と trash_feats_from_snapshot は opt-in scaffold として温存 (belief 版で再利用)、 配備は v16。
+TRAIN_FEATURE_VER = "v18"  # 配備の実表現 (= v15 + 相手 leader matchup 17 + belief 残り防御資源 4)。
+# v18 = 見た札(場+トラッシュ+バレ手札)で相手デッキ予測 → 残りカウンター/ブロッカーを推定 (opponent_deck_model
+# seen 事後 belief − トラッシュ消費)。 生トラッシュ(旧 v17)は AUC null だったが belief と組むと +0.0039
+# (中盤 turn5-7 で +0.008〜0.010)。 保存済み state から再収集なし再計算。
 
 
 def eiv1_features(state: Any, me_idx: int) -> list:
@@ -104,11 +104,41 @@ def trash_feats_from_snapshot(snap: dict) -> list:
         return [0.0] * 4
 
 
+def belief_resource_feats_from_snapshot(snap: dict) -> list:
+    """保存済み snapshot から belief-based 残り防御資源 4 (opp: E[deck counter/blocker], 残りカウンター/
+    ブロッカー) を復元。 seen = 場+トラッシュ+バレ手札。 gbm_value._belief_deck_totals (cache) を再利用 →
+    live inference と同値。 = 再収集なしで v18 化。"""
+    try:
+        from collections import Counter
+        from . import gbm_value as G
+        hi = snap["hero_idx"]
+        opp = snap["players"][1 - hi]
+        lid = opp["leader"]["card_id"]
+        ids = [f["card_id"] for f in opp.get("field", [])] + opp.get("trash_card_ids", []) \
+            + list(opp.get("known_hand_card_ids", []) or [])
+        seen = {k: v for k, v in Counter([i for i in ids if i]).items()}
+        exp_c, exp_b = G._belief_deck_totals(lid, seen)
+        if exp_c == 0.0 and exp_b == 0.0:
+            return [0.0, 0.0, 0.0, 0.0]   # 未知 leader (belief 空) → neutral
+        repo = _repo()
+        tc = tb = 0
+        for cid in opp.get("trash_card_ids", []):
+            try:
+                c = repo.get(cid)
+            except Exception:
+                continue
+            tc += int(getattr(c, "counter", 0) or 0)
+            tb += 1 if getattr(c, "is_blocker", False) else 0
+        return [float(exp_c), float(exp_c - tc), float(exp_b), float(exp_b - tb)]
+    except Exception:
+        return [0.0, 0.0, 0.0, 0.0]
+
+
 def eiv1_train_vector(row: dict) -> list:
-    """corpus 行 → v16 学習ベクトル = f(v15, 43) + matchup(state, 17) = 60dim (配備の実表現)。
-    保存済み state から matchup を復元して append (= 再収集なしで v16 化)。
-    ⚠ trash(v17) は AUC null だったので配備には足さない (trash_feats_from_snapshot は belief 版用に温存)。"""
+    """corpus 行 → v18 学習ベクトル = f(v15,43) + matchup(17) + belief残り防御資源(4) = 64dim。
+    保存済み state から matchup/belief を復元して append (= 再収集なしで v18 化)。"""
     base = list(row.get("f", []))
     snap = row.get("state")
     mu = matchup_feats_from_snapshot(snap) if snap else [0.0] * 17
-    return base + mu
+    br = belief_resource_feats_from_snapshot(snap) if snap else [0.0] * 4
+    return base + mu + br
