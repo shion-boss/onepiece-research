@@ -35,11 +35,12 @@ def main():
     if not CORPUS.exists():
         print("!! corpus 無し。 先に eiv1_collect.py を回す")
         return
+    from engine.eiv1_features import eiv1_train_vector  # f(v15) + matchup(state) = v16(60)
     X, y = [], []
     for line in open(CORPUS, encoding="utf-8"):
         try:
             d = json.loads(line)
-            X.append(d["f"])
+            X.append(eiv1_train_vector(d))   # 保存済み state から v16(相手リーダー)を再計算して append
             y.append(int(d["y"]))
         except Exception:
             continue

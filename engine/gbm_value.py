@@ -287,6 +287,12 @@ FEATURE_KEYS_V14 = FEATURE_KEYS_V2 + (
 _GCAT = ("search_engine", "search_body", "draw_engine", "ramp", "recovery", "negate", "aggression")
 FEATURE_KEYS_V15 = FEATURE_KEYS_V14 + (
     tuple("my_" + c for c in _GCAT) + tuple("opp_" + c for c in _GCAT))
+# v16 = 60 (2026-07-24): EIV1 に **相手リーダー matchup 特徴** を追加 (= v15 card-aware +
+# v6-matchup)。 ohtsuki「1ターン目で相手リーダーは公開情報のはず」→ 相手 leader tag(13、 archetype)
+# + board×matchup interaction(4) を append。 全て公開情報 (相手 leader + 公開 board) で計算 →
+# 訓練/推論一致、 hidden 不要。 既存 corpus の保存済み state から再計算でき **再収集不要**。
+# 実測 (de-risk): turn1 AUC 0.633→0.712(+0.079)、 全体 0.814→0.830。 序盤ほど効果大。
+FEATURE_KEYS_V16 = FEATURE_KEYS_V15 + FEATURE_KEYS_V5[len(FEATURE_KEYS_V2):] + FEATURE_KEYS_V6[len(FEATURE_KEYS_V5):]
 
 
 def v2_anchor_value(state: Any, me_idx: int, anchor_path: str) -> float:
@@ -619,7 +625,7 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
              v6don: Optional[bool] = None, v10: Optional[bool] = None,
              v11: Optional[bool] = None, v12: Optional[bool] = None,
              v13: Optional[bool] = None, v14: Optional[bool] = None,
-             v15: Optional[bool] = None) -> list:
+             v15: Optional[bool] = None, v16: Optional[bool] = None) -> list:
     """GameState + me_idx → feature vector。 rich=True で v2 (21)、 既定は env
     ONEPIECE_GBM_RICH (= 学習時に set)。 推論は gbm_score が model 次元で自動判別。
     v5=True (env ONEPIECE_GBM_V5) で 相手 leader の matchup tag 13 列を追加 (= 34、 matchup-条件付き)。
@@ -691,6 +697,10 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         v14 = os.environ.get("ONEPIECE_GBM_V14") == "1"
     if v15 is None:
         v15 = os.environ.get("ONEPIECE_GBM_V15") == "1"
+    if v16 is None:
+        v16 = os.environ.get("ONEPIECE_GBM_V16") == "1"
+    if v16:
+        v15 = True  # v16 ⊃ v15 (+ 相手 leader tag 13 + interaction 4)。 v15 の後に append。
     if v15:
         v14 = True  # v15 ⊃ v14 (+ 機能×timing カテゴリ 14 列)。 v14 の 8 列の後に append。
     if v13:
@@ -782,6 +792,11 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         # 機能×timing の grounded カテゴリ (= 登場時サーチ vs 起動メインサーチ を別列)。 v14 の 8 列の
         # 直後に append し FEATURE_KEYS_V15 = FEATURE_KEYS_V14 + 14列 の列順と一致。
         out += _grounded_category_features(state, me_idx)
+    if v16:
+        # 相手リーダー matchup 特徴 (= 公開情報)。 tag 13 + board×matchup interaction 4。
+        # FEATURE_KEYS_V16 = FEATURE_KEYS_V15 + tag(13) + interaction(4) の列順と一致。
+        out += _opp_matchup_tag_vector(state, me_idx)
+        out += _opp_matchup_interaction_vector(state, me_idx)
     return out
 
 
@@ -807,7 +822,8 @@ def _feat_for_dim(state, me_idx, n):
                     v8=(n == len(FEATURE_KEYS_V8)), v6don=(n == len(FEATURE_KEYS_V6DON)),
                     v10=(n == len(FEATURE_KEYS_V10)), v11=(n == len(FEATURE_KEYS_V11)),
                     v12=(n == len(FEATURE_KEYS_V12)), v13=(n == len(FEATURE_KEYS_V13)),
-                    v14=(n == len(FEATURE_KEYS_V14)), v15=(n == len(FEATURE_KEYS_V15)))
+                    v14=(n == len(FEATURE_KEYS_V14)), v15=(n == len(FEATURE_KEYS_V15)),
+                    v16=(n == len(FEATURE_KEYS_V16)))
 
 
 # prefix 一致で slice 再利用できる次元(V1⊂V2⊂V5⊂V6⊂V11⊂V12 の chain のみ。 v3/v4/v9/v6don/v8/v10 は

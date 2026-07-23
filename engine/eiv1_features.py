@@ -22,18 +22,49 @@ gbm_score は model 次元で feature 版を自動判別するので、 新次�
     起点にすれば cold-start しない (未知カードもラベル+timing で汎化、 学習でその上に微差を乗せる)。
 """
 from __future__ import annotations
+import types
 from typing import Any
 
 from . import gbm_value
 
-# EIV1 起点の feature 版 (= v15, card-aware grounded + timing)。 成長時はここを差し替え/拡張。
-FEATURE_VER = "v15"
+# EIV1 の feature 版:
+#   - collect が corpus に保存する base = v15 (= 21 board + 8 駒種ラベル + 14 機能×timing、 43dim)。
+#   - train/推論で使う実表現 = v16 (= v15 + 相手 leader matchup tag 13 + interaction 4、 60dim)。
+#     v16 の追加 17 列は「保存済み state から再計算」できるので、 base を v15 に据えたまま corpus を
+#     再収集せず v16 に拡張できる (= 盲目化しない設計の payoff)。
+FEATURE_VER = "v15"        # corpus 保存 base (f フィールド)
+TRAIN_FEATURE_VER = "v16"  # 学習/推論の実表現
 
 
 def eiv1_features(state: Any, me_idx: int) -> list:
-    """EIV1 の feature ベクトル (現状 = v15 = 21 board + 8 駒種ラベル + 14 機能×timing カテゴリ)。"""
+    """corpus 保存用の base 特徴 (= v15、 43dim)。 collect が f として記録。"""
     return gbm_value.features(state, me_idx, v15=True)
 
 
 def eiv1_dim() -> int:
     return len(gbm_value.FEATURE_KEYS_V15)
+
+
+def matchup_feats_from_snapshot(snap: dict) -> list:
+    """保存済み state snapshot から 相手リーダー matchup 特徴 (tag 13 + interaction 4 = 17) を復元。
+    tag は相手 leader card_id、 interaction は相手 life/hand/don に依存 (全て snapshot に在る) →
+    再収集せず既存 corpus を v16 に拡張できる。 snapshot 欠損時は neutral(全0)。"""
+    try:
+        def _mk(p):
+            leader = types.SimpleNamespace(card=types.SimpleNamespace(card_id=p["leader"]["card_id"]))
+            return types.SimpleNamespace(leader=leader, life=[0] * p["life_count"],
+                                         hand=[0] * p["hand_count"], don_active=p.get("don_active", 0))
+        fs = types.SimpleNamespace(players=[_mk(p) for p in snap["players"]])
+        hi = snap["hero_idx"]
+        return gbm_value._opp_matchup_tag_vector(fs, hi) + gbm_value._opp_matchup_interaction_vector(fs, hi)
+    except Exception:
+        return [0.0] * 17
+
+
+def eiv1_train_vector(row: dict) -> list:
+    """corpus 行 → v16 学習ベクトル = f(v15, 43) + matchup(state, 17) = 60dim。
+    保存済み state から matchup を復元して append (= 再収集なしで v16 化)。"""
+    base = list(row.get("f", []))
+    snap = row.get("state")
+    ex = matchup_feats_from_snapshot(snap) if snap else [0.0] * 17
+    return base + ex
