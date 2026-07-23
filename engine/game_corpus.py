@@ -112,8 +112,12 @@ def snapshot_state(state: Any) -> dict:
         # state._effect_events に 試合 開始 から の 全 log が 蓄積 されて る。
         # corpus dump 時 は 末尾 20 件 を 抜き出す (= 直近 文脈 で 充分、 全 dump は 容量 過大)。
         "recent_effect_events": list(getattr(state, "_effect_events", []) or [])[-20:],
+        # 席ごとの通算発動数 (= 「相手はこの試合で何回効果を使ったか」)
+        "effect_events_by_player": list(getattr(state, "_effect_events_by", [0, 0])),
         # turn 全体 の 通算 effect 数 (= 「opp は この 試合 で 既に X 回 効果 発動」 軸 用)
-        "total_effect_events_count": len(getattr(state, "_effect_events", []) or []),
+        # 通算は専用カウンタ (直近 60 件しか保持しないので len では数えられない)
+        "total_effect_events_count": int(getattr(state, "_effect_events_n", 0)
+                                        or len(getattr(state, "_effect_events", []) or [])),
     }
 
 

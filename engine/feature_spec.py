@@ -644,6 +644,12 @@ EYES_KEYS = tuple(
     + [f"my_hand_cost{c}_n" for c in range(1, 8)]
     + ["my_hand_cost8plus_n", "my_hand_chara_n", "my_hand_event_n", "my_hand_stage_n",
        "my_hand_best_playable_pw", "my_hand_avg_cost"]
+    # 効果発動の履歴 (2026-07-24 に engine が常時記録するようになった。 それ以前は audit
+    # モード専用で corpus は常に空だった)。 「相手はこの試合で何回効果を使ったか」
+    # 「直近に除去/ドローを撃たれたか」 は人間が当然使う情報。
+    + ["my_effects_used", "opp_effects_used", "effects_used_diff",
+       "opp_recent_removal", "opp_recent_draw", "opp_recent_search",
+       "recent_effects_n", "my_effects_per_turn"]
 )
 
 
@@ -718,6 +724,23 @@ def _eyes_features(snap: dict) -> dict:
     out["my_hand_stage_n"] = float(stage)
     out["my_hand_best_playable_pw"] = best_pw / 1000.0
     out["my_hand_avg_cost"] = (sum(costs) / len(costs)) if costs else 0.0
+
+    # --- 効果発動の履歴 ---
+    by = list(snap.get("effect_events_by_player") or [0, 0])
+    mine = float(by[hi]) if len(by) > hi else 0.0
+    theirs = float(by[1 - hi]) if len(by) > (1 - hi) else 0.0
+    rec = list(snap.get("recent_effect_events") or [])
+    opp_rec = [e for e in rec if len(e) > 2 and e[1] == (1 - hi)]
+    turn = float(snap.get("turn_number") or 1)
+    out["my_effects_used"] = mine
+    out["opp_effects_used"] = theirs
+    out["effects_used_diff"] = mine - theirs
+    out["opp_recent_removal"] = float(sum(1 for e in opp_rec if "ko" in str(e[2])
+                                          or "return_to_hand" in str(e[2])))
+    out["opp_recent_draw"] = float(sum(1 for e in opp_rec if "draw" in str(e[2])))
+    out["opp_recent_search"] = float(sum(1 for e in opp_rec if "search" in str(e[2])))
+    out["recent_effects_n"] = float(len(rec))
+    out["my_effects_per_turn"] = mine / max(turn, 1.0)
     return out
 
 

@@ -2900,6 +2900,31 @@ def execute_effect(
     # Phase 2 audit hook (= entry)
     _audit_on = os.environ.get("ONEPIECE_AUDIT_INVARIANTS", "0") in ("1", "true", "True")
     _event = None
+    # ⭐ 軽量な効果発動ログ (常時 ON、 2026-07-24)。 従来は audit モード時のみ、 しかも前後の
+    # 全盤面スナップショット付きで重かったため既定 OFF = corpus の effect 履歴が常に空だった。
+    # 「相手はこの試合で何回効果を使ったか」「直前に何が起きたか」は人間が当然使う情報。
+    # tuple 1 個 (turn, actor, primitive, source) に抑え、 直近 60 件 + 通算カウンタで保持
+    # (= fast_clone の複製コストを一定に保つ)。
+    try:
+        _prim = next(iter(spec.keys())) if spec else "_empty"
+        _log = getattr(state, "_effect_events", None)
+        if _log is None:
+            _log = state._effect_events = []
+        _log.append((getattr(state, "turn_number", 0),
+                     state.players.index(me) if me in state.players else -1,
+                     _prim,
+                     self_inplay.card.card_id if self_inplay else None))
+        if len(_log) > 60:
+            del _log[:-60]
+        state._effect_events_n = int(getattr(state, "_effect_events_n", 0)) + 1
+        _by = getattr(state, "_effect_events_by", None)
+        if _by is None:
+            _by = state._effect_events_by = [0, 0]
+        _ai = state.players.index(me) if me in state.players else -1
+        if _ai in (0, 1):
+            _by[_ai] += 1
+    except Exception:
+        pass
     if _audit_on:
         primitive_kind = next(iter(spec.keys())) if spec else "_empty"
         _event = {
@@ -2910,8 +2935,8 @@ def execute_effect(
             "before": _audit_snapshot(state),
         }
         # state に effect_events 用 slot を 確保 (= 初期化、 既存 状態 と 共存)
-        if not hasattr(state, "_effect_events"):
-            state._effect_events = []
+        if not hasattr(state, "_audit_effect_events"):
+            state._audit_effect_events = []
 
     # actor 文脈の保全: この呼び出しが **新たに** 人間 pending_choice を立てたら、 その actor
     # (= me) の index を stamp する。 解決時 (_resolve_pending_choice_inner 冒頭) が turn_player
@@ -2932,7 +2957,7 @@ def execute_effect(
                 pass
         if _audit_on and _event is not None:
             _event["after"] = _audit_snapshot(state)
-            state._effect_events.append(_event)
+            state._audit_effect_events.append(_event)
 
 
 def _execute_effect_body(

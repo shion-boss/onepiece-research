@@ -138,6 +138,11 @@ def fast_clone(state: "GameState") -> "GameState":
     # _fired_target_counts は bonus 学習 用 集計 container。 deepcopy せず 共有 すれば
     # 子 plan_search 内 の leaf eval fire が 原 state に 集約される。
     saved_fired = getattr(state, "_fired_target_counts", None)
+    # 効果発動ログは deepcopy させず、 clone には浅い複製を渡す (= sim の append が
+    # 本物の state に漏れない + 複製コストを一定に保つ)。
+    saved_ev = getattr(state, "_effect_events", None)
+    if saved_ev is not None:
+        state._effect_events = None  # type: ignore[attr-defined]
 
     # 元 state を一時的に空に置き換え → deepcopy → 復元
     state.log = []
@@ -172,6 +177,8 @@ def fast_clone(state: "GameState") -> "GameState":
         state.effects_overlay = saved_overlay
         state.event_order_hook = saved_hook
         state.record_snapshots = saved_rec
+        if saved_ev is not None:
+            state._effect_events = saved_ev  # type: ignore[attr-defined]
         if saved_fired is not None:
             state._fired_target_counts = saved_fired  # type: ignore[attr-defined]
         for p, (d, h, t, l) in zip(state.players, saved_cardlists):
@@ -194,6 +201,11 @@ def fast_clone(state: "GameState") -> "GameState":
     # _fired_target_counts は 原 state と 同じ list を 共有 (= 子 fire は 親に 集約)
     if saved_fired is not None:
         cloned._fired_target_counts = saved_fired  # type: ignore[attr-defined]
+    # 効果発動ログ: clone には浅い複製 (tuple 共有・list 独立) を渡す。 sim 内の発動が
+    # 本物の履歴を汚さず、 かつ clone 側でも「直前に何が起きたか」を参照できる。
+    cloned._effect_events = list(saved_ev) if saved_ev is not None else []  # type: ignore
+    cloned._effect_events_n = int(getattr(state, "_effect_events_n", 0))  # type: ignore
+    cloned._effect_events_by = list(getattr(state, "_effect_events_by", [0, 0]))  # type: ignore
     # cloned 内 apply_action での eval_before/after 記録を抑止 (= compute_score 二重実行カット)
     cloned.record_action_evals = False
     # plan_search 内 シミュレーション は AI vs AI として 動作 する。

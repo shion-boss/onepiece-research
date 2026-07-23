@@ -356,6 +356,9 @@ def _mini_snap(state: Any, me_idx: int) -> dict:
             "field_total_power": sum(ip.power for ip in p.characters),
         }
     return {"hero_idx": 0, "turn_number": getattr(state, "turn_number", 0),
+            "recent_effect_events": list(getattr(state, "_effect_events", []) or [])[-20:],
+            "effect_events_by_player": list(getattr(state, "_effect_events_by", [0, 0])),
+            "total_effect_events_count": int(getattr(state, "_effect_events_n", 0)),
             "players": [_side(state.players[me_idx]), _side(state.players[1 - me_idx])]}
 
 
