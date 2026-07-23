@@ -586,12 +586,6 @@ def test_op04_041_on_play_optional_cost_search_ai():
         f"手札枚数が想定 (捨2/加1) と違う: hand={len(me.hand)}"
 
 
-@pytest.mark.skip(reason=(
-    "engine leniency (人間レビュー用): optional_cost_then の trash_self_hand_random "
-    "コスト payability が `if not me.hand` のみで、 手札1枚でも払える (= 1枚捨てて発火) "
-    "扱いになる。 公式テキストは「自分の手札2枚を捨てることができる」 で 2枚必須なので "
-    "手札1枚では発火してはならない。 engine 側の枚数チェック不足 (= このタスクでは engine を "
-    "編集しない)。 engine/effects.py optional_cost_then trash_self_hand_random 分岐参照。"))
 def test_op04_041_on_play_no_fire_when_hand_insufficient():
     """手札が2枚未満なら任意コスト不能 → サーチは起きない。"""
     repo = _repo()

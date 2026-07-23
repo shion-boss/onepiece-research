@@ -7776,7 +7776,10 @@ def _execute_effect_body(
                         can_pay = False
                         break
                 elif "trash_self_hand_random" in cs:
-                    if not me.hand:
+                    # 公式「手札N枚を捨てることができる」 → 手札が N 枚以上 必要 (= N=2 なら1枚では払えない)。
+                    thr_spec = cs["trash_self_hand_random"]
+                    thr_n = int(thr_spec) if not isinstance(thr_spec, dict) else int(thr_spec.get("count", thr_spec.get("amount", 1)))
+                    if len(me.hand) < thr_n:
                         can_pay = False
                         break
                 elif "pay_don" in cs:
