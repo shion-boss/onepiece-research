@@ -391,3 +391,25 @@ def test_op16_118_hand_power8000_counter_plus_2000():
     me2.hand = [c8]
     evaluate_static_effects(st2, ov)
     assert _spend_counters(me2, (0,)) == base_counter, "OP16-118 不在なのに boost された"
+
+
+def test_op12_036_cannot_be_played_from_hand_via_effect():
+    """OP12-036 ゾロ: 手札のこのカードは効果で登場できない。
+    = play_from_hand / play_from_hand_or_trash の手札候補から除外 (通常登場は別経路で不変)。"""
+    from engine.core import Category  # noqa: F401
+    repo = _repo()
+    ov = _overlay()
+    st, me, opp = _state(repo)
+    st.effects_overlay = ov
+    me.hand = [repo.get("OP12-036")]
+    # 効果で「手札からキャラ1枚を登場」 → OP12-036 は候補外
+    execute_effect({"play_from_hand": {"filter": {}, "limit": 1}}, st, me, opp, None)
+    assert not any(c.card.card_id == "OP12-036" for c in me.characters), \
+        "OP12-036 が効果 (play_from_hand) で登場してしまった"
+    # play_from_hand_or_trash の手札からも除外 (トラッシュからは可)
+    st2, me2, opp2 = _state(repo)
+    st2.effects_overlay = ov
+    me2.hand = [repo.get("OP12-036")]
+    execute_effect({"play_from_hand_or_trash": {"filter": {}, "limit": 1}}, st2, me2, opp2, None)
+    assert not any(c.card.card_id == "OP12-036" for c in me2.characters), \
+        "OP12-036 が play_from_hand_or_trash (手札) で登場してしまった"

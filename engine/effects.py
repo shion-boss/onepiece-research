@@ -4846,6 +4846,8 @@ def _execute_effect_body(
             for i, card in enumerate(me.hand):
                 if card.category != Category.CHARACTER:
                     continue
+                if _no_play_from_hand_via_effect(card, state.effects_overlay):
+                    continue   # OP12-036: 効果で登場できないカードは候補外
                 if not _matches_filter(card, filt):
                     continue
                 if filt.get("no_effect") and not _card_has_no_effect(card, state):
@@ -7474,6 +7476,7 @@ def _execute_effect_body(
             hand_cands: list[tuple[int, CardDef]] = [
                 (i, c) for i, c in enumerate(me.hand)
                 if c.category == target_cat and _matches_filter(c, filt)
+                and not _no_play_from_hand_via_effect(c, state.effects_overlay)
             ]
             trash_cands: list[tuple[int, CardDef]] = [
                 (i, c) for i, c in enumerate(me.trash)
@@ -7539,6 +7542,8 @@ def _execute_effect_body(
                     if not (me.hand[i].category == target_cat
                             and _matches_filter(me.hand[i], filt)):
                         continue
+                    if _no_play_from_hand_via_effect(me.hand[i], state.effects_overlay):
+                        continue   # OP12-036: 効果で登場できない
                     card = me.hand.pop(i)
                     ip = InPlay.of(card, rested=rested_flag, sickness=True)
                     _place_pfhot(ip)
@@ -7568,6 +7573,7 @@ def _execute_effect_body(
                     found < limit
                     and card.category == target_cat
                     and _matches_filter(card, filt)
+                    and not _no_play_from_hand_via_effect(card, state.effects_overlay)
                 ):
                     ip = InPlay.of(card, rested=rested_flag, sickness=True)
                     _place_pfhot(ip)
@@ -10248,6 +10254,18 @@ def _card_has_no_effect(card: CardDef, state: GameState) -> bool:
     overlay_map = state.effects_overlay or {}
     bundle = overlay_map.get(card.card_id)
     return bundle is None or len(getattr(bundle, "effects", [])) == 0
+
+
+def _no_play_from_hand_via_effect(card: CardDef, overlay) -> bool:
+    """「手札のこのカードは効果で登場できない」 (OP12-036 ゾロ)。 overlay の
+    `_no_play_via_effect: true` marker で判定 → play_from_hand 系が候補から除外する。"""
+    if not overlay:
+        return False
+    bundle = overlay.get(card.card_id)
+    if bundle is None:
+        return False
+    return any(isinstance(e, dict) and e.get("_no_play_via_effect")
+               for e in getattr(bundle, "effects", []))
 
 
 def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
