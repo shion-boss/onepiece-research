@@ -18429,14 +18429,27 @@
  ],
  "P-117": [
   {
-   "_text": "P-117 ルール上、自分は特徴《東の海》を持つカードしかデッキに入れることができず、自分のデッキが0枚になった場合、自分は敗北する代わりに勝利する。【ドン‼×1】このリーダーのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から1枚を手札に加える。",
-   "_doc": "デッキ構築制約 (= 東の海 のみ) + 特殊勝利 (= デッキ0で勝利) + on_opp_life_taken で 1 draw。 デッキ構築 ガード は engine 外、 特殊勝利 ガード は game 終了判定 拡張要、 1 draw のみ 実装。",
+   "_text": "P-117 static: デッキ0で敗北の代わりに勝利",
+   "when": "on_attached_don",
+   "n": 0,
+   "do": [
+    {
+     "set_deck_out_wins": true
+    }
+   ]
+  },
+  {
+   "_text": "P-117 【ドン‼×1】このリーダーのアタックで相手ライフにダメージを与えた時、自デッキ上1枚をトラッシュ(してもよい)。",
+   "_doc": "特殊勝利(デッキ0で勝利)は set_deck_out_wins 静的で実装。 デッキ構築制約(東の海のみ)は deck 検証=engine外 (= 正確)。",
    "when": "on_opp_life_taken",
    "if": {
     "self_attached_don_ge": 1
    },
-   "do": [],
-   "_missing_effect": "自デッキ上1枚をトラッシュ (= self-deck-mill、 deck-out 特殊勝利を進める。 primitive 要)"
+   "do": [
+    {
+     "mill_self_top": 1
+    }
+   ]
   }
  ],
  "ST01-001_p3": [
@@ -60547,21 +60560,20 @@
  "OP15-059": [
   {
    "_text": "OP15-059 opp_attack: このキャラをレストにできる：相手は自身のアクティブのドン‼1枚をドン‼デッキに戻してもよい。そうしなかった場合、相手のリーダーかキャラ1枚までを、このターン中、パワー-2000。",
-   "_doc": "相手の don 戻し選択は engine 未実装 → 簡略: AI は常に -2000 適用 (= 相手は払わない 前提)。 optional: true は『-2000 適用 する/しない』 の選択。",
    "when": "opp_attack",
    "optional": true,
    "do": [
     {
-     "power_pump": {
-      "target": "one_opponent_inplay_any",
+     "opp_may_return_active_don_else_debuff": {
       "amount": -2000,
-      "duration": "turn"
+      "target": "one_opponent_inplay_any"
      }
     }
    ],
    "cost": {
     "rest_self": true
-   }
+   },
+   "_doc": "相手のドン戻し選択を opp AI 最適近似でモデル化: アクティブドンがあれば戻し(-2000回避)、無ければ-2000。 どちらも opp が損する二択ジレンマを忠実表現 (= 正確)。"
   }
  ],
  "OP15-065": [
@@ -63525,12 +63537,18 @@
   },
   {
    "_text": "OP13-119 on_play: その後、相手のコスト5以下のキャラ1枚までを、持ち主の手札に戻してもよい。",
-   "_doc": "「そうした場合、相手は自身の手札からコスト4以下のキャラ1枚までを、登場させる」 の opp 報酬は engine 未配線 (= 相手の forced 行動)。 optional 部分のみ実装。",
    "when": "on_play",
    "optional": true,
    "do": [
     {
      "return_to_hand": "one_opponent_character_cost_le_5"
+    },
+    {
+     "force_opp_play_from_hand": {
+      "cost_le": 4,
+      "count": 1,
+      "require_prior_bounce": true
+     }
     }
    ]
   }
@@ -63566,12 +63584,18 @@
   },
   {
    "_text": "OP13-119_p1 on_play: その後、相手のコスト5以下のキャラ1枚までを、持ち主の手札に戻してもよい。",
-   "_doc": "「そうした場合、相手は自身の手札からコスト4以下のキャラ1枚までを、登場させる」 の opp 報酬は engine 未配線 (= 相手の forced 行動)。 optional 部分のみ実装。",
    "when": "on_play",
    "optional": true,
    "do": [
     {
      "return_to_hand": "one_opponent_character_cost_le_5"
+    },
+    {
+     "force_opp_play_from_hand": {
+      "cost_le": 4,
+      "count": 1,
+      "require_prior_bounce": true
+     }
     }
    ]
   }
@@ -63607,12 +63631,18 @@
   },
   {
    "_text": "OP13-119_p2 on_play: その後、相手のコスト5以下のキャラ1枚までを、持ち主の手札に戻してもよい。",
-   "_doc": "「そうした場合、相手は自身の手札からコスト4以下のキャラ1枚までを、登場させる」 の opp 報酬は engine 未配線 (= 相手の forced 行動)。 optional 部分のみ実装。",
    "when": "on_play",
    "optional": true,
    "do": [
     {
      "return_to_hand": "one_opponent_character_cost_le_5"
+    },
+    {
+     "force_opp_play_from_hand": {
+      "cost_le": 4,
+      "count": 1,
+      "require_prior_bounce": true
+     }
     }
    ]
   }
@@ -63648,12 +63678,18 @@
   },
   {
    "_text": "OP13-119_p3 on_play: その後、相手のコスト5以下のキャラ1枚までを、持ち主の手札に戻してもよい。",
-   "_doc": "「そうした場合、相手は自身の手札からコスト4以下のキャラ1枚までを、登場させる」 の opp 報酬は engine 未配線 (= 相手の forced 行動)。 optional 部分のみ実装。",
    "when": "on_play",
    "optional": true,
    "do": [
     {
      "return_to_hand": "one_opponent_character_cost_le_5"
+    },
+    {
+     "force_opp_play_from_hand": {
+      "cost_le": 4,
+      "count": 1,
+      "require_prior_bounce": true
+     }
     }
    ]
   }
@@ -63689,12 +63725,18 @@
   },
   {
    "_text": "OP13-119_p4 on_play: その後、相手のコスト5以下のキャラ1枚までを、持ち主の手札に戻してもよい。",
-   "_doc": "「そうした場合、相手は自身の手札からコスト4以下のキャラ1枚までを、登場させる」 の opp 報酬は engine 未配線 (= 相手の forced 行動)。 optional 部分のみ実装。",
    "when": "on_play",
    "optional": true,
    "do": [
     {
      "return_to_hand": "one_opponent_character_cost_le_5"
+    },
+    {
+     "force_opp_play_from_hand": {
+      "cost_le": 4,
+      "count": 1,
+      "require_prior_bounce": true
+     }
     }
    ]
   }
@@ -91848,12 +91890,18 @@
   },
   {
    "_text": "OP13-119_p5 on_play: その後、相手のコスト5以下のキャラ1枚までを、持ち主の手札に戻してもよい。",
-   "_doc": "「そうした場合、相手は自身の手札からコスト4以下のキャラ1枚までを、登場させる」 の opp 報酬は engine 未配線 (= 相手の forced 行動)。 optional 部分のみ実装。",
    "when": "on_play",
    "optional": true,
    "do": [
     {
      "return_to_hand": "one_opponent_character_cost_le_5"
+    },
+    {
+     "force_opp_play_from_hand": {
+      "cost_le": 4,
+      "count": 1,
+      "require_prior_bounce": true
+     }
     }
    ]
   }

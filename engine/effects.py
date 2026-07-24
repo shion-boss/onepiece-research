@@ -3852,6 +3852,8 @@ def _execute_effect_body(
                         me.don_rested += t.attached_dons
                     state.push_log(f"  効果: 自キャラを手札に戻す {t.card.name}")
                     _ret_any = True
+            # OP13-119 「そうした場合、〜」: 直前 bounce が実際に起きたかを記録 (opp報酬の gate 用)。
+            state.last_return_to_hand_success = bool(_ret_any)
             if _ret_any and state.effects_overlay:
                 trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
                 trigger_on_opp_chara_returned_to_hand_by_self_effect(state, me, opp, state.effects_overlay)
@@ -5169,6 +5171,32 @@ def _execute_effect_body(
                 taken = opp.life.pop(0)
                 opp.hand.append(taken)
             state.push_log(f"  効果: 相手リーダーに {n} ダメージ")
+        elif k == "force_opp_play_from_hand":
+            # OP13-119: 「相手は自身の手札から (cost_le) キャラ1枚までを登場させる」 (opp 報酬)。
+            # = 相手プレイヤーの行動。 AI opp / 人間 opp いずれも「無料でキャラを出せる」ので最善は
+            # 出すこと → 最も価値の高い (power高) char を count 枚 登場 (= opp の最適 = 人間も同様)。
+            spec_val = v if isinstance(v, dict) else {}
+            # OP13-119: 「そうした場合 (= bounce した場合)」 のみ発動。 直前 return_to_hand が
+            # 実際に bounce したかを gate (bounce なしなら opp 報酬なし)。
+            if spec_val.get("require_prior_bounce") and not getattr(
+                    state, "last_return_to_hand_success", False):
+                continue
+            _cle = spec_val.get("cost_le")
+            _cnt = int(spec_val.get("count", 1))
+            cands = [(i, c) for i, c in enumerate(opp.hand)
+                     if c.category == Category.CHARACTER
+                     and (_cle is None or int(getattr(c, "cost", 0) or 0) <= int(_cle))]
+            cands.sort(key=lambda ic: -(int(getattr(ic[1], "power", 0) or 0)))
+            picked_idxs, played = set(), 0
+            for i, c in cands:
+                if played >= _cnt or not opp.can_play_character():
+                    break
+                opp.characters.append(InPlay.of(c, sickness=True))
+                picked_idxs.add(i)
+                played += 1
+                state.push_log(f"  効果: 相手が手札からコスト{_cle}以下を登場 → {c.name}")
+            if picked_idxs:
+                opp.hand = [c for i, c in enumerate(opp.hand) if i not in picked_idxs]
         elif k == "force_opp_discard":
             # 相手手札からランダム N 枚捨てさせる (= trash_opp_hand_random と同義のエイリアス)
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
@@ -6499,6 +6527,23 @@ def _execute_effect_body(
             # 「自分のキャラすべては、 このターン中、 バトルでKOされる場合、 代わりに手札1捨て」 (EB02-030)。
             me.turn_battle_ko_save_discard = True
             state.push_log("  効果: このターン中 自キャラ バトルKO 代替(手札1捨て)")
+        elif k == "opp_may_return_active_don_else_debuff":
+            # OP15-059: 「相手は自身のアクティブのドン1枚をドンデッキに戻してもよい。 そうしなかった
+            # 場合、 (target) を このターン中 -N」。 opp の意思決定を モデル化: 攻撃資源(ドン)より
+            # 攻撃力保持を優先し、 アクティブドンがあれば戻して -N を回避、 無ければ (=攻撃に全ドン
+            # 投入で払えない) -N を受ける。 = opp の最適近似 (人間 opp も攻撃を守るため通常返す)。
+            # どちらに転んでも opp は損 (ドン or パワー) = 二択ジレンマを忠実に表現。
+            spec = v if isinstance(v, dict) else {}
+            amount = int(spec.get("amount", -2000))
+            target_spec = spec.get("target", "one_opponent_inplay_any")
+            if opp.don_active >= 1:
+                opp.don_active -= 1
+                opp.don_remaining_in_deck = getattr(opp, "don_remaining_in_deck", 0) + 1
+                state.push_log("  効果: 相手がアクティブドン1枚をドンデッキに戻した (-2000 回避)")
+            else:
+                execute_effect(
+                    {"power_pump": {"target": target_spec, "amount": amount, "duration": "turn"}},
+                    state, me, opp, self_inplay)
         elif k == "force_opp_draw":
             # 「相手はカード N 枚を引く」 (OP07-090 等)。 相手にドローを強制 (= デッキ切れは敗北要因)。
             n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))

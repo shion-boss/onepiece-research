@@ -283,6 +283,11 @@ def audit_card(repo, overlay, card_id):
         has_opp_leave = any(
             isinstance(p, dict) and "if" not in p and (set(p) & set(OPP_LEAVE_PRIMS))
             for p in do0)
+        # 同 do 内で 相手キャラを「増やす」 primitive (OP13-119 の opp 報酬 force_opp_play_from_hand)
+        # があると bounce が net-neutral になり opp_chars が減らない = ここは正常なので leave 判定を外す。
+        _do_keys0 = {k for p in do0 if isinstance(p, dict) for k in p}
+        if _do_keys0 & {"force_opp_play_from_hand"}:
+            has_opp_leave = False
         has_rest = any(isinstance(p, dict) and "if" not in p and "rest" in p for p in do0)
         do_keys0 = {k for p in do0 if isinstance(p, dict) for k in p}
         has_pp = ("power_pump" in do_keys0) and not (do_keys0 & POWER_OVERRIDE)

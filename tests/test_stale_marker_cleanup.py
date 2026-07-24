@@ -518,3 +518,79 @@ def test_op10_099_flip_life_face_up_cost_untaps_supernova():
     trigger_end_of_turn(st, ov)
     assert me.face_up_life_count >= 1, "cost (ライフ表向き) が払われていない"
     assert me.characters[1].rested is False, "超新星キャラがアクティブ化されていない"
+
+
+def test_p117_special_win_and_mill():
+    """P-117 (leader): デッキ0で敗北の代わりに勝利 (set_deck_out_wins 静的) +
+    【ドン×1】リーダーアタックで相手ライフダメージ時 自デッキ上1枚をトラッシュ (mill_self_top)。"""
+    repo = _repo()
+    ov = _overlay()
+    me = Player(name="me", leader=InPlay.of(repo.get("P-117"), sickness=False))
+    opp = Player(name="opp", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    st = GameState(players=[me, opp], turn_player_idx=0, phase=Phase.MAIN, rng=random.Random(0))
+    st.effects_overlay = ov
+    evaluate_static_effects(st, ov)
+    assert me.deck_out_wins is True, "P-117 の特殊勝利フラグが立っていない"
+    me.deck = [repo.get("OP01-016") for _ in range(3)]
+    me.trash = []
+    mill = next(c for c in _raw("P-117") if c.get("when") == "on_opp_life_taken")
+    execute_effect(mill["do"][0], st, me, opp, None)
+    assert len(me.deck) == 2 and len(me.trash) == 1, "mill (デッキ上1→トラッシュ) が発火していない"
+
+
+def test_op13_119_opp_reward_gated_on_bounce():
+    """OP13-119: 相手 cost5以下を手札に戻す → そうした場合のみ 相手が手札から cost4以下を登場。
+    bounce対象が無ければ opp 報酬も発生しない (require_prior_bounce gate)。"""
+    repo = _repo()
+    ov = _overlay()
+    c5 = _char_of_cost(repo, 5)
+    c4 = next(_char_of_cost(repo, k) for k in (4, 3, 2, 1) if _char_of_cost(repo, k))
+    bounce = next(c for c in _raw("OP13-119")
+                  if c.get("do") and "force_opp_play_from_hand" in str(c["do"]))
+
+    def run(opp_field_ids):
+        st, me, opp = _state(repo)
+        st.effects_overlay = ov
+        opp.characters = [InPlay.of(repo.get(x), sickness=False) for x in opp_field_ids]
+        opp.hand = [repo.get(c4)]
+        for prim in bounce["do"]:
+            if execute_effect(prim, st, me, opp, None) is False:
+                break
+        return [c.card.card_id for c in opp.characters]
+
+    assert c4 in run([c5]), "bounce時に相手が手札から cost4以下を登場していない (報酬なし)"
+    assert run([]) == [], "bounce対象なしなのに相手が登場した (gate 失敗)"
+
+
+def test_op15_059_opp_returns_don_or_takes_debuff():
+    """OP15-059: 相手はアクティブドン1枚を戻して -2000 回避、 戻さない(=戻せない)場合 -2000。
+    = opp_may_return_active_don_else_debuff で二択ジレンマをモデル化。"""
+    import json
+    repo = _repo()
+    ov = _overlay()
+    _cards = json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+    _cards = _cards.get("cards", _cards) if isinstance(_cards, dict) else _cards
+    ch = next(c["card_id"] for c in _cards
+              if getattr(repo.get(c["card_id"]).category, "name", "") == "CHARACTER"
+              and int(getattr(repo.get(c["card_id"]), "power", 0) or 0) >= 5000)
+    prim = next(c["do"][0] for c in _raw("OP15-059") if c.get("when") == "opp_attack")
+    # (1) ドンあり → 戻して -2000 なし
+    st, me, opp = _state(repo)
+    st.effects_overlay = ov
+    st.turn_player_idx = 1
+    atk = InPlay.of(repo.get(ch), sickness=False)
+    opp.characters = [atk]
+    opp.don_active = 2
+    b = atk.power
+    execute_effect(prim, st, me, opp, None)
+    assert opp.don_active == 1 and atk.power == b, "ドンありで戻さず/-2000 が誤適用"
+    # (2) ドンなし → -2000
+    st2, me2, opp2 = _state(repo)
+    st2.effects_overlay = ov
+    st2.turn_player_idx = 1
+    atk2 = InPlay.of(repo.get(ch), sickness=False)
+    opp2.characters = [atk2]
+    opp2.don_active = 0
+    b2 = atk2.power
+    execute_effect(prim, st2, me2, opp2, None)
+    assert atk2.power == b2 - 2000, "ドンなしで -2000 が適用されていない"
