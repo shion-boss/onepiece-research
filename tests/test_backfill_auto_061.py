@@ -144,12 +144,6 @@ def test_op05_088_activate_main_recur_black_ai():
 #    【起動メイン】➀，このキャラと自分のキャラ1枚をレストにできる：
 #      自分のトラッシュのコスト1の黒のキャラカード1枚までを、手札に加える。
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(
-    reason="engine/overlay 実バグ: OP05-089 overlay は search source=trash を使うが "
-    "engine の search primitive は常に me.deck のみ探索し source 指定を無視するため "
-    "トラッシュからの回収が発火しない (正しくは trash_to_hand primitive を使うべき、 "
-    "OP05-088 は trash_to_hand で正常)。 engine 修正は人間レビューへ。"
-)
 def test_op05_089_activate_main_recur_cost1_black_ai():
     """起動メイン (AI): ➀+自レスト+他キャラ1レスト → トラッシュのコスト1黒キャラを手札へ。"""
     repo = _repo()

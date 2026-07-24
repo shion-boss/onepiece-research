@@ -61834,16 +61834,13 @@
    "when": "on_ko",
    "do": [
     {
-     "search": {
-      "source": "trash",
+     "search_from_trash": {
       "filter": {
        "category": "CHARACTER",
        "feature_contains": "B・W",
        "cost_le": 8
       },
-      "limit": 1,
-      "destination": "hand",
-      "public": false
+      "count": 1
      }
     }
    ]
@@ -65969,15 +65966,12 @@
    "when": "on_play",
    "do": [
     {
-     "search": {
-      "source": "trash",
+     "search_from_trash": {
       "filter": {
        "feature": "SMILE",
        "cost_le": 5
       },
-      "limit": 1,
-      "destination": "hand",
-      "public": false
+      "count": 1
      }
     }
    ]
@@ -67169,16 +67163,13 @@
    "when": "on_play",
    "do": [
     {
-     "search": {
-      "source": "trash",
+     "search_from_trash": {
       "filter": {
        "category": "EVENT",
        "color": "紫",
        "cost_le": 5
       },
-      "limit": 1,
-      "destination": "hand",
-      "public": false
+      "count": 1
      }
     },
     {
@@ -67196,16 +67187,13 @@
    "when": "on_play",
    "do": [
     {
-     "search": {
-      "source": "trash",
+     "search_from_trash": {
       "filter": {
        "category": "EVENT",
        "color": "紫",
        "cost_le": 5
       },
-      "limit": 1,
-      "destination": "hand",
-      "public": false
+      "count": 1
      }
     },
     {
@@ -75482,16 +75470,13 @@
       ],
       "effect": [
        {
-        "search": {
-         "source": "trash",
+        "search_from_trash": {
          "filter": {
           "category": "CHARACTER",
           "cost_eq": 1,
           "color": "黒"
          },
-         "limit": 1,
-         "destination": "hand",
-         "public": false
+         "count": 1
         }
        }
       ]
