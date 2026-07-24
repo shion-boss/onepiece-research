@@ -448,3 +448,73 @@ def test_op04_047_returns_only_battled_cost_le_5_char():
                     and any(c.card_id == victim.card.card_id for c in opp.deck))
         assert returned is expect_returned, (
             f"battled cost{cost}: デッキ底={returned} (期待 {expect_returned})")
+
+
+def test_st13_002_face_up_life_add_and_trash_cycle():
+    """ST13-002: デッキ上5からコスト5キャラをライフ上に表向きで加える → 表向きライフ全trash。
+    = search_top_n(life_face_up) + trash_all_face_up_life (face-up-life subsystem)。"""
+    repo = _repo()
+    ov = _overlay()
+    c5 = _char_of_cost(repo, 5)
+    st, me, opp = _state(repo)
+    st.effects_overlay = ov
+    me.deck = [repo.get(c5)] + [repo.get("OP01-016") for _ in range(5)]
+    me.life = [repo.get("OP01-016")]
+    raw = _raw("ST13-002")
+    execute_effect(raw[0]["do"][0], st, me, opp, None)
+    assert len(me.life) == 2 and me.face_up_life_count == 1, "表向きライフが加わっていない"
+    execute_effect(raw[1]["do"][0], st, me, opp, None)
+    assert me.face_up_life_count == 0 and len(me.life) == 1, "表向きライフがトラッシュされていない"
+    assert len(me.trash) >= 1
+
+
+def test_st13_001_pay_chara_to_face_up_life_then_pump():
+    """ST13-001 サボ(leader): コスト3+パワー7000+キャラをライフに表向きで加える(cost) → 自キャラ+2000。"""
+    import json
+    repo = _repo()
+    ov = _overlay()
+    cards = json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+    cards = cards.get("cards", cards) if isinstance(cards, dict) else cards
+    sac = next(c["card_id"] for c in cards
+               if getattr(repo.get(c["card_id"]).category, "name", "") == "CHARACTER"
+               and int(getattr(repo.get(c["card_id"]), "cost", 0) or 0) >= 3
+               and int(getattr(repo.get(c["card_id"]), "power", 0) or 0) >= 7000)
+    tgt = next(c["card_id"] for c in cards
+               if getattr(repo.get(c["card_id"]).category, "name", "") == "CHARACTER"
+               and 0 < int(getattr(repo.get(c["card_id"]), "power", 0) or 0) < 3000)
+    me = Player(name="me", leader=InPlay.of(repo.get("ST13-001"), sickness=False))
+    opp = Player(name="opp", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    st = GameState(players=[me, opp], turn_player_idx=0, phase=Phase.MAIN, rng=random.Random(0))
+    st.effects_overlay = ov
+    me.leader.attached_dons = 2
+    me.characters = [InPlay.of(repo.get(sac), sickness=False), InPlay.of(repo.get(tgt), sickness=False)]
+    me.life = [repo.get("OP01-016")]
+    prim = next(c["do"][0] for c in _raw("ST13-001") if c.get("when") == "activate_main")
+    execute_effect(prim, st, me, opp, me.leader)
+    assert any(c.card_id == sac for c in me.life) and me.face_up_life_count >= 1, \
+        "cost キャラが表向きライフに加わっていない"
+    assert any(c.power > c.card.power for c in me.characters), "残キャラに +2000 が乗っていない"
+
+
+def test_op10_099_flip_life_face_up_cost_untaps_supernova():
+    """OP10-099 キッド: ターン終了時 ライフ上1枚を表向きにできる(cost) → コスト3-8超新星をアクティブ化。"""
+    from engine.effects import trigger_end_of_turn
+    import json
+    repo = _repo()
+    ov = _overlay()
+    cards = json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+    cards = cards.get("cards", cards) if isinstance(cards, dict) else cards
+    sn = next(c["card_id"] for c in cards
+              if getattr(repo.get(c["card_id"]).category, "name", "") == "CHARACTER"
+              and getattr(repo.get(c["card_id"]), "features", None)
+              and "超新星" in repo.get(c["card_id"]).features
+              and 3 <= int(getattr(repo.get(c["card_id"]), "cost", 0) or 0) <= 8)
+    st, me, opp = _state(repo)
+    st.effects_overlay = ov
+    me.characters = [InPlay.of(repo.get("OP10-099"), sickness=False),
+                     InPlay.of(repo.get(sn), sickness=False)]
+    me.characters[1].rested = True
+    me.life = [repo.get("OP01-016")]      # 裏向きライフ1 (= flip cost 払える)
+    trigger_end_of_turn(st, ov)
+    assert me.face_up_life_count >= 1, "cost (ライフ表向き) が払われていない"
+    assert me.characters[1].rested is False, "超新星キャラがアクティブ化されていない"

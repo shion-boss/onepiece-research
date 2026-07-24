@@ -4096,10 +4096,15 @@ def _execute_effect_body(
                     state.push_log(f"  効果: search_top_n → 登場 {c.name}")
                     if state.effects_overlay:
                         trigger_on_play(state, me, opp, ip, state.effects_overlay)
-                elif destination == "life":
+                elif destination in ("life", "life_face_up"):
                     # 「ライフの上に加える」 (= OP16-119 ティーチ)。 公式 表記なし は裏向き (life 既定)。
+                    # life_face_up = 表向きで加える (= ST13-002)。 count-only モデルで表向き +1。
                     me.life.insert(0, c)
-                    state.push_log(f"  効果: search_top_n → ライフ上に加える ({len(me.life)} 枚)")
+                    if destination == "life_face_up":
+                        me.face_up_life_count = min(me.face_up_life_count + 1, len(me.life))
+                    state.push_log(
+                        f"  効果: search_top_n → ライフ上に加える"
+                        f"{'(表向き)' if destination == 'life_face_up' else ''} ({len(me.life)} 枚)")
                 elif destination == "trash":
                     # 「〜枚をトラッシュに置く」 (= OP03-083 コルギー等)。 picked を直接 trash へ。
                     me.trash.append(c)
@@ -6508,6 +6513,17 @@ def _execute_effect_body(
             n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
             me.face_up_life_count = min(me.face_up_life_count + n, len(me.life))
             state.push_log(f"  効果: 自ライフ上{n}枚を表向き")
+        elif k == "trash_all_face_up_life":
+            # 「自分のライフの表向きのカードすべてをトラッシュに置く」 (ST13-002)。 count-only モデル:
+            # 表向き札は top に置かれる (search life_face_up / chara_to_self_life face_up) ので、
+            # 上から face_up_life_count 枚をトラッシュへ。
+            n = min(me.face_up_life_count, len(me.life))
+            for _ in range(n):
+                if me.life:
+                    me.trash.append(me.life.pop(0))
+            me.face_up_life_count = 0
+            if n:
+                state.push_log(f"  効果: 表向きライフ {n} 枚をトラッシュ")
         elif k == "schedule_self_return_to_deck_bottom_at_battle_end":
             # 「その後、 このバトル終了時、 このキャラを持ち主のデッキの下に置く」 (OP02-064)。
             # self_inplay に flag を立て、 バトル終了 flush で me.deck 下へ。
@@ -7971,6 +7987,9 @@ def _execute_effect_body(
                     me.life.append(t.card)
                 else:
                     me.life.insert(0, t.card)
+                # face_up: 表向きで加える (ST13-001 等)。 count-only モデルで表向き枚数 +1。
+                if spec_val.get("face_up"):
+                    me.face_up_life_count = min(me.face_up_life_count + 1, len(me.life))
             state.push_log(f"  効果: キャラ→自ライフ ({place}): {[t.card.name for t in targets]}")
             if _ctl_any and state.effects_overlay:
                 trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
@@ -8064,6 +8083,14 @@ def _execute_effect_body(
                 elif "pay_don" in cs:
                     n = int(cs.get("pay_don", 0))
                     if _pay_don_capacity(state, me) < n:   # 人間は付与ドンも返却可(2026-07-08)
+                        can_pay = False
+                        break
+                elif "chara_to_self_life" in cs:
+                    # ST13-001: 「自分の (filter) キャラ1枚をライフに表向きで加える」 cost。
+                    _cl = cs["chara_to_self_life"]
+                    _cl_tgt = _cl.get("target", {}) if isinstance(_cl, dict) else {}
+                    _cl_filt = _cl_tgt.get("filter", {}) if isinstance(_cl_tgt, dict) else {}
+                    if not any(_matches_filter(c.card, _cl_filt) for c in me.characters):
                         can_pay = False
                         break
                 elif "rest_self_don" in cs:
@@ -8400,6 +8427,11 @@ def _execute_effect_body(
                     for ip in avail[:rc_n]:
                         ip.rested = True
                         state.push_log(f"  効果コスト: 自レスト {ip.card.name}")
+                    continue
+                if "chara_to_self_life" in cs:
+                    # ST13-001: cost として自キャラをライフに表向きで加える (execute_effect 経由)。
+                    execute_effect({"chara_to_self_life": cs["chara_to_self_life"]},
+                                   state, me, opp, self_inplay)
                     continue
                 if "flip_life_face_up" in cs:
                     me.face_up_life_count = min(me.face_up_life_count + 1, len(me.life))
