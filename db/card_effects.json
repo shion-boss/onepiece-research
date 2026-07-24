@@ -11542,12 +11542,6 @@
      ]
     },
     {
-     "rest_multi": [
-      "one_opp_chara_or_don",
-      "one_opp_chara_or_don"
-     ]
-    },
-    {
      "life_to_hand": 1
     }
    ]
@@ -32986,12 +32980,6 @@
      ]
     },
     {
-     "rest_multi": [
-      "one_opp_chara_or_don",
-      "one_opp_chara_or_don"
-     ]
-    },
-    {
      "life_to_hand": 1
     }
    ]
@@ -39578,12 +39566,6 @@
    "_text": "OP06-035 on_play: 相手のキャラかドン 合計2枚 レスト + 自ライフ1手札",
    "when": "on_play",
    "do": [
-    {
-     "rest_multi": [
-      "one_opp_chara_or_don",
-      "one_opp_chara_or_don"
-     ]
-    },
     {
      "rest_multi": [
       "one_opp_chara_or_don",
@@ -54323,12 +54305,6 @@
      ]
     },
     {
-     "rest_multi": [
-      "one_opp_chara_or_don",
-      "one_opp_chara_or_don"
-     ]
-    },
-    {
      "life_to_hand": 1
     }
    ]
@@ -61949,7 +61925,8 @@
        "feature_contains": "B・W",
        "cost_le": 8
       },
-      "count": 1
+      "count": 1,
+      "to": "hand"
      }
     }
    ]
@@ -66080,7 +66057,8 @@
        "feature": "SMILE",
        "cost_le": 5
       },
-      "count": 1
+      "count": 1,
+      "to": "hand"
      }
     }
    ]
@@ -67278,7 +67256,8 @@
        "color": "紫",
        "cost_le": 5
       },
-      "count": 1
+      "count": 1,
+      "to": "hand"
      }
     },
     {
@@ -67302,7 +67281,8 @@
        "color": "紫",
        "cost_le": 5
       },
-      "count": 1
+      "count": 1,
+      "to": "hand"
      }
     },
     {
@@ -75585,7 +75565,8 @@
           "cost_eq": 1,
           "color": "黒"
          },
-         "count": 1
+         "count": 1,
+         "to": "hand"
         }
        }
       ]
