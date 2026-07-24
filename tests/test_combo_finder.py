@@ -503,6 +503,18 @@ def test_regulation_standard_filters_block_icon(repo):
     assert n_std <= n_all
 
 
+_ARCHIVE_CORPUS = list(
+    (ROOT / "decks" / "_archive" / "cardrush_raw").glob("*.json")
+) + list((ROOT / "decks" / "_archive").glob("*.json"))
+
+
+@pytest.mark.skipif(
+    not _ARCHIVE_CORPUS,
+    reason="実戦コーパスの一部 (decks/_archive/**/*.json) は gitignore 管理の "
+    "ローカル専用データで fresh clone には存在しない。 archive 不在時は共起コーパスが "
+    "縮小し deck_count 閾値 (ハンコック>=4) を満たさないため data 依存で skip。 "
+    "archive を持つ環境では通常通り実行される。",
+)
 def test_cooccurrence_module_grounded():
     """実戦デッキ共起モジュールが妥当なコーパスと接地した結果を返す。"""
     from engine.combo_cooccurrence import cooccurring, deck_count, n_decks
