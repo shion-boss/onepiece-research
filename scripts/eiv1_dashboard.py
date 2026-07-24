@@ -157,10 +157,10 @@ def _rollout_stats() -> dict:
     return res
 
 
-def _corpus_stats() -> dict:
-    """corpus 末尾をサンプルして分散/turn別勝率。 TTL キャッシュ (重い)。"""
+def _corpus_stats(force: bool = False) -> dict:
+    """corpus 末尾をサンプルして分散/turn別勝率。 TTL キャッシュ (重い)。 force で cache 無視。"""
     now = time.time()
-    if _CACHE["corpus"] and now - _CACHE["corpus_ts"] < _CORPUS_TTL:
+    if not force and _CACHE["corpus"] and now - _CACHE["corpus_ts"] < _CORPUS_TTL:
         return _CACHE["corpus"]
     p = EIV1 / "corpus.jsonl"
     res = {"total": 0, "games_est": 0, "hero_top": [], "hero_min": 0, "hero_max": 0,
@@ -259,10 +259,26 @@ def _corpus_stats() -> dict:
     return res
 
 
-def _stats() -> dict:
+def _read_exit() -> dict:
+    """ExIt policy 蒸留の履歴 (top-1 = 探索の最善手を再現する率) + policy 有無。"""
+    res = {"history": [], "has_policy": (EIV1 / "exit_policy.pkl").exists()}
+    m = EIV1 / "exit_manifest.json"
+    if m.exists():
+        try:
+            h = json.loads(m.read_text(encoding="utf-8")).get("history", [])
+            res["history"] = [{"iter": e.get("iter"), "top1": e.get("top1"),
+                               "rand": e.get("rand"), "decisions": e.get("decisions")}
+                              for e in h]
+        except Exception:
+            pass
+    return res
+
+
+def _stats(force: bool = False) -> dict:
     return {"manifest": _read_manifest(), "arena": _read_arena(),
-            "loop": _read_loop_progress(), "corpus": _corpus_stats(),
+            "loop": _read_loop_progress(), "corpus": _corpus_stats(force),
             "throughput": _read_throughput(), "rollout": _rollout_stats(),
+            "exit": _read_exit(),
             "ts": time.strftime("%Y-%m-%d %H:%M:%S")}
 
 
@@ -291,7 +307,14 @@ table{width:100%;border-collapse:collapse;font-size:12px}
 td{padding:2px 6px;border-bottom:1px solid #21262d}
 .note{color:#8b949e;font-size:11px;margin-top:8px;line-height:1.5}
 </style></head><body>
-<header><h1>EIV1 学習ダッシュボード</h1><span class="ts" id="ts"></span></header>
+<header><h1>EIV1 学習ダッシュボード</h1>
+<div style="display:flex;align-items:center;gap:12px">
+  <span class="ts" id="ts"></span>
+  <label style="font-size:12px;color:#8b949e;display:flex;align-items:center;gap:4px;cursor:pointer">
+    <input type="checkbox" id="auto" checked>自動更新(15s)</label>
+  <button id="refresh" style="background:#238636;color:#fff;border:0;border-radius:6px;
+    padding:6px 14px;font-size:13px;cursor:pointer">今すぐ更新</button>
+</div></header>
 <div class="grid" id="grid"></div>
 <script>
 const $=(h)=>{const t=document.createElement('template');t.innerHTML=h.trim();return t.content.firstChild;};
@@ -333,8 +356,14 @@ function wrbar(w){const p=(w*100).toFixed(0);const col=w>=0.5?'#3fb950':'#f85149
 function wtable(rows,lk,color){return `<table>${rows.map(r=>
   `<tr><td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r[lk]}</td>
    <td style="width:90px">${wrbar(r.win)}</td><td style="color:#8b949e;width:36px;text-align:right">${r.n}</td></tr>`).join('')}</table>`;}
-async function load(){
-  const s=await (await fetch('/api/stats')).json();
+async function load(force){
+  const btn=document.getElementById('refresh');
+  if(force){btn.textContent='更新中...';btn.disabled=true;}
+  const url='/api/stats'+(force?'?force=1':'');
+  let s;
+  try{ s=await (await fetch(url)).json(); }
+  catch(e){ if(force){btn.textContent='今すぐ更新';btn.disabled=false;} return; }
+  if(force){btn.textContent='今すぐ更新';btn.disabled=false;}
   document.getElementById('ts').textContent='更新 '+s.ts;
   const c=s.corpus, arena=s.arena, man=s.manifest, loop=s.loop, tp=s.throughput, ro=s.rollout;
   const last=arena.length?arena[arena.length-1]:null;
@@ -404,6 +433,12 @@ async function load(){
     <p class="sub">最終勝敗より強い教師か。 corr(y,yr)=相関、 勝時 yr > 敗時 yr なら勝敗を予見</p>
     <table><tr style="color:#8b949e"><td>policy</td><td>n</td><td>相関</td><td>敗局面</td><td>勝局面</td></tr>${rows.join('')||'<tr><td colspan=5>収集中</td></tr>'}</table>
     <p class="note">rollout(greedy)=1回目は互角 (0.496)。 beam の勝時/敗時 yr の差が大きいほど良い教師</p></div>`);
+  // ⑭ ExIt 複利ループ (本命)
+  const ex=s.exit||{history:[],has_policy:false};
+  cards.push(`<div class="card"><h2>⑭ ExIt 複利ループ (探索→policy蒸留→探索↑)</h2>
+    <p class="sub">top-1 = policy が探索の最善手を再現する率。 上がり続ければ蒸留が効いている</p>
+    ${ex.history&&ex.history.length?line(ex.history.filter(e=>e.top1!=null),'iter','top1',{ymin:0,ymax:1,fmt:v=>(v*100).toFixed(0)+'%',color:'#2ea043'}):'<p class="note">policy 学習待ち (collect→train 進行中)</p>'}
+    <p class="note">policy model: ${ex.has_policy?'有り (beam prior に還元中)':'未生成'} ${ex.history&&ex.history.length?('/ 最新 top-1='+((ex.history[ex.history.length-1].top1||0)*100).toFixed(0)+'% vs random '+((ex.history[ex.history.length-1].rand||0)*100).toFixed(0)+'%'):''}</p></div>`);
   // ⑦ rollout 局面数
   cards.push(`<div class="card"><h2>⑦ rollout 収集 現況</h2>
     <p class="sub">実験データの蓄積</p>
@@ -411,7 +446,9 @@ async function load(){
     <tr><td>rollout(beam) 局面</td><td>${c.rollout_beam.toLocaleString()}</td></tr></table></div>`);
   document.getElementById('grid').replaceChildren(...cards.map(h=>$(h)));
 }
-load();setInterval(load,15000);
+let _timer=setInterval(()=>{if(document.getElementById('auto').checked)load();},15000);
+document.getElementById('refresh').addEventListener('click',()=>load(true));  // 強制更新 (cache無視)
+load();
 </script></body></html>"""
 
 
@@ -421,7 +458,8 @@ class H(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path.startswith("/api/stats"):
-            body = json.dumps(_stats()).encode("utf-8")
+            force = "force=1" in self.path
+            body = json.dumps(_stats(force)).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
