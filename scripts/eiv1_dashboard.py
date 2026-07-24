@@ -29,6 +29,33 @@ EIV1 = ROOT / "db" / "eiv1"
 
 _CACHE: dict = {"corpus": None, "corpus_ts": 0.0}
 _CORPUS_TTL = 60.0   # corpus スキャンは重いので 60s キャッシュ
+_NAMES: dict = {}
+
+
+def _names() -> dict:
+    """card_id → 名前 (1 回ロード)。 leader 表示用。"""
+    global _NAMES
+    if not _NAMES:
+        try:
+            cards = json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+            if isinstance(cards, dict):
+                cards = cards.get("cards", cards)
+            _NAMES = {c["card_id"]: c.get("name", c["card_id"])
+                      for c in cards if isinstance(c, dict)}
+        except Exception:
+            _NAMES = {"_": "_"}
+    return _NAMES
+
+
+def _corr(xs, ys) -> float:
+    n = len(xs)
+    if n < 2:
+        return 0.0
+    mx, my = sum(xs) / n, sum(ys) / n
+    num = sum((a - mx) * (b - my) for a, b in zip(xs, ys))
+    dx = sum((a - mx) ** 2 for a in xs) ** 0.5
+    dy = sum((b - my) ** 2 for b in ys) ** 0.5
+    return num / (dx * dy) if dx and dy else 0.0
 
 
 def _read_manifest() -> list:
@@ -77,6 +104,59 @@ def _read_loop_progress(n: int = 40) -> list:
     return out[-n:]
 
 
+def _read_throughput(n: int = 40) -> list:
+    """loop.log の collect 行から 1 ラウンドの samples/秒 を時系列で (遅延検知)。"""
+    out = []
+    p = EIV1 / "loop.log"
+    if not p.exists():
+        return out
+    try:
+        lines = p.read_text(encoding="utf-8", errors="ignore").splitlines()
+    except Exception:
+        return out
+    idx = 0
+    for line in lines:
+        if line.startswith("appended ") and "games (" in line:
+            try:
+                samples = int(line.split("appended ")[1].split(" ")[0])
+                games = int(line.split("from ")[1].split("/")[0])
+                secs = int(line.split("games (")[1].split("s)")[0])
+                idx += 1
+                out.append({"i": idx, "games": games, "secs": secs,
+                            "spm": round(samples / max(secs, 1) * 60, 1)})  # samples/分
+            except Exception:
+                continue
+    return out[-n:]
+
+
+def _rollout_stats() -> dict:
+    """rollout corpus から ラベル相関 と 分布 (yr を y=0/1 別にビン)。"""
+    res = {"greedy": None, "beam": None}
+    for tag, key in (("rollout_corpus.jsonl", "greedy"),
+                     ("rollout_corpus_beam.jsonl", "beam")):
+        f = EIV1 / tag
+        if not f.exists():
+            continue
+        y, yr = [], []
+        try:
+            for line in f.read_text(encoding="utf-8").splitlines():
+                d = json.loads(line)
+                y.append(float(d["y"]))
+                yr.append(float(d["yr"]))
+        except Exception:
+            continue
+        if not y:
+            continue
+        # y=0 と y=1 の局面で yr の平均 (rollout が勝敗を予見できているか)
+        yr0 = [b for a, b in zip(y, yr) if a < 0.5]
+        yr1 = [b for a, b in zip(y, yr) if a >= 0.5]
+        res[key] = {"n": len(y), "y_mean": sum(y) / len(y), "yr_mean": sum(yr) / len(yr),
+                    "corr": round(_corr(y, yr), 3),
+                    "yr_on_loss": round(sum(yr0) / len(yr0), 3) if yr0 else None,
+                    "yr_on_win": round(sum(yr1) / len(yr1), 3) if yr1 else None}
+    return res
+
+
 def _corpus_stats() -> dict:
     """corpus 末尾をサンプルして分散/turn別勝率。 TTL キャッシュ (重い)。"""
     now = time.time()
@@ -97,15 +177,37 @@ def _corpus_stats() -> dict:
         res["games_est"] = res["total"] // 12
         hero = Counter()
         turn_bucket: dict = {}
+        hero_wr: dict = {}        # hero deck → [n, wins]
+        oppL_wr: dict = {}        # opp leader card_id → [n, wins]
+        game_turn: dict = {}      # game_id → max turn (ゲーム長)
+        nm = _names()
         for line in lines:
             try:
                 d = json.loads(line)
-                hero[d.get("hero", "?")] += 1
-                t = int((d.get("state") or {}).get("turn_number") or 0)
+                h = d.get("hero", "?")
+                y = int(d.get("y", 0))
+                hero[h] += 1
+                hw = hero_wr.setdefault(h, [0, 0])
+                hw[0] += 1
+                hw[1] += y
+                st = d.get("state") or {}
+                t = int(st.get("turn_number") or 0)
                 b = "1-4" if t <= 4 else ("5-7" if t <= 7 else ("8-10" if t <= 10 else "11+"))
                 tb = turn_bucket.setdefault(b, [0, 0])
                 tb[0] += 1
-                tb[1] += int(d.get("y", 0))
+                tb[1] += y
+                # 相手 leader
+                hi = st.get("hero_idx", 0)
+                pl = st.get("players") or []
+                if len(pl) == 2:
+                    lid = (pl[1 - hi].get("leader") or {}).get("card_id")
+                    if lid:
+                        ow = oppL_wr.setdefault(lid, [0, 0])
+                        ow[0] += 1
+                        ow[1] += y
+                g = d.get("g")
+                if g:
+                    game_turn[g] = max(game_turn.get(g, 0), t)
             except Exception:
                 continue
         if hero:
@@ -117,6 +219,25 @@ def _corpus_stats() -> dict:
         res["turn_winrate"] = [
             {"bucket": b, "n": v[0], "win": v[1] / v[0] if v[0] else 0}
             for b, v in sorted(turn_bucket.items(), key=lambda kv: order.get(kv[0], 9))]
+        # hero デッキ別 勝率 (n>=40 のみ、 得意/苦手 top6)
+        hd = [{"deck": k, "n": v[0], "win": v[1] / v[0]} for k, v in hero_wr.items() if v[0] >= 40]
+        hd.sort(key=lambda r: -r["win"])
+        res["hero_best"] = hd[:6]
+        res["hero_worst"] = hd[-6:][::-1]
+        # 相手 leader 別 勝率 (n>=60 のみ、 出現多い順 top10)
+        ol = [{"leader": nm.get(k, k), "n": v[0], "win": v[1] / v[0]}
+              for k, v in oppL_wr.items() if v[0] >= 60]
+        ol.sort(key=lambda r: -r["n"])
+        res["opp_leader"] = ol[:10]
+        # ゲーム長 分布 (完全な game_id を持つ分のみ)
+        if game_turn:
+            gl = Counter()
+            for t in game_turn.values():
+                bucket = min(20, (t + 1) // 2 * 2)  # 2 ターン刻み
+                gl[bucket] += 1
+            res["game_len"] = [{"turn": k, "n": v} for k, v in sorted(gl.items())]
+            res["game_len_median"] = sorted(game_turn.values())[len(game_turn) // 2]
+            res["game_len_n"] = len(game_turn)
     except Exception:
         pass
     for tag, key in (("rollout_corpus.jsonl", "rollout_greedy"),
@@ -134,6 +255,7 @@ def _corpus_stats() -> dict:
 def _stats() -> dict:
     return {"manifest": _read_manifest(), "arena": _read_arena(),
             "loop": _read_loop_progress(), "corpus": _corpus_stats(),
+            "throughput": _read_throughput(), "rollout": _rollout_stats(),
             "ts": time.strftime("%Y-%m-%d %H:%M:%S")}
 
 
@@ -197,10 +319,17 @@ function bars(data,lk,vk,{fmt=(v)=>v.toFixed(2)}={}){
     g+=`<text class="lbl" x="${x+bw/2}" y="${H-pb-h-3}" text-anchor="middle">${fmt(d[vk])}</text>`;});
   return `<svg viewBox="0 0 ${W} ${H}">${g}</svg>`;
 }
+function wrbar(w){const p=(w*100).toFixed(0);const col=w>=0.5?'#3fb950':'#f85149';
+  return `<div style="background:#21262d;border-radius:3px;height:14px;position:relative">
+    <div style="background:${col};width:${Math.min(100,w*100)}%;height:100%;border-radius:3px"></div>
+    <span style="position:absolute;right:4px;top:0;font-size:10px;line-height:14px">${p}%</span></div>`;}
+function wtable(rows,lk,color){return `<table>${rows.map(r=>
+  `<tr><td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r[lk]}</td>
+   <td style="width:90px">${wrbar(r.win)}</td><td style="color:#8b949e;width:36px;text-align:right">${r.n}</td></tr>`).join('')}</table>`;}
 async function load(){
   const s=await (await fetch('/api/stats')).json();
   document.getElementById('ts').textContent='更新 '+s.ts;
-  const c=s.corpus, arena=s.arena, man=s.manifest, loop=s.loop;
+  const c=s.corpus, arena=s.arena, man=s.manifest, loop=s.loop, tp=s.throughput, ro=s.rollout;
   const last=arena.length?arena[arena.length-1]:null;
   const lastAuc=man.length?man[man.length-1]:null;
   const cards=[];
@@ -235,12 +364,44 @@ async function load(){
     <p class="sub">終盤ほど勝敗が確定。 序盤の勝率が学習の難所</p>
     ${bars(c.turn_winrate.map(d=>({l:d.bucket,w:d.win})),'l','w',{fmt:v=>(v*100).toFixed(0)+'%'})}
     </div>`);
-  // ⑦ rollout
-  cards.push(`<div class="card"><h2>⑦ rollout target 実験</h2>
-    <p class="sub">最終勝敗ラベルより強い教師を作れるか (本命)</p>
+  // ⑧ corpus 成長
+  cards.push(`<div class="card"><h2>⑧ corpus 成長 (iter vs 局面数)</h2>
+    <p class="sub">データ量の推移。 増えても①②が横ばいなら「量は律速でない」</p>
+    ${line(man,'iter','n',{fmt:v=>(v/1000).toFixed(0)+'k',color:'#a371f7'})}</div>`);
+  // ⑨ スループット
+  cards.push(`<div class="card"><h2>⑨ 収集スループット (samples/分)</h2>
+    <p class="sub">ラウンド毎の生成速度。 急落は value 肥大や CPU 競合の兆候</p>
+    ${line(tp,'i','spm',{ymin:0,fmt:v=>v.toFixed(0),color:'#db6d28'})}
+    <p class="note">${tp.length?('直近 '+tp[tp.length-1].games+'/500 games / '+tp[tp.length-1].secs+'s'):''}</p></div>`);
+  // ⑩ 相手 leader 別勝率
+  cards.push(`<div class="card"><h2>⑩ 相手リーダー別 hero 勝率</h2>
+    <p class="sub">どのアーキタイプに勝てて/負けているか (出現多い順)</p>
+    ${c.opp_leader&&c.opp_leader.length?wtable(c.opp_leader,'leader'):'<p class="note">集計中</p>'}</div>`);
+  // ⑪ hero デッキ別 得意/苦手
+  cards.push(`<div class="card"><h2>⑪ hero デッキ別 勝率 (得意/苦手)</h2>
+    <p class="sub">value がうまく操縦できるデッキ / できないデッキ (n≥40)</p>
+    <div style="color:#3fb950;font-size:11px;margin:2px 0">得意 top6</div>
+    ${c.hero_best?wtable(c.hero_best.map(r=>({...r,deck:r.deck.replace(/^(cardrush_|tcgportal_|train_)/,'')})),'deck'):''}
+    <div style="color:#f85149;font-size:11px;margin:8px 0 2px">苦手 worst6</div>
+    ${c.hero_worst?wtable(c.hero_worst.map(r=>({...r,deck:r.deck.replace(/^(cardrush_|tcgportal_|train_)/,'')})),'deck'):''}</div>`);
+  // ⑫ ゲーム長分布
+  cards.push(`<div class="card"><h2>⑫ ゲーム長 分布</h2>
+    <p class="sub">中央値 ${c.game_len_median||'—'} ターン (${(c.game_len_n||0).toLocaleString()} game)。 短すぎ=速攻偏り</p>
+    ${c.game_len?bars(c.game_len.map(d=>({l:d.turn,n:d.n})),'l','n',{fmt:v=>v}):'<p class="note">g付き行が必要</p>'}</div>`);
+  // ⑬ rollout ラベル相関
+  const rows=[];
+  for(const [k,r] of [['greedy',ro.greedy],['beam',ro.beam]]){ if(!r) continue;
+    rows.push(`<tr><td>${k}</td><td>${r.n}</td><td>corr=${r.corr}</td>
+      <td>敗時 yr=${r.yr_on_loss}</td><td>勝時 yr=${r.yr_on_win}</td></tr>`);}
+  cards.push(`<div class="card"><h2>⑬ rollout ラベル分析 (本命)</h2>
+    <p class="sub">最終勝敗より強い教師か。 corr(y,yr)=相関、 勝時 yr > 敗時 yr なら勝敗を予見</p>
+    <table><tr style="color:#8b949e"><td>policy</td><td>n</td><td>相関</td><td>敗局面</td><td>勝局面</td></tr>${rows.join('')||'<tr><td colspan=5>収集中</td></tr>'}</table>
+    <p class="note">rollout(greedy)=1回目は互角 (0.496)。 beam の勝時/敗時 yr の差が大きいほど良い教師</p></div>`);
+  // ⑦ rollout 局面数
+  cards.push(`<div class="card"><h2>⑦ rollout 収集 現況</h2>
+    <p class="sub">実験データの蓄積</p>
     <table><tr><td>rollout(greedy) 局面</td><td>${c.rollout_greedy.toLocaleString()}</td></tr>
-    <tr><td>rollout(beam) 局面</td><td>${c.rollout_beam.toLocaleString()}</td></tr></table>
-    <p class="note">beam rollout > outcome なら「policy 整合が鍵」が確定</p></div>`);
+    <tr><td>rollout(beam) 局面</td><td>${c.rollout_beam.toLocaleString()}</td></tr></table></div>`);
   document.getElementById('grid').replaceChildren(...cards.map(h=>$(h)));
 }
 load();setInterval(load,15000);
