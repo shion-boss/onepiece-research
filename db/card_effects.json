@@ -75482,16 +75482,14 @@
       ],
       "effect": [
        {
-        "search": {
-         "source": "trash",
+        "search_from_trash": {
          "filter": {
           "category": "CHARACTER",
           "cost_eq": 1,
           "color": "黒"
          },
-         "limit": 1,
-         "destination": "hand",
-         "public": false
+         "count": 1,
+         "to": "hand"
         }
        }
       ]
