@@ -74466,7 +74466,7 @@
     }
    ],
    "if": {
-    "self_life_le": 3
+    "opp_life_le": 3
    }
   }
  ],

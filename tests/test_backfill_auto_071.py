@@ -245,10 +245,6 @@ def test_op06_100_on_attack_human_optional_cost_modal():
     _drain(st)
 
 
-@pytest.mark.skip(reason="overlay bug: OP06-100 trigger 公式テキストは『相手のライフが3枚以下』"
-                         "だが overlay の if は self_life_le:3 (自分のライフ) になっている。"
-                         "self/opp の取り違え = overlay 修正が必要 (人間レビュー待ち、 engine/overlay "
-                         "編集はこのタスク対象外)。")
 def test_op06_100_trigger_condition_matches_official_text():
     """トリガー条件: 公式は『相手のライフが3枚以下』。 overlay は self_life_le で不整合 (skip)。"""
     repo = _repo()
