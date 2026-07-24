@@ -183,47 +183,45 @@ def test_op04_046_on_play_human_search_modal():
 #      (公式は「バトル終了時」 trigger だが engine は on_attack + self_turn で近似発火)
 # --------------------------------------------------------------------------- #
 def test_op04_047_return_cost_le_5_ai():
-    """相手のコスト5以下キャラ1枚を持ち主のデッキ下へ (AI 自動)。"""
+    """バトルした相手のコスト5以下キャラを持ち主のデッキ下へ (on_self_battled、 AI 自動)。
+    2026-07-24 是正: 旧 overlay は on_attack で任意 cost5以下を戻していた (バグ) →
+    公式通り「バトル終了時、 バトルした相手のキャラ」 に修正 (on_self_battled + opp_just_battled)。"""
+    from engine.effects import trigger_on_self_battled
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, "OP01-001", overlay)
     me, opp = st.players[0], st.players[1]
+    hyoki = InPlay.of(repo.get("OP04-047"), sickness=False)
+    me.characters = [hyoki]
     victim = InPlay.of(repo.get("OP01-013"), sickness=False)  # cost2 (<=5)
     opp.characters = [victim]
     opp.deck = []
-
-    eff = _get_eff(overlay, "OP04-047", "on_attack")
-    assert eval_condition(eff["if"], st, me) is True, \
-        "自分のターン中で self_turn 条件が成立しない"
-    for prim in eff["do"]:
-        execute_effect(prim, st, me, opp,
-                       InPlay.of(repo.get("OP04-047"), sickness=False))
-        _drain(st, [0])
-    assert victim not in opp.characters, \
-        "相手のコスト5以下キャラが場から戻されていない"
+    st.last_battled_opp_iid = victim.instance_id
+    trigger_on_self_battled(st, me, opp, hyoki, overlay)
+    _drain(st, [0])
+    assert victim not in opp.characters, "バトルした相手キャラが場から戻されていない"
     assert any(c.card_id == "OP01-013" for c in opp.deck), \
         "戻したキャラが持ち主のデッキに置かれていない"
 
 
-def test_op04_047_human_return_target_pick():
-    """人間 actor: 戻す対象の target_pick modal が立ち、 解決で1枚デッキ下へ。"""
+def test_op04_047_returns_only_the_battled_char():
+    """バトルした本人のみ対象 (バトルしていない cost5以下キャラは戻さない = 旧バグの是正)。"""
+    from engine.effects import trigger_on_self_battled
     repo = _repo()
     overlay = _overlay()
-    st = _state(repo, "OP01-001", overlay, human_idx=0)
+    st = _state(repo, "OP01-001", overlay)
     me, opp = st.players[0], st.players[1]
-    v1 = InPlay.of(repo.get("OP01-013"), sickness=False)
-    v2 = InPlay.of(repo.get("OP01-013"), sickness=False)  # 複数候補で modal
-    opp.characters = [v1, v2]
-
-    eff = _get_eff(overlay, "OP04-047", "on_attack")
-    execute_effect(eff["do"][0], st, me, opp,
-                   InPlay.of(repo.get("OP04-047"), sickness=False))
-    assert st.pending_choice is not None, "人間 + 複数候補で target_pick modal が立たない"
-    assert st.pending_choice.get("kind") == "target_pick", \
-        f"kind が target_pick でない: {st.pending_choice.get('kind')}"
-    resolve_pending_choice(st, [0])
+    hyoki = InPlay.of(repo.get("OP04-047"), sickness=False)
+    me.characters = [hyoki]
+    battled = InPlay.of(repo.get("OP01-013"), sickness=False)
+    bystander = InPlay.of(repo.get("OP01-013"), sickness=False)
+    opp.characters = [battled, bystander]
+    opp.deck = []
+    st.last_battled_opp_iid = battled.instance_id
+    trigger_on_self_battled(st, me, opp, hyoki, overlay)
     _drain(st, [0])
-    assert len(opp.characters) == 1, "人間選択後 相手キャラ1枚が場から戻されていない"
+    assert battled not in opp.characters, "バトルした相手が戻されていない"
+    assert bystander in opp.characters, "バトルしていない cost5以下キャラまで戻された (旧バグ)"
 
 
 # --------------------------------------------------------------------------- #

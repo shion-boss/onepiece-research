@@ -5,7 +5,7 @@
 > 空なら「レビュー待ちなし」。 消化するには session で私 (Claude) に「pending review やって」と伝えるか、
 > 各項目を手動修正 → skip 解除 / `_unimplemented` 実装 で対応する。
 
-**合計: 8 件** (skip 0 / _unimplemented 0 / 近似・未実装 8)
+**合計: 6 件** (skip 0 / _unimplemented 0 / 近似・未実装 6)
 
 ## overlay 近似・未実装マーカー (engine 機構が要る = engine/human レビュー)
 
@@ -14,8 +14,6 @@
 
 | card_id | marker | 診断 |
 |---|---|---|
-| OP04-047 | `_doc` | 「バトル終了時」 trigger (= on_battle_end / post_battle) + 「バトルしたコスト5以下キャラ」 (= last_battle_opponent) は engine 未配線。 概念 保存 のみ。 |
-| OP09-068 | `_approx_note` | cost: pay_don ≥1 を pay_don=1 で 固定 |
 | OP10-099 | `_approx_note` | cost: 自ライフ表向き は 簡略 (engine 未対応) |
 | OP13-119 | `_doc` | 「そうした場合、相手は自身の手札からコスト4以下のキャラ1枚までを、登場させる」 の opp 報酬は engine 未配線 (= 相手の forced 行動)。 optional 部分のみ実装。 |
 | OP15-059 | `_doc` | 相手の don 戻し選択は engine 未実装 → 簡略: AI は常に -2000 適用 (= 相手は払わない 前提)。 optional: true は『-2000 適用 する/しない』 の選択。 |

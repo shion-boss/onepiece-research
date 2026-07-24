@@ -27052,10 +27052,10 @@
       ],
       "effect": [
        {
-        "rest": "one_opponent_character_cost_le_2"
-       },
-       {
-        "rest": "one_opponent_character_cost_le_2"
+        "rest_multi": {
+         "target": "any_opponent_character_cost_le_2",
+         "count": 2
+        }
        }
       ]
      }
@@ -68848,7 +68848,6 @@
  "OP09-068": [
   {
    "_text": "【自分のターン終了時】自分の場のドン!!を1枚以上ドン!!デッキに戻すことができる：このキャラをアクティブにする。その後、このキャラは、次の相手のターン終了時まで、【ブロッカー】を得る。",
-   "_approx_note": "cost: pay_don ≥1 を pay_don=1 で 固定",
    "when": "end_of_turn",
    "if": {
     "self_turn": true
@@ -68867,7 +68866,8 @@
       "duration": "next_opp_turn_end"
      }
     }
-   ]
+   ],
+   "_doc": "コスト「1枚以上」は pay_don=1 で表現 = 最適プレイに一致 (= 正確)。 このキャラの効果 (アクティブ化+ブロッカー) は返却ドン枚数に依らず同一のため、 2枚以上返すのは strictly dominated (資源損のみ) で合理的プレイヤーは常に1枚。"
   }
  ],
  "OP09-070": [
@@ -101551,14 +101551,15 @@
  "OP04-047": [
   {
    "_text": "OP04-047 【自分のターン中】このキャラが相手のコスト5以下のキャラとバトルしたバトル終了時、バトルした相手のキャラを持ち主のデッキの下に置く。",
-   "_doc": "「バトル終了時」 trigger (= on_battle_end / post_battle) + 「バトルしたコスト5以下キャラ」 (= last_battle_opponent) は engine 未配線。 概念 保存 のみ。",
-   "when": "on_attack",
+   "when": "on_self_battled",
    "if": {
-    "self_turn": true
+    "self_turn": true,
+    "opp_just_battled_present": true,
+    "opp_just_battled_cost_le": 5
    },
    "do": [
     {
-     "return_to_deck_bottom": "one_opponent_character_cost_le_5"
+     "return_to_deck_bottom": "opp_just_battled"
     }
    ]
   }

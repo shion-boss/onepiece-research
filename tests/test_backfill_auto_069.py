@@ -166,13 +166,6 @@ def test_op06_072_grants_blocker_keyword():
 #  OP06-075 バトラー伯爵 (CHARACTER 紫 cost2):
 #    【登場時】ドン-1：相手のコスト2以下のキャラ2枚までを、レストにする。
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason=(
-    "overlay 実バグ (要人間レビュー): OP06-075 の「コスト2以下のキャラ2枚まで」 が "
-    "同一の {'rest':'one_opponent_character_cost_le_2'} プリミティブ2連で モデル化されており、 "
-    "engine の rest else-branch は _resolve_target を 2 度とも同じ 1 体に解決するため 2 体目が "
-    "already_rested_skipped となり 1 体しかレストされない。 忠実には "
-    "{'rest':{'target':'one_opponent_character_cost_le_2','count':2}} の count-branch で "
-    "N 体別々に選ぶべき。 engine/overlay 修正は本タスク対象外のため skip。"))
 def test_op06_075_on_play_rest_two_opp_low_cost_ai():
     """登場時: ドン-1 を払い 相手コスト2以下キャラ2枚をレスト (AI 自動)。"""
     repo = _repo()

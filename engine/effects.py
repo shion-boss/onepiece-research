@@ -1107,6 +1107,14 @@ def eval_condition(
                 ip.instance_id == iid for ip in opp.characters)
             if bool(v) != present:
                 return False
+        elif k == "opp_just_battled_cost_le":
+            # 直前にバトルした相手キャラのコストが v 以下か (OP04-047 氷鬼)。
+            iid = getattr(state, "last_battled_opp_iid", None)
+            ip = None
+            if opp is not None and iid is not None:
+                ip = next((c for c in opp.characters if c.instance_id == iid), None)
+            if ip is None or int(getattr(ip.card, "cost", 0) or 0) > int(v):
+                return False
         elif k == "either_side_chara_named_absent":
             # 「キャラの「<name>」がいる場合 この効果は無効」 = 両陣営に該当 name のキャラが
             # 存在しないか (OP05-100 エネル: ルフィ present で replace 無効)。

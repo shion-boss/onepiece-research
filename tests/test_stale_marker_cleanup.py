@@ -413,3 +413,38 @@ def test_op12_036_cannot_be_played_from_hand_via_effect():
     execute_effect({"play_from_hand_or_trash": {"filter": {}, "limit": 1}}, st2, me2, opp2, None)
     assert not any(c.card.card_id == "OP12-036" for c in me2.characters), \
         "OP12-036 が play_from_hand_or_trash (手札) で登場してしまった"
+
+
+def _char_of_cost(repo, cost):
+    import json
+    cards = json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+    cards = cards.get("cards", cards) if isinstance(cards, dict) else cards
+    for c in cards:
+        cd = repo.get(c["card_id"])
+        cat = getattr(cd.category, "name", str(cd.category))
+        if cat == "CHARACTER" and int(getattr(cd, "cost", 0) or 0) == cost:
+            return cd.card_id
+    return None
+
+
+def test_op04_047_returns_only_battled_cost_le_5_char():
+    """OP04-047 氷鬼: 自分のターンにコスト5以下のキャラとバトルしたバトル終了時、
+    バトルした相手のキャラをデッキ下に置く。 = on_self_battled + opp_just_battled(cost≤5)。
+    バトルした本人のみ対象、 cost6 は不発。"""
+    from engine.effects import trigger_on_self_battled
+    repo = _repo()
+    ov = _overlay()
+    for cost, expect_returned in [(3, True), (6, False)]:
+        me = Player(name="me", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        opp = Player(name="opp", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        st = GameState(players=[me, opp], turn_player_idx=0, phase=Phase.MAIN, rng=random.Random(0))
+        st.effects_overlay = ov
+        me.characters = [InPlay.of(repo.get("OP04-047"), sickness=False)]
+        victim = InPlay.of(repo.get(_char_of_cost(repo, cost)), sickness=False)
+        opp.characters = [victim]
+        st.last_battled_opp_iid = victim.instance_id
+        trigger_on_self_battled(st, me, opp, me.characters[0], ov)
+        returned = (victim not in opp.characters
+                    and any(c.card_id == victim.card.card_id for c in opp.deck))
+        assert returned is expect_returned, (
+            f"battled cost{cost}: デッキ底={returned} (期待 {expect_returned})")
