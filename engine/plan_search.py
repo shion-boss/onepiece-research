@@ -347,6 +347,35 @@ def _is_terminal(
     return False
 
 
+# === ExIt policy capture (2026-07-24) =======================================
+# ONEPIECE_EXIT_CAPTURE=1 のとき、 各 search で「初手 → 探索 best score」の dict を stash。
+# collector が choose_action 後にこれを読み、 policy 教師 (群内相対 advantage) を作る。
+# module-global (worker が fork で継承)。 スレッド跨ぎは想定しない (self-play worker は逐次)。
+import os as _os_exit
+_EXIT_CAPTURE_ON = _os_exit.environ.get("ONEPIECE_EXIT_CAPTURE") == "1"
+_EXIT_LAST_POLICY: "list" = []   # [(first_action_repr, best_score), ...]
+
+
+def _capture_exit_policy(best_per_move: list) -> None:
+    if not _EXIT_CAPTURE_ON:
+        return
+    try:
+        global _EXIT_LAST_POLICY
+        # (初手 Action オブジェクト, 探索 best score)。 Action は featurize に必要。
+        _EXIT_LAST_POLICY = [(plan[0] if plan else None, float(s))
+                             for s, plan in best_per_move]
+    except Exception:
+        _EXIT_LAST_POLICY = []
+
+
+def pop_exit_policy() -> list:
+    """直近 search の [(初手 Action, score)] を取り出してクリア (collector が choose_action 直後に)。"""
+    global _EXIT_LAST_POLICY
+    p = _EXIT_LAST_POLICY
+    _EXIT_LAST_POLICY = []
+    return p
+
+
 def search_turn_plan(
     state: "GameState",
     ai_opp,
@@ -1168,6 +1197,25 @@ def search_turn_plan(
         except Exception:
             return 0.0
 
+    # ⭐ ExIt policy prior (2026-07-24): 蒸留した「探索の初手ランキング」を配備 beam に還元。
+    # plan の first move への policy 相対優位を最終 score に加算 = 複利ループの消費側。
+    # W は P(win) 単位換算 (× SCALE 相当の 10000)。 model 無しor W=0 で完全 no-op。
+    _W_EXIT_POLICY = float(_os.environ.get("ONEPIECE_EXIT_POLICY_W", "0"))
+    _exit_pol = None
+    if _W_EXIT_POLICY > 0.0:
+        try:
+            from .exit_policy import policy_prior_bonus as _exit_pol
+        except Exception:
+            _exit_pol = None
+
+    def _exit_policy_add(plan):
+        if _exit_pol is None or not plan:
+            return 0.0
+        try:
+            return _W_EXIT_POLICY * _exit_pol(state, plan[0], me_idx) * 10000.0
+        except Exception:
+            return 0.0
+
     scored = []
     if _eval_combiner:
         from .gbm_value import SCALE as _CSCALE
@@ -1187,7 +1235,7 @@ def search_turn_plan(
                     s = s1
             else:
                 s = s1
-            scored.append((s, plan))
+            scored.append((s + _exit_policy_add(plan), plan))
     elif _postopp_turns > 1 and len(completed) > _topk:
         cheap = []
         for cur_state, plan in completed:
@@ -1199,11 +1247,13 @@ def search_turn_plan(
                 s = _eval_state(cur_state, plan, _postopp_turns) + _penalty(cur_state, plan)
             else:
                 s = s1  # 上位以外は 1-round のまま(深 rollout を cap)
-            scored.append((s + _nb_add(cur_state, plan) + _face_add(plan) + _oppcard_add(plan), plan))
+            scored.append((s + _nb_add(cur_state, plan) + _face_add(plan) + _oppcard_add(plan)
+                           + _exit_policy_add(plan), plan))
     else:
         for cur_state, plan in completed:
             s = _eval_state(cur_state, plan, _postopp_turns) + _penalty(cur_state, plan)
-            scored.append((s + _nb_add(cur_state, plan) + _face_add(plan) + _oppcard_add(plan), plan))
+            scored.append((s + _nb_add(cur_state, plan) + _face_add(plan) + _oppcard_add(plan)
+                           + _exit_policy_add(plan), plan))
     if not scored:
         return [], -float("inf")
     # ⭐ 温度サンプリング (訓練時の探索、 ONEPIECE_PLAN_TEMPERATURE、 単位=score の標準偏差):
@@ -1217,30 +1267,29 @@ def search_turn_plan(
         _temp = float(_os2.environ.get("ONEPIECE_PLAN_TEMPERATURE", "0") or 0)
     except Exception:
         _temp = 0.0
-    if _temp > 0 and len(scored) > 1:
-        import math as _m
-        import statistics as _st
-        from collections import defaultdict as _dd
+    # ⭐ ExIt: 初手 (= 実際に打つ手) 単位で best score を集約 = 探索の「改善された policy」。
+    # temperature に依らず常に集約し、 ONEPIECE_EXIT_CAPTURE=1 時は policy 教師として stash。
+    import math as _m
+    import statistics as _st
+    from collections import defaultdict as _dd
+    groups = _dd(list)
+    for s, plan in scored:
+        key = str(plan[0]) if plan else "__end__"
+        groups[key].append((s, plan))
+    best_per_move = [max(g, key=lambda x: x[0]) for g in groups.values()]  # [(s, plan)]
+    _capture_exit_policy(best_per_move)
+    if _temp > 0 and len(best_per_move) > 1:
         _rng = getattr(state, "rng", None) or random
-        # ⭐ 探索は「実際に打つ手 = plan の first move」 単位で。 first move で group 化し、
-        # 各 first move の best plan score で softmax サンプル (= uncertain な"打つ手"を試す)。
-        # whole-plan sample だと top plan が同じ first move を共有し打つ手が変わらない為。
-        groups = _dd(list)
-        for s, plan in scored:
-            key = str(plan[0]) if plan else "__end__"
-            groups[key].append((s, plan))
-        best_per_move = [max(g, key=lambda x: x[0]) for g in groups.values()]  # [(s, plan)]
-        if len(best_per_move) > 1:
-            smax = max(s for s, _ in best_per_move)
-            sd = _st.pstdev([s for s, _ in best_per_move]) or 1.0
-            ws = [_m.exp((s - smax) / (_temp * sd)) for s, _ in best_per_move]
-            tot = sum(ws) or 1.0
-            r = _rng.random() * tot
-            acc = 0.0
-            for (s, plan), w in zip(best_per_move, ws):
-                acc += w
-                if acc >= r:
-                    return plan, s
-            return best_per_move[-1][1], best_per_move[-1][0]
+        smax = max(s for s, _ in best_per_move)
+        sd = _st.pstdev([s for s, _ in best_per_move]) or 1.0
+        ws = [_m.exp((s - smax) / (_temp * sd)) for s, _ in best_per_move]
+        tot = sum(ws) or 1.0
+        r = _rng.random() * tot
+        acc = 0.0
+        for (s, plan), w in zip(best_per_move, ws):
+            acc += w
+            if acc >= r:
+                return plan, s
+        return best_per_move[-1][1], best_per_move[-1][0]
     best_score, best_plan = max(scored, key=lambda x: x[0])
     return best_plan, best_score
