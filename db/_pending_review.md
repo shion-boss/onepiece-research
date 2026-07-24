@@ -5,6 +5,23 @@
 > 空なら「レビュー待ちなし」。 消化するには session で私 (Claude) に「pending review やって」と伝えるか、
 > 各項目を手動修正 → skip 解除 / `_unimplemented` 実装 で対応する。
 
-**合計: 0 件** (skip 0 / _unimplemented 0)
+**合計: 11 件** (skip 0 / _unimplemented 0 / 近似・未実装 11)
 
-現在レビュー待ちなし ✅
+## overlay 近似・未実装マーカー (engine 機構が要る = engine/human レビュー)
+
+> `_missing_effect` / `_approx_note` / gap 系 `_doc`。 効果を忠実表現できず近似
+> している箇所 (多くは safely-incomplete = 誤動作せず no-op)。 新規 primitive/機構が要る。
+
+| card_id | marker | 診断 |
+|---|---|---|
+| OP04-047 | `_doc` | 「バトル終了時」 trigger (= on_battle_end / post_battle) + 「バトルしたコスト5以下キャラ」 (= last_battle_opponent) は engine 未配線。 概念 保存 のみ。 |
+| OP09-068 | `_approx_note` | cost: pay_don ≥1 を pay_don=1 で 固定 |
+| OP09-080 | `_doc` | 「場を離れた時」 は KO 経路 のみ 簡略 実装 (= on_self_chara_ko)。 return_to_hand / return_to_deck_bottom 等 他の 離脱 経路 は 未対応。 |
+| OP10-099 | `_approx_note` | cost: 自ライフ表向き は 簡略 (engine 未対応) |
+| OP12-036 | `_doc` | 「効果で登場できない」 = play_via_effect ガード は engine 未配線 (= 簡略 で 通常通り 登場可能)。 |
+| OP13-119 | `_doc` | 「そうした場合、相手は自身の手札からコスト4以下のキャラ1枚までを、登場させる」 の opp 報酬は engine 未配線 (= 相手の forced 行動)。 optional 部分のみ実装。 |
+| OP15-059 | `_doc` | 相手の don 戻し選択は engine 未実装 → 簡略: AI は常に -2000 適用 (= 相手は払わない 前提)。 optional: true は『-2000 適用 する/しない』 の選択。 |
+| OP16-118 | `_missing_effect` | 自分の手札のパワー8000のキャラカードすべては、カウンター+2000になる (= 手札カードのカウンター値を静的に増加させる機構が engine 未対応)。 |
+| P-117 | `_missing_effect` | 自デッキ上1枚をトラッシュ (= self-deck-mill、 deck-out 特殊勝利を進める。 primitive 要) |
+| ST13-001 | `_missing_effect` | 自コスト3+パワー7000+キャラをライフに表向き加える cost → 自キャラ+2000 (= face-up-life cost 未対応) |
+| ST13-002 | `_missing_effect` | 自ライフ表向きカードすべてをトラッシュ (= 表向きライフ未モデル、 face-up-life 機構要) |

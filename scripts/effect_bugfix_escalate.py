@@ -97,7 +97,46 @@ def _collect_unimplemented():
     return rows
 
 
-def _render(skips, unimpl) -> str:
+def _collect_approximations():
+    """overlay の近似/未実装マーカー (_missing_effect / _approx_note / gap 系 _doc) を収集
+    — 2026-07-24 追加。 `_unimplemented` とは別クラスで、 engine が効果を忠実表現できず近似
+    (未対応/未実装/未配線/簡略) にしている箇所。 従来 escalate はこれを見ておらず放置されていた。
+    engine 機構の新規実装が要るため human/engine レビュー行き。 base カードで dedup、
+    「= 正確」 と注記された忠実マッピングは除外する。"""
+    import re
+    gap_re = re.compile(r"未対応|未実装|未配線|簡略")
+    faithful_re = re.compile(r"=\s*正確")
+    rows = []
+    try:
+        d = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    except Exception:
+        return rows
+    seen = set()
+
+    def _walk(node, cid):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if isinstance(v, str) and k in ("_missing_effect", "_approx_note", "_doc"):
+                    is_gap = (k in ("_missing_effect", "_approx_note")) or \
+                             (bool(gap_re.search(v)) and not faithful_re.search(v))
+                    if is_gap:
+                        base = re.split(r"_(p|r|sp)\d", cid)[0]
+                        if base not in seen:
+                            seen.add(base)
+                            rows.append((base, k, " ".join(v.split())))
+                _walk(v, cid)
+        elif isinstance(node, list):
+            for v in node:
+                _walk(v, cid)
+
+    for cid, entry in d.items():
+        if not isinstance(cid, str) or cid.startswith("_"):
+            continue
+        _walk(entry, cid)
+    return sorted(rows)
+
+
+def _render(skips, unimpl, approx) -> str:
     lines = [
         "# カード効果 人間レビュー待ちバックログ (自動生成)",
         "",
@@ -106,10 +145,11 @@ def _render(skips, unimpl) -> str:
         "> 空なら「レビュー待ちなし」。 消化するには session で私 (Claude) に「pending review やって」と伝えるか、",
         "> 各項目を手動修正 → skip 解除 / `_unimplemented` 実装 で対応する。",
         "",
-        f"**合計: {len(skips) + len(unimpl)} 件** (skip {len(skips)} / _unimplemented {len(unimpl)})",
+        f"**合計: {len(skips) + len(unimpl) + len(approx)} 件** "
+        f"(skip {len(skips)} / _unimplemented {len(unimpl)} / 近似・未実装 {len(approx)})",
         "",
     ]
-    if not skips and not unimpl:
+    if not skips and not unimpl and not approx:
         lines += ["現在レビュー待ちなし ✅", ""]
         return "\n".join(lines)
     if skips:
@@ -125,6 +165,16 @@ def _render(skips, unimpl) -> str:
         for cid, diag in unimpl:
             d = diag if len(diag) <= 300 else diag[:297] + "..."
             lines.append(f"| {cid} | {d} |")
+        lines.append("")
+    if approx:
+        lines += ["## overlay 近似・未実装マーカー (engine 機構が要る = engine/human レビュー)", "",
+                  "> `_missing_effect` / `_approx_note` / gap 系 `_doc`。 効果を忠実表現できず近似",
+                  "> している箇所 (多くは safely-incomplete = 誤動作せず no-op)。 新規 primitive/機構が要る。",
+                  "",
+                  "| card_id | marker | 診断 |", "|---|---|---|"]
+        for cid, kind, diag in approx:
+            d = diag if len(diag) <= 260 else diag[:257] + "..."
+            lines.append(f"| {cid} | `{kind}` | {d} |")
         lines.append("")
     return "\n".join(lines)
 
@@ -174,13 +224,14 @@ def main():
     _auto_mechanical_fix(a.commit)
     skips = _collect_skips()
     unimpl = _collect_unimplemented()
-    content = _render(skips, unimpl)
+    approx = _collect_approximations()
+    content = _render(skips, unimpl, approx)
     old = OUT.read_text(encoding="utf-8") if OUT.exists() else ""
     if content == old:
-        print(f"escalate: 変更なし (skip {len(skips)} / _unimplemented {len(unimpl)})")
+        print(f"escalate: 変更なし (skip {len(skips)} / _unimplemented {len(unimpl)} / 近似 {len(approx)})")
         return
     OUT.write_text(content, encoding="utf-8")
-    print(f"escalate: db/_pending_review.md 更新 (skip {len(skips)} / _unimplemented {len(unimpl)})")
+    print(f"escalate: db/_pending_review.md 更新 (skip {len(skips)} / _unimplemented {len(unimpl)} / 近似 {len(approx)})")
     if not a.commit:
         return
     _git("add", "db/_pending_review.md")

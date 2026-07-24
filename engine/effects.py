@@ -6206,6 +6206,60 @@ def _execute_effect_body(
             state.push_log(
                 f"  効果: 元々のパワー入れ替え {weakest.card.name}↔{strongest.card.name} ({w_power}↔{s_power})"
             )
+        elif k == "swap_self_power":
+            # 公式: 「自分の (filter) キャラ 2 枚を選ぶ。 選んだキャラそれぞれの元々のパワーを、
+            # このターン中、 入れ替える」 (OP14-001 ロー、 超新星/ハートの海賊団)。 swap_opp_power の自版。
+            spec_val = v if isinstance(v, dict) else {}
+            filt = spec_val.get("filter", {})
+            cands = [c for c in me.characters if _matches_filter(c.card, filt)]
+            if len(cands) < 2:
+                state.push_log("  効果: swap_self_power 該当 2 枚未満 (不発)")
+                return False
+            picks_iids = spec_val.get("_iid_picks")
+            if picks_iids is None and _maybe_request_target_pick(
+                    state, list(cands), 2, k, dict(spec_val), self_inplay,
+                    description="元々のパワーを入れ替える自分のキャラ2枚を選択"):
+                return True
+            chosen = [c for c in cands if c.instance_id in picks_iids] if picks_iids else []
+            if len(chosen) < 2:
+                # AI / 選択不足: 元々パワーの差が最大のペア (= 盤面への影響を最大化)
+                cands.sort(key=lambda c: c.card.power)
+                chosen = [cands[0], cands[-1]]
+            a, b = chosen[0], chosen[1]
+            pa, pb = a.card.power, b.card.power
+            a.turn_base_power_override = pb
+            b.turn_base_power_override = pa
+            state.push_log(
+                f"  効果: 自分 元々パワー入れ替え {a.card.name}↔{b.card.name} ({pa}↔{pb})")
+        elif k == "move_attached_don":
+            # OP07-001: 「自分の付与されているドン!! 合計 N 枚までを、 自分のキャラ1枚に付与する」
+            # = 自分の場の付与済ドンを 1 枚のキャラへ再配分。 target (付与先) は human modal / AI 選択
+            # (= 戦略的中心)。 source は target 以外の付与済カードから (rested 優先 → leader → active)。
+            spec_val = v if isinstance(v, dict) else {}
+            max_n = int(spec_val.get("count", spec_val.get("amount", 2)))
+            target_spec = spec_val.get("target", "one_self_character_any")
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay,
+                                      outer_kind="move_attached_don", outer_value=v)
+            if state.pending_choice is not None:
+                return True   # 人間の付与先 選択待ち
+            if not targets:
+                continue
+            tgt = targets[0]
+            # source (付与元) 優先度: レスト中キャラ (このターン攻撃しない) → 他 active キャラ →
+            # leader (leader の付与ドンは leader アタックに使うので最後)。 全て target 以外・付与済のみ。
+            srcs = ([c for c in me.characters if c is not tgt and c.rested and c.attached_dons > 0]
+                    + [c for c in me.characters if c is not tgt and not c.rested and c.attached_dons > 0]
+                    + ([me.leader] if (me.leader is not None and me.leader is not tgt
+                                       and me.leader.attached_dons > 0) else []))
+            moved = 0
+            for s in srcs:
+                if moved >= max_n:
+                    break
+                take = min(s.attached_dons, max_n - moved)
+                s.attached_dons -= take
+                moved += take
+            tgt.attached_dons += moved
+            state.push_log(f"  効果: 付与済ドン {moved} 枚を {tgt.card.name} に移動")
         elif k == "attach_active_don":
             # アクティブドンを N 枚付与 (= attach_rested_don の active 版)。
             # spec: {"target": "self_leader", "count": 2}
@@ -6457,7 +6511,15 @@ def _execute_effect_body(
             don_ge = int(spec_val.get("don_ge", 1))
             limit = int(spec_val.get("limit", 1))
             iid_picks = spec_val.get("_iid_picks")
-            cands = [c for c in opp.characters if c.rested and c.attached_dons >= don_ge]
+            # cost_le/cost_ge フィルタ (= OP14-035「相手のレストのコスト4以下」)。 未指定は無制限。
+            _cle = spec_val.get("cost_le")
+            _cge = spec_val.get("cost_ge")
+
+            def _cost_ok(c):
+                cc = int(getattr(c.card, "cost", 0) or 0)
+                return (_cle is None or cc <= int(_cle)) and (_cge is None or cc >= int(_cge))
+            cands = [c for c in opp.characters
+                     if c.rested and c.attached_dons >= don_ge and _cost_ok(c)]
             if iid_picks is not None:
                 chosen = [c for c in cands if c.instance_id in iid_picks][:limit]
             elif len(cands) > limit and _maybe_request_target_pick(

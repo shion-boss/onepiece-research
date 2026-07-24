@@ -7933,11 +7933,18 @@
   {
    "_text": "OP15-026 activate_main: このキャラをトラッシュに置くことができる：相手のキャラ1枚に相手のレストのドン‼1枚までを、付与する。",
    "when": "activate_main",
-   "do": [],
+   "do": [
+    {
+     "attach_rested_don": {
+      "target": "one_opponent_character_any",
+      "count": 1,
+      "to_opp": true
+     }
+    }
+   ],
    "cost": {
     "trash_self": true
-   },
-   "_missing_effect": "『相手のキャラに相手のレストのドン1枚を付与』 = attach_rested_don の to_opp(相手don→相手char) 非対応。 現状 fallback は自don→相手char で有害 → 無効化。 要 to_opp attach 対応"
+   }
   }
  ],
  "OP15-037": [
@@ -13033,8 +13040,14 @@
    "cost": {
     "once_per_turn": true
    },
-   "do": [],
-   "_missing_effect": "自分の付与済ドン合計2枚までを自キャラ1に付与 (= feature 無 multi-source don 移動、 primitive 要)"
+   "do": [
+    {
+     "move_attached_don": {
+      "count": 2,
+      "target": "one_self_character_any"
+     }
+    }
+   ]
   }
  ],
  "OP07-019_p2": [
@@ -13706,8 +13719,22 @@
    "cost": {
     "once_per_turn": true
    },
-   "do": [],
-   "_missing_effect": "自キャラ2枚の元々パワーを入れ替え (= base-power swap between two chara、 primitive 要)"
+   "do": [
+    {
+     "swap_self_power": {
+      "filter": {
+       "or": [
+        {
+         "feature": "超新星"
+        },
+        {
+         "feature": "ハートの海賊団"
+        }
+       ]
+      }
+     }
+    }
+   ]
   }
  ],
  "OP14-001_p1": [
@@ -13717,8 +13744,22 @@
    "cost": {
     "once_per_turn": true
    },
-   "do": [],
-   "_missing_effect": "自キャラ2枚の元々パワーを入れ替え (= base-power swap between two chara、 primitive 要)"
+   "do": [
+    {
+     "swap_self_power": {
+      "filter": {
+       "or": [
+        {
+         "feature": "超新星"
+        },
+        {
+         "feature": "ハートの海賊団"
+        }
+       ]
+      }
+     }
+    }
+   ]
   }
  ],
  "OP14-020_p1": [
@@ -14114,8 +14155,36 @@
    "cost": {
     "once_per_turn": true
    },
-   "do": [],
-   "_missing_effect": "手札からイベント2枚公開 cost → 元々パワー4000以下キャラ+2000 (= reveal-hand-event cost 未対応)"
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "reveal_hand_with_filter": {
+         "filter": {
+          "category": "EVENT"
+         },
+         "count": 2
+        }
+       }
+      ],
+      "effect": [
+       {
+        "power_pump": {
+         "target": {
+          "type": "one_self_chara_filtered",
+          "filter": {
+           "power_le": 4000
+          }
+         },
+         "amount": 2000,
+         "duration": "turn"
+        }
+       }
+      ]
+     }
+    }
+   ]
   }
  ],
  "OP12-001_p1": [
@@ -14125,8 +14194,36 @@
    "cost": {
     "once_per_turn": true
    },
-   "do": [],
-   "_missing_effect": "手札からイベント2枚公開 cost → 元々パワー4000以下キャラ+2000 (= reveal-hand-event cost 未対応)"
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "reveal_hand_with_filter": {
+         "filter": {
+          "category": "EVENT"
+         },
+         "count": 2
+        }
+       }
+      ],
+      "effect": [
+       {
+        "power_pump": {
+         "target": {
+          "type": "one_self_chara_filtered",
+          "filter": {
+           "power_le": 4000
+          }
+         },
+         "amount": 2000,
+         "duration": "turn"
+        }
+       }
+      ]
+     }
+    }
+   ]
   }
  ],
  "OP12-020_p1": [
@@ -15342,8 +15439,14 @@
    "cost": {
     "once_per_turn": true
    },
-   "do": [],
-   "_missing_effect": "自分の付与済ドン合計2枚までを自キャラ1に付与 (= feature 無 multi-source don 移動、 primitive 要)"
+   "do": [
+    {
+     "move_attached_don": {
+      "count": 2,
+      "target": "one_self_character_any"
+     }
+    }
+   ]
   }
  ],
  "OP07-001_p1": [
@@ -15353,8 +15456,14 @@
    "cost": {
     "once_per_turn": true
    },
-   "do": [],
-   "_missing_effect": "自分の付与済ドン合計2枚までを自キャラ1に付与 (= feature 無 multi-source don 移動、 primitive 要)"
+   "do": [
+    {
+     "move_attached_don": {
+      "count": 2,
+      "target": "one_self_character_any"
+     }
+    }
+   ]
   }
  ],
  "OP07-019_p1": [
@@ -99041,7 +99150,6 @@
  "OP14-035": [
   {
    "_text": "OP14-035 【自分のターン中】このキャラがレストになった時、相手のレストのコスト4以下のキャラ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
-   "_doc": "コスト4以下 + レスト 条件 は 既存 keep_opp_rested_chara_with_don_ge_next_refresh の 引数 で 簡略 表現 (= cost_le filter は 追加 検証 必要)。",
    "when": "on_self_rested",
    "if": {
     "self_turn": true
@@ -99049,13 +99157,10 @@
    "do": [
     {
      "keep_opp_rested_chara_with_don_ge_next_refresh": {
-      "amount": 0,
-      "count": 1,
+      "don_ge": 0,
+      "limit": 1,
       "cost_le": 4
      }
-    },
-    {
-     "stay_rested_next_refresh": "any_opp_rested_chara_n_1"
     }
    ]
   }
@@ -99802,7 +99907,6 @@
  "OP11-077": [
   {
    "_text": "OP11-077 【自分のターン中】【ターン1回】自分の場のドン‼がドン‼デッキに戻された時、自分の特徴《ビッグ・マム海賊団》を持つキャラ1枚までを、次の相手のターン終了時まで、コスト+2。",
-   "_doc": "「次の相手のターン終了時まで」 cost+2 は 既存 cost_pump primitive (= turn duration) で 簡略 (= 次相手ターン 終了 まで の delta は engine 未対応)。",
    "when": "on_self_don_returned_to_deck",
    "if": {
     "self_turn": true
@@ -99829,7 +99933,6 @@
  "OP11-088": [
   {
    "_text": "OP11-088 【ターン1回】相手のキャラがアタックした時、発動できる。そのキャラが属性(斬)を持つ場合、このキャラは、このバトル中、パワー+5000。",
-   "_doc": "「相手キャラのみアタック時」 + 「攻撃者属性=斬」 + 「このバトル中」 (= turn duration 簡略)。 attacker_attribute 条件 は engine 未対応 → 簡略: 全 opp_attack 時 +5000 (= 過剰)。",
    "when": "opp_attack_on_chara",
    "if": {
     "opp_attacker_attribute": "斬"
@@ -100828,7 +100931,6 @@
  "OP06-048": [
   {
    "_text": "OP06-048 【自分のターン中】相手が【ブロッカー】かイベントを発動した時、自分のリーダーが特徴《東の海》を持つ場合、自分のデッキの上から4枚をトラッシュに置いてもよい。",
-   "_doc": "「相手が【ブロッカー】を発動した時」 部分は on_opp_blocker_use trigger、 「イベント発動」 は opp_event_or_trigger_fired trigger。 簡略: opp_event_or_trigger_fired のみ 使用 (= ブロッカー反応 は 含まない)。",
    "when": "opp_event_or_trigger_fired",
    "if": {
     "self_turn": true,
@@ -101089,7 +101191,6 @@
  "OP05-053": [
   {
    "_text": "OP05-053 【自分のターン中】【ターン1回】自分がドローフェイズ以外でカードを引いた時、このキャラは、このターン中、パワー+2000。",
-   "_doc": "「ドローフェイズ以外で引いた時」 trigger (= on_self_draw_non_draw_phase) は engine 未配線。 簡略: 任意 タイミング draw 後 trigger を on_self_draw で 模倣 (= 厳密 でなくとも 概念 を 保存)。",
    "when": "on_self_draw_non_draw_phase",
    "if": {
     "self_turn": true
@@ -103066,7 +103167,6 @@
  "P-104": [
   {
    "_text": "P-104 自分か相手の場のドン‼が10枚ある場合、このキャラは相手の効果で場を離れない。",
-   "_doc": "「自分か相手 の場のドン10枚」 = either_player_don_total_eq 10 (= 新条件、 簡略で self_don_total_eq:10 or opp_don_total_eq:10 の OR 等)。 engine では single check (= don_total_eq) のみ 想定。",
    "when": "on_attached_don",
    "n": 0,
    "if": {
@@ -103082,7 +103182,6 @@
  "P-104_p1": [
   {
    "_text": "P-104_p1 自分か相手の場のドン‼が10枚ある場合、このキャラは相手の効果で場を離れない。",
-   "_doc": "「自分か相手 の場のドン10枚」 = either_player_don_total_eq 10 (= 新条件、 簡略で self_don_total_eq:10 or opp_don_total_eq:10 の OR 等)。 engine では single check (= don_total_eq) のみ 想定。",
    "when": "on_attached_don",
    "n": 0,
    "if": {
@@ -103358,9 +103457,20 @@
  "OP16-080": [
   {
    "_text": "OP16-080 マーシャル・D・ティーチ: 【相手のターン中】自分のキャラすべてを、コスト+1。",
-   "when": "static",
-   "do": [],
-   "_missing_effect": "相手ターン中の自キャラ全体への静的コスト+1 は engine 未対応 (= 相手ターン限定で場のキャラに静的コスト修正を付与する機構が必要、 InPlay.cost は cost_minus のみ反映)。 下の redirect は実装済。"
+   "when": "on_attached_don",
+   "do": [
+    {
+     "set_base_cost_filtered_static": {
+      "filter": {},
+      "delta": 1,
+      "scope": "self"
+     }
+    }
+   ],
+   "if": {
+    "opp_turn": true
+   },
+   "n": 0
   },
   {
    "_text": "OP16-080 ティーチ: 【相手のアタック時】【ターン1回】自分の手札から【トリガー】を持つカード1枚を捨てることができる：そのアタックの対象をこのリーダーか自分の特徴《黒ひげ海賊団》を持つキャラにする。",
