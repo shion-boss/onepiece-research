@@ -11535,12 +11535,6 @@
      ]
     },
     {
-     "rest_multi": [
-      "one_opp_chara_or_don",
-      "one_opp_chara_or_don"
-     ]
-    },
-    {
      "life_to_hand": 1
     }
    ]
@@ -32877,12 +32871,6 @@
      ]
     },
     {
-     "rest_multi": [
-      "one_opp_chara_or_don",
-      "one_opp_chara_or_don"
-     ]
-    },
-    {
      "life_to_hand": 1
     }
    ]
@@ -39469,12 +39457,6 @@
    "_text": "OP06-035 on_play: 相手のキャラかドン 合計2枚 レスト + 自ライフ1手札",
    "when": "on_play",
    "do": [
-    {
-     "rest_multi": [
-      "one_opp_chara_or_don",
-      "one_opp_chara_or_don"
-     ]
-    },
     {
      "rest_multi": [
       "one_opp_chara_or_don",
@@ -54207,12 +54189,6 @@
    "_text": "OP06-035 on_play: 相手のキャラかドン 合計2枚 レスト + 自ライフ1手札",
    "when": "on_play",
    "do": [
-    {
-     "rest_multi": [
-      "one_opp_chara_or_don",
-      "one_opp_chara_or_don"
-     ]
-    },
     {
      "rest_multi": [
       "one_opp_chara_or_don",

@@ -3586,6 +3586,36 @@ def _execute_effect_body(
                 continue
             already = set()
             for sub in v:
+                # 「相手のキャラかドン」 特殊 spec (= OP06-035 等): _resolve_target は ドン を
+                # 解決できない (InPlay でない) ため、 rest primitive と 同じ 分岐で 1 スロット
+                # = 相手アクティブキャラ (脅威順) 優先 → 無ければ アクティブドン 1 枚。 dedup は
+                # `already` で キャラ側のみ (ドンは don_active 減で 自然に 上限)。
+                _is_chara_or_don = (
+                    sub == "one_opp_chara_or_don"
+                    or (isinstance(sub, dict) and sub.get("type") == "one_opp_chara_or_don")
+                )
+                if _is_chara_or_don:
+                    _cost_le = sub.get("cost_le") if isinstance(sub, dict) else None
+                    active_charas = [
+                        c for c in opp.characters
+                        if not c.rested and not c.cannot_be_rested_buff and id(c) not in already
+                    ]
+                    if _cost_le is not None:
+                        active_charas = [
+                            c for c in active_charas
+                            if int(getattr(c.card, "cost", 0) or 0) <= int(_cost_le)
+                        ]
+                    active_charas.sort(key=lambda ip: -ip.power)
+                    if active_charas:
+                        t = active_charas[0]
+                        t.rested = True
+                        already.add(id(t))
+                        state.push_log(f"  効果: レスト → 相手キャラ {t.card.name}")
+                    elif opp.don_active > 0:
+                        opp.don_active -= 1
+                        opp.don_rested += 1
+                        state.push_log(f"  効果: レスト → 相手アクティブドン 1 枚")
+                    continue
                 target_spec = sub if isinstance(sub, str) else (sub or {}).get("target", "one_opponent_character_any")
                 targets = _resolve_target(
                     target_spec, state, me, opp, self_inplay,

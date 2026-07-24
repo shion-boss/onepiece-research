@@ -172,13 +172,10 @@ def test_op06_034_activate_main_human_rest_pick():
 #    【速攻】【登場時】相手の、キャラかドン!!合計2枚までを、レストにする。その後、
 #      自分のライフの上から1枚を手札に加える。
 #
-#  ⚠ engine gap: rest_multi primitive が target spec "one_opp_chara_or_don" を
-#    解決できず (= 特殊分岐は "rest" primitive 側のみ)、 相手キャラ/ドンのレストが
-#    no-op になる。 life_to_hand は正しく発火する。 engine 修正は 人間レビューへ回す
-#    (このタスクでは engine を編集しない) ため skip。
+#  fixed: rest_multi の list-form に "one_opp_chara_or_don" 特殊分岐を追加
+#    (rest primitive と同じく 相手アクティブキャラ脅威順優先 → 無ければアクティブドン)。
+#    overlay も 合計2枚まで = 単一 2-slot rest_multi に修正 (旧 4-slot は不忠実)。
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason="engine gap: rest_multi が target 'one_opp_chara_or_don' を "
-                         "解決できずレストが no-op (life_to_hand は正常)。 engine 修正待ち")
 def test_op06_035_on_play_rest_two_and_life():
     """登場時: 相手キャラ/ドン合計2枚レスト + 自ライフ1手札 (公式テキスト全体)。"""
     repo = _repo()
