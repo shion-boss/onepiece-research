@@ -739,26 +739,17 @@ def _walk_prim_names(node, out: set) -> None:
 def _threat_key(ip) -> tuple:
     """相手キャラを「対処すべき順」に並べる key (降順ソート用に負値)。
 
-    ⚠ 従来は power 降順だけだった (= AI 簡易) が、 効果持ちの 2000 より バニラ 5000 を
-    優先除去する等の誤りが起きる。 決定の点でカードを区別する (= opp_threat の脅威度) を
-    第 1 キーにし、 power を tie-break にする (2026-07-24、 ohtsuki「全部直して」)。
+    ⚠ 2026-07-24 revert: 一度 opp_threat の脅威度を第 1 キーにしたが、 ko_multi の nested
+    filter (cost≤3 + cost≤2) で「広い方が cost2 を先取り → 狭い方が枯れて cost3 が生き残る」
+    regression を起こした (test_op01_096_king)。 未計測の変更だったため power 降順 (従来挙動) に
+    戻す。 identity-aware な対象選択を再導入する時は multi-target の coordination + test が要る。
     """
-    try:
-        from .opp_threat import _char_threat
-        t = _char_threat(getattr(getattr(ip, "card", None), "card_id", "") or "")
-    except Exception:
-        t = 0.0
-    return (-t, -float(getattr(ip, "power", 0) or 0))
+    return (-float(getattr(ip, "power", 0) or 0),)
 
 
 def _sacrifice_key(ip) -> tuple:
-    """自キャラを「捨ててよい順」に並べる key (昇順ソート用)。 脅威度が低く弱い駒から。"""
-    try:
-        from .opp_threat import self_char_value
-        v = self_char_value(getattr(getattr(ip, "card", None), "card_id", "") or "")
-    except Exception:
-        v = 0.0
-    return (v, float(getattr(ip, "power", 0) or 0))
+    """自キャラを「捨ててよい順」に並べる key (昇順ソート用)。 従来挙動 = power 昇順 (上記 revert)。"""
+    return (float(getattr(ip, "power", 0) or 0),)
 
 def _worst_hand_idx(hand: list, known: Optional[list] = None) -> int:
     """最も捨てて惜しくない手札の index(counter 低 → cost 低 → power 低)。 高 counter の防御札を温存。
