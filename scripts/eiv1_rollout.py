@@ -53,9 +53,11 @@ from engine.plan_search import fast_clone  # noqa: E402
 from eiv1_collect import _ana, _dl, _parse_pool, _slug, AGNOSTIC, EIV1_VALUE, _OVERLAY  # noqa: E402
 
 EIV1_DIR = ROOT / "db" / "eiv1"
-RC = EIV1_DIR / "rollout_corpus.jsonl"
-V_ROLLOUT = EIV1_DIR / "value_rollout.pkl"
-V_OUTCOME = EIV1_DIR / "value_outcome.pkl"
+# policy 別に corpus/value を分離 (greedy と beam のラベルを混ぜない)
+_TAG = os.environ.get("ONEPIECE_EIV1_RO_AI", "greedy")
+RC = EIV1_DIR / (f"rollout_corpus_{_TAG}.jsonl" if _TAG != "greedy" else "rollout_corpus.jsonl")
+V_ROLLOUT = EIV1_DIR / f"value_rollout_{_TAG}.pkl"
+V_OUTCOME = EIV1_DIR / f"value_outcome_{_TAG}.pkl"
 
 ROLLOUTS = 6
 BEAM_W, BEAM_D = 8, 6
@@ -80,8 +82,25 @@ def _determinize_opp(st, hero_idx: int, rng: random.Random) -> None:
     rng.shuffle(opp.deck)
 
 
+# rollout policy: greedy(安価) / beam(配備と整合、 重い)。 env ONEPIECE_EIV1_RO_AI で切替。
+# ⭐ 2026-07-24 A: greedy rollout ラベルは beam 配備と非整合で outcome ラベルに勝てなかった
+# (arena 0.496)。 AlphaZero 原則「探索と同じ分布で学習」 → policy を beam-lite に上げる。
+RO_AI = os.environ.get("ONEPIECE_EIV1_RO_AI", "greedy")
+RO_BEAM_W, RO_BEAM_D = int(os.environ.get("ONEPIECE_EIV1_RO_BW", "4")), \
+    int(os.environ.get("ONEPIECE_EIV1_RO_BD", "4"))
+
+
+def _mk_rollout_ai(is_hero: bool, seed: int):
+    """rollout 中の 1 プレイヤーの AI。 beam なら hero=EIV1 value / opp=agnostic (配備と同じ構図)。"""
+    if RO_AI == "beam":
+        vp = (str(EIV1_VALUE) if EIV1_VALUE.exists() else AGNOSTIC) if is_hero else AGNOSTIC
+        return ExploitBeamAI(rng=random.Random(seed), gbm_path=vp,
+                             beam_width=RO_BEAM_W, max_depth=RO_BEAM_D)
+    return GreedyAI(rng=random.Random(seed))
+
+
 def _rollout_winrate(base_state, hero_idx: int, n: int, seed: int) -> float:
-    """base_state から greedy 同士で最後まで n 回 playout → hero の勝率。
+    """base_state から rollout policy 同士で最後まで n 回 playout → hero の勝率。
     各 playout で相手手札を determinize (公平) + デッキを再シャッフル (引き順は未知)。"""
     start_turn = base_state.turn_number
     wins = 0.0
@@ -92,8 +111,12 @@ def _rollout_winrate(base_state, hero_idx: int, n: int, seed: int) -> float:
         _determinize_opp(st, hero_idx, r)
         # 自分のデッキも引き順は未知 → シャッフル (手札は既知なので固定)
         r.shuffle(st.players[hero_idx].deck)
-        ais = {0: GreedyAI(rng=random.Random(seed * 3 + i)),
-               1: GreedyAI(rng=random.Random(seed * 5 + i + 1))}
+        ais = [None, None]
+        ais[hero_idx] = _mk_rollout_ai(True, seed * 3 + i)
+        ais[1 - hero_idx] = _mk_rollout_ai(False, seed * 5 + i + 1)
+        for j, x in enumerate(ais):
+            if hasattr(x, "set_ai_opp"):
+                x.set_ai_opp(ais[1 - j])
         guard = 0
         while not st.game_over and guard < 800 and st.turn_number <= start_turn + RO_TURN_CAP:
             guard += 1
