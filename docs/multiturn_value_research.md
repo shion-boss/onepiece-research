@@ -42,6 +42,51 @@
   2. **card-aware value**: 盲目 value の天井(belief-marginal)を破る直交軸。
 - 結論: 出力/target の形いじり(WDL/averaged)は自エンジンでは小さい。 効率的に多ターンを畳む **新しい形の本体は latent-dynamics(MuZero型)**。 まず averaged 実験で「値いじり路線が閉じている」を arena で確定させ、 latent-dynamics prototype へ進むのが筋。
 
+## 6. Session-2 所見 — value-FORM ルートは閉、レバーは「決定層」(2026-07-25)
+
+前節の averaged 多ホライズン実験を arena で検証 + **稼働中 EIV1 パイプラインの arena.jsonl / exit_loop.log を精読**した結果、
+value スカラーの「形」(target/input/output)いじりが強さを動かさないことが、私の1実験でなく**複数の独立実験で収束**した。
+
+**A. value の target/形は arena で全て parity (私の実験 + パイプライン自身の実験):**
+| arm | ref | win | 出典 |
+|---|---|---|---|
+| value_multihorizon | binary_control (同25k, target設計のみA/B) | **0.475** | 本セッション実験 |
+| value_multihorizon | agnostic(EBV2固定) | 0.518 | 〃 |
+| value_rollout | value_outcome (rollout target vs 終局 target) | **0.496** | パイプライン iter167 |
+| value.pkl (v20, 94dim card-aware) | agnostic | **0.47〜0.52 で振動** | iter137〜191 |
+
+→ **outcome / rollout / multihorizon / binary、 どれも ~0.5**。 = 「多ターンをどう畳んで target にするか / 出力の形」は
+強さに対して**閉じている**([[project_multi_eval_functions]]「単一state系は全て閉じた」の再確認、 このセッションで独立3実験追加)。
+
+**B. 特徴を card-aware に richen しても arena は動かない (AUC↑ ≠ 強さ):**
+feature は既に v15→**v20 (94dim)** まで card-aware に成長済 (駒種ラベル + 機能×timing + matchup interaction + belief 残カウンター +
+除去射程)。 AUC は v18 0.8286→v20 0.8323 と上がるが、 **value.pkl は agnostic(21dim 盲目)と arena parity**。
+= richer feature は **ranking(AUC)を上げるが decision(argmax)を変えない** ([[feedback_auc_is_not_decision_quality]])。
+
+**C. ExIt policy 蒸留は top1↑ でも配備を超えない (top1 ≠ 強さ):**
+ExIt flywheel の held-out top1 一致率は 0.57→**0.71** と上昇 (探索の最善手を policy が 71% 再現) だが、
+`exit_policy_w=0.6` の arena は **A_wr=47%**(配備に僅敗)。 = 模倣精度 ↑ は強さ ↑ を意味しない。 探索を導く value が
+card-blind なので、 探索自体が強くならず、 蒸留先の policy も plateau。
+
+**統合診断**: value/policy を richen する全ルート (target-form / feature-enrich / policy-distill) が **AUC・top1 は上げるが arena は
+上げない** = 共通の天井。 理由=**決定に効くのは「候補手の間で値が変わる board-interactive な差」だけ**で、 グローバルな ranking 精度は
+ほとんどの局面で argmax を変えない ([[project_card_identity_in_decisions]])。 歴代の勝ちレバー (v6 matchup interaction /
+block_residual 塊帰結 / force-attack / counter-event 生存 fix) は全て**決定層 board-interactive**だった。
+
+**correctness 確認 (CORE DIRECTIVE)**: lethal の card-knowledge 補正 (`_recovery_defense_bonus`) は完全 —
+`recovers_at_zero` LEADER は Enel(OP05-098)のみで hook 済、 ko_immune(73)/negates(22)は全てキャラで lethal 公式
+(実効ライフ+カウンター)に嵌らない (無理に入れると no-op か誤り)。 = メモの「ko_immune lethal hook」案は**式に不適合**を精読で確定
+(gap なし、 [[project_pros02_puzzle_benchmark]] の「盛り不足は実は妥当」と同型の検出規律)。
+
+**結論の更新 (§5 を上書き)**: 「効率的に多ターンを畳む value の新しい形」= **target/input/output の形いじりでは達成されない (閉)**。
+既に達成済の効率形は **block_residual (self-play 塊帰結 target → O(1) 配備スカラー、 +2.2pt)** = offline に多ターンを畳み deploy は O(1)。
+残る真フロンティアは 2 つに絞られ、 **両者とも配備 AI を触るので arena gate + ohtsuki の steer とセットが筋**:
+  1. **決定層の card-aware 脅威テーブル** (corpus から「相手盤面のどの効果が終局勝率を最も動かしたか」をデータ化 → opp_threat に
+     board-interactive 配線)。 = read-only 分析で作れる (regression リスクなし)、 [[project_card_identity_in_decisions]] の「rollout で脅威度表をデータ化」。
+  2. **value を小 NN 化 (embedding + MLP)** = カード identity の微差 (eiv1_features.py が明記する成長ピース、 corpus 2.6GB で data 前提は満たす)。
+     ⚠ ただし A/B の天井 (AUC↑≠強さ) と [[project_plan_d_results]] のスケール失敗を踏まえ、 embedding が **argmax を変える**ことを
+     de-risk してから (= 決定層で効くことを先に確認)。
+
 ## Sources
 - [Averaging n-step Returns Reduces Variance (2402.03903)](https://arxiv.org/html/2402.03903v4)
 - [Leela WDL head](https://lczero.org/blog/2020/04/wdl-head/)
