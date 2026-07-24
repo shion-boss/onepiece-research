@@ -166,14 +166,20 @@ def _corpus_stats() -> dict:
     res = {"total": 0, "games_est": 0, "hero_top": [], "hero_min": 0, "hero_max": 0,
            "hero_n_decks": 0, "turn_winrate": [], "rollout_greedy": 0, "rollout_beam": 0}
     try:
-        # 末尾 ~30k 行をサンプル
-        lines = []
-        with open(p, encoding="utf-8") as f:
-            for line in f:
-                lines.append(line)
-                if len(lines) > 30000:
-                    lines.pop(0)
-        res["total"] = sum(1 for _ in open(p))
+        # ⚡ 末尾だけ seek で読む (921MB 全読みは重すぎ = API hang の原因)。
+        # 末尾 ~45MB を読み、 行に分割して最後の 30k 行を採る。 1 行 ~1.5KB なので十分。
+        fsize = p.stat().st_size
+        tail_bytes = min(fsize, 45 * 1024 * 1024)
+        with open(p, "rb") as f:
+            f.seek(fsize - tail_bytes)
+            chunk = f.read()
+        raw = chunk.split(b"\n")
+        if tail_bytes < fsize and raw:
+            raw = raw[1:]                       # 先頭の欠けた行を捨てる
+        lines = [ln.decode("utf-8", "ignore") for ln in raw if ln.strip()][-30000:]
+        # total は filesize / 平均行長 で概算 (全読みしない)
+        avg = (sum(len(ln) for ln in raw[:2000]) / max(1, min(2000, len(raw)))) or 1500
+        res["total"] = int(fsize / max(avg, 1))
         res["games_est"] = res["total"] // 12
         hero = Counter()
         turn_bucket: dict = {}
@@ -244,8 +250,9 @@ def _corpus_stats() -> dict:
                      ("rollout_corpus_beam.jsonl", "rollout_beam")):
         f = EIV1 / tag
         if f.exists():
-            try:
-                res[key] = sum(1 for _ in open(f))
+            try:  # rollout corpus は小さい (< 数MB) ので全読みで正確に
+                with open(f, "rb") as fh:
+                    res[key] = fh.read().count(b"\n")
             except Exception:
                 pass
     _CACHE["corpus"], _CACHE["corpus_ts"] = res, now
