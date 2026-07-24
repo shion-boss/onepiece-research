@@ -93,16 +93,20 @@ def _resolve_opp_mix(spec: str) -> list:
             snaps = _snapshots()
             if snaps:
                 out.append(([str(p) for p in snaps], weight))
-        elif name == "prev":
-            # 直前の凍結世代 (= 常に 1 世代古い相手)。 同一 value のミラーだと両者の評価が
-            # 完全一致して「意見の相違が起きる局面」がデータに入らず、 進捗の内部信号も消える。
-            # ⚠ 1 iteration 前では差分が corpus の 1% 未満でほぼ同一モデル → 10 iter ごとの
-            # 凍結 (≈2 時間前、 差分 ~8%) を 1 世代とする。
+        elif name == "prev" or (name.startswith("gen") and name[3:].isdigit()):
+            # gen<k> = k 世代前の凍結 (gen1 = 直前 = 旧 prev、 gen2 = 2 世代前 …)。 prev = gen1。
+            # ⭐ 直近 N 世代の窓を混ぜると「新世代は直近 N 世代 **全部** に勝て」という圧がかかり、
+            # 「B (1世代前) に勝つが A (2世代前) に負ける」非推移的なぐるぐる (= arena 振動) を避ける
+            # (2026-07-24 ohtsuki 提案。 AlphaStar リーグ / OpenAI Five の opponent sampling と同型)。
+            # ⚠ 1 iteration 前は差分 <1% でほぼ同一 → 10 iter ごとの凍結を 1 世代とする。
+            k = 1 if name == "prev" else int(name[3:])
             snaps = _snapshots()
-            if snaps:
-                out.append((str(snaps[-1]), weight))
+            if len(snaps) >= k:
+                out.append((str(snaps[-k]), weight))
+            elif snaps:
+                out.append((str(snaps[0]), weight))       # まだ k 世代無い → 最古で代替
             elif EIV1_VALUE.exists():
-                out.append((str(EIV1_VALUE), weight))   # 凍結がまだ無い間は現行で代替
+                out.append((str(EIV1_VALUE), weight))      # 凍結がまだ無い間は現行で代替
         elif name == "agnostic":
             out.append((AGNOSTIC, weight))
         elif Path(name).exists():
@@ -248,7 +252,7 @@ def main():
     ap.add_argument("--seed-base", type=int, default=None)
     ap.add_argument("--beam-width", type=int, default=BEAM_W)
     ap.add_argument("--max-depth", type=int, default=BEAM_D)
-    ap.add_argument("--opp-mix", default="prev:0.7,snapshot:0.3",
+    ap.add_argument("--opp-mix", default="eiv1:0.2,gen1:0.25,gen2:0.2,gen3:0.15,snapshot:0.2",
                     help="相手 value の抽選 (prev / eiv1 / snapshot / agnostic / パス:重み)。 "
                          "既定 = 自己対戦の 1 世代前 (直前の凍結 7 : 過去 snapshot 3)")
     ap.add_argument("--record-both", type=int, default=1,
