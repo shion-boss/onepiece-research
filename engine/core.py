@@ -660,6 +660,9 @@ class Player:
     # マリガン 履歴 (= 2026-05-29、 corpus 軸 用)。 setup_game で True / False が set される。
     # AI belief 推定 で 「opp が マリガン した = 初手 5 が 悪かった = 現 手札 は 二択 後」 軸 用。
     did_mulligan: bool = False
+    # 手札のカウンター値を静的に上げる効果 (OP16-118 ポートガス: パワー8000キャラは counter+2000)。
+    # evaluate_static_effects が場の該当カード有無で {"amount","power_eq","category"} を set/None。
+    hand_counter_boost: Optional[dict] = None
 
     MAX_CHARACTERS = 5
     MAX_STAGES = 1     # 公式 3-8-5

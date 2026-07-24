@@ -371,6 +371,7 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
                 "on_self_chara_played", "on_opp_chara_played",
                 "on_self_chara_ko", "on_opp_chara_ko",
                 "on_self_chara_leave_by_self_effect",
+                "on_self_chara_leave_by_opp_effect",
                 "on_opp_chara_returned_to_hand_by_self_effect",
                 "on_self_rested", "on_self_chara_rested_by_self_effect",
                 "on_self_hand_discarded", "on_self_don_returned_to_deck",
@@ -3830,6 +3831,10 @@ def _execute_effect_body(
                         opp.don_rested += t.attached_dons
                     state.push_log(f"  効果: 手札に戻す {t.card.name}")
                     _ret_any = True
+                    # 相手効果による離脱 → victim 側の on_self_chara_leave_by_opp_effect (OP09-080)
+                    if state.effects_overlay:
+                        trigger_on_self_chara_leave_by_opp_effect(
+                            state, opp, me, state.effects_overlay, victim_card=t.card)
                 elif t in me.characters:
                     # 両陣営 target (= 「コストN以下のキャラ1枚まで」 自陣も対象) の
                     # 自キャラ bounce。 持ち主 (= me) の手札へ。
@@ -5193,6 +5198,9 @@ def _execute_effect_body(
                         opp.don_rested += t.attached_dons
                     state.push_log(f"  効果: {t.card.name} を相手デッキ底へ")
                     _rtd_any = True
+                    if state.effects_overlay:
+                        trigger_on_self_chara_leave_by_opp_effect(
+                            state, opp, me, state.effects_overlay, victim_card=t.card)
                 elif t in me.characters:
                     me.characters.remove(t)
                     me.deck.append(t.card)
@@ -10472,6 +10480,7 @@ def evaluate_static_effects(
 
     # 全 InPlay の静的フラグをリセット
     for player in state.players:
+        player.hand_counter_boost = None   # 手札 counter 静的ブースト (OP16-118) も毎回再評価
         for ip in [player.leader, *player.characters, *player.stages]:
             ip.static_buff = 0
             ip.static_ko_immune = False
@@ -10762,6 +10771,11 @@ def evaluate_static_effects(
                     # 公式 「自分のコスト2以上の特徴《ドレスローザ》を持つキャラすべてを、 コスト+1」 等。
                     # spec: {"filter": {"feature": "ドレスローザ", "cost_ge": 2}, "delta": 1,
                     #        "scope": "self" | "opp" (省略時 = "self")}
+                    if "set_hand_counter_boost" in primitive:
+                        # OP16-118 ポートガス: 自分の手札の該当カード (filter) の counter を静的に +amount。
+                        # 実適用は _spend_counters (= 防御で counter を切る時) が me.hand_counter_boost を読む。
+                        me.hand_counter_boost = dict(primitive["set_hand_counter_boost"])
+                        continue
                     if "set_base_cost_filtered_static" in primitive:
                         spec = primitive["set_base_cost_filtered_static"]
                         filt = spec.get("filter", {})
@@ -10810,10 +10824,12 @@ def _enqueue_field_when(
     when: str,
     effects_overlay: dict[str, CardEffectBundle],
 ) -> None:
-    """owner の場 (leader + characters) のうち、 指定 when を持つ全ての InPlay を enqueue。
+    """owner の場 (leader + characters + stages) のうち、 指定 when を持つ全ての InPlay を enqueue。
     複数効果がある場合でもイベントは「カード単位」で 1 つ (= _execute_event が when 一致を全実行)。
+    ⚠ 2026-07-24 修正: 従来 stages を除外しており、 ステージの field-when トリガー
+    (on_self_chara_ko / on_self_chara_leave_by_opp_effect 等、 OP09-080 サニー号) が発火しなかった。
     """
-    candidates: list[InPlay] = [owner.leader] + list(owner.characters)
+    candidates: list[InPlay] = [owner.leader] + list(owner.characters) + list(owner.stages)
     owner_idx = state.players.index(owner)
     for ip in candidates:
         bundle = effects_overlay.get(ip.card.card_id)
@@ -11801,6 +11817,26 @@ def trigger_on_self_chara_ko(
     if victim_card is not None:
         state.last_chara_ko_victim_card = victim_card
     _enqueue_field_when(state, victim_owner, "on_self_chara_ko", effects_overlay)
+    _maybe_resolve(state)
+    state.last_chara_ko_victim_card = None
+
+
+def trigger_on_self_chara_leave_by_opp_effect(
+    state: GameState,
+    victim_owner: Player,
+    opp: Player,
+    effects_overlay: dict[str, CardEffectBundle],
+    victim_card: Optional[CardDef] = None,
+) -> None:
+    """「自分の(特徴X を持つ)キャラが相手の効果で場を離れた時」 (on_self_chara_leave_by_opp_effect)。
+    KO 以外の離脱経路 (return_to_hand / return_to_deck_bottom 等、 相手効果による bounce/deck 戻し)
+    から発火。 KO は on_self_chara_ko が別に発火するので、 OP09-080 サニー号 等は両 when を持つ。
+    victim_owner = 離れた側 (= 効果を持つ側)、 victim_card は victim_feature_in 条件で読まれる。"""
+    if not effects_overlay:
+        return
+    if victim_card is not None:
+        state.last_chara_ko_victim_card = victim_card
+    _enqueue_field_when(state, victim_owner, "on_self_chara_leave_by_opp_effect", effects_overlay)
     _maybe_resolve(state)
     state.last_chara_ko_victim_card = None
 

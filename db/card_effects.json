@@ -100317,11 +100317,27 @@
  "OP09-080": [
   {
    "_text": "OP09-080 【相手のターン中】このステージをレストにできる：自分の特徴《麦わらの一味》を持つキャラが相手の効果で場を離れた時、ドン‼デッキからドン‼1枚までを、レストで追加する。",
-   "_doc": "「場を離れた時」 は KO 経路 のみ 簡略 実装 (= on_self_chara_ko)。 return_to_hand / return_to_deck_bottom 等 他の 離脱 経路 は 未対応。",
    "when": "on_self_chara_ko",
    "if": {
     "opp_turn": true,
     "by_opp_effect": true,
+    "victim_feature_in": [
+     "麦わらの一味"
+    ]
+   },
+   "cost": {
+    "rest_self": true
+   },
+   "do": [
+    {
+     "add_rested_don": 1
+    }
+   ]
+  },
+  {
+   "when": "on_self_chara_leave_by_opp_effect",
+   "if": {
+    "opp_turn": true,
     "victim_feature_in": [
      "麦わらの一味"
     ]
@@ -106440,7 +106456,17 @@
  ],
  "OP16-118": [
   {
-   "_missing_effect": "自分の手札のパワー8000のキャラカードすべては、カウンター+2000になる (= 手札カードのカウンター値を静的に増加させる機構が engine 未対応)。"
+   "when": "on_attached_don",
+   "n": 0,
+   "do": [
+    {
+     "set_hand_counter_boost": {
+      "amount": 2000,
+      "power_eq": 8000,
+      "category": "CHARACTER"
+     }
+    }
+   ]
   },
   {
    "_text": "OP16-118 【登場時】デッキ上5から「ルフィ」か『白ひげ海賊団』特徴1を手札、残デッキ下。",

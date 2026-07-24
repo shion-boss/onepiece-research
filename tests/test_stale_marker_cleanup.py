@@ -316,3 +316,78 @@ def test_op16_080_all_self_chara_cost_plus_1_only_on_opp_turn():
         eff = ch.base_cost_override if ch.base_cost_override is not None else base
         assert (eff == base + 1) is expect_plus, (
             f"turn_idx={turn_idx}: cost {base}→{eff} (opp_turn 限定でない)")
+
+
+def _straw_char(repo):
+    import json
+    cards = json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+    cards = cards.get("cards", cards) if isinstance(cards, dict) else cards
+    for c in cards:
+        cd = repo.get(c["card_id"])
+        cat = getattr(cd.category, "name", str(cd.category))
+        if cat == "CHARACTER" and getattr(cd, "features", None) and "麦わらの一味" in cd.features:
+            return cd.card_id
+    return None
+
+
+def test_op09_080_stage_triggers_on_opp_non_ko_leave():
+    """OP09-080 サニー号(stage): 自分の麦わらキャラが相手の効果で場を離れた時(KO以外も)、
+    ステージをレストにして don!! デッキから 1 枚をレストで追加。
+    = on_self_chara_leave_by_opp_effect trigger + _enqueue_field_when が stages を含む修正。"""
+    repo = _repo()
+    ov = _overlay()
+    straw = _straw_char(repo)
+    assert straw
+    for kind in ["return_to_hand", "return_to_deck_bottom"]:
+        me = Player(name="me", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        opp = Player(name="opp", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        st = GameState(players=[me, opp], turn_player_idx=1, phase=Phase.MAIN,
+                       rng=random.Random(0))
+        st.effects_overlay = ov
+        stage = InPlay.of(repo.get("OP09-080"), sickness=False)
+        me.stages = [stage]
+        me.characters = [InPlay.of(repo.get(straw), sickness=False)]
+        me.don_remaining_in_deck = 5
+        d0 = me.don_rested
+        # 相手 (actor=opp) が me の麦わらキャラを離脱させる
+        execute_effect({kind: "one_opponent_character_any"}, st, opp, me, None)
+        assert me.don_rested == d0 + 1, f"{kind}: 相手離脱で OP09-080 が発火せず (don +{me.don_rested - d0})"
+        assert stage.rested is True, f"{kind}: コスト (ステージ rest) が払われていない"
+
+
+def _pow8000_counter_char(repo):
+    import json
+    cards = json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+    cards = cards.get("cards", cards) if isinstance(cards, dict) else cards
+    for c in cards:
+        cd = repo.get(c["card_id"])
+        cat = getattr(cd.category, "name", str(cd.category))
+        if cat == "CHARACTER" and int(getattr(cd, "power", 0) or 0) == 8000 and int(getattr(cd, "counter", 0) or 0) > 0:
+            return cd
+    return None
+
+
+def test_op16_118_hand_power8000_counter_plus_2000():
+    """OP16-118 エース: 自分の手札のパワー8000のキャラカードすべては、カウンター+2000。
+    = set_hand_counter_boost 静的 + _spend_counters が適用。 OP16-118 不在なら非適用。"""
+    from engine.game import _spend_counters
+    repo = _repo()
+    ov = _overlay()
+    c8 = _pow8000_counter_char(repo)
+    assert c8 is not None
+    base_counter = int(c8.counter or 0)
+    # (1) OP16-118 が場 → +2000
+    me = Player(name="me", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    opp = Player(name="opp", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    st = GameState(players=[me, opp], turn_player_idx=1, phase=Phase.MAIN, rng=random.Random(0))
+    me.characters = [InPlay.of(repo.get("OP16-118"), sickness=False)]
+    me.hand = [c8]
+    evaluate_static_effects(st, ov)
+    assert _spend_counters(me, (0,)) == base_counter + 2000
+    # (2) OP16-118 不在 → 素の counter (boost なし)
+    me2 = Player(name="me2", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    opp2 = Player(name="opp2", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    st2 = GameState(players=[me2, opp2], turn_player_idx=1, phase=Phase.MAIN, rng=random.Random(0))
+    me2.hand = [c8]
+    evaluate_static_effects(st2, ov)
+    assert _spend_counters(me2, (0,)) == base_counter, "OP16-118 不在なのに boost された"

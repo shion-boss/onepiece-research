@@ -2037,12 +2037,25 @@ def _find_attacker_or_none(p: Player, iid: int):
 def _spend_counters(p: Player, idxs: tuple[int, ...]) -> int:
     if not idxs:
         return 0
+    # OP16-118: 場に「手札の該当カードの counter を静的に上げる」効果があれば適用
+    # (spec = {"amount", "power_eq", "category"})。 evaluate_static_effects が set。
+    boost = getattr(p, "hand_counter_boost", None)
+
+    def _boosted(card) -> int:
+        base = card.counter or 0
+        if boost:
+            cat = getattr(card.category, "name", str(card.category))
+            if (cat == boost.get("category", cat)
+                    and int(card.power or 0) == int(boost.get("power_eq", card.power or 0))):
+                base += int(boost.get("amount", 0))
+        return base
+
     total = 0
     for i in sorted(set(idxs), reverse=True):
         if 0 <= i < len(p.hand):
             card = p.hand.pop(i)
             p.trash.append(card)
-            total += card.counter
+            total += _boosted(card)
     return total
 
 
