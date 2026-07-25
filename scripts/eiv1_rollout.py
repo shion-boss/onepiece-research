@@ -60,6 +60,7 @@ _TAG = os.environ.get("ONEPIECE_EIV1_RO_TAG") or os.environ.get("ONEPIECE_EIV1_R
 RC = EIV1_DIR / (f"rollout_corpus_{_TAG}.jsonl" if _TAG != "greedy" else "rollout_corpus.jsonl")
 V_ROLLOUT = EIV1_DIR / f"value_rollout_{_TAG}.pkl"
 V_OUTCOME = EIV1_DIR / f"value_outcome_{_TAG}.pkl"
+PROGRESS = EIV1_DIR / f"collect_progress_{_TAG}.log"   # per-game 進捗 (tail -f 用、 pipeline の | tail に消されない)
 
 ROLLOUTS = 6
 BEAM_W, BEAM_D = 8, 6
@@ -219,10 +220,31 @@ def cmd_collect(a):
           f"| hero pool={len(heroes)} opp pool={len(opps)}", flush=True)
     t0 = time.time()
     results = []
+
+    def _prog(msg: str) -> None:
+        """進捗を stdout + 専用ファイル (PROGRESS) に。 ファイルは pipeline の `| tail` に消されない
+        ので `tail -f db/eiv1/collect_progress_<tag>.log` で batch 内をリアルタイム追える。"""
+        line = f"[{time.strftime('%H:%M:%S')}] {_TAG} {msg}"
+        print("  " + line, flush=True)
+        try:
+            with open(PROGRESS, "a", encoding="utf-8") as pf:
+                pf.write(line + "\n")
+        except Exception:
+            pass
+
+    _prog(f"collect 開始: {a.games} games, workers={a.workers}, beam {RO_BEAM_W}/{RO_BEAM_D}")
+    done = 0
     with mp.Pool(a.workers) as pool:
         for r in pool.imap_unordered(_collect_game, tasks):
+            done += 1
             if r:
                 results.append(r)
+            if done % 10 == 0 or done == a.games:
+                el = time.time() - t0
+                eta = el / done * (a.games - done)
+                nst = sum(len(x) for x in results)
+                _prog(f"{done}/{a.games} games | {nst} 局面 | {el:.0f}s 経過 / ETA {eta:.0f}s "
+                      f"({el / done:.1f}s/game)")
     rows = [row for r in results for row in r]
     with open(RC, "a", encoding="utf-8") as f:
         for fv, y, yr, hero, opp, snap in rows:
