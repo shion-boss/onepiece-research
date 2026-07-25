@@ -139,32 +139,77 @@ def _read_throughput(n: int = 40) -> list:
     return out[-n:]
 
 
-def _rollout_stats() -> dict:
-    """rollout corpus から ラベル相関 と 分布 (yr を y=0/1 別にビン)。"""
-    res = {"greedy": None, "beam": None}
-    for tag, key in (("rollout_corpus.jsonl", "greedy"),
-                     ("rollout_corpus_beam.jsonl", "beam")):
-        f = EIV1 / tag
-        if not f.exists():
-            continue
-        y, yr = [], []
+_ROLLOUT_CACHE: dict = {}   # tag -> (mtime, stats)
+
+
+def _rollout_policy_tag(fname: str) -> str:
+    """rollout_corpus.jsonl -> greedy / rollout_corpus_<tag>.jsonl -> <tag>。"""
+    if fname == "rollout_corpus.jsonl":
+        return "greedy"
+    m = fname[len("rollout_corpus_"):-len(".jsonl")]
+    return m or fname
+
+
+def _rollout_stats() -> list:
+    """全 rollout_corpus*.jsonl (= 作成した各 policy) を動的に発見し、 policy 毎に
+    corr(y,yr)・勝時/敗時 yr・データ量を計算。 arena 結果 (rollout_policy_results.json、
+    value_rollout vs value_outcome の勝率+data×signal trend) を merge して返す。
+    mtime キャッシュ (corpus は数MBなので毎回全読みを避ける)。 policy を増やすと自動で行が増える。"""
+    # arena 結果 (本命指標) を先に読む
+    arena: dict = {}
+    try:
+        ap = EIV1 / "rollout_policy_results.json"
+        if ap.exists():
+            arena = {k: v for k, v in json.loads(ap.read_text(encoding="utf-8")).items()
+                     if not k.startswith("_")}
+    except Exception:
+        arena = {}
+
+    out: list = []
+    for f in sorted(EIV1.glob("rollout_corpus*.jsonl")):
+        tag = _rollout_policy_tag(f.name)
         try:
-            for line in f.read_text(encoding="utf-8").splitlines():
-                d = json.loads(line)
-                y.append(float(d["y"]))
-                yr.append(float(d["yr"]))
+            mt = f.stat().st_mtime
         except Exception:
             continue
-        if not y:
-            continue
-        # y=0 と y=1 の局面で yr の平均 (rollout が勝敗を予見できているか)
-        yr0 = [b for a, b in zip(y, yr) if a < 0.5]
-        yr1 = [b for a, b in zip(y, yr) if a >= 0.5]
-        res[key] = {"n": len(y), "y_mean": sum(y) / len(y), "yr_mean": sum(yr) / len(yr),
-                    "corr": round(_corr(y, yr), 3),
-                    "yr_on_loss": round(sum(yr0) / len(yr0), 3) if yr0 else None,
-                    "yr_on_win": round(sum(yr1) / len(yr1), 3) if yr1 else None}
-    return res
+        cached = _ROLLOUT_CACHE.get(tag)
+        if cached and cached[0] == mt:
+            row = dict(cached[1])
+        else:
+            y, yr = [], []
+            try:
+                for line in f.read_text(encoding="utf-8").splitlines():
+                    d = json.loads(line)
+                    y.append(float(d["y"]))
+                    yr.append(float(d["yr"]))
+            except Exception:
+                continue
+            if not y:
+                continue
+            yr0 = [b for a, b in zip(y, yr) if a < 0.5]
+            yr1 = [b for a, b in zip(y, yr) if a >= 0.5]
+            row = {"policy": tag, "n": len(y),
+                   "corr": round(_corr(y, yr), 3),
+                   "yr_on_loss": round(sum(yr0) / len(yr0), 3) if yr0 else None,
+                   "yr_on_win": round(sum(yr1) / len(yr1), 3) if yr1 else None}
+            _ROLLOUT_CACHE[tag] = (mt, dict(row))
+        a = arena.get(tag) or {}
+        row["arena_vs_outcome"] = a.get("arena_vs_outcome")
+        row["arena_n"] = a.get("arena_n")
+        row["trend"] = a.get("trend")
+        row["label"] = a.get("label", tag)
+        out.append(row)
+    # arena 結果はあるが corpus が消えた policy も一応載せる
+    seen = {r["policy"] for r in out}
+    for tag, a in arena.items():
+        if tag not in seen:
+            out.append({"policy": tag, "label": a.get("label", tag), "n": None,
+                        "corr": None, "yr_on_loss": None, "yr_on_win": None,
+                        "arena_vs_outcome": a.get("arena_vs_outcome"),
+                        "arena_n": a.get("arena_n"), "trend": a.get("trend")})
+    # arena 勝率降順 (本命が上)、 未測定は末尾
+    out.sort(key=lambda r: (r.get("arena_vs_outcome") is None, -(r.get("arena_vs_outcome") or 0)))
+    return out
 
 
 def _corpus_stats(force: bool = False) -> dict:
@@ -675,15 +720,20 @@ async function load(force){
   cards.push(`<div class="card"><h2>⑫ ゲーム長 分布</h2>
     <p class="sub">中央値 ${c.game_len_median||'—'} ターン (${(c.game_len_n||0).toLocaleString()} game)。 短すぎ=速攻偏り</p>
     ${c.game_len?bars(c.game_len.map(d=>({l:d.turn,n:d.n})),'l','n',{fmt:v=>v}):'<p class="note">g付き行が必要</p>'}</div>`);
-  // ⑬ rollout ラベル相関
+  // ⑬ rollout ラベル分析 — 作成した各 rollout policy を動的に一覧 (arena が本命指標)
+  const roList = Array.isArray(ro) ? ro : [];
+  const aw = v => v==null ? '—' : `<b style="color:${v>=0.53?'#3fb950':(v<=0.47?'#f85149':'#c9d1d9')}">${(v*100).toFixed(1)}%</b>`;
+  const trendStr = t => (t&&t.length) ? t.map(p=>`${(p[0]/1000).toFixed(1)}k→${(p[1]*100).toFixed(0)}%`).join(' ') : '—';
   const rows=[];
-  for(const [k,r] of [['greedy',ro.greedy],['beam',ro.beam]]){ if(!r) continue;
-    rows.push(`<tr><td>${k}</td><td>${r.n}</td><td>corr=${r.corr}</td>
-      <td>敗時 yr=${r.yr_on_loss}</td><td>勝時 yr=${r.yr_on_win}</td></tr>`);}
+  for(const r of roList){
+    rows.push(`<tr><td>${r.label||r.policy}</td><td>${r.n!=null?r.n.toLocaleString():'—'}</td>`
+      +`<td style="text-align:center">${aw(r.arena_vs_outcome)}${r.arena_n?` <span style="color:#6e7681">N=${r.arena_n}</span>`:''}</td>`
+      +`<td>${r.corr!=null?r.corr:'—'}</td>`
+      +`<td style="color:#6e7681;font-size:10px">${trendStr(r.trend)}</td></tr>`);}
   cards.push(`<div class="card"><h2>⑬ rollout ラベル分析 (本命)</h2>
-    <p class="sub">最終勝敗より強い教師か。 corr(y,yr)=相関、 勝時 yr > 敗時 yr なら勝敗を予見</p>
-    <table><tr style="color:#8b949e"><td>policy</td><td>n</td><td>相関</td><td>敗局面</td><td>勝局面</td></tr>${rows.join('')||'<tr><td colspan=5>収集中</td></tr>'}</table>
-    <p class="note">rollout(greedy)=1回目は互角 (0.496)。 beam の勝時/敗時 yr の差が大きいほど良い教師</p></div>`);
+    <p class="sub">「最終勝敗ラベル」より強い教師か。 <b>arena=value_rollout vs value_outcome</b> が本命指標 (>50%=rollout ラベルが兄弟手の優劣を教えている)。 corr=y と yr の相関、 trend=データ量×勝率 (kサンプル→勝率)</p>
+    <table><tr style="color:#8b949e"><td>rollout policy</td><td>corpus</td><td>arena vs outcome</td><td>corr</td><td>trend (n→win)</td></tr>${rows.join('')||'<tr><td colspan=5>収集中</td></tr>'}</table>
+    <p class="note">greedy rollout=policy非整合で互角(0.496)。 beam rollout=探索と同分布で改善(0.540→0.569、 データ量で強化中)。 緑=rollout ラベルが outcome より良い教師。 policy を増やすと自動で行が増える (rollout_corpus_&lt;tag&gt;.jsonl)</p></div>`);
   // ⑭ ExIt 複利ループ (本命)
   const ex=s.exit||{history:[],has_policy:false};
   cards.push(`<div class="card"><h2>⑭ ExIt 複利ループ (探索→policy蒸留→探索↑)</h2>

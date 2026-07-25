@@ -53,8 +53,10 @@ from engine.plan_search import fast_clone  # noqa: E402
 from eiv1_collect import _ana, _dl, _parse_pool, _slug, AGNOSTIC, EIV1_VALUE, _OVERLAY  # noqa: E402
 
 EIV1_DIR = ROOT / "db" / "eiv1"
-# policy 別に corpus/value を分離 (greedy と beam のラベルを混ぜない)
-_TAG = os.environ.get("ONEPIECE_EIV1_RO_AI", "greedy")
+# policy 別に corpus/value を分離 (greedy と beam のラベルを混ぜない)。
+# ⭐ tag(ファイル名) と behavior(RO_AI) を分離: 同じ beam 挙動でも幅/深さ違いを別 corpus に
+# できるよう ONEPIECE_EIV1_RO_TAG で上書き可 (未指定なら従来どおり RO_AI = tag)。
+_TAG = os.environ.get("ONEPIECE_EIV1_RO_TAG") or os.environ.get("ONEPIECE_EIV1_RO_AI", "greedy")
 RC = EIV1_DIR / (f"rollout_corpus_{_TAG}.jsonl" if _TAG != "greedy" else "rollout_corpus.jsonl")
 V_ROLLOUT = EIV1_DIR / f"value_rollout_{_TAG}.pkl"
 V_OUTCOME = EIV1_DIR / f"value_outcome_{_TAG}.pkl"
@@ -108,7 +110,10 @@ def _rollout_winrate(base_state, hero_idx: int, n: int, seed: int) -> float:
         r = random.Random(seed * 1009 + i)
         st = fast_clone(base_state)
         st.rng = random.Random(seed * 7919 + i)
-        _determinize_opp(st, hero_idx, r)
+        # perfect-info 診断: ONEPIECE_EIV1_RO_NODET=1 で determinize を skip (相手手札そのまま=
+        # 隠匿情報の影響上限を測る対照。 配備不可=カンニングだが「読みの天井」の視点)。
+        if os.environ.get("ONEPIECE_EIV1_RO_NODET") != "1":
+            _determinize_opp(st, hero_idx, r)
         # 自分のデッキも引き順は未知 → シャッフル (手札は既知なので固定)
         r.shuffle(st.players[hero_idx].deck)
         ais = [None, None]
