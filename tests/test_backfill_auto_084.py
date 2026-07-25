@@ -229,12 +229,6 @@ def test_op08_022_on_play_stay_rested_two_targets_ai():
 #  OP08-023 キャロット: 【登場時】/【アタック時】相手のレスト cost7以下1枚まで stay_rested
 #    ⚠ overlay の target spec が 未対応形 (下記 skip reason 参照)
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason=(
-    "overlay 実バグ: OP08-023 の stay_rested_next_refresh target が "
-    "'one_opponent_rested_character_le_7cost' と綴られており、 _resolve_target が "
-    "この形を解決できず 常に [] (= 効果不発)。 正しくは "
-    "'one_opponent_rested_character_cost_le_7cost' (= _cost_le_ 形、 line 2600 の regex)。 "
-    "engine/overlay 修正は人間レビューに回す (このタスクでは engine/overlay を編集しない)。"))
 def test_op08_023_carrot_on_play_stay_rested_ai():
     repo = _repo()
     overlay = _overlay()
