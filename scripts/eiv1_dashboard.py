@@ -16,6 +16,7 @@
   ⑰ matchup ヒートマップ           = デッキ×相手デッキ 相性の構造 (self-play)
   ⑩⑪⑫ 相手 leader別/得意苦手/ゲーム長
   ⑬ rollout ラベル / ⑭ ExIt 複利ループ / ⑦ rollout 現況
+  ⑱ 相手カード脅威テーブル          = 決定層 card-aware (faced lift、 どの駒を優先攻撃/除去するか)
 
 グラフ設計の根拠 = 3 系統のネット調査 (ML 学習可視化 / self-play RL 診断 / TCG メタ分析)。
 較正・信頼区間・self-play 適合 (使用率系は誇張しない) を反映。
@@ -271,6 +272,7 @@ def _corpus_stats(force: bool = False) -> dict:
         res["calibration"] = _calibration(cal_rows)
     except Exception:
         pass
+    res["threat_table"] = _threat_table_data()   # corpus 非依存 (静的 file) なので try 外で常時
     for tag, key in (("rollout_corpus.jsonl", "rollout_greedy"),
                      ("rollout_corpus_beam.jsonl", "rollout_beam")):
         f = EIV1 / tag
@@ -307,6 +309,32 @@ def _value_model():
         return model, _MODEL_CACHE["featfn"]
     except Exception:
         return None, None
+
+
+_THREAT_CACHE: dict = {"data": None, "mtime": None}
+
+
+def _threat_table_data(top: int = 20) -> list:
+    """データ駆動の相手キャラ脅威テーブル (build_card_threat_table.py 産) を名前付きで返す。
+    corpus の faced lift = 「相手がこの駒を場に持つと hero 勝率がどう動くか」→ 決定層 opp_threat が
+    優先攻撃/除去に使う脅威度。 mtime キャッシュ。"""
+    p = EIV1 / "card_threat_table.json"
+    if not p.exists():
+        return []
+    try:
+        mt = p.stat().st_mtime
+        if _THREAT_CACHE["data"] is not None and _THREAT_CACHE["mtime"] == mt:
+            return _THREAT_CACHE["data"]
+        tbl = json.loads(p.read_text(encoding="utf-8"))
+        nm = _names()
+        rows = [{"card": cid, "name": nm.get(cid, cid), "threat": r["threat"],
+                 "lift": r["faced_lift"], "n": r["n"]} for cid, r in tbl.items()]
+        rows.sort(key=lambda r: -r["threat"])
+        rows = rows[:top]
+        _THREAT_CACHE.update({"data": rows, "mtime": mt})
+        return rows
+    except Exception:
+        return []
 
 
 def _calibration(rows: list) -> dict:
@@ -625,6 +653,24 @@ async function load(force){
     <p class="sub">行=自分リーダー / 列=相手リーダー(アーキタイプ)。 セル=勝率、 50% を中点に青(有利)↔赤(不利)。 各セル n≥20、 低Nは灰</p>
     <div style="overflow-x:auto">${heatmap(mu.rows,mu.cols,mu.cells)}</div>
     <p class="note">self-play データなので「相性の構造」を読む図 (使用率は設計値なので無意味)。 ⑩(相手リーダー別)の 2D 版 — 行内に赤が多いリーダー = value が操縦しづらい苦手対面を抱える</p></div>`);
+  // ⑱ 相手カード脅威テーブル (決定層 card-aware、 データ駆動)
+  const tt = c.threat_table || [];
+  if (tt.length) {
+    const mx = Math.max(...tt.map(r=>r.threat), 0.001);
+    const rowsHtml = tt.map(r=>{
+      const w = (r.threat/mx*100).toFixed(0);
+      const nm = (r.name||'').length>18 ? r.name.slice(0,18)+'…' : (r.name||r.card);
+      return `<div style="display:flex;align-items:center;gap:6px;margin:2px 0;font-size:11px">`
+        +`<span style="width:170px;text-align:right;color:#c9d1d9;white-space:nowrap;overflow:hidden">${nm}</span>`
+        +`<span style="flex:1;background:#161b22;border-radius:3px"><span style="display:inline-block;height:12px;width:${w}%;background:#f85149;border-radius:3px"></span></span>`
+        +`<span style="width:150px;color:#8b949e;white-space:nowrap">t=${r.threat.toFixed(2)} lift=${r.lift.toFixed(3)} n=${r.n}</span>`
+        +`</div>`;
+    }).join('');
+    cards.push(`<div class="card" style="grid-column:1/-1"><h2>⑱ 相手カード脅威テーブル (決定層 card-aware、 データ駆動)</h2>
+      <p class="sub">corpus の faced lift = 「相手がこの駒を場に持つと hero 勝率がどれだけ下がるか」。 脅威度 t = clamp(-lift/0.20, 0..1)。 決定層 opp_threat が優先攻撃/除去の順序に使う (ONEPIECE_OPPCARD_W)</p>
+      ${rowsHtml}
+      <p class="note">value(盤面採点)はカードを区別しない=盲目。 これは「どの駒を叩くか」を実データの脅威度で順序づける決定層レバー (value 特徴でなく argmax を直接動かす)。 lift が負ほど対面が苦しい=優先対処。 採否は arena A/B で gate</p></div>`);
+  }
   // ⑫ ゲーム長分布
   cards.push(`<div class="card"><h2>⑫ ゲーム長 分布</h2>
     <p class="sub">中央値 ${c.game_len_median||'—'} ターン (${(c.game_len_n||0).toLocaleString()} game)。 短すぎ=速攻偏り</p>
