@@ -93,9 +93,20 @@ RO_BEAM_W, RO_BEAM_D = int(os.environ.get("ONEPIECE_EIV1_RO_BW", "4")), \
 
 
 def _mk_rollout_ai(is_hero: bool, seed: int):
-    """rollout 中の 1 プレイヤーの AI。 beam なら hero=EIV1 value / opp=agnostic (配備と同じ構図)。"""
+    """rollout 中の 1 プレイヤーの AI。 beam なら hero=EIV1 value / opp=agnostic (配備と同じ構図)。
+
+    ⭐ policy iteration (ループを閉じる): ONEPIECE_EIV1_RO_HERO_VALUE で rollout の読み手 value を
+    上書きできる。 学習した value_rollout_beam が value.pkl を絶対 gate で超えたら、 これを指して
+    rollout policy 自体を強化 → yr ラベルがより正確に → value がさらに強く… の複利を回す。
+    ⚠ 超える前に閉じると rollout が弱くなり逆効果 → gate 通過後のみ設定する。"""
     if RO_AI == "beam":
-        vp = (str(EIV1_VALUE) if EIV1_VALUE.exists() else AGNOSTIC) if is_hero else AGNOSTIC
+        hero_override = os.environ.get("ONEPIECE_EIV1_RO_HERO_VALUE")
+        if is_hero and hero_override and os.path.exists(hero_override):
+            vp = hero_override
+        elif is_hero:
+            vp = str(EIV1_VALUE) if EIV1_VALUE.exists() else AGNOSTIC
+        else:
+            vp = AGNOSTIC
         return ExploitBeamAI(rng=random.Random(seed), gbm_path=vp,
                              beam_width=RO_BEAM_W, max_depth=RO_BEAM_D)
     return GreedyAI(rng=random.Random(seed))
