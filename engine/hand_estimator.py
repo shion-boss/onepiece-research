@@ -889,15 +889,95 @@ def update_belief_from_action(
     return posterior_pmf
 
 
+_BELIEF_REPO = None
+
+
+def _belief_repo():
+    """card_id → CardDef 材料化用の CardRepository (cached)。"""
+    global _BELIEF_REPO
+    if _BELIEF_REPO is None:
+        from pathlib import Path
+        from .deck import CardRepository
+        _BELIEF_REPO = CardRepository.from_json(
+            Path(__file__).resolve().parent.parent / "db" / "cards.json"
+        )
+    return _BELIEF_REPO
+
+
+def _belief_determinize(state: GameState, opp_idx: int, rng: random.Random) -> bool:
+    """opp の hand+deck を belief モデルが sample した実レシピから埋める (= belief 配線)。
+
+    relations: [[project_search_route_pivot]] / [[project_opponent_deck_belief_model]]。
+    uniform-from-real-deck (= deck 既知前提) と違い、 相手 leader (公開) + seen (= 見えた札) から
+    coherent な 1 デッキを引き、 隠匿ゾーン (hand/deck) をそこから materialize する。 real life は保持。
+    self-play (deck 既知) では強さ ~中立だが、 deployment (deck 未知) で「相手の型を読む」ための配線。
+
+    不整合 (未知 leader / belief データ無 / 材料不足) は False → caller が uniform に fallback。
+    """
+    from collections import Counter
+    try:
+        from . import opponent_deck_model as _ODM
+    except Exception:
+        return False
+    opp = state.players[opp_idx]
+    leader = getattr(opp.leader, "card", None)
+    leader_id = getattr(leader, "card_id", None)
+    if not leader_id:
+        return False
+    model = _ODM.get_default_model()
+    if not model.has_leader(leader_id):
+        return False
+    # seen = 相手デッキに確実に在る札 (= field chara + stage + trash)。 hand/life は隠匿なので含めない。
+    seen: Counter = Counter()
+    for ip in list(opp.characters) + list(opp.stages):
+        cid = getattr(getattr(ip, "card", None), "card_id", None)
+        if cid:
+            seen[cid] += 1
+    for c in opp.trash:
+        cid = getattr(c, "card_id", None)
+        if cid:
+            seen[cid] += 1
+    sampled = model.sample_main(leader_id, rng=rng, seen=dict(seen))
+    if not sampled:
+        return False
+    deck_ms: Counter = Counter()
+    for cid, cnt in sampled:
+        deck_ms[cid] += int(cnt)
+    # 隠匿プール = belief deck - 既知ゾーン (= hand + deck + life 相当)。 Counter 減算は負を 0 に丸める。
+    hidden_ms = deck_ms - seen
+    repo = _belief_repo()
+    hidden_cards: list = []
+    for cid, cnt in hidden_ms.items():
+        try:
+            card = repo.get(cid)
+        except Exception:
+            continue
+        hidden_cards.extend([card] * cnt)
+    n_hand = len(opp.hand)
+    n_deck = len(opp.deck)
+    if len(hidden_cards) < n_hand + n_deck:
+        return False   # 材料不足 (= 不整合) → uniform fallback
+    rng.shuffle(hidden_cards)
+    # hand=|hand|、 deck=|deck| を belief から割当。 余り (~|life| 枚) は drop (= real life を保持)。
+    opp.hand = hidden_cards[:n_hand]
+    opp.deck = hidden_cards[n_hand:n_hand + n_deck]
+    opp.known_hand_card_ids = []   # 隠匿再サンプルなので既知手札マークは無効化
+    return True
+
+
 def determinize_state(
     state: GameState,
     opp_idx: int,
     rng: Optional[random.Random] = None,
+    use_belief: Optional[bool] = None,
 ) -> None:
     """state を「完全情報化」: opp.hand を deck からのランダムサンプルで置換。
 
     MCTSAI の rollout / Lookahead の評価で、 opp.hand を見ない (= 公正な) 探索に使う。
     呼出し前に state を deepcopy しておくこと (本物を壊さないため)。
+
+    use_belief (= 既定は env ONEPIECE_BELIEF_DETERMINIZE): True で相手 leader belief モデルから
+    coherent な実レシピを引いて hand/deck を埋める (= belief 配線)。 失敗時は uniform に fallback。
     """
     import os as _os_or
     if _os_or.environ.get("ONEPIECE_ORACLE_HAND") == "1":
@@ -906,14 +986,22 @@ def determinize_state(
         return
     if rng is None:
         rng = state.rng or random.Random()
+    if use_belief is None:
+        use_belief = _os_or.environ.get("ONEPIECE_BELIEF_DETERMINIZE") == "1"
+    if use_belief:
+        try:
+            if _belief_determinize(state, opp_idx, rng):
+                return
+        except Exception:
+            pass   # belief 失敗 → uniform fallback
     opp = state.players[opp_idx]
     pool = list(opp.deck) + list(opp.hand)
     n = len(opp.hand)
     if n == 0 or not pool:
         return
-    sampled = rng.sample(pool, n)
-    # 残りはデッキ
-    remaining = [c for c in pool if c not in sampled]
-    # rng.sample は順序ランダム、 remaining はデッキ底順 (= 元順序維持)
-    opp.hand = sampled
-    opp.deck = remaining
+    # ⚠ index でサンプルする (= 値 `not in` は frozen CardDef の値等価で重複を過剰除去して
+    # deck が縮む bug。 2026-07-27 発見)。 sampled instance だけを正確に hand へ移す。
+    idxs = rng.sample(range(len(pool)), n)
+    idxset = set(idxs)
+    opp.hand = [pool[i] for i in idxs]
+    opp.deck = [pool[i] for i in range(len(pool)) if i not in idxset]
