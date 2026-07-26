@@ -318,6 +318,7 @@ def _corpus_stats(force: bool = False) -> dict:
     except Exception:
         pass
     res["threat_table"] = _threat_table_data()   # corpus 非依存 (静的 file) なので try 外で常時
+    res["crossover"] = _crossover_data()          # rollout PI loop の crossover 進捗 (log parse)
     for tag, key in (("rollout_corpus.jsonl", "rollout_greedy"),
                      ("rollout_corpus_beam.jsonl", "rollout_beam")):
         f = EIV1 / tag
@@ -380,6 +381,44 @@ def _threat_table_data(top: int = 20) -> list:
         return rows
     except Exception:
         return []
+
+
+def _crossover_data() -> list:
+    """rollout PI loop の GATE 行を parse して crossover 進捗 (vs deployed / vs agnostic × corpus)。
+    value_rollout が 配備 value.pkl を超える (vs deployed > 0.50) = crossover。 policy 別に系列化。"""
+    import re
+    # (label, ログ, max_corpus): 4/4 は feature search 交絡 (Sunday 05:17、 corpus~10762 で 94→154 次元)
+    # 以降の GATE が壊れ (0.381 固定) なので、 交絡前 (corpus<10000) の clean 点だけ表示する。
+    files = [("beam 8/6", "pi_loop_beam86.log", None), ("beam 4/4", "pi_loop.log", 10000)]
+    out = []
+    for label, fn, max_corpus in files:
+        p = EIV1 / "rollout_scale" / fn
+        if not p.exists():
+            continue
+        pts = []
+        try:
+            for line in p.read_text(encoding="utf-8").splitlines():
+                if "GATE" not in line:
+                    continue
+                md = re.search(r"vs deployed\(criterion\)=([0-9.]+)", line)
+                ma = re.search(r"vs agnostic\(ref\)=([0-9.]+)", line)
+                mc = re.search(r"corpus=([0-9]+)", line)
+                if md and mc:
+                    corpus = int(mc.group(1))
+                    if max_corpus is not None and corpus >= max_corpus:
+                        continue   # 交絡区間を除外
+                    pts.append({"corpus": corpus,
+                                "deployed": float(md.group(1)),
+                                "agnostic": float(ma.group(1)) if ma else None})
+        except Exception:
+            continue
+        if pts:
+            latest = pts[-1]
+            out.append({"policy": label, "points": pts,
+                        "latest_deployed": latest["deployed"],
+                        "latest_corpus": latest["corpus"],
+                        "crossed": latest["deployed"] > 0.50})
+    return out
 
 
 def _calibration(rows: list) -> dict:
@@ -541,6 +580,28 @@ function line(data, xk, yk, {ymin=null,ymax=null,fmt=(v)=>v.toFixed(3),ref=null,
   return `<svg viewBox="0 0 ${W} ${H}">${g}</svg>`;
 }
 function fmt2(v){return Number.isInteger(v)?v:v.toFixed(0);}
+function crossoverChart(series){
+  const W=440,H=220,pl=44,pr=12,pt=16,pb=28;
+  if(!series||!series.length) return `<svg viewBox="0 0 ${W} ${H}"><text x="${W/2}" y="${H/2}" class="lbl" text-anchor="middle">GATE データ待ち (最初の checkpoint 後に表示)</text></svg>`;
+  const y0=0.30,y1=0.60,allx=[];
+  series.forEach(s=>s.points.forEach(p=>allx.push(p.corpus)));
+  const x0=0,x1=Math.max(...allx,2000);
+  const X=v=>pl+(x1===x0?0.5:(v-x0)/(x1-x0))*(W-pl-pr);
+  const Y=v=>pt+(1-(v-y0)/(y1-y0))*(H-pt-pb);
+  const colors=['#3fb950','#58a6ff','#d29922'];
+  let g='';
+  for(let i=0;i<=6;i++){const yv=y0+(y1-y0)*i/6,yy=Y(yv);
+    g+=`<line class="gl" x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}"/><text class="lbl" x="${pl-4}" y="${yy+3}" text-anchor="end">${yv.toFixed(2)}</text>`;}
+  {const yy=Y(0.50);g+=`<line x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}" stroke="#f85149" stroke-dasharray="5 3" stroke-width="1.5"/><text class="lbl" x="${W-pr}" y="${yy-3}" text-anchor="end" fill="#f85149">crossover 0.50</text>`;}
+  series.forEach((s,si)=>{const col=colors[si%colors.length];
+    const path=s.points.map((p,i)=>`${i?'L':'M'}${X(p.corpus).toFixed(1)} ${Y(p.deployed).toFixed(1)}`).join(' ');
+    g+=`<path d="${path}" fill="none" stroke="${col}" stroke-width="2"/>`;
+    for(const p of s.points){g+=`<circle cx="${X(p.corpus)}" cy="${Y(p.deployed)}" r="3" fill="${col}"/>`;}
+    g+=`<rect x="${pl+6+si*150}" y="${pt-13}" width="10" height="10" fill="${col}"/><text class="lbl" x="${pl+20+si*150}" y="${pt-4}">${s.policy} → ${(s.latest_deployed*100).toFixed(0)}%</text>`;
+  });
+  g+=`<text class="lbl" x="${pl}" y="${H-6}">0</text><text class="lbl" x="${W-pr}" y="${H-6}" text-anchor="end">corpus ${fmt2(x1)}</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}">${g}</svg>`;
+}
 function bars(data,lk,vk,{fmt=(v)=>v.toFixed(2)}={}){
   const W=420,H=200,pl=44,pr=12,pt=12,pb=40;const vs=data.map(d=>d[vk]);
   if(!data.length)return '<svg viewBox="0 0 420 200"></svg>';
@@ -734,6 +795,15 @@ async function load(force){
     <p class="sub">「最終勝敗ラベル」より強い教師か。 <b>arena=value_rollout vs value_outcome</b> が本命指標 (>50%=rollout ラベルが兄弟手の優劣を教えている)。 corr=y と yr の相関、 trend=データ量×勝率 (kサンプル→勝率)</p>
     <table><tr style="color:#8b949e"><td>rollout policy</td><td>corpus</td><td>arena vs outcome</td><td>corr</td><td>trend (n→win)</td></tr>${rows.join('')||'<tr><td colspan=5>収集中</td></tr>'}</table>
     <p class="note">greedy rollout=policy非整合で互角(0.496)。 beam rollout=探索と同分布で改善(0.540→0.569、 データ量で強化中)。 緑=rollout ラベルが outcome より良い教師。 policy を増やすと自動で行が増える (rollout_corpus_&lt;tag&gt;.jsonl)</p></div>`);
+  // ⑲ rollout crossover 進捗 (vs 配備 value.pkl が 0.50 超えれば value超え = ループを閉じる)
+  const xover = c.crossover || [];
+  const xoStatus = xover.length
+    ? xover.map(s=>`${s.policy}: <b style="color:${s.crossed?'#3fb950':(s.latest_deployed>=0.47?'#d29922':'#8b949e')}">${(s.latest_deployed*100).toFixed(1)}%</b>@${(s.latest_corpus/1000).toFixed(1)}k${s.crossed?' ⭐crossover':''}`).join(' / ')
+    : '収集中 (最初の GATE checkpoint 待ち)';
+  cards.push(`<div class="card" style="grid-column:1/-1"><h2>⑲ rollout crossover 進捗 (vs 配備 value)</h2>
+    <p class="sub">value_rollout の <b>vs deployed(criterion)</b> を corpus 量に対してプロット。 赤破線 <b>0.50 を超えれば value.pkl 超え = crossover</b> (= policy iteration のループを閉じる判断点)。 系列 = rollout policy 別</p>
+    ${crossoverChart(xover)}
+    <p class="note">現況 — ${xoStatus}。 4/4 は ~0.45 plateau だったのに対し 8/6 (深い教師) が登れば crossover。 各点 = 2 batch 毎の checkpoint (N≈160)</p></div>`);
   // ⑭ ExIt 複利ループ (本命)
   const ex=s.exit||{history:[],has_policy:false};
   cards.push(`<div class="card"><h2>⑭ ExIt 複利ループ (探索→policy蒸留→探索↑)</h2>
