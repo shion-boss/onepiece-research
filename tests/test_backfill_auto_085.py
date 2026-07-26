@@ -469,10 +469,8 @@ def test_op08_045_sacchi_replace_leave_trash_then_draw():
         st, me, opp, sacchi, overlay, by_opp_effect=True, leave_kind="ko")
     assert replaced is True, "KO を トラッシュ+ドロー で置換できていない"
     assert len(me.hand) == hand_before + 1, "置換効果で 1 ドローされるべき"
-    # trash_self cost: サッチ自身が場→トラッシュ (場に残ってはいけない)
-    assert sacchi not in me.characters, "trash_self で場を離れるべき (場に残っている)"
-    assert repo.get("OP08-045") in me.trash or any(
-        c.card_id == "OP08-045" for c in me.trash), "サッチがトラッシュに置かれるべき"
+    assert sacchi not in me.characters, "サッチは代わりにトラッシュへ置かれ場を離れるべき"
+    assert repo.get("OP08-045") in me.trash, "サッチのカードがトラッシュに置かれるべき"
 
 
 # --------------------------------------------------------------------------- #

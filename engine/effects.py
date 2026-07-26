@@ -4087,8 +4087,25 @@ def _execute_effect_body(
                     remaining.append(c)
             for c in picked:
                 if destination == "play":
+                    if c.category == Category.STAGE:
+                        # STAGE を「登場させる」 (= OP08-100 サウスバード→アッパーヤード)。
+                        # game.py:PlayStage / effects.py:6039 と同様、 3-8-5-1 既存ステージ
+                        # (MAX 超) は持ち主のトラッシュへ、 stages へ配置 (sickness/rested 無関係)。
+                        # 3-8-3: ステージエリアに置くことも「登場」 → 【登場時】発動可。
+                        if len(me.stages) >= Player.MAX_STAGES:
+                            old = me.stages.pop()
+                            me.trash.append(old.card)
+                            if old.attached_dons > 0:
+                                me.don_rested += old.attached_dons
+                            state.push_log(f"  既存ステージ {old.card.name} をトラッシュへ")
+                        ip = InPlay.of(c, rested=False, sickness=False)
+                        me.stages.append(ip)
+                        state.push_log(f"  効果: search_top_n → 登場 {c.name} (ステージ)")
+                        if state.effects_overlay:
+                            trigger_on_play(state, me, opp, ip, state.effects_overlay)
+                        continue
                     if c.category != Category.CHARACTER:
-                        # キャラ以外は登場できない → 手札にもどす (簡略フォールバック)
+                        # LEADER 等 登場不可 → 手札にもどす (フォールバック)
                         me.hand.append(c)
                         continue
                     if not me.can_play_character():
@@ -9601,7 +9618,7 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             # cost 払う + do 実行 → KO は cancel された (= victim 場 に 残る)
             holder_cid = holder.card.card_id
             if cost_specs:
-                _pay_replace_cost(state, owner, cost_specs, holder_cid, victim=victim)
+                _pay_replace_cost(state, owner, cost_specs, holder_cid, holder)
             state.push_log(
                 f"  離脱置換 ({when_key}): {victim.card.name} → {holder.card.name} の効果で代替"
             )
@@ -12140,7 +12157,7 @@ def try_replace_ko(
                     cost_specs_pre = eff.get("cost", [])
                     holder_card_id_pre = inplay.card.card_id
                     if cost_specs_pre and not _can_pay_replace_cost(
-                        state, owner, cost_specs_pre, holder_card_id_pre, victim=victim
+                        state, owner, cost_specs_pre, holder_card_id_pre, inplay
                     ):
                         continue
                     # do_spec / cost_specs を シリアライズ して pending_choice に 退避
@@ -12168,9 +12185,9 @@ def try_replace_ko(
             cost_specs = eff.get("cost", [])
             holder_card_id = inplay.card.card_id
             if cost_specs:
-                if not _can_pay_replace_cost(state, owner, cost_specs, holder_card_id, victim=victim):
+                if not _can_pay_replace_cost(state, owner, cost_specs, holder_card_id, inplay):
                     continue
-                _pay_replace_cost(state, owner, cost_specs, holder_card_id, victim=victim)
+                _pay_replace_cost(state, owner, cost_specs, holder_card_id, inplay)
             state.push_log(
                 f"  離脱置換 ({when}): {victim.card.name} → {inplay.card.name} の効果で代替"
             )
@@ -12252,9 +12269,9 @@ def try_replace_rest(
         cost_specs = eff.get("cost", [])
         holder_card_id = victim.card.card_id
         if cost_specs:
-            if not _can_pay_replace_cost(state, victim_owner, cost_specs, holder_card_id, victim=victim):
+            if not _can_pay_replace_cost(state, victim_owner, cost_specs, holder_card_id, victim):
                 continue
-            _pay_replace_cost(state, victim_owner, cost_specs, holder_card_id, victim=victim)
+            _pay_replace_cost(state, victim_owner, cost_specs, holder_card_id, victim)
         state.push_log(f"  レスト置換: {victim.card.name} の効果で発動")
         # 置換 do の actor は victim_owner (= レスト される側の持ち主)。 victim_owner が human
         # ならその人が target_pick、 AI なら human modal を出さない (= forced=-1)。 これをしないと
@@ -12276,16 +12293,22 @@ def try_replace_rest(
 
 def _can_pay_replace_cost(
     state: GameState, me: Player, cost_specs: list[dict], holder_card_id: str | None = None,
-    victim: "InPlay | None" = None,
+    holder_inplay: "InPlay | None" = None,
 ) -> bool:
     """replace_ko / replace_leave の cost 配列が払えるかチェック。 R3 拡張。
 
     holder_card_id を 渡すと once_per_turn の 使用 済み 判定 が 効く (= 既に 同一 ターン に
-    発動済 なら 払えない 扱い)。 victim を 渡すと trash_self/self_ko cost (= 代わりに自身を
-    トラッシュ/KO) の 支払判定 に 使う (置換対象自身が場に在れば払える)。
+    発動済 なら 払えない 扱い)。 holder_inplay は trash_self (= 自身をトラッシュへ) 用。
     """
     for cs in cost_specs:
-        if "discard_hand_with_filter" in cs:
+        if "trash_self" in cs:
+            # 「代わりにこのキャラをトラッシュに置き」 (OP08-045 サッチ 等)。
+            # holder (= 効果保有キャラ) を場からトラッシュへ移す = holder が場に在れば常に払える。
+            if not bool(cs["trash_self"]):
+                continue
+            if holder_inplay is None or holder_inplay not in me.characters:
+                return False
+        elif "discard_hand_with_filter" in cs:
             df_spec = cs["discard_hand_with_filter"]
             if "filter" in df_spec:
                 d_filt = df_spec.get("filter", {})
@@ -12326,12 +12349,6 @@ def _can_pay_replace_cost(
                 key = f"replace_opt::{holder_card_id}"
                 if key in me.once_per_turn_used:
                     return False
-        elif "trash_self" in cs or "self_ko" in cs:
-            # 【代わりに自身をトラッシュ/KO する】(OP08-045 サッチ 等)。 置換対象 (victim) 自身が
-            # 場を離れようとしている当人 → 場に在れば常に払える。 victim 未指定 (旧 call site) でも
-            # 置換文脈は victim 存在保証なので許可。
-            if victim is not None and victim not in me.characters:
-                return False
         else:
             # 未対応 cost は支払不能扱い (= 公式 4-10 解釈不能→False)
             return False
@@ -12340,26 +12357,25 @@ def _can_pay_replace_cost(
 
 def _pay_replace_cost(
     state: GameState, me: Player, cost_specs: list[dict], holder_card_id: str | None = None,
-    victim: "InPlay | None" = None,
+    holder_inplay: "InPlay | None" = None,
 ) -> None:
-    """replace_ko / replace_leave の cost 配列を実行 (消費)。 victim = 置換対象 (trash_self 用)。"""
+    """replace_ko / replace_leave の cost 配列を実行 (消費)。"""
     for cs in cost_specs:
-        if ("trash_self" in cs or "self_ko" in cs) and victim is not None:
-            # 【代わりに自身をトラッシュ/KO】(OP08-045 サッチ)。 置換で 通常 KO/離脱は skip され
-            # victim が 場に残る ので、 ここで 明示的に 場→トラッシュ。 付与ドンは レストで
-            # コストエリアへ (6-5-5-4)。 ⚠ on-KO trigger は 発火させない (= KO でなく 「トラッシュに
-            # 置く」 置換イベント = 公式 replacement は 元イベントを 置き換える)。
-            if victim in me.characters:
-                me.characters.remove(victim)
-                me.trash.append(victim.card)
-                if victim.attached_dons > 0:
-                    me.don_rested += victim.attached_dons
-                state.push_log(f"  離脱置換コスト: {victim.card.name} をトラッシュ")
-            continue
         if "once_per_turn" in cs and bool(cs["once_per_turn"]):
             # 【ターン1回】 使用済みフラグ
             if holder_card_id is not None:
                 me.once_per_turn_used.add(f"replace_opt::{holder_card_id}")
+            continue
+        if "trash_self" in cs:
+            # 「代わりにこのキャラをトラッシュに置き」 — holder を場からトラッシュへ移動。
+            if not bool(cs["trash_self"]):
+                continue
+            if holder_inplay is not None and holder_inplay in me.characters:
+                me.characters.remove(holder_inplay)
+                me.trash.append(holder_inplay.card)
+                if holder_inplay.attached_dons > 0:
+                    me.don_rested += holder_inplay.attached_dons
+                state.push_log(f"  離脱置換: {holder_inplay.card.name} をトラッシュへ")
             continue
         if "discard_hand_with_filter" in cs:
             df_spec = cs["discard_hand_with_filter"]
