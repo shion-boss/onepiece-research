@@ -450,15 +450,10 @@ def test_op08_044_king_dew_no_pump_when_insufficient_whitebeard():
 # --------------------------------------------------------------------------- #
 #  OP08-045 サッチ:
 #    このキャラがKOされるか相手効果で場を離れる場合、代わりにトラッシュに置き
-#    カード1枚を引く。(replace_leave)
-#  ⚠ engine gap: _can_pay_replace_cost が cost {"trash_self": true} を未対応
-#    (= 未対応 cost は支払不能扱いで replace_leave が発火しない)。
-#    engine 修正は人間レビュー案件のため、 このカードのテストは skip する。
+#    カード1枚を引く。(replace_leave, cost={"trash_self": true})
+#  engine: _can_pay/_pay_replace_cost が trash_self を victim 経由で処理 (置換で通常 KO を
+#    skip → victim を明示的に場→トラッシュ)。 2026-07-26 pending review で実装。
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason=(
-    "engine gap: effects._can_pay_replace_cost が replace_leave の cost "
-    "{'trash_self': true} を未対応 (未対応 cost=支払不能扱い) のため replace_leave が "
-    "発火せず。 engine 修正は人間レビューに回す (このタスクでは engine を編集しない)。"))
 def test_op08_045_sacchi_replace_leave_trash_then_draw():
     repo = _repo()
     overlay = _overlay()
@@ -474,6 +469,10 @@ def test_op08_045_sacchi_replace_leave_trash_then_draw():
         st, me, opp, sacchi, overlay, by_opp_effect=True, leave_kind="ko")
     assert replaced is True, "KO を トラッシュ+ドロー で置換できていない"
     assert len(me.hand) == hand_before + 1, "置換効果で 1 ドローされるべき"
+    # trash_self cost: サッチ自身が場→トラッシュ (場に残ってはいけない)
+    assert sacchi not in me.characters, "trash_self で場を離れるべき (場に残っている)"
+    assert repo.get("OP08-045") in me.trash or any(
+        c.card_id == "OP08-045" for c in me.trash), "サッチがトラッシュに置かれるべき"
 
 
 # --------------------------------------------------------------------------- #
