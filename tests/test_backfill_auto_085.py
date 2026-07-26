@@ -455,10 +455,6 @@ def test_op08_044_king_dew_no_pump_when_insufficient_whitebeard():
 #    (= 未対応 cost は支払不能扱いで replace_leave が発火しない)。
 #    engine 修正は人間レビュー案件のため、 このカードのテストは skip する。
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason=(
-    "engine gap: effects._can_pay_replace_cost が replace_leave の cost "
-    "{'trash_self': true} を未対応 (未対応 cost=支払不能扱い) のため replace_leave が "
-    "発火せず。 engine 修正は人間レビューに回す (このタスクでは engine を編集しない)。"))
 def test_op08_045_sacchi_replace_leave_trash_then_draw():
     repo = _repo()
     overlay = _overlay()
@@ -474,6 +470,8 @@ def test_op08_045_sacchi_replace_leave_trash_then_draw():
         st, me, opp, sacchi, overlay, by_opp_effect=True, leave_kind="ko")
     assert replaced is True, "KO を トラッシュ+ドロー で置換できていない"
     assert len(me.hand) == hand_before + 1, "置換効果で 1 ドローされるべき"
+    assert sacchi not in me.characters, "サッチは代わりにトラッシュへ置かれ場を離れるべき"
+    assert repo.get("OP08-045") in me.trash, "サッチのカードがトラッシュに置かれるべき"
 
 
 # --------------------------------------------------------------------------- #

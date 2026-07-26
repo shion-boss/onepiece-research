@@ -9601,7 +9601,7 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             # cost 払う + do 実行 → KO は cancel された (= victim 場 に 残る)
             holder_cid = holder.card.card_id
             if cost_specs:
-                _pay_replace_cost(state, owner, cost_specs, holder_cid)
+                _pay_replace_cost(state, owner, cost_specs, holder_cid, holder)
             state.push_log(
                 f"  離脱置換 ({when_key}): {victim.card.name} → {holder.card.name} の効果で代替"
             )
@@ -12140,7 +12140,7 @@ def try_replace_ko(
                     cost_specs_pre = eff.get("cost", [])
                     holder_card_id_pre = inplay.card.card_id
                     if cost_specs_pre and not _can_pay_replace_cost(
-                        state, owner, cost_specs_pre, holder_card_id_pre
+                        state, owner, cost_specs_pre, holder_card_id_pre, inplay
                     ):
                         continue
                     # do_spec / cost_specs を シリアライズ して pending_choice に 退避
@@ -12168,9 +12168,9 @@ def try_replace_ko(
             cost_specs = eff.get("cost", [])
             holder_card_id = inplay.card.card_id
             if cost_specs:
-                if not _can_pay_replace_cost(state, owner, cost_specs, holder_card_id):
+                if not _can_pay_replace_cost(state, owner, cost_specs, holder_card_id, inplay):
                     continue
-                _pay_replace_cost(state, owner, cost_specs, holder_card_id)
+                _pay_replace_cost(state, owner, cost_specs, holder_card_id, inplay)
             state.push_log(
                 f"  離脱置換 ({when}): {victim.card.name} → {inplay.card.name} の効果で代替"
             )
@@ -12252,9 +12252,9 @@ def try_replace_rest(
         cost_specs = eff.get("cost", [])
         holder_card_id = victim.card.card_id
         if cost_specs:
-            if not _can_pay_replace_cost(state, victim_owner, cost_specs, holder_card_id):
+            if not _can_pay_replace_cost(state, victim_owner, cost_specs, holder_card_id, victim):
                 continue
-            _pay_replace_cost(state, victim_owner, cost_specs, holder_card_id)
+            _pay_replace_cost(state, victim_owner, cost_specs, holder_card_id, victim)
         state.push_log(f"  レスト置換: {victim.card.name} の効果で発動")
         # 置換 do の actor は victim_owner (= レスト される側の持ち主)。 victim_owner が human
         # ならその人が target_pick、 AI なら human modal を出さない (= forced=-1)。 これをしないと
@@ -12275,15 +12275,23 @@ def try_replace_rest(
 
 
 def _can_pay_replace_cost(
-    state: GameState, me: Player, cost_specs: list[dict], holder_card_id: str | None = None
+    state: GameState, me: Player, cost_specs: list[dict], holder_card_id: str | None = None,
+    holder_inplay: "InPlay | None" = None,
 ) -> bool:
     """replace_ko / replace_leave の cost 配列が払えるかチェック。 R3 拡張。
 
     holder_card_id を 渡すと once_per_turn の 使用 済み 判定 が 効く (= 既に 同一 ターン に
-    発動済 なら 払えない 扱い)。
+    発動済 なら 払えない 扱い)。 holder_inplay は trash_self (= 自身をトラッシュへ) 用。
     """
     for cs in cost_specs:
-        if "discard_hand_with_filter" in cs:
+        if "trash_self" in cs:
+            # 「代わりにこのキャラをトラッシュに置き」 (OP08-045 サッチ 等)。
+            # holder (= 効果保有キャラ) を場からトラッシュへ移す = holder が場に在れば常に払える。
+            if not bool(cs["trash_self"]):
+                continue
+            if holder_inplay is None or holder_inplay not in me.characters:
+                return False
+        elif "discard_hand_with_filter" in cs:
             df_spec = cs["discard_hand_with_filter"]
             if "filter" in df_spec:
                 d_filt = df_spec.get("filter", {})
@@ -12331,7 +12339,8 @@ def _can_pay_replace_cost(
 
 
 def _pay_replace_cost(
-    state: GameState, me: Player, cost_specs: list[dict], holder_card_id: str | None = None
+    state: GameState, me: Player, cost_specs: list[dict], holder_card_id: str | None = None,
+    holder_inplay: "InPlay | None" = None,
 ) -> None:
     """replace_ko / replace_leave の cost 配列を実行 (消費)。"""
     for cs in cost_specs:
@@ -12339,6 +12348,17 @@ def _pay_replace_cost(
             # 【ターン1回】 使用済みフラグ
             if holder_card_id is not None:
                 me.once_per_turn_used.add(f"replace_opt::{holder_card_id}")
+            continue
+        if "trash_self" in cs:
+            # 「代わりにこのキャラをトラッシュに置き」 — holder を場からトラッシュへ移動。
+            if not bool(cs["trash_self"]):
+                continue
+            if holder_inplay is not None and holder_inplay in me.characters:
+                me.characters.remove(holder_inplay)
+                me.trash.append(holder_inplay.card)
+                if holder_inplay.attached_dons > 0:
+                    me.don_rested += holder_inplay.attached_dons
+                state.push_log(f"  離脱置換: {holder_inplay.card.name} をトラッシュへ")
             continue
         if "discard_hand_with_filter" in cs:
             df_spec = cs["discard_hand_with_filter"]
