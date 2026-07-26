@@ -16,6 +16,7 @@ PY=.venv/bin/python
 VR=db/eiv1/value_rollout_${TAG}.pkl
 VDEPLOY=db/eiv1/value.pkl
 CORPUS=db/eiv1/rollout_corpus_${TAG}.jsonl
+touch "$CORPUS" 2>/dev/null || true      # 初回は未存在 → wc -l の "No such file" cosmetic エラー回避 (append なので空でも安全)
 NBATCH="${NBATCH:-20}"; GAMES="${GAMES:-150}"; WORKERS="${WORKERS:-12}"
 log(){ echo "[$(date +%H:%M:%S)] $*"; }
 winrate(){ grep -oE '勝率 = [0-9.]+' | grep -oE '[0-9.]+' | head -1; }
