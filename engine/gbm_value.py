@@ -318,6 +318,14 @@ FEATURE_KEYS_V20 = FEATURE_KEYS_V19 + (
     "my_hand_rm_n", "my_hand_rm_playable_n", "my_hand_rm_cover_n", "my_hand_rm_cover_pw",
     "my_hand_rm_cover_top", "opp_bel_rm_total", "opp_bel_threat_sum", "opp_bel_threat_max",
     "opp_bel_threat_top1", "opp_bel_threat_frac")
+# v21 = 118 (2026-07-27): sig(card) 盤面合成 (自/相手 × curated 12 = 24)。 card-aware。
+_SIG_KEYS = tuple(f"my_sig_{k}" for k in (
+    "removal", "engine", "blocker", "negate", "kw_grant", "recovery", "hand_disrupt",
+    "cost_reduce", "search", "buff_power", "ramp_don", "protect")) \
+    + tuple(f"opp_sig_{k}" for k in (
+        "removal", "engine", "blocker", "negate", "kw_grant", "recovery", "hand_disrupt",
+        "cost_reduce", "search", "buff_power", "ramp_don", "protect"))
+FEATURE_KEYS_V21 = FEATURE_KEYS_V20 + _SIG_KEYS
 
 
 def _norm_read(p: Any, attr: str) -> list:
@@ -871,7 +879,7 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
              v13: Optional[bool] = None, v14: Optional[bool] = None,
              v15: Optional[bool] = None, v16: Optional[bool] = None,
              v18: Optional[bool] = None, v19: Optional[bool] = None,
-             v20: Optional[bool] = None) -> list:
+             v20: Optional[bool] = None, v21: Optional[bool] = None) -> list:
     """GameState + me_idx → feature vector。 rich=True で v2 (21)、 既定は env
     ONEPIECE_GBM_RICH (= 学習時に set)。 推論は gbm_score が model 次元で自動判別。
     v5=True (env ONEPIECE_GBM_V5) で 相手 leader の matchup tag 13 列を追加 (= 34、 matchup-条件付き)。
@@ -951,6 +959,10 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         v19 = os.environ.get("ONEPIECE_GBM_V19") == "1"
     if v20 is None:
         v20 = os.environ.get("ONEPIECE_GBM_V20") == "1"
+    if v21 is None:
+        v21 = os.environ.get("ONEPIECE_GBM_V21") == "1"
+    if v21:
+        v20 = True  # v21 ⊃ v20 (+ sig 盤面合成 24)。 v20 の後に append。
     if v20:
         v19 = True  # v20 ⊃ v19 (+ 除去射程×的 10)。 v19 の後に append。
     if v19:
@@ -1068,6 +1080,10 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         if v20:
             # 除去の射程 × 的 (自分=手札の実カード / 相手=belief の残り除去)。 v19 の後。
             out += _hand_reach_features(state, me_idx, _ls)
+        if v21:
+            # カード効果シグネチャ(sig)の盤面合成 (自/相手 × curated 12)。 v20 の後。 card-aware。
+            from .eiv1_features import sig_board_feats_from_snapshot
+            out += sig_board_feats_from_snapshot(_ls)
     return out
 
 
@@ -1109,7 +1125,8 @@ def _feat_for_dim(state, me_idx, n):
                     v12=(n == len(FEATURE_KEYS_V12)), v13=(n == len(FEATURE_KEYS_V13)),
                     v14=(n == len(FEATURE_KEYS_V14)), v15=(n == len(FEATURE_KEYS_V15)),
                     v16=(n == len(FEATURE_KEYS_V16)), v18=(n == len(FEATURE_KEYS_V18)),
-                    v19=(n == len(FEATURE_KEYS_V19)), v20=(n == len(FEATURE_KEYS_V20)))
+                    v19=(n == len(FEATURE_KEYS_V19)), v20=(n == len(FEATURE_KEYS_V20)),
+                    v21=(n == len(FEATURE_KEYS_V21)))
 
 
 # prefix 一致で slice 再利用できる次元(V1⊂V2⊂V5⊂V6⊂V11⊂V12 の chain のみ。 v3/v4/v9/v6don/v8/v10 は

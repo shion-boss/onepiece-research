@@ -292,6 +292,35 @@ def hand_reach_feats_from_snapshot(snap: dict) -> list:
         return [0.0] * 10
 
 
+# v21 = 94 + 24 (2026-07-27): カード効果シグネチャ (sig(card)) の盤面合成。 各盤面(自/相手)の
+# キャラ sig を curated 12 次元で合計 = 「盤面にどんな効果があるか」を card-aware に表現。 候補プランで
+# 盤面が変わる → sig 合成が変わる = selection-relevant (v6 と同じ shape)。 sig は overlay 由来で全カバー
+# (= per-card 統計の疎さを効果類似で汎化)。 snapshot(field card_id)から計算 → 再収集なし。
+_SIG_BOARD_DIMS = ["lbl_removal", "lbl_t_activate_main", "in_is_blocker", "lbl_negate",
+                   "lbl_keyword_grant", "lbl_life_recovery", "lbl_hand_disrupt", "lbl_cost_reduce",
+                   "lbl_search", "lbl_buff_power", "lbl_ramp_don", "lbl_protect"]
+
+
+def sig_board_feats_from_snapshot(snap: dict) -> list:
+    """自/相手盤面のキャラの効果シグネチャ合成 (curated 12 dim × 2 = 24)。 hero 盤面→opp 盤面の順。"""
+    try:
+        from . import card_sig as CS
+        hi = snap["hero_idx"]
+        out: list = []
+        for p in (snap["players"][hi], snap["players"][1 - hi]):
+            acc = [0.0] * len(_SIG_BOARD_DIMS)
+            for c in (p.get("field") or []):
+                if not isinstance(c, dict):
+                    continue
+                s = CS.for_card(c.get("card_id", "") or "")
+                for i, k in enumerate(_SIG_BOARD_DIMS):
+                    acc[i] += float(s.get(k, 0.0))
+            out.extend(acc)
+        return out
+    except Exception:
+        return [0.0] * (len(_SIG_BOARD_DIMS) * 2)
+
+
 def eiv1_train_vector(row: dict) -> list:
     """corpus 行 → v20 学習ベクトル = f(v15,43) + matchup(17) + belief残り防御資源(4)
     + 盤面の個体解像度(20) + 除去の射程×的(10) = 94dim。
