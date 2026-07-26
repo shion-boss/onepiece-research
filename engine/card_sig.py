@@ -47,6 +47,126 @@ SIG_KEYS: list[str] = (
 )
 SIG_DIM = len(SIG_KEYS)
 
+# --- 作り込み: card_labels 未マップ primitive の追加マップ + ラッパー再帰 (2026-07-26) ------ #
+# card_labels は 58 primitive しかマップしない → overlay の 141 未マップ効果/静的を sig 用に補完。
+# 効果カテゴリは _LABEL_DIMS の既存名を再利用 (新規は最小)。 コスト系(pay_don/rest_self 等)は
+# 「何をするか」でないので効果としては拾わない (intrinsic/cost は別途)。
+_ADDITIONAL_PRIM_LABEL: dict[str, tuple[str, ...]] = {
+    # コスト減
+    "cost_minus": ("cost_reduce",), "in_hand_cost_minus": ("cost_reduce",),
+    "set_base_cost_filtered_static": ("cost_reduce",), "set_base_cost": ("cost_reduce",),
+    "set_base_cost_timed": ("cost_reduce",), "reduce_play_cost": ("cost_reduce",),
+    "reduce_play_cost_filtered_static": ("cost_reduce",),
+    # デッキ/ライフ操作 (mill/scry)
+    "mill_self_top": ("life_manip",), "mill_self_life_to_trash": ("life_manip",),
+    "mill_self_life_until_n": ("life_manip",), "scry_life": ("search",),
+    "scry_all_life_one_to_deck": ("search",), "scry_deck_reorder": ("search",),
+    "scry_all_life_reorder": ("search",), "look_top_reorder": ("search",),
+    "peek_self_life_top": ("search",), "peek_opp_deck_top": ("search",),
+    "reveal_life_top_play": ("play_accel", "search"), "reveal_top_then": ("search",),
+    "shuffle_self_deck": (), "put_top_to_life": ("life_manip",), "hand_to_self_life": ("life_manip",),
+    "life_to_hand": ("life_manip",), "life_top_or_bottom_to_hand": ("life_manip",),
+    # 相手 mill/ライフ削り (aggressive)
+    "mill_opp_life_to_trash": ("disruption", "finisher_swing"),
+    "mill_opp_life_to_hand": ("disruption",), "to_opp_life": ("finisher_swing",),
+    # レスト拘束
+    "stay_rested_next_refresh": ("tempo_rest",), "keep_opp_rested_chara_next_refresh": ("tempo_rest",),
+    "keep_opp_rested_don_next_refresh": ("tempo_rest", "don_disrupt"),
+    "rest_multi": ("tempo_rest",), "set_cannot_rest": ("tempo_rest",),
+    # 回収 (トラッシュ/デッキ→手札)
+    "trash_to_hand": ("recursion",), "search_from_trash": ("recursion", "search"),
+    "play_from_trash": ("recursion", "play_accel"), "to_hand_self_trigger": ("recursion",),
+    "return_self_to_hand": ("recursion",), "return_self_to_trash": (),
+    # 手札/デッキ妨害
+    "opp_hand_to_deck_bottom": ("hand_disrupt", "disruption"),
+    "opp_hand_to_deck_then_draw": ("hand_disrupt",), "self_hand_to_deck_bottom": (),
+    "hand_to_deck_bottom": ("hand_disrupt",), "trash_opp_hand_random": ("hand_disrupt", "disruption"),
+    # 展開/プレイ
+    "play_self": ("play_accel",), "play_stage_from_hand": ("play_accel",),
+    "play_from_hand_named_with_dynamic_cost": ("play_accel",), "play_from_hand": ("play_accel",),
+    "play_from_hand_named": ("play_accel",), "summon_from_deck": ("play_accel",),
+    "play_event_from_hand": ("play_accel",),
+    # 除去追加
+    "ko_opp_stage": ("removal", "removal_ko"), "ko_total_power_le": ("removal", "removal_ko"),
+    "ko_self_with_filter": (), "chara_to_trash": ("removal",),
+    "chara_to_self_life": ("removal", "removal_tolife"), "trash_all_face_up_life": ("life_manip",),
+    "other_self_charas_to_deck_bottom": (), "opp_trash_to_deck_bottom": ("disruption",),
+    "trash_to_deck": (), "return_self_to_deck_bottom_if_condition": (),
+    # ドン妨害/操作
+    "return_opp_don": ("don_disrupt",), "return_self_don_to_deck": ("ramp_don",),
+    "rest_opp_don": ("don_disrupt",), "add_rested_don": ("ramp_don",),
+    "opp_may_return_active_don_else_debuff": ("don_disrupt",), "move_attached_don": (),
+    # 攻撃制限/静的debuff
+    "set_cannot_attack": ("disruption",), "set_cannot_attack_static": ("disruption",),
+    "set_cannot_attack_target_cost_le": ("disruption",), "cannot_attack_target_except": ("disruption",),
+    "cannot_attack_target_cost_le": ("disruption",), "set_attack_taunt": ("disruption",),
+    "block_chara_play_turn": ("disruption",), "force_opp_play_from_hand": ("disruption",),
+    "disable_opp_on_play_through_opp_turn": ("disruption", "negate"),
+    "prevent_blocker_for_attacker": ("disruption",),
+    "prevent_blocker_for_attacker_power_le": ("disruption",),
+    "disable_blocker": ("disruption",), "block_self_draw_turn": (),
+    # 保護/耐性
+    "give_ko_immune_through_opp_turn": ("protect",), "set_battle_ko_immune": ("protect",),
+    "set_ko_immune": ("protect",), "set_ko_immune_timed": ("protect",),
+    "set_ko_immune_battle_only": ("protect",), "prevent_ko": ("protect",),
+    "set_protect_from_opp_effect_static": ("protect",), "set_immune_attribute_in_battle": ("protect",),
+    "prevent_self_life_to_hand_turn": ("protect",),
+    # パワー/バフ追加
+    "power_pump_multi": ("buff_power",), "power_pump_per_target_attached_don": ("buff_power",),
+    "set_base_power": ("power_set",), "set_base_power_timed": ("power_set",),
+    "set_base_power_copy": ("power_set",), "swap_opp_power": ("power_set",),
+    "swap_self_power": ("power_set",),
+    # キーワード付与
+    "give_keyword": ("keyword_grant",), "give_rush": ("rush_grant", "keyword_grant"),
+    "give_attack_active_chara": ("keyword_grant",),
+    # 無効/その他
+    "disable_effect": ("negate",), "negate_effect": ("negate",),
+    "extra_turn": ("finisher_swing",), "redirect_attack": ("redirect",),
+    "flip_life_face_up_effect": ("life_manip",), "reveal_self_life_top_pump_per_cost": ("buff_power",),
+    "static_swords_attack_chara": ("buff_power",),
+    # 特殊勝利・残り
+    "win_game": ("finisher_swing",), "set_deck_out_wins": ("finisher_swing",),
+    "keep_opp_rested_chara_with_don_ge_next_refresh": ("tempo_rest",),
+}
+# ラッパー: 内側の効果リストをどう取り出すか (再帰対象)
+_WRAPPERS: dict[str, str] = {
+    "optional_cost_then": "effect",        # {cost, effect:[...]}
+    "conditional": "do",                    # {do:[...], if}
+    "optional_effect": "do",
+    "optional_discard_hand_for_battle_buff": "do",
+}
+
+
+def _collect_effect_labels(effs, out: set, depth: int = 0) -> None:
+    """overlay の効果ツリーを再帰的に歩き、 効果カテゴリ label を out に集める。
+    ラッパー(optional_cost_then/conditional/choice_effect…)は内側を再帰。"""
+    if depth > 8:
+        return
+    from . import card_labels as CL
+    for e in (effs if isinstance(effs, list) else [effs]):
+        if not isinstance(e, dict):
+            continue
+        # do + cost の両方を見る (cost にも効果的な primitive があるが、 主に do)
+        for bucket in ("do", "cost"):
+            for prim in (e.get(bucket) or []):
+                if not isinstance(prim, dict):
+                    continue
+                for k, v in prim.items():
+                    if k in _WRAPPERS:                       # ラッパー → 内側を再帰
+                        inner = v.get(_WRAPPERS[k]) if isinstance(v, dict) else None
+                        if inner:
+                            _collect_effect_labels([{"do": inner}], out, depth + 1)
+                    elif k == "choice_effect":               # {options:[{do:[...]}]}
+                        opts = v.get("options") if isinstance(v, dict) else None
+                        for opt in (opts or []):
+                            if isinstance(opt, dict) and opt.get("do"):
+                                _collect_effect_labels([{"do": opt["do"]}], out, depth + 1)
+                    elif k in CL._PRIM_LABEL:
+                        out.update(CL._PRIM_LABEL[k])
+                    elif k in _ADDITIONAL_PRIM_LABEL:
+                        out.update(_ADDITIONAL_PRIM_LABEL[k])
+
+
 _DB: Optional[dict] = None
 
 
@@ -70,15 +190,18 @@ def build_all(overlay_path: Optional[str] = None) -> dict:
     cav = CK.build_all(overlay_path)
     # ⚠ labels_for_card を per-card で呼ぶと build_all が毎回再実行され激遅 → 1回だけ dict を取り直接引く
     label_db = CL.build_all()
+    ov_path = overlay_path or str(_ROOT / "db" / "card_effects.json")
+    overlay = json.loads(Path(ov_path).read_text(encoding="utf-8"))
 
     out: dict = {}
     for cid, card in cards.items():
         sig = _blank()
-        # 1) labels (one-hot)。 ⚠ card_labels は効果を "labels"、 timing(登場時/起動メイン等)を
-        # "timings" の別キーで返す → 両方 union しないと timing (t_on_play/t_activate_main…) が欠落。
+        # 1) labels (one-hot)。 timing は card_labels の "timings"(登場時/起動メイン等)、
+        # 効果カテゴリは overlay を **再帰 walk**(ラッパー展開 + 追加マップ)で網羅収集 → ギャップ解消。
         try:
             rec = label_db.get(cid) or {}
-            labs = set(rec.get("labels") or []) | set(rec.get("timings") or [])
+            labs = set(rec.get("timings") or [])
+            _collect_effect_labels(overlay.get(cid) or [], labs)
         except Exception:
             labs = set()
         for k in _LABEL_DIMS:
