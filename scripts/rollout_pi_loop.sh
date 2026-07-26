@@ -8,11 +8,14 @@
 # 進捗は per-game で db/eiv1/collect_progress_beam.log に出る (tail -f 可)。
 set -u
 cd /home/ohtsuki/projects/onepiece_research
-export ONEPIECE_EIV1_RO_AI=beam          # tag=beam → rollout_corpus_beam.jsonl に APPEND (resumable)
+TAG="${TAG:-beam}"                       # rollout policy 別に corpus/value を分離 (beam=4/4, beam86=8/6)
+export ONEPIECE_EIV1_RO_AI=beam
+export ONEPIECE_EIV1_RO_TAG="$TAG"
+export ONEPIECE_EIV1_RO_BW="${RO_BW:-4}" ONEPIECE_EIV1_RO_BD="${RO_BD:-4}"   # rollout 探索の深さ (教師強度)
 PY=.venv/bin/python
-VR=db/eiv1/value_rollout_beam.pkl
+VR=db/eiv1/value_rollout_${TAG}.pkl
 VDEPLOY=db/eiv1/value.pkl
-CORPUS=db/eiv1/rollout_corpus_beam.jsonl
+CORPUS=db/eiv1/rollout_corpus_${TAG}.jsonl
 NBATCH="${NBATCH:-20}"; GAMES="${GAMES:-150}"; WORKERS="${WORKERS:-12}"
 log(){ echo "[$(date +%H:%M:%S)] $*"; }
 winrate(){ grep -oE '勝率 = [0-9.]+' | grep -oE '[0-9.]+' | head -1; }
