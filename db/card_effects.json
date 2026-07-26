@@ -10686,7 +10686,7 @@
    "when": "on_play",
    "do": [
     {
-     "stay_rested_next_refresh": "one_opponent_rested_character_le_7cost"
+     "stay_rested_next_refresh": "one_opponent_rested_character_cost_le_7cost"
     }
    ]
   },
@@ -10695,7 +10695,7 @@
    "when": "on_attack",
    "do": [
     {
-     "stay_rested_next_refresh": "one_opponent_rested_character_le_7cost"
+     "stay_rested_next_refresh": "one_opponent_rested_character_cost_le_7cost"
     }
    ]
   }
@@ -31454,7 +31454,7 @@
    "when": "on_play",
    "do": [
     {
-     "stay_rested_next_refresh": "one_opponent_rested_character_le_7cost"
+     "stay_rested_next_refresh": "one_opponent_rested_character_cost_le_7cost"
     }
    ]
   },
@@ -31463,7 +31463,7 @@
    "when": "on_attack",
    "do": [
     {
-     "stay_rested_next_refresh": "one_opponent_rested_character_le_7cost"
+     "stay_rested_next_refresh": "one_opponent_rested_character_cost_le_7cost"
     }
    ]
   }
@@ -38980,7 +38980,7 @@
    "when": "on_play",
    "do": [
     {
-     "stay_rested_next_refresh": "one_opponent_rested_character_le_7cost"
+     "stay_rested_next_refresh": "one_opponent_rested_character_cost_le_7cost"
     }
    ]
   },
@@ -38989,7 +38989,7 @@
    "when": "on_attack",
    "do": [
     {
-     "stay_rested_next_refresh": "one_opponent_rested_character_le_7cost"
+     "stay_rested_next_refresh": "one_opponent_rested_character_cost_le_7cost"
     }
    ]
   }
@@ -48527,7 +48527,7 @@
    "when": "on_play",
    "do": [
     {
-     "stay_rested_next_refresh": "one_opponent_rested_character_le_7cost"
+     "stay_rested_next_refresh": "one_opponent_rested_character_cost_le_7cost"
     }
    ]
   },
@@ -48536,7 +48536,7 @@
    "when": "on_attack",
    "do": [
     {
-     "stay_rested_next_refresh": "one_opponent_rested_character_le_7cost"
+     "stay_rested_next_refresh": "one_opponent_rested_character_cost_le_7cost"
     }
    ]
   }
