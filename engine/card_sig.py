@@ -74,9 +74,11 @@ def build_all(overlay_path: Optional[str] = None) -> dict:
     out: dict = {}
     for cid, card in cards.items():
         sig = _blank()
-        # 1) labels (one-hot)
+        # 1) labels (one-hot)。 ⚠ card_labels は効果を "labels"、 timing(登場時/起動メイン等)を
+        # "timings" の別キーで返す → 両方 union しないと timing (t_on_play/t_activate_main…) が欠落。
         try:
-            labs = set((label_db.get(cid) or {}).get("labels") or [])
+            rec = label_db.get(cid) or {}
+            labs = set(rec.get("labels") or []) | set(rec.get("timings") or [])
         except Exception:
             labs = set()
         for k in _LABEL_DIMS:
