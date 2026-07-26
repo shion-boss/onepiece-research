@@ -609,9 +609,6 @@ def test_op08_100_on_play_overlay_shape():
         f"destination が play でない: {spec.get('destination')}"
 
 
-@pytest.mark.skip(reason="engine 未対応: search_top_n destination=play が STAGE カード"
-                         "(アッパーヤード OP05-117) を stages に登場させられない "
-                         "(デッキから除去されるのみ)。 engine 修正は人間レビューへ。")
 def test_op08_100_on_play_stage_summon_ai():
     """【登場時】デッキ上7枚から「アッパーヤード」(STAGE) を登場させる (engine 実装待ち)。"""
     repo = _repo()

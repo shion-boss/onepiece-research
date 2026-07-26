@@ -4087,8 +4087,25 @@ def _execute_effect_body(
                     remaining.append(c)
             for c in picked:
                 if destination == "play":
+                    if c.category == Category.STAGE:
+                        # STAGE を「登場させる」 (= OP08-100 サウスバード→アッパーヤード)。
+                        # game.py:PlayStage / effects.py:6039 と同様、 3-8-5-1 既存ステージ
+                        # (MAX 超) は持ち主のトラッシュへ、 stages へ配置 (sickness/rested 無関係)。
+                        # 3-8-3: ステージエリアに置くことも「登場」 → 【登場時】発動可。
+                        if len(me.stages) >= Player.MAX_STAGES:
+                            old = me.stages.pop()
+                            me.trash.append(old.card)
+                            if old.attached_dons > 0:
+                                me.don_rested += old.attached_dons
+                            state.push_log(f"  既存ステージ {old.card.name} をトラッシュへ")
+                        ip = InPlay.of(c, rested=False, sickness=False)
+                        me.stages.append(ip)
+                        state.push_log(f"  効果: search_top_n → 登場 {c.name} (ステージ)")
+                        if state.effects_overlay:
+                            trigger_on_play(state, me, opp, ip, state.effects_overlay)
+                        continue
                     if c.category != Category.CHARACTER:
-                        # キャラ以外は登場できない → 手札にもどす (簡略フォールバック)
+                        # LEADER 等 登場不可 → 手札にもどす (フォールバック)
                         me.hand.append(c)
                         continue
                     if not me.can_play_character():
