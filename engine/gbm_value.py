@@ -326,6 +326,9 @@ _SIG_KEYS = tuple(f"my_sig_{k}" for k in (
         "removal", "engine", "blocker", "negate", "kw_grant", "recovery", "hand_disrupt",
         "cost_reduce", "search", "buff_power", "ramp_don", "protect"))
 FEATURE_KEYS_V21 = FEATURE_KEYS_V20 + _SIG_KEYS
+# v22 = 88 (2026-07-27): clean isolation。 v18(64) + sig(24)。 board_detail(v19)を sig で置換 →
+# v19(v18+board_detail) と head-to-head で「sig vs 既存 board rep」を confound なしで比較。
+FEATURE_KEYS_V22 = FEATURE_KEYS_V18 + _SIG_KEYS
 
 
 def _norm_read(p: Any, attr: str) -> list:
@@ -879,7 +882,8 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
              v13: Optional[bool] = None, v14: Optional[bool] = None,
              v15: Optional[bool] = None, v16: Optional[bool] = None,
              v18: Optional[bool] = None, v19: Optional[bool] = None,
-             v20: Optional[bool] = None, v21: Optional[bool] = None) -> list:
+             v20: Optional[bool] = None, v21: Optional[bool] = None,
+             v22: Optional[bool] = None) -> list:
     """GameState + me_idx → feature vector。 rich=True で v2 (21)、 既定は env
     ONEPIECE_GBM_RICH (= 学習時に set)。 推論は gbm_score が model 次元で自動判別。
     v5=True (env ONEPIECE_GBM_V5) で 相手 leader の matchup tag 13 列を追加 (= 34、 matchup-条件付き)。
@@ -961,6 +965,10 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
         v20 = os.environ.get("ONEPIECE_GBM_V20") == "1"
     if v21 is None:
         v21 = os.environ.get("ONEPIECE_GBM_V21") == "1"
+    if v22 is None:
+        v22 = os.environ.get("ONEPIECE_GBM_V22") == "1"
+    if v22:
+        v18 = True  # v22 = v18 + sig(24) のみ (board_detail/hand_reach は付けない = 置換比較)。
     if v21:
         v20 = True  # v21 ⊃ v20 (+ sig 盤面合成 24)。 v20 の後に append。
     if v20:
@@ -1070,6 +1078,10 @@ def features(state: Any, me_idx: int, rich: Optional[bool] = None,
     if v18:
         # belief-based 相手 残り防御資源 (見た札→デッキ予測→残りカウンター/ブロッカー)。 v16 の後に append。
         out += _belief_resource_features(state, me_idx)
+    if v22:
+        # clean isolation: v18 + sig(24) のみ (board_detail 置換)。 belief の後に append。
+        from .eiv1_features import sig_board_feats_from_snapshot
+        out += sig_board_feats_from_snapshot(_mini_snap_lean(state, me_idx))
     if v19 or v20:
         # ⚡ board_detail と hand_reach は同じ lean snap を読むので 1 回だけ構築して共有
         # (= 従来は各々が _mini_snap を作り直し、 しかも重い全 snap だった → 13x 遅延)。
@@ -1126,7 +1138,7 @@ def _feat_for_dim(state, me_idx, n):
                     v14=(n == len(FEATURE_KEYS_V14)), v15=(n == len(FEATURE_KEYS_V15)),
                     v16=(n == len(FEATURE_KEYS_V16)), v18=(n == len(FEATURE_KEYS_V18)),
                     v19=(n == len(FEATURE_KEYS_V19)), v20=(n == len(FEATURE_KEYS_V20)),
-                    v21=(n == len(FEATURE_KEYS_V21)))
+                    v21=(n == len(FEATURE_KEYS_V21)), v22=(n == len(FEATURE_KEYS_V22)))
 
 
 # prefix 一致で slice 再利用できる次元(V1⊂V2⊂V5⊂V6⊂V11⊂V12 の chain のみ。 v3/v4/v9/v6don/v8/v10 は
