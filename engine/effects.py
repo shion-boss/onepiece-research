@@ -2110,6 +2110,11 @@ def _resolve_target(
                 cands = [ip for ip in cands if ip.power <= int(filt["current_power_le"])]
             if "current_power_ge" in filt:
                 cands = [ip for ip in cands if ip.power >= int(filt["current_power_ge"])]
+            # 「自分のレストの…」 (= OP10-029) は target-spec 直下の rested_required で
+            # レスト限定を honor する (公式テキスト「自分のレストの…をアクティブにする」)。
+            # 未指定 (= false) なら active/rested 問わず。
+            if bool(target_spec.get("rested_required", False)):
+                cands = [ip for ip in cands if ip.rested]
             if iid_picks is not None:
                 return [ip for ip in cands if ip.instance_id in iid_picks][:1]
             if outer_kind and _maybe_request_target_pick(

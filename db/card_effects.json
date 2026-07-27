@@ -24617,12 +24617,6 @@
          "amount": 3000,
          "duration": "turn"
         }
-       },
-       {
-        "return_to_hand": {
-         "type": "one_self_chara_filtered",
-         "filter": {}
-        }
        }
       ]
      }
