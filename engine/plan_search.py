@@ -1076,6 +1076,11 @@ def search_turn_plan(
     # を考慮した戦い方 ([[project_search_route_pivot]] / [[project_opponent_deck_belief_model]] B軸)。
     # 失敗時は uniform → 現挙動に fallback。 per-AI 属性化で A/B 可能 (exploit_beam_ai)。
     _postopp_belief = _os.environ.get("ONEPIECE_POSTOPP_DETERMINIZE") == "1"
+    # ⭐ 多ターンリーサル bonus (2026-07-27、 ONEPIECE_MT_LETHAL_W、 ohtsuki Part 2): post-opp sim 後
+    # (= 相手ターンの妨害を織り込んだ自次ターン開始局面)で lethal_available なら bonus。 = 「今ターン
+    # リーサルできなくても、 相手の妨害を越えて次ターン lethal を組める手」を beam に選ばせる goal 探索。
+    # 相手ターン sim が妨害を含むので、 妨害されない setup だけが評価される。 既定 0 = 完全 no-op。
+    _mt_lethal_w = float(_os.environ.get("ONEPIECE_MT_LETHAL_W", "0") or 0)
     _postopp_ai = None
     _postopp_self_ai = None
     _postopp_opp_ai = None
@@ -1136,7 +1141,16 @@ def search_turn_plan(
                                            hard_cap_actions=_postopp_cap)
         except Exception:
             return compute_score(cur_state, me_idx)
-        return compute_score(ev, me_idx)
+        score = compute_score(ev, me_idx)
+        # 多ターンリーサル: 相手ターン後(自次ターン開始)に lethal を組めるなら bonus。
+        if _mt_lethal_w != 0.0 and not getattr(ev, "game_over", False):
+            try:
+                from .lethal_planner import lethal_available
+                if lethal_available(ev, me_idx):
+                    score += _mt_lethal_w * 10000.0
+            except Exception:
+                pass
+        return score
 
     def _penalty(cur_state, plan):
         return (_unused_attached_don_penalty(cur_state, plan)

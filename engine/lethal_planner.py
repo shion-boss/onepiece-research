@@ -195,6 +195,36 @@ def plan_optimal_attack_sequence(
     )
 
 
+def lethal_available(state, me_idx: int, counter_margin: int = 1) -> bool:
+    """me が state で(次ターン=全キャラ active 想定)相手にリーサル脅威を作れるか (setup 検出用、
+    2026-07-27、 多ターンリーサル ohtsuki Part 2)。
+
+    相手のブロッカー + counter_margin 攻撃分を防がれても、 connecting hits ≥ opp_life なら True。
+    = 「相手の妨害を織り込んでも次ターン lethal できる」盤面かの粗い判定。 post-opp(自次ターン開始)
+    局面で呼び、 True のプランに bonus を与えて『リーサルを組む手』を beam に選ばせる。
+    """
+    me = state.players[me_idx]
+    opp = state.players[1 - me_idx]
+    opp_life = len(getattr(opp, "life", []) or [])
+    if opp_life <= 0:
+        return True
+    opp_leader_power = getattr(getattr(opp, "leader", None), "power", 5000)
+    attackers: list[tuple[int, int]] = []
+    lead = getattr(me, "leader", None)
+    if lead is not None:
+        attackers.append((lead.instance_id, lead.power))
+    for c in getattr(me, "characters", []):
+        attackers.append((c.instance_id, c.power))
+    if not attackers:
+        return False
+    don = getattr(me, "don_active", 0) + getattr(me, "don_rested", 0)
+    plan = plan_optimal_attack_sequence(attackers, don, opp_leader_power, opp_life)
+    hits = sum(1 for p in plan.sequence if p.effective_power > opp_leader_power)
+    opp_blockers = sum(1 for c in getattr(opp, "characters", [])
+                       if getattr(c, "is_blocker_now", False) and not getattr(c, "rested", False))
+    return (hits - opp_blockers - counter_margin) >= opp_life
+
+
 def mark_overkill_as_burners(
     plan: AttackPlan,
     min_excess_for_burner: int = 3000,
