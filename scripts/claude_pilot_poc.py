@@ -27,9 +27,12 @@ _REPO = CardRepository.from_json(ROOT / "db" / "cards.json")
 _OVERLAY = load_effect_overlay(ROOT / "db" / "card_effects.json")
 
 # ── 固定ゲーム設定(extract と verify で共有 = 決定論 replay)──────────────────
-HERO_DECK = "cardrush_1454"       # エネル(改善対象)
-OPP_DECK = "tcgportal_calgara"
-GAME_SEED = 12345
+# ⭐ env で hero/opp を差し替え可能 (2026-07-27、 grind-control 検証用):
+#   PILOT_HERO=cardrush_1342 PILOT_OPP=cardrush_1385 = ドフラ(control) vs クロコ(大型midrange)
+import os as _os
+HERO_DECK = _os.environ.get("PILOT_HERO", "cardrush_1454")   # 既定 エネル(後方互換)
+OPP_DECK = _os.environ.get("PILOT_OPP", "tcgportal_calgara")
+GAME_SEED = int(_os.environ.get("PILOT_SEED", "12345"))
 HERO_AI_SEED = 555
 OPP_AI_SEED = 777
 FIRST_PLAYER = 0                  # hero = player 0
@@ -102,7 +105,7 @@ def render_action(state, a, me_idx):
 def render_position(state, me_idx):
     me = state.players[me_idx]; opp = state.players[1 - me_idx]
     L = []
-    L.append(f"### ターン {state.turn_number} — 手番: あなた(エネル P{me_idx})")
+    L.append(f"### ターン {state.turn_number} — 手番: あなた(hero {HERO_DECK} P{me_idx})")
     lead = me.leader
     L.append(f"**自リーダー**: {lead.card.name}(pow {int(lead.power)}) 付与DON {lead.attached_dons}")
     if lead.card.text:
@@ -164,8 +167,8 @@ def _winrate_of(st, action_idx, n=8, base_seed=0):
 
 def do_extract(n_positions, seed_base=GAME_SEED):
     positions = []
-    md = ["# Claude 操縦 PoC — エネル判断局面(競り合いのみ)\n",
-          f"対戦: エネル(P0)vs カルガラ(P1)。 各局面で **あなた(エネル)** の最善手を 1 つ選ぶ。\n",
+    md = [f"# Claude 操縦 PoC — {HERO_DECK} 判断局面(競り合いのみ)\n",
+          f"対戦: {HERO_DECK}(P0)vs {OPP_DECK}(P1)。 各局面で **あなた(hero)** の最善手を 1 つ選ぶ。\n",
           "配備 AI の手で勝率 0.3-0.7 の decidable 局面だけ抽出(負け/勝ち確定局面は手の質を測れない)。\n"]
     g = 0
     scanned = 0
