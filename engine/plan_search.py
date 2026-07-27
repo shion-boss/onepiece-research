@@ -1254,6 +1254,21 @@ def search_turn_plan(
         except Exception:
             return 0.0
 
+    # ⭐ hand economy bonus (2026-07-27、 ONEPIECE_HAND_ECON_W、 ohtsuki insight): 「どの行動が相手
+    # 手札を減らすか / いつ効率的か / 手札を増やすエンジンの除去」 を カード知識(sig)+ 要求値 + timing
+    # で解析的に評価 (crude greedy sim 非依存)。 pressure(sim削り量)と違い、 攻撃の因果を直接見る。
+    # plan-level (= 実際に打つ手の並び) を採点。 既定 0 = 完全 no-op。
+    _hand_econ_w = float(_os.environ.get("ONEPIECE_HAND_ECON_W", "0") or 0)
+
+    def _hand_econ_add(plan):
+        if _hand_econ_w == 0.0 or not plan:
+            return 0.0
+        try:
+            from .hand_economy import hand_economy_value
+            return _hand_econ_w * hand_economy_value(state, plan, me_idx) * 10000.0
+        except Exception:
+            return 0.0
+
     scored = []
     if _eval_combiner:
         from .gbm_value import SCALE as _CSCALE
@@ -1286,12 +1301,14 @@ def search_turn_plan(
             else:
                 s = s1  # 上位以外は 1-round のまま(深 rollout を cap)
             scored.append((s + _nb_add(cur_state, plan) + _face_add(plan) + _oppcard_add(plan)
-                           + _exit_policy_add(plan) + _pressure_add(cur_state), plan))
+                           + _exit_policy_add(plan) + _pressure_add(cur_state)
+                           + _hand_econ_add(plan), plan))
     else:
         for cur_state, plan in completed:
             s = _eval_state(cur_state, plan, _postopp_turns) + _penalty(cur_state, plan)
             scored.append((s + _nb_add(cur_state, plan) + _face_add(plan) + _oppcard_add(plan)
-                           + _exit_policy_add(plan) + _pressure_add(cur_state), plan))
+                           + _exit_policy_add(plan) + _pressure_add(cur_state)
+                           + _hand_econ_add(plan), plan))
     if not scored:
         return [], -float("inf")
     # ⭐ 温度サンプリング (訓練時の探索、 ONEPIECE_PLAN_TEMPERATURE、 単位=score の標準偏差):
