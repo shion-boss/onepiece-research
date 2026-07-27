@@ -267,7 +267,19 @@ def lethal_available(state, me_idx: int, extra_margin: int = 0) -> bool:
     counter_needed = _min_counter_to_survive(per_attack, opp_life, opp_blockers)
     if counter_needed <= 0:
         return False   # そもそも lethal でない
-    opp_counter = sum(int(getattr(c, "counter", 0) or 0) for c in getattr(opp, "hand", []))
+    # 相手の counter 容量 = shield-counter + counter-event(神避/放電 等)の実効値。
+    # counter event を見落とすと misfire する(単発の大型 event が lethal を止める)。
+    overlay = getattr(state, "effects_overlay", None)
+    try:
+        opp_leader_name = opp.leader.card.name
+    except Exception:
+        opp_leader_name = ""
+    try:
+        from .hand_estimator import _effective_counter_value
+        opp_counter = sum(_effective_counter_value(c, overlay, opp_leader_name)
+                          for c in getattr(opp, "hand", []))
+    except Exception:
+        opp_counter = sum(int(getattr(c, "counter", 0) or 0) for c in getattr(opp, "hand", []))
     return counter_needed > opp_counter + extra_margin
 
 

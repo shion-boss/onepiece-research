@@ -1479,6 +1479,17 @@ class GreedyAI:
             effective_excess = max(0, counter_needed - bluff_counter)
         else:
             effective_excess = max(0, total_excess - bluff_counter)
+        # ⭐ counter-event 織り込み (2026-07-27、 ONEPIECE_LETHAL_CE_AWARE / _lethal_ce_aware): 相手が
+        # 神避/放電等の counter-event で稼げる shield 超過分を effective_excess から引く = event 防御を
+        # 織り込んで保守化(単発の大型 event が lethal を止めるのを misfire しない)。 既定 OFF = 現挙動。
+        _ce_aware = (getattr(self, "_lethal_ce_aware", False)
+                     or _oslp.environ.get("ONEPIECE_LETHAL_CE_AWARE") == "1")
+        if _ce_aware:
+            try:
+                ce_bonus = hand_estimator.expected_counter_event_bonus(state, opp_idx)
+                effective_excess = max(0, effective_excess - float(ce_bonus))
+            except Exception:
+                pass
         p_block = hand_estimator.probability_counter_total_at_least(
             state, opp_idx, effective_excess,
         )

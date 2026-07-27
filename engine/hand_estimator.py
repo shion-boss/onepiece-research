@@ -444,6 +444,28 @@ def expected_counter_per_card(state: GameState, opp_idx: int) -> float:
     return sum(c.counter for c in pool) / len(pool)
 
 
+def expected_counter_event_bonus(state: GameState, opp_idx: int) -> float:
+    """opp の手札に期待される counter-event(神避/放電 等)由来の**追加**防御値 (shield を超える分、
+    2026-07-27、 リーサル計算器の event-aware 化用)。 shield-counter は別途 pmf で数えるので、 ここでは
+    「counter-event で稼げる shield 超過分」だけを返す = リーサル判定で相手の event 防御を織り込む。"""
+    pool = _opponent_pool(state, opp_idx)
+    if not pool:
+        return 0.0
+    overlay = getattr(state, "effects_overlay", None)
+    try:
+        leader_name = state.players[opp_idx].leader.card.name
+    except Exception:
+        leader_name = ""
+    hand_size = len(state.players[opp_idx].hand)
+    if hand_size <= 0:
+        return 0.0
+    per_card_bonus = sum(
+        max(0, _effective_counter_value(c, overlay, leader_name) - int(getattr(c, "counter", 0) or 0))
+        for c in pool
+    ) / len(pool)
+    return per_card_bonus * hand_size
+
+
 def expected_counter_total(state: GameState, opp_idx: int) -> int:
     """opp の手札に期待されるカウンター総量。"""
     opp = state.players[opp_idx]
