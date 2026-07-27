@@ -36,6 +36,11 @@ def _beam(seed, peratk):
     if peratk:
         ai._lethal_peratk = True
         ai._lethal_thresh_delta = DELTA
+    else:
+        # B = baseline(旧リーサル計算器 = 総和近似、 delta なし)。 配備 default が per-attack ON に
+        # なったので明示的に OFF にする。
+        ai._lethal_peratk = False
+        ai._lethal_thresh_delta = 0.0
     return ai
 
 
