@@ -72,6 +72,7 @@ def _one(seed):
     ais[opp_idx] = ExploitBeamAI(rng=random.Random(seed * 7 + 3), deck_analysis={"deck_slug": opp})
     seen = set()          # 手札に来た key card_id
     played = set()        # 意図した役割(登場/発動)で使った key card_id
+    affordable = set()    # 手札にあり total_don >= cost だった(=打てた)key card_id
     play_turn = {}        # card_id -> 最初に展開したターン
     ramp_fired = 0        # DON総数 > ターン数 だったターン数
     hero_turns = 0
@@ -80,11 +81,13 @@ def _one(seed):
         cur = state.turn_player_idx
         me = state.players[hero_idx]
         if cur == hero_idx:
-            # 手札スナップ(引いた key card を記録)
+            # 手札スナップ(引いた key card + 打てた key card を記録)
             for c in me.hand:
                 cid = _cid_hand(c)
                 if cid in KEY:
                     seen.add(cid)
+                    if me.total_don >= KEY[cid]["cost"]:
+                        affordable.add(cid)
             if state.turn_number != last_turn:
                 last_turn = state.turn_number
                 hero_turns += 1
@@ -133,8 +136,9 @@ def _one(seed):
         cid = _cid_hand(c)
         if cid in KEY: zones[cid]["life"] += 1
     zones = {k: dict(v) for k, v in zones.items()}
-    return {"seen": seen, "played": played, "play_turn": play_turn, "zones": zones,
-            "ramp_fired": ramp_fired, "hero_turns": hero_turns, "won": won, "done": state.game_over}
+    return {"seen": seen, "played": played, "affordable": affordable, "play_turn": play_turn,
+            "zones": zones, "ramp_fired": ramp_fired, "hero_turns": hero_turns,
+            "won": won, "done": state.game_over}
 
 
 def main():
@@ -145,7 +149,8 @@ def main():
     print(f"[plan_realization] hero={HERO}  N={N}  key_cards={len(KEY)}", flush=True)
     with mp.Pool(W) as p:
         res = [r for r in p.map(_one, seeds) if r]
-    seen_cnt = defaultdict(int); played_cnt = defaultdict(int)
+    seen_cnt = defaultdict(int); played_cnt = defaultdict(int); aff_cnt = defaultdict(int)
+    aff_played_cnt = defaultdict(int)
     turn_sum = defaultdict(list)
     zsum = defaultdict(lambda: defaultdict(int))
     ramp_fired = 0; hero_turns = 0; wins = 0
@@ -154,6 +159,10 @@ def main():
             seen_cnt[cid] += 1
         for cid in r["played"]:
             played_cnt[cid] += 1
+        for cid in r.get("affordable", set()):
+            aff_cnt[cid] += 1
+            if cid in r["played"]:
+                aff_played_cnt[cid] += 1
         for cid, t in r["play_turn"].items():
             turn_sum[cid].append(t)
         for cid, z in r.get("zones", {}).items():
@@ -162,16 +171,17 @@ def main():
         ramp_fired += r["ramp_fired"]; hero_turns += r["hero_turns"]; wins += r["won"]
     print(f"\n=== 設計意図の実行率 [hero={HERO}] ({len(res)} games, 勝率 {wins/len(res)*100:.0f}%, {time.time()-t0:.0f}s) ===", flush=True)
     print(f"  ramp 発火率(DON総数>自ターン数)= {ramp_fired/max(1,hero_turns)*100:.0f}% のターン", flush=True)
-    print(f"  {'role':9}{'card':20} 引いた 実行率 平均T | 終了時: 手札 トラッシュ 盤面(未実行の行方)", flush=True)
+    print(f"  {'role':9}{'card':18} cost 引いた 実行率 | 打てた試合 打った率★ | 終了時 手ト盤", flush=True)
     order = {"ramp": 0, "search": 1, "draw": 2, "removal": 3}
     for cid in sorted(KEY, key=lambda c: (order.get(KEY[c]["role"], 9), KEY[c]["cost"])):
         info = KEY[cid]; s = seen_cnt[cid]; pl = played_cnt[cid]
         rate = pl / max(1, s) * 100
-        avgt = (sum(turn_sum[cid]) / len(turn_sum[cid])) if turn_sum[cid] else 0
+        a = aff_cnt[cid]; ap = aff_played_cnt[cid]
+        arate = ap / max(1, a) * 100
         z = zsum[cid]; tot = max(1, sum(z.values()))
-        flag = " ⚠" if rate < 55 and s >= 20 else ""
-        print(f"  {info['role']:9}{info['name'][:18]:20} {s:4}  {rate:4.0f}%  T{avgt:4.1f} | "
-              f"手{z.get('hand',0)*100//tot:2}% ト{z.get('trash',0)*100//tot:2}% 盤{z.get('board',0)*100//tot:2}%{flag}", flush=True)
+        flag = " ⚠" if arate < 55 and a >= 20 else ""
+        print(f"  {info['role']:9}{info['name'][:16]:18} {info['cost']:3}  {s:4}  {rate:4.0f}% | "
+              f"{a:5}      {arate:4.0f}% | 手{z.get('hand',0)*100//tot:2} ト{z.get('trash',0)*100//tot:2} 盤{z.get('board',0)*100//tot:2}{flag}", flush=True)
 
 
 if __name__ == "__main__":
