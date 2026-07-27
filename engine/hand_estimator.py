@@ -432,16 +432,20 @@ def expected_counter_per_card(state: GameState, opp_idx: int) -> float:
     if not pool:
         return 0.0
     import os as _os_ce
+    try:
+        _calib = float(_os_ce.environ.get("ONEPIECE_COUNTER_CALIB", "1.0"))
+    except Exception:
+        _calib = 1.0
     if _os_ce.environ.get("ONEPIECE_COUNTER_EVENT_DEF") == "1":
         overlay = getattr(state, "effects_overlay", None)
         try:
             leader_name = state.players[opp_idx].leader.card.name
         except Exception:
             leader_name = ""
-        return sum(
+        return _calib * sum(
             _effective_counter_value(c, overlay, leader_name) for c in pool
         ) / len(pool)
-    return sum(c.counter for c in pool) / len(pool)
+    return _calib * sum(c.counter for c in pool) / len(pool)
 
 
 def expected_counter_event_bonus(state: GameState, opp_idx: int) -> float:
@@ -596,10 +600,19 @@ def counter_total_pmf(state: GameState, opp_idx: int) -> dict[int, float]:
 
     _enumerate(0, unknown_count, 0, 1)
 
-    # known_counter で shift して総 pmf を構築
+    # ⭐ 較正 (2026-07-27、 ONEPIECE_COUNTER_CALIB): 一様仮定は相手手札 counter を過大評価する
+    # (実測: 予測 3354 vs 実際 2467、 手札多いほど過大)。 未知部分を calib 倍して補正。 既定 1.0 = 無補正。
+    import os as _os_cc
+    try:
+        _calib = float(_os_cc.environ.get("ONEPIECE_COUNTER_CALIB", "1.0"))
+    except Exception:
+        _calib = 1.0
+    # known_counter で shift して総 pmf を構築 (未知分は calib で補正、 既知分は実値)
     pmf: dict[int, float] = {}
     for unknown_total, p in unknown_pmf.items():
-        pmf[unknown_total + known_counter] = pmf.get(unknown_total + known_counter, 0.0) + p
+        t = int(round(unknown_total * _calib)) + known_counter if _calib != 1.0 \
+            else unknown_total + known_counter
+        pmf[t] = pmf.get(t, 0.0) + p
     return pmf
 
 
