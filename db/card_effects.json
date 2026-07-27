@@ -68679,7 +68679,10 @@
    "when": "on_play",
    "do": [
     {
-     "rest": "one_opp_chara_or_don_cost_le_6"
+     "rest": {
+      "type": "one_opp_chara_or_don",
+      "cost_le": 6
+     }
     }
    ],
    "if": {

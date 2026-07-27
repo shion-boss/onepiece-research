@@ -253,17 +253,11 @@ def test_op09_035_ace_on_play_rest_human_pick():
 # --------------------------------------------------------------------------- #
 #  OP09-036 モンキー・D・ルフィ: 【登場時】自レストキャラ2枚以上で
 #            相手のコスト6以下キャラ1枚かドン1枚までを レストにする
-#  ⚠ engine 未対応: {"rest": "one_opp_chara_or_don_cost_le_6"} の string form は
-#     rest primitive の分岐 (v == "one_opp_chara_or_don" 完全一致) にも
-#     _resolve_target にもマッチせず silent no-op になる (= キャラもドンもレストされない)。
-#     overlay 忠実主義では正しい spec だが engine 側の string 解釈が欠けている。
-#     engine 修正 (= "one_opp_chara_or_don" + cost_le 分岐 or _resolve_target 対応) が要るため
-#     このタスク (engine 非編集) では skip し 人間レビューに回す。
+#  overlay 修正: {"rest": "one_opp_chara_or_don_cost_le_6"} という非標準 string form を
+#     既存の標準 dict form {"rest": {"type": "one_opp_chara_or_don", "cost_le": 6}} に正規化
+#     (= engine が既に cost_le 分岐で対応済、 他 4 カードが同 dict form を使用)。
+#     「相手のコスト6以下のキャラ1枚かドン1枚までをレストにする」 を公式テキスト忠実に表現。
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason="engine bug: rest target string 'one_opp_chara_or_don_cost_le_6' が "
-                         "rest primitive にも _resolve_target にもマッチせず no-op。 "
-                         "engine 側で one_opp_chara_or_don の cost_le 分岐 (string form) が未対応。 "
-                         "engine 修正は人間レビュー扱い (このタスクは engine を編集しない)。")
 def test_op09_036_luffy_on_play_rest_opp_chara_or_don():
     repo = _repo()
     overlay = _overlay()
