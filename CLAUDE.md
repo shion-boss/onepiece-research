@@ -123,14 +123,17 @@ onepiece_research/
       **vs GreedyAI on cardrush_1342 = 72.7% (N=300)**。 GBM は `db/value_gbm_<slug>.pkl` を deck別に
       `scripts/train_value_gbm.py` で学習 (無ければ board_eval に degrade)。 教訓: 学習valueは正しい分布で使え /
       探索のmyopiaは deterministic opp の sim で補正。 `scripts/bench_ais_vs_greedy.py` で測定
-      - **⭐ matchup-条件付き value (= 2026-06-27、 v5/v6 feature、 [[project_leader_aware_matchup_ai]])**:
-        `gbm_value.py` の feature を相手 leader 情報で拡張 — v5(=相手 leader tag 13)/v6(=+ board×matchup
-        interaction 4 = 38dim)/v7(=+ own-plan×opp-denial balance 6 = 44dim、 未配備)。 `gbm_score` が model
-        次元で v1〜v7 自動判別(後方互換)。 **on-policy beam-in-loop で 11/16 deck に v6(38dim)配備**
-        (db/value_gbm_<slug>.pkl が 38dim = matchup-aware、 21dim = 旧 agnostic)。 効果: 配備 AI を +10〜29pt
-        改善、 実メタ tier_truth と rankΔ=1.0。 ⚠ 学習は `scripts/selfplay_beam_loop.py --opp <多相手comma>`
-        + `ONEPIECE_GBM_V6=1`、 配備 gate は `scripts/matchup_value_deploy_ab.py`(両seat 16/10)。 残課題 =
-        control-vs-aggro は構造的(multi-turn 探索が要、 value 路線は出し切り)
+      - **⚠ matchup-条件付き / per-deck value (v5/v6/専用/residual) は撤回済 = 幻と判明 (2026-07-22, c23c939)**:
+        かつて「v6(相手 leader tag + board×matchup interaction、 38dim)を 11/16 deck 配備で +10〜29pt /
+        実メタ rankΔ=1.0」と評価したが、 **これは board_eval を基準にした時だけ強く見えた幻**。 正しい基準
+        (= agnostic value)で測ると **v6 vs agnostic = 1342 で -3.4pt / pros02専用 held-out +0.4 / エネル特化
+        -1.2 = 効かない/負ける**。 唯一の実成長は gate緩和(aggro を board_eval→agnostic に、 配置修正)。
+        → **38 個の per-deck pkl を `db/_value_archive_perdeck/` に退避、 配備を uniform agnostic (21dim) に
+        全体統一**。 `_resolve_gbm_path` は per-deck pkl 無し → agnostic fallback(全メタ+pros02+user deck が
+        uniform agnostic + beam で戦う)。 **教訓: value の A/B 基準は必ず agnostic(board_eval は弱すぎて
+        card-aware を過大評価する)**。 2026-07-27 の sig(card 効果シグネチャ)clean isolation も 0.483 = null
+        で同結論を再確認 = **card-aware value は閉じた**。 「agnostic 本体の強化 = 天井を上げる唯一の道」。
+        `gbm_value.py` は今も v1〜v22 の次元自動判別を持つ(後方互換、 実験用)が **配備は agnostic 1個のみ**。
       - **⭐ offense force-attack 再有効化 (= 2026-07-08、 `_offense_force_attack=True`)**: 一度
         2026-06-13 に無効化した (= beam に委ねる、 配備ミラー A/B 平均 ~66% を根拠) が、 **ohtsuki の実戦
         フィードバックで復活**。 「AIはあんまり攻撃してこない=怖くない、 カウンター不要、 手札枯渇しない」
@@ -209,7 +212,18 @@ onepiece_research/
 
 **評価軸の注意**: raw 勝率 ≠ engine の良し悪し。 ゴールは「全デッキが強くなる」 ことではなく、 「正しくゲームが行われ、 AI が意味ある効果の使い方・戦い方をしている」 こと。 評価すべきは AI の各手が (1) 盤面を有利に傾けたか (2) 布石か (3) 効果を意味あるタイミング/対象で発動しているか。 詳細: [[feedback_evaluation_axis]]。
 
-> **proactive≫reactive artifact = matchup-aware v6 で大幅に解消 (2026-06-28)**。 旧 matrix #1 = 黄カルガラ (74%) は AI が proactive(race) ≫ reactive(control/grind) で操縦する artifact だった。 **matchup-条件付き value (v5/v6、 相手 leader tag + interaction を学習 feature 化、 [[project_leader_aware_matchup_ai]]) を 11/16 deck に配備** (croc +29/im +25/calgara +18 等、 各 +10〜29pt) し、 ExploitBeam_v6 で matrix 再計算した結果、 **AI 順位が実メタ tier_truth と 平均 rankΔ=1.0 (10 中 6 完全一致、 8 が±1) まで一致**。 カルガラは #1(74%)→#4(69%) に降下、 bonney #1(87%)。 **残る乖離はちょうど control-vs-aggro 1点** (紫ドフラ 実A→AI#6、 ボニー 実B→AI#1)。 = 「value が race を止め denial を選ぶ」 は学べた(v7 balance feature で bonney +5.8 実証)が、 **control が aggro に勝つ多ターン除去+ライフ管理の line は 1-ply value + 単ターン beam では構築できず構造的に bound**。 根治は **multi-turn 探索アーキ(search architecture)の大工事** (= value 路線は v5→v7 で出し切り、 着手予定)。
+> **⚠ 配備 AI = uniform agnostic value (21dim) + ExploitBeam (2026-07-22 c23c939 以降)**。 かつて
+> 「matchup-aware v6 を 11/16 deck 配備で proactive≫reactive artifact を解消、 実メタ rankΔ=1.0」と
+> 記していたが、 **これは board_eval 基準の幻で撤回済**(v6 vs agnostic = -3.4pt、 上の value 節参照)。
+> 現配備は per-deck value を持たず uniform agnostic。 **matrix は uniform agnostic で要再計算(stale)**。
+>
+> **探索路線も beam 以下と実測確定 (2026-07-27, [[project_search_route_pivot]])**: 「1-ply value + 単ターン
+> beam が control-vs-aggro を作れない、 根治は multi-turn 探索の大工事」と当時考えたが、 実測で **multi-turn
+> rollout(turns=2 + value誘導)= 47.5% = null**(error 複利が深さの signal を殺す)、 **value-leaf MCTS +
+> 現 value = 6.7〜20% = beam に決定的劣位**(policy net 無し + per-action MCTS は whole-turn 連携を組めない
+> 構造欠陥)。 = **探索深さは強さの lever でない。 配備 beam が本 game/hardware で near-ceiling**。 天井を
+> 上げる残る道は ① agnostic value 本体の self-play 強化(plateau 気味)② AlphaZero policy+value at scale
+> (このPC infeasible → 分散 compute = Phase 9 前提)。 [[project_search_route_pivot]] に全体像。
 
 ## Next.js 側の方針
 
@@ -325,7 +339,7 @@ onepiece_research/
 - `card_effects.json`: 効果オーバーレイ (4,518 全カード、 _unimplemented = 0)
 - `audit_acknowledged.json`: audit script で intrinsic 除外する issue リスト (R59 追加)
 - `matchup_matrix.json`: N×N 勝率行列 (16×16 = 256 セル、 mirror 除く 240 セル計算)
-  - **方針: 表示用 matrix は 配備 AI (= uniform ExploitBeam + per-deck config) で 計算する** (= /meta で 公開する データを 実際の対戦相手 AI に 揃える)。 **ai_version `ExploitBeam_v6` が 最新** (= 2026-06-27、 matchup-条件付き value (v5/v6) を 11/16 deck に配備、 実メタ rankΔ=1.0、 [[project_leader_aware_matchup_ai]])。 再計算: `compute_matchup_matrix.py --ai-mode exploitbeam --ai-version ExploitBeam_v6 --incremental --workers 12 --n-games 20` (= 先攻/後攻は cell内で交互、 A vs B と B vs A 両方計算)。 旧 ExploitBeam_vd / SmartOpponentAI_deployed / GoalDirectedAI 産は stale。
+  - **方針: 表示用 matrix は 配備 AI (= uniform ExploitBeam + agnostic value + per-deck config) で 計算する** (= /meta で 公開する データを 実際の対戦相手 AI に 揃える)。 ⚠ **現配備 = uniform agnostic value (21dim) + beam** (2026-07-22 c23c939 で per-deck v6 を撤回・退避、 上の value 節参照)。 **matrix は uniform agnostic で要再計算 (現行の `ExploitBeam_v6` 産は stale = v6 は退避済で実際には agnostic に fallback している)**。 再計算: `compute_matchup_matrix.py --ai-mode exploitbeam --incremental --workers 12 --n-games 20` (= 先攻/後攻は cell内で交互、 A vs B と B vs A 両方計算)。 旧 ExploitBeam_v6 / ExploitBeam_vd / SmartOpponentAI_deployed / GoalDirectedAI 産は全て stale。
     - ⚠ **value-defense (= per-deck config で ON の deck) は matrix を ~5x 遅くする** (= 全試合に防御 sim が乗る、 240cell N=20 で **~5.4h**)。 必ず `--incremental` + 新 `--ai-version` で起動し、 5 cell checkpoint + version 照合で **crash 時に同一コマンド再実行で自動 resume** (= 計算済 cell を reuse、 timeout 失敗対策)。
     - ⚠ **配備AIの手が変わる変更後は要再計算** (例: 2026-06-13 offense force-attack 除去 / 2026-06-22 meta value-defense config 配備で再計算実施)。 deck の per-deck config (`db/deck_ai_config_*.json`) を変えたら その deck が絡む cell が stale
 - `overlay_audit.{md,json}`: audit 結果 (sev≥5 = 0、 sev=3-4 = 0)
@@ -333,7 +347,7 @@ onepiece_research/
 - `rules/*.pdf`: 公式ルール一次情報
 - `faq/*.json`: 公式 FAQ + cardqa (2,500+ 件)
 - `banlist/master.json`: 禁止/制限カード
-- `opponent_deck_priors.json`: **相手デッキ belief モデル** (= B軸 相手理解、 leader → P(card|50枚) prior + 実大会レシピ bootstrap pool、 175 deck/20 leader)。 相手 leader (公開情報) から中身を推定し、 (1) value の threat feature (2) determinization サンプラー (3) 分析 UI の土台。 runtime = `engine/opponent_deck_model.py` (belief_for_leader / sample_main / top_cards、 seen で事後更新)。 builder = `scripts/build_opponent_deck_priors.py` (corpus = decks/*.json + decks/_archive/cardrush_raw/*.json)。 ⚠ **まだ配備 AI には未配線** (= linchpin 単体。 次に determinize + v6 feature へ接続予定、 [[project_opponent_deck_belief_model]])
+- `opponent_deck_priors.json`: **相手デッキ belief モデル** (= B軸 相手理解、 leader → P(card|50枚) prior + 実大会レシピ bootstrap pool、 175 deck/20 leader)。 相手 leader (公開情報) から中身を推定し、 (1) value の threat feature (2) determinization サンプラー (3) 分析 UI の土台。 runtime = `engine/opponent_deck_model.py` (belief_for_leader / sample_main / top_cards、 seen で事後更新)。 builder = `scripts/build_opponent_deck_priors.py` (corpus = decks/*.json + decks/_archive/cardrush_raw/*.json)。 **determinize への配線は実装済** (2026-07-27、 `hand_estimator._belief_determinize` = seen 整合の実レシピから opp hand/deck を materialize、 `determinize_state(use_belief=)` / env `ONEPIECE_BELIEF_DETERMINIZE`、 OFF-by-default)。 self-play(deck 既知)は強さ中立、 真価は deployment(deck 未知で相手の型を読む)。 v6 feature 接続は moot(v6 撤回済)。 [[project_opponent_deck_belief_model]] / [[project_search_route_pivot]]
 - `leader_effect_profiles.json`: **リーダー効果の型 + 使い方 prior** (= A軸 自分理解、 opponent_deck_priors の対称、 318 leader)。 overlay の DSL から効果を分類 — timing(active=起動で時を選ぶ / attack / reactive / automatic / passive)× role(draw_engine/ramp/removal/aggression/enabler/develop/life_defense) → usage_pattern(engine_use_often / hold_for_threat / enabler_this_turn 等)。 「リーダー効果を いつ/どう 使うと強いか」 の粗い prior (精密な timing は多ターン探索 + Claude 教師が埋める、 play ログ無い為)。 runtime = `engine/leader_effect_profile.py` (primary_usage / when_decision / usage_hint / active_effects)。 builder = `scripts/build_leader_effect_profiles.py`。 ⚠ **まだ配備 AI には未配線** ([[project_opponent_deck_belief_model]] の A軸)
   - **統合 consumer = `engine/matchup_context.py`** (= A軸+B軸 prior を state に対して評価する層)。 `describe_matchup_context(state,me_idx)` が {own(自 leader 使い方), opponent(相手 belief 脅威、 見えた札で事後 sharpening)} を返し、 `format_context_text` で Claude 教師 / ログ 可読テキスト化。 探索の相手モデル・Claude 教師 context・分析 UI の共通入力。 ⚠ **1-ply value に静的 feature を足す路線は deploy-null 頻発** (v3/v5/v8 未配備、 効いたのは board-interactive v6 のみ) → prior の payoff は **多ターン探索/Claude 教師とセットで** 出る (単体 value feature 化では薄い)
 
