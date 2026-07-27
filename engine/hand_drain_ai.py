@@ -35,12 +35,22 @@ class HandDrainAI(GreedyAI):
         self.max_depth = max_depth
 
     def _score(self, st, me: int, opp: int) -> float:
-        """葉 (= 自ターン中の局面) の評価 = 相手手札を減らすことだけ。"""
+        """葉 (= 自ターン中の局面) の評価 = 相手の総防御資源を減らすこと。
+
+        ⭐ ohtsuki 指摘 (2026-07-27): 相手手札だけを見ると、 ライフ攻撃を受けられて 手札が増える
+        (life→手札) 局面を過剰に罰してしまう。 だが **ライフが減ると その後の攻撃でカウンターを
+        強要できる (受けられなくなる) = 手札を削れる状況になる** ので、 ライフ減少は進捗であり
+        罰すべきでない。 → 相手の防御資源を NNA = 手札 + ライフ×2 (docs/optcg) でモデル化して最小化。
+          - ライフ攻撃を受けられた: 手札+1・ライフ-1 → 資源 -1 (net 減る) = 罰さない ✓
+          - ライフ攻撃をカウンター: 手札-1 → 資源 -1 ✓  (= どう対応されても資源が減る)
+        """
         if getattr(st, "game_over", False):
             w = getattr(st, "winner", -1)
             return _LETHAL if w == me else -_LETHAL
-        # 相手手札が少ないほど高評価。 微小 tiebreak: 自手札は多い方が良い(次ターンの弾)。
-        return -1000.0 * len(st.players[opp].hand) + 1.0 * len(st.players[me].hand)
+        op = st.players[opp]
+        opp_defense = len(op.hand) + 2 * len(op.life)   # NNA: 手札 + ライフ×2
+        # 相手防御資源が少ないほど高評価。 微小 tiebreak: 自手札は多い方が良い(次ターンの弾)。
+        return -1000.0 * opp_defense + 1.0 * len(st.players[me].hand)
 
     def choose_action(self, state):
         me = state.turn_player_idx
