@@ -1446,7 +1446,39 @@ class GreedyAI:
         total_excess = plan.expected_excess
         opp_idx = 1 - state.turn_player_idx
         bluff_counter = hand_estimator.expected_counter_from_don_bluff(state, opp_idx)
-        effective_excess = max(0, total_excess - bluff_counter)
+        # ⭐ per-attack 要求値モデル (2026-07-27、 ONEPIECE_LETHAL_PERATTACK、 ohtsuki): 総和近似
+        # (expected_excess = 攻撃合計 - ライフ×5000)でなく「相手が生き残るのに negate すべき最小
+        # counter 値」を閾値にする。 相手は全 attack を counter する必要はなく、 死なない分だけ negate
+        # すればよい → 要求値の per-attack granularity を正確化(= 総和近似の誤判定を減らす)。
+        import os as _oslp
+        _peratk = (_oslp.environ.get("ONEPIECE_LETHAL_PERATTACK") == "1"
+                   or getattr(self, "_lethal_peratk", False))
+        if _peratk:
+            peratk: list[tuple[int, int]] = []   # (damage, demand_power)
+            for planned in plan.sequence:
+                if planned.effective_power <= est_defender_power:
+                    continue
+                inp = get_inplay(planned.attacker_iid)
+                dmg = 2 if (inp and inp.is_double_attack_now) else 1
+                gap = planned.effective_power - est_defender_power
+                demand_power = ((gap + 999) // 1000) * 1000   # 1000 単位切上 = negate に要る counter power
+                peratk.append((dmg, demand_power))
+            peratk.sort(key=lambda x: -x[0])          # blocker は damage 大の攻撃を無償 block
+            peratk = peratk[opp_blockers:]
+            # 生き残る最小 counter power = damage/counter 効率の良い攻撃から negate して非lethalに
+            remaining = list(peratk)
+            counter_needed = 0
+            _g = 0
+            while (remaining and _g < 20
+                   and attack_damages_are_lethal([d for d, _ in remaining], opp_life)):
+                _g += 1
+                bi = max(range(len(remaining)),
+                         key=lambda i: remaining[i][0] / max(1, remaining[i][1]))
+                counter_needed += remaining[bi][1]
+                remaining.pop(bi)
+            effective_excess = max(0, counter_needed - bluff_counter)
+        else:
+            effective_excess = max(0, total_excess - bluff_counter)
         p_block = hand_estimator.probability_counter_total_at_least(
             state, opp_idx, effective_excess,
         )
