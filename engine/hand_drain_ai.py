@@ -48,8 +48,14 @@ class HandDrainAI(GreedyAI):
             w = getattr(st, "winner", -1)
             return _LETHAL if w == me else -_LETHAL
         op = st.players[opp]
-        opp_defense = len(op.hand) + 2 * len(op.life)   # NNA: 手札 + ライフ×2
-        # 相手防御資源が少ないほど高評価。 微小 tiebreak: 自手札は多い方が良い(次ターンの弾)。
+        # ⭐ ohtsuki 指摘 (2026-07-27): キャラ攻撃は「手札を割かせる or 盤面を失わせる」の二択を
+        # 強要する。 相手がキャラを守りたい場面ではライフ攻撃より手札を削れる。 手札+ライフだけだと
+        # 「相手がキャラを見捨てて KO」 させた時に score 変化ゼロ(盤面除去を評価できない)。
+        # → 相手盤面(キャラ)も総資源に算入。 これで キャラ攻撃は counter(手札減)でも KO(盤面減)でも
+        # score が改善 = どちらの防御反応でも相手を削れる攻撃として正しく評価される。
+        opp_board = sum(1.0 + c.power / 10000.0 for c in op.characters)   # キャラ数 + power 重み
+        opp_defense = len(op.hand) + 2 * len(op.life) + opp_board   # 手札 + ライフ×2 + 盤面
+        # 相手総資源が少ないほど高評価。 微小 tiebreak: 自手札は多い方が良い(次ターンの弾)。
         return -1000.0 * opp_defense + 1.0 * len(st.players[me].hand)
 
     def choose_action(self, state):
