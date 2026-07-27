@@ -208,16 +208,16 @@ def test_op10_057_on_play_search_dressrosa_and_discard_ai():
 #          その後、手札から「レベッカ」以外の特徴《ドレスローザ》コスト7以下のキャラ2枚まで
 #          を公開し、うち1枚を登場、残りがコスト4以下ならレストで登場。
 #
-#  ⚠ overlay/engine mismatch: overlay は `search` primitive に from:"hand" /
-#     count:2 / to:"reveal_play_top1" を渡すが、 engine の `search` handler は
-#     from/count/to を無視し 常に「自分のデッキから filter 一致 1 枚を手札へ」で解決する
-#     (= 手札公開→登場 の部分が実装されていない)。 公式テキストの「手札から公開し登場」
-#     は engine 側が未サポートなので このタスク (= engine 非改変) では skip し 人間レビューへ。
+#  実装: overlay を `reveal_hand_play_split` primitive に更新 (engine/effects.py 新規)。
+#     手札の filter 一致キャラを最大 reveal_limit 枚 公開し、 1 枚を登場・残りが
+#     extra_rested_cost_le 以下ならレストで登場。 search primitive はデッキ検索専用の為 専用化。
+#     人間 actor は reveal_hand_play_split_pick modal で公開カードを選ぶ (UI = PlayFromHandPickModal 流用)。
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason="overlay が search from:hand / reveal_play_top1 を使うが engine の "
-                         "search primitive は from/count/to を無視しデッキ検索に fallback する。 "
-                         "手札公開→登場が未実装 (engine bug、 人間レビュー行き)")
+_DR_CHARA_C3 = "OP10-054"        # ブルーギリー cost3 power5000 特徴ドレスローザ (バニラ)
+
+
 def test_op10_058_on_play_draw_and_play_from_hand():
+    """【登場時】手札のドレスローザ コスト7以下キャラ1枚を公開して登場 (AI 単体)。"""
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, _LEADER_GREEN, overlay)
@@ -228,8 +228,52 @@ def test_op10_058_on_play_draw_and_play_from_hand():
     for prim in _eff(overlay, "OP10-058", "on_play")["do"]:
         execute_effect(prim, st, me, opp, reb)
         _drain(st, [0])
-    assert any(c.card_id == _DR_CHARA_C4 for c in me.characters), \
+    assert any(c.card.card_id == _DR_CHARA_C4 for c in me.characters), \
         "手札のドレスローザキャラが登場していない"
+
+
+def test_op10_058_on_play_reveal_two_active_and_rested_ai():
+    """公開2枚 → 1枚を登場、 残りがコスト4以下ならレストで登場 (AI)。"""
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, _LEADER_GREEN, overlay)
+    me, opp = st.players[0], st.players[1]
+    reb = InPlay.of(repo.get("OP10-058"), sickness=True)
+    me.characters = [reb]
+    # コスト4 (power5000) + コスト3 (power5000) の ドレスローザ 2 枚 (どちらも ≤4)
+    me.hand = [repo.get(_DR_CHARA_C4), repo.get(_DR_CHARA_C3)]
+    for prim in _eff(overlay, "OP10-058", "on_play")["do"]:
+        execute_effect(prim, st, me, opp, reb)
+        _drain(st, [0])
+    board = {c.card.card_id: c for c in me.characters}
+    assert _DR_CHARA_C4 in board, "公開キャラ (最良) が登場していない"
+    assert _DR_CHARA_C3 in board, "公開2枚目 (コスト4以下) がレスト登場していない"
+    # 最良 (コスト4) が active、 残り (コスト3) が rested
+    assert board[_DR_CHARA_C4].rested is False, "1枚目はアクティブで登場のはず"
+    assert board[_DR_CHARA_C3].rested is True, "残り (コスト4以下) はレストで登場のはず"
+
+
+def test_op10_058_on_play_human_reveal_modal():
+    """人間 actor は 公開候補を選ぶ modal (reveal_hand_play_split_pick) が立ち、
+    resolve で登場する。"""
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, _LEADER_GREEN, overlay, human_idx=0)
+    me, opp = st.players[0], st.players[1]
+    reb = InPlay.of(repo.get("OP10-058"), sickness=True)
+    me.characters = [reb]
+    me.hand = [repo.get(_DR_CHARA_C4), repo.get(_DR_CHARA_C3)]
+    reveal_prim = _eff(overlay, "OP10-058", "on_play")["do"][1]
+    execute_effect(reveal_prim, st, me, opp, reb)
+    assert st.pending_choice is not None, "人間 + 手札公開で modal が立たない"
+    assert st.pending_choice.get("kind") == "reveal_hand_play_split_pick", \
+        f"kind が reveal_hand_play_split_pick でない: {st.pending_choice.get('kind')}"
+    cands = st.pending_choice.get("candidates", [])
+    assert len(cands) == 2, f"公開候補が 2 枚でない: {cands}"
+    resolve_pending_choice(st, [0, 1])  # 両方公開
+    board_ids = {c.card.card_id for c in me.characters}
+    assert _DR_CHARA_C4 in board_ids and _DR_CHARA_C3 in board_ids, \
+        "人間が公開した2枚が登場していない"
 
 
 # --------------------------------------------------------------------------- #

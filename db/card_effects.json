@@ -24741,15 +24741,14 @@
      "draw": 1
     },
     {
-     "search": {
+     "reveal_hand_play_split": {
       "filter": {
        "feature": "ドレスローザ",
        "cost_le": 7,
        "name_exclude": "レベッカ"
       },
-      "from": "hand",
-      "count": 2,
-      "to": "reveal_play_top1"
+      "reveal_limit": 2,
+      "extra_rested_cost_le": 4
      }
     }
    ],
@@ -38318,15 +38317,14 @@
      "draw": 1
     },
     {
-     "search": {
+     "reveal_hand_play_split": {
       "filter": {
        "feature": "ドレスローザ",
        "cost_le": 7,
        "name_exclude": "レベッカ"
       },
-      "from": "hand",
-      "count": 2,
-      "to": "reveal_play_top1"
+      "reveal_limit": 2,
+      "extra_rested_cost_le": 4
      }
     }
    ],
