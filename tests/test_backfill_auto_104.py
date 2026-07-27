@@ -243,9 +243,6 @@ def test_op10_046_on_play_human_target_pick():
 #     公式テキストは「戻すのはコストの革命軍キャラ1枚のみ、 コアラは場に残って +3000」。
 #     engine/overlay の実バグなので このタスクでは修正せず skip (= 人間レビューへ)。
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason="overlay bug: OP10-047 は effect に余分な return_to_hand "
-                         "(one_self_chara_filtered/filter空) があり コアラ自身まで手札に戻る。"
-                         "公式は コスト革命軍1枚のみ返し コアラは場に残り +3000。engine 非編集方針で人間レビューへ")
 def test_op10_047_on_attack_return_revo_pump_self():
     repo = _repo()
     overlay = _overlay()
