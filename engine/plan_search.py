@@ -1283,6 +1283,37 @@ def search_turn_plan(
         except Exception:
             return 0.0
 
+    # ⭐ 防御リーサル awareness (2026-07-27、 ONEPIECE_DEF_LETHAL_W、 ohtsuki): 相手が自分をリーサル
+    # できそうな時、 防御的に動く。 (1) 相手キャラを削ってリーサル圏外へ逃れる手に大報酬(相手が自分を
+    # lethal できなくなる) (2) ブロッカーを攻撃で rest させる手に penalty(次ターン block できなくなる=温存)。
+    # リーサル圏でない時は完全 no-op(攻撃は普通に続ける)。 既定 0 無効。
+    _def_lethal_w = float(_os.environ.get("ONEPIECE_DEF_LETHAL_W", "0") or 0)
+    _opp_lethal_start = False
+    if _def_lethal_w != 0.0:
+        try:
+            from .lethal_planner import lethal_available as _la_def
+            _opp_lethal_start = _la_def(state, opp_idx)
+        except Exception:
+            _opp_lethal_start = False
+
+    def _def_lethal_add(cur_state):
+        if _def_lethal_w == 0.0 or not _opp_lethal_start or getattr(cur_state, "game_over", False):
+            return 0.0
+        try:
+            from .lethal_planner import lethal_available as _la_def2
+            bonus = 0.0
+            # (1) リーサル圏から逃れた(相手が自分をリーサルできなくなった)= 大報酬
+            if not _la_def2(cur_state, opp_idx):
+                bonus += 3.0
+            # (2) ブロッカーを攻撃で rest させた = penalty(次ターンの防御札を温存すべき)
+            me_p = cur_state.players[me_idx]
+            rested_blockers = sum(1 for c in me_p.characters
+                                  if getattr(c, "is_blocker", False) and getattr(c, "rested", False))
+            bonus -= 1.0 * rested_blockers
+            return _def_lethal_w * bonus * 10000.0
+        except Exception:
+            return 0.0
+
     scored = []
     if _eval_combiner:
         from .gbm_value import SCALE as _CSCALE
@@ -1316,13 +1347,13 @@ def search_turn_plan(
                 s = s1  # 上位以外は 1-round のまま(深 rollout を cap)
             scored.append((s + _nb_add(cur_state, plan) + _face_add(plan) + _oppcard_add(plan)
                            + _exit_policy_add(plan) + _pressure_add(cur_state)
-                           + _hand_econ_add(plan), plan))
+                           + _hand_econ_add(plan) + _def_lethal_add(cur_state), plan))
     else:
         for cur_state, plan in completed:
             s = _eval_state(cur_state, plan, _postopp_turns) + _penalty(cur_state, plan)
             scored.append((s + _nb_add(cur_state, plan) + _face_add(plan) + _oppcard_add(plan)
                            + _exit_policy_add(plan) + _pressure_add(cur_state)
-                           + _hand_econ_add(plan), plan))
+                           + _hand_econ_add(plan) + _def_lethal_add(cur_state), plan))
     if not scored:
         return [], -float("inf")
     # ⭐ 温度サンプリング (訓練時の探索、 ONEPIECE_PLAN_TEMPERATURE、 単位=score の標準偏差):
