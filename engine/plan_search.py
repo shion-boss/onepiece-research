@@ -1230,6 +1230,30 @@ def search_turn_plan(
         except Exception:
             return 0.0
 
+    # ⭐ 攻撃 pressure bonus (2026-07-27、 ONEPIECE_PRESSURE_W、 ohtsuki の段階導出):
+    # docs/optcg が「beam value の最大未モデル化領域 = 攻撃順・要求値」と名指し。 HandDrain 実験で
+    # 導出した「相手総防御資源 = 手札 + ライフ×2 + 盤面」を **このターンで どれだけ削ったか** を報酬化。
+    # value(P(win))は据置、 探索を「受けても守っても相手資源が減る攻撃(要求値)」に寄せる決定層 nudge。
+    # 相手の防御反応(counter=手札減 / 受け=ライフ減 / 見捨て=盤面減)は plan sim に含まれるので、
+    # 完了プラン leaf の相手資源が正しく反映される。 既定 0 = 完全 no-op。
+    _pressure_w = float(_os.environ.get("ONEPIECE_PRESSURE_W", "0") or 0)
+
+    def _opp_resource(st):
+        op = st.players[opp_idx]
+        board = sum(1.0 + c.power / 10000.0 for c in op.characters)
+        return len(op.hand) + 2.0 * len(op.life) + board
+
+    _start_opp_res = _opp_resource(state) if _pressure_w != 0.0 else 0.0
+
+    def _pressure_add(cur_state):
+        if _pressure_w == 0.0 or getattr(cur_state, "game_over", False):
+            return 0.0
+        try:
+            drained = _start_opp_res - _opp_resource(cur_state)   # 削った相手資源量
+            return _pressure_w * drained * 10000.0
+        except Exception:
+            return 0.0
+
     scored = []
     if _eval_combiner:
         from .gbm_value import SCALE as _CSCALE
@@ -1262,12 +1286,12 @@ def search_turn_plan(
             else:
                 s = s1  # 上位以外は 1-round のまま(深 rollout を cap)
             scored.append((s + _nb_add(cur_state, plan) + _face_add(plan) + _oppcard_add(plan)
-                           + _exit_policy_add(plan), plan))
+                           + _exit_policy_add(plan) + _pressure_add(cur_state), plan))
     else:
         for cur_state, plan in completed:
             s = _eval_state(cur_state, plan, _postopp_turns) + _penalty(cur_state, plan)
             scored.append((s + _nb_add(cur_state, plan) + _face_add(plan) + _oppcard_add(plan)
-                           + _exit_policy_add(plan), plan))
+                           + _exit_policy_add(plan) + _pressure_add(cur_state), plan))
     if not scored:
         return [], -float("inf")
     # ⭐ 温度サンプリング (訓練時の探索、 ONEPIECE_PLAN_TEMPERATURE、 単位=score の標準偏差):
