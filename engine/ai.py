@@ -428,6 +428,11 @@ def _is_attack_confirmed_fail_no_effect(
     return True
 
 
+# リーサル精度計測用ログ (ONEPIECE_LETHAL_DIAG=1 時のみ append)。 [(turn, player_idx, p_lethal)]。
+# diagnostic が game 毎に clear→run→突合。 production では env 未設定で完全 no-op。
+_LETHAL_DIAG_LOG: list = []
+
+
 def attack_damages_are_lethal(damages: list[int], life: int) -> bool:
     """connecting 攻撃の damage 列で opp (life 枚) を倒せるか厳密判定。
 
@@ -1522,6 +1527,15 @@ class GreedyAI:
 
         if p_lethal < LETHAL_THRESHOLD:
             return None
+
+        # 精度計測フック (ONEPIECE_LETHAL_DIAG=1): 発火した lethal の (turn, player, p_lethal) を記録。
+        # diagnostic が「発火ターンにゲームが終わったか(=成功)」と突合して misfire/calibration を測る。
+        if _oslp.environ.get("ONEPIECE_LETHAL_DIAG") == "1":
+            try:
+                _LETHAL_DIAG_LOG.append((int(state.turn_number),
+                                         int(state.turn_player_idx), float(p_lethal)))
+            except Exception:
+                pass
 
         # 🎯 リーサル成立! plan の最初の attacker から DON 配分 or 攻撃
         # 1) 最初の attacker で DON 必要なら付与
