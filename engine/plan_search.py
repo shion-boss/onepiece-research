@@ -1338,6 +1338,23 @@ def search_turn_plan(
         except Exception:
             return 0.0
 
+    # ⭐ 大型フィニッシャー早期展開 bonus (2026-07-28、 ONEPIECE_BIG_DEPLOY_W、 pros02 ドフラ理想線):
+    # プロ理想「ランプ最速で 8/10ドフラ 着地、 早い段階で面の差を作る」を配備 AI が実行できない(8ドフラ T10-12/
+    # 10%、 10ドフラ 0-2%)。 自盤面の高コスト(cost>=8)キャラ数を leaf で報酬化 → 打てる時に大型を出す線に寄せる。
+    # 「AI が早期大型を過小評価しているか」の pro-plan 検証用。 既定 0 無効。
+    _big_deploy_w = float(_os.environ.get("ONEPIECE_BIG_DEPLOY_W", "0") or 0)
+
+    def _big_deploy_add(cur_state):
+        if _big_deploy_w == 0.0 or getattr(cur_state, "game_over", False):
+            return 0.0
+        try:
+            me = cur_state.players[me_idx]
+            n_big = sum(1 for c in me.characters
+                        if getattr(getattr(c, "card", None), "cost", 0) >= 8)
+            return _big_deploy_w * n_big * 10000.0
+        except Exception:
+            return 0.0
+
     scored = []
     if _eval_combiner:
         from .gbm_value import SCALE as _CSCALE
@@ -1372,14 +1389,14 @@ def search_turn_plan(
             scored.append((s + _nb_add(cur_state, plan) + _face_add(plan) + _oppcard_add(plan)
                            + _exit_policy_add(plan) + _pressure_add(cur_state)
                            + _hand_econ_add(plan) + _def_lethal_add(cur_state)
-                           + _threat_removal_add(cur_state), plan))
+                           + _threat_removal_add(cur_state) + _big_deploy_add(cur_state), plan))
     else:
         for cur_state, plan in completed:
             s = _eval_state(cur_state, plan, _postopp_turns) + _penalty(cur_state, plan)
             scored.append((s + _nb_add(cur_state, plan) + _face_add(plan) + _oppcard_add(plan)
                            + _exit_policy_add(plan) + _pressure_add(cur_state)
                            + _hand_econ_add(plan) + _def_lethal_add(cur_state)
-                           + _threat_removal_add(cur_state), plan))
+                           + _threat_removal_add(cur_state) + _big_deploy_add(cur_state), plan))
     if not scored:
         return [], -float("inf")
     # ⭐ 温度サンプリング (訓練時の探索、 ONEPIECE_PLAN_TEMPERATURE、 単位=score の標準偏差):
