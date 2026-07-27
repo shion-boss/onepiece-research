@@ -533,15 +533,6 @@ def test_op10_028_activate_main_search_akazaya_ai():
 #  OP10-029 ジュラキュール・ミホーク (CHARACTER): 【登場時】自分のレストのキャラが2枚以上いる
 #          場合、自分のレストのコスト5以下の特徴《ODYSSEY》を持つキャラ1枚までを、アクティブにする。
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason=(
-    "engine gap (要人間レビュー): _resolve_target の 'one_self_chara_filtered' が "
-    "target-spec 直下の 'rested_required' を honor しない (filter 内のみ参照)。 このため "
-    "OP10-029 の untap は「レストの ODYSSEY cost5以下」に限定されず、 パワー最大の "
-    "ODYSSEY cost5 キャラ (= 通常アクティブな自身 OP10-029) を対象に選び no-op になる。 "
-    "公式テキストは『自分のレストの…をアクティブにする』 = rested 限定。 engine 側 "
-    "(one_self_chara_filtered の rested_required 反映) の修正が必要。 条件テスト "
-    "(self_rested_chara_count_ge) は別関数で green。"
-))
 def test_op10_029_on_play_untap_odyssey_ai():
     """【登場時】(レストキャラ2枚以上) レストの ODYSSEY cost5以下1枚をアクティブに (AI)。"""
     repo = _repo()
