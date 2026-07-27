@@ -515,11 +515,60 @@ def _read_exit() -> dict:
     return res
 
 
+def _battle_ai_research() -> dict:
+    """対戦用AI(配備 EBV2)の研究経過ログ。 = リーサル計算器の精度向上 + 効くレバー特定 (2026-07-27)。
+    静的サマリ(各 A/B は一度きりの結果)。 研究進展で本関数を更新する。"""
+    return {
+        "updated": "2026-07-27",
+        "focus": "リーサル計算器の精度向上 + 「効くレバー」の特定",
+        "deployed": {
+            "name": "per-attack 要求値リーサル + 閾値較正 (delta=0.15)",
+            "desc": "リーサル判定を『総和近似』→『攻撃別要求値(相手が生き残る最小 counter)』に、 閾値を攻撃的に較正",
+            "ab": [
+                {"deck": "1454", "arch": "mid", "wr": 52.5},
+                {"deck": "1342", "arch": "control", "wr": 53.1},
+                {"deck": "1456", "arch": "aggro", "wr": 56.2},
+                {"deck": "1453", "arch": "ramp", "wr": 49.4},
+            ],
+            "pooled": 52.8, "pooled_n": 640,
+        },
+        "experiments": [
+            {"name": "① per-attack lethal + delta", "wr": "52.8% (プールN640)", "verdict": "deploy", "note": "今日唯一の配備級 win、 3/4 archetype +、 負トレード無"},
+            {"name": "② 多ターンリーサル (mt_lethal)", "wr": "mid 54% / aggro 46%", "verdict": "deckdep", "note": "setup は grind 向き、 aggro に不向き(概念的 mismatch)"},
+            {"name": "③ counter-event 織り込み", "wr": "counter-deck 42%", "verdict": "bad", "note": "保守化で取れる lethal を見逃す(misfire<見送りコスト)"},
+            {"name": "④ 防御リーサル awareness", "wr": "aggro 47% / control 50%", "verdict": "bad", "note": "value が既に防御を捌く+ブロッカー温存が攻めと衝突"},
+            {"name": "⑤ 自己リーサルリスク 正確化", "wr": "aggro 43% / mid 50%", "verdict": "bad", "note": "正確化=慎重化→負け(危険を正しく見て安全ぶると負ける)"},
+            {"name": "⑥ counter 予測器 較正", "wr": "50%", "verdict": "neutral", "note": "精度は直る(bias +887→+1)が攻撃性飽和で勝率不変"},
+        ],
+        "diagnostics": [
+            {"name": "リーサル精度 (実測)", "finding": "発火成功率 68% / misfire 32%、 確率モデル過信(予測0.9-1.0→実71%)"},
+            {"name": "counter 予測器 バイアス", "finding": "予測3354 vs 実際2467 = +887 過大評価 → calib=0.73 で bias +887→+1 に補正"},
+            {"name": "手札削りパイプライン", "finding": "勝ちの90%はライフレース(手札満タンで負け)= 手札削りは勝利メカニズムでない"},
+        ],
+        "counter_pred": {
+            "calib": 0.73,
+            "measured": "cardrush_1454 self-play N=80 (1,838 サンプル)",
+            "by_hand": [
+                {"hs": 3, "pred": 1527, "actual": 808, "n": 26},
+                {"hs": 4, "pred": 2058, "actual": 1255, "n": 94},
+                {"hs": 5, "pred": 2308, "actual": 1874, "n": 429},
+                {"hs": 6, "pred": 2963, "actual": 2227, "n": 484},
+                {"hs": 7, "pred": 3745, "actual": 2549, "n": 286},
+                {"hs": 8, "pred": 4293, "actual": 3056, "n": 231},
+                {"hs": 9, "pred": 4748, "actual": 3627, "n": 185},
+                {"hs": 10, "pred": 5486, "actual": 3866, "n": 67},
+                {"hs": 11, "pred": 5929, "actual": 4481, "n": 27},
+            ],
+        },
+        "conclusion": "効くレバー = 攻撃性(AI の本質的弱点=消極性)。 精度は『適切な攻撃性を可能にする時だけ』効く(per-attack+delta が実現)。 慎重さを足す精度(自己リスク・counter-event 保守化・防御 bias)は全て逆効果。 配備 AI は既に攻撃的(force-attack + delta + per-attack lethal)で攻撃性は飽和気味 → 攻撃性系の追加改善は頭打ち。",
+    }
+
+
 def _stats(force: bool = False) -> dict:
     return {"manifest": _read_manifest(), "arena": _read_arena(),
             "loop": _read_loop_progress(), "corpus": _corpus_stats(force),
             "throughput": _read_throughput(), "rollout": _rollout_stats(),
-            "exit": _read_exit(),
+            "exit": _read_exit(), "battle_ai": _battle_ai_research(),
             "ts": time.strftime("%Y-%m-%d %H:%M:%S")}
 
 
@@ -600,6 +649,30 @@ function crossoverChart(series){
     g+=`<rect x="${pl+6+si*150}" y="${pt-13}" width="10" height="10" fill="${col}"/><text class="lbl" x="${pl+20+si*150}" y="${pt-4}">${s.policy} → ${(s.latest_deployed*100).toFixed(0)}%</text>`;
   });
   g+=`<text class="lbl" x="${pl}" y="${H-6}">0</text><text class="lbl" x="${W-pr}" y="${H-6}" text-anchor="end">corpus ${fmt2(x1)}</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}">${g}</svg>`;
+}
+function counterPredChart(bh, calib){
+  const W=440,H=230,pl=48,pr=12,pt=18,pb=30;
+  if(!bh||!bh.length) return `<svg viewBox="0 0 ${W} ${H}"><text x="${W/2}" y="${H/2}" class="lbl" text-anchor="middle">データ待ち</text></svg>`;
+  const x0=bh[0].hs, x1=bh[bh.length-1].hs;
+  const y0=0, y1=Math.max(...bh.map(d=>d.pred))*1.05;
+  const X=v=>pl+(x1===x0?0.5:(v-x0)/(x1-x0))*(W-pl-pr);
+  const Y=v=>pt+(1-(v-y0)/(y1-y0))*(H-pt-pb);
+  let g='';
+  for(let i=0;i<=4;i++){const yv=y0+(y1-y0)*i/4,yy=Y(yv);
+    g+=`<line class="gl" x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}"/><text class="lbl" x="${pl-4}" y="${yy+3}" text-anchor="end">${(yv/1000).toFixed(1)}k</text>`;}
+  const series=[
+    {key:'pred', col:'#f85149', name:'予測 (旧・過大)', f:d=>d.pred},
+    {key:'actual', col:'#3fb950', name:'実際 (相手の真の手札)', f:d=>d.actual},
+    {key:'calib', col:'#58a6ff', name:`較正後 (×${calib})`, f:d=>d.pred*calib, dash:'5 3'},
+  ];
+  series.forEach((s,si)=>{
+    const path=bh.map((d,i)=>`${i?'L':'M'}${X(d.hs).toFixed(1)} ${Y(s.f(d)).toFixed(1)}`).join(' ');
+    g+=`<path d="${path}" fill="none" stroke="${s.col}" stroke-width="2"${s.dash?` stroke-dasharray="${s.dash}"`:''}/>`;
+    for(const d of bh){g+=`<circle cx="${X(d.hs)}" cy="${Y(s.f(d))}" r="2.5" fill="${s.col}"/>`;}
+    g+=`<rect x="${pl+6+si*145}" y="${pt-14}" width="10" height="9" fill="${s.col}"/><text class="lbl" x="${pl+20+si*145}" y="${pt-5}" style="font-size:9px">${s.name}</text>`;
+  });
+  g+=`<text class="lbl" x="${pl}" y="${H-6}">手札${x0}枚</text><text class="lbl" x="${W-pr}" y="${H-6}" text-anchor="end">手札${x1}枚</text>`;
   return `<svg viewBox="0 0 ${W} ${H}">${g}</svg>`;
 }
 function bars(data,lk,vk,{fmt=(v)=>v.toFixed(2)}={}){
@@ -694,6 +767,50 @@ async function load(force){
     <div><b>${last?(last.win*100).toFixed(1)+'%':'—'}</b><span>強さ vs EBV2 (最新)</span></div>
     <div><b>${lastAuc?lastAuc.auc.toFixed(4):'—'}</b><span>AUC (最新)</span></div>
     <div><b>${c.hero_n_decks}</b><span>hero デッキ種</span></div></div></div>`);
+  // ⓪ 対戦用AI 研究経過 (配備 EBV2、 リーサル計算器) — 全幅、 最上部
+  const bai = s.battle_ai;
+  if (bai) {
+    const vcolor = {deploy:'#3fb950', deckdep:'#d29922', bad:'#f85149', neutral:'#8b949e'};
+    const vlabel = {deploy:'✅ 配備', deckdep:'△ deck依存', bad:'✗ 逆効果', neutral:'⚠ neutral'};
+    const dep = bai.deployed || {};
+    const wrCol = w => w>=53 ? '#3fb950' : (w>=51 ? '#7ee787' : (w>=49 ? '#c9d1d9' : '#f85149'));
+    const abBars = (dep.ab||[]).map(r=>{
+      const pct = Math.max(0, Math.min(100, (r.wr-40)/20*100));  // 40-60% を 0-100% に
+      return `<div style="display:flex;align-items:center;gap:6px;margin:2px 0;font-size:11px">`
+        +`<span style="width:120px;text-align:right;color:#8b949e">${r.deck} <span style="color:#6e7681">${r.arch}</span></span>`
+        +`<span style="flex:1;background:#0d1117;border-radius:3px;position:relative"><span style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:#f85149;opacity:.5"></span><span style="display:inline-block;height:13px;width:${pct}%;background:${wrCol(r.wr)};border-radius:3px"></span></span>`
+        +`<span style="width:52px;color:${wrCol(r.wr)};font-weight:600">${r.wr}%</span></div>`;
+    }).join('');
+    const expRows = (bai.experiments||[]).map(e=>
+      `<tr><td>${e.name}</td><td style="color:#8b949e">${e.wr}</td>`
+      +`<td style="text-align:center;color:${vcolor[e.verdict]||'#c9d1d9'};font-weight:600;white-space:nowrap">${vlabel[e.verdict]||e.verdict}</td>`
+      +`<td style="color:#6e7681;font-size:10px">${e.note}</td></tr>`).join('');
+    const diagRows = (bai.diagnostics||[]).map(d=>
+      `<div style="margin:3px 0;font-size:11px"><b style="color:#58a6ff">${d.name}:</b> <span style="color:#8b949e">${d.finding}</span></div>`).join('');
+    cards.push(`<div class="card" style="grid-column:1/-1;border-color:#2ea043">
+      <h2>⓪ 対戦用AI 研究経過 — リーサル計算器の強化 <span style="color:#6e7681;font-weight:400">(配備 EBV2、 更新 ${bai.updated})</span></h2>
+      <p class="sub">${bai.focus}</p>
+      <div style="display:flex;gap:20px;flex-wrap:wrap">
+        <div style="flex:1;min-width:340px">
+          <div style="font-size:12px;color:#3fb950;font-weight:600;margin-bottom:4px">✅ 配備済: ${dep.name}</div>
+          <p class="note" style="margin:0 0 6px">${dep.desc}</p>
+          ${abBars}
+          <div style="margin-top:4px;font-size:12px">プール <b style="color:${wrCol(dep.pooled)}">${dep.pooled}%</b> <span style="color:#6e7681">(N=${(dep.pooled_n||0).toLocaleString()}, 3/4 archetype で positive、 負トレード無)</span></div>
+        </div>
+        <div style="flex:1;min-width:340px">
+          <div style="font-size:12px;color:#c9d1d9;font-weight:600;margin-bottom:4px">計算機 精度 診断 (実測)</div>
+          ${diagRows}
+        </div>
+      </div>
+      ${bai.counter_pred ? `<div style="margin-top:12px">
+        <div style="font-size:12px;color:#c9d1d9;font-weight:600;margin-bottom:2px">手札カウンター値 予測器の精度 (手札枚数別、 ${bai.counter_pred.measured})</div>
+        <p class="note" style="margin:0 0 4px">一様仮定の予測(赤)は相手手札 counter を系統的に過大評価 → 実際(緑)より高い。 手札が多いほど乖離。 較正 ×${bai.counter_pred.calib}(青破線)で実際にほぼ一致。 過大評価は AI を過度に慎重にしていた</p>
+        ${counterPredChart(bai.counter_pred.by_hand, bai.counter_pred.calib)}
+      </div>` : ''}
+      <div style="font-size:12px;color:#c9d1d9;font-weight:600;margin:12px 0 4px">実験ログ (リーサル計算器の各改善案)</div>
+      <table><tr style="color:#8b949e"><td>実験</td><td>A/B 結果</td><td>判定</td><td>所見</td></tr>${expRows}</table>
+      <p class="note" style="margin-top:10px;border-top:1px solid #30363d;padding-top:8px"><b style="color:#f0883e">結論:</b> ${bai.conclusion}</p></div>`);
+  }
   // ① arena
   cards.push(`<div class="card"><h2>① 強さ推移 (ε=0 arena vs EBV2)</h2>
     <p class="sub">絶対的に強くなっているか。 赤破線=50% (互角)。 上に離れれば強い</p>

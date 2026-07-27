@@ -1314,6 +1314,30 @@ def search_turn_plan(
         except Exception:
             return 0.0
 
+    # ⭐ grind-control 脅威除去 bonus (2026-07-27、 ONEPIECE_THREAT_REMOVAL_W、 戦略トレース発見):
+    # 真の grind-control(ドフラ型)は AI が全デッキと同じ顔レース(86%顔/14%除去)をして相手大型を放置
+    # (⑧: 相手 7000+ 放置率が aggro の 2倍)→ 盤面が積み上がり負ける。 自ターンで相手の大型脅威(5000+)
+    # power を削った量を報酬化 → 除去に寄せる決定層 nudge。 leaf=自ターン終了(opp 再展開前)で評価する
+    # ので「除去した」事実が正しく報酬になる。 race-deck は w=0 で完全 no-op。 既定 0 無効。
+    _threat_removal_w = float(_os.environ.get("ONEPIECE_THREAT_REMOVAL_W", "0") or 0)
+
+    def _opp_threat_power(st):
+        op = st.players[opp_idx]
+        return sum(c.power for c in op.characters if c.power >= 5000)
+
+    _start_opp_threat = _opp_threat_power(state) if _threat_removal_w != 0.0 else 0.0
+
+    def _threat_removal_add(cur_state):
+        if _threat_removal_w == 0.0 or getattr(cur_state, "game_over", False):
+            return 0.0
+        try:
+            removed = _start_opp_threat - _opp_threat_power(cur_state)
+            if removed <= 0:
+                return 0.0
+            return _threat_removal_w * (removed / 10000.0) * 10000.0
+        except Exception:
+            return 0.0
+
     scored = []
     if _eval_combiner:
         from .gbm_value import SCALE as _CSCALE
@@ -1347,13 +1371,15 @@ def search_turn_plan(
                 s = s1  # 上位以外は 1-round のまま(深 rollout を cap)
             scored.append((s + _nb_add(cur_state, plan) + _face_add(plan) + _oppcard_add(plan)
                            + _exit_policy_add(plan) + _pressure_add(cur_state)
-                           + _hand_econ_add(plan) + _def_lethal_add(cur_state), plan))
+                           + _hand_econ_add(plan) + _def_lethal_add(cur_state)
+                           + _threat_removal_add(cur_state), plan))
     else:
         for cur_state, plan in completed:
             s = _eval_state(cur_state, plan, _postopp_turns) + _penalty(cur_state, plan)
             scored.append((s + _nb_add(cur_state, plan) + _face_add(plan) + _oppcard_add(plan)
                            + _exit_policy_add(plan) + _pressure_add(cur_state)
-                           + _hand_econ_add(plan) + _def_lethal_add(cur_state), plan))
+                           + _hand_econ_add(plan) + _def_lethal_add(cur_state)
+                           + _threat_removal_add(cur_state), plan))
     if not scored:
         return [], -float("inf")
     # ⭐ 温度サンプリング (訓練時の探索、 ONEPIECE_PLAN_TEMPERATURE、 単位=score の標準偏差):
