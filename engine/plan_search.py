@@ -1069,6 +1069,13 @@ def search_turn_plan(
     # 自分の defense は greedy 固定 (= baseline 統一、 変更を相手 action policy に isolate)。 no-harm
     # (off で _postopp_opp_ai == _postopp_ai == greedy = 完全に現挙動)。
     _postopp_opp_value = _os.environ.get("ONEPIECE_POSTOPP_OPP_VALUE") == "1"
+    # ⭐ 相手デッキ予測 (belief) で post-opp opp sim を determinize (= 2026-07-27、
+    # ONEPIECE_POSTOPP_DETERMINIZE=1、 既定 off = 現挙動 = opp 実手札で sim = cheat)。
+    # ON にすると _eval_state の opp sim を「相手 leader belief モデルが予測した likely 手札/デッキ」で
+    # 進める → AI が「相手の型(除去持ち/ラッシュ 等)を読んで」自ターンの手を選ぶ。 = 相手デッキの特徴
+    # を考慮した戦い方 ([[project_search_route_pivot]] / [[project_opponent_deck_belief_model]] B軸)。
+    # 失敗時は uniform → 現挙動に fallback。 per-AI 属性化で A/B 可能 (exploit_beam_ai)。
+    _postopp_belief = _os.environ.get("ONEPIECE_POSTOPP_DETERMINIZE") == "1"
     _postopp_ai = None
     _postopp_self_ai = None
     _postopp_opp_ai = None
@@ -1095,6 +1102,13 @@ def search_turn_plan(
         if not _postopp or cur_state.game_over:
             return compute_score(cur_state, me_idx)
         ev = fast_clone(cur_state)
+        if _postopp_belief:
+            # 相手デッキ予測: opp の隠匿情報を belief モデルで determinize してから sim (= 相手の型を読む)。
+            try:
+                from .hand_estimator import determinize_state as _det_belief
+                _det_belief(ev, opp_idx, rng=getattr(state, "rng", None), use_belief=True)
+            except Exception:
+                pass
         try:
             from .game import EndPhase as _EP, apply_action as _apply
             apply_action_fn = _apply
