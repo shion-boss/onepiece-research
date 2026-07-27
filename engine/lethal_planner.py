@@ -195,13 +195,44 @@ def plan_optimal_attack_sequence(
     )
 
 
-def lethal_available(state, me_idx: int, counter_margin: int = 1) -> bool:
-    """me が state で(次ターン=全キャラ active 想定)相手にリーサル脅威を作れるか (setup 検出用、
-    2026-07-27、 多ターンリーサル ohtsuki Part 2)。
+def _is_lethal_damages(damages: list[int], life: int) -> bool:
+    """connecting 攻撃 damage 列で opp(life枚)を倒せるか厳密判定 (ai.attack_damages_are_lethal の
+    lethal_planner 版、 循環 import 回避)。 公式 9-2-1/Q36: N ダメージで 0 到達 + もう 1 発 connect で敗北。"""
+    if life <= 0:
+        return len(damages) >= 1
+    dmgs = sorted(damages, reverse=True)
+    cum = 0
+    for i, d in enumerate(dmgs):
+        cum += d
+        if cum >= life:
+            return (i + 1) < len(dmgs)
+    return False
 
-    相手のブロッカー + counter_margin 攻撃分を防がれても、 connecting hits ≥ opp_life なら True。
-    = 「相手の妨害を織り込んでも次ターン lethal できる」盤面かの粗い判定。 post-opp(自次ターン開始)
-    局面で呼び、 True のプランに bonus を与えて『リーサルを組む手』を beam に選ばせる。
+
+def _min_counter_to_survive(per_attack: list[tuple[int, int]], opp_life: int,
+                            opp_blockers: int) -> int:
+    """相手が生き残るのに negate すべき最小 counter power。 per_attack = [(damage, demand_power)]。
+    相手は blocker で damage 大の攻撃を無償 block、 残りを damage/counter 効率の良い順に negate する。"""
+    per = sorted(per_attack, key=lambda x: -x[0])
+    per = per[opp_blockers:]
+    remaining = list(per)
+    counter_needed = 0
+    g = 0
+    while remaining and g < 30 and _is_lethal_damages([d for d, _ in remaining], opp_life):
+        g += 1
+        bi = max(range(len(remaining)), key=lambda i: remaining[i][0] / max(1, remaining[i][1]))
+        counter_needed += remaining[bi][1]
+        remaining.pop(bi)
+    return counter_needed
+
+
+def lethal_available(state, me_idx: int, extra_margin: int = 0) -> bool:
+    """me が state で(次ターン=全キャラ active 想定)相手にリーサル脅威を作れるか (setup 検出用、
+    2026-07-27、 多ターンリーサル ohtsuki Part 2、 per-attack 精度版)。
+
+    per-attack 要求値 で「相手が生き残る最小 counter power」を計算し、 相手の実 counter 容量
+    (sim 手札の counter 値合計)を超えるなら True = 相手が守り切れない = lethal を組める。
+    粗い hits 判定と違い、 aggro の小型攻撃を過剰検出しない(相手の counter 容量を正確に見る)。
     """
     me = state.players[me_idx]
     opp = state.players[1 - me_idx]
@@ -209,20 +240,35 @@ def lethal_available(state, me_idx: int, counter_margin: int = 1) -> bool:
     if opp_life <= 0:
         return True
     opp_leader_power = getattr(getattr(opp, "leader", None), "power", 5000)
-    attackers: list[tuple[int, int]] = []
+    attacker_specs: list[tuple[int, int]] = []
+    ip_by_iid: dict = {}
     lead = getattr(me, "leader", None)
     if lead is not None:
-        attackers.append((lead.instance_id, lead.power))
+        attacker_specs.append((lead.instance_id, lead.power))
+        ip_by_iid[lead.instance_id] = lead
     for c in getattr(me, "characters", []):
-        attackers.append((c.instance_id, c.power))
-    if not attackers:
+        attacker_specs.append((c.instance_id, c.power))
+        ip_by_iid[c.instance_id] = c
+    if not attacker_specs:
         return False
     don = getattr(me, "don_active", 0) + getattr(me, "don_rested", 0)
-    plan = plan_optimal_attack_sequence(attackers, don, opp_leader_power, opp_life)
-    hits = sum(1 for p in plan.sequence if p.effective_power > opp_leader_power)
+    plan = plan_optimal_attack_sequence(attacker_specs, don, opp_leader_power, opp_life)
+    per_attack: list[tuple[int, int]] = []
+    for p in plan.sequence:
+        if p.effective_power <= opp_leader_power:
+            continue
+        ip = ip_by_iid.get(p.attacker_iid)
+        dmg = 2 if (ip is not None and getattr(ip, "is_double_attack_now", False)) else 1
+        gap = p.effective_power - opp_leader_power
+        demand = ((gap + 999) // 1000) * 1000
+        per_attack.append((dmg, demand))
     opp_blockers = sum(1 for c in getattr(opp, "characters", [])
                        if getattr(c, "is_blocker_now", False) and not getattr(c, "rested", False))
-    return (hits - opp_blockers - counter_margin) >= opp_life
+    counter_needed = _min_counter_to_survive(per_attack, opp_life, opp_blockers)
+    if counter_needed <= 0:
+        return False   # そもそも lethal でない
+    opp_counter = sum(int(getattr(c, "counter", 0) or 0) for c in getattr(opp, "hand", []))
+    return counter_needed > opp_counter + extra_margin
 
 
 def mark_overkill_as_burners(
