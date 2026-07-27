@@ -563,13 +563,63 @@ def lethal_estimate(state: GameState, me_idx: int) -> float:
     return 1.0 / (1.0 + math.exp(-2 * (ratio - 1)))
 
 
+def _accurate_self_lethal_risk(state: GameState, me_idx: int) -> float:
+    """自分が次ターンリーサルされる確率の per-attack 精度版 (2026-07-27、 recipe 適用)。
+
+    総和近似でなく: opp の最適攻撃 plan(DON配分込)→ per-attack 要求値 → 自分が生き残る最小 counter
+    (blocker 込)→ P(自 counter < 最小) = P(リーサルされる)。 リーサル計算器と同じ精度を防御リスクに。
+    """
+    self_p = state.players[me_idx]
+    opp_p = state.players[1 - me_idx]
+    from .lethal_planner import (plan_optimal_attack_sequence, _min_counter_to_survive)
+    self_leader_p = self_p.leader.power
+    attacker_specs: list = []
+    ip_by_iid: dict = {}
+    if not opp_p.leader.cannot_attack_static:
+        attacker_specs.append((opp_p.leader.instance_id, opp_p.leader.power))
+        ip_by_iid[opp_p.leader.instance_id] = opp_p.leader
+    for c in opp_p.characters:
+        if c.cannot_attack_static:
+            continue
+        attacker_specs.append((c.instance_id, c.power))
+        ip_by_iid[c.instance_id] = c
+    if not attacker_specs:
+        return 0.0
+    opp_don = getattr(opp_p, "don_active", 0) + getattr(opp_p, "don_rested", 0)
+    plan = plan_optimal_attack_sequence(attacker_specs, opp_don, self_leader_p, len(self_p.life))
+    per_attack: list = []
+    for p in plan.sequence:
+        if p.effective_power <= self_leader_p:
+            continue
+        ip = ip_by_iid.get(p.attacker_iid)
+        dmg = 2 if (ip is not None and getattr(ip, "is_double_attack_now", False)) else 1
+        gap = p.effective_power - self_leader_p
+        demand = ((gap + 999) // 1000) * 1000
+        per_attack.append((dmg, demand))
+    my_blockers = sum(1 for c in self_p.characters
+                      if getattr(c, "is_blocker", False) and not getattr(c, "rested", False))
+    counter_needed = _min_counter_to_survive(per_attack, len(self_p.life), my_blockers)
+    if counter_needed <= 0:
+        return 0.0
+    p_survive = hand_estimator.probability_counter_total_at_least(state, me_idx, counter_needed)
+    return max(0.0, min(1.0, 1.0 - float(p_survive)))
+
+
 def project_opp_next_turn_lethal(state: GameState, me_idx: int) -> float:
     """opp が次ターン REFRESH 後に持つ lethal 見積。 lethal_estimate の対称版。
 
     me が opp ターンに殺されるリスクを 0.0〜1.0 で返す。
     opp.characters は全 active 想定 (= sickness/rest が opp の REFRESH で解除される)。
     cannot_attack_static など攻撃禁止の状態は維持。
+
+    ⭐ ONEPIECE_ACCURATE_SELF_LETHAL=1 で per-attack 精度版(recipe 適用)。 既定は旧 総和近似。
     """
+    import os as _os_asl
+    if _os_asl.environ.get("ONEPIECE_ACCURATE_SELF_LETHAL") == "1":
+        try:
+            return _accurate_self_lethal_risk(state, me_idx)
+        except Exception:
+            pass
     self_p = state.players[me_idx]
     opp_p = state.players[1 - me_idx]
 
