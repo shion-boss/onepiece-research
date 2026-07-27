@@ -1500,6 +1500,14 @@ class GreedyAI:
             LETHAL_THRESHOLD = 0.55
         else:
             LETHAL_THRESHOLD = 0.40
+        # ⭐ per-attack モデルは effective_excess を小さく取るため p_lethal が系統的に下がる。
+        # 閾値を delta 分下げて較正する (2026-07-27、 ONEPIECE_LETHAL_THRESH_DELTA / _lethal_thresh_delta)。
+        # aggro が保守化で賭けリーサルを逃す regression の対策。 既定 0 = 無効。
+        _thr_delta = getattr(self, "_lethal_thresh_delta", None)
+        if _thr_delta is None:
+            _thr_delta = float(_oslp.environ.get("ONEPIECE_LETHAL_THRESH_DELTA", "0") or 0)
+        if _thr_delta:
+            LETHAL_THRESHOLD = max(0.2, LETHAL_THRESHOLD - float(_thr_delta))
 
         if p_lethal < LETHAL_THRESHOLD:
             return None
