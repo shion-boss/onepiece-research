@@ -366,6 +366,19 @@ def _should_mulligan(
       2. imitation prior (= db/imitation_patterns.json 大会優勝レシピ採用率、 2026-05-18 追加)
       3. fallback (= 「コスト3以下のキャラ」 が0枚ならマリガン)
     """
+    # ⭐ マリガン sensitivity 診断用 (2026-07-28): per-player は analysis._mull_mode、 全体は env
+    # ONEPIECE_MULLIGAN_MODE。 keep=常keep / throw=常mull / random=50%。 現ヒューリスティックが勝率に
+    # 効くか(= マリガンがレバーか)を isolate して測る A/B 用。 既定 = ヒューリスティック。
+    import os as _os_m
+    _mm = (deck_analysis or {}).get("_mull_mode") or _os_m.environ.get("ONEPIECE_MULLIGAN_MODE")
+    if _mm == "keep":
+        return False
+    if _mm == "throw":
+        return True
+    if _mm == "random":
+        import random as _r_m
+        return _r_m.random() < 0.5
+
     if deck_analysis:
         keep_ids = set(deck_analysis.get("mulligan_keep_card_ids") or [])
         if keep_ids:
