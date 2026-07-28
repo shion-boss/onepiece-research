@@ -31,6 +31,18 @@ OPP = os.environ.get("AB_OPP", "tcgportal_calgara")
 CAND = int(os.environ.get("AB_CAND", "6"))
 RO = int(os.environ.get("AB_RO", "6"))
 TURN_CAP = int(os.environ.get("AB_TURN_CAP", "40"))
+# ⭐ policy 蒸留モード: AB_POLICY_VALUE=<pkl> で rollout を蒸留 value 予測に差替(高速 policy)。
+_POLICY_VALUE = os.environ.get("AB_POLICY_VALUE")
+_PV_FEAT = os.environ.get("AB_PV_FEAT", "v14")
+_PV_MODEL = None
+
+
+def _pv_model():
+    global _PV_MODEL
+    if _PV_MODEL is None:
+        import pickle
+        _PV_MODEL = pickle.load(open(ROOT / _POLICY_VALUE, "rb"))
+    return _PV_MODEL
 
 
 def _deck(s):
@@ -112,6 +124,35 @@ def _rollout_choice(st, hero_idx, hero_slug, opp_slug, dep_ai, move_seed):
     cands = _candidates(acts, dep_idx)
     if len(cands) <= 1:
         return dep_idx if dep_idx is not None else (0 if acts else None)
+    # ⭐ value モード (AB_POLICY_VALUE): rollout の代わりに蒸留 value で候補を採点(高速)= policy 蒸留。
+    if _POLICY_VALUE:
+        from engine.gbm_value import features as _pvf
+        m = _pv_model()
+        best_idx, best_s = dep_idx, -2.0
+        feats, cis = [], []
+        for ci in cands:
+            post = fast_clone(st)
+            try:
+                apply_action(post, legal_actions(post)[ci])
+            except Exception:
+                continue
+            if getattr(post, "game_over", False):
+                w2 = getattr(post, "winner", -1)
+                s = 1.5 if w2 == hero_idx else (-1.5 if w2 == (1 - hero_idx) else 0.5)
+                if s > best_s:
+                    best_s, best_idx = s, ci
+            else:
+                kw = {"rich": True, _PV_FEAT: True}
+                feats.append(_pvf(post, hero_idx, **kw)); cis.append(ci)
+        if feats:
+            try:
+                probs = m.predict_proba(feats)[:, 1]
+                for j, ci in enumerate(cis):
+                    if float(probs[j]) > best_s:
+                        best_s, best_idx = float(probs[j]), ci
+            except Exception:
+                pass
+        return best_idx
     best_idx, best_w = dep_idx, -1.0
     for ci in cands:
         w = 0.0
