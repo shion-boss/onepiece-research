@@ -709,7 +709,7 @@ def _option_score(opt: dict, state: GameState, me: Player, opp: Player) -> float
             elif pr in ("draw", "draw_per_self_hand_discarded"):
                 score += 2.0
             elif pr in ("search", "search_top_n", "play_from_hand", "play_from_trash",
-                        "summon_from_deck"):
+                        "summon_from_deck", "reveal_hand_play_split"):
                 score += 1.8
             elif pr in ("add_don", "add_rested_don", "attach_don", "attach_rested_don",
                         "attach_active_don", "untap_don"):
@@ -4386,6 +4386,121 @@ def _execute_effect_body(
             me.known_bottom_card_ids.clear()
             me.known_top_card_ids.clear()
             state.push_log(f"  効果: サーチ → {[c.name for c in picked]}")
+        elif k == "reveal_hand_play_split":
+            # 公式: 「自分の手札から、 (filter) キャラカード reveal_limit 枚までを公開する。
+            #   公開したカードのうち1枚を登場させ、 残りがコスト extra_rested_cost_le 以下なら
+            #   レストで登場させる。」 (= OP10-058 レベッカ)。
+            # search primitive はデッキ検索専用で from:hand / reveal→登場 を持たないため専用化。
+            # 公開 (reveal) = 相手に見える (公式「公開する」)。 登場は play_from_hand と同じ
+            # 経路 (InPlay.of + trigger_on_play、 場が満杯なら最弱を退避)。
+            # active/rested の割当は決定的: コスト extra_rested_cost_le 超のカードは レストで
+            # 登場できない (= 「残り」節が適用外) ので active 枠に置く。 残り (コスト以下) を
+            # レストで登場。 これで盤面が最大化する (公式選択の最適形)。
+            # spec: {"filter": {...}, "reveal_limit": 2, "extra_rested_cost_le": 4}
+            spec = v if isinstance(v, dict) else {}
+            filt = _resolve_dynamic_filter(spec.get("filter", {}), state, me, opp)
+            reveal_limit = int(spec.get("reveal_limit", 2))
+            rest_cost_le = int(spec.get("extra_rested_cost_le", 4))
+            # 候補 = 手札の CHARACTER で filter 一致、 効果で登場可能なもの
+            candidates: list[tuple[int, CardDef]] = []
+            for i, card in enumerate(me.hand):
+                if card.category != Category.CHARACTER:
+                    continue
+                if _no_play_from_hand_via_effect(card, state.effects_overlay):
+                    continue
+                if not _matches_filter(card, filt):
+                    continue
+                candidates.append((i, card))
+            if not candidates:
+                state.push_log("  効果: reveal_hand_play_split 該当 手札 なし (不発)")
+            else:
+                picks_idx: Optional[list[int]] = None
+                if isinstance(v, dict) and "_picks_idx" in v:
+                    picks_idx = list(v["_picks_idx"])
+                # 人間 acting + picks 未指定 → 公開候補を最大 reveal_limit 枚 選ばせる modal
+                if picks_idx is None and _should_human_pick(state):
+                    state.pending_choice = {
+                        "kind": "reveal_hand_play_split_pick",
+                        "primitive_value": v,
+                        "candidates": [
+                            {
+                                "hand_idx": i,
+                                "card_id": c.card_id,
+                                "name": c.name,
+                                "cost": int(c.cost) if c.cost is not None else 0,
+                                "power": int(c.power) if c.power is not None else 0,
+                            }
+                            for i, c in candidates
+                        ],
+                        "limit": reveal_limit,
+                        "source_iid": self_inplay.instance_id if self_inplay else None,
+                    }
+                    state.push_log(
+                        f"  効果: 手札公開 候補 {len(candidates)} 枚 → 人間 選択 待ち "
+                        f"(= {reveal_limit} 枚 まで)"
+                    )
+                    return True
+                valid_idxs = {i for i, _ in candidates}
+                if picks_idx is not None:
+                    # 人間選択: filter 通過 hand idx に限定 + reveal_limit で cap + 重複除去
+                    reveal_set: list[int] = []
+                    for i in picks_idx:
+                        if i in valid_idxs and i not in reveal_set:
+                            reveal_set.append(i)
+                    reveal_set = reveal_set[:reveal_limit]
+                else:
+                    # AI: 盤面最大化 = 最良候補を active、 コスト以下の別候補を rested (最大 2 体)。
+                    ordered = sorted(
+                        candidates,
+                        key=lambda t: (int(t[1].cost or 0), int(t[1].power or 0)),
+                        reverse=True,
+                    )
+                    active_i = ordered[0][0]
+                    rested_i: Optional[int] = None
+                    for i, c in ordered[1:]:
+                        if int(c.cost or 0) <= rest_cost_le:
+                            rested_i = i
+                            break
+                    reveal_set = [active_i] + ([rested_i] if rested_i is not None else [])
+                    reveal_set = reveal_set[:reveal_limit]
+                if not reveal_set:
+                    state.push_log("  効果: reveal_hand_play_split 公開 0 枚 (= skip)")
+                else:
+                    # 公開 (= 相手に見える)
+                    state.push_log(
+                        f"  効果: 手札から公開 → {[me.hand[i].name for i in reveal_set]}"
+                    )
+                    # active 枠 = コスト超のカード優先 (レストにできない為)、 なければ最良。
+                    def _val(i: int) -> tuple[int, int]:
+                        c = me.hand[i]
+                        return (int(c.cost or 0), int(c.power or 0))
+                    big_idxs = [i for i in reveal_set if int(me.hand[i].cost or 0) > rest_cost_le]
+                    active_idx = max(big_idxs or reveal_set, key=_val)
+                    # 登場する (card, rested) を hand から抜く前に確定
+                    plays: list[tuple[int, bool]] = [(active_idx, False)]
+                    for i in reveal_set:
+                        if i == active_idx:
+                            continue
+                        if int(me.hand[i].cost or 0) <= rest_cost_le:
+                            plays.append((i, True))
+                        else:
+                            state.push_log(
+                                f"  効果: {me.hand[i].name} は コスト{rest_cost_le}超で"
+                                f"レスト登場できず 公開のみ (手札に残る)"
+                            )
+                    play_cards = [(me.hand[i], rested) for i, rested in plays]
+                    for i in sorted((i for i, _ in plays), reverse=True):
+                        me.hand.pop(i)
+                    for card, rested in play_cards:
+                        if not me.can_play_character():
+                            me.trash_weakest_chara_for_field_full(
+                                state, owner_idx=state.players.index(me))
+                        ip = InPlay.of(card, rested=rested, sickness=True)
+                        me.characters.append(ip)
+                        label = "レストで" if rested else ""
+                        state.push_log(f"  効果: 手札公開から{label}登場 → {card.name}")
+                        if state.effects_overlay:
+                            trigger_on_play(state, me, opp, ip, state.effects_overlay)
         elif k == "life_to_hand":
             if getattr(me, "prevent_self_life_to_hand_until_turn_end", False):
                 state.push_log(f"  効果: ライフ→手札 禁止 (OP02-023 効果中)")
@@ -9552,9 +9667,10 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         execute_effect({"play_from_hand_or_trash": new_spec}, state, me, opp, self_inplay)
         return
 
-    if kind in ("play_from_hand_pick", "hand_to_life_pick", "play_event_from_hand_pick"):
-        # 手札 から 候補 を 選ばせる 3 系統 (= play_from_hand / hand_to_self_life /
-        # play_event_from_hand)。 共通の picks → hand_idx 抽出 + spec 再実行 path。
+    if kind in ("play_from_hand_pick", "hand_to_life_pick", "play_event_from_hand_pick",
+                "reveal_hand_play_split_pick"):
+        # 手札 から 候補 を 選ばせる 系統 (= play_from_hand / hand_to_self_life /
+        # play_event_from_hand / reveal_hand_play_split)。 共通の picks → hand_idx 抽出 + spec 再実行 path。
         candidates = choice.get("candidates", [])
         primitive_value = choice.get("primitive_value") or {}
         source_iid = choice.get("source_iid")
@@ -9574,6 +9690,7 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             "play_from_hand_pick": "play_from_hand",
             "hand_to_life_pick": "hand_to_self_life",
             "play_event_from_hand_pick": "play_event_from_hand",
+            "reveal_hand_play_split_pick": "reveal_hand_play_split",
         }
         target_primitive = kind_to_primitive[kind]
         if not hand_idxs:

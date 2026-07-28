@@ -2356,6 +2356,16 @@ export function HumanMatchPlay({
             onHover={setHovered}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "reveal_hand_play_split_pick" ? (
+          // 手札から filter 一致キャラを最大 N 枚 公開 → 1 枚を登場・残りがコスト4以下ならレスト
+          // (= OP10-058 レベッカ)。 candidates=[{hand_idx,...}] で PlayFromHandPickModal を流用
+          // (picks=候補 index、 active/rested の割当は engine が決定的に解決)。
+          <PlayFromHandPickModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
         ) : state.pending_payload.kind === "hand_to_life_pick" ? (
           <PlayFromHandPickModal
             payload={{ ...state.pending_payload, _destination: "life" }}
