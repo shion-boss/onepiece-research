@@ -171,8 +171,14 @@ def main():
     workers = int(os.environ.get("AB_WORKERS", "8"))
     seeds = list(range(1000, 1000 + n))
     t0 = time.time()
+    print(f"[ab_rollout] {HERO} vs {OPP}  N={n} CAND={CAND} RO={RO} downstream={_RO_DOWN}  開始", flush=True)
+    res = []
     with mp.Pool(workers) as p:
-        res = p.map(_one, seeds)
+        for i, r in enumerate(p.imap_unordered(_one, seeds), 1):
+            res.append(r)
+            if i % max(1, n // 10) == 0 or i == n:
+                aw = sum(1 for x in res if x[0] == 1); bw = sum(1 for x in res if x[1] == 1)
+                print(f"  進捗 {i}/{n}  (A={aw} B={bw}, {time.time()-t0:.0f}s)", flush=True)
     a_w = sum(1 for r in res if r[0] == 1); b_w = sum(1 for r in res if r[1] == 1)
     print(f"{HERO} vs {OPP}  root-rollout policy  N={n} CAND={CAND} RO={RO}  ({time.time()-t0:.0f}s)")
     print(f"  A: hero=root-rollout : {a_w}/{n} = {100*a_w/n:.0f}%")
