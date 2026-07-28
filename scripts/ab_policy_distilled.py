@@ -17,7 +17,8 @@ sys.path.insert(0, os.getcwd())
 from engine.deck import CardRepository, make_deck_from_dict
 from engine.effects import load_effect_overlay
 from engine.game import (setup_game, play_until_main, legal_actions, apply_action,
-                         AttackLeader, AttackCharacter, ActivateMain, PlayCharacter)
+                         AttackLeader, AttackCharacter, ActivateMain, PlayCharacter,
+                         AttachDonToLeader, AttachDonToCharacter, EndPhase)
 from engine.ai import play_one_action
 from engine.exploit_beam_ai import ExploitBeamAI
 from engine.plan_search import fast_clone
@@ -60,9 +61,20 @@ class DistilledPolicyAI(ExploitBeamAI):
         if len(acts) <= 1:
             return acts[0] if acts else super().choose_action(state)
         m = _model()
+        # 候補限定(速度): 非DON(攻撃/登場/効果/end)全部 + DON付与は数個だけ。 DON付与が各キャラ分で
+        # 膨れるのを抑える(value 採点の clone/feat コストを削減)。
+        non_don, don = [], []
+        for i, a in enumerate(acts):
+            if isinstance(a, (AttachDonToLeader, AttachDonToCharacter)):
+                don.append(i)
+            else:
+                non_don.append(i)
+        keep = set(non_don) | set(don[:3])
         feats, idxs = [], []
         scores = {}
         for i, a in enumerate(acts):
+            if i not in keep:
+                continue
             post = fast_clone(state)
             try:
                 apply_action(post, a)
@@ -104,9 +116,10 @@ def _one(seed):
             break
         n += 1
     if not state.game_over:
-        return None
+        return ("incomplete", state.turn_number)
     w = getattr(state, "winner", -1)
-    return "A" if w == a_idx else ("B" if w == (1 - a_idx) else None)
+    r = "A" if w == a_idx else ("B" if w == (1 - a_idx) else "draw")
+    return (r, state.turn_number)
 
 
 def main():
@@ -117,14 +130,18 @@ def main():
     print(f"[ab_policy_distilled] {SLUG} mirror  A(蒸留policy {VALUE}) vs B(EBV2)  N={n} feat={FEAT}", flush=True)
     res = []
     with mp.Pool(workers) as p:
-        for i, r in enumerate(p.imap_unordered(_one, seeds), 1):
-            res.append(r)
+        for i, rr in enumerate(p.imap_unordered(_one, seeds), 1):
+            res.append(rr)
             if i % max(1, n // 6) == 0:
-                a = res.count("A"); b = res.count("B")
-                print(f"  進捗 {i}/{n} (A={a} B={b}, {time.time()-t0:.0f}s)", flush=True)
-    a = res.count("A"); b = res.count("B")
+                a = sum(1 for x, _ in res if x == "A"); b = sum(1 for x, _ in res if x == "B")
+                inc = sum(1 for x, _ in res if x == "incomplete")
+                print(f"  進捗 {i}/{n} (A={a} B={b} 未決{inc}, {time.time()-t0:.0f}s)", flush=True)
+    a = sum(1 for x, _ in res if x == "A"); b = sum(1 for x, _ in res if x == "B")
+    inc = sum(1 for x, _ in res if x == "incomplete")
+    turns = [t for _, t in res]
     wr = a / max(1, a + b) * 100
-    print(f"[ab_policy_distilled] {SLUG}: 蒸留policy 勝率 {wr:.1f}% ({a}-{b})  ({time.time()-t0:.0f}s)", flush=True)
+    print(f"[ab_policy_distilled] {SLUG}: 蒸留policy 勝率 {wr:.1f}% ({a}-{b})  "
+          f"未決{inc}  avg_turn={sum(turns)/max(1,len(turns)):.1f}  ({time.time()-t0:.0f}s)", flush=True)
 
 
 if __name__ == "__main__":
