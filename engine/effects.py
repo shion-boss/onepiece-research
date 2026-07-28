@@ -1322,8 +1322,17 @@ def eval_condition(
             if (len(me.life) + opp_life) > int(v):
                 return False
         elif k == "self_all_chara_feature":
-            # 自分のキャラすべてが特徴 v を持つ (= 空なら vacuously True)
-            if not all(str(v) in (c.card.features or "") for c in me.characters):
+            # 自分のキャラすべてが特徴《v》を「持つ」 (= 特徴名の完全一致、 空なら vacuously True)。
+            # 公式「特徴《X》を持つキャラのみ」 (= OP15-001 東の海 / OP13-097 天竜人 等)。
+            if not all(str(v) in (c.card.features or ()) for c in me.characters):
+                return False
+        elif k == "self_all_chara_feature_contains":
+            # 自分のキャラすべてが「v を含む特徴」を持つ (= 特徴名の部分一致、 空なら vacuously True)。
+            # 公式「『X』を含む特徴を持つキャラのみ」 (= OP11-046 ジェルマ: 特徴 'ジェルマ66' が 'ジェルマ' を含む)。
+            if not all(
+                any(str(v) in f for f in (c.card.features or ()))
+                for c in me.characters
+            ):
                 return False
         elif k == "either_player_don_total_eq_10":
             if not any((p.don_active + p.don_rested) == 10 for p in state.players):

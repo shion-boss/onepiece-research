@@ -344,13 +344,6 @@ def test_op11_044_activate_main_once_per_turn():
 # --------------------------------------------------------------------------- #
 #  OP11-046 ヴィンスモーク・ヨンジ: 自キャラがジェルマのみなら 相手効果で KO/レストされない
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason=(
-    "engine bug: eval_condition の self_all_chara_feature は "
-    "`str(v) in card.features` (tuple の完全一致メンバーシップ) で判定するため、 "
-    "OP11-046 の overlay 条件 self_all_chara_feature='ジェルマ' が features "
-    "('ヴィンスモーク家','ジェルマ66') に対し常に False になる。 公式テキスト "
-    "「『ジェルマ』を含む特徴を持つキャラのみ」 は部分一致 (contains) 意図だが engine は "
-    "exact 一致のため 静的 KO/レスト耐性が発火しない。 engine 修正は人間レビューへ。"))
 def test_op11_046_static_protect_when_all_germa():
     """自キャラが全てジェルマ → ヨンジ自身に protect_from_opp_effect が付く。"""
     repo = _repo()
@@ -366,11 +359,6 @@ def test_op11_046_static_protect_when_all_germa():
         "自キャラが全てジェルマの時 ヨンジに protect_from_opp_effect が付いていない"
 
 
-@pytest.mark.skip(reason=(
-    "engine bug (上記 test_op11_046_static_protect_when_all_germa と同根): "
-    "self_all_chara_feature が exact 一致のため OP11-046 の静的効果が発火せず、 "
-    "本 negative ケースも 実際の条件分岐を検証できない (常に False で trivial pass)。 "
-    "engine 修正は人間レビューへ。"))
 def test_op11_046_static_no_protect_with_non_germa():
     """自キャラに非ジェルマが混じる → 条件不成立 → protect が付かない。"""
     repo = _repo()
