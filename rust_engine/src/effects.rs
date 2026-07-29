@@ -77,7 +77,7 @@ pub fn should_fire_trigger(state: &GameState, defender_idx: usize, card_id: &str
         "play_from_trash", "play_multi_from_trash", "play_from_hand", "fire_self_effect",
     ];
     for eff in trig {
-        match eval_effect_conditions(eff, state, defender_idx) {
+        match eval_effect_conditions(eff, state, defender_idx, None) {
             Some(true) => {}
             Some(false) => continue,
             None => return None, // 条件 unknown → 判定不能 = bail
@@ -143,7 +143,7 @@ fn as_s<'a>(v: Option<&'a Value>, d: &'a str) -> &'a str {
 }
 
 /// 条件評価。 Some(bool)=全キー既知、 None=未知キーあり (→ 呼出側は effect を skip)。
-fn eval_condition(cond: &Value, state: &GameState, me_idx: usize) -> Option<bool> {
+fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Slot>) -> Option<bool> {
     let obj = match cond.as_object() {
         Some(o) => o,
         None => return Some(true),
@@ -156,6 +156,11 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize) -> Option<bool
         let ok = match k.as_str() {
             "opp_turn" => (state.turn_player_idx != me_idx) == v.as_bool().unwrap_or(true),
             "self_turn" => (state.turn_player_idx == me_idx) == v.as_bool().unwrap_or(true),
+            // source (静的効果の発動元カード) がレストか。 src 不明なら判定不能 (None)。
+            "self_rested" => match src {
+                Some(sl) => get_ip(me, sl).rested == v.as_bool().unwrap_or(true),
+                None => return None,
+            },
             // 自分の N ターン目以降 (effects.py:1685、 通算 turn_number >= 2*N-1 でフィルタ)
             "self_turn_number_ge" => (state.turn_number as i64) >= 2 * v.as_i64().unwrap_or(0) - 1,
             "leader_feature" => me.leader.card.features.iter().any(|f| f == v.as_str().unwrap_or("")),
@@ -264,7 +269,7 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize) -> Option<bool
             "self_trash_chara_count_ge" => {
                 (me.trash.iter().filter(|c| c.category == Category::Character).count() as i64) >= v.as_i64().unwrap_or(0)
             }
-            "not" => match eval_condition(v, state, me_idx) {
+            "not" => match eval_condition(v, state, me_idx, src) {
                 Some(b) => !b,
                 None => return None,
             },
@@ -272,7 +277,7 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize) -> Option<bool
                 let Some(arr) = v.as_array() else { return None };
                 let mut any = false;
                 for c in arr {
-                    match eval_condition(c, state, me_idx) {
+                    match eval_condition(c, state, me_idx, src) {
                         Some(true) => any = true,
                         Some(false) => {}
                         None => return None,
@@ -284,7 +289,7 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize) -> Option<bool
                 let Some(arr) = v.as_array() else { return None };
                 let mut all = true;
                 for c in arr {
-                    match eval_condition(c, state, me_idx) {
+                    match eval_condition(c, state, me_idx, src) {
                         Some(true) => {}
                         Some(false) => all = false,
                         None => return None,
@@ -302,9 +307,10 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize) -> Option<bool
 }
 
 /// effect の "if" (単一 dict) + "conditions" (dict の list) を AND 評価 (Python eval_all_conditions 相当)。
-fn eval_effect_conditions(eff: &Value, state: &GameState, me_idx: usize) -> Option<bool> {
+/// src = 発動元カードの Slot (self_rested 等の source 条件用、 不明なら None)。
+fn eval_effect_conditions(eff: &Value, state: &GameState, me_idx: usize, src: Option<Slot>) -> Option<bool> {
     if let Some(cond) = eff.get("if") {
-        match eval_condition(cond, state, me_idx) {
+        match eval_condition(cond, state, me_idx, src) {
             Some(true) => {}
             Some(false) => return Some(false),
             None => return None,
@@ -312,7 +318,7 @@ fn eval_effect_conditions(eff: &Value, state: &GameState, me_idx: usize) -> Opti
     }
     if let Some(conds) = eff.get("conditions").and_then(|v| v.as_array()) {
         for c in conds {
-            match eval_condition(c, state, me_idx) {
+            match eval_condition(c, state, me_idx, src) {
                 Some(true) => {}
                 Some(false) => return Some(false),
                 None => return None,
@@ -405,12 +411,18 @@ fn resolve_target(
                     true
                 })
                 .collect();
-            // -opp_value で安定ソート → 先頭 (ties は index 順 = Python stable sort と一致)
-            cands.sort_by(|&a, &b| {
-                opp_value(&opp.characters[b])
-                    .partial_cmp(&opp_value(&opp.characters[a]))
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            });
+            // ⚠ Python は spec 毎に sort key が異なる: rested_character_power_le は _threat_key
+            // (= power 降順、 effects.py:2716)、 それ以外 (cost_le 等) は _opp_value。 安定ソートで tie は
+            // index 順 (= Python stable sort と一致)。
+            if rested_only && power_le.is_some() {
+                cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
+            } else {
+                cands.sort_by(|&a, &b| {
+                    opp_value(&opp.characters[b])
+                        .partial_cmp(&opp_value(&opp.characters[a]))
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+            }
             cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
         }
         _ => return None,
@@ -1278,7 +1290,7 @@ fn execute_card_effects(
         if eff.get("when").and_then(|v| v.as_str()) != Some(when) {
             continue;
         }
-        match eval_effect_conditions(eff, state, me_idx) {
+        match eval_effect_conditions(eff, state, me_idx, Some(src)) {
             Some(true) => {}
             Some(false) => continue,       // 条件不成立 = Python も発動しない
             None => return Err(format!("{when} 条件 unknown ({card_id})")),
@@ -1377,7 +1389,7 @@ pub fn fire_on_attack(
                 return Err("on_attack cost 未対応".into());
             }
         }
-        match eval_effect_conditions(eff, state, me_idx) {
+        match eval_effect_conditions(eff, state, me_idx, Some(src)) {
             Some(true) => {}
             Some(false) => continue,
             None => return Err("on_attack 条件 unknown".into()),
@@ -1523,7 +1535,7 @@ pub fn fire_field_when(state: &mut GameState, owner_idx: usize, when: &str) -> R
             if eff.get("once_per_turn").is_some() {
                 return Err(format!("{when} once_per_turn 未対応"));
             }
-            match eval_effect_conditions(eff, state, owner_idx) {
+            match eval_effect_conditions(eff, state, owner_idx, Some(slot)) {
                 Some(true) => {}
                 Some(false) => continue,
                 None => return Err(format!("{when} 条件 unknown")),
@@ -1563,7 +1575,7 @@ pub fn fire_opp_attack(
             if eff.get("when").and_then(|v| v.as_str()) != Some(when_key) {
                 continue;
             }
-            match eval_effect_conditions(eff, state, defender_idx) {
+            match eval_effect_conditions(eff, state, defender_idx, Some(slot)) {
                 Some(true) => {}
                 Some(false) => continue,
                 None => return Err("opp_attack 条件 unknown".into()),
@@ -1741,7 +1753,7 @@ pub fn evaluate_static_effects(state: &mut GameState) {
                 }
                 // ⚠ Python eval_all_conditions は "if" (単一 dict) と "conditions" (dict の list) の
                 // 両方を AND 評価する。 conditions を見落とすと過剰適用になる (OP13-099 虚の玉座で発覚)。
-                match eval_effect_conditions(eff, state, me_idx) {
+                match eval_effect_conditions(eff, state, me_idx, Some(src)) {
                     Some(true) => {}
                     _ => continue, // false or 未知 → skip
                 }
@@ -1769,7 +1781,7 @@ fn in_hand_cost_minus(state: &GameState, me_idx: usize, card: &CardDef) -> i32 {
             continue;
         }
         if let Some(cond) = eff.get("if") {
-            if eval_condition(cond, state, me_idx) != Some(true) {
+            if eval_condition(cond, state, me_idx, None) != Some(true) {
                 continue;
             }
         }
@@ -2047,7 +2059,7 @@ pub fn legal_actions(state: &GameState) -> Vec<Value> {
                 if !can_pay_activate_cost(state, me_idx, ip, on_field, &cost) {
                     continue;
                 }
-                match eval_effect_conditions(eff, state, me_idx) {
+                match eval_effect_conditions(eff, state, me_idx, Some(slot)) {
                     Some(true) => {}
                     _ => continue,
                 }
