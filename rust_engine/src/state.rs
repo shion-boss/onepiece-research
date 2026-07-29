@@ -270,10 +270,22 @@ impl InPlay {
 
     /// core.py InPlay.is_blocker_now = innate or 付与【ブロッカー】。
     pub fn is_blocker_now(&self) -> bool {
-        self.card.is_blocker()
-            || self.granted_keywords.contains("ブロッカー")
-            || self.static_granted_keywords.contains("ブロッカー")
-            || self.granted_keywords_through_opp_turn.contains("ブロッカー")
+        self.has_kw_now("ブロッカー", self.card.is_blocker())
+    }
+
+    fn has_kw_now(&self, kw: &str, innate: bool) -> bool {
+        innate
+            || self.granted_keywords.contains(kw)
+            || self.static_granted_keywords.contains(kw)
+            || self.granted_keywords_through_opp_turn.contains(kw)
+    }
+
+    pub fn is_double_attack_now(&self) -> bool {
+        self.has_kw_now("ダブルアタック", self.card.has_innate_keyword("ダブルアタック"))
+    }
+
+    pub fn is_banish_now(&self) -> bool {
+        self.has_kw_now("バニッシュ", self.card.has_innate_keyword("バニッシュ"))
     }
 }
 

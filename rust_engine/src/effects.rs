@@ -51,6 +51,13 @@ fn role_of(card_id: &str) -> Option<&'static str> {
     ROLES.get().and_then(|m| m.get(card_id)).map(|s| s.as_str())
 }
 
+/// card_id の overlay に指定 when の効果があるか (戦闘の trigger 有無チェック用)。
+pub fn card_has_when(card_id: &str, when: &str) -> bool {
+    overlay().and_then(|m| m.get(card_id)).map_or(false, |effs| {
+        effs.iter().any(|e| e.get("when").and_then(|v| v.as_str()) == Some(when))
+    })
+}
+
 /// effects.py:_opp_value = AI が除去/対象に選ぶ相手キャラの価値。 max が選ばれる。
 fn opp_value(ip: &InPlay) -> f64 {
     let mut val = (ip.card.cost as f64) * 1000.0 + (ip.power() as f64);

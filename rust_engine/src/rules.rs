@@ -45,6 +45,15 @@ fn declare_winner(state: &mut GameState, idx: usize) {
     }
 }
 
+/// game.py:_reset_battle_buffs = バトル終了時に全 InPlay の battle_buff (このバトル中効果) をクリア。
+fn reset_battle_buffs(state: &mut GameState) {
+    for p in state.players.iter_mut() {
+        for ip in each_inplay_mut(p) {
+            ip.battle_buff = 0;
+        }
+    }
+}
+
 /// game.py:_reset_turn_buff = ターン終了時のバフ/フラグクリア (applier-tracking 含む)。
 pub fn reset_turn_buff(state: &mut GameState) {
     let tp = state.turn_player_idx;
@@ -376,6 +385,96 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             p.don_active -= n;
             p.characters[idx as usize].attached_dons += n;
             p.dons_used_count += n;
+            Ok(())
+        }
+        // リーダーへのアタック (game.py:1441)。 ⚠ 空防御 (counter/blocker 無) + trigger 無の基本ケースのみ。
+        // trigger(on_attack/opp_attack/life)・counter・blocker・attack cost 有なら Err(=差分テストが skip)。
+        "AttackLeader" => {
+            let opp = 1 - me;
+            let atk_kind = action.get("attacker_kind").and_then(|v| v.as_str()).unwrap_or("");
+            let atk_idx = geti(action, "attacker_idx", 0) as usize;
+            // counter/blocker があれば未対応
+            let has_counter = action
+                .get("counter_card_idxs")
+                .and_then(|v| v.as_array())
+                .map_or(false, |a| !a.is_empty())
+                || action
+                    .get("counter_event_idxs")
+                    .and_then(|v| v.as_array())
+                    .map_or(false, |a| !a.is_empty());
+            let has_blocker = action.get("blocker").map_or(false, |v| !v.is_null());
+            if has_counter || has_blocker {
+                return Err("counter/blocker 未対応".into());
+            }
+            // attacker 情報 (存在チェック)
+            let (atk_card_id, atk_power, is_double, is_banish, cost_discard) = {
+                let a = match atk_kind {
+                    "leader" => &state.players[me].leader,
+                    "char" => match state.players[me].characters.get(atk_idx) {
+                        Some(c) => c,
+                        None => return Ok(()), // attacker 不在 = 攻撃不発 (game.py:1443)
+                    },
+                    _ => return Err("bad attacker".into()),
+                };
+                (
+                    a.card.card_id.clone(),
+                    a.power(),
+                    a.is_double_attack_now(),
+                    a.is_banish_now(),
+                    a.attack_cost_discard_hand_n,
+                )
+            };
+            if cost_discard > 0 || crate::effects::card_has_when(&atk_card_id, "on_attack") {
+                return Err("attack cost/on_attack 未対応".into());
+            }
+            // 防御側盤面の opp_attack trigger
+            for ip in std::iter::once(&state.players[opp].leader)
+                .chain(state.players[opp].characters.iter())
+                .chain(state.players[opp].stages.iter())
+            {
+                if crate::effects::card_has_when(&ip.card.card_id, "opp_attack")
+                    || crate::effects::card_has_when(&ip.card.card_id, "opp_attack_on_leader")
+                {
+                    return Err("opp_attack trigger 未対応".into());
+                }
+            }
+            let defender_power = state.players[opp].leader.power();
+            let damage = if is_double { 2 } else { 1 };
+            // 取られる life 上位 damage 枚に trigger があれば未対応
+            if atk_power >= defender_power {
+                for c in state.players[opp].life.iter().take(damage as usize) {
+                    if crate::effects::card_has_when(&c.card_id, "trigger") {
+                        return Err("life trigger 未対応".into());
+                    }
+                }
+            }
+            // --- 適用 ---
+            match atk_kind {
+                "leader" => state.players[me].leader.rested = true,
+                "char" => state.players[me].characters[atk_idx].rested = true,
+                _ => {}
+            }
+            if atk_power >= defender_power {
+                if state.players[opp].life.is_empty() {
+                    // life 0 trigger は未対応 → 該当は上で trigger check 済でないが、 life 空は敗北
+                    declare_winner(state, me);
+                    reset_battle_buffs(state);
+                    return Ok(());
+                }
+                for _ in 0..damage {
+                    if state.players[opp].life.is_empty() {
+                        break;
+                    }
+                    let taken = state.players[opp].life.remove(0);
+                    state.players[opp].life_lost_this_turn = true;
+                    if is_banish {
+                        state.players[opp].trash.push(taken);
+                    } else {
+                        state.players[opp].hand.push(taken);
+                    }
+                }
+            }
+            reset_battle_buffs(state);
             Ok(())
         }
         // 起動メイン (game.py:2009)。 source(位置)の effect_index を発火。
