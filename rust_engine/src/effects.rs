@@ -569,6 +569,75 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // ドンデッキから N 枚をレストで追加 (effects.py:4536)。
+        "add_rested_don" => {
+            let n = (v.as_i64().unwrap_or(0) as i32).min(state.players[me_idx].don_remaining_in_deck);
+            let me = &mut state.players[me_idx];
+            me.don_rested += n;
+            me.don_remaining_in_deck -= n;
+            true
+        }
+        // レストドンを N 枚アクティブに (effects.py:4544)。 "all" = 全部。
+        "untap_don" => {
+            let me = &mut state.players[me_idx];
+            let n = if v.as_str() == Some("all") {
+                me.don_rested
+            } else {
+                (v.as_i64().unwrap_or(0) as i32).min(me.don_rested)
+            };
+            me.don_rested -= n;
+            me.don_active += n;
+            true
+        }
+        // 自デッキ上 N 枚を trash (effects.py:6059)。
+        "mill_self_top" => {
+            let n = if let Some(o) = v.as_object() {
+                o.get("amount").and_then(|x| x.as_i64()).unwrap_or(1) as i32
+            } else {
+                v.as_i64().unwrap_or(1) as i32
+            };
+            let me = &mut state.players[me_idx];
+            for _ in 0..n {
+                if me.deck.is_empty() {
+                    break;
+                }
+                let c = me.deck.remove(0);
+                me.trash.push(c);
+            }
+            true
+        }
+        // キーワード付与 (effects.py:4628)。 keywords list は AI 優先度で 1 つ選択。
+        // duration: turn→granted_keywords / next_opp_turn_end→granted_keywords_through_opp_turn+applier。
+        "give_keyword" => {
+            let keyword = if let Some(kws) = v.get("keywords").and_then(|x| x.as_array()) {
+                let kwstrs: Vec<&str> = kws.iter().filter_map(|k| k.as_str()).collect();
+                let priority = ["ブロッカー", "ダブルアタック", "バニッシュ", "速攻"];
+                priority
+                    .iter()
+                    .find(|p| kwstrs.contains(p))
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| kwstrs.first().map(|s| s.to_string()).unwrap_or_default())
+            } else {
+                v.get("keyword").and_then(|x| x.as_str()).unwrap_or("速攻").to_string()
+            };
+            if keyword.is_empty() {
+                return false;
+            }
+            let next_opp = v.get("duration").and_then(|x| x.as_str()) == Some("next_opp_turn_end");
+            let Some(targets) = resolve_target(v.get("target"), me_idx, opp_idx, src, state) else { return false };
+            let turn_number = state.turn_number;
+            for (pi, sl) in targets {
+                let ip = get_ip_mut(&mut state.players[pi], sl);
+                if next_opp {
+                    ip.granted_keywords_through_opp_turn.insert(keyword.clone());
+                    ip.granted_keywords_through_opp_turn_applier_idx = me_idx as i32;
+                    ip.granted_keywords_through_opp_turn_applied_turn = turn_number;
+                } else {
+                    ip.granted_keywords.insert(keyword.clone());
+                }
+            }
+            true
+        }
         // KO (effects.py:3245)。 免疫チェック → 除去 + trash + 付与ドン返却 + chara_ko_taken。
         // ⚠ replace_ko / KO trigger cascade は未対応 → 該当 victim は diverge (差分テストが除外)。
         "ko" => {
