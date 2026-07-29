@@ -638,6 +638,73 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // ドンデッキから N 枚をアクティブで追加 (effects.py:4526)。
+        "add_don" | "add_don_active" => {
+            let n = (v.as_i64().unwrap_or(0) as i32).min(state.players[me_idx].don_remaining_in_deck);
+            let me = &mut state.players[me_idx];
+            me.don_active += n;
+            me.don_remaining_in_deck -= n;
+            true
+        }
+        // 自デッキ上 N 枚をライフに (effects.py:4619)。
+        "put_top_to_life" => {
+            let n = v.as_i64().unwrap_or(0) as i32;
+            let me = &mut state.players[me_idx];
+            for _ in 0..n {
+                if me.deck.is_empty() {
+                    break;
+                }
+                let c = me.deck.remove(0);
+                me.life.push(c);
+            }
+            true
+        }
+        // コスト修正 (effects.py:5613)。 amount(負=コスト+)を duration 別に。 selecting target 可。
+        "cost_minus" => {
+            let (target_val, amount, next_opp) = if let Some(o) = v.as_object() {
+                (
+                    o.get("target").cloned(),
+                    o.get("amount").and_then(|x| x.as_i64()).unwrap_or(1) as i32,
+                    o.get("duration").and_then(|x| x.as_str()) == Some("next_opp_turn_end"),
+                )
+            } else {
+                // v=int → target one_opponent_character_any
+                (Some(Value::String("one_opponent_character_any".into())), v.as_i64().unwrap_or(1) as i32, false)
+            };
+            let Some(targets) = resolve_target(target_val.as_ref(), me_idx, opp_idx, src, state) else { return false };
+            for (pi, sl) in targets {
+                let ip = get_ip_mut(&mut state.players[pi], sl);
+                if next_opp {
+                    ip.cost_minus_through_opp_turn += amount;
+                } else {
+                    ip.cost_minus_until_turn_end += amount;
+                }
+            }
+            true
+        }
+        // 次リフレッシュ非アクティブ (effects.py:5599)。 selecting target。
+        "stay_rested_next_refresh" => {
+            let Some(targets) = resolve_target(Some(v), me_idx, opp_idx, src, state) else { return false };
+            for (pi, sl) in targets {
+                get_ip_mut(&mut state.players[pi], sl).stay_rested_next_refresh = true;
+            }
+            true
+        }
+        // レストドンを target に付与 (effects.py:5736)。 source=don_rested。
+        "attach_rested_don" => {
+            let count = v.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as i32;
+            let target_val = v.get("target").cloned().unwrap_or(Value::String("self_leader".into()));
+            let Some(targets) = resolve_target(Some(&target_val), me_idx, opp_idx, src, state) else { return false };
+            for (pi, sl) in targets {
+                let take = count.min(state.players[me_idx].don_rested);
+                if take <= 0 {
+                    continue;
+                }
+                state.players[me_idx].don_rested -= take;
+                get_ip_mut(&mut state.players[pi], sl).attached_dons += take;
+            }
+            true
+        }
         // KO (effects.py:3245)。 免疫チェック → 除去 + trash + 付与ドン返却 + chara_ko_taken。
         // ⚠ replace_ko / KO trigger cascade は未対応 → 該当 victim は diverge (差分テストが除外)。
         "ko" => {
