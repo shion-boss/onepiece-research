@@ -1374,6 +1374,45 @@ fn ai_should_fire_opp_attack_cost(
     benefit > cost_value
 }
 
+/// owner の場 (leader→char→stage) の指定 when 効果を発火 (effects.py:_enqueue_field_when + _execute_event
+/// の自己完結版)。 costless + 条件成立 + 再現可能 prim のみ発火。 cost/once_per_turn/条件unknown/未対応prim は
+/// Err で bail。 source は場のカード (= self_inplay 有、 on_ko と違い src target 解決可)。 cascade nesting は
+/// 発火 prim が更に enqueue しない前提 (allow-list が cascade prim を除外)。
+pub fn fire_field_when(state: &mut GameState, owner_idx: usize, when: &str) -> Result<(), String> {
+    let Some(ov) = overlay() else { return Ok(()) };
+    let n_char = state.players[owner_idx].characters.len();
+    let n_stage = state.players[owner_idx].stages.len();
+    let mut slots: Vec<Slot> = vec![Slot::Leader];
+    slots.extend((0..n_char).map(Slot::Char));
+    slots.extend((0..n_stage).map(Slot::Stage));
+    for slot in slots {
+        let cid = get_ip(&state.players[owner_idx], slot).card.card_id.clone();
+        let Some(effs) = ov.get(&cid) else { continue };
+        for eff in effs {
+            if eff.get("when").and_then(|v| v.as_str()) != Some(when) {
+                continue;
+            }
+            // cost 持ち (once_per_turn 含む) は支払い/追跡が要る → bail
+            if let Some(cost) = eff.get("cost") {
+                if !cost_is_empty(cost) {
+                    return Err(format!("{when} cost 未対応"));
+                }
+            }
+            if eff.get("once_per_turn").is_some() {
+                return Err(format!("{when} once_per_turn 未対応"));
+            }
+            match eval_effect_conditions(eff, state, owner_idx) {
+                Some(true) => {}
+                Some(false) => continue,
+                None => return Err(format!("{when} 条件 unknown")),
+            }
+            let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
+            fire_gated_do(state, owner_idx, slot, dos)?;
+        }
+    }
+    Ok(())
+}
+
 /// 【相手のアタック時】(opp_attack / opp_attack_on_leader / opp_attack_on_chara) を発火 (effects.py:
 /// _enqueue_opp_attack_with_cost、 self-play AI 経路)。 全て bit 忠実に再現できたら Ok、 できなければ Err。
 ///  - costless: 条件成立なら発火 (allow-list、 未対応 target/prim は Err)

@@ -137,23 +137,6 @@ fn spend_counters(p: &mut Player, idxs: &[i64]) -> i32 {
     total
 }
 
-/// バトル KO が trigger cascade を要するか (= 該当時は Err で bail、 差分テスト境界)。
-/// victim の on_ko/置換(replace_ko/replace_leave)、 攻撃側 on_opp_chara_ko/on_self_battle_ko、 防御側 on_self_chara_ko。
-fn battle_ko_would_cascade(
-    state: &GameState,
-    victim_owner: usize,
-    attacker_owner: usize,
-    victim_cid: &str,
-    attacker_cid: &str,
-) -> bool {
-    crate::effects::card_has_when(victim_cid, "on_ko")
-        || board_has_when(&state.players[victim_owner], "replace_ko")
-        || board_has_when(&state.players[victim_owner], "replace_leave")
-        || board_has_when(&state.players[attacker_owner], "on_opp_chara_ko")
-        || board_has_when(&state.players[victim_owner], "on_self_chara_ko")
-        || crate::effects::card_has_when(attacker_cid, "on_self_battle_ko")
-}
-
 /// バトル KO 実行: victim キャラを trash へ、 付与ドン→レスト、 chara_ko_taken_this_turn++。
 /// (trigger cascade は呼出側で bail 済 = last_chara_ko_victim_card は cascade 完了後 None に戻るので触らない)
 fn battle_ko_character(state: &mut GameState, owner: usize, idx: usize) {
@@ -165,6 +148,38 @@ fn battle_ko_character(state: &mut GameState, owner: usize, idx: usize) {
     state.players[owner].trash.push(removed.card);
     state.players[owner].don_rested += don;
     state.players[owner].chara_ko_taken_this_turn += 1;
+}
+
+/// バトル KO + trigger cascade (game.py:1713/1974)。 KO 実行後に board trigger を発火:
+///  - on_opp_chara_ko (攻撃側 board) / on_self_chara_ko (victim 側 board) = fire_field_when で再現。
+///  - victim 自身の on_ko は source が trash (self_inplay=None) で発火が delicate → 該当時 bail。
+///  - victim 側 replace_ko/replace_leave (置換効果) → bail。
+///  - fire_self_battle_ko=true (AttackLeader blocker 経路のみ) で attacker on_self_battle_ko → bail。
+/// last_chara_ko_victim_card は cascade 完了後 None (Python) = Rust は触らず None のまま = 一致。
+/// victim 参照条件 (victim_*) は eval_condition 未対応で None → fire_field_when が bail = 安全。
+fn do_battle_ko(
+    state: &mut GameState,
+    victim_owner: usize,
+    victim_idx: usize,
+    attacker_owner: usize,
+    attacker_cid: &str,
+    fire_self_battle_ko: bool,
+) -> Result<(), String> {
+    let vcid = state.players[victim_owner].characters[victim_idx].card.card_id.clone();
+    if crate::effects::card_has_when(&vcid, "on_ko")
+        || board_has_when(&state.players[victim_owner], "replace_ko")
+        || board_has_when(&state.players[victim_owner], "replace_leave")
+    {
+        return Err("KO cascade (on_ko/replace) 未対応".into());
+    }
+    if fire_self_battle_ko && crate::effects::card_has_when(attacker_cid, "on_self_battle_ko") {
+        return Err("on_self_battle_ko 未対応".into());
+    }
+    battle_ko_character(state, victim_owner, victim_idx);
+    // trigger_on_opp_chara_ko (攻撃側) → trigger_on_self_chara_ko (victim 側) の順 (game.py 準拠)
+    crate::effects::fire_field_when(state, attacker_owner, "on_opp_chara_ko")?;
+    crate::effects::fire_field_when(state, victim_owner, "on_self_chara_ko")?;
+    Ok(())
 }
 
 /// game.py:_reset_turn_buff = ターン終了時のバフ/フラグクリア (applier-tracking 含む)。
@@ -617,11 +632,7 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     {
                         return Err("battle_ko_save_discard 未対応".into());
                     }
-                    let vcid = state.players[opp].characters[blk_idx].card.card_id.clone();
-                    if battle_ko_would_cascade(state, opp, me, &vcid, &atk_cid) {
-                        return Err("KO cascade 未対応".into());
-                    }
-                    battle_ko_character(state, opp, blk_idx);
+                    do_battle_ko(state, opp, blk_idx, me, &atk_cid, true)?;
                 }
                 reset_battle_buffs(state);
                 return Ok(());
@@ -642,14 +653,6 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     declare_winner(state, me);
                     return Ok(());
                 }
-                // life 移動 trigger (attacker: on_opp_life_taken / defender: on_self_life_*) は未対応
-                if board_has_when(&state.players[me], "on_opp_life_taken")
-                    || board_has_when(&state.players[opp], "on_self_life_to_hand")
-                    || board_has_when(&state.players[opp], "on_self_life_to_trash")
-                    || board_has_when(&state.players[opp], "on_self_life_taken")
-                {
-                    return Err("life 移動 trigger 未対応".into());
-                }
                 // 取られる life 上位 damage 枚: 防御 AI が【トリガー】を発動しない (=手札へ) なら一致、
                 // 発動 or 条件 unknown は未対応 (trigger_lifecard_trigger の発火は複雑) → bail。
                 for i in 0..(damage as usize).min(state.players[opp].life.len()) {
@@ -666,9 +669,15 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     let taken = state.players[opp].life.remove(0);
                     state.players[opp].life_lost_this_turn = true;
                     if is_banish {
+                        // バニッシュ = trash 直行、 _resolve_life_taken を通らない = life 移動 trigger 無
                         state.players[opp].trash.push(taken);
                     } else {
+                        // 手札へ (should_fire=false 済) → 公式 10-1-5 直後の life 移動 trigger を per-hit 発火。
+                        // attacker: on_opp_life_taken / defender: on_self_life_to_hand + on_self_life_taken。
                         state.players[opp].hand.push(taken);
+                        crate::effects::fire_field_when(state, me, "on_opp_life_taken")?;
+                        crate::effects::fire_field_when(state, opp, "on_self_life_to_hand")?;
+                        crate::effects::fire_field_when(state, opp, "on_self_life_taken")?;
                     }
                 }
             }
@@ -787,11 +796,7 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 (ap, dp, imm)
             };
             if atk_power >= def_power && !immune {
-                let vcid = state.players[opp].characters[actual_idx].card.card_id.clone();
-                if battle_ko_would_cascade(state, opp, me, &vcid, &atk_cid) {
-                    return Err("KO cascade 未対応".into());
-                }
-                battle_ko_character(state, opp, actual_idx);
+                do_battle_ko(state, opp, actual_idx, me, &atk_cid, false)?;
             }
             reset_battle_buffs(state);
             Ok(())
