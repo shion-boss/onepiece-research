@@ -1669,20 +1669,57 @@ pub fn fire_on_attack(
     let Some(ov) = overlay() else { return Ok(()) };
     let cid = get_ip(&state.players[me_idx], src).card.card_id.clone();
     let Some(effs) = ov.get(&cid) else { return Ok(()) };
-    for eff in effs {
+    // Python trigger_on_attack: ① 支払いフェーズ (idx 順) で cost を払い once を立てる → 発火 idx 収集
+    //   ② 発火は sorted idx 順 (paid_indexes = sorted(set(...)))。 costless と cost 持ちを 1 event に統合。
+    let mut fired: Vec<usize> = vec![];
+    for (idx, eff) in effs.iter().enumerate() {
         if eff.get("when").and_then(|v| v.as_str()) != Some("on_attack") {
             continue;
         }
-        // costless slice のみ (cost 持ちは支払い/once_per_turn tracking が要る = bail)
-        if let Some(cost) = eff.get("cost") {
-            if !cost_is_empty(cost) {
-                return Err("on_attack cost 未対応".into());
+        let costless = eff.get("cost").map_or(true, cost_is_empty);
+        if costless {
+            // costless の top-level once は once_per_turn_used (canonical 除外) 依存 → 追跡不能で bail
+            if eff.get("once_per_turn").is_some() {
+                return Err("on_attack costless top-level once 未対応".into());
             }
+            fired.push(idx); // 条件は発火フェーズで評価 (_execute_event と一致)
+            continue;
         }
+        // cost 持ち: 条件 → once gate (per-idx canonical) → 支払い → mark。 いずれか不成立で skip/bail。
         match eval_effect_conditions(eff, state, me_idx, Some(src)) {
             Some(true) => {}
             Some(false) => continue,
             None => return Err("on_attack 条件 unknown".into()),
+        }
+        let cost = eff.get("cost").unwrap();
+        let once = cost.get("once_per_turn");
+        if let Some(o) = once {
+            if o.is_string() {
+                return Err("on_attack cost string once 未対応".into()); // 共有キー = once_per_turn_used 依存
+            }
+            if o.as_bool() == Some(true)
+                && get_ip(&state.players[me_idx], src).attack_once_used.contains(&(idx as i64))
+            {
+                continue; // ターン既発動
+            }
+        }
+        match try_pay_counter_cost(state, me_idx, src, cost)? {
+            true => {}
+            false => continue, // 払えない → 効果不発 (公式 4-10)
+        }
+        if once.and_then(|o| o.as_bool()) == Some(true) {
+            get_ip_mut(&mut state.players[me_idx], src).mark_attack_once(idx as i64);
+        }
+        fired.push(idx);
+    }
+    // 発火フェーズ: sorted idx 順に条件再評価 + do 発火
+    fired.sort_unstable();
+    for idx in fired {
+        let eff = &effs[idx];
+        match eval_effect_conditions(eff, state, me_idx, Some(src)) {
+            Some(true) => {}
+            Some(false) => continue,
+            None => return Err("on_attack fire 条件 unknown".into()),
         }
         let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
         fire_gated_do(state, me_idx, src, dos)?;
@@ -1717,6 +1754,137 @@ fn fire_gated_do(
         }
     }
     Ok(())
+}
+
+/// JSON 値の truthy 判定 (Python の `if cost.get(k)` 相当: null/false/0/空 以外)。
+fn json_truthy(v: &Value) -> bool {
+    match v {
+        Value::Null => false,
+        Value::Bool(b) => *b,
+        Value::Number(n) => n.as_f64().map_or(true, |f| f != 0.0),
+        Value::String(s) => !s.is_empty(),
+        Value::Array(a) => !a.is_empty(),
+        Value::Object(o) => !o.is_empty(),
+    }
+}
+
+/// on_attack/opp_attack/counter の cost dict を支払う (effects.py:_can_pay_counter_cost + _pay_counter_cost)。
+/// Ok(true)=支払い完了 (state 変更)、 Ok(false)=払えない (効果 skip、 state 不変)、 Err=未対応/cascade (bail)。
+/// 決定的・非 cascade の subset のみ対応。 once_per_turn key は呼出側で処理済 (ここでは無視)。
+/// ⚠ discard_hand / discard_hand_with_filter / trash_self / self_ko / return_self_don_to_deck 等
+///    (cascade or AI heuristic 依存) は未対応 key として Err で bail。
+fn try_pay_counter_cost(
+    state: &mut GameState,
+    me_idx: usize,
+    self_src: Slot,
+    cost: &Value,
+) -> Result<bool, String> {
+    let Some(obj) = cost.as_object() else { return Ok(true) };
+    // 認識できる key のみ (それ以外は Python では無視だが、 誤発火防止で bail)
+    for k in obj.keys() {
+        if !matches!(
+            k.as_str(),
+            "once_per_turn" | "pay_don" | "rest_self_don" | "rest_self"
+                | "life_to_hand" | "life_top_or_bottom_to_hand" | "trash_to_deck"
+                | "reveal_hand_with_filter" | "flip_life_face_down" | "flip_life_face_up"
+        ) {
+            return Err(format!("counter cost 未対応: {k}"));
+        }
+    }
+    let gi = |k: &str| obj.get(k).and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+    let pay_don = gi("pay_don");
+    let rest_don = gi("rest_self_don");
+    let lth = gi("life_to_hand");
+    let ltob = gi("life_top_or_bottom_to_hand");
+    let ttd = gi("trash_to_deck");
+    let rest_self = obj.get("rest_self").map_or(false, json_truthy);
+    let flip_down = obj.get("flip_life_face_down").map_or(false, json_truthy);
+    let flip_up = obj.get("flip_life_face_up").map_or(false, json_truthy);
+    // --- payability (_can_pay_counter_cost)。 一つでも払えなければ Ok(false) (効果 skip) ---
+    {
+        let me = &state.players[me_idx];
+        let cap = me.don_active + me.don_rested + me.leader.attached_dons
+            + me.characters.iter().map(|c| c.attached_dons).sum::<i32>();
+        if pay_don > 0 && cap < pay_don {
+            return Ok(false);
+        }
+        if rest_don > 0 && me.don_active < rest_don {
+            return Ok(false);
+        }
+        if rest_self && get_ip(me, self_src).rested {
+            return Ok(false);
+        }
+        if lth > 0 && (me.life.len() as i32) < lth {
+            return Ok(false);
+        }
+        if ltob > 0 && (me.life.len() as i32) < ltob {
+            return Ok(false);
+        }
+        if ttd > 0 && (me.trash.len() as i32) < ttd {
+            return Ok(false);
+        }
+        if let Some(rhf) = obj.get("reveal_hand_with_filter") {
+            if rhf.is_object() {
+                let (filt, cnt) = filter_and_count(rhf);
+                if me.hand.iter().filter(|c| matches_filter(c, Some(&filt))).count() < cnt {
+                    return Ok(false);
+                }
+            }
+        }
+        if flip_down && me.face_up_life_count.min(me.life.len() as i32) < 1 {
+            return Ok(false);
+        }
+        if flip_up {
+            let fu = me.face_up_life_count.min(me.life.len() as i32);
+            if (me.life.len() as i32) - fu < 1 {
+                return Ok(false);
+            }
+        }
+    }
+    // --- cascade guard: pay_don は on_self_don_returned_to_deck を発火しうる ---
+    if pay_don > 0 && me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
+        return Err("counter cost pay_don cascade 未対応".into());
+    }
+    // --- pay (Python _pay_counter_cost の順: pay_don→rest_don→rest_self→life→trash_to_deck→flip) ---
+    if pay_don > 0 && !pay_don_field(state, me_idx, pay_don) {
+        return Err("pay_don 支払い不能".into());
+    }
+    if rest_don > 0 {
+        let me = &mut state.players[me_idx];
+        let a = rest_don.min(me.don_active);
+        me.don_active -= a;
+        me.don_rested += a;
+    }
+    if rest_self {
+        get_ip_mut(&mut state.players[me_idx], self_src).rested = true;
+    }
+    let lth_total = lth + ltob;
+    if lth_total > 0 {
+        let me = &mut state.players[me_idx];
+        let a = lth_total.min(me.life.len() as i32);
+        for _ in 0..a {
+            let c = me.life.remove(0);
+            me.hand.push(c);
+        }
+    }
+    if ttd > 0 {
+        let me = &mut state.players[me_idx];
+        let a = ttd.min(me.trash.len() as i32);
+        for _ in 0..a {
+            let c = me.trash.remove(0);
+            me.deck.push(c);
+        }
+    }
+    // reveal_hand_with_filter = 公開のみ (state 変更なし)
+    if flip_down {
+        let me = &mut state.players[me_idx];
+        me.face_up_life_count = (me.face_up_life_count.min(me.life.len() as i32) - 1).max(0);
+    }
+    if flip_up {
+        let me = &mut state.players[me_idx];
+        me.face_up_life_count = (me.face_up_life_count + 1).min(me.life.len() as i32);
+    }
+    Ok(true)
 }
 
 /// effects.py:_ai_should_fire_opp_attack_cost = AI defender が cost 付き opp_attack 効果を発動すべきか EV 判定。

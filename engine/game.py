@@ -657,10 +657,8 @@ def advance_phase(state: GameState) -> None:
                 if c.ko_per_turn_immune_max > 0:
                     c.ko_per_turn_immune_remaining = c.ko_per_turn_immune_max
                 c._act_used = False  # 起動メイン once_per_turn を毎ターン回復 (field 化済)
-                # on_attack / opp_attack のターン1回フラグもクリア (任意 idx)
-                for attr in list(c.__dict__.keys()):
-                    if attr.startswith("_on_attack_used_") or attr.startswith("_opp_attack_used_"):
-                        delattr(c, attr)
+                # on_attack / opp_attack のターン1回フラグもクリア (field 化済、 任意 idx)
+                c.attack_once_used.clear()
             # 「次のリフレッシュでアクティブにならない」 ドン数 (OP10-033 ナミ等) を差し引く
             kept_rested = me.next_refresh_kept_rested_don
             available_rested = me.don_rested - kept_rested
@@ -679,9 +677,7 @@ def advance_phase(state: GameState) -> None:
             for c in me.characters:
                 c.summoning_sickness = False
             me.leader._act_used = False
-            for attr in list(me.leader.__dict__.keys()):
-                if attr.startswith("_on_attack_used_") or attr.startswith("_opp_attack_used_"):
-                    delattr(me.leader, attr)
+            me.leader.attack_once_used.clear()
             # next_turn_buff (= 「次の自分のターン開始時まで」 期限) を所有者側でクリア。
             # 自分のターン開始時 = ここで自分の InPlay の next_turn_buff を 0 に。
             me.leader.next_turn_buff = 0

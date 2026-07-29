@@ -9844,7 +9844,7 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             return
         cost = eff.get("cost") or {}
         if cost.get("once_per_turn"):
-            setattr(source, f"_opp_attack_used_{eff_idx}", True)
+            source.mark_attack_once_used(eff_idx)
         enqueue_event(
             state,
             when=when_key,
@@ -10037,7 +10037,7 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         if real_cost:
             _pay_counter_cost(state, me, state.players[1 - me_idx], attacker, real_cost)
         if cost.get("once_per_turn"):
-            setattr(attacker, f"_on_attack_used_{eff_idx}", True)
+            attacker.mark_attack_once_used(eff_idx)
         # 【アタック時】 効果は 1 アタックにつき 1 回 (= トリガーは攻撃ごとに 1 度 fire)。
         # once_per_turn の無い cost 繰り返し型 (ヴェルゴ OP14-061 ドン-1 で -2000 等) でも、
         # 発動後は このバトル中 再提示しない (= 多重発動 bug の修正: redirect 再解決 や
@@ -11678,8 +11678,7 @@ def _enqueue_opp_attack_with_cost(
                 continue
             if not eval_all_conditions(eff, state, me, source_inplay):
                 continue
-            per_turn_key = f"_opp_attack_used_{idx}"
-            if cost.get("once_per_turn") and getattr(source_inplay, per_turn_key, False):
+            if cost.get("once_per_turn") and idx in source_inplay.attack_once_used:
                 continue
             pay_don = int(cost.get("pay_don", 0))
             rest_don = int(cost.get("rest_self_don", 0))
@@ -11709,7 +11708,7 @@ def _enqueue_opp_attack_with_cost(
             if real_cost:
                 _pay_counter_cost(state, me, opp_pl, source_inplay, real_cost)
             if cost.get("once_per_turn"):
-                setattr(source_inplay, per_turn_key, True)
+                source_inplay.mark_attack_once_used(idx)
             eff_indexes_to_fire.append(idx)
         if not has_any_matching:
             continue
@@ -12916,8 +12915,7 @@ def trigger_on_attack(
         # (= cost 繰り返し型の skip-loop 防止、 _reset_battle_buffs でクリア)。
         if idx in getattr(attacker, "_on_attack_opt_skipped", ()):
             continue
-        per_turn_key = f"_on_attack_used_{idx}"
-        if cost.get("once_per_turn") and getattr(attacker, per_turn_key, False):
+        if cost.get("once_per_turn") and idx in attacker.attack_once_used:
             continue
         # cost 全体の feasibility (= pay_don だけでなく discard_hand/rest_self_don 等も)。
         real_cost = {k: v for k, v in cost.items() if k != "once_per_turn"}
@@ -12933,7 +12931,7 @@ def trigger_on_attack(
         if real_cost:
             _pay_counter_cost(state, me, opp, attacker, real_cost)
         if cost.get("once_per_turn"):
-            setattr(attacker, per_turn_key, True)
+            attacker.mark_attack_once_used(idx)
         # 1 アタック 1 回 (上の human 側と同理由): 発動後は このバトル中 再 fire しない。
         # redirect 再解決で trigger_on_attack が再呼出されても多重発動しないよう battle scope で gate。
         _skipped_ai = set(getattr(attacker, "_on_attack_opt_skipped", ()))

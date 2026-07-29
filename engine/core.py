@@ -385,6 +385,18 @@ class InPlay:
     # 旧来は dynamic attr (setattr/delattr) だったが、 canonical state (= Rust engine の差分同期)
     # に含めるため field 化 (2026-07-30)。 ターン開始 refresh で False に戻す。 挙動は従来と同一。
     _act_used: bool = False
+    # 【アタック時】/【相手のアタック時】の once_per_turn 効果を このターン 消費した effect idx 群。
+    # 旧来は dynamic attr (_on_attack_used_{idx} / _opp_attack_used_{idx}、 setattr/delattr) だったが、
+    # canonical state (= Rust engine 差分同期) に含めるため単一 field 化 (2026-07-30)。 effect idx は
+    # bundle 内で一意 (on_attack と opp_attack で衝突しない) ため 1 リストで両方を表現。 ソート保持で
+    # digest 決定的。 ターン開始 refresh で clear。 挙動は従来と同一。
+    attack_once_used: list = field(default_factory=list)
+
+    def mark_attack_once_used(self, idx: int) -> None:
+        """【アタック時】/【相手のアタック時】once_per_turn 効果 idx を消費済にする (ソート保持)。"""
+        if idx not in self.attack_once_used:
+            self.attack_once_used.append(idx)
+            self.attack_once_used.sort()
 
     def has_keyword_active(self, keyword: str) -> bool:
         """カードの基本キーワード or 動的に付与されたキーワードを保有するか。"""
@@ -521,6 +533,8 @@ class InPlay:
         new.granted_keywords_through_opp_turn = self.granted_keywords_through_opp_turn.copy()
         new.ko_immune_battle_attributes_in = self.ko_immune_battle_attributes_in.copy()
         new.ko_immune_battle_attributes_not_in = self.ko_immune_battle_attributes_not_in.copy()
+        # attack_once_used は mutable list → shallow update だと参照共有で fast_clone がクロス汚染する。
+        new.attack_once_used = self.attack_once_used.copy()
         memo[id(self)] = new
         return new
 

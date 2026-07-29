@@ -791,7 +791,7 @@ class HumanSession:
         if real_cost:
             _pay_counter_cost(self.state, defender, opp_pl, source, real_cost)
         if cost.get("once_per_turn"):
-            setattr(source, f"_opp_attack_used_{effect_idx}", True)
+            source.mark_attack_once_used(effect_idx)
         when_key = str(match.get("when_key") or "opp_attack")
         from .effects import enqueue_event, resolve_triggers
         enqueue_event(

@@ -222,9 +222,22 @@ pub struct InPlay {
     // 起動メイン発動済フラグ (once_per_turn ゲート、 Python core.py InPlay._act_used のミラー)
     #[serde(rename = "_act_used", default)]
     pub act_used: bool,
+    // 【アタック時】/【相手のアタック時】once_per_turn を消費した effect idx 群 (ソート保持)。
+    // Python core.py InPlay.attack_once_used のミラー。 refresh で clear。
+    #[serde(default)]
+    pub attack_once_used: Vec<i64>,
 }
 
 impl InPlay {
+    /// 【アタック時】/【相手のアタック時】once_per_turn 効果 idx を消費済にする (ソート保持)。
+    /// Python core.py InPlay.mark_attack_once_used のミラー。
+    pub fn mark_attack_once(&mut self, idx: i64) {
+        if !self.attack_once_used.contains(&idx) {
+            self.attack_once_used.push(idx);
+            self.attack_once_used.sort_unstable();
+        }
+    }
+
     /// core.py InPlay.of: card から場のカードを新規生成。
     /// ⚠ Python dataclass の default が -1 の field (各 applier_idx / *_power_le / cost_le / owner_idx) を
     /// 明示設定 (Rust の Default 派生は i32→0 なので不一致になる)。 owner_idx/is_owners_turn は直後の
