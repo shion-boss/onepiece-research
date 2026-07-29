@@ -399,3 +399,101 @@ def test_rust_apply_attack_fidelity():
     # counter/blocker/KO を含む戦闘が bit 一致で複数検証されている
     assert checked_leader >= 15, f"AttackLeader 検証数不足: {checked_leader}"
     assert checked_char >= 1, f"AttackCharacter 検証数不足: {checked_char}"
+
+
+def test_rust_legal_actions_fidelity():
+    """R2 self-play 前提: Rust legal_actions が Python legal_actions と完全一致 (canonical 集合)。
+    合法手生成は Rust 単独対戦の必須部品。 全 action 種を canonical encode して集合比較。 未 build は skip。"""
+    try:
+        eng = importlib.import_module("optcg_engine")
+    except ImportError:
+        pytest.skip("optcg_engine 未 build")
+    import json
+    import random
+    from engine.core import reset_iid
+    from engine.deck import CardRepository, make_deck_from_dict
+    from engine.effects import load_effect_overlay
+    from engine.game import (
+        setup_game, play_until_main, apply_action, legal_actions,
+        EndPhase, PlayCharacter, PlayEvent, PlayStage,
+        AttachDonToLeader, AttachDonToCharacter, AttackLeader, AttackCharacter, ActivateMain,
+    )
+    from engine.ai import GreedyAI
+    from engine.state_snapshot import full_dump
+
+    eng.load_overlay(str((ROOT / "db" / "card_effects.json").resolve()))
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def dl(s):
+        return make_deck_from_dict(json.loads((ROOT / "decks" / f"{s}.json").read_text()), repo)
+
+    def kidx(player, iid):
+        if iid == player.leader.instance_id:
+            return "leader", 0
+        for i, c in enumerate(player.characters):
+            if c.instance_id == iid:
+                return "char", i
+        for i, c in enumerate(player.stages):
+            if c.instance_id == iid:
+                return "stage", i
+        return None, None
+
+    def canon(state, a):
+        me, opp = state.turn_player, state.opponent
+        if isinstance(a, EndPhase):
+            return {"t": "EndPhase"}
+        if isinstance(a, PlayCharacter):
+            d = {"t": "PlayCharacter", "hand_idx": a.hand_idx}
+            if a.sacrifice_iid is not None:
+                d["sacrifice_idx"] = kidx(me, a.sacrifice_iid)[1]
+            return d
+        if isinstance(a, PlayEvent):
+            return {"t": "PlayEvent", "hand_idx": a.hand_idx}
+        if isinstance(a, PlayStage):
+            return {"t": "PlayStage", "hand_idx": a.hand_idx}
+        if isinstance(a, AttachDonToLeader):
+            return {"t": "AttachDonToLeader", "n": a.n}
+        if isinstance(a, AttachDonToCharacter):
+            return {"t": "AttachDonToCharacter", "target_idx": kidx(me, a.target_iid)[1], "n": a.n}
+        if isinstance(a, AttackLeader):
+            k, i = kidx(me, a.attacker_iid)
+            return {"t": "AttackLeader", "attacker_kind": k, "attacker_idx": i}
+        if isinstance(a, AttackCharacter):
+            k, i = kidx(me, a.attacker_iid)
+            return {"t": "AttackCharacter", "attacker_kind": k, "attacker_idx": i,
+                    "target_idx": kidx(opp, a.target_iid)[1]}
+        if isinstance(a, ActivateMain):
+            k, i = kidx(me, a.source_iid)
+            return {"t": "ActivateMain", "source_kind": k, "source_idx": i, "effect_index": a.effect_index}
+        return {"t": "?"}
+
+    def cstr(d):
+        return json.dumps(d, sort_keys=True, ensure_ascii=False)
+
+    checked = 0
+    for deck_a, deck_b, seed in [
+        ("cardrush_1385", "cardrush_1466", 1),
+        ("cardrush_1491", "cardrush_1574", 5),
+        ("tcgportal_hancock", "pros02_kid_y", 1),
+        ("cardrush_1512", "cardrush_1466", 5),
+    ]:
+        reset_iid()
+        st = setup_game(dl(deck_a), dl(deck_b), rng=random.Random(seed),
+                        first_player=seed % 2, effects_overlay=ov)
+        play_until_main(st)
+        ais = [GreedyAI(rng=random.Random(seed * 3 + 1)), GreedyAI(rng=random.Random(seed * 5 + 2))]
+        for _ in range(200):
+            if st.game_over:
+                break
+            py = {cstr(canon(st, a)) for a in legal_actions(st)}
+            rust = {cstr(d) for d in json.loads(eng.legal_actions_json(json.dumps(full_dump(st))))}
+            assert py == rust, (
+                f"legal_actions 不一致 ({deck_a} vs {deck_b} seed={seed}): "
+                f"PY-only={sorted(py - rust)} RUST-only={sorted(rust - py)}")
+            checked += 1
+            a = ais[st.turn_player_idx].choose_action(st)
+            if a is None:
+                break
+            apply_action(st, a)
+    assert checked >= 40, f"legal_actions 検証数不足: {checked}"

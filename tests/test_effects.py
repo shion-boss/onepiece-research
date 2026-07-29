@@ -3623,7 +3623,8 @@ def test_stage_activate_main_recovers_next_turn():
         if state.turn_player_idx == 1 and state.phase == Phase.MAIN:
             apply_action(state, EndPhase())
     p0.don_active = 6  # DON を戻して cost 条件を満たす
-    assert not hasattr(throne, "_act_used"), "REFRESH で _act_used がクリアされるべき"
+    # _act_used は canonical field 化済 (2026-07-30、 Rust engine 差分同期用)。 REFRESH で False に戻る。
+    assert not throne._act_used, "REFRESH で _act_used がクリアされるべき"
     assert throne_am(), "次の自分ターンで起動メインが再び使えるべき (= 毎ターン回復、 1 game 1 回でない)"
 
 

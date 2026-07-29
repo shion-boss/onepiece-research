@@ -656,8 +656,7 @@ def advance_phase(state: GameState) -> None:
                 c.attached_dons = 0
                 if c.ko_per_turn_immune_max > 0:
                     c.ko_per_turn_immune_remaining = c.ko_per_turn_immune_max
-                if hasattr(c, "_act_used"):
-                    delattr(c, "_act_used")
+                c._act_used = False  # 起動メイン once_per_turn を毎ターン回復 (field 化済)
                 # on_attack / opp_attack のターン1回フラグもクリア (任意 idx)
                 for attr in list(c.__dict__.keys()):
                     if attr.startswith("_on_attack_used_") or attr.startswith("_opp_attack_used_"):
@@ -675,16 +674,11 @@ def advance_phase(state: GameState) -> None:
             # ステージのレスト解除 (3-8 + 6-2-4)
             for s in me.stages:
                 s.rested = False
-                # ⚠ ステージの起動メイン once_per_turn マーカーもクリアする。
-                #   旧実装は char/leader だけ reset していて stage を漏らしており、 ステージの
-                #   起動メイン (= 虚の玉座 等) が「1 game 1 回」になっていた (ohtsuki 報告、
-                #   2026-07-18)。 公式: 起動メインの「ターン1回」は毎ターン回復する。
-                if hasattr(s, "_act_used"):
-                    delattr(s, "_act_used")
+                # ⚠ ステージの起動メイン once_per_turn マーカーもクリアする (毎ターン回復、 虚の玉座 等)。
+                s._act_used = False
             for c in me.characters:
                 c.summoning_sickness = False
-            if hasattr(me.leader, "_act_used"):
-                delattr(me.leader, "_act_used")
+            me.leader._act_used = False
             for attr in list(me.leader.__dict__.keys()):
                 if attr.startswith("_on_attack_used_") or attr.startswith("_opp_attack_used_"):
                     delattr(me.leader, attr)

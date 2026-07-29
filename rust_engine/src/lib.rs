@@ -113,6 +113,16 @@ fn recompute_static_blob(state_json: &str) -> PyResult<String> {
     serde_json::to_string(&v).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
+/// R2 差分テスト: full_dump(state) を受け、 Rust legal_actions を canonical action dict の JSON 配列で返す。
+/// Python legal_actions を同 canonical encode したものと集合比較すれば合法手生成が忠実。
+#[pyfunction]
+fn legal_actions_json(state_json: &str) -> PyResult<String> {
+    let st: state::GameState = serde_json::from_str(state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deserialize: {e}")))?;
+    let acts = effects::legal_actions(&st);
+    serde_json::to_string(&acts).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
 #[pymodule]
 fn optcg_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(load_overlay, m)?)?;
@@ -123,5 +133,6 @@ fn optcg_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(canonical_blob, m)?)?;
     m.add_function(wrap_pyfunction!(apply_action_digest, m)?)?;
     m.add_function(wrap_pyfunction!(apply_action_blob, m)?)?;
+    m.add_function(wrap_pyfunction!(legal_actions_json, m)?)?;
     Ok(())
 }

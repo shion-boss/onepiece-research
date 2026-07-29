@@ -106,6 +106,11 @@ impl CardDef {
     pub fn is_blocker(&self) -> bool {
         self.has_innate_keyword("ブロッカー")
     }
+
+    /// core.py CardDef.is_rush_chara_only = 【速攻：キャラ】を innate 所持。
+    pub fn is_rush_chara_only(&self) -> bool {
+        self.has_innate_keyword("速攻：キャラ") || self.has_innate_keyword("速攻:キャラ")
+    }
 }
 
 fn ser_card_id<S: serde::Serializer>(c: &CardDef, s: S) -> Result<S::Ok, S::Error> {
@@ -214,6 +219,9 @@ pub struct InPlay {
     // ownership
     pub owner_idx: i32,
     pub is_owners_turn: bool,
+    // 起動メイン発動済フラグ (once_per_turn ゲート、 Python core.py InPlay._act_used のミラー)
+    #[serde(rename = "_act_used", default)]
+    pub act_used: bool,
 }
 
 impl InPlay {
@@ -292,6 +300,23 @@ impl InPlay {
     /// True の attacker はブロックされない (AttackLeader のブロック判定で skip)。
     pub fn has_no_block_now(&self) -> bool {
         self.has_kw_now("ブロック不可", self.card.has_innate_keyword("ブロック不可"))
+    }
+
+    /// core.py InPlay.is_rush_now = 【速攻】/【スピード】を innate or 付与所持。
+    pub fn is_rush_now(&self) -> bool {
+        self.has_kw_now("速攻", self.card.is_rush())
+    }
+
+    /// core.py InPlay.is_rush_chara_only_now = 【速攻：キャラ】を innate or 付与所持 (「：」「:」両表記)。
+    pub fn is_rush_chara_only_now(&self) -> bool {
+        if self.card.is_rush_chara_only() {
+            return true;
+        }
+        ["速攻：キャラ", "速攻:キャラ"].iter().any(|kw| {
+            self.granted_keywords.contains(*kw)
+                || self.static_granted_keywords.contains(*kw)
+                || self.granted_keywords_through_opp_turn.contains(*kw)
+        })
     }
 }
 

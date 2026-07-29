@@ -381,6 +381,10 @@ class InPlay:
     # _recompute_static で state.turn_player_idx と owner_idx を比較して更新。
     # 直接生成された InPlay (テスト) はデフォルト True で従来通り動く。
     is_owners_turn: bool = True
+    # 起動メイン (activate_main) を このターン 発動済か (once_per_turn ゲート、 公式 7-5-3)。
+    # 旧来は dynamic attr (setattr/delattr) だったが、 canonical state (= Rust engine の差分同期)
+    # に含めるため field 化 (2026-07-30)。 ターン開始 refresh で False に戻す。 挙動は従来と同一。
+    _act_used: bool = False
 
     def has_keyword_active(self, keyword: str) -> bool:
         """カードの基本キーワード or 動的に付与されたキーワードを保有するか。"""

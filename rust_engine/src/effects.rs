@@ -156,6 +156,8 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize) -> Option<bool
         let ok = match k.as_str() {
             "opp_turn" => (state.turn_player_idx != me_idx) == v.as_bool().unwrap_or(true),
             "self_turn" => (state.turn_player_idx == me_idx) == v.as_bool().unwrap_or(true),
+            // 自分の N ターン目以降 (effects.py:1685、 通算 turn_number >= 2*N-1 でフィルタ)
+            "self_turn_number_ge" => (state.turn_number as i64) >= 2 * v.as_i64().unwrap_or(0) - 1,
             "leader_feature" => me.leader.card.features.iter().any(|f| f == v.as_str().unwrap_or("")),
             "leader_features_any" => v.as_array().map_or(false, |arr| {
                 arr.iter().any(|x| me.leader.card.features.iter().any(|f| Some(f.as_str()) == x.as_str()))
@@ -175,6 +177,8 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize) -> Option<bool
             "self_life_ge" => (me.life.len() as i64) >= v.as_i64().unwrap_or(0),
             "opp_life_le" => (opp.life.len() as i64) <= v.as_i64().unwrap_or(0),
             "opp_life_ge" => (opp.life.len() as i64) >= v.as_i64().unwrap_or(0),
+            // 自ライフ枚数 <= 相手ライフ枚数 (OP10-114 等)
+            "self_life_le_opp" => (me.life.len() <= opp.life.len()) == v.as_bool().unwrap_or(true),
             "self_don_le" => total_don(me) <= v.as_i64().unwrap_or(0),
             "self_don_ge" => total_don(me) >= v.as_i64().unwrap_or(0),
             "self_don_active_ge" => (me.don_active as i64) >= v.as_i64().unwrap_or(0),
@@ -195,7 +199,59 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize) -> Option<bool
             }
             "self_hand_count_le" => (me.hand.len() as i64) <= v.as_i64().unwrap_or(0),
             "self_hand_count_ge" => (me.hand.len() as i64) >= v.as_i64().unwrap_or(0),
+            "opp_hand_count_ge" => (opp.hand.len() as i64) >= v.as_i64().unwrap_or(0),
+            "opp_hand_count_le" => (opp.hand.len() as i64) <= v.as_i64().unwrap_or(0),
+            // 自ドン総数 - 相手ドン総数 <= N (effects.py:don_diff_le)
+            "don_diff_le" => {
+                let atk = |p: &Player| (p.don_active + p.don_rested + p.leader.attached_dons
+                    + p.characters.iter().map(|c| c.attached_dons).sum::<i32>()) as i64;
+                (atk(me) - atk(opp)) <= v.as_i64().unwrap_or(0)
+            }
+            // このターン中にコスト N 以上のイベントを使用したか (max_event_cost_this_turn)
+            "self_event_cost_used_ge" => (me.max_event_cost_this_turn as i64) >= v.as_i64().unwrap_or(0),
             "self_field_count_ge" | "self_chara_count_ge" => (me.characters.len() as i64) >= v.as_i64().unwrap_or(0),
+            // 複合 filter (色/特徴/cost 等 + current_power + rested) で自キャラ数 N 以上 (effects.py:1340)
+            "self_chara_filtered_count_ge" => {
+                let need = v.get("count").and_then(|x| x.as_i64()).unwrap_or(1);
+                let filt = v.get("filter");
+                let cpge = filt.and_then(|f| f.get("current_power_ge")).and_then(|x| x.as_i64());
+                let cple = filt.and_then(|f| f.get("current_power_le")).and_then(|x| x.as_i64());
+                let rested_req = v.get("rested_required").and_then(|x| x.as_bool()).unwrap_or(false);
+                let base_filt: Option<Value> = filt.map(|f| {
+                    let mut o = f.as_object().cloned().unwrap_or_default();
+                    o.remove("current_power_ge");
+                    o.remove("current_power_le");
+                    Value::Object(o)
+                });
+                let cnt = me.characters.iter().filter(|c| {
+                    matches_filter(&c.card, base_filt.as_ref())
+                        && (!rested_req || c.rested)
+                        && cpge.map_or(true, |t| c.power() as i64 >= t)
+                        && cple.map_or(true, |t| (c.power() as i64) <= t)
+                }).count() as i64;
+                cnt >= need
+            }
+            // 上の opp 版 (相手キャラを filter で数える、 EB04-007 等)
+            "opp_chara_filtered_count_ge" => {
+                let need = v.get("count").and_then(|x| x.as_i64()).unwrap_or(1);
+                let filt = v.get("filter");
+                let cpge = filt.and_then(|f| f.get("current_power_ge")).and_then(|x| x.as_i64());
+                let cple = filt.and_then(|f| f.get("current_power_le")).and_then(|x| x.as_i64());
+                let rested_req = v.get("rested_required").and_then(|x| x.as_bool()).unwrap_or(false);
+                let base_filt: Option<Value> = filt.map(|f| {
+                    let mut o = f.as_object().cloned().unwrap_or_default();
+                    o.remove("current_power_ge");
+                    o.remove("current_power_le");
+                    Value::Object(o)
+                });
+                let cnt = opp.characters.iter().filter(|c| {
+                    matches_filter(&c.card, base_filt.as_ref())
+                        && (!rested_req || c.rested)
+                        && cpge.map_or(true, |t| c.power() as i64 >= t)
+                        && cple.map_or(true, |t| (c.power() as i64) <= t)
+                }).count() as i64;
+                cnt >= need
+            }
             "opp_don_count_ge" => total_don(opp) >= v.as_i64().unwrap_or(0),
             "self_trash_count_ge" => (me.trash.len() as i64) >= v.as_i64().unwrap_or(0),
             "self_trash_count_le" => (me.trash.len() as i64) <= v.as_i64().unwrap_or(0),
@@ -1525,6 +1581,11 @@ pub fn fire_activate_main(
             me.don_rested += n;
         }
     }
+    // once_per_turn フラグ (effects.py:13726、 default True で発動済マーク)
+    let once = cost.as_ref().and_then(|c| c.get("once_per_turn")).and_then(|v| v.as_bool()).unwrap_or(true);
+    if once {
+        get_ip_mut(&mut state.players[me_idx], src).act_used = true;
+    }
     for prim in &dos {
         execute_effect(prim, state, me_idx, src);
     }
@@ -1604,4 +1665,311 @@ pub fn evaluate_static_effects(state: &mut GameState) {
             }
         }
     }
+}
+
+// ============================ legal_actions (game.py:833 の port) ============================
+use crate::state::{CardDef, Phase};
+use serde_json::json;
+
+/// 手札時のカード固有コスト軽減 (overlay when:"in_hand" の in_hand_cost_minus/plus)。
+fn in_hand_cost_minus(state: &GameState, me_idx: usize, card: &CardDef) -> i32 {
+    let Some(ov) = overlay() else { return 0 };
+    let Some(effs) = ov.get(&card.card_id) else { return 0 };
+    let mut total = 0;
+    for eff in effs {
+        if eff.get("when").and_then(|v| v.as_str()) != Some("in_hand") {
+            continue;
+        }
+        if let Some(cond) = eff.get("if") {
+            if eval_condition(cond, state, me_idx) != Some(true) {
+                continue;
+            }
+        }
+        if let Some(dos) = eff.get("do").and_then(|v| v.as_array()) {
+            for prim in dos {
+                let Some(o) = prim.as_object() else { continue };
+                if let Some(v) = o.get("in_hand_cost_minus") {
+                    total += v.as_i64().or_else(|| v.get("amount").and_then(|x| x.as_i64())).unwrap_or(0) as i32;
+                } else if let Some(v) = o.get("in_hand_cost_plus") {
+                    total -= v.as_i64().or_else(|| v.get("amount").and_then(|x| x.as_i64())).unwrap_or(0) as i32;
+                }
+            }
+        }
+    }
+    total
+}
+
+/// game.py:_eff_cost = card.cost - play_cost_reduction - in_hand - filtered_reduction (>=0)。
+fn eff_cost(state: &GameState, me_idx: usize, card: &CardDef) -> i32 {
+    let me = &state.players[me_idx];
+    let mut filtered = 0i32;
+    for r in me.play_cost_reductions_filtered.iter().chain(me.play_cost_reductions_filtered_turn.iter()) {
+        if matches_filter(card, r.get("filter")) {
+            filtered += r.get("amount").and_then(|x| x.as_i64()).unwrap_or(0) as i32;
+        }
+    }
+    (card.cost - me.play_cost_reduction - in_hand_cost_minus(state, me_idx, card) - filtered).max(0)
+}
+
+/// 場のドン返却可能総数 (active+rested+全付与ドン)。 pay_don cost 判定用。
+fn pay_don_capacity(me: &Player) -> i32 {
+    me.don_active + me.don_rested + me.leader.attached_dons
+        + me.characters.iter().map(|c| c.attached_dons).sum::<i32>()
+}
+
+/// effects.py:_can_pay_activate_cost = activate_main の cost を支払えるか。
+fn can_pay_activate_cost(state: &GameState, me_idx: usize, ip: &InPlay, on_field: bool, cost: &Value) -> bool {
+    let me = &state.players[me_idx];
+    let Some(o) = cost.as_object() else { return true };
+    let gi = |k: &str| o.get(k).and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+    let gb = |k: &str| o.get(k).and_then(|v| v.as_bool()).unwrap_or(false);
+    if gb("rest_self") && ip.rested {
+        return false;
+    }
+    if gb("trash_self") && !on_field {
+        return false;
+    }
+    if gi("pay_don") > 0 && pay_don_capacity(me) < gi("pay_don") {
+        return false;
+    }
+    if gi("rest_self_don") > 0 && me.don_active < gi("rest_self_don") {
+        return false;
+    }
+    if gi("trash_to_deck") > 0 && (me.trash.len() as i32) < gi("trash_to_deck") {
+        return false;
+    }
+    if gb("return_self_to_hand") && !on_field {
+        return false;
+    }
+    if gi("discard_hand") > 0 && (me.hand.len() as i32) < gi("discard_hand") {
+        return false;
+    }
+    if let Some(dfs) = o.get("discard_hand_with_filter").and_then(|v| v.as_object()) {
+        let d_filt = dfs.get("filter");
+        let d_count = dfs.get("count").and_then(|v| v.as_i64()).unwrap_or(1) as usize;
+        let matching = me.hand.iter().filter(|c| matches_filter(c, d_filt)).count();
+        if matching < d_count {
+            return false;
+        }
+    }
+    // reveal_hand_with_filter: 該当手札 count 枚以上 (公開のみ、 消費なし)
+    if let Some(rfs) = o.get("reveal_hand_with_filter").and_then(|v| v.as_object()) {
+        let r_filt = rfs.get("filter");
+        let r_count = rfs.get("count").and_then(|v| v.as_i64()).unwrap_or(1) as usize;
+        if me.hand.iter().filter(|c| matches_filter(c, r_filt)).count() < r_count {
+            return false;
+        }
+    }
+    // ko_self_with_filter: filter 一致の自キャラ 1 枚以上必要 (value 自体が filter)
+    if let Some(kf) = o.get("ko_self_with_filter") {
+        if !me.characters.iter().any(|c| matches_filter(&c.card, Some(kf))) {
+            return false;
+        }
+    }
+    // rest_self_target_name / rest_self_target: name 一致 + アクティブが 1 枚以上必要
+    if let Some(rn) = o.get("rest_self_target_name").or_else(|| o.get("rest_self_target")) {
+        let name = rn.get("name").and_then(|v| v.as_str()).or_else(|| rn.as_str()).unwrap_or("");
+        let ok = me.characters.iter().chain(me.stages.iter())
+            .any(|ip| ip.card.name == name && !ip.rested);
+        if !ok {
+            return false;
+        }
+    }
+    // rest_own_card: filter 一致のアクティブな自カード (leader/char/stage) が count 枚以上必要
+    if let Some(ro) = o.get("rest_own_card") {
+        let n = ro.get("count").and_then(|v| v.as_i64()).unwrap_or(1) as usize;
+        let ro_filt = ro.get("filter");
+        let pool = std::iter::once(&me.leader).chain(me.characters.iter()).chain(me.stages.iter())
+            .filter(|ip| !ip.rested && matches_filter(&ip.card, ro_filt))
+            .count();
+        if pool < n {
+            return false;
+        }
+    }
+    // once_per_turn (default True) ゲート: 発動済なら払えない (effects.py:13096)。
+    let once = o.get("once_per_turn").and_then(|v| v.as_bool()).unwrap_or(true);
+    if once && ip.act_used {
+        return false;
+    }
+    true
+}
+
+/// game.py:legal_actions の port (canonical action dict の list を返す)。 self-play (human_player_idx=None) の
+/// AI モード相当 (sacrifice は最弱1体)。 ⚠ audit hook は非対象。
+pub fn legal_actions(state: &GameState) -> Vec<Value> {
+    let mut out: Vec<Value> = vec![];
+    if state.game_over || state.phase != Phase::Main {
+        return out;
+    }
+    let me_idx = state.turn_player_idx;
+    let me = &state.players[me_idx];
+    out.push(json!({"t": "EndPhase"}));
+
+    let field_full = me.characters.len() >= 5;
+    let chara_play_blocked = me.block_chara_play_until_turn_end;
+    let cost_block = me.block_chara_play_cost_ge_threshold;
+    let cost_play_blocked = |c: &CardDef| cost_block >= 0 && c.cost >= cost_block;
+
+    if !chara_play_blocked && !field_full {
+        for (i, c) in me.hand.iter().enumerate() {
+            if c.category != Category::Character || cost_play_blocked(c) {
+                continue;
+            }
+            if eff_cost(state, me_idx, c) <= me.don_active {
+                out.push(json!({"t": "PlayCharacter", "hand_idx": i}));
+            }
+        }
+    } else if !chara_play_blocked {
+        // 場 5 枚: AI = 最弱1体 sacrifice
+        for (i, c) in me.hand.iter().enumerate() {
+            if c.category != Category::Character || cost_play_blocked(c) {
+                continue;
+            }
+            if eff_cost(state, me_idx, c) > me.don_active || me.characters.is_empty() {
+                continue;
+            }
+            let sac = (0..me.characters.len())
+                .min_by_key(|&j| (me.characters[j].power(), me.characters[j].card.cost))
+                .unwrap();
+            out.push(json!({"t": "PlayCharacter", "hand_idx": i, "sacrifice_idx": sac}));
+        }
+    }
+
+    for (i, c) in me.hand.iter().enumerate() {
+        if c.category == Category::Event && eff_cost(state, me_idx, c) <= me.don_active {
+            out.push(json!({"t": "PlayEvent", "hand_idx": i}));
+        }
+    }
+    for (i, c) in me.hand.iter().enumerate() {
+        if c.category == Category::Stage && eff_cost(state, me_idx, c) <= me.don_active {
+            out.push(json!({"t": "PlayStage", "hand_idx": i}));
+        }
+    }
+
+    if me.don_active >= 1 {
+        out.push(json!({"t": "AttachDonToLeader", "n": 1}));
+        for j in 0..me.characters.len() {
+            out.push(json!({"t": "AttachDonToCharacter", "target_idx": j, "n": 1}));
+        }
+    }
+
+    // 戦闘 (turn 1/2 はバトル不可)
+    let can_battle = state.turn_number > 2;
+    if can_battle {
+        // attacker 候補 (kind, idx) と、 速攻:キャラ 専用 (chara_only)
+        let mut attackers: Vec<(String, usize)> = vec![];
+        let mut chara_only: Vec<usize> = vec![];
+        let l = &me.leader;
+        if !l.rested
+            && !l.cannot_attack_until_turn_end
+            && !l.cannot_attack_static
+            && !l.cannot_attack_through_opp_turn
+            && !l.cannot_be_rested_buff
+        {
+            attackers.push(("leader".into(), 0));
+        }
+        for (j, ch) in me.characters.iter().enumerate() {
+            if ch.rested
+                || ch.cannot_attack_until_turn_end
+                || ch.cannot_attack_static
+                || ch.cannot_attack_through_opp_turn
+                || ch.cannot_be_rested_buff
+            {
+                continue;
+            }
+            if ch.summoning_sickness && !ch.is_rush_now() {
+                if ch.is_rush_chara_only_now() {
+                    chara_only.push(j);
+                }
+                continue;
+            }
+            attackers.push(("char".into(), j));
+        }
+
+        let opp = &state.players[1 - me_idx];
+        let opp_taunts: Vec<usize> = (0..opp.characters.len())
+            .filter(|&k| opp.characters[k].attack_taunt)
+            .collect();
+        let can_attack_target = |atk: &InPlay, target_cost: i32| -> bool {
+            let cap = atk.cannot_attack_target_cost_le_until_turn_end;
+            cap < 0 || target_cost > cap
+        };
+        let atk_ref = |kind: &str, idx: usize| -> &InPlay {
+            if kind == "leader" { &me.leader } else { &me.characters[idx] }
+        };
+
+        for (kind, idx) in &attackers {
+            let atk = atk_ref(kind, *idx);
+            let active_ok = atk.granted_keywords.contains("アクティブアタック可");
+            if !opp_taunts.is_empty() {
+                for &t in &opp_taunts {
+                    let tgt = &opp.characters[t];
+                    if (tgt.rested || active_ok) && can_attack_target(atk, tgt.card.cost) {
+                        out.push(json!({"t": "AttackCharacter", "attacker_kind": kind, "attacker_idx": idx, "target_idx": t}));
+                    }
+                }
+            } else {
+                if !me.cannot_attack_leader_until_turn_end {
+                    out.push(json!({"t": "AttackLeader", "attacker_kind": kind, "attacker_idx": idx}));
+                }
+                for t in 0..opp.characters.len() {
+                    let tgt = &opp.characters[t];
+                    if (tgt.rested || active_ok) && can_attack_target(atk, tgt.card.cost) {
+                        out.push(json!({"t": "AttackCharacter", "attacker_kind": kind, "attacker_idx": idx, "target_idx": t}));
+                    }
+                }
+            }
+        }
+        for &j in &chara_only {
+            let atk = &me.characters[j];
+            let active_ok = atk.granted_keywords.contains("アクティブアタック可");
+            if !opp_taunts.is_empty() {
+                for &t in &opp_taunts {
+                    if opp.characters[t].rested || active_ok {
+                        out.push(json!({"t": "AttackCharacter", "attacker_kind": "char", "attacker_idx": j, "target_idx": t}));
+                    }
+                }
+            } else {
+                for t in 0..opp.characters.len() {
+                    if opp.characters[t].rested || active_ok {
+                        out.push(json!({"t": "AttackCharacter", "attacker_kind": "char", "attacker_idx": j, "target_idx": t}));
+                    }
+                }
+            }
+        }
+    }
+
+    // ActivateMain (list_activate_main_effects: cost payable + 条件成立)
+    if let Some(ov) = overlay() {
+        let n_char = me.characters.len();
+        let n_stage = me.stages.len();
+        let mut slots: Vec<(Slot, &str)> = vec![(Slot::Leader, "leader")];
+        for j in 0..n_char { slots.push((Slot::Char(j), "char")); }
+        for j in 0..n_stage { slots.push((Slot::Stage(j), "stage")); }
+        for (slot, kind) in slots {
+            let ip = get_ip(me, slot);
+            let cid = ip.card.card_id.clone();
+            let Some(effs) = ov.get(&cid) else { continue };
+            let on_field = matches!(slot, Slot::Char(_) | Slot::Stage(_));
+            for (idx, eff) in effs.iter().enumerate() {
+                if eff.get("when").and_then(|v| v.as_str()) != Some("activate_main") {
+                    continue;
+                }
+                let cost = eff.get("cost").cloned().unwrap_or_else(|| json!({}));
+                if !can_pay_activate_cost(state, me_idx, ip, on_field, &cost) {
+                    continue;
+                }
+                match eval_effect_conditions(eff, state, me_idx) {
+                    Some(true) => {}
+                    _ => continue,
+                }
+                let sidx = match slot {
+                    Slot::Leader => 0,
+                    Slot::Char(j) | Slot::Stage(j) => j,
+                };
+                out.push(json!({"t": "ActivateMain", "source_kind": kind, "source_idx": sidx, "effect_index": idx}));
+            }
+        }
+    }
+    out
 }
