@@ -434,9 +434,14 @@ fn resolve_target(
         os if os.starts_with("one_opponent_") => {
             let rested_only = os.contains("rested_character");
             let cost_le = parse_after(os, "cost_le_"); // c.card.cost <= n
-            let power_le = parse_after(os, "power_le_"); // c.power() <= n
-            // 認識できない filter token (bare _le_N / _ge_N 等、 例 one_opponent_character_le_5000) は
-            // 誤選択を避けて bail (= 黙って間違えない)。 cost_le/power_le に解釈できた時のみ続行。
+            let mut power_le = parse_after(os, "power_le_"); // c.power() <= n
+            // bare "character_le_N" (= power ≤ N、 opp_value sort、 effects.py:2425)
+            if power_le.is_none() && cost_le.is_none() {
+                if let Some(n) = parse_after(os, "character_le_") {
+                    power_le = Some(n);
+                }
+            }
+            // まだ認識できない filter token (_le_/_ge_ 残) は誤選択回避で bail。
             if cost_le.is_none() && power_le.is_none() && (os.contains("_le_") || os.contains("_ge_")) {
                 return None;
             }
@@ -1161,6 +1166,27 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     ip.cannot_attack_through_opp_turn = true;
                 } else {
                     ip.cannot_attack_until_turn_end = true;
+                }
+            }
+            true
+        }
+        // 「その後、 <if> の場合、 <do>」 (effects.py:5952)。 条件成立で sub-do を発火。
+        "conditional" => {
+            let default_cond = serde_json::json!({});
+            let cond = v.get("if").unwrap_or(&default_cond);
+            match eval_condition(cond, state, me_idx, Some(src)) {
+                Some(true) => {}
+                Some(false) => return true, // 条件不成立 = 何もしない (= 再現済)
+                None => return false,       // 条件 unknown = bail
+            }
+            let Some(dos) = v.get("do").and_then(|d| d.as_array()) else { return true };
+            // nested prim の cascade guard (= 黙って間違えない)
+            if effect_cascade_blocked(dos, state, me_idx) {
+                return false;
+            }
+            for prim in dos {
+                if !execute_effect(prim, state, me_idx, src) {
+                    return false;
                 }
             }
             true
