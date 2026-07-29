@@ -656,6 +656,9 @@ class Player:
     # 「次の相手のメインフェイズ開始時に発動」 する遅延効果リスト (PRB02-005 ルフィ等)。
     # 自陣 player に登録 → 「相手の MAIN 開始時 (= 自分の opp 視点)」 に flush。
     delayed_at_opp_main_phase_start: list = field(default_factory=list)
+    # 「このターン終了時に発動」 する予約効果リスト (OP15-025 クロ等)。 END phase (trigger_end_of_turn) で flush。
+    # 旧来 dynamic attr だったが canonical state (= Rust engine 差分同期) に含めるため field 化 (2026-07-30)。
+    scheduled_at_self_turn_end: list = field(default_factory=list)
     # 「次のリフレッシュフェイズでアクティブにならないドン数」 (OP10-033 ナミ等)。
     # REFRESH 時に この数だけ don_rested から差し引かれず残る。 適用後 0 にリセット。
     next_refresh_kept_rested_don: int = 0

@@ -405,11 +405,18 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
             state.phase = Phase::End;
         }
         Phase::End => {
-            // ターン終了時トリガー (end_of_turn / opp_end_of_turn) は cost/optional 込みで複雑 → 該当時 bail。
+            // ターン終了時処理 (trigger_end_of_turn) は複雑 → 該当時 bail (= 黙って間違えない):
+            //  - on-field end_of_turn / opp_end_of_turn トリガー
+            //  - scheduled_at_self_turn_end (予約効果、 canonical field 化済で可視)
+            //  - return_to_deck_bottom_at_turn_end / trash_at_self_turn_end (turn player の一時キャラ)
             if board_has_when(&state.players[me], "end_of_turn")
                 || board_has_when(&state.players[1 - me], "opp_end_of_turn")
+                || !state.players[me].scheduled_at_self_turn_end.is_empty()
+                || state.players[me].characters.iter().any(|c| {
+                    c.return_to_deck_bottom_at_turn_end || c.trash_at_self_turn_end
+                })
             {
-                return Err("end_of_turn trigger 未対応".into());
+                return Err("end_of_turn 処理 未対応".into());
             }
             reset_turn_buff(state);
             if state.extra_turn_pending {

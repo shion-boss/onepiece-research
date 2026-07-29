@@ -372,6 +372,9 @@ pub struct Player {
     pub prevent_self_life_to_hand_until_turn_end: bool,
     pub hand_discarded_by_effect_this_turn: bool,
     pub delayed_at_opp_main_phase_start: Vec<serde_json::Value>,
+    // このターン終了時に発動する予約効果 (core.py Player.scheduled_at_self_turn_end のミラー)。
+    #[serde(default)]
+    pub scheduled_at_self_turn_end: Vec<serde_json::Value>,
     pub next_refresh_kept_rested_don: i32,
     // once_per_turn_used は key が instance_id 依存 = canonical 除外 (Python _EXCLUDE と一致)。
     // Rust は追跡しない (single-action の gating は legal_actions 側で担保)。
