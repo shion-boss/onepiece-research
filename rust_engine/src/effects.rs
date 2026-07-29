@@ -1174,6 +1174,11 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // このターン中キャラ登場禁止 (effects.py:5686、 OP14-020 緑ミホーク)。 Phase.END でクリア。
+        "block_chara_play" => {
+            state.players[me_idx].block_chara_play_until_turn_end = true;
+            true
+        }
         // 「その後、 <if> の場合、 <do>」 (effects.py:5952)。 条件成立で sub-do を発火。
         "conditional" => {
             let default_cond = serde_json::json!({});
@@ -1714,7 +1719,7 @@ pub fn fire_activate_main(
     if let Some(c) = &cost {
         if let Some(o) = c.as_object() {
             for k in o.keys() {
-                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn") {
+                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card") {
                     return Err(format!("activate_main cost 未対応: {k} ({card_id})"));
                 }
             }
@@ -1742,6 +1747,43 @@ pub fn fire_activate_main(
             let n = rest_don.min(me.don_active);
             me.don_active -= n;
             me.don_rested += n;
+        }
+        // rest_own_card: 自分のアクティブカード count 枚をレスト。 AI は 非リーダー + power 昇順
+        // (= リーダー/高power キャラ温存、 effects.py:13720)。 直接 rested = 無 cascade。
+        if let Some(ro) = c.get("rest_own_card") {
+            let (ro_n, ro_filt) = if let Some(o) = ro.as_object() {
+                (o.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize, o.get("filter"))
+            } else {
+                (ro.as_i64().unwrap_or(1) as usize, None)
+            };
+            // pool = active leader+chars+stages (matches filter)、 (is_leader, power, Slot)
+            let mut pool: Vec<(bool, i32, Slot)> = vec![];
+            {
+                let me = &state.players[me_idx];
+                if !me.leader.rested && matches_filter(&me.leader.card, ro_filt) {
+                    pool.push((true, me.leader.power(), Slot::Leader));
+                }
+                for i in 0..me.characters.len() {
+                    let ch = &me.characters[i];
+                    if !ch.rested && matches_filter(&ch.card, ro_filt) {
+                        pool.push((false, ch.power(), Slot::Char(i)));
+                    }
+                }
+                for i in 0..me.stages.len() {
+                    let s = &me.stages[i];
+                    if !s.rested && matches_filter(&s.card, ro_filt) {
+                        pool.push((false, s.power(), Slot::Stage(i)));
+                    }
+                }
+            }
+            if pool.len() < ro_n {
+                return Err("rest_own_card 支払い不能".into());
+            }
+            // (is_leader?1:0, power) 昇順 (安定 = pool 順 tie-break)
+            pool.sort_by(|a, b| (a.0 as i32, a.1).cmp(&(b.0 as i32, b.1)));
+            for (_, _, sl) in pool.into_iter().take(ro_n) {
+                get_ip_mut(&mut state.players[me_idx], sl).rested = true;
+            }
         }
     }
     // once_per_turn フラグ (effects.py:13726、 default True で発動済マーク)
