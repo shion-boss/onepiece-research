@@ -4,7 +4,7 @@
 //! **完全に理解できる効果だけ適用、 未知の条件/target/primitive は skip** (= 誤適用ゼロ)。
 //! → 全 primitive/条件/target が既知のカードのみ Python と一致。 未対応カードは diverge (差分テストが境界)。
 
-use crate::state::{GameState, InPlay, Player};
+use crate::state::{Category, GameState, InPlay, Player};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -93,6 +93,15 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize) -> Option<bool
             "opp_don_count_ge" => total_don(opp) >= v.as_i64().unwrap_or(0),
             "self_trash_count_ge" => (me.trash.len() as i64) >= v.as_i64().unwrap_or(0),
             "self_trash_count_le" => (me.trash.len() as i64) <= v.as_i64().unwrap_or(0),
+            "self_trash_event_count_ge" => {
+                (me.trash.iter().filter(|c| c.category == Category::Event).count() as i64) >= v.as_i64().unwrap_or(0)
+            }
+            "self_trash_event_count_le" => {
+                (me.trash.iter().filter(|c| c.category == Category::Event).count() as i64) <= v.as_i64().unwrap_or(0)
+            }
+            "self_trash_chara_count_ge" => {
+                (me.trash.iter().filter(|c| c.category == Category::Character).count() as i64) >= v.as_i64().unwrap_or(0)
+            }
             "not" => match eval_condition(v, state, me_idx) {
                 Some(b) => !b,
                 None => return None,
@@ -232,13 +241,44 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
     let Some((key, spec)) = prim.as_object().and_then(|o| o.iter().next()) else { return };
     match key.as_str() {
         "power_pump" => {
-            // 動的 (amount_per/multiplier) は未対応 → skip
-            if spec.get("amount_per").is_some() || spec.get("multiplier").is_some() {
-                return;
+            // 静的 context では duration は static 強制 (effects.py:10783) → static_buff += amount。
+            let mut amount = as_i(spec.get("amount"), 0) as i32;
+            if let Some(ap) = spec.get("amount_per") {
+                let source = ap.get("source").and_then(|v| v.as_str()).unwrap_or("");
+                let mult = as_i(ap.get("multiplier"), 1000) as i32;
+                let divisor = as_i(ap.get("divisor"), 1).max(1) as i32;
+                let me = &state.players[me_idx];
+                let opp = &state.players[opp_idx];
+                let atk = |p: &Player| p.leader.attached_dons + p.characters.iter().map(|c| c.attached_dons).sum::<i32>();
+                let src_val: i32 = match source {
+                    "self_don_rest" => me.don_rested,
+                    "self_don_active" => me.don_active,
+                    "self_don_total" => me.don_active + me.don_rested + atk(me),
+                    "self_field_count" => me.characters.len() as i32,
+                    "self_hand_count" => me.hand.len() as i32,
+                    "self_trash_count" => me.trash.len() as i32,
+                    "self_trash_event_count" => me.trash.iter().filter(|c| c.category == Category::Event).count() as i32,
+                    "self_trash_chara_count" => me.trash.iter().filter(|c| c.category == Category::Character).count() as i32,
+                    "self_chara_feature_count" => {
+                        let feat = ap.get("feature").and_then(|v| v.as_str()).unwrap_or("");
+                        me.characters.iter().filter(|c| c.card.features.iter().any(|f| f == feat)).count() as i32
+                    }
+                    "self_distinct_chara_name_count" => {
+                        me.characters.iter().map(|c| c.card.name.clone()).collect::<std::collections::BTreeSet<_>>().len() as i32
+                    }
+                    "opp_don_total" => opp.don_active + opp.don_rested + atk(opp),
+                    _ => return, // 未知 source → skip
+                };
+                amount += (src_val / divisor) * mult;
             }
-            let amount = as_i(spec.get("amount"), 0) as i32;
+            let ff = spec.get("feature_filter").and_then(|v| v.as_str()).map(|s| s.to_string());
             let Some(targets) = resolve_target(spec.get("target"), me_idx, opp_idx, src, state) else { return };
             for (pi, sl) in targets {
+                if let Some(f) = &ff {
+                    if !get_ip(&state.players[pi], sl).card.features.iter().any(|x| x == f) {
+                        continue;
+                    }
+                }
                 get_ip_mut(&mut state.players[pi], sl).static_buff += amount;
             }
         }
@@ -290,6 +330,12 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
             let Some(targets) = resolve_target(spec.get("target"), me_idx, opp_idx, src, state) else { return };
             for (pi, sl) in targets {
                 get_ip_mut(&mut state.players[pi], sl).protect_from_opp_effect = true;
+            }
+        }
+        // 「相手キャラは自分の効果で離れない」 (OP14-079 黒クロコ) = 相手キャラ全員に protect。
+        "set_opp_protect_static" => {
+            for i in 0..state.players[opp_idx].characters.len() {
+                state.players[opp_idx].characters[i].protect_from_opp_effect = true;
             }
         }
         "set_cannot_attack_static" => {
