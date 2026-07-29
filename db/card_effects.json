@@ -8569,6 +8569,9 @@
    "when": "trigger",
    "do": [
     {
+     "draw": 1
+    },
+    {
      "mill_self_top": 1
     }
    ]
@@ -46286,6 +46289,9 @@
    "when": "trigger",
    "do": [
     {
+     "draw": 1
+    },
+    {
      "mill_self_top": 1
     }
    ]
@@ -65026,6 +65032,9 @@
    "when": "trigger",
    "do": [
     {
+     "draw": 1
+    },
+    {
      "mill_self_top": 1
     }
    ]
@@ -65099,6 +65108,12 @@
      "give_keyword": {
       "target": "self",
       "keyword": "ブロッカー"
+     }
+    },
+    {
+     "set_base_cost": {
+      "target": "self",
+      "delta": 3
      }
     }
    ]
@@ -108526,6 +108541,9 @@
    "_text": "OP12-098 trigger: カード1枚を引き、自分のデッキの上から1枚をトラッシュに置く。",
    "when": "trigger",
    "do": [
+    {
+     "draw": 1
+    },
     {
      "mill_self_top": 1
     }
