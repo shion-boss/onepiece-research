@@ -1392,17 +1392,20 @@ fn execute_card_effects(
 }
 
 /// キャラ登場時の on_play 効果を実行 (effects.py:trigger_on_play)。 played_idx = me.characters の末尾。
-/// 「登場そのもの」由来の cascade (on_self_chara_played[me] / on_opp_chara_played[opp]) が場にあれば bail
-/// (= 黙って間違えない)。 on_play 効果本体は execute_card_effects が fidelity 保証。
+/// 順序: ① 登場カード自身の on_play → ② on_self_chara_played(me 場)→ ③ on_opp_chara_played(opp 場)
+/// (turn-first FIFO = Python の _maybe_resolve 順)。 各段 fire は fidelity 保証(未対応は Err で bail)。
 pub fn execute_on_play(state: &mut GameState, me_idx: usize, played_idx: usize) -> Result<(), String> {
     let opp = 1 - me_idx;
-    if me_board_has_when(state, me_idx, "on_self_chara_played")
-        || me_board_has_when(state, opp, "on_opp_chara_played")
-    {
-        return Err("on_self/opp_chara_played cascade 未対応".into());
-    }
     let card_id = state.players[me_idx].characters[played_idx].card.card_id.clone();
-    execute_card_effects(state, me_idx, &card_id, "on_play", Slot::Char(played_idx))
+    // ① 登場カード自身の on_play (OP09-081 相手効果で無効化されていなければ)
+    if !state.players[me_idx].opp_on_play_disabled_through_opp_turn {
+        execute_card_effects(state, me_idx, &card_id, "on_play", Slot::Char(played_idx))?;
+    }
+    // ② on_self_chara_played(me)→ ③ on_opp_chara_played(opp)。 last_opp_chara_played_card は
+    //   Python が cascade 完了後 None に戻すので Rust は触らず None 維持(= 一致)。
+    fire_field_when(state, me_idx, "on_self_chara_played")?;
+    fire_field_when(state, opp, "on_opp_chara_played")?;
+    Ok(())
 }
 
 /// player の場に指定 when 効果を持つカードがあるか (draw cascade guard 用)。
