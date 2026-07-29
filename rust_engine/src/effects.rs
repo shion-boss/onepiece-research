@@ -142,6 +142,19 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize) -> Option<bool
             "self_don_ge" => total_don(me) >= v.as_i64().unwrap_or(0),
             "self_don_active_ge" => (me.don_active as i64) >= v.as_i64().unwrap_or(0),
             "self_don_active_eq" => (me.don_active as i64) == v.as_i64().unwrap_or(0),
+            // 【ドン‼×N】ゲート = 自リーダー+全キャラの付与ドン合計 N 以上 (effects.py:1690)。
+            // ⚠ self_inplay=None (on_ko 等) の _on_ko_victim_attached_don 足し戻しは未対応
+            //   (Rust は on_attack/on_play/static でのみ eval = self 常在 → 単純合計で忠実)。
+            "self_attached_don_ge" => {
+                let total = me.leader.attached_dons as i64
+                    + me.characters.iter().map(|c| c.attached_dons as i64).sum::<i64>();
+                total >= v.as_i64().unwrap_or(0)
+            }
+            "opp_attached_don_ge" => {
+                let total = opp.leader.attached_dons as i64
+                    + opp.characters.iter().map(|c| c.attached_dons as i64).sum::<i64>();
+                total >= v.as_i64().unwrap_or(0)
+            }
             "self_hand_count_le" => (me.hand.len() as i64) <= v.as_i64().unwrap_or(0),
             "self_hand_count_ge" => (me.hand.len() as i64) >= v.as_i64().unwrap_or(0),
             "self_field_count_ge" | "self_chara_count_ge" => (me.characters.len() as i64) >= v.as_i64().unwrap_or(0),
@@ -1091,6 +1104,93 @@ fn execute_card_effects(state: &mut GameState, me_idx: usize, card_id: &str, whe
 pub fn execute_on_play(state: &mut GameState, me_idx: usize, played_idx: usize) {
     let card_id = state.players[me_idx].characters[played_idx].card.card_id.clone();
     execute_card_effects(state, me_idx, &card_id, "on_play", Slot::Char(played_idx));
+}
+
+/// player の場に指定 when 効果を持つカードがあるか (draw cascade guard 用)。
+fn me_board_has_when(state: &GameState, pi: usize, when: &str) -> bool {
+    let p = &state.players[pi];
+    std::iter::once(&p.leader)
+        .chain(p.characters.iter())
+        .chain(p.stages.iter())
+        .any(|ip| card_has_when(&ip.card.card_id, when))
+}
+
+/// cost が空 (= costless、 任意/強制コスト無) か。
+fn cost_is_empty(cost: &Value) -> bool {
+    match cost {
+        Value::Object(o) => o.is_empty(),
+        Value::Array(a) => a.is_empty(),
+        Value::Null => true,
+        _ => false,
+    }
+}
+
+/// on_attack トリガーで発火して安全 (= 更なる cascade を起こさず execute_effect が忠実再現) な primitive。
+/// ko/return/rest(on_self_rested)/search/optional_cost_then/redirect 等は除外 (=呼出側 Err で bail)。
+fn on_trigger_prim_safe(key: &str) -> bool {
+    matches!(
+        key,
+        "power_pump" | "draw" | "give_keyword" | "add_don" | "add_don_active" | "add_rested_don"
+            | "untap_don" | "cost_minus" | "attach_rested_don" | "mill_self_top"
+            | "stay_rested_next_refresh" | "set_cannot_rest" | "set_cannot_attack" | "put_top_to_life"
+    )
+}
+
+/// 【アタック時】(on_attack) 効果を fidelity 保証で発火 (effects.py:trigger_on_attack、 self-play AI 経路)。
+/// costless 効果のみ対応。 全効果を bit 忠実に再現できたら Ok、 できなければ Err (= 戦闘 bail、 差分テスト境界):
+///  - cost(real/once_per_turn)持ち → 支払い/once tracking 不能で Err
+///  - 条件 unknown(None) → Err
+///  - cascade を起こす/未対応 primitive → Err
+///  - draw で me 場に on_self_draw_non_draw_phase → cascade で Err
+/// src = 攻撃者 Slot (self target 解決用)。 発火中に buff/keyword が乗るので呼出側は attacker を再スナップショットする。
+pub fn fire_on_attack(
+    state: &mut GameState,
+    me_idx: usize,
+    is_leader: bool,
+    char_idx: usize,
+) -> Result<(), String> {
+    let src = if is_leader { Slot::Leader } else { Slot::Char(char_idx) };
+    let Some(ov) = overlay() else { return Ok(()) };
+    let cid = get_ip(&state.players[me_idx], src).card.card_id.clone();
+    let Some(effs) = ov.get(&cid) else { return Ok(()) };
+    for eff in effs {
+        if eff.get("when").and_then(|v| v.as_str()) != Some("on_attack") {
+            continue;
+        }
+        // costless slice のみ (cost 持ちは支払い/once_per_turn tracking が要る = bail)
+        if let Some(cost) = eff.get("cost") {
+            if !cost_is_empty(cost) {
+                return Err("on_attack cost 未対応".into());
+            }
+        }
+        match eval_effect_conditions(eff, state, me_idx) {
+            Some(true) => {}
+            Some(false) => continue,
+            None => return Err("on_attack 条件 unknown".into()),
+        }
+        let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
+        // dry-check: 全 prim が cascade-safe allow-list に入るか + draw cascade guard
+        for prim in dos {
+            let key = prim
+                .as_object()
+                .and_then(|o| o.keys().next())
+                .map(|s| s.as_str())
+                .unwrap_or("");
+            if !on_trigger_prim_safe(key) {
+                return Err(format!("on_attack primitive 未対応: {key}"));
+            }
+            if key == "draw" && me_board_has_when(state, me_idx, "on_self_draw_non_draw_phase") {
+                return Err("on_attack draw cascade (on_self_draw_non_draw_phase) 未対応".into());
+            }
+        }
+        // fire (execute_effect が false = 再現不能 → Err、 partial mutation は apply_action Err で全破棄)
+        for prim in dos {
+            if !execute_effect(prim, state, me_idx, src) {
+                return Err("on_attack primitive 再現不能".into());
+            }
+        }
+    }
+    Ok(())
 }
 
 /// メインイベントの効果を実行 (effects.py:trigger_main_event)。 event はトラッシュ済 = src は leader 仮 placeholder。

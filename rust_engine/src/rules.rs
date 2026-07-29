@@ -528,32 +528,39 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             if !attacker_exists {
                 return Ok(());
             }
-            // attacker のスナップショット (battle 関連 field は解決中に変化しないので clone 1 回で足りる)
-            let attacker: InPlay = if atk_kind == "leader" {
-                state.players[me].leader.clone()
-            } else {
-                state.players[me].characters[atk_idx].clone()
+            let is_leader = atk_kind == "leader";
+            // 初期 read (on_attack 発火前): card_id / attack cost だけ確認
+            let (atk_cid, cost_discard) = {
+                let a = if is_leader { &state.players[me].leader } else { &state.players[me].characters[atk_idx] };
+                (a.card.card_id.clone(), a.attack_cost_discard_hand_n)
             };
-            let atk_cid = attacker.card.card_id.clone();
-            let atk_power_base = attacker.power();
-            let is_double = attacker.is_double_attack_now();
-            let is_banish = attacker.is_banish_now();
-            let cost_discard = attacker.attack_cost_discard_hand_n;
-            let no_block = attacker.has_no_block_now();
-            if cost_discard > 0 || crate::effects::card_has_when(&atk_cid, "on_attack") {
-                return Err("attack cost/on_attack 未対応".into());
+            if cost_discard > 0 {
+                return Err("attack cost 未対応".into());
             }
+            // 防御側 opp_attack トリガーは未対応 (cost 持ち防御 pump が大半) → bail
             if board_has_when(&state.players[opp], "opp_attack")
                 || board_has_when(&state.players[opp], "opp_attack_on_leader")
             {
                 return Err("opp_attack trigger 未対応".into());
             }
-            // attacker.rested = true (game.py:1466)
-            if atk_kind == "leader" {
+            // attacker.rested = true (game.py:1466、 on_attack 発火前)
+            if is_leader {
                 state.players[me].leader.rested = true;
             } else {
                 state.players[me].characters[atk_idx].rested = true;
             }
+            // 【アタック時】(on_attack) 発火 (game.py:1467、 costless slice のみ、 未対応は Err で bail)
+            crate::effects::fire_on_attack(state, me, is_leader, atk_idx)?;
+            // on_attack で power/keyword が変化しうるので attacker を再スナップショット
+            let attacker: InPlay = if is_leader {
+                state.players[me].leader.clone()
+            } else {
+                state.players[me].characters[atk_idx].clone()
+            };
+            let atk_power_base = attacker.power();
+            let is_double = attacker.is_double_attack_now();
+            let is_banish = attacker.is_banish_now();
+            let no_block = attacker.has_no_block_now();
             // === ブロックステップ (7-1-2) ===
             let blocker_idx: Option<usize> = if no_block {
                 None
@@ -688,16 +695,13 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             if !attacker_exists {
                 return Ok(());
             }
-            let attacker: InPlay = if atk_kind == "leader" {
-                state.players[me].leader.clone()
-            } else {
-                state.players[me].characters[atk_idx].clone()
+            let is_leader = atk_kind == "leader";
+            let (atk_cid, cost_discard, ret_at_battle_end) = {
+                let a = if is_leader { &state.players[me].leader } else { &state.players[me].characters[atk_idx] };
+                (a.card.card_id.clone(), a.attack_cost_discard_hand_n, a.return_to_deck_bottom_at_battle_end)
             };
-            let atk_cid = attacker.card.card_id.clone();
-            let cost_discard = attacker.attack_cost_discard_hand_n;
-            let ret_at_battle_end = attacker.return_to_deck_bottom_at_battle_end;
-            if cost_discard > 0 || crate::effects::card_has_when(&atk_cid, "on_attack") {
-                return Err("attack cost/on_attack 未対応".into());
+            if cost_discard > 0 {
+                return Err("attack cost 未対応".into());
             }
             // on_self_battled は char vs char バトル終了時に発火 (game.py:1994) → bail
             if crate::effects::card_has_when(&atk_cid, "on_self_battled") {
@@ -711,17 +715,25 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             {
                 return Err("opp_attack trigger 未対応".into());
             }
-            // target 存在チェック (消失 = 空打ち = reset+Ok、 game.py:1853)
-            if tgt_idx < 0 || tgt_idx as usize >= state.players[opp].characters.len() {
-                reset_battle_buffs(state);
-                return Ok(());
-            }
-            // attacker.rested = true
-            if atk_kind == "leader" {
+            // attacker.rested = true (on_attack 発火前)
+            if is_leader {
                 state.players[me].leader.rested = true;
             } else {
                 state.players[me].characters[atk_idx].rested = true;
             }
+            // 【アタック時】(on_attack) 発火 (costless slice のみ、 未対応は Err)
+            crate::effects::fire_on_attack(state, me, is_leader, atk_idx)?;
+            // target 存在チェック (on_attack 後、 消失 = 空打ち = reset+Ok、 game.py:1849)
+            if tgt_idx < 0 || tgt_idx as usize >= state.players[opp].characters.len() {
+                reset_battle_buffs(state);
+                return Ok(());
+            }
+            // on_attack で power/keyword が変化しうるので再スナップショット
+            let attacker: InPlay = if is_leader {
+                state.players[me].leader.clone()
+            } else {
+                state.players[me].characters[atk_idx].clone()
+            };
             // === ブロック (AttackCharacter は has_no_block を見ない、 on_opp_blocker_use も発火しない) ===
             let mut actual_idx = tgt_idx as usize;
             let blocker_idx: Option<usize> = action
