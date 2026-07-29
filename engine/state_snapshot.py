@@ -35,6 +35,8 @@ _EXCLUDE = {
     "text",                # CardDef 経由では card_id に畳むので不要 (念のため)
     "instance_id",         # グローバルカウンタ採番 = ゲーム毎/言語間で不一致な単なる一意タグ。
                            #   状態の意味は card_id + flag + zone 位置(list順)で決まる → 除外が正準
+    "last_self_chara_played_iid",  # 同上: 直近登場キャラの instance_id タグ (= Rust 再現不可)。
+                                   #   カード identity は last_self_chara_played_card (card_id) が保持
     # --- ルール状態でない meta (AI 評価 / UI / デッキ情報 / human 対話) = 差分対象外 ---
     "action_evals",        # AI 行動品質評価履歴
     "audit_violations",    # audit meta

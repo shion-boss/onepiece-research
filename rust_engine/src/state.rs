@@ -10,10 +10,11 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum Category {
     #[serde(rename = "LEADER")]
     Leader,
+    #[default]
     #[serde(rename = "CHARACTER")]
     Character,
     #[serde(rename = "EVENT")]
@@ -23,7 +24,7 @@ pub enum Category {
 }
 
 /// 静的カード定義 (core.py CardDef、 frozen)。 db/cards.json 由来。 digest では card_id に畳む。
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct CardDef {
     pub card_id: String,
     pub name: String,
@@ -38,6 +39,68 @@ pub struct CardDef {
     pub features: Vec<String>,
     pub text: String,
     pub trigger: String,
+}
+
+fn find_subslice(hay: &[char], needle: &[char]) -> Option<usize> {
+    if needle.is_empty() || needle.len() > hay.len() {
+        return None;
+    }
+    (0..=hay.len() - needle.len()).find(|&i| hay[i..i + needle.len()] == *needle)
+}
+
+impl CardDef {
+    /// core.py CardDef.has_innate_keyword を忠実移植 (条件付き/動的付与は innate でない)。
+    /// ⚠ 日本語なので char 単位でスライス (Python の文字数スライスに一致させる)。
+    pub fn has_innate_keyword(&self, keyword: &str) -> bool {
+        if self.text.is_empty() {
+            return false;
+        }
+        let brackets = [format!("【{keyword}】"), format!("[{keyword}]")];
+        if !brackets.iter().any(|b| self.text.contains(b.as_str())) {
+            return false;
+        }
+        let normalized = self.text.replace('\n', "。");
+        for s in normalized.split('。') {
+            let sc: Vec<char> = s.chars().collect();
+            for bracket in &brackets {
+                let bc: Vec<char> = bracket.chars().collect();
+                let Some(bstart) = find_subslice(&sc, &bc) else { continue };
+                let bend = bstart + bc.len();
+                let after: String = sc[bend..(bend + 20).min(sc.len())].iter().collect();
+                let before: String = sc[..bstart].iter().collect();
+                if after.starts_with("を得")
+                    || after.starts_with("を発動")
+                    || after.starts_with("になる")
+                    || after.starts_with("を持つ")
+                    || after.starts_with("を持た")
+                {
+                    continue;
+                }
+                let after10: String = sc[bend..(bend + 10).min(sc.len())].iter().collect();
+                if after10.contains("発動できない") {
+                    continue;
+                }
+                if before.contains("場合") || before.contains('：') || before.contains(':') {
+                    continue;
+                }
+                if before.ends_with('】') {
+                    if let Some(lb) = before.rfind('【') {
+                        let marker = &before[lb..];
+                        if marker.contains("ドン") || marker.contains('×') || marker.contains("ターン1回") {
+                            continue;
+                        }
+                    }
+                }
+                return true;
+            }
+        }
+        false
+    }
+
+    /// core.py CardDef.is_rush = 【速攻】か【スピード】を innate 所持。
+    pub fn is_rush(&self) -> bool {
+        self.has_innate_keyword("スピード") || self.has_innate_keyword("速攻")
+    }
 }
 
 fn ser_card_id<S: serde::Serializer>(c: &CardDef, s: S) -> Result<S::Ok, S::Error> {
@@ -62,7 +125,7 @@ fn ser_opt_card_id<S: serde::Serializer>(c: &Option<CardDef>, s: S) -> Result<S:
 }
 
 /// 場のカード (core.py InPlay、 71 field。 instance_id は除外)。
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct InPlay {
     #[serde(serialize_with = "ser_card_id")]
     pub card: CardDef,
@@ -146,6 +209,32 @@ pub struct InPlay {
     // ownership
     pub owner_idx: i32,
     pub is_owners_turn: bool,
+}
+
+impl InPlay {
+    /// core.py InPlay.of: card から場のカードを新規生成。
+    /// ⚠ Python dataclass の default が -1 の field (各 applier_idx / *_power_le / cost_le / owner_idx) を
+    /// 明示設定 (Rust の Default 派生は i32→0 なので不一致になる)。 owner_idx/is_owners_turn は直後の
+    /// update_ownership_flags が上書きするが Python 既定に合わせる。
+    pub fn of(card: CardDef, sickness: bool) -> Self {
+        InPlay {
+            card,
+            summoning_sickness: sickness,
+            granted_keywords_through_opp_turn_applier_idx: -1,
+            attack_cost_discard_hand_applier_idx: -1,
+            static_ko_immune_from_source_power_le: -1,
+            next_opp_turn_end_base_power_override_applier_idx: -1,
+            next_opp_turn_end_base_cost_override_applier_idx: -1,
+            attacker_prevents_blocker_power_le: -1,
+            cannot_attack_target_cost_le_until_turn_end: -1,
+            next_opp_turn_end_applier_idx: -1,
+            next_self_turn_end_applier_idx: -1,
+            cannot_be_rested_applier_idx: -1,
+            owner_idx: -1,
+            is_owners_turn: true,
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -236,7 +325,7 @@ pub struct GameState {
     pub last_opp_chara_played_card: Option<CardDef>,
     #[serde(serialize_with = "ser_opt_card_id")]
     pub last_self_chara_played_card: Option<CardDef>,
-    pub last_self_chara_played_iid: Option<i32>,
+    // last_self_chara_played_iid は instance_id タグ = Rust 再現不可 → canonical から除外 (Python _EXCLUDE と一致)
     pub last_self_chara_played_from_trash: bool,
     pub last_trigger_kept_in_hand: bool,
 }

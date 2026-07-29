@@ -161,3 +161,60 @@ def test_rust_apply_don_fidelity():
             break
         apply_action(st, a)
     assert checked_don >= 3 and checked_end >= 5
+
+
+def test_rust_apply_playcharacter_fidelity():
+    """R2: Rust apply_action(PlayCharacter) 機構が Python と一致 (静的効果なしデッキ cardrush_1548 で
+    効果なしキャラ登場は 100% 一致)。 ⚠ 静的効果は R3 (evaluate_static_effects) で埋める。"""
+    try:
+        eng = importlib.import_module("optcg_engine")
+    except ImportError:
+        pytest.skip("optcg_engine 未 build")
+    import json
+    import random
+    from engine.core import reset_iid, Category
+    from engine.deck import CardRepository, make_deck_from_dict
+    from engine.effects import load_effect_overlay
+    from engine.game import setup_game, play_until_main, apply_action, PlayCharacter
+    from engine.ai import GreedyAI
+    from engine.plan_search import fast_clone
+    from engine.state_snapshot import state_digest, full_dump
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def dl(s):
+        return make_deck_from_dict(json.loads((ROOT / "decks" / f"{s}.json").read_text()), repo)
+
+    def has_onplay(cid):
+        b = ov.get(cid)
+        return b is not None and any(e.get("when") == "on_play" for e in b.effects)
+
+    reset_iid()
+    st = setup_game(dl("cardrush_1548"), dl("cardrush_1548"),
+                    rng=random.Random(3), first_player=0, effects_overlay=ov)
+    play_until_main(st)
+    ais = [GreedyAI(rng=random.Random(10)), GreedyAI(rng=random.Random(11))]
+    checked = 0
+    for _ in range(40):
+        if st.game_over:
+            break
+        me = st.players[st.turn_player_idx]
+        for hi, card in enumerate(me.hand):
+            if card.category != Category.CHARACTER or len(me.characters) >= 5 or has_onplay(card.card_id):
+                continue
+            if me.don_active < max(0, card.cost - me.play_cost_reduction):
+                continue
+            c = fast_clone(st)
+            apply_action(c, PlayCharacter(hand_idx=hi, sacrifice_iid=None))
+            if c.pending_choice is not None:
+                continue
+            d_rust = eng.apply_action_digest(
+                json.dumps(full_dump(st)), json.dumps({"t": "PlayCharacter", "hand_idx": hi}))
+            assert state_digest(c) == d_rust, f"PlayCharacter({card.card_id}) digest 不一致 (機構)"
+            checked += 1
+        a = ais[st.turn_player_idx].choose_action(st)
+        if a is None:
+            break
+        apply_action(st, a)
+    assert checked >= 8

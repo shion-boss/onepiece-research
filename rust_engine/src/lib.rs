@@ -56,6 +56,19 @@ fn apply_action_digest(state_json: &str, action_json: &str) -> PyResult<String> 
     digest_of(&st).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
 }
 
+/// デバッグ: Rust apply 後の canonical blob を返す (Python canonical と diff して乖離 pinpoint)。
+#[pyfunction]
+fn apply_action_blob(state_json: &str, action_json: &str) -> PyResult<String> {
+    let mut st: state::GameState = serde_json::from_str(state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("state deserialize: {e}")))?;
+    let act: serde_json::Value = serde_json::from_str(action_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("action deserialize: {e}")))?;
+    rules::apply_action(&mut st, &act)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+    let v = serde_json::to_value(&st).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+    serde_json::to_string(&v).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
 /// デバッグ用: Rust が再構成した canonical JSON blob をそのまま返す (Python と文字列比較して乖離 pinpoint)。
 #[pyfunction]
 fn canonical_blob(dump_json: &str) -> PyResult<String> {
@@ -72,5 +85,6 @@ fn optcg_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(canonical_digest, m)?)?;
     m.add_function(wrap_pyfunction!(canonical_blob, m)?)?;
     m.add_function(wrap_pyfunction!(apply_action_digest, m)?)?;
+    m.add_function(wrap_pyfunction!(apply_action_blob, m)?)?;
     Ok(())
 }

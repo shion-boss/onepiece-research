@@ -5,7 +5,7 @@
 //! action / vanilla 盤面でのみ Python と一致する (差分テストがその境界を明示)。 update_ownership_flags は
 //! 効果非依存なので移植済 (DON+1000 ゲート)。
 
-use crate::state::{GameState, InPlay, Phase, Player};
+use crate::state::{CardDef, GameState, InPlay, Phase, Player};
 use serde_json::Value;
 
 fn geti(a: &Value, k: &str, default: i64) -> i64 {
@@ -271,11 +271,84 @@ pub fn advance_phase(state: &mut GameState) {
     update_ownership_flags(state);
 }
 
-/// action を state に適用 (副作用)。 未実装 action type は Err (差分テストで境界が判る)。
+/// action を state に適用 (副作用)。 Python apply_action ラッパ相当: impl 後に _recompute_static の
+/// ownership 部分を反映 (静的効果 eval は R3)。
 pub fn apply_action(state: &mut GameState, action: &Value) -> Result<(), String> {
+    let r = apply_action_impl(state, action);
+    if r.is_ok() {
+        update_ownership_flags(state);
+        // evaluate_static_effects (静的効果): R3 で追加
+        for p in state.players.iter_mut() {
+            normalize_known_hand(p);
+        }
+    }
+    r
+}
+
+/// core.py Player.normalize_known_hand = known_hand_card_ids を hand との整合で正規化
+/// (退場カード分を先頭マッチで削除)。
+fn normalize_known_hand(p: &mut Player) {
+    use std::collections::BTreeMap;
+    let mut hand_counts: BTreeMap<&str, i32> = BTreeMap::new();
+    for c in &p.hand {
+        *hand_counts.entry(c.card_id.as_str()).or_insert(0) += 1;
+    }
+    let mut used: BTreeMap<String, i32> = BTreeMap::new();
+    let mut new_known = Vec::new();
+    for cid in &p.known_hand_card_ids {
+        let hc = hand_counts.get(cid.as_str()).copied().unwrap_or(0);
+        let u = used.get(cid).copied().unwrap_or(0);
+        if u < hc {
+            new_known.push(cid.clone());
+            *used.entry(cid.clone()).or_insert(0) += 1;
+        }
+    }
+    p.known_hand_card_ids = new_known;
+}
+
+fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String> {
     let t = action.get("t").and_then(|v| v.as_str()).ok_or("action に t が無い")?;
     let me = state.turn_player_idx;
     match t {
+        // キャラ登場 (game.py:1325)。 ⚠ on_play 効果 + cost 軽減 (in_hand/filtered) は R3 で追加。
+        // 現状は play 機構 + last_self_chara_played context のみ (効果無し/軽減無しカードで一致)。
+        "PlayCharacter" => {
+            let hand_idx = geti(action, "hand_idx", -1);
+            let sac_idx = action.get("sacrifice_idx").and_then(|v| v.as_i64());
+            let p = &mut state.players[me];
+            if hand_idx < 0 || hand_idx as usize >= p.hand.len() {
+                return Err(format!("hand_idx 範囲外: {hand_idx}"));
+            }
+            let card: CardDef = p.hand[hand_idx as usize].clone();
+            let eff_cost = (card.cost - p.play_cost_reduction).max(0);
+            if p.don_active < eff_cost {
+                return Err("not enough don".into());
+            }
+            if let Some(si) = sac_idx {
+                if si < 0 || si as usize >= p.characters.len() {
+                    return Err(format!("sacrifice_idx 範囲外: {si}"));
+                }
+                let s = p.characters.remove(si as usize);
+                let sd = s.attached_dons;
+                p.trash.push(s.card);
+                if sd > 0 {
+                    p.don_rested += sd;
+                }
+            }
+            p.hand.remove(hand_idx as usize);
+            p.don_rested += eff_cost;
+            p.don_active -= eff_cost;
+            let consumed = card.cost - eff_cost;
+            p.play_cost_reduction = (p.play_cost_reduction - consumed).max(0);
+            let sickness = !card.is_rush();
+            p.characters.push(InPlay::of(card.clone(), sickness));
+            p.cards_played_count += 1;
+            // trigger_on_play context (Python は on_play 有無に関わらず設定、 effects.py:10640)
+            state.last_self_chara_played_card = Some(card);
+            state.last_self_chara_played_from_trash = false; // 手札からの登場
+            // on_play 効果 / on_opp_chara_played: R3 (効果持ちカードは digest 不一致 = 差分テストが境界を明示)
+            Ok(())
+        }
         "AttachDonToLeader" => {
             let p = &mut state.players[me];
             let n = (geti(action, "n", 0) as i32).min(p.don_active);
