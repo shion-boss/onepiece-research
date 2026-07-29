@@ -880,19 +880,20 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     _ => return false, // 未対応 cost → skip
                 }
             }
-            for es in effect {
-                let Some((k, _)) = es.as_object().and_then(|o| o.iter().next()) else { return false };
-                if !is_handled_effect(k) {
-                    return false; // 未対応 effect → skip (paid してから失敗を防ぐ)
-                }
-            }
             {
                 let me = &state.players[me_idx];
                 let cap = me.don_active + me.don_rested + me.leader.attached_dons
                     + me.characters.iter().map(|c| c.attached_dons).sum::<i32>();
                 if me.don_active < rest_don || cap < pay_don {
-                    return false; // 支払い不能 → 不発
+                    return false; // 支払い不能 → 不発 (AI は「両方払えるなら発動」、 effects.py:8248)
                 }
+            }
+            // cascade guard: pay_don の on_self_don_returned_to_deck + effect の nested cascade
+            if pay_don > 0 && me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
+                return false;
+            }
+            if effect_cascade_blocked(effect, state, me_idx) {
+                return false;
             }
             if rest_don > 0 {
                 let me = &mut state.players[me_idx];
@@ -903,8 +904,11 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             if pay_don > 0 && !pay_don_field(state, me_idx, pay_don) {
                 return false;
             }
+            // effect 発火 (未対応 prim は false → 呼出側で bail。 cost 支払い済でも apply_action Err で全破棄)
             for es in effect {
-                execute_effect(es, state, me_idx, src);
+                if !execute_effect(es, state, me_idx, src) {
+                    return false;
+                }
             }
             true
         }
@@ -1257,16 +1261,6 @@ fn pay_don_field(state: &mut GameState, me_idx: usize, n: i32) -> bool {
     true
 }
 
-/// execute_effect が対応する effect primitive か (optional_cost_then の dry-check 用)。
-fn is_handled_effect(key: &str) -> bool {
-    matches!(
-        key,
-        "draw" | "power_pump" | "rest" | "ko" | "return_to_hand" | "return_to_deck_bottom"
-            | "add_rested_don" | "untap_don" | "mill_self_top" | "give_keyword" | "add_don"
-            | "add_don_active" | "put_top_to_life" | "cost_minus" | "stay_rested_next_refresh"
-            | "attach_rested_don" | "reduce_play_cost" | "set_cannot_rest" | "set_cannot_attack"
-    )
-}
 
 /// on_play の cost を AI 自動支払い (effects.py: AI は auto-pay)。
 /// Some(true)=支払い済で発動 / Some(false)=支払い不能で skip / None=未対応 cost 種別で skip。
@@ -1426,14 +1420,15 @@ fn cost_is_empty(cost: &Value) -> bool {
 }
 
 /// on_attack トリガーで発火して安全 (= 更なる cascade を起こさず execute_effect が忠実再現) な primitive。
-/// ko/return/rest(on_self_rested)/search/optional_cost_then/redirect 等は除外 (=呼出側 Err で bail)。
+/// ko/return/rest(on_self_rested)/search/redirect 等は除外 (=呼出側 Err で bail)。 conditional/
+/// optional_cost_then は内部で effect_cascade_blocked guard を持つので安全。
 fn on_trigger_prim_safe(key: &str) -> bool {
     matches!(
         key,
         "power_pump" | "draw" | "give_keyword" | "add_don" | "add_don_active" | "add_rested_don"
             | "untap_don" | "cost_minus" | "attach_rested_don" | "mill_self_top"
             | "stay_rested_next_refresh" | "set_cannot_rest" | "set_cannot_attack" | "put_top_to_life"
-            | "optional_discard_hand_for_battle_buff"
+            | "optional_discard_hand_for_battle_buff" | "conditional" | "optional_cost_then"
     )
 }
 
