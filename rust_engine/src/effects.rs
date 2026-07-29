@@ -217,6 +217,55 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
                 get_ip_mut(&mut state.players[pi], sl).cannot_attack_static = true;
             }
         }
+        // 「元々のコストを X にする / +N」: base_cost_override (effects.py:10993)
+        "set_base_cost" => {
+            let Some(targets) = resolve_target(spec.get("target"), me_idx, opp_idx, src, state) else { return };
+            if let Some(amount) = spec.get("amount").and_then(|v| v.as_i64()) {
+                for (pi, sl) in targets {
+                    get_ip_mut(&mut state.players[pi], sl).base_cost_override = Some(amount as i32);
+                }
+            } else if let Some(delta) = spec.get("delta").and_then(|v| v.as_i64()) {
+                for (pi, sl) in targets {
+                    let ip = get_ip_mut(&mut state.players[pi], sl);
+                    let cur = ip.base_cost_override.unwrap_or(ip.card.cost);
+                    ip.base_cost_override = Some((cur + delta as i32).max(0));
+                }
+            } else if let Some(dp) = spec.get("delta_per") {
+                let sk = dp.get("source").and_then(|v| v.as_str()).unwrap_or("");
+                if sk != "self_trash_count" {
+                    return; // 未知 source → skip
+                }
+                let divisor = dp.get("divisor").and_then(|v| v.as_i64()).unwrap_or(1).max(1);
+                let mult = dp.get("multiplier").and_then(|v| v.as_i64()).unwrap_or(1);
+                let delta = ((state.players[me_idx].trash.len() as i64) / divisor) * mult;
+                for (pi, sl) in targets {
+                    let ip = get_ip_mut(&mut state.players[pi], sl);
+                    let cur = ip.base_cost_override.unwrap_or(ip.card.cost);
+                    ip.base_cost_override = Some((cur + delta as i32).max(0));
+                }
+            }
+        }
+        // filter 付き 場のキャラ base_cost 変更 (effects.py:11030)
+        "set_base_cost_filtered_static" => {
+            let filt = spec.get("filter");
+            let scope = spec.get("scope").and_then(|v| v.as_str()).unwrap_or("self");
+            let pool = if scope == "self" { me_idx } else { opp_idx };
+            let n = state.players[pool].characters.len();
+            let delta = spec.get("delta").and_then(|v| v.as_i64());
+            let amount = spec.get("amount").and_then(|v| v.as_i64());
+            for i in 0..n {
+                if !matches_filter(&state.players[pool].characters[i].card, filt) {
+                    continue;
+                }
+                let ip = &mut state.players[pool].characters[i];
+                if let Some(d) = delta {
+                    let cur = ip.base_cost_override.unwrap_or(ip.card.cost);
+                    ip.base_cost_override = Some((cur + d as i32).max(0));
+                } else if let Some(a) = amount {
+                    ip.base_cost_override = Some(a as i32);
+                }
+            }
+        }
         _ => {} // 未対応 primitive → skip (該当カードは diverge = 差分テストが示す)
     }
 }
