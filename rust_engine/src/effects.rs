@@ -877,6 +877,16 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // プレイコスト軽減 (effects.py:5693)。 play_cost_reduction += n。
+        "reduce_play_cost" => {
+            let n = if let Some(o) = v.as_object() {
+                o.get("amount").and_then(|x| x.as_i64()).unwrap_or(1) as i32
+            } else {
+                v.as_i64().unwrap_or(1) as i32
+            };
+            state.players[me_idx].play_cost_reduction += n;
+            true
+        }
         // レスト不能 (effects.py:6024)。 cannot_be_rested_buff + applier tracking。
         "set_cannot_rest" => {
             let target_val = if v.is_string() {
@@ -990,7 +1000,7 @@ fn is_handled_effect(key: &str) -> bool {
         "draw" | "power_pump" | "rest" | "ko" | "return_to_hand" | "return_to_deck_bottom"
             | "add_rested_don" | "untap_don" | "mill_self_top" | "give_keyword" | "add_don"
             | "add_don_active" | "put_top_to_life" | "cost_minus" | "stay_rested_next_refresh"
-            | "attach_rested_don"
+            | "attach_rested_don" | "reduce_play_cost" | "set_cannot_rest" | "set_cannot_attack"
     )
 }
 
