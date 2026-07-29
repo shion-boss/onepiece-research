@@ -719,6 +719,213 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
     }
 }
 
+/// optional cost 1 つの数量+filter を取り出す (spec が int なら count のみ / dict なら count+filter)。
+fn spec_count(cv: &Value, default: i64) -> usize {
+    if let Some(n) = cv.as_i64() {
+        n as usize
+    } else {
+        cv.get("count").and_then(|x| x.as_i64()).unwrap_or(default) as usize
+    }
+}
+
+/// filter 付き spec の (filter Value, count) を Python 準拠で取り出す。
+/// "filter" キーがあればそれ、 無ければ spec 全体 (count 除く) が filter。
+fn filter_and_count(cv: &Value) -> (Value, usize) {
+    let count = cv.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+    let filt = if let Some(f) = cv.get("filter") {
+        f.clone()
+    } else if let Some(obj) = cv.as_object() {
+        let mut m = obj.clone();
+        m.remove("count");
+        Value::Object(m)
+    } else {
+        Value::Null
+    };
+    (filt, count)
+}
+
+/// optional_cost の 1 コストの支払い可能性を Python の can_pay elif 準拠で判定。
+/// None = 未対応 cost 型 (呼出側は bail)、 Some(true/false)=対応済で払える/払えない。
+/// ⚠ 決定的 (rng 無し) かつ cascade 無し の cost 型のみ対応。 それ以外 (trash_self_hand_random /
+/// discard_hand / life 系 / return_self_* / chara_to_self_life / trash_to_deck 等) は None で bail。
+fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> Option<bool> {
+    let obj = cs.as_object()?;
+    let (k, cv) = obj.iter().next()?;
+    let me = &state.players[me_idx];
+    match k.as_str() {
+        "pay_don" => {
+            let n = cv.as_i64().unwrap_or(0) as i32;
+            let cap = me.don_active + me.don_rested + me.leader.attached_dons
+                + me.characters.iter().map(|c| c.attached_dons).sum::<i32>();
+            Some(cap >= n)
+        }
+        "rest_self_don" => Some(me.don_active >= cv.as_i64().unwrap_or(0) as i32),
+        "rest_self" => Some(!get_ip(me, src).rested), // self_inplay present && !rested
+        "rest_self_target_name" | "rest_self_target" => {
+            let name = cv.get("name").and_then(|x| x.as_str()).unwrap_or_else(|| cv.as_str().unwrap_or(""));
+            Some(me.characters.iter().chain(me.stages.iter()).any(|ip| ip.card.name == name && !ip.rested))
+        }
+        "rest_self_leader_or_stage_filtered" => {
+            let filt = cv.get("filter");
+            Some((!me.leader.rested && matches_filter(&me.leader.card, filt))
+                || me.stages.iter().any(|s| !s.rested && matches_filter(&s.card, filt)))
+        }
+        // Python は can_pay 未チェック (= 常に払える扱い、 実体無ければ payment で no-op)。
+        "rest_self_leader_filtered_or_don" | "flip_life_face_up" | "flip_life_face_down"
+        | "attach_active_don_to_named_chara" => Some(true),
+        "rest_self_chara_filtered" => {
+            let filt = cv.get("filter");
+            Some(me.characters.iter().any(|c| !c.rested && matches_filter(&c.card, filt)))
+        }
+        "reveal_hand_with_filter" | "discard_hand_with_filter" => {
+            let (filt, count) = filter_and_count(cv);
+            Some(me.hand.iter().filter(|c| matches_filter(c, Some(&filt))).count() >= count)
+        }
+        _ => None, // 未対応 cost 型 → bail
+    }
+}
+
+/// optional_cost の 1 コストを支払う (cost_payable_one が Some(true) を返した型のみ)。
+/// None = 未対応 (bail)、 Some(())=支払い完了 (state 変更)。 payability と同じ型集合を網羅。
+fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> Option<()> {
+    let (k, cv) = {
+        let obj = cs.as_object()?;
+        let (k, v) = obj.iter().next()?;
+        (k.clone(), v.clone())
+    };
+    match k.as_str() {
+        "pay_don" => {
+            let n = cv.as_i64().unwrap_or(0) as i32;
+            if n > 0 && !pay_don_field(state, me_idx, n) {
+                return None;
+            }
+        }
+        "rest_self_don" => {
+            let n = cv.as_i64().unwrap_or(0) as i32;
+            let me = &mut state.players[me_idx];
+            let m = n.min(me.don_active);
+            me.don_active -= m;
+            me.don_rested += m;
+        }
+        "rest_self" => {
+            if cv == Value::Bool(true) {
+                let ip = get_ip_mut(&mut state.players[me_idx], src);
+                if !ip.rested {
+                    ip.rested = true;
+                }
+            }
+        }
+        "rest_self_target_name" | "rest_self_target" => {
+            let name = cv.get("name").and_then(|x| x.as_str()).map(|s| s.to_string())
+                .unwrap_or_else(|| cv.as_str().unwrap_or("").to_string());
+            let me = &mut state.players[me_idx];
+            let mut done = false;
+            for i in 0..me.characters.len() {
+                if me.characters[i].card.name == name && !me.characters[i].rested {
+                    me.characters[i].rested = true;
+                    done = true;
+                    break;
+                }
+            }
+            if !done {
+                for i in 0..me.stages.len() {
+                    if me.stages[i].card.name == name && !me.stages[i].rested {
+                        me.stages[i].rested = true;
+                        break;
+                    }
+                }
+            }
+        }
+        "rest_self_leader_or_stage_filtered" => {
+            let count = spec_count(&cv, 1);
+            let filt = cv.get("filter");
+            // pool 順 = [leader, stage0, stage1...]、 avail = active && filter 一致
+            let mut avail: Vec<(Slot, bool)> = vec![]; // (slot, is_stage)
+            {
+                let me = &state.players[me_idx];
+                if !me.leader.rested && matches_filter(&me.leader.card, filt) {
+                    avail.push((Slot::Leader, false));
+                }
+                for i in 0..me.stages.len() {
+                    if !me.stages[i].rested && matches_filter(&me.stages[i].card, filt) {
+                        avail.push((Slot::Stage(i), true));
+                    }
+                }
+            }
+            // AI 簡易: ステージ優先 (key 0)、 leader 最後 (key 1)。 stable sort で元順維持。
+            avail.sort_by_key(|(_, is_stage)| if *is_stage { 0 } else { 1 });
+            for (sl, _) in avail.into_iter().take(count) {
+                get_ip_mut(&mut state.players[me_idx], sl).rested = true;
+            }
+        }
+        "rest_self_leader_filtered_or_don" => {
+            let filt = cv.get("filter");
+            let me = &mut state.players[me_idx];
+            if me.don_active >= 1 {
+                me.don_active -= 1;
+                me.don_rested += 1;
+            } else if !me.leader.rested && matches_filter(&me.leader.card, filt) {
+                me.leader.rested = true;
+            }
+        }
+        "rest_self_chara_filtered" => {
+            let count = spec_count(&cv, 1);
+            let filt = cv.get("filter");
+            let mut avail: Vec<(i32, usize)> = vec![]; // (power, char_idx)
+            {
+                let me = &state.players[me_idx];
+                for i in 0..me.characters.len() {
+                    if !me.characters[i].rested && matches_filter(&me.characters[i].card, filt) {
+                        avail.push((me.characters[i].power(), i));
+                    }
+                }
+            }
+            avail.sort_by_key(|(p, _)| *p); // power 昇順、 stable = 元順 tie-break
+            for (_, i) in avail.into_iter().take(count) {
+                state.players[me_idx].characters[i].rested = true;
+            }
+        }
+        "flip_life_face_up" => {
+            let me = &mut state.players[me_idx];
+            me.face_up_life_count = (me.face_up_life_count + 1).min(me.life.len() as i32);
+        }
+        "flip_life_face_down" => {
+            let me = &mut state.players[me_idx];
+            me.face_up_life_count = (me.face_up_life_count.min(me.life.len() as i32) - 1).max(0);
+        }
+        "attach_active_don_to_named_chara" => {
+            let name = cv.get("name").and_then(|x| x.as_str()).unwrap_or("").to_string();
+            let n = cv.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as i32;
+            let me = &mut state.players[me_idx];
+            for i in 0..me.characters.len() {
+                if me.characters[i].card.name == name {
+                    let give = n.min(me.don_active);
+                    me.don_active -= give;
+                    me.characters[i].attached_dons += give;
+                    break;
+                }
+            }
+        }
+        "reveal_hand_with_filter" => { /* 公開のみ = state 変更なし */ }
+        "discard_hand_with_filter" => {
+            let (filt, count) = filter_and_count(&cv);
+            let me = &mut state.players[me_idx];
+            let old = std::mem::take(&mut me.hand);
+            let mut discarded = 0;
+            for c in old {
+                if discarded < count && matches_filter(&c, Some(&filt)) {
+                    me.trash.push(c);
+                    discarded += 1;
+                } else {
+                    me.hand.push(c);
+                }
+            }
+        }
+        _ => return None,
+    }
+    Some(())
+}
+
 /// 非静的 primitive を実行 (on_play 等)。 返り値 = 処理できたか (false=未対応→呼出側でカードが diverge)。
 /// fidelity 原則: 未対応 primitive は何もしない (誤適用ゼロ)。 rng を使う primitive
 /// (trash_self_hand_random 等) は Rust で bit 再現不可なので未対応扱い。
@@ -867,45 +1074,50 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         // 任意コスト効果 (effects.py:8245)。「Xできる:Y」= AI は cost+effect payable なら発動。
         // ⚠ pay_don/rest_self_don cost + 実装済 effect のみ対応。 他の cost/effect は skip (fidelity)。
         "optional_cost_then" => {
+            // 公式「X することができる：Y」。 AI 経路 (self-play) = cost/effect 両方払える状態なら発動。
             let empty: Vec<Value> = vec![];
-            let cost = v.get("cost").and_then(|x| x.as_array()).unwrap_or(&empty);
-            let effect = v.get("effect").and_then(|x| x.as_array()).unwrap_or(&empty);
-            let mut pay_don = 0i32;
-            let mut rest_don = 0i32;
-            for cs in cost {
-                let Some((k, cv)) = cs.as_object().and_then(|o| o.iter().next()) else { return false };
-                match k.as_str() {
-                    "pay_don" => pay_don += cv.as_i64().unwrap_or(0) as i32,
-                    "rest_self_don" => rest_don += cv.as_i64().unwrap_or(0) as i32,
-                    _ => return false, // 未対応 cost → skip
+            let cost = v.get("cost").and_then(|x| x.as_array()).unwrap_or(&empty).clone();
+            let effect = v.get("effect").and_then(|x| x.as_array()).unwrap_or(&empty).clone();
+            // payability (Python can_pay): 全 cost 型が対応かつ払えるか。 未対応 cost 型は None → bail。
+            let mut can_pay = true;
+            for cs in &cost {
+                match cost_payable_one(cs, state, me_idx, src) {
+                    None => return false,           // 未対応 cost 型 → bail (誤適用ゼロ)
+                    Some(false) => { can_pay = false; break; }
+                    Some(true) => {}
                 }
             }
-            {
-                let me = &state.players[me_idx];
-                let cap = me.don_active + me.don_rested + me.leader.attached_dons
-                    + me.characters.iter().map(|c| c.attached_dons).sum::<i32>();
-                if me.don_active < rest_don || cap < pay_don {
-                    return false; // 支払い不能 → 不発 (AI は「両方払えるなら発動」、 effects.py:8248)
+            // should_fire 追加条件 (effects.py:8551): effect に hand_to_self_life && 手札空 → 不発
+            let mut should_fire = can_pay;
+            if should_fire {
+                for es in &effect {
+                    if es.get("hand_to_self_life").is_some() && state.players[me_idx].hand.is_empty() {
+                        should_fire = false;
+                        break;
+                    }
                 }
+            }
+            // 不発 = Python は return False (state 不変)。 overlay に if_prev_succeeded は 0 件なので
+            // 返り値は次 prim に影響しない → no-op を true (match) 扱いにできる (payability は read-only)。
+            if !should_fire {
+                return true;
             }
             // cascade guard: pay_don の on_self_don_returned_to_deck + effect の nested cascade
-            if pay_don > 0 && me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
+            let has_pay_don = cost.iter().any(|c| c.get("pay_don").is_some());
+            if has_pay_don && me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 return false;
             }
-            if effect_cascade_blocked(effect, state, me_idx) {
+            if effect_cascade_blocked(&effect, state, me_idx) {
                 return false;
             }
-            if rest_don > 0 {
-                let me = &mut state.players[me_idx];
-                let n = rest_don.min(me.don_active);
-                me.don_active -= n;
-                me.don_rested += n;
+            // cost 支払い (cost_specs 順)。 未対応は None → bail (cost 済でも apply_action Err で全破棄)
+            for cs in &cost {
+                if pay_cost_one(cs, state, me_idx, src).is_none() {
+                    return false;
+                }
             }
-            if pay_don > 0 && !pay_don_field(state, me_idx, pay_don) {
-                return false;
-            }
-            // effect 発火 (未対応 prim は false → 呼出側で bail。 cost 支払い済でも apply_action Err で全破棄)
-            for es in effect {
+            // effect 発火 (未対応 prim は false → 呼出側で bail)
+            for es in &effect {
                 if !execute_effect(es, state, me_idx, src) {
                     return false;
                 }
