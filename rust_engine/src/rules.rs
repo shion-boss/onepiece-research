@@ -19,6 +19,13 @@ fn each_inplay_mut(p: &mut Player) -> impl Iterator<Item = &mut InPlay> {
         .chain(p.stages.iter_mut())
 }
 
+/// game.py:_recompute_static = ownership 更新 + 静的効果 (evaluate_static_effects) 再評価。
+/// apply_action 末尾 + advance_phase 末尾 で呼ぶ (Python と同じ位置)。
+pub fn recompute_static(state: &mut GameState) {
+    update_ownership_flags(state);
+    crate::effects::evaluate_static_effects(state);
+}
+
 /// game.py:_update_ownership_flags = 各 InPlay の owner_idx/is_owners_turn を再計算 (DON+1000 ゲート)。
 pub fn update_ownership_flags(state: &mut GameState) {
     let tp = state.turn_player_idx;
@@ -267,8 +274,8 @@ pub fn advance_phase(state: &mut GameState) {
             update_ownership_flags(state);
         }
     }
-    // resolve_triggers: R3。 _recompute_static = ownership のみ移植 (静的効果 eval は R3)
-    update_ownership_flags(state);
+    // resolve_triggers: R3。 _recompute_static = ownership + 静的効果
+    recompute_static(state);
 }
 
 /// action を state に適用 (副作用)。 Python apply_action ラッパ相当: impl 後に _recompute_static の
@@ -276,8 +283,7 @@ pub fn advance_phase(state: &mut GameState) {
 pub fn apply_action(state: &mut GameState, action: &Value) -> Result<(), String> {
     let r = apply_action_impl(state, action);
     if r.is_ok() {
-        update_ownership_flags(state);
-        // evaluate_static_effects (静的効果): R3 で追加
+        recompute_static(state); // ownership + 静的効果 (Python _recompute_static)
         for p in state.players.iter_mut() {
             normalize_known_hand(p);
         }
