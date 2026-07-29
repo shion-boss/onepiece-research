@@ -444,7 +444,8 @@ fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
                 arr.iter().any(|x| x.as_str().map_or(false, |s| card.features.iter().any(|f| f == s)))
             }),
             "color" => card.color.iter().any(|x| Some(x.as_str()) == v.as_str()),
-            "attribute" => Some(card.attribute.as_str()) == v.as_str(),
+            // 属性は複数持ち ("斬/特") がある → Python の substring `in` に合わせる (effects.py:10607)
+            "attribute" => v.as_str().map_or(false, |a| card.attribute.contains(a)),
             "cost_le" => (card.cost as i64) <= v.as_i64().unwrap_or(0),
             "cost_ge" => (card.cost as i64) >= v.as_i64().unwrap_or(0),
             "cost_eq" => (card.cost as i64) == v.as_i64().unwrap_or(-1),
