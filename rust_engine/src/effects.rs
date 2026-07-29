@@ -243,6 +243,40 @@ fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
     true
 }
 
+/// power_pump の amount 計算 (base + amount_per: source//divisor*mult)。 None=未知 source (→ skip)。
+fn pump_amount(spec: &Value, state: &GameState, me_idx: usize, opp_idx: usize) -> Option<i32> {
+    let mut amount = as_i(spec.get("amount"), 0) as i32;
+    if let Some(ap) = spec.get("amount_per") {
+        let source = ap.get("source").and_then(|v| v.as_str()).unwrap_or("");
+        let mult = as_i(ap.get("multiplier"), 1000) as i32;
+        let divisor = as_i(ap.get("divisor"), 1).max(1) as i32;
+        let me = &state.players[me_idx];
+        let opp = &state.players[opp_idx];
+        let atk = |p: &Player| p.leader.attached_dons + p.characters.iter().map(|c| c.attached_dons).sum::<i32>();
+        let src_val: i32 = match source {
+            "self_don_rest" => me.don_rested,
+            "self_don_active" => me.don_active,
+            "self_don_total" => me.don_active + me.don_rested + atk(me),
+            "self_field_count" => me.characters.len() as i32,
+            "self_hand_count" => me.hand.len() as i32,
+            "self_trash_count" => me.trash.len() as i32,
+            "self_trash_event_count" => me.trash.iter().filter(|c| c.category == Category::Event).count() as i32,
+            "self_trash_chara_count" => me.trash.iter().filter(|c| c.category == Category::Character).count() as i32,
+            "self_chara_feature_count" => {
+                let feat = ap.get("feature").and_then(|v| v.as_str()).unwrap_or("");
+                me.characters.iter().filter(|c| c.card.features.iter().any(|f| f == feat)).count() as i32
+            }
+            "self_distinct_chara_name_count" => {
+                me.characters.iter().map(|c| c.card.name.clone()).collect::<std::collections::BTreeSet<_>>().len() as i32
+            }
+            "opp_don_total" => opp.don_active + opp.don_rested + atk(opp),
+            _ => return None,
+        };
+        amount += (src_val / divisor) * mult;
+    }
+    Some(amount)
+}
+
 /// 静的 primitive を適用。 未知 primitive/target は skip (誤適用ゼロ)。
 fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot) {
     let opp_idx = 1 - me_idx;
@@ -250,35 +284,7 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
     match key.as_str() {
         "power_pump" => {
             // 静的 context では duration は static 強制 (effects.py:10783) → static_buff += amount。
-            let mut amount = as_i(spec.get("amount"), 0) as i32;
-            if let Some(ap) = spec.get("amount_per") {
-                let source = ap.get("source").and_then(|v| v.as_str()).unwrap_or("");
-                let mult = as_i(ap.get("multiplier"), 1000) as i32;
-                let divisor = as_i(ap.get("divisor"), 1).max(1) as i32;
-                let me = &state.players[me_idx];
-                let opp = &state.players[opp_idx];
-                let atk = |p: &Player| p.leader.attached_dons + p.characters.iter().map(|c| c.attached_dons).sum::<i32>();
-                let src_val: i32 = match source {
-                    "self_don_rest" => me.don_rested,
-                    "self_don_active" => me.don_active,
-                    "self_don_total" => me.don_active + me.don_rested + atk(me),
-                    "self_field_count" => me.characters.len() as i32,
-                    "self_hand_count" => me.hand.len() as i32,
-                    "self_trash_count" => me.trash.len() as i32,
-                    "self_trash_event_count" => me.trash.iter().filter(|c| c.category == Category::Event).count() as i32,
-                    "self_trash_chara_count" => me.trash.iter().filter(|c| c.category == Category::Character).count() as i32,
-                    "self_chara_feature_count" => {
-                        let feat = ap.get("feature").and_then(|v| v.as_str()).unwrap_or("");
-                        me.characters.iter().filter(|c| c.card.features.iter().any(|f| f == feat)).count() as i32
-                    }
-                    "self_distinct_chara_name_count" => {
-                        me.characters.iter().map(|c| c.card.name.clone()).collect::<std::collections::BTreeSet<_>>().len() as i32
-                    }
-                    "opp_don_total" => opp.don_active + opp.don_rested + atk(opp),
-                    _ => return, // 未知 source → skip
-                };
-                amount += (src_val / divisor) * mult;
-            }
+            let Some(amount) = pump_amount(spec, state, me_idx, opp_idx) else { return };
             let ff = spec.get("feature_filter").and_then(|v| v.as_str()).map(|s| s.to_string());
             let Some(targets) = resolve_target(spec.get("target"), me_idx, opp_idx, src, state) else { return };
             for (pi, sl) in targets {
@@ -408,7 +414,8 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
 /// 非静的 primitive を実行 (on_play 等)。 返り値 = 処理できたか (false=未対応→呼出側でカードが diverge)。
 /// fidelity 原則: 未対応 primitive は何もしない (誤適用ゼロ)。 rng を使う primitive
 /// (trash_self_hand_random 等) は Rust で bit 再現不可なので未対応扱い。
-fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, _src: Slot) -> bool {
+fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> bool {
+    let opp_idx = 1 - me_idx;
     let Some((key, v)) = prim.as_object().and_then(|o| o.iter().next()) else { return true };
     match key.as_str() {
         // ドロー N (effects.py:3121)。 block_self_draw 中は不発。
@@ -431,6 +438,39 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, _src: Slot
                 }
                 me.hand.push(c);
                 me.cards_drawn_count += 1;
+            }
+            true
+        }
+        // on_play power_pump (duration 別 buff)。 対象選択が要る target は resolve_target=None → skip。
+        "power_pump" => {
+            let Some(amount) = pump_amount(v, state, me_idx, opp_idx) else { return false };
+            let ff = v.get("feature_filter").and_then(|x| x.as_str()).map(|s| s.to_string());
+            let Some(targets) = resolve_target(v.get("target"), me_idx, opp_idx, src, state) else { return false };
+            let duration = v.get("duration").and_then(|x| x.as_str()).unwrap_or("turn").to_string();
+            let turn_number = state.turn_number;
+            for (pi, sl) in targets {
+                if let Some(f) = &ff {
+                    if !get_ip(&state.players[pi], sl).card.features.iter().any(|x| x == f) {
+                        continue;
+                    }
+                }
+                let ip = get_ip_mut(&mut state.players[pi], sl);
+                match duration.as_str() {
+                    "static" => ip.static_buff += amount,
+                    "battle" => ip.battle_buff += amount,
+                    "next_self_turn_start" => ip.next_turn_buff += amount,
+                    "next_opp_turn_end" | "next_opp_end_phase" => {
+                        ip.next_opp_turn_end_buff += amount;
+                        ip.next_opp_turn_end_applier_idx = me_idx as i32;
+                        ip.next_opp_turn_end_applied_turn = turn_number;
+                    }
+                    "next_self_turn_end" => {
+                        ip.next_self_turn_end_buff += amount;
+                        ip.next_self_turn_end_applier_idx = me_idx as i32;
+                        ip.next_self_turn_end_applied_turn = turn_number;
+                    }
+                    _ => ip.turn_buff += amount, // "turn" 既定
+                }
             }
             true
         }
