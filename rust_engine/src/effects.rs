@@ -363,12 +363,61 @@ fn resolve_target(
                         .collect(),
                 );
             }
+            // 自リーダー/キャラから filter 一致 1 枚 (power 降順、 effects.py:2097)。
+            if t == "one_self_chara_or_leader_filtered" {
+                let filt = v.get("filter");
+                let p = &state.players[me_idx];
+                let mut cands: Vec<Slot> = vec![];
+                if matches_filter(&p.leader.card, filt) {
+                    cands.push(Slot::Leader);
+                }
+                for i in 0..p.characters.len() {
+                    if matches_filter(&p.characters[i].card, filt) {
+                        cands.push(Slot::Char(i));
+                    }
+                }
+                cands.sort_by(|&a, &b| get_ip(p, b).power().cmp(&get_ip(p, a).power()));
+                return Some(cands.into_iter().take(1).map(|sl| (me_idx, sl)).collect());
+            }
+            // 自キャラのみから filter 一致 1 枚 (current_power/rested_required + power 降順、 effects.py:2111)。
+            if t == "one_self_chara_filtered" {
+                let cpge = v.get("filter").and_then(|f| f.get("current_power_ge")).and_then(|x| x.as_i64());
+                let cple = v.get("filter").and_then(|f| f.get("current_power_le")).and_then(|x| x.as_i64());
+                let rested_req = v.get("rested_required").and_then(|x| x.as_bool()).unwrap_or(false);
+                let base_filt: Option<Value> = v.get("filter").map(|f| {
+                    let mut o = f.as_object().cloned().unwrap_or_default();
+                    o.remove("current_power_ge");
+                    o.remove("current_power_le");
+                    Value::Object(o)
+                });
+                let p = &state.players[me_idx];
+                let mut cands: Vec<usize> = (0..p.characters.len())
+                    .filter(|&i| {
+                        let c = &p.characters[i];
+                        matches_filter(&c.card, base_filt.as_ref())
+                            && (!rested_req || c.rested)
+                            && cpge.map_or(true, |t| c.power() as i64 >= t)
+                            && cple.map_or(true, |t| (c.power() as i64) <= t)
+                    })
+                    .collect();
+                cands.sort_by(|&a, &b| p.characters[b].power().cmp(&p.characters[a].power()));
+                return Some(cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect());
+            }
             return None;
         }
     };
     let out = match s.as_str() {
         "self" | "self_inplay" => vec![(me_idx, src)],
         "self_leader" => vec![(me_idx, Slot::Leader)],
+        // 自リーダー or キャラ 1 体、 AI はリーダー優先 (effects.py:2948)
+        "self_inplay_choice" => vec![(me_idx, Slot::Leader)],
+        // 自キャラ 1 体、 AI は power 降順 (effects.py:2919)
+        "one_self_character_any" => {
+            let p = &state.players[me_idx];
+            let mut cands: Vec<usize> = (0..p.characters.len()).collect();
+            cands.sort_by(|&a, &b| p.characters[b].power().cmp(&p.characters[a].power()));
+            cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect()
+        }
         "all_self_characters" => (0..state.players[me_idx].characters.len())
             .map(|i| (me_idx, Slot::Char(i)))
             .collect(),
