@@ -101,6 +101,11 @@ impl CardDef {
     pub fn is_rush(&self) -> bool {
         self.has_innate_keyword("スピード") || self.has_innate_keyword("速攻")
     }
+
+    /// core.py CardDef.is_blocker = 【ブロッカー】を innate 所持。
+    pub fn is_blocker(&self) -> bool {
+        self.has_innate_keyword("ブロッカー")
+    }
 }
 
 fn ser_card_id<S: serde::Serializer>(c: &CardDef, s: S) -> Result<S::Ok, S::Error> {
@@ -234,6 +239,41 @@ impl InPlay {
             is_owners_turn: true,
             ..Default::default()
         }
+    }
+
+    /// core.py InPlay.base_power = override 優先順位 (turn > next_turn > next_opp_turn_end > static > card)。
+    pub fn base_power(&self) -> i32 {
+        if let Some(p) = self.turn_base_power_override {
+            return p;
+        }
+        if let Some(p) = self.next_turn_base_power_override {
+            return p;
+        }
+        if let Some(p) = self.next_opp_turn_end_base_power_override {
+            return p;
+        }
+        self.base_power_override.unwrap_or(self.card.power)
+    }
+
+    /// core.py InPlay.power = base + DON+1000(所有者ターンのみ)+ 各 buff。
+    pub fn power(&self) -> i32 {
+        let don_buff = if self.is_owners_turn { 1000 * self.attached_dons } else { 0 };
+        self.base_power()
+            + don_buff
+            + self.static_buff
+            + self.turn_buff
+            + self.battle_buff
+            + self.next_turn_buff
+            + self.next_opp_turn_end_buff
+            + self.next_self_turn_end_buff
+    }
+
+    /// core.py InPlay.is_blocker_now = innate or 付与【ブロッカー】。
+    pub fn is_blocker_now(&self) -> bool {
+        self.card.is_blocker()
+            || self.granted_keywords.contains("ブロッカー")
+            || self.static_granted_keywords.contains("ブロッカー")
+            || self.granted_keywords_through_opp_turn.contains("ブロッカー")
     }
 }
 

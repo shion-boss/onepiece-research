@@ -85,7 +85,13 @@ fn canonical_blob(dump_json: &str) -> PyResult<String> {
 fn load_overlay(path: &str) -> PyResult<()> {
     let s = std::fs::read_to_string(path)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("read {path}: {e}")))?;
-    effects::load_overlay(&s).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+    effects::load_overlay(&s).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+    // 同ディレクトリの card_roles.json も読む (_opp_value の role bonus 用)。 無ければ無視。
+    let roles_path = path.replace("card_effects.json", "card_roles.json");
+    if let Ok(rs) = std::fs::read_to_string(&roles_path) {
+        let _ = effects::load_roles(&rs);
+    }
+    Ok(())
 }
 
 /// R3 idempotence テスト: full_dump(state) を deserialize → Rust evaluate_static_effects → digest。

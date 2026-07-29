@@ -29,6 +29,46 @@ fn overlay() -> Option<&'static HashMap<String, Vec<Value>>> {
     OVERLAY.get()
 }
 
+static ROLES: OnceLock<HashMap<String, String>> = OnceLock::new();
+
+/// db/card_roles.json を読み込む (card_id → primary_role)。 _opp_value の role bonus 用。
+pub fn load_roles(json_str: &str) -> Result<(), String> {
+    if ROLES.get().is_some() {
+        return Ok(());
+    }
+    let raw: HashMap<String, Value> = serde_json::from_str(json_str).map_err(|e| e.to_string())?;
+    let mut map = HashMap::new();
+    for (cid, v) in raw {
+        if let Some(role) = v.get("primary_role").and_then(|x| x.as_str()) {
+            map.insert(cid, role.to_string());
+        }
+    }
+    let _ = ROLES.set(map);
+    Ok(())
+}
+
+fn role_of(card_id: &str) -> Option<&'static str> {
+    ROLES.get().and_then(|m| m.get(card_id)).map(|s| s.as_str())
+}
+
+/// effects.py:_opp_value = AI が除去/対象に選ぶ相手キャラの価値。 max が選ばれる。
+fn opp_value(ip: &InPlay) -> f64 {
+    let mut val = (ip.card.cost as f64) * 1000.0 + (ip.power() as f64);
+    if ip.is_blocker_now() {
+        val += 3000.0;
+    }
+    if let Some(role) = role_of(&ip.card.card_id) {
+        val += match role {
+            "finisher" => 5000.0,
+            "blocker" => 2500.0,
+            "draw" | "search" => 2000.0,
+            "removal" | "negation" | "disruption" | "ramp" | "recovery" | "support" | "synergy" => 1500.0,
+            _ => 0.0,
+        };
+    }
+    val
+}
+
 #[derive(Clone, Copy)]
 enum Slot {
     Leader,
@@ -220,9 +260,51 @@ fn resolve_target(
         "all_opp_characters" | "all_opponent_characters" => (0..state.players[opp_idx].characters.len())
             .map(|i| (opp_idx, Slot::Char(i)))
             .collect(),
+        // one_opponent_[rested_]character[_(any_)?cost_le_Ncost | _power_le_N | _any]
+        // = 相手キャラを filter → opp_value 最大を 1 体 (AI 自動選択、 effects.py:2443/2540/2627)。
+        os if os.starts_with("one_opponent_") => {
+            let rested_only = os.contains("rested_character");
+            let cost_le = parse_after(os, "cost_le_"); // c.card.cost <= n
+            let power_le = parse_after(os, "power_le_"); // c.power() <= n
+            let opp = &state.players[opp_idx];
+            let mut cands: Vec<usize> = (0..opp.characters.len())
+                .filter(|&i| {
+                    let c = &opp.characters[i];
+                    if rested_only && !c.rested {
+                        return false;
+                    }
+                    if let Some(n) = cost_le {
+                        if c.card.cost > n {
+                            return false;
+                        }
+                    }
+                    if let Some(n) = power_le {
+                        if c.power() > n {
+                            return false;
+                        }
+                    }
+                    true
+                })
+                .collect();
+            // -opp_value で安定ソート → 先頭 (ties は index 順 = Python stable sort と一致)
+            cands.sort_by(|&a, &b| {
+                opp_value(&opp.characters[b])
+                    .partial_cmp(&opp_value(&opp.characters[a]))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
+        }
         _ => return None,
     };
     Some(out)
+}
+
+/// spec 文字列中の marker 直後の数字を取り出す (例: "cost_le_3cost" の "cost_le_" → 3)。
+fn parse_after(s: &str, marker: &str) -> Option<i32> {
+    let pos = s.find(marker)?;
+    let rest = &s[pos + marker.len()..];
+    let num: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+    num.parse().ok()
 }
 
 fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
@@ -471,6 +553,19 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     }
                     _ => ip.turn_buff += amount, // "turn" 既定
                 }
+            }
+            true
+        }
+        // レスト (effects.py:3761)。 string spec (one_opponent_*) = _opp_value 最大を選ぶ。
+        // ⚠ or_don/{count,target} 変種 + replace_rest は resolve_target=None または diverge → skip 境界。
+        "rest" => {
+            let Some(targets) = resolve_target(Some(v), me_idx, opp_idx, src, state) else { return false };
+            for (pi, sl) in targets {
+                let ip = get_ip_mut(&mut state.players[pi], sl);
+                if ip.cannot_be_rested_buff || ip.rested {
+                    continue;
+                }
+                ip.rested = true;
             }
             true
         }
