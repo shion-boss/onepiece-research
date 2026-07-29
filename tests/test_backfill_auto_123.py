@@ -717,9 +717,6 @@ def test_op12_100_static_no_blocker_when_life_high():
     assert not sabo.is_blocker_now, "ライフ4枚でブロッカーが付いてはいけない"
 
 
-@pytest.mark.skip(reason="overlay 不備: OP12-100 静的は公式で「ブロッカーを得て、コスト+3」だが "
-                         "overlay do は give_keyword のみで set_base_cost +3 が欠落。 "
-                         "engine/overlay 修正は人間レビューへ (本タスクでは data 編集しない)。")
 def test_op12_100_static_cost_plus3_when_life_le_3():
     """静的: 自ライフ3枚以下 → コスト+3 (現 overlay では未実装)。"""
     repo = _repo()

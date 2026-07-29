@@ -65109,6 +65109,12 @@
       "target": "self",
       "keyword": "ブロッカー"
      }
+    },
+    {
+     "set_base_cost": {
+      "target": "self",
+      "delta": 3
+     }
     }
    ]
   }
