@@ -176,6 +176,16 @@ fn resolve_target(
                 }
                 return Some(out);
             }
+            if t == "all_self_chara_named" {
+                let name = v.get("name").and_then(|x| x.as_str()).unwrap_or("");
+                let p = &state.players[me_idx];
+                return Some(
+                    (0..p.characters.len())
+                        .filter(|&i| p.characters[i].card.name == name)
+                        .map(|i| (me_idx, Slot::Char(i)))
+                        .collect(),
+                );
+            }
             return None;
         }
     };
@@ -254,6 +264,26 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
             let Some(targets) = resolve_target(spec.get("target"), me_idx, opp_idx, src, state) else { return };
             for (pi, sl) in targets {
                 get_ip_mut(&mut state.players[pi], sl).base_power_override = Some(amount);
+            }
+        }
+        // 元々のパワーを duration 付きで上書き (effects.py:4673)。 静的 context では duration="static"→base_power_override。
+        "set_base_power_timed" => {
+            let amount = as_i(spec.get("amount"), 0) as i32;
+            let duration = spec.get("duration").and_then(|v| v.as_str()).unwrap_or("turn").to_string();
+            let Some(targets) = resolve_target(spec.get("target"), me_idx, opp_idx, src, state) else { return };
+            let turn_number = state.turn_number;
+            for (pi, sl) in targets {
+                let ip = get_ip_mut(&mut state.players[pi], sl);
+                match duration.as_str() {
+                    "turn" => ip.turn_base_power_override = Some(amount),
+                    "next_self_turn_start" => ip.next_turn_base_power_override = Some(amount),
+                    "next_opp_turn_end" | "next_opp_end_phase" => {
+                        ip.next_opp_turn_end_base_power_override = Some(amount);
+                        ip.next_opp_turn_end_base_power_override_applier_idx = me_idx as i32;
+                        ip.next_opp_turn_end_base_power_override_applied_turn = turn_number;
+                    }
+                    _ => ip.base_power_override = Some(amount),
+                }
             }
         }
         "set_protect_from_opp_effect_static" => {
