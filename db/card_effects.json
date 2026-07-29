@@ -99951,7 +99951,7 @@
    "when": "on_attached_don",
    "n": 0,
    "if": {
-    "self_all_chara_feature": "ジェルマ"
+    "self_all_chara_feature_contains": "ジェルマ"
    },
    "do": [
     {
