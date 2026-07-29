@@ -287,6 +287,12 @@ impl InPlay {
     pub fn is_banish_now(&self) -> bool {
         self.has_kw_now("バニッシュ", self.card.has_innate_keyword("バニッシュ"))
     }
+
+    /// core.py InPlay.has_no_block_now = innate【ブロック不可】or 付与「ブロック不可」。
+    /// True の attacker はブロックされない (AttackLeader のブロック判定で skip)。
+    pub fn has_no_block_now(&self) -> bool {
+        self.has_kw_now("ブロック不可", self.card.has_innate_keyword("ブロック不可"))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

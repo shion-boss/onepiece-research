@@ -54,6 +54,119 @@ fn reset_battle_buffs(state: &mut GameState) {
     }
 }
 
+// ============================ 戦闘 (Attack) 用ヘルパー ============================
+
+/// player の全 InPlay (leader+chara+stage) のいずれかが指定 when 効果を持つか。 trigger cascade 判定用。
+fn board_has_when(p: &Player, when: &str) -> bool {
+    std::iter::once(&p.leader)
+        .chain(p.characters.iter())
+        .chain(p.stages.iter())
+        .any(|ip| crate::effects::card_has_when(&ip.card.card_id, when))
+}
+
+/// game.py:_battle_attr_bonus = combatant が「属性X とバトル時+N」を持ち opponent が属性X の時 +N。
+fn battle_attr_bonus(combatant: &InPlay, opponent: &InPlay) -> i32 {
+    let attr = &opponent.card.attribute;
+    if attr.is_empty() {
+        return 0;
+    }
+    combatant.battle_pump_vs_attribute.get(attr).copied().unwrap_or(0)
+}
+
+/// game.py:_battle_ko_immune_by_attribute = defender が attacker の属性でバトル KO 不可か。
+fn battle_ko_immune_by_attribute(defender: &InPlay, attacker: &InPlay) -> bool {
+    if defender.battle_ko_immune_static
+        || defender.battle_ko_immune_until_turn_end
+        || defender.battle_ko_immune_through_opp_turn
+    {
+        return true;
+    }
+    let atk_attr = attacker.card.attribute.clone();
+    let mut atk_attrs = attacker.granted_attributes.clone();
+    if !atk_attr.is_empty() {
+        atk_attrs.insert(atk_attr.clone());
+    }
+    if defender
+        .ko_immune_battle_attributes_in
+        .iter()
+        .any(|a| atk_attrs.contains(a))
+    {
+        return true;
+    }
+    // 「属性 X を持たないカードとのバトルで KO されない」: attacker が not_in に含まれない → KO 不可
+    if !defender.ko_immune_battle_attributes_not_in.is_empty()
+        && !defender.ko_immune_battle_attributes_not_in.contains(&atk_attr)
+    {
+        return true;
+    }
+    false
+}
+
+/// game.py:_spend_counters = 手札 counter 札を trash し合計 counter 値を返す (hand_counter_boost 考慮)。
+fn spend_counters(p: &mut Player, idxs: &[i64]) -> i32 {
+    if idxs.is_empty() {
+        return 0;
+    }
+    let mut order: Vec<usize> = idxs.iter().filter(|&&i| i >= 0).map(|&i| i as usize).collect();
+    order.sort_unstable();
+    order.dedup();
+    order.reverse(); // 降順で pop = idx 不変
+    let boost = p.hand_counter_boost.clone();
+    let mut total = 0;
+    for i in order {
+        if i < p.hand.len() {
+            let card = p.hand.remove(i);
+            let mut base = card.counter;
+            if let Some(b) = &boost {
+                let cat = match card.category {
+                    crate::state::Category::Leader => "LEADER",
+                    crate::state::Category::Character => "CHARACTER",
+                    crate::state::Category::Event => "EVENT",
+                    crate::state::Category::Stage => "STAGE",
+                };
+                let bcat = b.get("category").and_then(|v| v.as_str()).unwrap_or(cat);
+                let bpow = b.get("power_eq").and_then(|v| v.as_i64()).unwrap_or(card.power as i64) as i32;
+                if cat == bcat && card.power == bpow {
+                    base += b.get("amount").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                }
+            }
+            total += base;
+            p.trash.push(card);
+        }
+    }
+    total
+}
+
+/// バトル KO が trigger cascade を要するか (= 該当時は Err で bail、 差分テスト境界)。
+/// victim の on_ko/置換(replace_ko/replace_leave)、 攻撃側 on_opp_chara_ko/on_self_battle_ko、 防御側 on_self_chara_ko。
+fn battle_ko_would_cascade(
+    state: &GameState,
+    victim_owner: usize,
+    attacker_owner: usize,
+    victim_cid: &str,
+    attacker_cid: &str,
+) -> bool {
+    crate::effects::card_has_when(victim_cid, "on_ko")
+        || board_has_when(&state.players[victim_owner], "replace_ko")
+        || board_has_when(&state.players[victim_owner], "replace_leave")
+        || board_has_when(&state.players[attacker_owner], "on_opp_chara_ko")
+        || board_has_when(&state.players[victim_owner], "on_self_chara_ko")
+        || crate::effects::card_has_when(attacker_cid, "on_self_battle_ko")
+}
+
+/// バトル KO 実行: victim キャラを trash へ、 付与ドン→レスト、 chara_ko_taken_this_turn++。
+/// (trigger cascade は呼出側で bail 済 = last_chara_ko_victim_card は cascade 完了後 None に戻るので触らない)
+fn battle_ko_character(state: &mut GameState, owner: usize, idx: usize) {
+    if idx >= state.players[owner].characters.len() {
+        return;
+    }
+    let removed = state.players[owner].characters.remove(idx);
+    let don = removed.attached_dons;
+    state.players[owner].trash.push(removed.card);
+    state.players[owner].don_rested += don;
+    state.players[owner].chara_ko_taken_this_turn += 1;
+}
+
 /// game.py:_reset_turn_buff = ターン終了時のバフ/フラグクリア (applier-tracking 含む)。
 pub fn reset_turn_buff(state: &mut GameState) {
     let tp = state.turn_player_idx;
@@ -387,79 +500,149 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             p.dons_used_count += n;
             Ok(())
         }
-        // リーダーへのアタック (game.py:1441)。 ⚠ 空防御 (counter/blocker 無) + trigger 無の基本ケースのみ。
-        // trigger(on_attack/opp_attack/life)・counter・blocker・attack cost 有なら Err(=差分テストが skip)。
+        // リーダーへのアタック (game.py:1441)。 counter card + blocker + 基本 KO/life まで対応。
+        // bail(Err=差分テスト境界): attack cost / on_attack / opp_attack / counter event /
+        //   on_block / on_opp_blocker_use / KO cascade / life 移動 trigger / on_life_zero。
         "AttackLeader" => {
             let opp = 1 - me;
             let atk_kind = action.get("attacker_kind").and_then(|v| v.as_str()).unwrap_or("");
             let atk_idx = geti(action, "attacker_idx", 0) as usize;
-            // counter/blocker があれば未対応
-            let has_counter = action
+            let counter_cards: Vec<i64> = action
                 .get("counter_card_idxs")
                 .and_then(|v| v.as_array())
+                .map(|a| a.iter().filter_map(|x| x.as_i64()).collect())
+                .unwrap_or_default();
+            if action
+                .get("counter_event_idxs")
+                .and_then(|v| v.as_array())
                 .map_or(false, |a| !a.is_empty())
-                || action
-                    .get("counter_event_idxs")
-                    .and_then(|v| v.as_array())
-                    .map_or(false, |a| !a.is_empty());
-            let has_blocker = action.get("blocker").map_or(false, |v| !v.is_null());
-            if has_counter || has_blocker {
-                return Err("counter/blocker 未対応".into());
+            {
+                return Err("counter event 未対応".into());
             }
-            // attacker 情報 (存在チェック)
-            let (atk_card_id, atk_power, is_double, is_banish, cost_discard) = {
-                let a = match atk_kind {
-                    "leader" => &state.players[me].leader,
-                    "char" => match state.players[me].characters.get(atk_idx) {
-                        Some(c) => c,
-                        None => return Ok(()), // attacker 不在 = 攻撃不発 (game.py:1443)
-                    },
-                    _ => return Err("bad attacker".into()),
-                };
-                (
-                    a.card.card_id.clone(),
-                    a.power(),
-                    a.is_double_attack_now(),
-                    a.is_banish_now(),
-                    a.attack_cost_discard_hand_n,
-                )
+            // attacker 存在チェック (absent = 攻撃不発 = Ok no-op、 game.py:1443)
+            let attacker_exists = match atk_kind {
+                "leader" => true,
+                "char" => atk_idx < state.players[me].characters.len(),
+                _ => return Err("bad attacker".into()),
             };
-            if cost_discard > 0 || crate::effects::card_has_when(&atk_card_id, "on_attack") {
+            if !attacker_exists {
+                return Ok(());
+            }
+            // attacker のスナップショット (battle 関連 field は解決中に変化しないので clone 1 回で足りる)
+            let attacker: InPlay = if atk_kind == "leader" {
+                state.players[me].leader.clone()
+            } else {
+                state.players[me].characters[atk_idx].clone()
+            };
+            let atk_cid = attacker.card.card_id.clone();
+            let atk_power_base = attacker.power();
+            let is_double = attacker.is_double_attack_now();
+            let is_banish = attacker.is_banish_now();
+            let cost_discard = attacker.attack_cost_discard_hand_n;
+            let no_block = attacker.has_no_block_now();
+            if cost_discard > 0 || crate::effects::card_has_when(&atk_cid, "on_attack") {
                 return Err("attack cost/on_attack 未対応".into());
             }
-            // 防御側盤面の opp_attack trigger
-            for ip in std::iter::once(&state.players[opp].leader)
-                .chain(state.players[opp].characters.iter())
-                .chain(state.players[opp].stages.iter())
+            if board_has_when(&state.players[opp], "opp_attack")
+                || board_has_when(&state.players[opp], "opp_attack_on_leader")
             {
-                if crate::effects::card_has_when(&ip.card.card_id, "opp_attack")
-                    || crate::effects::card_has_when(&ip.card.card_id, "opp_attack_on_leader")
-                {
-                    return Err("opp_attack trigger 未対応".into());
-                }
+                return Err("opp_attack trigger 未対応".into());
             }
-            let defender_power = state.players[opp].leader.power();
-            let damage = if is_double { 2 } else { 1 };
-            // 取られる life 上位 damage 枚に trigger があれば未対応
-            if atk_power >= defender_power {
+            // attacker.rested = true (game.py:1466)
+            if atk_kind == "leader" {
+                state.players[me].leader.rested = true;
+            } else {
+                state.players[me].characters[atk_idx].rested = true;
+            }
+            // === ブロックステップ (7-1-2) ===
+            let blocker_idx: Option<usize> = if no_block {
+                None
+            } else {
+                action
+                    .get("blocker")
+                    .and_then(|b| if b.is_null() { None } else { b.get("idx").and_then(|v| v.as_i64()) })
+                    .map(|i| i as usize)
+            };
+            let mut is_blocked = false;
+            let mut blk_idx = 0usize;
+            if let Some(bi) = blocker_idx {
+                let valid = bi < state.players[opp].characters.len() && {
+                    let b = &state.players[opp].characters[bi];
+                    !b.rested && b.is_blocker_now() && !b.blocker_disabled_until_turn_end
+                };
+                if valid {
+                    let bcid = state.players[opp].characters[bi].card.card_id.clone();
+                    if crate::effects::card_has_when(&bcid, "on_block")
+                        || board_has_when(&state.players[me], "on_opp_blocker_use")
+                    {
+                        return Err("on_block/on_opp_blocker_use 未対応".into());
+                    }
+                    state.players[opp].characters[bi].rested = true;
+                    is_blocked = true;
+                    blk_idx = bi;
+                }
+                // 不正ブロッカーは無視 = リーダーへ続行 (game.py:1591-1605)
+            }
+            // === カウンターフェイズ (7-1-3) ===
+            let counter_added = spend_counters(&mut state.players[opp], &counter_cards);
+
+            if is_blocked {
+                // ブロッカー vs アタッカー (勝てば blocker KO、 負ければ生存、 リーダーへの damage 無)
+                let (atk_power, def_power, immune) = {
+                    let blocker = &state.players[opp].characters[blk_idx];
+                    let ap = atk_power_base + battle_attr_bonus(&attacker, blocker);
+                    let dp = blocker.power() + counter_added + battle_attr_bonus(blocker, &attacker);
+                    let vs_leader_immune = blocker.battle_ko_immune_vs_leader && atk_kind == "leader";
+                    let imm = blocker.ko_immune_until_turn_end
+                        || battle_ko_immune_by_attribute(blocker, &attacker)
+                        || vs_leader_immune;
+                    (ap, dp, imm)
+                };
+                if atk_power >= def_power && !immune {
+                    // EB02-030: バトルKO 代替で手札1捨てて生存 (= 該当時 bail)
+                    if state.players[opp].turn_battle_ko_save_discard
+                        && !state.players[opp].hand.is_empty()
+                    {
+                        return Err("battle_ko_save_discard 未対応".into());
+                    }
+                    let vcid = state.players[opp].characters[blk_idx].card.card_id.clone();
+                    if battle_ko_would_cascade(state, opp, me, &vcid, &atk_cid) {
+                        return Err("KO cascade 未対応".into());
+                    }
+                    battle_ko_character(state, opp, blk_idx);
+                }
+                reset_battle_buffs(state);
+                return Ok(());
+            }
+
+            // === 非ブロック: リーダーへのダメージ (leader へは attr bonus 無) ===
+            let def_power = state.players[opp].leader.power() + counter_added;
+            if atk_power_base >= def_power {
+                let damage = if is_double { 2 } else { 1 };
+                if state.players[opp].life.is_empty() {
+                    if crate::effects::card_has_when(
+                        &state.players[opp].leader.card.card_id,
+                        "on_life_zero",
+                    ) {
+                        return Err("on_life_zero 未対応".into());
+                    }
+                    // 敗北宣言 (game.py:1748 は reset_battle_buffs せず return)
+                    declare_winner(state, me);
+                    return Ok(());
+                }
+                // life 移動 trigger (attacker: on_opp_life_taken / defender: on_self_life_*) は未対応
+                if board_has_when(&state.players[me], "on_opp_life_taken")
+                    || board_has_when(&state.players[opp], "on_self_life_to_hand")
+                    || board_has_when(&state.players[opp], "on_self_life_to_trash")
+                    || board_has_when(&state.players[opp], "on_self_life_taken")
+                {
+                    return Err("life 移動 trigger 未対応".into());
+                }
+                // 取られる life 上位 damage 枚に trigger があれば未対応
                 for c in state.players[opp].life.iter().take(damage as usize) {
                     if crate::effects::card_has_when(&c.card_id, "trigger") {
                         return Err("life trigger 未対応".into());
                     }
-                }
-            }
-            // --- 適用 ---
-            match atk_kind {
-                "leader" => state.players[me].leader.rested = true,
-                "char" => state.players[me].characters[atk_idx].rested = true,
-                _ => {}
-            }
-            if atk_power >= defender_power {
-                if state.players[opp].life.is_empty() {
-                    // life 0 trigger は未対応 → 該当は上で trigger check 済でないが、 life 空は敗北
-                    declare_winner(state, me);
-                    reset_battle_buffs(state);
-                    return Ok(());
                 }
                 for _ in 0..damage {
                     if state.players[opp].life.is_empty() {
@@ -473,6 +656,108 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                         state.players[opp].hand.push(taken);
                     }
                 }
+            }
+            reset_battle_buffs(state);
+            Ok(())
+        }
+        // キャラへのアタック (game.py:1813)。 counter card + blocker + KO 判定 (attr bonus 両方向)。
+        // bail: attack cost / on_attack / on_self_battled / opp_attack / counter event / on_block /
+        //   return_at_battle_end / KO cascade。
+        "AttackCharacter" => {
+            let opp = 1 - me;
+            let atk_kind = action.get("attacker_kind").and_then(|v| v.as_str()).unwrap_or("");
+            let atk_idx = geti(action, "attacker_idx", 0) as usize;
+            let tgt_idx = geti(action, "target_idx", -1);
+            let counter_cards: Vec<i64> = action
+                .get("counter_card_idxs")
+                .and_then(|v| v.as_array())
+                .map(|a| a.iter().filter_map(|x| x.as_i64()).collect())
+                .unwrap_or_default();
+            if action
+                .get("counter_event_idxs")
+                .and_then(|v| v.as_array())
+                .map_or(false, |a| !a.is_empty())
+            {
+                return Err("counter event 未対応".into());
+            }
+            let attacker_exists = match atk_kind {
+                "leader" => true,
+                "char" => atk_idx < state.players[me].characters.len(),
+                _ => return Err("bad attacker".into()),
+            };
+            if !attacker_exists {
+                return Ok(());
+            }
+            let attacker: InPlay = if atk_kind == "leader" {
+                state.players[me].leader.clone()
+            } else {
+                state.players[me].characters[atk_idx].clone()
+            };
+            let atk_cid = attacker.card.card_id.clone();
+            let cost_discard = attacker.attack_cost_discard_hand_n;
+            let ret_at_battle_end = attacker.return_to_deck_bottom_at_battle_end;
+            if cost_discard > 0 || crate::effects::card_has_when(&atk_cid, "on_attack") {
+                return Err("attack cost/on_attack 未対応".into());
+            }
+            // on_self_battled は char vs char バトル終了時に発火 (game.py:1994) → bail
+            if crate::effects::card_has_when(&atk_cid, "on_self_battled") {
+                return Err("on_self_battled 未対応".into());
+            }
+            if ret_at_battle_end {
+                return Err("return_at_battle_end 未対応".into());
+            }
+            if board_has_when(&state.players[opp], "opp_attack")
+                || board_has_when(&state.players[opp], "opp_attack_on_chara")
+            {
+                return Err("opp_attack trigger 未対応".into());
+            }
+            // target 存在チェック (消失 = 空打ち = reset+Ok、 game.py:1853)
+            if tgt_idx < 0 || tgt_idx as usize >= state.players[opp].characters.len() {
+                reset_battle_buffs(state);
+                return Ok(());
+            }
+            // attacker.rested = true
+            if atk_kind == "leader" {
+                state.players[me].leader.rested = true;
+            } else {
+                state.players[me].characters[atk_idx].rested = true;
+            }
+            // === ブロック (AttackCharacter は has_no_block を見ない、 on_opp_blocker_use も発火しない) ===
+            let mut actual_idx = tgt_idx as usize;
+            let blocker_idx: Option<usize> = action
+                .get("blocker")
+                .and_then(|b| if b.is_null() { None } else { b.get("idx").and_then(|v| v.as_i64()) })
+                .map(|i| i as usize);
+            if let Some(bi) = blocker_idx {
+                let valid = bi < state.players[opp].characters.len() && {
+                    let b = &state.players[opp].characters[bi];
+                    !b.rested && b.is_blocker_now() && !b.blocker_disabled_until_turn_end
+                };
+                if valid {
+                    let bcid = state.players[opp].characters[bi].card.card_id.clone();
+                    if crate::effects::card_has_when(&bcid, "on_block") {
+                        return Err("on_block 未対応".into());
+                    }
+                    state.players[opp].characters[bi].rested = true;
+                    actual_idx = bi;
+                }
+            }
+            // === カウンター ===
+            let counter_added = spend_counters(&mut state.players[opp], &counter_cards);
+            // === バトル解決 (attr bonus 両方向) ===
+            let (atk_power, def_power, immune) = {
+                let target = &state.players[opp].characters[actual_idx];
+                let ap = attacker.power() + battle_attr_bonus(&attacker, target);
+                let dp = target.power() + counter_added + battle_attr_bonus(target, &attacker);
+                let imm = target.ko_immune_until_turn_end || battle_ko_immune_by_attribute(target, &attacker);
+                (ap, dp, imm)
+            };
+            if atk_power >= def_power && !immune {
+                let vcid = state.players[opp].characters[actual_idx].card.card_id.clone();
+                if battle_ko_would_cascade(state, opp, me, &vcid, &atk_cid) {
+                    return Err("KO cascade 未対応".into());
+                }
+                battle_ko_character(state, opp, actual_idx);
             }
             reset_battle_buffs(state);
             Ok(())

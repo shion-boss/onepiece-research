@@ -260,3 +260,142 @@ def test_rust_static_effects_idempotent():
             break
         apply_action(st, a)
     assert checked >= 10
+
+
+def _iid_kind_idx(player, iid):
+    if iid == player.leader.instance_id:
+        return "leader", 0
+    for i, c in enumerate(player.characters):
+        if c.instance_id == iid:
+            return "char", i
+    return None, None
+
+
+def _encode_attack(state, action):
+    """AttackLeader/AttackCharacter を canonical dict (iid → kind/idx) へ。"""
+    from engine.game import AttackCharacter
+    me, opp = state.turn_player, state.opponent
+    ak, ai = _iid_kind_idx(me, action.attacker_iid)
+    if ak is None:
+        return None
+    d = {
+        "attacker_kind": ak, "attacker_idx": ai,
+        "counter_card_idxs": list(action.counter_card_idxs),
+        "counter_event_idxs": list(action.counter_event_idxs),
+    }
+    if action.blocker_iid is not None:
+        bk, bi = _iid_kind_idx(opp, action.blocker_iid)
+        d["blocker"] = {"kind": bk, "idx": bi} if bk else None
+    else:
+        d["blocker"] = None
+    if isinstance(action, AttackCharacter):
+        tk, ti = _iid_kind_idx(opp, action.target_iid)
+        if tk is None:
+            return None
+        d["t"], d["target_kind"], d["target_idx"] = "AttackCharacter", tk, ti
+    else:
+        d["t"] = "AttackLeader"
+    return d
+
+
+def _build_defended(state, action, ai_opp):
+    """play_one_action の防御注入 (choose_defense → counter/blocker) を再現した最終 action。"""
+    from engine.game import AttackLeader, AttackCharacter, _find_attacker_or_none
+    me, opp = state.turn_player, state.opponent
+    attacker = _find_attacker_or_none(me, action.attacker_iid)
+    if attacker is None:
+        return None
+    is_leader = isinstance(action, AttackLeader)
+    target = opp.leader if is_leader else next(
+        (c for c in opp.characters if c.instance_id == action.target_iid), None)
+    if target is None:
+        return None
+    block_iid, counters = ai_opp.choose_defense(state, attacker, target, is_leader, opp)
+    events, cards = [], []
+    for idx in counters:
+        if not (0 <= idx < len(opp.hand)):
+            continue
+        c = opp.hand[idx]
+        (events if str(getattr(c, "category", "")).endswith("EVENT") else cards).append(idx)
+    kw = dict(attacker_iid=action.attacker_iid, counter_card_idxs=tuple(cards),
+              counter_event_idxs=tuple(events), blocker_iid=block_iid)
+    return AttackLeader(**kw) if is_leader else AttackCharacter(target_iid=action.target_iid, **kw)
+
+
+def test_rust_apply_attack_fidelity():
+    """R3 戦闘: Rust apply_action(AttackLeader/AttackCharacter) が Python と bit 一致。
+
+    counter card + blocker + KO 判定 + 属性ボーナス + life 移動 の math を検証。 trigger cascade
+    (on_attack/opp_attack/counter event/life trigger/KO cascade) を要するケースは Rust が Err で
+    bail する = 差分テスト境界 (fidelity 原則)。 入力 state が既に静的効果(R3)で乖離するケースも除外。
+    未 build 環境では skip。"""
+    try:
+        eng = importlib.import_module("optcg_engine")
+    except ImportError:
+        pytest.skip("optcg_engine 未 build")
+    import json
+    import random
+    from engine.core import reset_iid
+    from engine.deck import CardRepository, make_deck_from_dict
+    from engine.effects import load_effect_overlay
+    from engine.game import setup_game, play_until_main, apply_action, AttackLeader, AttackCharacter
+    from engine.ai import GreedyAI
+    from engine.plan_search import fast_clone
+    from engine.state_snapshot import state_digest, full_dump
+
+    eng.load_overlay(str((ROOT / "db" / "card_effects.json").resolve()))
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def dl(s):
+        return make_deck_from_dict(json.loads((ROOT / "decks" / f"{s}.json").read_text()), repo)
+
+    checked_leader = 0
+    checked_char = 0
+    for deck_a, deck_b, seed in [
+        ("cardrush_1385", "cardrush_1385", 7),
+        ("cardrush_1454", "cardrush_1454", 9),
+        ("cardrush_1548", "cardrush_1548", 5),
+        ("tcgportal_calgara", "cardrush_1385", 11),
+    ]:
+        reset_iid()
+        st = setup_game(dl(deck_a), dl(deck_b), rng=random.Random(seed),
+                        first_player=0, effects_overlay=ov)
+        play_until_main(st)
+        ais = [GreedyAI(rng=random.Random(seed * 3 + 1)), GreedyAI(rng=random.Random(seed * 5 + 2))]
+        for _ in range(200):
+            if st.game_over:
+                break
+            mi = st.turn_player_idx
+            action = ais[mi].choose_action(st)
+            if action is None:
+                break
+            if isinstance(action, (AttackLeader, AttackCharacter)):
+                defended = _build_defended(st, action, ais[1 - mi])
+                if defended is not None:
+                    enc = _encode_attack(st, defended)
+                    if enc is not None:
+                        dump = json.dumps(full_dump(st))
+                        # 静的効果が既に乖離する入力は combat の責任外 → skip
+                        if eng.recompute_static_digest(dump) == state_digest(st):
+                            c = fast_clone(st)
+                            apply_action(c, defended)
+                            if c.pending_choice is None:
+                                try:
+                                    d_rust = eng.apply_action_digest(dump, json.dumps(enc))
+                                except Exception:
+                                    d_rust = None  # trigger cascade 要 = Rust bail (境界)
+                                if d_rust is not None:
+                                    assert state_digest(c) == d_rust, (
+                                        f"{enc['t']} digest 不一致 ({deck_a} vs {deck_b} seed={seed}): "
+                                        f"{json.dumps(enc, ensure_ascii=False)}")
+                                    if enc["t"] == "AttackLeader":
+                                        checked_leader += 1
+                                    else:
+                                        checked_char += 1
+                    action = defended
+            if not st.game_over:
+                apply_action(st, action)
+    # counter/blocker/KO を含む戦闘が bit 一致で複数検証されている
+    assert checked_leader >= 15, f"AttackLeader 検証数不足: {checked_leader}"
+    assert checked_char >= 1, f"AttackCharacter 検証数不足: {checked_char}"
