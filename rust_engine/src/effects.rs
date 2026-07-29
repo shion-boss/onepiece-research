@@ -877,6 +877,46 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // レスト不能 (effects.py:6024)。 cannot_be_rested_buff + applier tracking。
+        "set_cannot_rest" => {
+            let target_val = if v.is_string() {
+                v.clone()
+            } else {
+                v.get("target").cloned().unwrap_or(Value::String("all_self_characters".into()))
+            };
+            let count = v.get("count").and_then(|x| x.as_i64()).unwrap_or(99) as usize;
+            let Some(targets) = resolve_target(Some(&target_val), me_idx, opp_idx, src, state) else { return false };
+            let tn = state.turn_number;
+            for (pi, sl) in targets.into_iter().take(count) {
+                let ip = get_ip_mut(&mut state.players[pi], sl);
+                ip.cannot_be_rested_buff = true;
+                ip.cannot_be_rested_applier_idx = me_idx as i32;
+                ip.cannot_be_rested_applied_turn = tn;
+            }
+            true
+        }
+        // アタック不能 (effects.py:5566)。 duration turn→until_turn_end / next_opp_turn_end→through_opp_turn。
+        "set_cannot_attack" => {
+            let (target_val, next_opp, count) = if let Some(o) = v.as_object() {
+                (
+                    o.get("target").cloned().unwrap_or(Value::String("one_opponent_character_any".into())),
+                    o.get("duration").and_then(|x| x.as_str()) == Some("next_opp_turn_end"),
+                    o.get("count").and_then(|x| x.as_i64()).unwrap_or(99) as usize,
+                )
+            } else {
+                (v.clone(), false, 99)
+            };
+            let Some(targets) = resolve_target(Some(&target_val), me_idx, opp_idx, src, state) else { return false };
+            for (pi, sl) in targets.into_iter().take(count) {
+                let ip = get_ip_mut(&mut state.players[pi], sl);
+                if next_opp {
+                    ip.cannot_attack_through_opp_turn = true;
+                } else {
+                    ip.cannot_attack_until_turn_end = true;
+                }
+            }
+            true
+        }
         _ => false, // 未対応 primitive → skip (該当カードは diverge)
     }
 }
