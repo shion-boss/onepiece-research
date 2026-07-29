@@ -301,9 +301,9 @@ pub fn reset_turn_buff(state: &mut GameState) {
 }
 
 /// game.py:advance_phase の vanilla 移植 (効果トリガー/静的 eval は R3 で追加)。
-pub fn advance_phase(state: &mut GameState) {
+pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
     if state.game_over {
-        return;
+        return Ok(());
     }
     let cur = state.phase.clone();
     let me = state.turn_player_idx;
@@ -364,7 +364,11 @@ pub fn advance_phase(state: &mut GameState) {
                 }
                 p.once_per_turn_used.clear();
             }
-            // trigger_turn_start: R3 で追加
+            // ターン開始時トリガー (game.py:707、 turn_number==1 含む全ターン)。
+            // turn player の on_turn_start → 非turn player の opp_turn_start の順 (turn-first)。
+            let opp = 1 - me;
+            crate::effects::fire_field_when(state, me, "on_turn_start")?;
+            crate::effects::fire_field_when(state, opp, "opp_turn_start")?;
             state.phase = Phase::Draw;
         }
         Phase::Draw => {
@@ -373,7 +377,7 @@ pub fn advance_phase(state: &mut GameState) {
                 if p.deck.is_empty() {
                     let win_self = p.deck_out_wins;
                     declare_winner(state, if win_self { me } else { 1 - me });
-                    return;
+                    return Ok(());
                 }
                 let card = p.deck.remove(0);
                 let cid = card.card_id.clone();
@@ -401,7 +405,12 @@ pub fn advance_phase(state: &mut GameState) {
             state.phase = Phase::End;
         }
         Phase::End => {
-            // trigger_end_of_turn: R3 で追加
+            // ターン終了時トリガー (end_of_turn / opp_end_of_turn) は cost/optional 込みで複雑 → 該当時 bail。
+            if board_has_when(&state.players[me], "end_of_turn")
+                || board_has_when(&state.players[1 - me], "opp_end_of_turn")
+            {
+                return Err("end_of_turn trigger 未対応".into());
+            }
             reset_turn_buff(state);
             if state.extra_turn_pending {
                 state.extra_turn_pending = false;
@@ -416,6 +425,7 @@ pub fn advance_phase(state: &mut GameState) {
     }
     // resolve_triggers: R3。 _recompute_static = ownership + 静的効果
     recompute_static(state);
+    Ok(())
 }
 
 /// action を state に適用 (副作用)。 Python apply_action ラッパ相当: impl 後に _recompute_static の
@@ -461,15 +471,16 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
         "PlayCharacter" => {
             let hand_idx = geti(action, "hand_idx", -1);
             let sac_idx = action.get("sacrifice_idx").and_then(|v| v.as_i64());
-            let p = &mut state.players[me];
-            if hand_idx < 0 || hand_idx as usize >= p.hand.len() {
+            if hand_idx < 0 || hand_idx as usize >= state.players[me].hand.len() {
                 return Err(format!("hand_idx 範囲外: {hand_idx}"));
             }
-            let card: CardDef = p.hand[hand_idx as usize].clone();
-            let eff_cost = (card.cost - p.play_cost_reduction).max(0);
-            if p.don_active < eff_cost {
+            let card: CardDef = state.players[me].hand[hand_idx as usize].clone();
+            // eff_cost = cost - play_cost_reduction - in_hand - filtered (game.py と一致)
+            let eff_cost = crate::effects::eff_cost(state, me, &card);
+            if state.players[me].don_active < eff_cost {
                 return Err("not enough don".into());
             }
+            let p = &mut state.players[me];
             if let Some(si) = sac_idx {
                 if si < 0 || si as usize >= p.characters.len() {
                     return Err(format!("sacrifice_idx 範囲外: {si}"));
@@ -825,15 +836,15 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
         // イベント使用 (game.py:1364)。 hand→trash、 cost 支払い、 max_event_cost、 main 効果実行。
         "PlayEvent" => {
             let hand_idx = geti(action, "hand_idx", -1);
-            let p = &mut state.players[me];
-            if hand_idx < 0 || hand_idx as usize >= p.hand.len() {
+            if hand_idx < 0 || hand_idx as usize >= state.players[me].hand.len() {
                 return Err(format!("hand_idx 範囲外: {hand_idx}"));
             }
-            let card: CardDef = p.hand[hand_idx as usize].clone();
-            let eff_cost = (card.cost - p.play_cost_reduction).max(0);
-            if p.don_active < eff_cost {
+            let card: CardDef = state.players[me].hand[hand_idx as usize].clone();
+            let eff_cost = crate::effects::eff_cost(state, me, &card);
+            if state.players[me].don_active < eff_cost {
                 return Err("not enough don".into());
             }
+            let p = &mut state.players[me];
             p.hand.remove(hand_idx as usize);
             p.don_rested += eff_cost;
             p.don_active -= eff_cost;
@@ -847,19 +858,55 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             crate::effects::execute_main_event(state, me, &card_id);
             Ok(())
         }
+        // ステージ登場 (game.py:1382)。 hand→stage、 既存 stage (MAX=1) は trash、 on_play 発火。
+        "PlayStage" => {
+            let hand_idx = geti(action, "hand_idx", -1);
+            if hand_idx < 0 || hand_idx as usize >= state.players[me].hand.len() {
+                return Err(format!("hand_idx 範囲外: {hand_idx}"));
+            }
+            let card: CardDef = state.players[me].hand[hand_idx as usize].clone();
+            let eff_cost = crate::effects::eff_cost(state, me, &card);
+            if state.players[me].don_active < eff_cost {
+                return Err("not enough don".into());
+            }
+            let p = &mut state.players[me];
+            // 3-8-5-1: 既存ステージ (MAX_STAGES=1) があれば trash、 付与ドンはレストへ
+            if p.stages.len() >= 1 {
+                let old = p.stages.remove(0);
+                let od = old.attached_dons;
+                p.trash.push(old.card);
+                if od > 0 {
+                    p.don_rested += od;
+                }
+            }
+            p.hand.remove(hand_idx as usize);
+            p.don_rested += eff_cost;
+            p.don_active -= eff_cost;
+            let consumed = card.cost - eff_cost;
+            p.play_cost_reduction = (p.play_cost_reduction - consumed).max(0);
+            p.stages.push(InPlay::of(card.clone(), false)); // stage は召喚酔い無
+            p.cards_played_count += 1;
+            let played_idx = p.stages.len() - 1;
+            // trigger_on_play context (effects.py:10640、 stage も trigger_on_play を通る)
+            state.last_self_chara_played_card = Some(card.clone());
+            state.last_self_chara_played_from_trash = false;
+            // stage の on_play 効果 (未対応 primitive は diverge)
+            crate::effects::execute_stage_on_play(state, me, played_idx);
+            Ok(())
+        }
         // ターン終了 (game.py:1313)。 MAIN→END→REFRESH→…→MAIN。 効果トリガーは R3。
         "EndPhase" => {
             state.players[me].dons_unused_at_end_count += state.players[me].don_active;
-            advance_phase(state); // MAIN → END
+            advance_phase(state)?; // MAIN → END
             if state.game_over {
                 return Ok(());
             }
-            advance_phase(state); // END → REFRESH
+            advance_phase(state)?; // END → REFRESH
             if state.game_over {
                 return Ok(());
             }
             while state.phase != Phase::Main && !state.game_over {
-                advance_phase(state);
+                advance_phase(state)?;
             }
             Ok(())
         }

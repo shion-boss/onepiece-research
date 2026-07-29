@@ -1525,6 +1525,12 @@ pub fn execute_main_event(state: &mut GameState, me_idx: usize, card_id: &str) {
     execute_card_effects(state, me_idx, card_id, "main", Slot::Leader);
 }
 
+/// ステージ登場時の on_play 効果を実行 (game.py:PlayStage → trigger_on_play)。 played_idx = me.stages の末尾。
+pub fn execute_stage_on_play(state: &mut GameState, me_idx: usize, played_idx: usize) {
+    let card_id = state.players[me_idx].stages[played_idx].card.card_id.clone();
+    execute_card_effects(state, me_idx, &card_id, "on_play", Slot::Stage(played_idx));
+}
+
 /// 起動メイン発火 (effects.py:fire_activate_main)。 effect_index の効果を cost 支払い→do 実行。
 /// ⚠ rest_self/pay_don/rest_self_don cost のみ対応 (trash_self/discard 等は skip)。 cascade は未対応。
 pub fn fire_activate_main(
@@ -1700,7 +1706,7 @@ fn in_hand_cost_minus(state: &GameState, me_idx: usize, card: &CardDef) -> i32 {
 }
 
 /// game.py:_eff_cost = card.cost - play_cost_reduction - in_hand - filtered_reduction (>=0)。
-fn eff_cost(state: &GameState, me_idx: usize, card: &CardDef) -> i32 {
+pub fn eff_cost(state: &GameState, me_idx: usize, card: &CardDef) -> i32 {
     let me = &state.players[me_idx];
     let mut filtered = 0i32;
     for r in me.play_cost_reductions_filtered.iter().chain(me.play_cost_reductions_filtered_turn.iter()) {
