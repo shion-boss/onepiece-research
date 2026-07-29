@@ -141,6 +141,7 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize) -> Option<bool
             "self_don_le" => total_don(me) <= v.as_i64().unwrap_or(0),
             "self_don_ge" => total_don(me) >= v.as_i64().unwrap_or(0),
             "self_don_active_ge" => (me.don_active as i64) >= v.as_i64().unwrap_or(0),
+            "self_don_active_le" => (me.don_active as i64) <= v.as_i64().unwrap_or(0),
             "self_don_active_eq" => (me.don_active as i64) == v.as_i64().unwrap_or(0),
             // 【ドン‼×N】ゲート = 自リーダー+全キャラの付与ドン合計 N 以上 (effects.py:1690)。
             // ⚠ self_inplay=None (on_ko 等) の _on_ko_victim_attached_don 足し戻しは未対応
@@ -1169,24 +1170,164 @@ pub fn fire_on_attack(
             None => return Err("on_attack 条件 unknown".into()),
         }
         let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
-        // dry-check: 全 prim が cascade-safe allow-list に入るか + draw cascade guard
-        for prim in dos {
-            let key = prim
-                .as_object()
-                .and_then(|o| o.keys().next())
-                .map(|s| s.as_str())
-                .unwrap_or("");
-            if !on_trigger_prim_safe(key) {
-                return Err(format!("on_attack primitive 未対応: {key}"));
-            }
-            if key == "draw" && me_board_has_when(state, me_idx, "on_self_draw_non_draw_phase") {
-                return Err("on_attack draw cascade (on_self_draw_non_draw_phase) 未対応".into());
+        fire_gated_do(state, me_idx, src, dos)?;
+    }
+    Ok(())
+}
+
+/// do-array を allow-list gate + draw cascade guard で発火。 全 prim 再現できたら Ok、 不能なら Err。
+/// (execute_effect の false = 再現不能。 partial mutation は apply_action Err で全破棄 = 無害)。
+fn fire_gated_do(
+    state: &mut GameState,
+    me_idx: usize,
+    src: Slot,
+    dos: &[Value],
+) -> Result<(), String> {
+    for prim in dos {
+        let key = prim
+            .as_object()
+            .and_then(|o| o.keys().next())
+            .map(|s| s.as_str())
+            .unwrap_or("");
+        if !on_trigger_prim_safe(key) {
+            return Err(format!("trigger primitive 未対応: {key}"));
+        }
+        if key == "draw" && me_board_has_when(state, me_idx, "on_self_draw_non_draw_phase") {
+            return Err("draw cascade (on_self_draw_non_draw_phase) 未対応".into());
+        }
+    }
+    for prim in dos {
+        if !execute_effect(prim, state, me_idx, src) {
+            return Err("trigger primitive 再現不能".into());
+        }
+    }
+    Ok(())
+}
+
+/// effects.py:_ai_should_fire_opp_attack_cost = AI defender が cost 付き opp_attack 効果を発動すべきか EV 判定。
+/// state だけ読む自己完結ヒューリスティック (bit 忠実移植)。 ⚠ ONEPIECE_NO_OVERDEFENSE_SKIP 未設定 (差分テスト
+/// 既定) = 過剰防御 skip 有効で移植。
+fn ai_should_fire_opp_attack_cost(
+    eff: &Value,
+    source_power: i32,
+    attacker_power: i32,
+    attacker_cost: i32,
+    defended_power: i32,
+    life_count: i32,
+) -> bool {
+    let cost = eff.get("cost").and_then(|c| c.as_object());
+    let gc = |k: &str| cost.and_then(|c| c.get(k)).and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+    let pay_don = gc("pay_don");
+    let rest_don = gc("rest_self_don");
+    let discard_n = gc("discard_hand");
+    let cost_value = pay_don * 800 + rest_don * 400 + discard_n * 1500;
+
+    let empty: Vec<Value> = vec![];
+    let do_list = eff.get("do").and_then(|v| v.as_array()).unwrap_or(&empty);
+    let mut do_keys: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
+    for prim in do_list {
+        if let Some(o) = prim.as_object() {
+            for k in o.keys() {
+                do_keys.insert(k.as_str());
             }
         }
-        // fire (execute_effect が false = 再現不能 → Err、 partial mutation は apply_action Err で全破棄)
-        for prim in dos {
-            if !execute_effect(prim, state, me_idx, src) {
-                return Err("on_attack primitive 再現不能".into());
+    }
+    let has = |keys: &[&str]| keys.iter().any(|k| do_keys.contains(k));
+
+    // 過剰防御防止: 効果が power_pump のみ + 全 battle duration + 効果無しでも耐える → skip
+    if do_keys.len() == 1 && do_keys.contains("power_pump") {
+        let all_battle = do_list
+            .iter()
+            .filter(|p| p.get("power_pump").is_some())
+            .all(|p| {
+                p.get("power_pump")
+                    .and_then(|pp| pp.get("duration"))
+                    .and_then(|d| d.as_str())
+                    == Some("battle")
+            });
+        if all_battle && defended_power > attacker_power {
+            return false;
+        }
+    }
+
+    let mut benefit = 0;
+    if has(&["ko", "ko_multi", "return_to_hand", "return_to_hand_multi"]) {
+        let ac = if attacker_cost > 0 { attacker_cost } else { 3 };
+        benefit += ac * 1000;
+    }
+    if do_keys.contains("power_pump") {
+        benefit += 2000;
+    }
+    if has(&["give_keyword", "give_rush"]) {
+        benefit += 2500;
+    }
+    if has(&["draw", "search", "search_top_n"]) {
+        benefit += 1500;
+    }
+    if has(&["prevent_ko", "set_ko_immune", "set_ko_immune_timed", "set_ko_immune_battle_only"]) {
+        benefit += if life_count <= 1 { 5000 } else if life_count <= 2 { 3000 } else { 1500 };
+    }
+    if has(&["add_don", "attach_don", "attach_active_don"]) {
+        benefit += 1000;
+    }
+    if do_keys.contains("redirect_attack") {
+        benefit += if life_count <= 1 { 4000 } else if life_count <= 2 { 3000 } else { 2000 };
+    }
+    // 攻撃確実失敗推定 (発動不要)
+    if source_power > 0 && attacker_power + 2000 < source_power {
+        return false;
+    }
+    if life_count <= 1 {
+        benefit += 2000;
+    }
+    benefit > cost_value
+}
+
+/// 【相手のアタック時】(opp_attack / opp_attack_on_leader / opp_attack_on_chara) を発火 (effects.py:
+/// _enqueue_opp_attack_with_cost、 self-play AI 経路)。 全て bit 忠実に再現できたら Ok、 できなければ Err。
+///  - costless: 条件成立なら発火 (allow-list、 未対応 target/prim は Err)
+///  - cost 持ち: ai_should_fire ヒューリスティックで判定 → skip(=何もしない)なら一致、 fire なら Err
+///    (cost 支払い + cascade + 防御 target 解決が要る = 未対応で bail)
+///  走査順 = leader → characters → stages (_enqueue_opp_attack_with_cost)。
+pub fn fire_opp_attack(
+    state: &mut GameState,
+    defender_idx: usize,
+    when_key: &str,
+    attacker_power: i32,
+    attacker_cost: i32,
+    defended_power: i32,
+) -> Result<(), String> {
+    let Some(ov) = overlay() else { return Ok(()) };
+    let n_char = state.players[defender_idx].characters.len();
+    let n_stage = state.players[defender_idx].stages.len();
+    let mut slots: Vec<Slot> = vec![Slot::Leader];
+    slots.extend((0..n_char).map(Slot::Char));
+    slots.extend((0..n_stage).map(Slot::Stage));
+    let life_count = state.players[defender_idx].life.len() as i32;
+    for slot in slots {
+        let cid = get_ip(&state.players[defender_idx], slot).card.card_id.clone();
+        let Some(effs) = ov.get(&cid) else { continue };
+        for eff in effs {
+            if eff.get("when").and_then(|v| v.as_str()) != Some(when_key) {
+                continue;
+            }
+            match eval_effect_conditions(eff, state, defender_idx) {
+                Some(true) => {}
+                Some(false) => continue,
+                None => return Err("opp_attack 条件 unknown".into()),
+            }
+            let costless = eff.get("cost").map_or(true, cost_is_empty);
+            if costless {
+                let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
+                fire_gated_do(state, defender_idx, slot, dos)?;
+            } else {
+                // cost 持ち: AI 判定。 skip なら何もしない (= Python の skip と一致)、 fire なら bail。
+                let src_power = get_ip(&state.players[defender_idx], slot).power();
+                if ai_should_fire_opp_attack_cost(
+                    eff, src_power, attacker_power, attacker_cost, defended_power, life_count,
+                ) {
+                    return Err("opp_attack cost effect fire 未対応".into());
+                }
             }
         }
     }

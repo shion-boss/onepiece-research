@@ -537,12 +537,6 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             if cost_discard > 0 {
                 return Err("attack cost 未対応".into());
             }
-            // 防御側 opp_attack トリガーは未対応 (cost 持ち防御 pump が大半) → bail
-            if board_has_when(&state.players[opp], "opp_attack")
-                || board_has_when(&state.players[opp], "opp_attack_on_leader")
-            {
-                return Err("opp_attack trigger 未対応".into());
-            }
             // attacker.rested = true (game.py:1466、 on_attack 発火前)
             if is_leader {
                 state.players[me].leader.rested = true;
@@ -551,7 +545,18 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             }
             // 【アタック時】(on_attack) 発火 (game.py:1467、 costless slice のみ、 未対応は Err で bail)
             crate::effects::fire_on_attack(state, me, is_leader, atk_idx)?;
-            // on_attack で power/keyword が変化しうるので attacker を再スナップショット
+            // 【相手のアタック時】(opp_attack + on_leader) 発火 (game.py:1476、 defended_target=leader)。
+            // AI が発動しない (skip) なら一致、 cost effect fire は Err (防御 EV heuristic 移植済)。
+            let atk_cost = {
+                let a = if is_leader { &state.players[me].leader } else { &state.players[me].characters[atk_idx] };
+                a.card.cost
+            };
+            let ap = if is_leader { state.players[me].leader.power() } else { state.players[me].characters[atk_idx].power() };
+            let dp = state.players[opp].leader.power();
+            crate::effects::fire_opp_attack(state, opp, "opp_attack", ap, atk_cost, dp)?;
+            let dp2 = state.players[opp].leader.power();
+            crate::effects::fire_opp_attack(state, opp, "opp_attack_on_leader", ap, atk_cost, dp2)?;
+            // on_attack/opp_attack で power/keyword が変化しうるので attacker を再スナップショット
             let attacker: InPlay = if is_leader {
                 state.players[me].leader.clone()
             } else {
@@ -710,12 +715,7 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             if ret_at_battle_end {
                 return Err("return_at_battle_end 未対応".into());
             }
-            if board_has_when(&state.players[opp], "opp_attack")
-                || board_has_when(&state.players[opp], "opp_attack_on_chara")
-            {
-                return Err("opp_attack trigger 未対応".into());
-            }
-            // attacker.rested = true (on_attack 発火前)
+            // attacker.rested = true (game.py:1833、 on_attack 発火前、 target-check より先)
             if is_leader {
                 state.players[me].leader.rested = true;
             } else {
@@ -723,7 +723,26 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             }
             // 【アタック時】(on_attack) 発火 (costless slice のみ、 未対応は Err)
             crate::effects::fire_on_attack(state, me, is_leader, atk_idx)?;
-            // target 存在チェック (on_attack 後、 消失 = 空打ち = reset+Ok、 game.py:1849)
+            // 【相手のアタック時】(opp_attack + on_chara) 発火 (game.py:1843、 defended_target=対象キャラ)。
+            // target 消失時 (= 通常起きない、 fire は bail) は defended_power=0 で扱う。
+            let atk_cost = {
+                let a = if is_leader { &state.players[me].leader } else { &state.players[me].characters[atk_idx] };
+                a.card.cost
+            };
+            let ap = if is_leader { state.players[me].leader.power() } else { state.players[me].characters[atk_idx].power() };
+            let dp = if (tgt_idx as usize) < state.players[opp].characters.len() {
+                state.players[opp].characters[tgt_idx as usize].power()
+            } else {
+                0
+            };
+            crate::effects::fire_opp_attack(state, opp, "opp_attack", ap, atk_cost, dp)?;
+            let dp2 = if (tgt_idx as usize) < state.players[opp].characters.len() {
+                state.players[opp].characters[tgt_idx as usize].power()
+            } else {
+                0
+            };
+            crate::effects::fire_opp_attack(state, opp, "opp_attack_on_chara", ap, atk_cost, dp2)?;
+            // target 存在チェック (on_attack/opp_attack 後、 消失 = 空打ち = reset+Ok、 game.py:1849)
             if tgt_idx < 0 || tgt_idx as usize >= state.players[opp].characters.len() {
                 reset_battle_buffs(state);
                 return Ok(());
