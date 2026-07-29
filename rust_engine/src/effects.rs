@@ -58,6 +58,43 @@ pub fn card_has_when(card_id: &str, when: &str) -> bool {
     })
 }
 
+/// effects.py:should_fire_trigger = 防御 AI が ライフの【トリガー】を発動すべきか。
+/// Some(true)=発動(=強力効果を含む) / Some(false)=発動しない(=手札へ) / None=条件 unknown で判定不能(=呼出側 bail)。
+/// 強力効果 = ko/return_to_hand/draw/life_to_hand/rest/ko_self/play_self/play_from_trash/
+///           play_multi_from_trash/play_from_hand/fire_self_effect のいずれかの key を do に含む。
+pub fn should_fire_trigger(state: &GameState, defender_idx: usize, card_id: &str) -> Option<bool> {
+    let Some(ov) = overlay() else { return Some(false) };
+    let Some(effs) = ov.get(card_id) else { return Some(false) };
+    let trig: Vec<&Value> = effs
+        .iter()
+        .filter(|e| e.get("when").and_then(|v| v.as_str()) == Some("trigger"))
+        .collect();
+    if trig.is_empty() {
+        return Some(false);
+    }
+    const STRONG: &[&str] = &[
+        "ko", "return_to_hand", "draw", "life_to_hand", "rest", "ko_self", "play_self",
+        "play_from_trash", "play_multi_from_trash", "play_from_hand", "fire_self_effect",
+    ];
+    for eff in trig {
+        match eval_effect_conditions(eff, state, defender_idx) {
+            Some(true) => {}
+            Some(false) => continue,
+            None => return None, // 条件 unknown → 判定不能 = bail
+        }
+        if let Some(dos) = eff.get("do").and_then(|v| v.as_array()) {
+            for prim in dos {
+                if let Some(o) = prim.as_object() {
+                    if o.keys().any(|k| STRONG.contains(&k.as_str())) {
+                        return Some(true);
+                    }
+                }
+            }
+        }
+    }
+    Some(false)
+}
+
 /// effects.py:_opp_value = AI が除去/対象に選ぶ相手キャラの価値。 max が選ばれる。
 fn opp_value(ip: &InPlay) -> f64 {
     let mut val = (ip.card.cost as f64) * 1000.0 + (ip.power() as f64);

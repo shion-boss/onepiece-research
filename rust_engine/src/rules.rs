@@ -650,10 +650,13 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 {
                     return Err("life 移動 trigger 未対応".into());
                 }
-                // 取られる life 上位 damage 枚に trigger があれば未対応
-                for c in state.players[opp].life.iter().take(damage as usize) {
-                    if crate::effects::card_has_when(&c.card_id, "trigger") {
-                        return Err("life trigger 未対応".into());
+                // 取られる life 上位 damage 枚: 防御 AI が【トリガー】を発動しない (=手札へ) なら一致、
+                // 発動 or 条件 unknown は未対応 (trigger_lifecard_trigger の発火は複雑) → bail。
+                for i in 0..(damage as usize).min(state.players[opp].life.len()) {
+                    let cid = state.players[opp].life[i].card_id.clone();
+                    match crate::effects::should_fire_trigger(state, opp, &cid) {
+                        Some(false) => {}
+                        _ => return Err("life trigger (fire/unknown) 未対応".into()),
                     }
                 }
                 for _ in 0..damage {
