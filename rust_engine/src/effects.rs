@@ -77,6 +77,14 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize) -> Option<bool
                 arr.iter().any(|x| me.leader.card.features.iter().any(|f| Some(f.as_str()) == x.as_str()))
             }),
             "leader_name" => me.leader.card.name == v.as_str().unwrap_or(""),
+            "leader_color" => {
+                let val = v.as_str().unwrap_or("");
+                if val == "多色" {
+                    me.leader.card.color.len() >= 2
+                } else {
+                    me.leader.card.color.iter().any(|c| c == val)
+                }
+            }
             "leader_attribute" | "self_leader_attribute" => me.leader.card.attribute == v.as_str().unwrap_or(""),
             "opp_leader_attribute" => opp.leader.card.attribute == v.as_str().unwrap_or(""),
             "self_life_le" => (me.life.len() as i64) <= v.as_i64().unwrap_or(0),
@@ -394,6 +402,61 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
             }
         }
         _ => {} // 未対応 primitive → skip (該当カードは diverge = 差分テストが示す)
+    }
+}
+
+/// 非静的 primitive を実行 (on_play 等)。 返り値 = 処理できたか (false=未対応→呼出側でカードが diverge)。
+/// fidelity 原則: 未対応 primitive は何もしない (誤適用ゼロ)。 rng を使う primitive
+/// (trash_self_hand_random 等) は Rust で bit 再現不可なので未対応扱い。
+fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, _src: Slot) -> bool {
+    let Some((key, v)) = prim.as_object().and_then(|o| o.iter().next()) else { return true };
+    match key.as_str() {
+        // ドロー N (effects.py:3121)。 block_self_draw 中は不発。
+        "draw" => {
+            let n = v.as_i64().unwrap_or(0) as i32;
+            let me = &mut state.players[me_idx];
+            if me.block_self_draw_until_turn_end {
+                return true;
+            }
+            for _ in 0..n {
+                if me.deck.is_empty() {
+                    break;
+                }
+                let c = me.deck.remove(0);
+                let cid = c.card_id.clone();
+                if !me.known_top_card_ids.is_empty() && me.known_top_card_ids[0] == cid {
+                    me.known_top_card_ids.remove(0);
+                } else if let Some(p) = me.known_top_card_ids.iter().position(|x| *x == cid) {
+                    me.known_top_card_ids.remove(p);
+                }
+                me.hand.push(c);
+                me.cards_drawn_count += 1;
+            }
+            true
+        }
+        _ => false, // 未対応 primitive → skip (該当カードは diverge)
+    }
+}
+
+/// キャラ登場時の on_play 効果を実行 (effects.py:trigger_on_play)。 played_idx = me.characters の末尾。
+/// ⚠ on_opp_chara_played (相手側トリガー) + event queue cascade は未対応 (該当カードは diverge)。
+pub fn execute_on_play(state: &mut GameState, me_idx: usize, played_idx: usize) {
+    let Some(ov) = overlay() else { return };
+    let card_id = state.players[me_idx].characters[played_idx].card.card_id.clone();
+    let Some(effs) = ov.get(&card_id) else { return };
+    for eff in effs {
+        if eff.get("when").and_then(|v| v.as_str()) != Some("on_play") {
+            continue;
+        }
+        match eval_effect_conditions(eff, state, me_idx) {
+            Some(true) => {}
+            _ => continue,
+        }
+        if let Some(dos) = eff.get("do").and_then(|v| v.as_array()) {
+            for prim in dos {
+                execute_effect(prim, state, me_idx, Slot::Char(played_idx));
+            }
+        }
     }
 }
 

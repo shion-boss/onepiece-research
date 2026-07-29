@@ -349,10 +349,13 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             let sickness = !card.is_rush();
             p.characters.push(InPlay::of(card.clone(), sickness));
             p.cards_played_count += 1;
+            let played_idx = p.characters.len() - 1;
             // trigger_on_play context (Python は on_play 有無に関わらず設定、 effects.py:10640)
             state.last_self_chara_played_card = Some(card);
             state.last_self_chara_played_from_trash = false; // 手札からの登場
-            // on_play 効果 / on_opp_chara_played: R3 (効果持ちカードは digest 不一致 = 差分テストが境界を明示)
+            // on_play 効果を実行 (未対応 primitive のカードは diverge = 差分テストが境界)。
+            // ⚠ on_opp_chara_played (相手側) は未対応。
+            crate::effects::execute_on_play(state, me, played_idx);
             Ok(())
         }
         "AttachDonToLeader" => {
