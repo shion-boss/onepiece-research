@@ -1,82 +1,61 @@
-//! OPTCG Rust エンジン — PyO3 バインディング (2026-07-29 scaffold)。
+//! OPTCG Rust エンジン — PyO3 バインディング (Phase R0→R1)。
 //!
-//! 目的: self-play の高速ミラー。 engine/*.py を正 (reference) とし、 差分ハーネス
-//! (scripts/engine_diff_trace.py + engine/state_snapshot.py) で「同一 seed/action → 同一 canonical
-//! digest」を保証しながら段階移植する。
+//! Python engine を正とし、 差分ハーネス (scripts/engine_diff_trace.py + engine/state_snapshot.py) で
+//! 「同一状態 → 同一 canonical digest」を保証しながら段階移植する。 docs/rust_engine_plan.md。
 //!
-//! ロードマップ (docs/rust_engine_plan.md):
-//!   Phase R0 [済]: 差分ハーネス (Python 側 canonical/digest/決定論確認) + scaffold
-//!   Phase R1: 状態モデル完全 port (state.rs 全 field) + cards.json/deck ロード + setup_game
-//!   Phase R2: ルール (game.py: legal_actions/apply_action/turn 進行/戦闘) 差分テスト通過
-//!   Phase R3: DSL インタプリタ (effects.py 312 primitive) を common 順に移植、 全カード差分テスト
-//!   Phase R4: AI (beam/value) 移植 → self-play を Rust 内で完結 (30-100x)
+//! R1 の fidelity テスト: Python が full_dump した状態 (全 field、 card は CardDef dict、 instance_id 除外)
+//! を Rust が deserialize → canonical serialize (card→card_id, sorted key) → sha1 が Python state_digest と
+//! 一致するか。 一致 = Rust の状態モデルが忠実 (全 147 field を正しく表現)。
 
 use pyo3::prelude::*;
+use sha1::{Digest, Sha1};
 
 mod state;
 
-/// バージョン情報 (パイプライン疎通確認用)。
+/// バージョン情報。
 #[pyfunction]
 fn version() -> String {
-    format!("optcg_engine {} (scaffold R0)", env!("CARGO_PKG_VERSION"))
+    format!("optcg_engine {} (R1: 状態モデル)", env!("CARGO_PKG_VERSION"))
 }
 
-/// 状態モデルが構築できることの疎通デモ (空ゲーム状態の phase 名を返す)。
-/// 本実装 (setup_game/apply_action/state_digest) は Phase R1+ で追加。
+/// Python の full_dump(JSON) を deserialize → canonical digest を返す。
+/// engine/state_snapshot.py:state_digest と bit 一致すれば状態モデルが忠実。
+///
+/// canonical 規約 (Python state_digest と一致):
+///  - to_value でネストを serde_json::Value 化 → Map は BTreeMap = key sorted (Python sort_keys 相当)
+///  - card は ser_card_id で card_id に畳む (Python CardDef→card_id 相当)
+///  - BTreeSet は sorted array (Python set→sorted 相当)
+///  - to_string は compact ","/":"、 UTF-8 raw (Python separators+ensure_ascii=False 相当)
 #[pyfunction]
-fn scaffold_selftest() -> PyResult<String> {
-    use state::*;
-    let leader = InPlay {
-        card: CardDef {
-            card_id: "TEST-000".into(),
-            name: "テスト".into(),
-            category: Category::Leader,
-            color: vec!["赤".into()],
-            cost: 0,
-            life: 5,
-            power: 5000,
-            counter: 0,
-            attribute: "".into(),
-            block_icon: 0,
-            features: vec![],
-            trigger: "".into(),
-        },
-        rested: false,
-        attached_dons: 0,
-        summoning_sickness: false,
-        static_buff: 0,
-        turn_buff: 0,
-        battle_buff: 0,
-        next_turn_buff: 0,
-    };
-    let p = Player {
-        name: "P0".into(),
-        leader,
-        deck: vec![],
-        hand: vec![],
-        characters: vec![],
-        stages: vec![],
-        trash: vec![],
-        life: vec![],
-        don_active: 0,
-        don_rested: 0,
-        don_remaining_in_deck: 10,
-    };
-    let gs = GameState {
-        players: vec![p],
-        turn_player_idx: 0,
-        turn_number: 1,
-        phase: Phase::Main,
-        winner: None,
-        game_over: false,
-    };
-    // canonical JSON (Python state_snapshot と同規約) で疎通確認
-    serde_json::to_string(&gs).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+fn canonical_digest(dump_json: &str) -> PyResult<String> {
+    let st: state::GameState = serde_json::from_str(dump_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deserialize 失敗: {e}")))?;
+    // struct → Value (card 畳み + sorted key) → compact JSON
+    let v = serde_json::to_value(&st)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("to_value 失敗: {e}")))?;
+    let blob = serde_json::to_string(&v)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+    let mut h = Sha1::new();
+    h.update(blob.as_bytes());
+    let digest = h.finalize();
+    let hex: String = digest.iter().map(|b| format!("{:02x}", b)).collect();
+    Ok(hex[..16].to_string())
+}
+
+/// デバッグ用: Rust が再構成した canonical JSON blob をそのまま返す (Python と文字列比較して乖離 pinpoint)。
+#[pyfunction]
+fn canonical_blob(dump_json: &str) -> PyResult<String> {
+    let st: state::GameState = serde_json::from_str(dump_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deserialize 失敗: {e}")))?;
+    let v = serde_json::to_value(&st)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+    serde_json::to_string(&v).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
 #[pymodule]
 fn optcg_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(version, m)?)?;
-    m.add_function(wrap_pyfunction!(scaffold_selftest, m)?)?;
+    m.add_function(wrap_pyfunction!(canonical_digest, m)?)?;
+    m.add_function(wrap_pyfunction!(canonical_blob, m)?)?;
     Ok(())
 }

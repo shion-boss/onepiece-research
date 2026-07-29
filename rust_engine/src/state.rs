@@ -1,25 +1,29 @@
-//! OPTCG 状態モデル (Rust)。 engine/core.py のミラー。
+//! OPTCG 状態モデル (Rust)。 engine/core.py の完全ミラー (Phase R1)。
 //!
-//! ⚠ これは scaffold = 主要 field のみ。 完全 port は core.py の InPlay(71) / Player(39) /
-//! GameState(37) 全 field を写す (差分ハーネスが field 単位で一致を検証する)。
-//! serde derive で canonical JSON serialize → sha1 digest を Python engine と突合する。
-//!
-//! 正準化の規約 (engine/state_snapshot.py と一致させること):
-//!  - instance_id は除外 (グローバル採番タグ = 言語間で不一致、 状態の意味は card_id+flag+位置)
-//!  - set は sorted、 dict は key sorted、 rng/log/overlay は除外
+//! 全 field を core.py 順に写す (InPlay 71 / Player 39 / GameState 37)。 差分ハーネス
+//! (engine/state_snapshot.py) と同じ正準化規約:
+//!  - instance_id は struct に持たない (グローバル採番タグ = 除外)
+//!  - set → BTreeSet (sorted = canonical 一致) / dict → BTreeMap (key sorted)
+//!  - CardDef → card_id に畳む / rng/log/overlay/hook は持たない
+//!  - opaque な DSL payload (filter/delayed/event_queue) は serde_json::Value (R2/R3 で型付け)
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, BTreeSet};
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Category {
+    #[serde(rename = "LEADER")]
     Leader,
+    #[serde(rename = "CHARACTER")]
     Character,
+    #[serde(rename = "EVENT")]
     Event,
+    #[serde(rename = "STAGE")]
     Stage,
 }
 
-/// 静的カード定義 (engine/core.py CardDef、 frozen)。 db/cards.json 由来。
-#[derive(Debug, Clone, Serialize, PartialEq)]
+/// 静的カード定義 (core.py CardDef、 frozen)。 db/cards.json 由来。 digest では card_id に畳む。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CardDef {
     pub card_id: String,
     pub name: String,
@@ -32,34 +36,134 @@ pub struct CardDef {
     pub attribute: String,
     pub block_icon: i32,
     pub features: Vec<String>,
-    // text/trigger/rarity は gameplay に効くもの (trigger) 以外 digest から除外予定
+    pub text: String,
     pub trigger: String,
-}
-
-/// 場のカード (engine/core.py InPlay、 71 field)。 ここでは中核のみ。
-/// ⚠ #[serde(skip)] instance_id 相当は持たせない (canonical から除外する規約)。
-#[derive(Debug, Clone, Serialize, PartialEq)]
-pub struct InPlay {
-    // card は card_id に畳んで serialize (CardDef 全体でなく)
-    #[serde(serialize_with = "ser_card_id")]
-    pub card: CardDef,
-    pub rested: bool,
-    pub attached_dons: i32,
-    pub summoning_sickness: bool,
-    pub static_buff: i32,
-    pub turn_buff: i32,
-    pub battle_buff: i32,
-    pub next_turn_buff: i32,
-    // TODO(port): 残り ~60 field (granted_keywords/各種 ko_immune/base_power_override/
-    //   時限 override 群 …) を core.py 順に追加。 各追加時に差分ハーネスで Python と突合。
 }
 
 fn ser_card_id<S: serde::Serializer>(c: &CardDef, s: S) -> Result<S::Ok, S::Error> {
     s.serialize_str(&c.card_id)
 }
 
-/// プレイヤー状態 (engine/core.py Player、 39 field)。 中核のみ。
-#[derive(Debug, Clone, Serialize, PartialEq)]
+fn ser_card_ids<S: serde::Serializer>(v: &[CardDef], s: S) -> Result<S::Ok, S::Error> {
+    use serde::ser::SerializeSeq;
+    let mut seq = s.serialize_seq(Some(v.len()))?;
+    for c in v {
+        seq.serialize_element(&c.card_id)?;
+    }
+    seq.end()
+}
+
+/// Option<CardDef> を card_id (or null) に畳む (Python canonical と一致)。
+fn ser_opt_card_id<S: serde::Serializer>(c: &Option<CardDef>, s: S) -> Result<S::Ok, S::Error> {
+    match c {
+        Some(cd) => s.serialize_str(&cd.card_id),
+        None => s.serialize_none(),
+    }
+}
+
+/// 場のカード (core.py InPlay、 71 field。 instance_id は除外)。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct InPlay {
+    #[serde(serialize_with = "ser_card_id")]
+    pub card: CardDef,
+    pub rested: bool,
+    pub attached_dons: i32,
+    pub summoning_sickness: bool,
+    pub counters_used_this_battle: i32,
+    // buff 群 (静的/ターン/バトル/次ターン)
+    pub static_buff: i32,
+    pub turn_buff: i32,
+    pub battle_buff: i32,
+    pub next_turn_buff: i32,
+    // 動的付与キーワード/属性
+    pub granted_keywords: BTreeSet<String>,
+    pub granted_attributes: BTreeSet<String>,
+    pub static_granted_keywords: BTreeSet<String>,
+    pub granted_keywords_through_opp_turn: BTreeSet<String>,
+    pub granted_keywords_through_opp_turn_applier_idx: i32,
+    pub granted_keywords_through_opp_turn_applied_turn: i32,
+    // アタック時 手札 N 捨て制約 (applier-tracking)
+    pub attack_cost_discard_hand_n: i32,
+    pub attack_cost_discard_hand_applier_idx: i32,
+    pub attack_cost_discard_hand_applied_turn: i32,
+    // バトル KO 耐性 群
+    pub battle_ko_immune_static: bool,
+    pub battle_ko_immune_until_turn_end: bool,
+    pub battle_ko_immune_through_opp_turn: bool,
+    pub battle_ko_immune_vs_leader: bool,
+    pub battle_pump_vs_attribute: BTreeMap<String, i32>,
+    // turn 限定フラグ 群
+    pub blocker_disabled_until_turn_end: bool,
+    pub ko_immune_until_turn_end: bool,
+    pub cannot_attack_until_turn_end: bool,
+    pub return_to_deck_bottom_at_turn_end: bool,
+    pub played_from_trash: bool,
+    pub trash_at_self_turn_end: bool,
+    pub return_to_deck_bottom_at_battle_end: bool,
+    // コスト修正
+    pub cost_minus_until_turn_end: i32,
+    pub cost_minus_through_opp_turn: i32,
+    pub stay_rested_next_refresh: bool,
+    // 静的 KO 耐性 群
+    pub static_ko_immune: bool,
+    pub static_ko_immune_from_source_power_le: i32,
+    pub static_ko_immune_from_non_attribute: String,
+    // base power/cost override 群 (Option = None なら CardDef 値)
+    pub base_power_override: Option<i32>,
+    pub turn_base_power_override: Option<i32>,
+    pub next_turn_base_power_override: Option<i32>,
+    pub next_opp_turn_end_base_power_override: Option<i32>,
+    pub next_opp_turn_end_base_power_override_applier_idx: i32,
+    pub next_opp_turn_end_base_power_override_applied_turn: i32,
+    pub base_cost_override: Option<i32>,
+    pub next_opp_turn_end_base_cost_override: Option<i32>,
+    pub next_opp_turn_end_base_cost_override_applier_idx: i32,
+    pub next_opp_turn_end_base_cost_override_applied_turn: i32,
+    // 常在フラグ 群
+    pub attack_taunt: bool,
+    pub cannot_attack_static: bool,
+    pub protect_from_opp_effect: bool,
+    pub ko_immune_battle_attributes_in: BTreeSet<String>,
+    pub ko_immune_battle_attributes_not_in: BTreeSet<String>,
+    pub effect_disabled_through_opp_turn: bool,
+    pub cannot_attack_through_opp_turn: bool,
+    pub attacker_prevents_blocker_until_turn_end: bool,
+    pub attacker_prevents_blocker_power_le: i32,
+    pub cannot_attack_target_cost_le_until_turn_end: i32,
+    pub ko_immune_through_opp_turn: bool,
+    pub ko_per_turn_immune_remaining: i32,
+    pub ko_per_turn_immune_max: i32,
+    // 時限 buff 群 (applier-tracking)
+    pub next_opp_turn_end_buff: i32,
+    pub next_opp_turn_end_applier_idx: i32,
+    pub next_opp_turn_end_applied_turn: i32,
+    pub next_self_turn_end_buff: i32,
+    pub next_self_turn_end_applier_idx: i32,
+    pub next_self_turn_end_applied_turn: i32,
+    pub cannot_be_rested_buff: bool,
+    pub cannot_be_rested_applier_idx: i32,
+    pub cannot_be_rested_applied_turn: i32,
+    // ownership
+    pub owner_idx: i32,
+    pub is_owners_turn: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum Phase {
+    #[serde(rename = "REFRESH")]
+    Refresh,
+    #[serde(rename = "DRAW")]
+    Draw,
+    #[serde(rename = "DON")]
+    Don,
+    #[serde(rename = "MAIN")]
+    Main,
+    #[serde(rename = "END")]
+    End,
+}
+
+/// プレイヤー状態 (core.py Player、 39 field)。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Player {
     pub name: String,
     pub leader: InPlay,
@@ -73,34 +177,43 @@ pub struct Player {
     pub trash: Vec<CardDef>,
     #[serde(serialize_with = "ser_card_ids")]
     pub life: Vec<CardDef>,
+    pub face_up_life_count: i32,
+    pub known_hand_card_ids: Vec<String>,
+    pub known_bottom_card_ids: Vec<String>,
+    pub known_top_card_ids: Vec<String>,
     pub don_active: i32,
     pub don_rested: i32,
     pub don_remaining_in_deck: i32,
-    // TODO(port): 残り Player field (play_cost_reduction/各種 turn フラグ/once_per_turn_used/
-    //   known_*_card_ids/累積カウンタ …)。
+    pub play_cost_reduction: i32,
+    // filter 付きコスト軽減 (opaque DSL payload = Value)
+    pub play_cost_reductions_filtered: Vec<serde_json::Value>,
+    pub play_cost_reductions_filtered_turn: Vec<serde_json::Value>,
+    pub block_chara_play_until_turn_end: bool,
+    pub cannot_attack_leader_until_turn_end: bool,
+    pub block_chara_play_cost_ge_threshold: i32,
+    pub opp_on_play_disabled_through_opp_turn: bool,
+    pub block_self_draw_until_turn_end: bool,
+    pub turn_battle_ko_save_discard: bool,
+    pub life_lost_this_turn: bool,
+    pub chara_ko_taken_this_turn: i32,
+    pub deck_out_wins: bool,
+    pub prevent_self_life_to_hand_until_turn_end: bool,
+    pub hand_discarded_by_effect_this_turn: bool,
+    pub delayed_at_opp_main_phase_start: Vec<serde_json::Value>,
+    pub next_refresh_kept_rested_don: i32,
+    pub once_per_turn_used: BTreeSet<String>,
+    pub cards_drawn_count: i32,
+    pub cards_played_count: i32,
+    pub max_event_cost_this_turn: i32,
+    pub dons_used_count: i32,
+    pub dons_unused_at_end_count: i32,
+    pub did_mulligan: bool,
+    pub hand_counter_boost: Option<serde_json::Value>,
 }
 
-fn ser_card_ids<S: serde::Serializer>(v: &[CardDef], s: S) -> Result<S::Ok, S::Error> {
-    use serde::ser::SerializeSeq;
-    let mut seq = s.serialize_seq(Some(v.len()))?;
-    for c in v {
-        seq.serialize_element(&c.card_id)?;
-    }
-    seq.end()
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq)]
-pub enum Phase {
-    Refresh,
-    Draw,
-    Don,
-    Main,
-    End,
-}
-
-/// ゲーム状態 (engine/core.py GameState、 37 field)。 中核のみ。
-/// rng/log/effects_overlay/snapshots/hook は canonical から除外 (Serialize で持たせない)。
-#[derive(Debug, Clone, Serialize, PartialEq)]
+/// ゲーム状態 (core.py GameState の**ルール状態**のみ)。 AI 評価/UI/デッキメタ/human 対話は
+/// 差分対象外 (Python 側 _EXCLUDE と一致)。 last_* トリガー context は action 間では通常 None。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct GameState {
     pub players: Vec<Player>,
     pub turn_player_idx: usize,
@@ -108,5 +221,22 @@ pub struct GameState {
     pub phase: Phase,
     pub winner: Option<usize>,
     pub game_over: bool,
-    // TODO(port): pending_event/event_queue/resolving/extra_turn_pending/pending_attack_redirect …
+    pub pending_attack_redirect: Option<i32>,
+    pub event_queue: Vec<serde_json::Value>,
+    pub resolving: bool,
+    pub extra_turn_pending: bool,
+    // 直近トリガー context (action 間では通常 None)。 card ref は card_id に畳む (Python canonical と一致)
+    pub last_discard_source_inplay: Option<InPlay>,
+    pub last_discard_count: i32,
+    pub last_returned_don_count: i32,
+    pub last_peeked_opp_deck_top: Option<serde_json::Value>,
+    #[serde(serialize_with = "ser_opt_card_id")]
+    pub last_chara_ko_victim_card: Option<CardDef>,
+    #[serde(serialize_with = "ser_opt_card_id")]
+    pub last_opp_chara_played_card: Option<CardDef>,
+    #[serde(serialize_with = "ser_opt_card_id")]
+    pub last_self_chara_played_card: Option<CardDef>,
+    pub last_self_chara_played_iid: Option<i32>,
+    pub last_self_chara_played_from_trash: bool,
+    pub last_trigger_kept_in_hand: bool,
 }

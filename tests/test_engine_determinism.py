@@ -66,7 +66,43 @@ def test_rust_engine_import_smoke():
     except ImportError:
         pytest.skip("optcg_engine 未 build (rust_engine で maturin develop)")
     assert "optcg_engine" in eng.version()
+
+
+def test_rust_state_model_fidelity():
+    """R1: Rust 状態モデル (全147field) が Python engine と同じ canonical digest を出す。
+    = Rust の状態表現が忠実。 未 build 環境では skip。"""
+    try:
+        eng = importlib.import_module("optcg_engine")
+    except ImportError:
+        pytest.skip("optcg_engine 未 build")
     import json
-    d = json.loads(eng.scaffold_selftest())
-    assert d["players"][0]["leader"]["card"] == "TEST-000"  # card_id に畳まれている
-    assert d["phase"] == "Main"
+    import random
+    from engine.core import reset_iid
+    from engine.deck import CardRepository, make_deck_from_dict
+    from engine.effects import load_effect_overlay
+    from engine.game import setup_game, play_until_main, apply_action
+    from engine.ai import GreedyAI
+    from engine.state_snapshot import state_digest, full_dump
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def dl(s):
+        return make_deck_from_dict(json.loads((ROOT / "decks" / f"{s}.json").read_text()), repo)
+
+    for seed, nacts in [(1, 0), (1, 8), (7, 15), (1, 30)]:
+        reset_iid()
+        st = setup_game(dl("cardrush_1385"), dl("cardrush_1385"),
+                        rng=random.Random(seed), first_player=0, effects_overlay=ov)
+        play_until_main(st)
+        ais = [GreedyAI(rng=random.Random(seed * 3 + 1)), GreedyAI(rng=random.Random(seed * 5 + 2))]
+        for _ in range(nacts):
+            if st.game_over:
+                break
+            a = ais[st.turn_player_idx].choose_action(st)
+            if a is None:
+                break
+            apply_action(st, a)
+        d_py = state_digest(st)
+        d_rust = eng.canonical_digest(json.dumps(full_dump(st)))
+        assert d_py == d_rust, f"seed={seed} nacts={nacts}: Rust 状態 digest 不一致 (py={d_py} rust={d_rust})"

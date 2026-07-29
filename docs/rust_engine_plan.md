@@ -57,12 +57,17 @@ Python engine (engine/*.py)          Rust engine (rust_engine/)
 | Phase | 内容 | 状態 |
 |---|---|---|
 | **R0** | 差分ハーネス (canonical/digest/決定論確認) + Rust scaffold (cargo+PyO3+maturin、 build→import→serialize 疎通) | ✅ 済 (2026-07-29) |
-| **R1** | 状態モデル完全 port (state.rs 全 71/39/37 field) + cards.json/deck ロード + `setup_game` を Rust に。 差分ハーネスで初期状態一致を assert | 未 |
+| **R1a** | **状態モデル完全 port (state.rs 全147field) + fidelity 実証**。 Python `full_dump` → Rust `canonical_digest` が Python `state_digest` と **15/15 状態で bit 一致** (複数 seed/マッチ/手数0-40)。 = Rust 状態表現が忠実 | ✅ 済 (2026-07-29) |
+| **R1b** | cards.json/deck ロード + `setup_game` を Rust に (RNG = Python MT19937 互換 or Python から初期状態受領) | 未 |
 | **R2** | ルール port (`game.py`: legal_actions/apply_action/turn 進行/戦闘/ライフ)。 action を canonical エンコード (card_id+zone位置、 iid 非依存) して両 engine で replay、 全 step digest 一致 | 未 |
 | **R3** | DSL インタプリタ (`effects.py` 312 primitive、 13.7k 行) を **self-play 頻出順**に移植。 各 primitive 追加毎に該当カードの差分テスト。 頻出~80 primitive で 99% のゲームがカバーされる想定 → 早期に使える高速 engine | 未 (本体) |
 | **R4** | AI (beam/value: plan_search/exploit_beam/gbm_value) を Rust に → self-play を Rust 内で完結 (30-100x)。 ⚠ ルールは bit 一致必須だが AI は heuristic なので近似同値で可 | 未 |
 
-**工数**: R1-R2 = ~2-3週、 R3 (本体) = ~1-3ヶ月 (312 primitive)、 R4 = ~3-4週。 差分テストで各段検証しながら。
+**⚠ 工数は Claude 実装ベースで実測する ([[feedback_estimation_claude_basis]]、 human-dev 見積りはノイズ)**。
+実測 (2026-07-29): **R1a (状態モデル全147field port + fidelity 実証) = 1 セッション内**(core.py 読み + state.rs
+翻訳 + full_dump/canonical_digest + build-test-fix 3 回)。 friction は予想通り「field 完全性 + serialization 規約
+一致」で、 **全て機械的 + 差分ハーネスが自動採点** = grind。 → R2/R3 も同様に「翻訳 + 差分テスト」の grind、
+借用チェッカ (mutation の所有権設計) が唯一の非機械的部分。 R3 は 312 primitive の volume だが並列化可能。
 
 ## dual-fix: クラウド エンジン修正ルーティンを両 engine 対応に
 
