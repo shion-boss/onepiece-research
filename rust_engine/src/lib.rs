@@ -10,6 +10,7 @@
 use pyo3::prelude::*;
 use sha1::{Digest, Sha1};
 
+mod effects;
 mod rules;
 mod state;
 
@@ -79,8 +80,38 @@ fn canonical_blob(dump_json: &str) -> PyResult<String> {
     serde_json::to_string(&v).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
+/// db/card_effects.json を Rust に読み込む (静的効果評価用)。
+#[pyfunction]
+fn load_overlay(path: &str) -> PyResult<()> {
+    let s = std::fs::read_to_string(path)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("read {path}: {e}")))?;
+    effects::load_overlay(&s).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+}
+
+/// R3 idempotence テスト: full_dump(state) を deserialize → Rust evaluate_static_effects → digest。
+/// Python は既に _recompute_static 済なので、 Rust の再評価が一致すれば静的効果が忠実 (冪等)。
+#[pyfunction]
+fn recompute_static_digest(state_json: &str) -> PyResult<String> {
+    let mut st: state::GameState = serde_json::from_str(state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deserialize: {e}")))?;
+    effects::evaluate_static_effects(&mut st);
+    digest_of(&st).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+}
+
+#[pyfunction]
+fn recompute_static_blob(state_json: &str) -> PyResult<String> {
+    let mut st: state::GameState = serde_json::from_str(state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deserialize: {e}")))?;
+    effects::evaluate_static_effects(&mut st);
+    let v = serde_json::to_value(&st).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+    serde_json::to_string(&v).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
 #[pymodule]
 fn optcg_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(load_overlay, m)?)?;
+    m.add_function(wrap_pyfunction!(recompute_static_digest, m)?)?;
+    m.add_function(wrap_pyfunction!(recompute_static_blob, m)?)?;
     m.add_function(wrap_pyfunction!(version, m)?)?;
     m.add_function(wrap_pyfunction!(canonical_digest, m)?)?;
     m.add_function(wrap_pyfunction!(canonical_blob, m)?)?;

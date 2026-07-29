@@ -218,3 +218,45 @@ def test_rust_apply_playcharacter_fidelity():
             break
         apply_action(st, a)
     assert checked >= 8
+
+
+def test_rust_static_effects_idempotent():
+    """R3: Rust evaluate_static_effects が Python の静的値を再現 (冪等)。 全 primitive/条件/target が
+    既知のデッキ (cardrush_1574) では 100% 一致。 未 build 環境では skip。"""
+    try:
+        eng = importlib.import_module("optcg_engine")
+    except ImportError:
+        pytest.skip("optcg_engine 未 build")
+    import json
+    import random
+    from engine.core import reset_iid
+    from engine.deck import CardRepository, make_deck_from_dict
+    from engine.effects import load_effect_overlay
+    from engine.game import setup_game, play_until_main, apply_action
+    from engine.ai import GreedyAI
+    from engine.state_snapshot import state_digest, full_dump
+
+    eng.load_overlay(str((ROOT / "db" / "card_effects.json").resolve()))
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def dl(s):
+        return make_deck_from_dict(json.loads((ROOT / "decks" / f"{s}.json").read_text()), repo)
+
+    reset_iid()
+    st = setup_game(dl("cardrush_1574"), dl("cardrush_1574"),
+                    rng=random.Random(3), first_player=0, effects_overlay=ov)
+    play_until_main(st)
+    ais = [GreedyAI(rng=random.Random(10)), GreedyAI(rng=random.Random(11))]
+    checked = 0
+    for _ in range(40):
+        if st.game_over:
+            break
+        d_rust = eng.recompute_static_digest(json.dumps(full_dump(st)))
+        assert state_digest(st) == d_rust, "cardrush_1574 静的効果 冪等でない (Rust 再評価が Python と不一致)"
+        checked += 1
+        a = ais[st.turn_player_idx].choose_action(st)
+        if a is None:
+            break
+        apply_action(st, a)
+    assert checked >= 10
