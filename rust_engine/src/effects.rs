@@ -1703,6 +1703,10 @@ pub fn fire_on_attack(
                 continue; // ターン既発動
             }
         }
+        // Python 12924: _can_pay_counter_cost で払えなければ skip (未対応 cost でも「払えない」なら bail せず一致)
+        if !can_pay_counter_cost_full(state, me_idx, src, cost) {
+            continue;
+        }
         match try_pay_counter_cost(state, me_idx, src, cost)? {
             true => {}
             false => continue, // 払えない → 効果不発 (公式 4-10)
@@ -1887,6 +1891,79 @@ fn try_pay_counter_cost(
     Ok(true)
 }
 
+/// counter cost 全 key の支払い可能性のみ判定 (effects.py:_can_pay_counter_cost 完全ミラー、 state 不変)。
+/// 未対応 key (discard_hand/trash_self 等) も payability だけ確認 → 「払えない未対応 cost」を bail でなく
+/// skip にできる (Python は払えなければ continue するため)。 未対応 key の実支払いは try_pay_counter_cost が Err。
+fn can_pay_counter_cost_full(
+    state: &GameState,
+    me_idx: usize,
+    self_src: Slot,
+    cost: &Value,
+) -> bool {
+    let Some(obj) = cost.as_object() else { return true };
+    let gi = |k: &str| obj.get(k).and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+    let me = &state.players[me_idx];
+    let discard_n = gi("discard_hand");
+    if discard_n > 0 && (me.hand.len() as i32) < discard_n {
+        return false;
+    }
+    let pay_don = gi("pay_don");
+    let cap = me.don_active + me.don_rested + me.leader.attached_dons
+        + me.characters.iter().map(|c| c.attached_dons).sum::<i32>();
+    if pay_don > 0 && cap < pay_don {
+        return false;
+    }
+    let rest_don = gi("rest_self_don");
+    if rest_don > 0 && me.don_active < rest_don {
+        return false;
+    }
+    if let Some(dwf) = obj.get("discard_hand_with_filter").filter(|v| v.is_object()) {
+        let (filt, cnt) = filter_and_count(dwf);
+        if me.hand.iter().filter(|c| matches_filter(c, Some(&filt))).count() < cnt {
+            return false;
+        }
+    }
+    if obj.get("rest_self").map_or(false, json_truthy) && get_ip(me, self_src).rested {
+        return false;
+    }
+    let rdon = gi("return_self_don_to_deck");
+    if rdon > 0 && (me.don_active + me.don_rested) < rdon {
+        return false;
+    }
+    let lth = gi("life_to_hand");
+    if lth > 0 && (me.life.len() as i32) < lth {
+        return false;
+    }
+    let ltob = gi("life_top_or_bottom_to_hand");
+    if ltob > 0 && (me.life.len() as i32) < ltob {
+        return false;
+    }
+    let ttd = gi("trash_to_deck");
+    if ttd > 0 && (me.trash.len() as i32) < ttd {
+        return false;
+    }
+    if let Some(rhf) = obj.get("reveal_hand_with_filter").filter(|v| v.is_object()) {
+        let (filt, cnt) = filter_and_count(rhf);
+        if me.hand.iter().filter(|c| matches_filter(c, Some(&filt))).count() < cnt {
+            return false;
+        }
+    }
+    // trash_self/self_ko: Python は self_inplay is None で払えない判定。 on/opp_attack の source は
+    //   常に present なのでここでは payable (実支払いは try_pay が Err = cascade で bail)。
+    if obj.get("flip_life_face_down").map_or(false, json_truthy)
+        && me.face_up_life_count.min(me.life.len() as i32) < 1
+    {
+        return false;
+    }
+    if obj.get("flip_life_face_up").map_or(false, json_truthy) {
+        let fu = me.face_up_life_count.min(me.life.len() as i32);
+        if (me.life.len() as i32) - fu < 1 {
+            return false;
+        }
+    }
+    true
+}
+
 /// effects.py:_ai_should_fire_opp_attack_cost = AI defender が cost 付き opp_attack 効果を発動すべきか EV 判定。
 /// state だけ読む自己完結ヒューリスティック (bit 忠実移植)。 ⚠ ONEPIECE_NO_OVERDEFENSE_SKIP 未設定 (差分テスト
 /// 既定) = 過剰防御 skip 有効で移植。
@@ -2026,32 +2103,82 @@ pub fn fire_opp_attack(
     slots.extend((0..n_char).map(Slot::Char));
     slots.extend((0..n_stage).map(Slot::Stage));
     let life_count = state.players[defender_idx].life.len() as i32;
+    // ⚠ Python _enqueue_opp_attack_with_cost: 全 source (leader→chars→stages) の【支払いフェーズ】を
+    //   先に回してから、 enqueue した event を後で resolve する = 全 cost 支払いが全 fire に先行する。
+    //   これを per-slot 完結にすると、 先に fire した costless(例 OP15-002 の discard)が後続 stage の
+    //   discard cost payability を狂わせ MISMATCH になる。 よって collect は全 slot を跨いで行い、
+    //   fire は collect 完了後に (slot→idx 順 = source→sorted idx 順で) 実行する。
+    let mut fired: Vec<(Slot, usize)> = vec![];
     for slot in slots {
         let cid = get_ip(&state.players[defender_idx], slot).card.card_id.clone();
         let Some(effs) = ov.get(&cid) else { continue };
-        for eff in effs {
+        for (idx, eff) in effs.iter().enumerate() {
             if eff.get("when").and_then(|v| v.as_str()) != Some(when_key) {
                 continue;
             }
+            let costless = eff.get("cost").map_or(true, cost_is_empty);
+            if costless {
+                // costless top-level once は once_per_turn_used (canonical 除外) 依存 → bail
+                if eff.get("once_per_turn").is_some() {
+                    return Err("opp_attack costless top-level once 未対応".into());
+                }
+                fired.push((slot, idx)); // 条件は発火フェーズで評価 (_execute_event と一致)
+                continue;
+            }
+            // cost 持ち (AI 経路): 条件 → once gate → can_pay skip → AI EV skip → 支払い → mark
             match eval_effect_conditions(eff, state, defender_idx, Some(slot)) {
                 Some(true) => {}
                 Some(false) => continue,
                 None => return Err("opp_attack 条件 unknown".into()),
             }
-            let costless = eff.get("cost").map_or(true, cost_is_empty);
-            if costless {
-                let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
-                fire_gated_do(state, defender_idx, slot, dos)?;
-            } else {
-                // cost 持ち: AI 判定。 skip なら何もしない (= Python の skip と一致)、 fire なら bail。
-                let src_power = get_ip(&state.players[defender_idx], slot).power();
-                if ai_should_fire_opp_attack_cost(
-                    eff, src_power, attacker_power, attacker_cost, defended_power, life_count,
-                ) {
-                    return Err("opp_attack cost effect fire 未対応".into());
+            let cost = eff.get("cost").unwrap();
+            let once = cost.get("once_per_turn");
+            if let Some(o) = once {
+                if o.is_string() {
+                    return Err("opp_attack cost string once 未対応".into());
+                }
+                if o.as_bool() == Some(true)
+                    && get_ip(&state.players[defender_idx], slot)
+                        .attack_once_used
+                        .contains(&(idx as i64))
+                {
+                    continue; // ターン既発動
                 }
             }
+            // Python 11690: 払えなければ skip (未対応 cost でも「払えない」なら bail せず一致)
+            if !can_pay_counter_cost_full(state, defender_idx, slot, cost) {
+                continue;
+            }
+            // AI EV 判定: 発動価値が低ければ skip (= Python _ai_should_fire_opp_attack_cost)
+            let src_power = get_ip(&state.players[defender_idx], slot).power();
+            if !ai_should_fire_opp_attack_cost(
+                eff, src_power, attacker_power, attacker_cost, defended_power, life_count,
+            ) {
+                continue;
+            }
+            // 支払い (未対応 cost = discard/trash_self 等は Err で bail)
+            match try_pay_counter_cost(state, defender_idx, slot, cost)? {
+                true => {}
+                false => continue,
+            }
+            if once.and_then(|o| o.as_bool()) == Some(true) {
+                get_ip_mut(&mut state.players[defender_idx], slot).mark_attack_once(idx as i64);
+            }
+            fired.push((slot, idx));
         }
+    }
+    // 発火フェーズ: 収集順 (slot→idx = source→sorted idx) に条件再評価 + do 発火
+    for (slot, idx) in fired {
+        let cid = get_ip(&state.players[defender_idx], slot).card.card_id.clone();
+        let Some(effs) = ov.get(&cid) else { continue };
+        let eff = &effs[idx];
+        match eval_effect_conditions(eff, state, defender_idx, Some(slot)) {
+            Some(true) => {}
+            Some(false) => continue,
+            None => return Err("opp_attack fire 条件 unknown".into()),
+        }
+        let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
+        fire_gated_do(state, defender_idx, slot, dos)?;
     }
     Ok(())
 }
