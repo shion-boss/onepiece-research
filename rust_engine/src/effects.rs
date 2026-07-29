@@ -1042,21 +1042,19 @@ fn pay_on_play_cost(cost: &Value, state: &mut GameState, me_idx: usize) -> Optio
     Some(true)
 }
 
-/// キャラ登場時の on_play 効果を実行 (effects.py:trigger_on_play)。 played_idx = me.characters の末尾。
-/// ⚠ on_opp_chara_played (相手側トリガー) + event queue cascade は未対応 (該当カードは diverge)。
-pub fn execute_on_play(state: &mut GameState, me_idx: usize, played_idx: usize) {
+/// card_id の指定 when 効果を実行 (条件チェック→cost 支払い→do 実行)。 on_play/main 共通。
+fn execute_card_effects(state: &mut GameState, me_idx: usize, card_id: &str, when: &str, src: Slot) {
     let Some(ov) = overlay() else { return };
-    let card_id = state.players[me_idx].characters[played_idx].card.card_id.clone();
-    let Some(effs) = ov.get(&card_id) else { return };
+    // effs は static OVERLAY 由来 (state と disjoint) なので clone 不要で iterate 可。
+    let Some(effs) = ov.get(card_id) else { return };
     for eff in effs {
-        if eff.get("when").and_then(|v| v.as_str()) != Some("on_play") {
+        if eff.get("when").and_then(|v| v.as_str()) != Some(when) {
             continue;
         }
         match eval_effect_conditions(eff, state, me_idx) {
             Some(true) => {}
             _ => continue,
         }
-        // cost (AI 自動支払い)。 支払い不能/未対応なら effect skip。
         if let Some(cost) = eff.get("cost") {
             match pay_on_play_cost(cost, state, me_idx) {
                 Some(true) => {}
@@ -1065,10 +1063,22 @@ pub fn execute_on_play(state: &mut GameState, me_idx: usize, played_idx: usize) 
         }
         if let Some(dos) = eff.get("do").and_then(|v| v.as_array()) {
             for prim in dos {
-                execute_effect(prim, state, me_idx, Slot::Char(played_idx));
+                execute_effect(prim, state, me_idx, src);
             }
         }
     }
+}
+
+/// キャラ登場時の on_play 効果を実行 (effects.py:trigger_on_play)。 played_idx = me.characters の末尾。
+/// ⚠ on_opp_chara_played (相手側トリガー) + event queue cascade は未対応 (該当カードは diverge)。
+pub fn execute_on_play(state: &mut GameState, me_idx: usize, played_idx: usize) {
+    let card_id = state.players[me_idx].characters[played_idx].card.card_id.clone();
+    execute_card_effects(state, me_idx, &card_id, "on_play", Slot::Char(played_idx));
+}
+
+/// メインイベントの効果を実行 (effects.py:trigger_main_event)。 event はトラッシュ済 = src は leader 仮 placeholder。
+pub fn execute_main_event(state: &mut GameState, me_idx: usize, card_id: &str) {
+    execute_card_effects(state, me_idx, card_id, "main", Slot::Leader);
 }
 
 /// game.py:evaluate_static_effects の移植 (on_attached_don 常在)。

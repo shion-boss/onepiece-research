@@ -378,6 +378,31 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             p.dons_used_count += n;
             Ok(())
         }
+        // イベント使用 (game.py:1364)。 hand→trash、 cost 支払い、 max_event_cost、 main 効果実行。
+        "PlayEvent" => {
+            let hand_idx = geti(action, "hand_idx", -1);
+            let p = &mut state.players[me];
+            if hand_idx < 0 || hand_idx as usize >= p.hand.len() {
+                return Err(format!("hand_idx 範囲外: {hand_idx}"));
+            }
+            let card: CardDef = p.hand[hand_idx as usize].clone();
+            let eff_cost = (card.cost - p.play_cost_reduction).max(0);
+            if p.don_active < eff_cost {
+                return Err("not enough don".into());
+            }
+            p.hand.remove(hand_idx as usize);
+            p.don_rested += eff_cost;
+            p.don_active -= eff_cost;
+            let consumed = card.cost - eff_cost;
+            p.play_cost_reduction = (p.play_cost_reduction - consumed).max(0);
+            let card_id = card.card_id.clone();
+            let ccost = card.cost;
+            p.trash.push(card);
+            p.cards_played_count += 1;
+            p.max_event_cost_this_turn = p.max_event_cost_this_turn.max(ccost);
+            crate::effects::execute_main_event(state, me, &card_id);
+            Ok(())
+        }
         // ターン終了 (game.py:1313)。 MAIN→END→REFRESH→…→MAIN。 効果トリガーは R3。
         "EndPhase" => {
             state.players[me].dons_unused_at_end_count += state.players[me].don_active;
