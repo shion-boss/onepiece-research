@@ -330,6 +330,9 @@ pub struct Player {
     pub hand_discarded_by_effect_this_turn: bool,
     pub delayed_at_opp_main_phase_start: Vec<serde_json::Value>,
     pub next_refresh_kept_rested_don: i32,
+    // once_per_turn_used は key が instance_id 依存 = canonical 除外 (Python _EXCLUDE と一致)。
+    // Rust は追跡しない (single-action の gating は legal_actions 側で担保)。
+    #[serde(default, skip_serializing)]
     pub once_per_turn_used: BTreeSet<String>,
     pub cards_drawn_count: i32,
     pub cards_played_count: i32,

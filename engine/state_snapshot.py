@@ -37,6 +37,9 @@ _EXCLUDE = {
                            #   状態の意味は card_id + flag + zone 位置(list順)で決まる → 除外が正準
     "last_self_chara_played_iid",  # 同上: 直近登場キャラの instance_id タグ (= Rust 再現不可)。
                                    #   カード identity は last_self_chara_played_card (card_id) が保持
+    "once_per_turn_used",          # 【ターン1回】発動済 key 集合。 key が `iid:{source_iid}:...` 形式で
+                                   #   instance_id 依存 = Rust 再現不可。 gating の正しさは効果の副作用
+                                   #   (2 回目発火なら状態が変わる) で間接検証される → 除外が正準
     # --- ルール状態でない meta (AI 評価 / UI / デッキ情報 / human 対話) = 差分対象外 ---
     "action_evals",        # AI 行動品質評価履歴
     "audit_violations",    # audit meta

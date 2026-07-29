@@ -378,6 +378,24 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             p.dons_used_count += n;
             Ok(())
         }
+        // 起動メイン (game.py:2009)。 source(位置)の effect_index を発火。
+        "ActivateMain" => {
+            let source_kind = action.get("source_kind").and_then(|v| v.as_str()).unwrap_or("");
+            let source_idx = geti(action, "source_idx", 0) as usize;
+            let effect_index = geti(action, "effect_index", 0) as usize;
+            let p = &state.players[me];
+            let card_id = match source_kind {
+                "leader" => Some(p.leader.card.card_id.clone()),
+                "char" => p.characters.get(source_idx).map(|c| c.card.card_id.clone()),
+                "stage" => p.stages.get(source_idx).map(|c| c.card.card_id.clone()),
+                _ => None,
+            };
+            let Some(cid) = card_id else {
+                return Err("ActivateMain source 不明".into());
+            };
+            crate::effects::fire_activate_main(state, me, &cid, effect_index, source_kind, source_idx);
+            Ok(())
+        }
         // イベント使用 (game.py:1364)。 hand→trash、 cost 支払い、 max_event_cost、 main 効果実行。
         "PlayEvent" => {
             let hand_idx = geti(action, "hand_idx", -1);

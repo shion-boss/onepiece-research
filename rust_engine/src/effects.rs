@@ -1081,6 +1081,68 @@ pub fn execute_main_event(state: &mut GameState, me_idx: usize, card_id: &str) {
     execute_card_effects(state, me_idx, card_id, "main", Slot::Leader);
 }
 
+/// 起動メイン発火 (effects.py:fire_activate_main)。 effect_index の効果を cost 支払い→do 実行。
+/// ⚠ rest_self/pay_don/rest_self_don cost のみ対応 (trash_self/discard 等は skip)。 cascade は未対応。
+pub fn fire_activate_main(
+    state: &mut GameState,
+    me_idx: usize,
+    card_id: &str,
+    effect_index: usize,
+    source_kind: &str,
+    source_idx: usize,
+) -> bool {
+    let src = match source_kind {
+        "leader" => Slot::Leader,
+        "char" => Slot::Char(source_idx),
+        "stage" => Slot::Stage(source_idx),
+        _ => return false,
+    };
+    // cost/do は static OVERLAY から取り、 clone して借用衝突回避。
+    let (cost, dos): (Option<Value>, Vec<Value>) = {
+        let Some(ov) = overlay() else { return false };
+        let Some(effs) = ov.get(card_id) else { return false };
+        let Some(eff) = effs.get(effect_index) else { return false };
+        (
+            eff.get("cost").cloned(),
+            eff.get("do").and_then(|v| v.as_array()).cloned().unwrap_or_default(),
+        )
+    };
+    // cost 支払い (対応外 cost 種別があれば skip)
+    if let Some(c) = &cost {
+        if let Some(o) = c.as_object() {
+            for k in o.keys() {
+                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn") {
+                    return false; // 未対応 cost → skip
+                }
+            }
+        }
+        if c.get("rest_self").and_then(|v| v.as_bool()).unwrap_or(false) {
+            get_ip_mut(&mut state.players[me_idx], src).rested = true;
+        }
+        let pay_don = c.get("pay_don").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+        if pay_don > 0 {
+            let me = &mut state.players[me_idx];
+            let taken = pay_don.min(me.don_active);
+            me.don_active -= taken;
+            me.don_remaining_in_deck += taken;
+            let more = (pay_don - taken).min(me.don_rested);
+            me.don_rested -= more;
+            me.don_remaining_in_deck += more;
+        }
+        let rest_don = c.get("rest_self_don").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+        if rest_don > 0 {
+            let me = &mut state.players[me_idx];
+            let n = rest_don.min(me.don_active);
+            me.don_active -= n;
+            me.don_rested += n;
+        }
+    }
+    for prim in &dos {
+        execute_effect(prim, state, me_idx, src);
+    }
+    true
+}
+
 /// game.py:evaluate_static_effects の移植 (on_attached_don 常在)。
 pub fn evaluate_static_effects(state: &mut GameState) {
     let Some(ov) = overlay() else { return };
