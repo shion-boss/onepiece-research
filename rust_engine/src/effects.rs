@@ -307,6 +307,15 @@ fn parse_after(s: &str, marker: &str) -> Option<i32> {
     num.parse().ok()
 }
 
+fn cat_str(c: &Category) -> &'static str {
+    match c {
+        Category::Leader => "LEADER",
+        Category::Character => "CHARACTER",
+        Category::Event => "EVENT",
+        Category::Stage => "STAGE",
+    }
+}
+
 fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
     let Some(f) = filt.and_then(|x| x.as_object()) else { return true };
     for (k, v) in f {
@@ -316,6 +325,30 @@ fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
             "attribute" => Some(card.attribute.as_str()) == v.as_str(),
             "cost_le" => (card.cost as i64) <= v.as_i64().unwrap_or(0),
             "cost_ge" => (card.cost as i64) >= v.as_i64().unwrap_or(0),
+            "cost_eq" => (card.cost as i64) == v.as_i64().unwrap_or(-1),
+            "power_le" => (card.power as i64) <= v.as_i64().unwrap_or(0),
+            "power_ge" => (card.power as i64) >= v.as_i64().unwrap_or(0),
+            "category" => Some(cat_str(&card.category)) == v.as_str(),
+            "exclude_name" => match v {
+                Value::String(s) => card.name != *s,
+                Value::Array(a) => !a.iter().any(|x| x.as_str() == Some(card.name.as_str())),
+                _ => true,
+            },
+            "name_in" => v
+                .as_array()
+                .map_or(false, |arr| arr.iter().any(|x| x.as_str() == Some(card.name.as_str()))),
+            "feature_contains" => card
+                .features
+                .iter()
+                .any(|x| x.contains(v.as_str().unwrap_or(""))),
+            "or" | "or_clauses" => v
+                .as_array()
+                .map_or(false, |arr| arr.iter().any(|clause| matches_filter(card, Some(clause)))),
+            "exclude_card_id" => match v {
+                Value::String(s) => card.card_id != *s,
+                Value::Array(a) => !a.iter().any(|x| x.as_str() == Some(card.card_id.as_str())),
+                _ => true,
+            },
             _ => return false, // 未知 filter キー → 不一致扱い (安全側)
         };
         if !ok {
@@ -798,6 +831,50 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             let Some(targets) = resolve_target(Some(v), me_idx, opp_idx, src, state) else { return false };
             let victims = collect_unprotected(state, &targets);
             remove_victims(state, victims, RemoveDest::DeckBottom);
+            true
+        }
+        // デッキ上 N 枚を見て filter マッチ先頭 M 枚を手札、 残りをデッキ下 (effects.py:4037)。
+        // ⚠ destination=hand + rest_remain=bottom のみ対応 (play/life/trash/top_or_bottom は skip)。
+        // AI 選択 = 決定的 (filter マッチの先頭 limit 枚 = deck 順)。
+        "search_top_n" => {
+            let destination = v.get("destination").and_then(|x| x.as_str()).unwrap_or("hand");
+            let rest_remain = v.get("rest_remain").and_then(|x| x.as_str()).unwrap_or("bottom");
+            if destination != "hand" || !(rest_remain == "bottom" || rest_remain == "trash") {
+                return false;
+            }
+            let rest_to_trash = rest_remain == "trash";
+            let depth = v.get("depth").and_then(|x| x.as_i64()).unwrap_or(5) as usize;
+            let limit = v.get("limit").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+            let public = v.get("public").and_then(|x| x.as_bool()).unwrap_or(false);
+            let filt = v.get("filter");
+            let me = &mut state.players[me_idx];
+            if me.deck.is_empty() {
+                return true;
+            }
+            let d = depth.min(me.deck.len());
+            let seen: Vec<crate::state::CardDef> = me.deck.drain(0..d).collect();
+            let mut picked = 0;
+            let mut remaining: Vec<crate::state::CardDef> = vec![];
+            for c in seen {
+                if picked < limit && matches_filter(&c, filt) {
+                    let cid = c.card_id.clone();
+                    me.hand.push(c);
+                    if public {
+                        me.known_hand_card_ids.push(cid);
+                    }
+                    picked += 1;
+                } else {
+                    remaining.push(c);
+                }
+            }
+            for c in remaining {
+                if rest_to_trash {
+                    me.trash.push(c);
+                } else {
+                    me.known_bottom_card_ids.push(c.card_id.clone());
+                    me.deck.push(c);
+                }
+            }
             true
         }
         _ => false, // 未対応 primitive → skip (該当カードは diverge)
