@@ -91,6 +91,36 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize) -> Option<bool
             "self_hand_count_ge" => (me.hand.len() as i64) >= v.as_i64().unwrap_or(0),
             "self_field_count_ge" | "self_chara_count_ge" => (me.characters.len() as i64) >= v.as_i64().unwrap_or(0),
             "opp_don_count_ge" => total_don(opp) >= v.as_i64().unwrap_or(0),
+            "self_trash_count_ge" => (me.trash.len() as i64) >= v.as_i64().unwrap_or(0),
+            "self_trash_count_le" => (me.trash.len() as i64) <= v.as_i64().unwrap_or(0),
+            "not" => match eval_condition(v, state, me_idx) {
+                Some(b) => !b,
+                None => return None,
+            },
+            "or" => {
+                let Some(arr) = v.as_array() else { return None };
+                let mut any = false;
+                for c in arr {
+                    match eval_condition(c, state, me_idx) {
+                        Some(true) => any = true,
+                        Some(false) => {}
+                        None => return None,
+                    }
+                }
+                any
+            }
+            "and" => {
+                let Some(arr) = v.as_array() else { return None };
+                let mut all = true;
+                for c in arr {
+                    match eval_condition(c, state, me_idx) {
+                        Some(true) => {}
+                        Some(false) => all = false,
+                        None => return None,
+                    }
+                }
+                all
+            }
             _ => return None, // 未知条件キー → 評価不能 → skip
         };
         if !ok {
@@ -98,6 +128,27 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize) -> Option<bool
         }
     }
     Some(result)
+}
+
+/// effect の "if" (単一 dict) + "conditions" (dict の list) を AND 評価 (Python eval_all_conditions 相当)。
+fn eval_effect_conditions(eff: &Value, state: &GameState, me_idx: usize) -> Option<bool> {
+    if let Some(cond) = eff.get("if") {
+        match eval_condition(cond, state, me_idx) {
+            Some(true) => {}
+            Some(false) => return Some(false),
+            None => return None,
+        }
+    }
+    if let Some(conds) = eff.get("conditions").and_then(|v| v.as_array()) {
+        for c in conds {
+            match eval_condition(c, state, me_idx) {
+                Some(true) => {}
+                Some(false) => return Some(false),
+                None => return None,
+            }
+        }
+    }
+    Some(true)
 }
 
 /// target spec → 対象 (player_idx, Slot) のリスト。 None=未知 target (→ primitive skip)。
@@ -329,11 +380,11 @@ pub fn evaluate_static_effects(state: &mut GameState) {
                 if attached < n_req {
                     continue;
                 }
-                if let Some(cond) = eff.get("if") {
-                    match eval_condition(cond, state, me_idx) {
-                        Some(true) => {}
-                        _ => continue, // false or 未知 → skip
-                    }
+                // ⚠ Python eval_all_conditions は "if" (単一 dict) と "conditions" (dict の list) の
+                // 両方を AND 評価する。 conditions を見落とすと過剰適用になる (OP13-099 虚の玉座で発覚)。
+                match eval_effect_conditions(eff, state, me_idx) {
+                    Some(true) => {}
+                    _ => continue, // false or 未知 → skip
                 }
                 if let Some(dos) = eff.get("do").and_then(|v| v.as_array()) {
                     for prim in dos {
