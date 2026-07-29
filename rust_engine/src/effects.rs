@@ -638,6 +638,50 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 任意コスト効果 (effects.py:8245)。「Xできる:Y」= AI は cost+effect payable なら発動。
+        // ⚠ pay_don/rest_self_don cost + 実装済 effect のみ対応。 他の cost/effect は skip (fidelity)。
+        "optional_cost_then" => {
+            let empty: Vec<Value> = vec![];
+            let cost = v.get("cost").and_then(|x| x.as_array()).unwrap_or(&empty);
+            let effect = v.get("effect").and_then(|x| x.as_array()).unwrap_or(&empty);
+            let mut pay_don = 0i32;
+            let mut rest_don = 0i32;
+            for cs in cost {
+                let Some((k, cv)) = cs.as_object().and_then(|o| o.iter().next()) else { return false };
+                match k.as_str() {
+                    "pay_don" => pay_don += cv.as_i64().unwrap_or(0) as i32,
+                    "rest_self_don" => rest_don += cv.as_i64().unwrap_or(0) as i32,
+                    _ => return false, // 未対応 cost → skip
+                }
+            }
+            for es in effect {
+                let Some((k, _)) = es.as_object().and_then(|o| o.iter().next()) else { return false };
+                if !is_handled_effect(k) {
+                    return false; // 未対応 effect → skip (paid してから失敗を防ぐ)
+                }
+            }
+            {
+                let me = &state.players[me_idx];
+                let cap = me.don_active + me.don_rested + me.leader.attached_dons
+                    + me.characters.iter().map(|c| c.attached_dons).sum::<i32>();
+                if me.don_active < rest_don || cap < pay_don {
+                    return false; // 支払い不能 → 不発
+                }
+            }
+            if rest_don > 0 {
+                let me = &mut state.players[me_idx];
+                let n = rest_don.min(me.don_active);
+                me.don_active -= n;
+                me.don_rested += n;
+            }
+            if pay_don > 0 && !pay_don_field(state, me_idx, pay_don) {
+                return false;
+            }
+            for es in effect {
+                execute_effect(es, state, me_idx, src);
+            }
+            true
+        }
         // ドンデッキから N 枚をアクティブで追加 (effects.py:4526)。
         "add_don" | "add_don_active" => {
             let n = (v.as_i64().unwrap_or(0) as i32).min(state.players[me_idx].don_remaining_in_deck);
@@ -799,6 +843,38 @@ fn remove_victims(state: &mut GameState, mut victims: Vec<(usize, usize)>, dest:
         }
         state.players[pi].don_rested += don;
     }
+}
+
+/// ドン-N を場から支払い (active→rested→付与、 don_remaining+=、 last_returned_don_count)。 area 不足で払えなければ false。
+fn pay_don_field(state: &mut GameState, me_idx: usize, n: i32) -> bool {
+    let me = &mut state.players[me_idx];
+    let mut removed = 0;
+    let taken = n.min(me.don_active);
+    me.don_active -= taken;
+    me.don_remaining_in_deck += taken;
+    removed += taken;
+    if removed < n {
+        let more = (n - removed).min(me.don_rested);
+        me.don_rested -= more;
+        me.don_remaining_in_deck += more;
+        removed += more;
+    }
+    if removed < n {
+        return false; // 付与ドン払い (power 依存) は未対応
+    }
+    state.last_returned_don_count = removed;
+    true
+}
+
+/// execute_effect が対応する effect primitive か (optional_cost_then の dry-check 用)。
+fn is_handled_effect(key: &str) -> bool {
+    matches!(
+        key,
+        "draw" | "power_pump" | "rest" | "ko" | "return_to_hand" | "return_to_deck_bottom"
+            | "add_rested_don" | "untap_don" | "mill_self_top" | "give_keyword" | "add_don"
+            | "add_don_active" | "put_top_to_life" | "cost_minus" | "stay_rested_next_refresh"
+            | "attach_rested_don"
+    )
 }
 
 /// on_play の cost を AI 自動支払い (effects.py: AI は auto-pay)。
