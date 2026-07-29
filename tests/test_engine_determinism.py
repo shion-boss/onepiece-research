@@ -106,3 +106,50 @@ def test_rust_state_model_fidelity():
         d_py = state_digest(st)
         d_rust = eng.canonical_digest(json.dumps(full_dump(st)))
         assert d_py == d_rust, f"seed={seed} nacts={nacts}: Rust 状態 digest 不一致 (py={d_py} rust={d_rust})"
+
+
+def test_rust_apply_don_fidelity():
+    """R2: Rust apply_action (AttachDon) が Python と同じ digest を出す。 未 build 環境では skip。"""
+    try:
+        eng = importlib.import_module("optcg_engine")
+    except ImportError:
+        pytest.skip("optcg_engine 未 build")
+    import json
+    import random
+    from engine.core import reset_iid
+    from engine.deck import CardRepository, make_deck_from_dict
+    from engine.effects import load_effect_overlay
+    from engine.game import setup_game, play_until_main, apply_action, AttachDonToLeader
+    from engine.ai import GreedyAI
+    from engine.plan_search import fast_clone
+    from engine.state_snapshot import state_digest, full_dump
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def dl(s):
+        return make_deck_from_dict(json.loads((ROOT / "decks" / f"{s}.json").read_text()), repo)
+
+    reset_iid()
+    st = setup_game(dl("cardrush_1385"), dl("cardrush_1385"),
+                    rng=random.Random(1), first_player=0, effects_overlay=ov)
+    play_until_main(st)
+    ais = [GreedyAI(rng=random.Random(4)), GreedyAI(rng=random.Random(7))]
+    checked = 0
+    for _ in range(40):
+        if st.game_over:
+            break
+        me = st.players[st.turn_player_idx]
+        if me.don_active > 0:
+            c = fast_clone(st)
+            apply_action(c, AttachDonToLeader(1))
+            d_py = state_digest(c)
+            d_rust = eng.apply_action_digest(
+                json.dumps(full_dump(st)), json.dumps({"t": "AttachDonToLeader", "n": 1}))
+            assert d_py == d_rust, f"AttachDonToLeader digest 不一致 (py={d_py} rust={d_rust})"
+            checked += 1
+        a = ais[st.turn_player_idx].choose_action(st)
+        if a is None:
+            break
+        apply_action(st, a)
+    assert checked >= 3

@@ -59,7 +59,7 @@ Python engine (engine/*.py)          Rust engine (rust_engine/)
 | **R0** | 差分ハーネス (canonical/digest/決定論確認) + Rust scaffold (cargo+PyO3+maturin、 build→import→serialize 疎通) | ✅ 済 (2026-07-29) |
 | **R1a** | **状態モデル完全 port (state.rs 全147field) + fidelity 実証**。 Python `full_dump` → Rust `canonical_digest` が Python `state_digest` と **15/15 状態で bit 一致** (複数 seed/マッチ/手数0-40)。 = Rust 状態表現が忠実 | ✅ 済 (2026-07-29) |
 | **R1b** | cards.json/deck ロード + `setup_game` を Rust に (RNG = Python MT19937 互換 or Python から初期状態受領) | 未 |
-| **R2** | ルール port (`game.py`: legal_actions/apply_action/turn 進行/戦闘/ライフ)。 action を canonical エンコード (card_id+zone位置、 iid 非依存) して両 engine で replay、 全 step digest 一致 | 未 |
+| **R2** | ルール port (`game.py`: legal_actions/apply_action/turn 進行/戦闘/ライフ)。 action を canonical エンコード (card_id+zone位置、 iid 非依存) して両 engine で replay、 全 step digest 一致 | 🔄 着手: **AttachDon(Leader/Character)= 128/128 一致 (2026-07-29)**。 残 = EndPhase/phase進行, PlayCharacter/Event, Attack/戦闘, ActivateMain。 ⚠ 効果を伴う action は R3 (effects) と interleave |
 | **R3** | DSL インタプリタ (`effects.py` 312 primitive、 13.7k 行) を **self-play 頻出順**に移植。 各 primitive 追加毎に該当カードの差分テスト。 頻出~80 primitive で 99% のゲームがカバーされる想定 → 早期に使える高速 engine | 未 (本体) |
 | **R4** | AI (beam/value: plan_search/exploit_beam/gbm_value) を Rust に → self-play を Rust 内で完結 (30-100x)。 ⚠ ルールは bit 一致必須だが AI は heuristic なので近似同値で可 | 未 |
 

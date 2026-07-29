@@ -10,12 +10,22 @@
 use pyo3::prelude::*;
 use sha1::{Digest, Sha1};
 
+mod rules;
 mod state;
 
 /// バージョン情報。
 #[pyfunction]
 fn version() -> String {
-    format!("optcg_engine {} (R1: 状態モデル)", env!("CARGO_PKG_VERSION"))
+    format!("optcg_engine {} (R2: ルール一部)", env!("CARGO_PKG_VERSION"))
+}
+
+/// GameState → canonical digest (Python state_snapshot.state_digest と一致する規約)。
+fn digest_of(st: &state::GameState) -> Result<String, String> {
+    let v = serde_json::to_value(st).map_err(|e| e.to_string())?;
+    let blob = serde_json::to_string(&v).map_err(|e| e.to_string())?;
+    let mut h = Sha1::new();
+    h.update(blob.as_bytes());
+    Ok(h.finalize().iter().map(|b| format!("{:02x}", b)).collect::<String>()[..16].to_string())
 }
 
 /// Python の full_dump(JSON) を deserialize → canonical digest を返す。
@@ -30,16 +40,20 @@ fn version() -> String {
 fn canonical_digest(dump_json: &str) -> PyResult<String> {
     let st: state::GameState = serde_json::from_str(dump_json)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deserialize 失敗: {e}")))?;
-    // struct → Value (card 畳み + sorted key) → compact JSON
-    let v = serde_json::to_value(&st)
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("to_value 失敗: {e}")))?;
-    let blob = serde_json::to_string(&v)
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-    let mut h = Sha1::new();
-    h.update(blob.as_bytes());
-    let digest = h.finalize();
-    let hex: String = digest.iter().map(|b| format!("{:02x}", b)).collect();
-    Ok(hex[..16].to_string())
+    digest_of(&st).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+}
+
+/// R2 差分テスト: full_dump(state) + canonical action を受け、 Rust apply_action 後の digest を返す。
+/// Python の apply_action 後 state_digest と一致すれば Rust ルールが忠実 (その action/盤面について)。
+#[pyfunction]
+fn apply_action_digest(state_json: &str, action_json: &str) -> PyResult<String> {
+    let mut st: state::GameState = serde_json::from_str(state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("state deserialize: {e}")))?;
+    let act: serde_json::Value = serde_json::from_str(action_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("action deserialize: {e}")))?;
+    rules::apply_action(&mut st, &act)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+    digest_of(&st).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
 }
 
 /// デバッグ用: Rust が再構成した canonical JSON blob をそのまま返す (Python と文字列比較して乖離 pinpoint)。
@@ -57,5 +71,6 @@ fn optcg_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(version, m)?)?;
     m.add_function(wrap_pyfunction!(canonical_digest, m)?)?;
     m.add_function(wrap_pyfunction!(canonical_blob, m)?)?;
+    m.add_function(wrap_pyfunction!(apply_action_digest, m)?)?;
     Ok(())
 }
