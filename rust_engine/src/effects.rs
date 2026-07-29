@@ -569,7 +569,99 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // KO (effects.py:3245)。 免疫チェック → 除去 + trash + 付与ドン返却 + chara_ko_taken。
+        // ⚠ replace_ko / KO trigger cascade は未対応 → 該当 victim は diverge (差分テストが除外)。
+        "ko" => {
+            let Some(targets) = resolve_target(Some(v), me_idx, opp_idx, src, state) else { return false };
+            let (src_power, src_attr) = {
+                let s = get_ip(&state.players[me_idx], src);
+                (s.card.power, s.card.attribute.clone())
+            };
+            let mut victims: Vec<(usize, usize)> = vec![];
+            for &(pi, sl) in &targets {
+                if let Slot::Char(idx) = sl {
+                    let t = &mut state.players[pi].characters[idx];
+                    if t.protect_from_opp_effect {
+                        continue;
+                    }
+                    if t.ko_per_turn_immune_remaining > 0 {
+                        t.ko_per_turn_immune_remaining -= 1;
+                        continue;
+                    }
+                    if t.ko_immune_until_turn_end || t.static_ko_immune || t.ko_immune_through_opp_turn {
+                        continue;
+                    }
+                    if t.static_ko_immune_from_source_power_le >= 0
+                        && src_power <= t.static_ko_immune_from_source_power_le
+                    {
+                        continue;
+                    }
+                    let req = t.static_ko_immune_from_non_attribute.clone();
+                    if !req.is_empty() && !src_attr.contains(&req) {
+                        continue;
+                    }
+                    victims.push((pi, idx));
+                }
+            }
+            remove_victims(state, victims, RemoveDest::Trash);
+            true
+        }
+        // 手札に戻す (バウンス)。 protect チェック → 除去 + hand + 付与ドン返却。
+        "return_to_hand" => {
+            let Some(targets) = resolve_target(Some(v), me_idx, opp_idx, src, state) else { return false };
+            let victims = collect_unprotected(state, &targets);
+            remove_victims(state, victims, RemoveDest::Hand);
+            true
+        }
+        // デッキ下に戻す。 protect チェック → 除去 + deck 末尾 + 付与ドン返却。
+        "return_to_deck_bottom" => {
+            let Some(targets) = resolve_target(Some(v), me_idx, opp_idx, src, state) else { return false };
+            let victims = collect_unprotected(state, &targets);
+            remove_victims(state, victims, RemoveDest::DeckBottom);
+            true
+        }
         _ => false, // 未対応 primitive → skip (該当カードは diverge)
+    }
+}
+
+enum RemoveDest {
+    Trash,
+    Hand,
+    DeckBottom,
+}
+
+/// protect_from_opp_effect でない victim (player_idx, char_idx) を集める。
+fn collect_unprotected(state: &GameState, targets: &[(usize, Slot)]) -> Vec<(usize, usize)> {
+    let mut v = vec![];
+    for &(pi, sl) in targets {
+        if let Slot::Char(idx) = sl {
+            if !state.players[pi].characters[idx].protect_from_opp_effect {
+                v.push((pi, idx));
+            }
+        }
+    }
+    v
+}
+
+/// victim キャラを場から除去し dest へ (付与ドンはレストで返却)。 index 降順で remove。
+/// ⚠ KO/離脱 trigger cascade は未対応 (該当 victim は diverge)。
+fn remove_victims(state: &mut GameState, mut victims: Vec<(usize, usize)>, dest: RemoveDest) {
+    victims.sort_by(|a, b| b.1.cmp(&a.1));
+    for (pi, idx) in victims {
+        if idx >= state.players[pi].characters.len() {
+            continue;
+        }
+        let removed = state.players[pi].characters.remove(idx);
+        let don = removed.attached_dons;
+        match dest {
+            RemoveDest::Trash => {
+                state.players[pi].trash.push(removed.card);
+                state.players[pi].chara_ko_taken_this_turn += 1;
+            }
+            RemoveDest::Hand => state.players[pi].hand.push(removed.card),
+            RemoveDest::DeckBottom => state.players[pi].deck.push(removed.card),
+        }
+        state.players[pi].don_rested += don;
     }
 }
 
