@@ -350,6 +350,9 @@ fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
             "power_le" => (card.power as i64) <= v.as_i64().unwrap_or(0),
             "power_ge" => (card.power as i64) >= v.as_i64().unwrap_or(0),
             "category" => Some(cat_str(&card.category)) == v.as_str(),
+            "category_in" => v
+                .as_array()
+                .map_or(false, |arr| arr.iter().any(|x| x.as_str() == Some(cat_str(&card.category)))),
             "exclude_name" => match v {
                 Value::String(s) => card.name != *s,
                 Value::Array(a) => !a.iter().any(|x| x.as_str() == Some(card.name.as_str())),
@@ -757,6 +760,56 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 任意 discard で battle buff (effects.py:8003、 OP15-002 ルーシー/OP03-001 エース等)。
+        // AI 経路 (self-play): filter マッチ手札の先頭 min(len,max=3) を捨て、 target に +amount_per*枚 (battle)。
+        // ⚠ discard>0 で hand_discarded_by_effect_this_turn=true + on_self_hand_discarded cascade
+        //   (cascade 有なら bail)。 0 枚 = 見送り (状態不変 = handled)。
+        "optional_discard_hand_for_battle_buff" => {
+            let default_filt = serde_json::json!({"category_in": ["EVENT", "STAGE"]});
+            let filt = v.get("filter").unwrap_or(&default_filt);
+            let amount_per = v.get("amount_per_discard").and_then(|x| x.as_i64()).unwrap_or(1000) as i32;
+            let target_spec = v.get("target").cloned().unwrap_or_else(|| Value::String("self_leader".into()));
+            let max_discard = v.get("max").and_then(|x| x.as_i64()).unwrap_or(3) as i32;
+            let matching: Vec<usize> = {
+                let me = &state.players[me_idx];
+                (0..me.hand.len()).filter(|&i| matches_filter(&me.hand[i], Some(filt))).collect()
+            };
+            let discard_count = (matching.len() as i32).min(max_discard).max(0) as usize;
+            if discard_count == 0 {
+                return true; // 見送り = 状態不変
+            }
+            // cascade guard: me 場に on_self_hand_discarded があれば発火効果を要する → bail
+            if me_board_has_when(state, me_idx, "on_self_hand_discarded") {
+                return false;
+            }
+            let Some(targets) = resolve_target(Some(&target_spec), me_idx, opp_idx, src, state) else {
+                return false;
+            };
+            // 先頭 discard_count 枚を捨て。 ⚠ trash への append は index 昇順 (Python discardable 順) に一致させる
+            let remove_set: std::collections::BTreeSet<usize> = matching[..discard_count].iter().copied().collect();
+            {
+                let me = &mut state.players[me_idx];
+                let hand = std::mem::take(&mut me.hand);
+                let mut discarded = vec![];
+                for (i, c) in hand.into_iter().enumerate() {
+                    if remove_set.contains(&i) {
+                        discarded.push(c);
+                    } else {
+                        me.hand.push(c);
+                    }
+                }
+                for c in discarded {
+                    me.trash.push(c);
+                }
+            }
+            let buff = amount_per * discard_count as i32;
+            for (pi, sl) in targets {
+                get_ip_mut(&mut state.players[pi], sl).battle_buff += buff;
+            }
+            // trigger_on_self_hand_discarded の副作用 (flag、 cascade は bail 済)
+            state.players[me_idx].hand_discarded_by_effect_this_turn = true;
+            true
+        }
         // コスト修正 (effects.py:5613)。 amount(負=コスト+)を duration 別に。 selecting target 可。
         "cost_minus" => {
             let (target_val, amount, next_opp) = if let Some(o) = v.as_object() {
@@ -1134,6 +1187,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
         "power_pump" | "draw" | "give_keyword" | "add_don" | "add_don_active" | "add_rested_don"
             | "untap_don" | "cost_minus" | "attach_rested_don" | "mill_self_top"
             | "stay_rested_next_refresh" | "set_cannot_rest" | "set_cannot_attack" | "put_top_to_life"
+            | "optional_discard_hand_for_battle_buff"
     )
 }
 
