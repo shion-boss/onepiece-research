@@ -1,0 +1,20 @@
+[package]
+name = "optcg_engine"
+version = "0.1.0"
+edition = "2021"
+description = "OPTCG ルールエンジンの Rust 実装 (self-play 高速ミラー、 Python engine を正とする差分同期)"
+
+[lib]
+name = "optcg_engine"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pyo3 = { version = "0.22", features = ["extension-module"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha1 = "0.10"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

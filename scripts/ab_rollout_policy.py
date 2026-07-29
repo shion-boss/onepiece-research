@@ -204,27 +204,64 @@ def _play(seed, hero_rollout):
 
 
 def _one(seed):
-    return (_play(seed, True), _play(seed, False))
+    return (seed, _play(seed, True), _play(seed, False))
+
+
+# ⭐ resumable checkpoint: AB_CKPT=<jsonl> で seed 毎に結果を追記、 再起動で done seed を skip。
+_CKPT = os.environ.get("AB_CKPT")
+
+
+def _load_ckpt():
+    done = {}
+    if _CKPT and (ROOT / _CKPT).exists():
+        import json as _j
+        for line in open(ROOT / _CKPT, encoding="utf-8"):
+            try:
+                d = _j.loads(line)
+                # config 一致するもののみ (matchup + cand + ro + downstream)
+                if (d.get("m") == f"{HERO}_vs_{OPP}" and d.get("cand") == CAND
+                        and d.get("ro") == RO and d.get("down") == _RO_DOWN):
+                    done[d["seed"]] = (d["a"], d["b"])
+            except Exception:
+                continue
+    return done
+
+
+def _append_ckpt(seed, a, b):
+    if not _CKPT:
+        return
+    import json as _j
+    p = ROOT / _CKPT
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "a", encoding="utf-8") as f:
+        f.write(_j.dumps({"m": f"{HERO}_vs_{OPP}", "cand": CAND, "ro": RO,
+                          "down": _RO_DOWN, "seed": seed, "a": a, "b": b}) + "\n")
 
 
 def main():
     n = int(os.environ.get("AB_N", "40"))
     workers = int(os.environ.get("AB_WORKERS", "8"))
-    seeds = list(range(1000, 1000 + n))
+    all_seeds = list(range(1000, 1000 + n))
+    done = _load_ckpt()
+    seeds = [s for s in all_seeds if s not in done]
     t0 = time.time()
-    print(f"[ab_rollout] {HERO} vs {OPP}  N={n} CAND={CAND} RO={RO} downstream={_RO_DOWN}  開始", flush=True)
-    res = []
+    print(f"[ab_rollout] {HERO} vs {OPP}  N={n} CAND={CAND} RO={RO} downstream={_RO_DOWN}  "
+          f"開始 (done={len(done)}/{n}, 残り={len(seeds)})", flush=True)
+    res = list(done.values())  # 既存結果を種に
     with mp.Pool(workers) as p:
-        for i, r in enumerate(p.imap_unordered(_one, seeds), 1):
-            res.append(r)
-            if i % max(1, n // 10) == 0 or i == n:
+        for i, (seed, a, b) in enumerate(p.imap_unordered(_one, seeds), 1):
+            res.append((a, b))
+            _append_ckpt(seed, a, b)
+            if i % max(1, len(seeds) // 10 or 1) == 0 or i == len(seeds):
                 aw = sum(1 for x in res if x[0] == 1); bw = sum(1 for x in res if x[1] == 1)
-                print(f"  進捗 {i}/{n}  (A={aw} B={bw}, {time.time()-t0:.0f}s)", flush=True)
+                print(f"  進捗 {len(done)+i}/{n}  (A={aw} B={bw}, {time.time()-t0:.0f}s)", flush=True)
     a_w = sum(1 for r in res if r[0] == 1); b_w = sum(1 for r in res if r[1] == 1)
-    print(f"{HERO} vs {OPP}  root-rollout policy  N={n} CAND={CAND} RO={RO}  ({time.time()-t0:.0f}s)")
-    print(f"  A: hero=root-rollout : {a_w}/{n} = {100*a_w/n:.0f}%")
-    print(f"  B: hero=配備 policy  : {b_w}/{n} = {100*b_w/n:.0f}%")
-    print(f"  Δ = {100*a_w/n - 100*b_w/n:+.0f}pt")
+    dn = sum(1 for r in res if r[0] == "draw"); dnb = sum(1 for r in res if r[1] == "draw")
+    tot = len(res)
+    print(f"{HERO} vs {OPP}  root-rollout policy  N={tot} CAND={CAND} RO={RO}  ({time.time()-t0:.0f}s)")
+    print(f"  A: hero=root-rollout : {a_w}/{tot} = {100*a_w/max(1,tot):.0f}%  (draw {dn})")
+    print(f"  B: hero=配備 policy  : {b_w}/{tot} = {100*b_w/max(1,tot):.0f}%  (draw {dnb})")
+    print(f"  Δ = {100*a_w/max(1,tot) - 100*b_w/max(1,tot):+.0f}pt")
 
 
 if __name__ == "__main__":

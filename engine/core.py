@@ -191,6 +191,18 @@ def _new_iid():
     return next(_iid)
 
 
+def reset_iid(start: int = 1) -> None:
+    """instance_id カウンタを再初期化 (2026-07-29、 差分同期の決定論用)。
+
+    ⚠ グローバルカウンタは game 間で継続採番するため、 同一 seed でも 2 回目のゲームは iid が
+    offset される。 setup_game 冒頭で reset することで「同一 seed → 同一 iid 列」= 決定論を担保し、
+    Python engine を Rust engine の ground truth にできる。 プロセス毎グローバルなので mp.Pool
+    (worker 別プロセス) では干渉しない。 game 内では従来通り一意にインクリメント。
+    """
+    global _iid
+    _iid = itertools.count(start)
+
+
 @dataclass
 class InPlay:
     instance_id: int

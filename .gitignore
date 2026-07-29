@@ -292,3 +292,8 @@ docs/cloud_push_test.md
 
 # EIV1 self-play corpus / value (runtime data, eiv1_loop で再生成)
 db/eiv1/
+
+# Rust engine (optcg_engine) ビルド生成物
+rust_engine/target/
+rust_engine/Cargo.lock
+*.so
