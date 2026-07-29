@@ -614,9 +614,6 @@ def test_op12_098_counter_pump_human_pick():
         "人間が選んだキャラに +2000 が反映されていない"
 
 
-@pytest.mark.skip(reason="overlay 不備: OP12-098【トリガー】は公式で draw1+mill1 だが "
-                         "overlay trigger do は {mill_self_top:1} のみで draw が欠落。 "
-                         "engine/overlay 修正は人間レビューへ (本タスクでは data 編集しない)。")
 def test_op12_098_trigger_draw_and_mill():
     """【トリガー】カード1枚を引き、デッキ上1枚をトラッシュ (現 overlay では draw 未実装)。"""
     repo = _repo()
