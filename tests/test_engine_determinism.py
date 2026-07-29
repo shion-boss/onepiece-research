@@ -119,7 +119,7 @@ def test_rust_apply_don_fidelity():
     from engine.core import reset_iid
     from engine.deck import CardRepository, make_deck_from_dict
     from engine.effects import load_effect_overlay
-    from engine.game import setup_game, play_until_main, apply_action, AttachDonToLeader
+    from engine.game import setup_game, play_until_main, apply_action, AttachDonToLeader, EndPhase
     from engine.ai import GreedyAI
     from engine.plan_search import fast_clone
     from engine.state_snapshot import state_digest, full_dump
@@ -135,7 +135,8 @@ def test_rust_apply_don_fidelity():
                     rng=random.Random(1), first_player=0, effects_overlay=ov)
     play_until_main(st)
     ais = [GreedyAI(rng=random.Random(4)), GreedyAI(rng=random.Random(7))]
-    checked = 0
+    checked_don = 0
+    checked_end = 0
     for _ in range(40):
         if st.game_over:
             break
@@ -143,13 +144,20 @@ def test_rust_apply_don_fidelity():
         if me.don_active > 0:
             c = fast_clone(st)
             apply_action(c, AttachDonToLeader(1))
-            d_py = state_digest(c)
             d_rust = eng.apply_action_digest(
                 json.dumps(full_dump(st)), json.dumps({"t": "AttachDonToLeader", "n": 1}))
-            assert d_py == d_rust, f"AttachDonToLeader digest 不一致 (py={d_py} rust={d_rust})"
-            checked += 1
+            assert state_digest(c) == d_rust, "AttachDonToLeader digest 不一致"
+            checked_don += 1
+        # EndPhase (phase 機械 = untap/draw/don/turn切替) の fidelity
+        ce = fast_clone(st)
+        apply_action(ce, EndPhase())
+        if ce.pending_choice is None:
+            d_rust_e = eng.apply_action_digest(
+                json.dumps(full_dump(st)), json.dumps({"t": "EndPhase"}))
+            assert state_digest(ce) == d_rust_e, "EndPhase digest 不一致 (phase 機械)"
+            checked_end += 1
         a = ais[st.turn_player_idx].choose_action(st)
         if a is None:
             break
         apply_action(st, a)
-    assert checked >= 3
+    assert checked_don >= 3 and checked_end >= 5
