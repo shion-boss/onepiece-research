@@ -438,6 +438,54 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, _src: Slot
     }
 }
 
+/// on_play の cost を AI 自動支払い (effects.py: AI は auto-pay)。
+/// Some(true)=支払い済で発動 / Some(false)=支払い不能で skip / None=未対応 cost 種別で skip。
+/// ⚠ pay_don のみ対応 (deterministic)。 discard_hand(random)/rest_self/once_per_turn 等は未対応 → skip。
+fn pay_on_play_cost(cost: &Value, state: &mut GameState, me_idx: usize) -> Option<bool> {
+    let mut pay_don = 0i32;
+    let entries: Vec<(String, i64)> = if let Some(o) = cost.as_object() {
+        o.iter().map(|(k, v)| (k.clone(), v.as_i64().unwrap_or(0))).collect()
+    } else if let Some(arr) = cost.as_array() {
+        arr.iter()
+            .filter_map(|x| x.as_object())
+            .flat_map(|o| o.iter().map(|(k, v)| (k.clone(), v.as_i64().unwrap_or(0))))
+            .collect()
+    } else {
+        return None;
+    };
+    for (k, v) in entries {
+        match k.as_str() {
+            "pay_don" => pay_don += v as i32,
+            _ => return None, // 未対応 cost 種別 → skip effect
+        }
+    }
+    if pay_don > 0 {
+        let me = &state.players[me_idx];
+        let capacity = me.don_active + me.don_rested + me.leader.attached_dons
+            + me.characters.iter().map(|c| c.attached_dons).sum::<i32>();
+        if capacity < pay_don {
+            return Some(false); // 支払い不能
+        }
+        let me = &mut state.players[me_idx];
+        let mut removed = 0;
+        let taken = pay_don.min(me.don_active);
+        me.don_active -= taken;
+        me.don_remaining_in_deck += taken;
+        removed += taken;
+        if removed < pay_don {
+            let more = (pay_don - removed).min(me.don_rested);
+            me.don_rested -= more;
+            me.don_remaining_in_deck += more;
+            removed += more;
+        }
+        if removed < pay_don {
+            return None; // area 不足 → 付与ドン払い (稀、 power 依存) は未対応 → skip
+        }
+        state.last_returned_don_count = removed;
+    }
+    Some(true)
+}
+
 /// キャラ登場時の on_play 効果を実行 (effects.py:trigger_on_play)。 played_idx = me.characters の末尾。
 /// ⚠ on_opp_chara_played (相手側トリガー) + event queue cascade は未対応 (該当カードは diverge)。
 pub fn execute_on_play(state: &mut GameState, me_idx: usize, played_idx: usize) {
@@ -451,6 +499,13 @@ pub fn execute_on_play(state: &mut GameState, me_idx: usize, played_idx: usize) 
         match eval_effect_conditions(eff, state, me_idx) {
             Some(true) => {}
             _ => continue,
+        }
+        // cost (AI 自動支払い)。 支払い不能/未対応なら effect skip。
+        if let Some(cost) = eff.get("cost") {
+            match pay_on_play_cost(cost, state, me_idx) {
+                Some(true) => {}
+                _ => continue,
+            }
         }
         if let Some(dos) = eff.get("do").and_then(|v| v.as_array()) {
             for prim in dos {
