@@ -504,9 +504,8 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             // trigger_on_play context (Python は on_play 有無に関わらず設定、 effects.py:10640)
             state.last_self_chara_played_card = Some(card);
             state.last_self_chara_played_from_trash = false; // 手札からの登場
-            // on_play 効果を実行 (未対応 primitive のカードは diverge = 差分テストが境界)。
-            // ⚠ on_opp_chara_played (相手側) は未対応。
-            crate::effects::execute_on_play(state, me, played_idx);
+            // on_play 効果 + 登場 cascade を fidelity 保証で実行 (未対応は Err で bail = 黙って間違えない)。
+            crate::effects::execute_on_play(state, me, played_idx)?;
             Ok(())
         }
         "AttachDonToLeader" => {
@@ -830,7 +829,7 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             let Some(cid) = card_id else {
                 return Err("ActivateMain source 不明".into());
             };
-            crate::effects::fire_activate_main(state, me, &cid, effect_index, source_kind, source_idx);
+            crate::effects::fire_activate_main(state, me, &cid, effect_index, source_kind, source_idx)?;
             Ok(())
         }
         // イベント使用 (game.py:1364)。 hand→trash、 cost 支払い、 max_event_cost、 main 効果実行。
@@ -855,7 +854,7 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             p.trash.push(card);
             p.cards_played_count += 1;
             p.max_event_cost_this_turn = p.max_event_cost_this_turn.max(ccost);
-            crate::effects::execute_main_event(state, me, &card_id);
+            crate::effects::execute_main_event(state, me, &card_id)?;
             Ok(())
         }
         // ステージ登場 (game.py:1382)。 hand→stage、 既存 stage (MAX=1) は trash、 on_play 発火。
@@ -891,7 +890,7 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             state.last_self_chara_played_card = Some(card.clone());
             state.last_self_chara_played_from_trash = false;
             // stage の on_play 効果 (未対応 primitive は diverge)
-            crate::effects::execute_stage_on_play(state, me, played_idx);
+            crate::effects::execute_stage_on_play(state, me, played_idx)?;
             Ok(())
         }
         // ターン終了 (game.py:1313)。 MAIN→END→REFRESH→…→MAIN。 効果トリガーは R3。

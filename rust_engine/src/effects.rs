@@ -380,6 +380,11 @@ fn resolve_target(
             let rested_only = os.contains("rested_character");
             let cost_le = parse_after(os, "cost_le_"); // c.card.cost <= n
             let power_le = parse_after(os, "power_le_"); // c.power() <= n
+            // 認識できない filter token (bare _le_N / _ge_N 等、 例 one_opponent_character_le_5000) は
+            // 誤選択を避けて bail (= 黙って間違えない)。 cost_le/power_le に解釈できた時のみ続行。
+            if cost_le.is_none() && power_le.is_none() && (os.contains("_le_") || os.contains("_ge_")) {
+                return None;
+            }
             let opp = &state.players[opp_idx];
             let mut cands: Vec<usize> = (0..opp.characters.len())
                 .filter(|&i| {
@@ -435,6 +440,9 @@ fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
     for (k, v) in f {
         let ok = match k.as_str() {
             "feature" => card.features.iter().any(|x| Some(x.as_str()) == v.as_str()),
+            "feature_in" => v.as_array().map_or(false, |arr| {
+                arr.iter().any(|x| x.as_str().map_or(false, |s| card.features.iter().any(|f| f == s)))
+            }),
             "color" => card.color.iter().any(|x| Some(x.as_str()) == v.as_str()),
             "attribute" => Some(card.attribute.as_str()) == v.as_str(),
             "cost_le" => (card.cost as i64) <= v.as_i64().unwrap_or(0),
@@ -451,6 +459,7 @@ fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
                 Value::Array(a) => !a.iter().any(|x| x.as_str() == Some(card.name.as_str())),
                 _ => true,
             },
+            "name" => v.as_str() == Some(card.name.as_str()),
             "name_in" => v
                 .as_array()
                 .map_or(false, |arr| arr.iter().any(|x| x.as_str() == Some(card.name.as_str()))),
@@ -1220,37 +1229,93 @@ fn pay_on_play_cost(cost: &Value, state: &mut GameState, me_idx: usize) -> Optio
 }
 
 /// card_id の指定 when 効果を実行 (条件チェック→cost 支払い→do 実行)。 on_play/main 共通。
-fn execute_card_effects(state: &mut GameState, me_idx: usize, card_id: &str, when: &str, src: Slot) {
-    let Some(ov) = overlay() else { return };
-    // effs は static OVERLAY 由来 (state と disjoint) なので clone 不要で iterate 可。
-    let Some(effs) = ov.get(card_id) else { return };
+/// do-list が「未対応 cascade を起こす prim」を含むか (含むなら呼出側は bail = 黙って間違えない)。
+/// cascade を起こす prim (draw/ko/return/rest) は、 該当 when を持つカードが場に無い時のみ再現可。
+fn effect_cascade_blocked(dos: &[Value], state: &GameState, me_idx: usize) -> bool {
+    let opp = 1 - me_idx;
+    let has = |pi: usize, w: &str| me_board_has_when(state, pi, w);
+    for prim in dos {
+        let key = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("");
+        let blocked = match key {
+            "draw" => has(me_idx, "on_self_draw_non_draw_phase"),
+            "ko" | "ko_multi" | "ko_all_others" => {
+                has(me_idx, "on_opp_chara_ko")
+                    || has(opp, "on_self_chara_ko")
+                    || has(opp, "on_ko")
+                    || has(opp, "replace_ko")
+                    || has(opp, "replace_leave")
+            }
+            "return_to_hand" | "return_to_hand_multi" | "return_to_deck_bottom"
+            | "return_to_deck_bottom_multi" => {
+                has(opp, "on_self_chara_leave_by_self_effect") || has(opp, "replace_leave")
+            }
+            "rest" => has(me_idx, "on_self_rested") || has(opp, "on_self_rested"),
+            _ => false,
+        };
+        if blocked {
+            return true;
+        }
+    }
+    false
+}
+
+/// card_id の指定 when 効果を fidelity 保証で実行 (on_play/main 共通)。 全効果を bit 完全再現できたら Ok、
+/// できなければ Err (= 呼出側で apply_action bail、 黙って間違えない = correctness 保証)。 bail 条件:
+///  - 条件 unknown (eval None) / cost 未対応種別 (pay None) / 未対応 primitive (execute_effect false) /
+///    未対応 cascade (effect_cascade_blocked)。
+/// ⚠ on_opp_chara_played 等の「登場/発動そのもの」由来の cascade は呼出側 (apply_action arm) で別途 guard。
+fn execute_card_effects(
+    state: &mut GameState,
+    me_idx: usize,
+    card_id: &str,
+    when: &str,
+    src: Slot,
+) -> Result<(), String> {
+    let Some(ov) = overlay() else { return Ok(()) };
+    let Some(effs) = ov.get(card_id) else { return Ok(()) };
     for eff in effs {
         if eff.get("when").and_then(|v| v.as_str()) != Some(when) {
             continue;
         }
         match eval_effect_conditions(eff, state, me_idx) {
             Some(true) => {}
-            _ => continue,
+            Some(false) => continue,       // 条件不成立 = Python も発動しない
+            None => return Err(format!("{when} 条件 unknown ({card_id})")),
         }
         if let Some(cost) = eff.get("cost") {
             match pay_on_play_cost(cost, state, me_idx) {
                 Some(true) => {}
-                _ => continue,
+                Some(false) => continue,   // cost 払えない = Python も skip
+                None => return Err(format!("{when} cost 未対応 ({card_id})")),
             }
         }
         if let Some(dos) = eff.get("do").and_then(|v| v.as_array()) {
+            if effect_cascade_blocked(dos, state, me_idx) {
+                return Err(format!("{when} cascade 未対応 ({card_id})"));
+            }
             for prim in dos {
-                execute_effect(prim, state, me_idx, src);
+                if !execute_effect(prim, state, me_idx, src) {
+                    let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?");
+                    return Err(format!("{when} primitive 未対応: {k} ({card_id})"));
+                }
             }
         }
     }
+    Ok(())
 }
 
 /// キャラ登場時の on_play 効果を実行 (effects.py:trigger_on_play)。 played_idx = me.characters の末尾。
-/// ⚠ on_opp_chara_played (相手側トリガー) + event queue cascade は未対応 (該当カードは diverge)。
-pub fn execute_on_play(state: &mut GameState, me_idx: usize, played_idx: usize) {
+/// 「登場そのもの」由来の cascade (on_self_chara_played[me] / on_opp_chara_played[opp]) が場にあれば bail
+/// (= 黙って間違えない)。 on_play 効果本体は execute_card_effects が fidelity 保証。
+pub fn execute_on_play(state: &mut GameState, me_idx: usize, played_idx: usize) -> Result<(), String> {
+    let opp = 1 - me_idx;
+    if me_board_has_when(state, me_idx, "on_self_chara_played")
+        || me_board_has_when(state, opp, "on_opp_chara_played")
+    {
+        return Err("on_self/opp_chara_played cascade 未対応".into());
+    }
     let card_id = state.players[me_idx].characters[played_idx].card.card_id.clone();
-    execute_card_effects(state, me_idx, &card_id, "on_play", Slot::Char(played_idx));
+    execute_card_effects(state, me_idx, &card_id, "on_play", Slot::Char(played_idx))
 }
 
 /// player の場に指定 when 効果を持つカードがあるか (draw cascade guard 用)。
@@ -1521,14 +1586,20 @@ pub fn fire_opp_attack(
 }
 
 /// メインイベントの効果を実行 (effects.py:trigger_main_event)。 event はトラッシュ済 = src は leader 仮 placeholder。
-pub fn execute_main_event(state: &mut GameState, me_idx: usize, card_id: &str) {
-    execute_card_effects(state, me_idx, card_id, "main", Slot::Leader);
+pub fn execute_main_event(state: &mut GameState, me_idx: usize, card_id: &str) -> Result<(), String> {
+    let opp = 1 - me_idx;
+    if me_board_has_when(state, me_idx, "on_self_event_played")
+        || me_board_has_when(state, opp, "opp_event_or_trigger_fired")
+    {
+        return Err("on_self_event_played/opp_event_or_trigger cascade 未対応".into());
+    }
+    execute_card_effects(state, me_idx, card_id, "main", Slot::Leader)
 }
 
 /// ステージ登場時の on_play 効果を実行 (game.py:PlayStage → trigger_on_play)。 played_idx = me.stages の末尾。
-pub fn execute_stage_on_play(state: &mut GameState, me_idx: usize, played_idx: usize) {
+pub fn execute_stage_on_play(state: &mut GameState, me_idx: usize, played_idx: usize) -> Result<(), String> {
     let card_id = state.players[me_idx].stages[played_idx].card.card_id.clone();
-    execute_card_effects(state, me_idx, &card_id, "on_play", Slot::Stage(played_idx));
+    execute_card_effects(state, me_idx, &card_id, "on_play", Slot::Stage(played_idx))
 }
 
 /// 起動メイン発火 (effects.py:fire_activate_main)。 effect_index の効果を cost 支払い→do 実行。
@@ -1540,36 +1611,39 @@ pub fn fire_activate_main(
     effect_index: usize,
     source_kind: &str,
     source_idx: usize,
-) -> bool {
+) -> Result<(), String> {
     let src = match source_kind {
         "leader" => Slot::Leader,
         "char" => Slot::Char(source_idx),
         "stage" => Slot::Stage(source_idx),
-        _ => return false,
+        _ => return Err("bad source_kind".into()),
     };
-    // cost/do は static OVERLAY から取り、 clone して借用衝突回避。
     let (cost, dos): (Option<Value>, Vec<Value>) = {
-        let Some(ov) = overlay() else { return false };
-        let Some(effs) = ov.get(card_id) else { return false };
-        let Some(eff) = effs.get(effect_index) else { return false };
+        let Some(ov) = overlay() else { return Ok(()) };
+        let Some(effs) = ov.get(card_id) else { return Ok(()) };
+        let Some(eff) = effs.get(effect_index) else { return Err("effect_index 範囲外".into()) };
         (
             eff.get("cost").cloned(),
             eff.get("do").and_then(|v| v.as_array()).cloned().unwrap_or_default(),
         )
     };
-    // cost 支払い (対応外 cost 種別があれば skip)
+    // cost 支払い。 未対応 cost 種別 or cascade を起こす cost は bail (黙って間違えない)。
     if let Some(c) = &cost {
         if let Some(o) = c.as_object() {
             for k in o.keys() {
                 if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn") {
-                    return false; // 未対応 cost → skip
+                    return Err(format!("activate_main cost 未対応: {k} ({card_id})"));
                 }
             }
+        }
+        // pay_don は on_self_don_returned_to_deck cascade を起こす → 該当時 bail
+        let pay_don = c.get("pay_don").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+        if pay_don > 0 && me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
+            return Err("activate_main pay_don cascade 未対応".into());
         }
         if c.get("rest_self").and_then(|v| v.as_bool()).unwrap_or(false) {
             get_ip_mut(&mut state.players[me_idx], src).rested = true;
         }
-        let pay_don = c.get("pay_don").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
         if pay_don > 0 {
             let me = &mut state.players[me_idx];
             let taken = pay_don.min(me.don_active);
@@ -1592,10 +1666,17 @@ pub fn fire_activate_main(
     if once {
         get_ip_mut(&mut state.players[me_idx], src).act_used = true;
     }
-    for prim in &dos {
-        execute_effect(prim, state, me_idx, src);
+    // do: cascade guard + prim gating
+    if effect_cascade_blocked(&dos, state, me_idx) {
+        return Err(format!("activate_main cascade 未対応 ({card_id})"));
     }
-    true
+    for prim in &dos {
+        if !execute_effect(prim, state, me_idx, src) {
+            let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?");
+            return Err(format!("activate_main primitive 未対応: {k} ({card_id})"));
+        }
+    }
+    Ok(())
 }
 
 /// game.py:evaluate_static_effects の移植 (on_attached_don 常在)。
