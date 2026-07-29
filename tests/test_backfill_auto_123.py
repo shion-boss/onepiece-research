@@ -508,9 +508,6 @@ def test_op12_096_main_ko_human_pick():
     assert b in opp.characters, "選ばなかったキャラは残るべき"
 
 
-@pytest.mark.skip(reason="overlay 不備: OP12-096【トリガー】は公式で draw1+mill1 だが "
-                         "overlay trigger do は {mill_self_top:1} のみで draw が欠落。 "
-                         "engine/overlay 修正は人間レビューへ (本タスクでは data 編集しない)。")
 def test_op12_096_trigger_draw_and_mill():
     """【トリガー】カード1枚を引き、デッキ上1枚をトラッシュ (現 overlay では draw 未実装)。"""
     repo = _repo()

@@ -65026,6 +65026,9 @@
    "when": "trigger",
    "do": [
     {
+     "draw": 1
+    },
+    {
      "mill_self_top": 1
     }
    ]
