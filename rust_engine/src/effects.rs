@@ -555,8 +555,14 @@ fn resolve_target(
         "all_opp_characters" | "all_opponent_characters" => (0..state.players[opp_idx].characters.len())
             .map(|i| (opp_idx, Slot::Char(i)))
             .collect(),
-        // ⚠ all_opponent_characters_power_le_N (OP15-114 ko) は resolve 自体は容易だが、 後続 ko multi-victim
-        // + power_pump 相互作用で MISMATCH (KO 順/cascade)。 multi-victim ko cascade 未解決の為 bail 維持。
+        // all_opponent_characters_power_le_N = 現 power ≤ N の相手キャラ全員 (effects.py:2368、 OP15-114)。
+        os if os.starts_with("all_opponent_characters_power_le_") => {
+            let n = parse_after(os, "power_le_").unwrap_or(0);
+            (0..state.players[opp_idx].characters.len())
+                .filter(|&i| state.players[opp_idx].characters[i].power() <= n)
+                .map(|i| (opp_idx, Slot::Char(i)))
+                .collect()
+        }
         // one_opponent_[rested_]character[_(any_)?cost_le_Ncost | _power_le_N | _any]
         // = 相手キャラを filter → opp_value 最大を 1 体 (AI 自動選択、 effects.py:2443/2540/2627)。
         os if os.starts_with("one_opponent_") => {
@@ -2797,16 +2803,21 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     && (me_board_has_when(state, opp_idx, "on_self_chara_leave_by_opp_effect")
                         || me_board_has_when(state, opp_idx, "replace_leave")));
             if !cascade {
-                // 一括: opp=公開手札 (known)、 self=手札のみ。
-                let mut sorted = victims.clone();
-                sorted.sort_by(|a, b| b.1.cmp(&a.1));
-                for (pi, idx) in sorted {
-                    let removed = state.players[pi].characters.remove(idx);
-                    let don = removed.attached_dons;
+                // 一括: opp=公開手札 (known)、 self=手札のみ。 remove は降順、 push は target 順 (昇順)。
+                let mut desc = victims.clone();
+                desc.sort_by(|a, b| b.1.cmp(&a.1));
+                let mut removed: Vec<(usize, usize, crate::state::CardDef, i32)> = vec![];
+                for (pi, idx) in desc {
+                    let r = state.players[pi].characters.remove(idx);
+                    let don = r.attached_dons;
+                    removed.push((pi, idx, r.card, don));
+                }
+                removed.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
+                for (pi, _idx, card, don) in removed {
                     if pi == opp_idx {
-                        state.players[pi].known_hand_card_ids.push(removed.card.card_id.clone());
+                        state.players[pi].known_hand_card_ids.push(card.card_id.clone());
                     }
-                    state.players[pi].hand.push(removed.card);
+                    state.players[pi].hand.push(card);
                     state.players[pi].don_rested += don;
                 }
                 return true;
@@ -3160,20 +3171,27 @@ fn collect_unprotected(state: &GameState, targets: &[(usize, Slot)]) -> Vec<(usi
 /// victim キャラを場から除去し dest へ (付与ドンはレストで返却)。 index 降順で remove。
 /// ⚠ KO/離脱 trigger cascade は未対応 (該当 victim は diverge)。
 fn remove_victims(state: &mut GameState, mut victims: Vec<(usize, usize)>, dest: RemoveDest) {
-    victims.sort_by(|a, b| b.1.cmp(&a.1));
+    // ⚠ dest への push 順は Python の target 順 (= 昇順 idx = `for t in targets`)。 remove は index shift
+    // 回避で降順だが、 push は昇順に揃える (multi-victim で trash/hand/deck 順が Python と一致、 OP15-114)。
+    victims.sort_by(|a, b| b.1.cmp(&a.1)); // 降順 remove
+    let mut removed: Vec<(usize, usize, crate::state::CardDef, i32)> = vec![];
     for (pi, idx) in victims {
         if idx >= state.players[pi].characters.len() {
             continue;
         }
-        let removed = state.players[pi].characters.remove(idx);
-        let don = removed.attached_dons;
+        let r = state.players[pi].characters.remove(idx);
+        let don = r.attached_dons;
+        removed.push((pi, idx, r.card, don));
+    }
+    removed.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1))); // (pi, idx) 昇順 = target 順で push
+    for (pi, _idx, card, don) in removed {
         match dest {
             RemoveDest::Trash => {
-                state.players[pi].trash.push(removed.card);
+                state.players[pi].trash.push(card);
                 state.players[pi].chara_ko_taken_this_turn += 1;
             }
-            RemoveDest::Hand => state.players[pi].hand.push(removed.card),
-            RemoveDest::DeckBottom => state.players[pi].deck.push(removed.card),
+            RemoveDest::Hand => state.players[pi].hand.push(card),
+            RemoveDest::DeckBottom => state.players[pi].deck.push(card),
         }
         state.players[pi].don_rested += don;
     }
