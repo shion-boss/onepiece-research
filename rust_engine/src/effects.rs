@@ -459,7 +459,18 @@ fn resolve_target(
         }
     };
     let out = match s.as_str() {
-        "self" | "self_inplay" => vec![(me_idx, src)],
+        "self" => vec![(me_idx, src)],
+        // effects.py:2345 「自リーダーかキャラ1枚」 = src ではなく AI=最高power の自カード (leader/char)。
+        // ties は原順 (leader→char0→…) = 安定ソート。 counter event (source-gone) 等で src と別。
+        "self_inplay" => {
+            let me = &state.players[me_idx];
+            let mut cands: Vec<(Slot, i32)> = vec![(Slot::Leader, me.leader.power())];
+            for (i, c) in me.characters.iter().enumerate() {
+                cands.push((Slot::Char(i), c.power()));
+            }
+            cands.sort_by(|a, b| b.1.cmp(&a.1)); // desc power (stable=ties 原順)
+            vec![(me_idx, cands[0].0)]
+        }
         "self_leader" => vec![(me_idx, Slot::Leader)],
         // 自リーダー or キャラ 1 体、 AI はリーダー優先 (effects.py:2948)
         "self_inplay_choice" => vec![(me_idx, Slot::Leader)],
@@ -3568,6 +3579,51 @@ pub fn execute_main_event(state: &mut GameState, me_idx: usize, card_id: &str) -
     execute_card_effects(state, me_idx, card_id, "main", Slot::Leader)?;
     fire_field_when(state, me_idx, "on_self_event_played")?;
     fire_field_when(state, opp, "opp_event_or_trigger_fired")?;
+    Ok(())
+}
+
+/// 【カウンター】イベントの発動 (game.py:2191 _fire_counter_events + trigger_counter_event)。
+/// defender = アタックを受けている側 (= イベントの「自分」)。 各 idx は desc で処理 (idx 不変)。
+/// cost (active don ≥ card.cost) を払えなければ skip (trash もしない)。 payable なら active→rested で払い
+/// trash → counter 効果発火 (source-gone = Leader placeholder、 fidelity gate で未対応は Err)。
+/// ⚠ event-played cascade (on_self_event_played / opp_event_or_trigger_fired) は防御ターンの turn-first 順が
+///   delicate → 該当カードが場にあれば bail。 無ければ no-op で安全。
+pub fn fire_counter_events(
+    state: &mut GameState,
+    defender_idx: usize,
+    attacker_idx: usize,
+    idxs: &[i64],
+) -> Result<(), String> {
+    if idxs.is_empty() {
+        return Ok(());
+    }
+    if me_board_has_when(state, defender_idx, "on_self_event_played")
+        || me_board_has_when(state, attacker_idx, "opp_event_or_trigger_fired")
+    {
+        return Err("counter event の event-played cascade 未対応".into());
+    }
+    let mut sorted: Vec<usize> = idxs.iter().map(|&i| i as usize).collect();
+    sorted.sort_unstable();
+    sorted.dedup();
+    sorted.reverse(); // desc
+    for i in sorted {
+        if i >= state.players[defender_idx].hand.len() {
+            continue;
+        }
+        if state.players[defender_idx].hand[i].category != crate::state::Category::Event {
+            continue;
+        }
+        let cost = state.players[defender_idx].hand[i].cost;
+        if state.players[defender_idx].don_active < cost {
+            continue; // 支払い不能 = 発動できない (trash もしない)
+        }
+        let card = state.players[defender_idx].hand.remove(i);
+        let cid = card.card_id.clone();
+        state.players[defender_idx].don_rested += cost;
+        state.players[defender_idx].don_active -= cost;
+        state.players[defender_idx].trash.push(card);
+        execute_card_effects(state, defender_idx, &cid, "counter", Slot::Leader)?;
+    }
     Ok(())
 }
 

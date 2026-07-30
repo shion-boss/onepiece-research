@@ -553,13 +553,11 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 .and_then(|v| v.as_array())
                 .map(|a| a.iter().filter_map(|x| x.as_i64()).collect())
                 .unwrap_or_default();
-            if action
+            let counter_events: Vec<i64> = action
                 .get("counter_event_idxs")
                 .and_then(|v| v.as_array())
-                .map_or(false, |a| !a.is_empty())
-            {
-                return Err("counter event 未対応".into());
-            }
+                .map(|a| a.iter().filter_map(|x| x.as_i64()).collect())
+                .unwrap_or_default();
             // attacker 存在チェック (absent = 攻撃不発 = Ok no-op、 game.py:1443)
             let attacker_exists = match atk_kind {
                 "leader" => true,
@@ -617,7 +615,8 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     reset_battle_buffs(state); // target 消失 = 空打ち (game.py:1484)
                     return Ok(());
                 }
-                // counter events は冒頭で bail 済。 counter cards を redirect 先で spend。
+                // カウンターフェイズ: counter events (defender=opp) → counter cards。
+                crate::effects::fire_counter_events(state, opp, me, &counter_events)?;
                 let counter_added = spend_counters(&mut state.players[opp], &counter_cards);
                 // battle: Python redirect は attr bonus 無し (game.py:1502/1520)。 免疫 = ko_immune/属性のみ。
                 let atk_power = attacker.power();
@@ -663,7 +662,8 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 }
                 // 不正ブロッカーは無視 = リーダーへ続行 (game.py:1591-1605)
             }
-            // === カウンターフェイズ (7-1-3) ===
+            // === カウンターフェイズ (7-1-3): counter events → counter cards ===
+            crate::effects::fire_counter_events(state, opp, me, &counter_events)?;
             let counter_added = spend_counters(&mut state.players[opp], &counter_cards);
 
             if is_blocked {
@@ -792,13 +792,11 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 .and_then(|v| v.as_array())
                 .map(|a| a.iter().filter_map(|x| x.as_i64()).collect())
                 .unwrap_or_default();
-            if action
+            let counter_events: Vec<i64> = action
                 .get("counter_event_idxs")
                 .and_then(|v| v.as_array())
-                .map_or(false, |a| !a.is_empty())
-            {
-                return Err("counter event 未対応".into());
-            }
+                .map(|a| a.iter().filter_map(|x| x.as_i64()).collect())
+                .unwrap_or_default();
             let attacker_exists = match atk_kind {
                 "leader" => true,
                 "char" => atk_idx < state.players[me].characters.len(),
@@ -880,7 +878,8 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     actual_idx = bi;
                 }
             }
-            // === カウンター ===
+            // === カウンター: counter events → counter cards ===
+            crate::effects::fire_counter_events(state, opp, me, &counter_events)?;
             let counter_added = spend_counters(&mut state.players[opp], &counter_cards);
             // === バトル解決 (attr bonus 両方向) ===
             let (atk_power, def_power, immune) = {
