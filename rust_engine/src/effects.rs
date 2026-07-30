@@ -603,6 +603,59 @@ fn cat_str(c: &Category) -> &'static str {
     }
 }
 
+/// effects.py:_walk_prim_names — do ツリーの全 key を集合に集める (list 走査 + dict key 再帰)。
+fn walk_prim_names(node: &Value, out: &mut std::collections::BTreeSet<String>) {
+    match node {
+        Value::Object(o) => {
+            for (k, v) in o {
+                out.insert(k.clone());
+                walk_prim_names(v, out);
+            }
+        }
+        Value::Array(a) => a.iter().for_each(|x| walk_prim_names(x, out)),
+        _ => {}
+    }
+}
+
+/// effects.py:_option_score — choice_effect 選択肢を局面 (相手/自キャラ数・自ライフ) で採点。
+/// do 空 = -1.0。 prim 集合を走査し効果種別で加点 (順不同 = 和なので順序非依存)。 スコア自体は digest
+/// に載らず「どの option を選ぶか」のみ決める (float 順序差は max 選択に無関係、 tie は Python 同様 first)。
+fn option_score(opt: &Value, n_opp: usize, n_me: usize, my_life: usize) -> f64 {
+    let do_val = opt.get("do");
+    let empty = match do_val {
+        Some(Value::Array(a)) => a.is_empty(),
+        Some(_) => false,
+        None => true,
+    };
+    if empty {
+        return -1.0;
+    }
+    let mut prims: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    walk_prim_names(do_val.unwrap(), &mut prims);
+    let mut score = 0.0f64;
+    for pr in &prims {
+        score += match pr.as_str() {
+            "ko" | "ko_multi" | "ko_all_others" | "return_to_hand" | "return_to_hand_multi"
+            | "return_to_deck_bottom" => if n_opp > 0 { 3.0 } else { -0.5 },
+            "rest" | "rest_opp_don" | "keep_opp_rested_don_next_refresh" => {
+                if n_opp > 0 { 1.5 } else { -0.5 }
+            }
+            "draw" | "draw_per_self_hand_discarded" => 2.0,
+            "search" | "search_top_n" | "play_from_hand" | "play_from_trash" | "summon_from_deck"
+            | "reveal_hand_play_split" => 1.8,
+            "add_don" | "add_rested_don" | "attach_don" | "attach_rested_don" | "attach_active_don"
+            | "untap_don" => 1.5,
+            "power_pump" | "give_keyword" | "give_rush" => if n_me > 0 { 1.0 } else { -0.5 },
+            "put_top_to_life" | "hand_to_self_life" | "life_to_hand" => {
+                if my_life <= 2 { 2.5 } else { 0.8 }
+            }
+            "trash_opp_hand_random" => 1.2,
+            _ => 0.3,
+        };
+    }
+    score
+}
+
 /// effects.py:_worst_hand_idx = 最も捨てて惜しくない手札 index (counter→cost→power→相手に割れてる札 の昇順)。
 /// min = 最初の最小 (Rust min_by_key も tie は最初 = Python min と一致)。
 fn worst_hand_idx(hand: &[crate::state::CardDef], known: &[String]) -> Option<usize> {
@@ -1170,6 +1223,55 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 }
                 me.hand.push(c);
                 me.cards_drawn_count += 1;
+            }
+            true
+        }
+        // choice_effect (effects.py:3085): 「以下から1つを選ぶ」分岐。 AI は option_score 最大の option を
+        // 選び do を実行。 actor は AI 経路では scoring/選択に無関係 (human-pick gating のみ、 self-play は常に AI)。
+        "choice_effect" => {
+            let Some(spec) = v.as_object() else { return true };
+            let Some(options) = spec.get("options").and_then(|x| x.as_array()) else { return true };
+            if options.is_empty() {
+                return true;
+            }
+            // if 条件成立の option のみ valid。 unknown 条件は選択不能 → bail (黙って間違えない)。
+            let mut valid: Vec<usize> = vec![];
+            for (i, opt) in options.iter().enumerate() {
+                if let Some(cond) = opt.get("if") {
+                    match eval_condition(cond, state, me_idx, Some(src)) {
+                        Some(true) => {}
+                        Some(false) => continue,
+                        None => return false,
+                    }
+                }
+                valid.push(i);
+            }
+            if valid.is_empty() {
+                return true; // 発動可能 option 無し = 不発 (Python continue)
+            }
+            // 局面採点で最良 option (tie は first = Python max 準拠)。
+            let n_opp = state.players[opp_idx].characters.len();
+            let n_me = state.players[me_idx].characters.len();
+            let my_life = state.players[me_idx].life.len();
+            let mut best = valid[0];
+            let mut best_s = option_score(&options[valid[0]], n_opp, n_me, my_life);
+            for &i in &valid[1..] {
+                let s = option_score(&options[i], n_opp, n_me, my_life);
+                if s > best_s {
+                    best_s = s;
+                    best = i;
+                }
+            }
+            let Some(chosen_do) = options[best].get("do").and_then(|x| x.as_array()) else { return true };
+            // nested cascade guard: 選んだ do の top-level prim が cascade を起こすなら bail
+            // (execute_effect の draw 等は cascade を自前発火せず外側 guard 前提の為、 ここで再適用)。
+            if effect_cascade_blocked(chosen_do, state, me_idx) {
+                return false;
+            }
+            for sub in chosen_do {
+                if !execute_effect(sub, state, me_idx, src) {
+                    return false;
+                }
             }
             true
         }
