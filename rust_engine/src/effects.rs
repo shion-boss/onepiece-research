@@ -1194,6 +1194,40 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 相手 or 自デッキ上 N 枚を trash (effects.py:mill)。 spec {target:opp|me, count}。
+        "mill" => {
+            let (target_opp, n) = if let Some(o) = v.as_object() {
+                (o.get("target").and_then(|x| x.as_str()).unwrap_or("opp") == "opp",
+                 o.get("count").and_then(|x| x.as_i64()).unwrap_or(1))
+            } else {
+                (true, v.as_i64().unwrap_or(1))
+            };
+            let pi = if target_opp { opp_idx } else { me_idx };
+            for _ in 0..n {
+                if state.players[pi].deck.is_empty() {
+                    break;
+                }
+                let c = state.players[pi].deck.remove(0);
+                state.players[pi].trash.push(c);
+            }
+            true
+        }
+        // 相手ライフ上 N 枚を相手手札へ (effects.py:mill_opp_life_to_hand、 効果ライフ削り=trigger 無し)。
+        "mill_opp_life_to_hand" => {
+            let n = if v.is_object() {
+                v.get("amount").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            };
+            for _ in 0..n {
+                if state.players[opp_idx].life.is_empty() {
+                    break;
+                }
+                let c = state.players[opp_idx].life.remove(0);
+                state.players[opp_idx].hand.push(c);
+            }
+            true
+        }
         // キーワード付与 (effects.py:4628)。 keywords list は AI 優先度で 1 つ選択。
         // duration: turn→granted_keywords / next_opp_turn_end→granted_keywords_through_opp_turn+applier。
         "give_keyword" => {
@@ -1905,6 +1939,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
         "power_pump" | "draw" | "give_keyword" | "add_don" | "add_don_active" | "add_rested_don"
             | "untap_don" | "untap" | "untap_chara" | "rest" | "cost_minus" | "attach_rested_don" | "mill_self_top"
             | "life_to_hand" | "trash_self_hand_random" | "redirect_attack" | "mill_self_life_to_trash"
+            | "mill" | "mill_opp_life_to_hand"
             | "stay_rested_next_refresh" | "set_cannot_rest" | "set_cannot_attack" | "put_top_to_life"
             | "optional_discard_hand_for_battle_buff" | "conditional" | "optional_cost_then"
     )
