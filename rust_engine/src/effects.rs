@@ -4286,10 +4286,6 @@ fn try_pay_counter_cost(
             }
         }
     }
-    // --- cascade guard: pay_don は on_self_don_returned_to_deck を発火しうる ---
-    if pay_don > 0 && me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
-        return Err("counter cost pay_don cascade 未対応".into());
-    }
     // --- pay。 Python _pay_counter_cost 順: discard_hand→pay_don→rest_don→…。 discard は先頭。 ---
     // discard_hand: worst_hand_idx で actual 枚捨て + flag + on_self_hand_discarded cascade (発火/bail)。
     if discard_n > 0 {
@@ -4310,6 +4306,14 @@ fn try_pay_counter_cost(
     // --- pay (Python _pay_counter_cost の順: pay_don→rest_don→rest_self→life→trash_to_deck→flip) ---
     if pay_don > 0 && !pay_don_field(state, me_idx, pay_don) {
         return Err("pay_don 支払い不能".into());
+    }
+    // pay_don_field が last_returned_don_count を set 済 → on_self_don_returned_to_deck cascade。
+    // ⚠ Python は resolving=True 中 (counter event 解決内) なので deferred。 Rust は即時発火。
+    // 順序非依存なら digest 一致 (差分検証が判定)。 未対応 prim は fire_field_when が Err → bail。
+    if pay_don > 0 && me_board_has_when(state, me_idx, "on_self_don_returned_to_deck")
+        && fire_field_when(state, me_idx, "on_self_don_returned_to_deck").is_err()
+    {
+        return Err("counter cost pay_don cascade 未対応".into());
     }
     if rest_don > 0 {
         let me = &mut state.players[me_idx];
