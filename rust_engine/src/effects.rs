@@ -2531,12 +2531,12 @@ pub fn fire_opp_attack(
 /// メインイベントの効果を実行 (effects.py:trigger_main_event)。 event はトラッシュ済 = src は leader 仮 placeholder。
 pub fn execute_main_event(state: &mut GameState, me_idx: usize, card_id: &str) -> Result<(), String> {
     let opp = 1 - me_idx;
-    if me_board_has_when(state, me_idx, "on_self_event_played")
-        || me_board_has_when(state, opp, "opp_event_or_trigger_fired")
-    {
-        return Err("on_self_event_played/opp_event_or_trigger cascade 未対応".into());
-    }
-    execute_card_effects(state, me_idx, card_id, "main", Slot::Leader)
+    // trigger_main_event 順 (turn-first FIFO drain): ① event main 効果 → ② on_self_event_played(me)→
+    //   ③ opp_event_or_trigger_fired(opp)。 各段 fire は fidelity 保証 (未対応 cost/once/prim は Err bail)。
+    execute_card_effects(state, me_idx, card_id, "main", Slot::Leader)?;
+    fire_field_when(state, me_idx, "on_self_event_played")?;
+    fire_field_when(state, opp, "opp_event_or_trigger_fired")?;
+    Ok(())
 }
 
 /// ステージ登場時の on_play 効果を実行 (game.py:PlayStage → trigger_on_play)。 played_idx = me.stages の末尾。
