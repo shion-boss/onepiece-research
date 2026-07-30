@@ -1255,6 +1255,26 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 自ライフ上 N 枚を手札へ (effects.py:life_to_hand)。 禁止 flag 時 no-op、 移動時 on_self_life_to_hand 発火。
+        "life_to_hand" => {
+            if state.players[me_idx].prevent_self_life_to_hand_until_turn_end {
+                return true; // Python: 禁止で不発 (return False だが if_prev_succeeded 0 件で影響なし)
+            }
+            let n = v.as_i64().unwrap_or(0);
+            let mut moved = 0;
+            for _ in 0..n {
+                let me = &mut state.players[me_idx];
+                if !me.life.is_empty() {
+                    let c = me.life.remove(0);
+                    me.hand.push(c);
+                    moved += 1;
+                }
+            }
+            if moved > 0 && fire_field_when(state, me_idx, "on_self_life_to_hand").is_err() {
+                return false; // cascade (on_self_life_to_hand) 再現不能 → bail
+            }
+            true
+        }
         // 任意 discard で battle buff (effects.py:8003、 OP15-002 ルーシー/OP03-001 エース等)。
         // AI 経路 (self-play): filter マッチ手札の先頭 min(len,max=3) を捨て、 target に +amount_per*枚 (battle)。
         // ⚠ discard>0 で hand_discarded_by_effect_this_turn=true + on_self_hand_discarded cascade
@@ -2458,7 +2478,7 @@ pub fn fire_activate_main(
     if let Some(c) = &cost {
         if let Some(o) = c.as_object() {
             for k in o.keys() {
-                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card") {
+                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card" | "ko_self_with_filter") {
                     return Err(format!("activate_main cost 未対応: {k} ({card_id})"));
                 }
             }
@@ -2522,6 +2542,22 @@ pub fn fire_activate_main(
             pool.sort_by(|a, b| (a.0 as i32, a.1).cmp(&(b.0 as i32, b.1)));
             for (_, _, sl) in pool.into_iter().take(ro_n) {
                 get_ip_mut(&mut state.players[me_idx], sl).rested = true;
+            }
+        }
+        // ko_self_with_filter (effects.py:13560): filter 一致の自キャラ 先頭 1 枚を自KO。 AI は候補[0]。
+        //   → trash + 付与ドン→レスト、 chara_ko_taken++、 on_ko (source-gone) + on_self_chara_ko 発火
+        //   (self-ko なので on_opp_chara_ko は無し)。 未対応 on_ko/cascade は fire_on_ko/fire_field_when が bail。
+        if let Some(kf) = c.get("ko_self_with_filter") {
+            let me = &mut state.players[me_idx];
+            if let Some(i) = me.characters.iter().position(|ch| matches_filter(&ch.card, Some(kf))) {
+                let removed = me.characters.remove(i);
+                let vcid = removed.card.card_id.clone();
+                let don = removed.attached_dons;
+                me.trash.push(removed.card);
+                me.don_rested += don;
+                me.chara_ko_taken_this_turn += 1; // trigger_on_ko 相当 (全 KO で加算)
+                fire_on_ko(state, me_idx, &vcid)?;
+                fire_field_when(state, me_idx, "on_self_chara_ko")?;
             }
         }
     }
