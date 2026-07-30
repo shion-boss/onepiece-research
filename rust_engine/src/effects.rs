@@ -816,6 +816,15 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
             };
             Some((me.hand.len() as i64) >= n)
         }
+        // mill_self_life_to_trash cost: ライフ N 枚以上必要 (effects.py:8259)。 支払いは primitive 委譲。
+        "mill_self_life_to_trash" => {
+            let n = if cv.is_object() {
+                cv.get("amount").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                cv.as_i64().unwrap_or(1)
+            };
+            Some((me.life.len() as i64) >= n)
+        }
         _ => None, // 未対応 cost 型 → bail
     }
 }
@@ -959,6 +968,12 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
         // trash_self_hand_random: Python optional_cost fallback (effects.py:8928) = execute_effect(cs)
         //   = primitive (worst_hand_idx pop + hand_discarded flag + on_self_hand_discarded cascade)。
         "trash_self_hand_random" => {
+            if !execute_effect(cs, state, me_idx, src) {
+                return None;
+            }
+        }
+        // mill_self_life_to_trash: Python fallback (execute_effect) = primitive (life pop→trash、 trigger 無)。
+        "mill_self_life_to_trash" => {
             if !execute_effect(cs, state, me_idx, src) {
                 return None;
             }
@@ -1318,6 +1333,23 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 }
                 let c = me.deck.remove(0);
                 me.life.push(c);
+            }
+            true
+        }
+        // 自ライフ上 N 枚をトラッシュへ (effects.py:mill_self_life_to_trash、 自害効果)。 trigger 無し。
+        "mill_self_life_to_trash" => {
+            let n = if v.is_object() {
+                v.get("amount").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            };
+            let me = &mut state.players[me_idx];
+            for _ in 0..n {
+                if me.life.is_empty() {
+                    break;
+                }
+                let c = me.life.remove(0);
+                me.trash.push(c);
             }
             true
         }
@@ -1872,7 +1904,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
         key,
         "power_pump" | "draw" | "give_keyword" | "add_don" | "add_don_active" | "add_rested_don"
             | "untap_don" | "untap" | "untap_chara" | "rest" | "cost_minus" | "attach_rested_don" | "mill_self_top"
-            | "life_to_hand" | "trash_self_hand_random" | "redirect_attack"
+            | "life_to_hand" | "trash_self_hand_random" | "redirect_attack" | "mill_self_life_to_trash"
             | "stay_rested_next_refresh" | "set_cannot_rest" | "set_cannot_attack" | "put_top_to_life"
             | "optional_discard_hand_for_battle_buff" | "conditional" | "optional_cost_then"
     )
