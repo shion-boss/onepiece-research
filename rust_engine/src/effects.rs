@@ -3598,7 +3598,7 @@ pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> 
         }
         for prim in dos {
             if !execute_effect(prim, state, owner_idx, Slot::Leader) {
-                return Err("on_ko primitive 再現不能".into());
+                return Err(format!("on_ko primitive 再現不能: {}", prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?")));
             }
         }
     }
@@ -3680,7 +3680,7 @@ pub fn fire_life_trigger(
                 continue;
             }
             if !execute_effect(prim, state, defender_idx, Slot::Leader) {
-                return Err("life trigger primitive 再現不能".into());
+                return Err(format!("life trigger primitive 再現不能: {}", prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?")));
             }
         }
     }
