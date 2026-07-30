@@ -4132,6 +4132,9 @@ pub fn fire_life_trigger(
                     // cascade は execute_effect が自前 bail-guard。 conditional = if を src=leader placeholder
                     // で eval (life-trigger は self_inplay=None なので Python も placeholder 相当) + 内 prim 自己 guard。
                     | "trash_self_hand_random" | "conditional"
+                    // ko = 相手キャラ対象 (src 非参照 = source-gone 安全)。 on_ko/on_self_chara_ko cascade は
+                    // execute_effect の single-victim ko が自前発火/bail (victim=None 準拠)。
+                    | "ko"
             ) {
                 return Err(format!("life trigger primitive 未対応 (source-gone): {k}"));
             }
