@@ -2371,6 +2371,24 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 「(target) が相手の元コスト N 以下のキャラへアタック不可」 (effects.py:7653、 OP12-020 リーダー)。
+        // 対象に cannot_attack_target_cost_le_until_turn_end=N を set (attack 側は既に read 済)。
+        "set_cannot_attack_target_cost_le" => {
+            let default_tgt = Value::String("self_leader".into());
+            let (tgt, cost_le) = if let Some(o) = v.as_object() {
+                (
+                    o.get("target").unwrap_or(&default_tgt),
+                    o.get("cost_le").and_then(|x| x.as_i64()).unwrap_or(0) as i32,
+                )
+            } else {
+                (&default_tgt, v.as_i64().unwrap_or(0) as i32)
+            };
+            let Some(targets) = resolve_target(Some(tgt), me_idx, opp_idx, src, state) else { return false };
+            for (pi, sl) in targets {
+                get_ip_mut(&mut state.players[pi], sl).cannot_attack_target_cost_le_until_turn_end = cost_le;
+            }
+            true
+        }
         // 相手レストキャラの次リフレッシュ非アクティブ化 (effects.py:6770、 OP05-094)。 target 既定
         // one_opponent_character_any。 ⚠ Python は rested の対象のみ flag (if t.rested)。
         "keep_opp_rested_chara_next_refresh" => {
