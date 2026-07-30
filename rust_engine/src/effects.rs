@@ -1760,6 +1760,55 @@ fn fire_gated_do(
     Ok(())
 }
 
+/// 【KO時】(on_ko) を発火 (effects.py:trigger_on_ko、 battle KO 経路 = by_opp_effect=false)。
+/// victim は既に trash (source-gone) なので Slot::Leader を placeholder に player-level の安全 prim のみ発火。
+/// chara_ko_taken_this_turn++ は battle_ko_character 側で実施済 (Python は trigger_on_ko で全 KO 分加算、 同義)。
+/// ⚠ source-gone: src (=self) を参照する prim / target 系は placeholder=leader に誤解決するため
+///   narrow allow-list (draw/add_don/add_rested_don/untap_don/mill_self_top/put_top_to_life = 全て
+///   player-level で src 不使用) 限定。 cost / 未知条件 (by_opp_effect/by_battle/self_attached_don_ge 等) /
+///   非対応 prim / draw cascade は Err で bail。 replace_ko/replace_leave は呼出側 (do_battle_ko) で先に bail。
+pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> Result<(), String> {
+    let Some(ov) = overlay() else { return Ok(()) };
+    let Some(effs) = ov.get(victim_cid) else { return Ok(()) };
+    if !effs.iter().any(|e| e.get("when").and_then(|v| v.as_str()) == Some("on_ko")) {
+        return Ok(());
+    }
+    for eff in effs {
+        if eff.get("when").and_then(|v| v.as_str()) != Some("on_ko") {
+            continue;
+        }
+        if eff.get("cost").map_or(false, |c| !cost_is_empty(c)) {
+            return Err("on_ko cost 未対応 (source-gone)".into());
+        }
+        match eval_effect_conditions(eff, state, owner_idx, None) {
+            Some(true) => {}
+            Some(false) => continue,
+            None => return Err("on_ko 条件 unknown".into()),
+        }
+        let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
+        for prim in dos {
+            let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("");
+            // player-level (src 不使用) のみ許可。 target/self 系は placeholder=leader で誤解決するため bail。
+            if !matches!(
+                k,
+                "draw" | "add_don" | "add_don_active" | "add_rested_don" | "untap_don"
+                    | "mill_self_top" | "put_top_to_life"
+            ) {
+                return Err(format!("on_ko primitive 未対応 (source-gone): {k}"));
+            }
+            if k == "draw" && me_board_has_when(state, owner_idx, "on_self_draw_non_draw_phase") {
+                return Err("on_ko draw cascade 未対応".into());
+            }
+        }
+        for prim in dos {
+            if !execute_effect(prim, state, owner_idx, Slot::Leader) {
+                return Err("on_ko primitive 再現不能".into());
+            }
+        }
+    }
+    Ok(())
+}
+
 /// JSON 値の truthy 判定 (Python の `if cost.get(k)` 相当: null/false/0/空 以外)。
 fn json_truthy(v: &Value) -> bool {
     match v {

@@ -166,17 +166,18 @@ fn do_battle_ko(
     fire_self_battle_ko: bool,
 ) -> Result<(), String> {
     let vcid = state.players[victim_owner].characters[victim_idx].card.card_id.clone();
-    if crate::effects::card_has_when(&vcid, "on_ko")
-        || board_has_when(&state.players[victim_owner], "replace_ko")
+    // replace_ko/replace_leave は KO を置換 (阻止) する = battle_ko_character を回すと誤 KO → bail 維持。
+    if board_has_when(&state.players[victim_owner], "replace_ko")
         || board_has_when(&state.players[victim_owner], "replace_leave")
     {
-        return Err("KO cascade (on_ko/replace) 未対応".into());
+        return Err("KO cascade (replace) 未対応".into());
     }
     if fire_self_battle_ko && crate::effects::card_has_when(attacker_cid, "on_self_battle_ko") {
         return Err("on_self_battle_ko 未対応".into());
     }
     battle_ko_character(state, victim_owner, victim_idx);
-    // trigger_on_opp_chara_ko (攻撃側) → trigger_on_self_chara_ko (victim 側) の順 (game.py 準拠)
+    // game.py 準拠の順: trigger_on_ko (victim 側) → on_opp_chara_ko (攻撃側) → on_self_chara_ko (victim 側)。
+    crate::effects::fire_on_ko(state, victim_owner, &vcid)?;
     crate::effects::fire_field_when(state, attacker_owner, "on_opp_chara_ko")?;
     crate::effects::fire_field_when(state, victim_owner, "on_self_chara_ko")?;
     Ok(())
