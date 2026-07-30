@@ -663,6 +663,28 @@ fn parse_after(s: &str, marker: &str) -> Option<i32> {
     num.parse().ok()
 }
 
+/// 場 5 枚での効果登場時、 最弱キャラ (power→cost 昇順、 tie は先頭) を 1 枚トラッシュ (core.py:762、
+/// 公式 3-7-6-1)。 KO ではない = on_ko trigger 無し (単純除去 + 付与ドン返却)。 満杯でなければ no-op。
+fn trash_weakest_for_field_full(state: &mut GameState, me_idx: usize) {
+    let me = &mut state.players[me_idx];
+    if me.characters.len() < 5 {
+        return;
+    }
+    let mut idx = 0;
+    let mut best = (me.characters[0].power(), me.characters[0].card.cost);
+    for i in 1..me.characters.len() {
+        let key = (me.characters[i].power(), me.characters[i].card.cost);
+        if key < best {
+            best = key;
+            idx = i;
+        }
+    }
+    let removed = me.characters.remove(idx);
+    let don = removed.attached_dons;
+    me.trash.push(removed.card);
+    me.don_rested += don;
+}
+
 fn cat_str(c: &Category) -> &'static str {
     match c {
         Category::Leader => "LEADER",
@@ -755,7 +777,9 @@ fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
             "attribute" => v.as_str().map_or(false, |a| card.attribute.contains(a)),
             "cost_le" => (card.cost as i64) <= v.as_i64().unwrap_or(0),
             "cost_ge" => (card.cost as i64) >= v.as_i64().unwrap_or(0),
-            "cost_eq" => (card.cost as i64) == v.as_i64().unwrap_or(-1),
+            // 厳密 "cost": N (= cost_eq エイリアス、 公式「コストN の」、 effects.py:30、 OP14-084 等)。
+            // original_cost_eq も印刷コスト一致 (CardDef.cost=印刷値)。
+            "cost_eq" | "cost" | "original_cost_eq" => (card.cost as i64) == v.as_i64().unwrap_or(-1),
             "power_le" => (card.power as i64) <= v.as_i64().unwrap_or(0),
             "power_ge" => (card.power as i64) >= v.as_i64().unwrap_or(0),
             "category" => Some(cat_str(&card.category)) == v.as_str(),
@@ -1770,10 +1794,6 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             if chosen.is_empty() {
                 return true; // 候補0 = no-op (AI path は何もしない)
             }
-            // field-full は trash_weakest が要る → bail (満杯: 登場後 MAX_CHARACTERS=5 超過)
-            if state.players[me_idx].characters.len() + chosen.len() > 5 {
-                return false;
-            }
             // 登場カードを先に trash から除去 (公式: 登場でトラッシュを離れて**から** on_play)。
             let cards: Vec<crate::state::CardDef> =
                 chosen.iter().map(|&i| state.players[me_idx].trash[i].clone()).collect();
@@ -1782,8 +1802,10 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             for i in desc {
                 state.players[me_idx].trash.remove(i);
             }
-            // 各カードを登場 + on_play cascade。 on_play が bail したら false (partial は apply_action Err で破棄)。
+            // 各カードを登場 + on_play cascade。 field-full は trash_weakest (3-7-6-1、 KO 無)。
+            // on_play が bail したら false (partial は apply_action Err で破棄)。
             for card in cards {
+                trash_weakest_for_field_full(state, me_idx);
                 let mut ip = InPlay::of(card.clone(), true); // sickness=true
                 ip.rested = rested;
                 ip.played_from_trash = true;
@@ -1864,9 +1886,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             let cards: Vec<crate::state::CardDef> =
                 desc.iter().map(|&i| state.players[me_idx].hand.remove(i)).collect();
             for card in cards {
-                if state.players[me_idx].characters.len() >= 5 {
-                    return false; // field full → trash_weakest 未対応 → bail
-                }
+                trash_weakest_for_field_full(state, me_idx); // 場5枚は最弱trash (3-7-6-1、 KO無)
                 let mut ip = InPlay::of(card.clone(), true); // sickness=true
                 ip.rested = rested;
                 state.players[me_idx].characters.push(ip);
