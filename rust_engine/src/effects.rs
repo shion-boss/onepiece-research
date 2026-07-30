@@ -407,6 +407,20 @@ fn resolve_target(
                         .collect(),
                 );
             }
+            // 自リーダー/キャラから名前一致 1 枚 (effects.py:2104、 leader 優先→char 順、 AI=先頭)。 OP15-076 counter。
+            if t == "self_chara_or_leader_named" {
+                let name = v.get("name").and_then(|x| x.as_str()).unwrap_or("");
+                let p = &state.players[me_idx];
+                if p.leader.card.name == name {
+                    return Some(vec![(me_idx, Slot::Leader)]);
+                }
+                for i in 0..p.characters.len() {
+                    if p.characters[i].card.name == name {
+                        return Some(vec![(me_idx, Slot::Char(i))]);
+                    }
+                }
+                return Some(vec![]);
+            }
             // 自リーダー/キャラから filter 一致 1 枚 (power 降順、 effects.py:2097)。
             if t == "one_self_chara_or_leader_filtered" {
                 let filt = v.get("filter");
