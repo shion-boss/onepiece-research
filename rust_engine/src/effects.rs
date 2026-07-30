@@ -501,6 +501,23 @@ fn cat_str(c: &Category) -> &'static str {
     }
 }
 
+/// effects.py:_worst_hand_idx = 最も捨てて惜しくない手札 index (counter→cost→power→相手に割れてる札 の昇順)。
+/// min = 最初の最小 (Rust min_by_key も tie は最初 = Python min と一致)。
+fn worst_hand_idx(hand: &[crate::state::CardDef], known: &[String]) -> Option<usize> {
+    if hand.is_empty() {
+        return None;
+    }
+    (0..hand.len()).min_by_key(|&i| {
+        let c = &hand[i];
+        (
+            c.counter as i64,
+            c.cost as i64,
+            c.power as i64,
+            if known.contains(&c.card_id) { 0 } else { 1 },
+        )
+    })
+}
+
 fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
     let Some(f) = filt.and_then(|x| x.as_object()) else { return true };
     for (k, v) in f {
@@ -1275,6 +1292,35 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 自手札 N 枚を捨てる (effects.py:3147 trash_self_hand_random)。 ⚠ 名は random だが AI 経路は
+        // _worst_hand_idx で決定的 (counter/cost/power/known)。 捨て後 hand_discarded_by_effect_this_turn=true
+        // + on_self_hand_discarded cascade (last_discard context は Python が発火後 None にリセット = 不設定で一致)。
+        "trash_self_hand_random" => {
+            let n = if v.is_object() {
+                v.get("amount").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            };
+            // 人間 modal (_picked_hand_idxs) は self-play では無し = AI 経路のみ実装。
+            let mut discarded = 0;
+            for _ in 0..n {
+                let me = &mut state.players[me_idx];
+                if me.hand.is_empty() {
+                    break;
+                }
+                let Some(i) = worst_hand_idx(&me.hand, &me.known_hand_card_ids) else { break };
+                let c = me.hand.remove(i);
+                me.trash.push(c);
+                discarded += 1;
+            }
+            if discarded > 0 {
+                state.players[me_idx].hand_discarded_by_effect_this_turn = true;
+                if fire_field_when(state, me_idx, "on_self_hand_discarded").is_err() {
+                    return false; // cascade (on_self_hand_discarded) 再現不能 → bail
+                }
+            }
+            true
+        }
         // 任意 discard で battle buff (effects.py:8003、 OP15-002 ルーシー/OP03-001 エース等)。
         // AI 経路 (self-play): filter マッチ手札の先頭 min(len,max=3) を捨て、 target に +amount_per*枚 (battle)。
         // ⚠ discard>0 で hand_discarded_by_effect_this_turn=true + on_self_hand_discarded cascade
@@ -1777,6 +1823,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
         key,
         "power_pump" | "draw" | "give_keyword" | "add_don" | "add_don_active" | "add_rested_don"
             | "untap_don" | "untap" | "untap_chara" | "rest" | "cost_minus" | "attach_rested_don" | "mill_self_top"
+            | "life_to_hand" | "trash_self_hand_random"
             | "stay_rested_next_refresh" | "set_cannot_rest" | "set_cannot_attack" | "put_top_to_life"
             | "optional_discard_hand_for_battle_buff" | "conditional" | "optional_cost_then"
     )
