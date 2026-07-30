@@ -217,6 +217,9 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             "self_don_active_ge" => (me.don_active as i64) >= v.as_i64().unwrap_or(0),
             "self_don_active_le" => (me.don_active as i64) <= v.as_i64().unwrap_or(0),
             "self_don_active_eq" => (me.don_active as i64) == v.as_i64().unwrap_or(0),
+            // on_self_don_returned_to_deck で「一度に N 枚以上戻された」 (effects.py:1370、 OP09-061/EB02-035/P-077)。
+            // don 返却 primitive が state.last_returned_don_count に保存。
+            "returned_don_count_ge" => (state.last_returned_don_count as i64) >= v.as_i64().unwrap_or(0),
             // 【ドン‼×N】ゲート = 自リーダー+全キャラの付与ドン合計 N 以上 (effects.py:1690)。
             // ⚠ self_inplay=None (on_ko 等) の _on_ko_victim_attached_don 足し戻しは未対応
             //   (Rust は on_attack/on_play/static でのみ eval = self 常在 → 単純合計で忠実)。

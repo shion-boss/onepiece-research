@@ -15051,10 +15051,11 @@
    ]
   },
   {
-   "_text": "【自分のターン中】【ターン1回】自分の場のドン!!が2枚以上ドン!!デッキに戻された時、ドン!!1枚アクティブ追加+1枚レスト追加 (= 「2枚以上」 ガード 未実装、 once_per_turn + self_turn で 制限)",
+   "_text": "【自分のターン中】【ターン1回】自分の場のドン!!が2枚以上ドン!!デッキに戻された時、ドン!!1枚アクティブ追加+1枚レスト追加",
    "when": "on_self_don_returned_to_deck",
    "if": {
-    "self_turn": true
+    "self_turn": true,
+    "returned_don_count_ge": 2
    },
    "once_per_turn": true,
    "do": [
@@ -15082,10 +15083,11 @@
    ]
   },
   {
-   "_text": "【自分のターン中】【ターン1回】自分の場のドン!!が2枚以上ドン!!デッキに戻された時、ドン!!1枚アクティブ追加+1枚レスト追加 (= 「2枚以上」 ガード 未実装、 once_per_turn + self_turn で 制限)",
+   "_text": "【自分のターン中】【ターン1回】自分の場のドン!!が2枚以上ドン!!デッキに戻された時、ドン!!1枚アクティブ追加+1枚レスト追加",
    "when": "on_self_don_returned_to_deck",
    "if": {
-    "self_turn": true
+    "self_turn": true,
+    "returned_don_count_ge": 2
    },
    "once_per_turn": true,
    "do": [
@@ -17352,10 +17354,11 @@
    ]
   },
   {
-   "_text": "【自分のターン中】【ターン1回】自分の場のドン!!が2枚以上ドン!!デッキに戻された時、ドン!!1枚アクティブ追加+1枚レスト追加 (= 「2枚以上」 ガード 未実装、 once_per_turn + self_turn で 制限)",
+   "_text": "【自分のターン中】【ターン1回】自分の場のドン!!が2枚以上ドン!!デッキに戻された時、ドン!!1枚アクティブ追加+1枚レスト追加",
    "when": "on_self_don_returned_to_deck",
    "if": {
-    "self_turn": true
+    "self_turn": true,
+    "returned_don_count_ge": 2
    },
    "once_per_turn": true,
    "do": [
@@ -18767,10 +18770,11 @@
    ]
   },
   {
-   "_text": "【自分のターン中】【ターン1回】自分の場のドン!!が2枚以上ドン!!デッキに戻された時、ドン!!1枚アクティブ追加+1枚レスト追加 (= 「2枚以上」 ガード 未実装、 once_per_turn + self_turn で 制限)",
+   "_text": "【自分のターン中】【ターン1回】自分の場のドン!!が2枚以上ドン!!デッキに戻された時、ドン!!1枚アクティブ追加+1枚レスト追加",
    "when": "on_self_don_returned_to_deck",
    "if": {
-    "self_turn": true
+    "self_turn": true,
+    "returned_don_count_ge": 2
    },
    "once_per_turn": true,
    "do": [
