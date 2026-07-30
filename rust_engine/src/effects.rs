@@ -2194,6 +2194,43 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             state.last_self_chara_played_from_trash = false;
             execute_on_play(state, me_idx, pidx).is_ok()
         }
+        // このカード自身の [when_kind] 効果を再発火 (effects.py:5923、 trigger/life の「このカードの【メイン】
+        // 効果を発動」)。 current_source_card_id で overlay を引き、 条件 eval → do 実行 (cost は払わない、 Python
+        // 準拠)。 source-gone src=Leader placeholder。 ⚠ do に fire_self_effect 再帰は sample 無 (depth guard 省略)。
+        "fire_self_effect" => {
+            let when_kind = if v.is_object() {
+                v.get("when_kind").and_then(|x| x.as_str()).unwrap_or("main")
+            } else {
+                v.as_str().unwrap_or("main")
+            }
+            .to_string();
+            let Some(cid) = state.current_source_card_id.clone() else { return true };
+            let effs: Vec<Value> = match overlay().and_then(|ov| ov.get(&cid)) {
+                Some(e) => e.clone(),
+                None => return true,
+            };
+            for eff in &effs {
+                if eff.get("when").and_then(|x| x.as_str()) != Some(when_kind.as_str()) {
+                    continue;
+                }
+                match eval_effect_conditions(eff, state, me_idx, Some(src)) {
+                    Some(true) => {}
+                    Some(false) => continue,
+                    None => return false,
+                }
+                if let Some(dos) = eff.get("do").and_then(|d| d.as_array()) {
+                    if effect_cascade_blocked(dos, state, me_idx) {
+                        return false;
+                    }
+                    for prim in dos {
+                        if !execute_effect(prim, state, me_idx, src) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            true
+        }
         // 自リーダー/キャラ N 枚をレスト (effects.py:rest_self_cards、 AI=アクティブ中 power 低い順)。 cascade 無し。
         "rest_self_cards" => {
             let n = match v {
@@ -4040,7 +4077,7 @@ pub fn fire_life_trigger(
                 "draw" | "add_don" | "add_don_active" | "add_rested_don" | "untap_don"
                     | "mill_self_top" | "put_top_to_life"
                     | "play_from_trash" | "play_multi_from_trash" | "play_from_hand_or_trash"
-                    | "play_self" | "rest" | "play_from_hand"
+                    | "play_self" | "rest" | "play_from_hand" | "fire_self_effect"
             ) {
                 return Err(format!("life trigger primitive 未対応 (source-gone): {k}"));
             }
