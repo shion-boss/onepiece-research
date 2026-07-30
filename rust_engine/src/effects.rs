@@ -2184,7 +2184,53 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     victims.push((pi, idx));
                 }
             }
-            remove_victims(state, victims, RemoveDest::Trash);
+            if victims.is_empty() {
+                return true; // 全 immune = 除去0・cascade 無し (immune 減算は済)
+            }
+            // KO cascade 発火要否 (effect_cascade_blocked と同基準)。 無ければ従来の一括除去。
+            let vowner = victims[0].0;
+            let cascade = me_board_has_when(state, me_idx, "on_opp_chara_ko")
+                || me_board_has_when(state, vowner, "on_self_chara_ko")
+                || me_board_has_when(state, vowner, "on_ko")
+                || me_board_has_when(state, vowner, "replace_ko")
+                || me_board_has_when(state, vowner, "replace_leave")
+                || me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect");
+            if !cascade {
+                remove_victims(state, victims, RemoveDest::Trash);
+                return true;
+            }
+            // cascade path: 単一 victim のみ (multi-victim は index shift + per-victim cascade が複雑 → bail)。
+            if victims.len() > 1 {
+                return false;
+            }
+            let (vpi, vidx) = victims[0];
+            // 置換効果 (effect KO = by_opp_effect=true)。 Ok(true)=KO阻止 / Ok(false)=続行 / Err=bail。
+            match try_replace_ko(state, vpi, vidx, true, "ko") {
+                Ok(true) => return true, // _ko_any=false → on_self_chara_leave 無し
+                Ok(false) => {}
+                Err(_) => return false,
+            }
+            // 除去 (remove+trash+付与ドン返却+chara_ko++、 battle_ko_character 相当) → per-victim cascade。
+            let vcid = state.players[vpi].characters[vidx].card.card_id.clone();
+            let vdon = state.players[vpi].characters[vidx].attached_dons;
+            let removed = state.players[vpi].characters.remove(vidx);
+            state.players[vpi].trash.push(removed.card);
+            state.players[vpi].don_rested += vdon;
+            state.players[vpi].chara_ko_taken_this_turn += 1;
+            // effects.py:3320 順: on_ko(victim側 source-gone)→ on_opp_chara_ko(me)→ on_self_chara_ko(victim側)
+            //   → on_self_chara_leave_by_self_effect(me、 effect 発動者視点)。 各 fire 未対応は Err→false。
+            if fire_on_ko(state, vpi, &vcid).is_err() {
+                return false;
+            }
+            if fire_field_when(state, me_idx, "on_opp_chara_ko").is_err() {
+                return false;
+            }
+            if fire_field_when(state, vpi, "on_self_chara_ko").is_err() {
+                return false;
+            }
+            if fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err() {
+                return false;
+            }
             true
         }
         // 手札に戻す (バウンス)。 protect チェック → 除去 + hand + 付与ドン返却。
@@ -2493,7 +2539,8 @@ fn effect_cascade_blocked(dos: &[Value], state: &GameState, me_idx: usize) -> bo
         let key = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("");
         let blocked = match key {
             "draw" => has(me_idx, "on_self_draw_non_draw_phase"),
-            "ko" | "ko_multi" | "ko_all_others" => {
+            // ko (single) は prim 側で cascade を自前処理 (single victim) or 内部 bail → ここでは block しない。
+            "ko_multi" | "ko_all_others" => {
                 has(me_idx, "on_opp_chara_ko")
                     || has(opp, "on_self_chara_ko")
                     || has(opp, "on_ko")
