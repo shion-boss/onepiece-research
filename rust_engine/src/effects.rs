@@ -1967,10 +1967,12 @@ fn pay_on_play_cost(cost: &Value, state: &mut GameState, me_idx: usize) -> Optio
     } else {
         return None;
     };
+    let mut discard_n = 0i32;
     for (k, v) in entries {
         match k.as_str() {
             "pay_don" => pay_don += v as i32,
             "rest_self_don" => rest_don += v as i32,
+            "discard_hand" => discard_n += v as i32,
             _ => return None, // 未対応 cost 種別 → skip effect
         }
     }
@@ -1983,6 +1985,30 @@ fn pay_on_play_cost(cost: &Value, state: &mut GameState, me_idx: usize) -> Optio
         let me = &mut state.players[me_idx];
         me.don_active -= rest_don;
         me.don_rested += rest_don;
+    }
+    // discard_hand: 手札 N 枚以上必要 (_can_pay)、 _worst_hand_idx で捨て (effects.py:_pay_counter_cost)。
+    // 捨て後 hand_discarded_by_effect flag + on_self_hand_discarded cascade (last_discard は発火後 None リセット)。
+    if discard_n > 0 {
+        if (state.players[me_idx].hand.len() as i32) < discard_n {
+            return Some(false); // 支払い不能
+        }
+        let mut discarded = 0;
+        for _ in 0..discard_n {
+            let me = &mut state.players[me_idx];
+            if me.hand.is_empty() {
+                break;
+            }
+            let Some(i) = worst_hand_idx(&me.hand, &me.known_hand_card_ids) else { break };
+            let c = me.hand.remove(i);
+            me.trash.push(c);
+            discarded += 1;
+        }
+        if discarded > 0 {
+            state.players[me_idx].hand_discarded_by_effect_this_turn = true;
+            if fire_field_when(state, me_idx, "on_self_hand_discarded").is_err() {
+                return None; // cascade 再現不能 → bail
+            }
+        }
     }
     if pay_don > 0 {
         let me = &state.players[me_idx];
