@@ -1360,6 +1360,79 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // トラッシュからキャラ登場 (effects.py:4733 play_from_trash/play_multi_from_trash、 AI 経路=先頭 limit 枚)。
+        // 保守実装: CHARACTER のみ / 場が満杯でない / 静的 filter のみ。 STAGE・field-full・dynamic filter・
+        // no_effect filter は bail (trash_weakest/動的解決/効果無し判定が複雑)。 登場後 on_play cascade を発火。
+        "play_from_trash" | "play_multi_from_trash" => {
+            let spec = v.as_object();
+            let filt = spec.and_then(|o| o.get("filter"));
+            // dynamic filter (cost_le_dynamic 等) / no_effect は未対応 → bail
+            if let Some(fo) = filt.and_then(|f| f.as_object()) {
+                if fo.keys().any(|k| k.ends_with("_dynamic")) || fo.contains_key("no_effect") {
+                    return false;
+                }
+                // STAGE 登場は別処理 → bail
+                if fo.get("category").and_then(|x| x.as_str()) == Some("STAGE") {
+                    return false;
+                }
+            }
+            let limit = spec.and_then(|o| o.get("limit")).and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+            let rested = spec.and_then(|o| o.get("rested")).and_then(|x| x.as_bool()).unwrap_or(false);
+            let unique = spec.and_then(|o| o.get("unique_name")).and_then(|x| x.as_bool()).unwrap_or(false);
+            let want_eot = spec.and_then(|o| o.get("return_to_deck_bottom_at_turn_end")).and_then(|x| x.as_bool()).unwrap_or(false);
+            let pk = spec.and_then(|o| o.get("played_keyword")).and_then(|x| x.as_str()).map(|s| s.to_string());
+            // AI: 先頭から limit 枚 (category=CHARACTER + filter + unique_name)。 index 収集。
+            let mut chosen: Vec<usize> = vec![];
+            let mut seen: Vec<String> = vec![];
+            {
+                let me = &state.players[me_idx];
+                for (i, c) in me.trash.iter().enumerate() {
+                    if chosen.len() >= limit {
+                        break;
+                    }
+                    if c.category == crate::state::Category::Character
+                        && matches_filter(c, filt)
+                        && !(unique && seen.contains(&c.name))
+                    {
+                        chosen.push(i);
+                        seen.push(c.name.clone());
+                    }
+                }
+            }
+            if chosen.is_empty() {
+                return true; // 候補0 = no-op (AI path は何もしない)
+            }
+            // field-full は trash_weakest が要る → bail (満杯: 登場後 MAX_CHARACTERS=5 超過)
+            if state.players[me_idx].characters.len() + chosen.len() > 5 {
+                return false;
+            }
+            // 登場カードを先に trash から除去 (公式: 登場でトラッシュを離れて**から** on_play)。
+            let cards: Vec<crate::state::CardDef> =
+                chosen.iter().map(|&i| state.players[me_idx].trash[i].clone()).collect();
+            let mut desc = chosen.clone();
+            desc.sort_unstable_by(|a, b| b.cmp(a));
+            for i in desc {
+                state.players[me_idx].trash.remove(i);
+            }
+            // 各カードを登場 + on_play cascade。 on_play が bail したら false (partial は apply_action Err で破棄)。
+            for card in cards {
+                let mut ip = InPlay::of(card.clone(), true); // sickness=true
+                ip.rested = rested;
+                ip.played_from_trash = true;
+                ip.return_to_deck_bottom_at_turn_end = want_eot;
+                if let Some(k) = &pk {
+                    ip.granted_keywords.insert(k.clone());
+                }
+                state.players[me_idx].characters.push(ip);
+                let played_idx = state.players[me_idx].characters.len() - 1;
+                state.last_self_chara_played_card = Some(card);
+                state.last_self_chara_played_from_trash = true;
+                if execute_on_play(state, me_idx, played_idx).is_err() {
+                    return false;
+                }
+            }
+            true
+        }
         // 自デッキ上 N 枚を見て並べ替え (effects.py:look_top_reorder)。 決定的 (AI 経路)。
         // to: top(順番維持=no-op)/ bottom(上N→下)/ choice(上Nをcost,name昇順)/ split(match_filter で振り分け)。
         "look_top_reorder" => {
@@ -2376,6 +2449,7 @@ pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> 
                 k,
                 "draw" | "add_don" | "add_don_active" | "add_rested_don" | "untap_don"
                     | "mill_self_top" | "put_top_to_life"
+                    | "play_from_trash" | "play_multi_from_trash"
             ) {
                 return Err(format!("on_ko primitive 未対応 (source-gone): {k}"));
             }
@@ -2440,6 +2514,7 @@ pub fn fire_life_trigger(
                 k,
                 "draw" | "add_don" | "add_don_active" | "add_rested_don" | "untap_don"
                     | "mill_self_top" | "put_top_to_life"
+                    | "play_from_trash" | "play_multi_from_trash"
             ) {
                 return Err(format!("life trigger primitive 未対応 (source-gone): {k}"));
             }
