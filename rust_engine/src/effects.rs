@@ -1228,6 +1228,66 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 自デッキ上 N 枚を見て並べ替え (effects.py:look_top_reorder)。 決定的 (AI 経路)。
+        // to: top(順番維持=no-op)/ bottom(上N→下)/ choice(上Nをcost,name昇順)/ split(match_filter で振り分け)。
+        "look_top_reorder" => {
+            let spec_obj = v.as_object();
+            let depth = spec_obj
+                .and_then(|o| o.get("depth"))
+                .or(if v.is_i64() { Some(v) } else { None })
+                .and_then(|x| x.as_i64())
+                .unwrap_or(1);
+            let to_pos = spec_obj.and_then(|o| o.get("to")).and_then(|x| x.as_str()).unwrap_or("top");
+            let me = &mut state.players[me_idx];
+            if depth <= 0 || me.deck.is_empty() {
+                return true;
+            }
+            let d = (depth as usize).min(me.deck.len());
+            let all = std::mem::take(&mut me.deck);
+            let mut it = all.into_iter();
+            let top_n: Vec<crate::state::CardDef> = (&mut it).take(d).collect();
+            let rest: Vec<crate::state::CardDef> = it.collect();
+            match to_pos {
+                "bottom" => {
+                    me.deck = rest;
+                    me.deck.extend(top_n);
+                }
+                "choice" => {
+                    let mut t = top_n;
+                    t.sort_by(|a, b| (a.cost, &a.name).cmp(&(b.cost, &b.name)));
+                    me.deck = t;
+                    me.deck.extend(rest);
+                }
+                "split" => {
+                    let mf = spec_obj.and_then(|o| o.get("match_filter"));
+                    let match_to = spec_obj.and_then(|o| o.get("match_to")).and_then(|x| x.as_str()).unwrap_or("hand");
+                    let remain_to = spec_obj.and_then(|o| o.get("remain_to")).and_then(|x| x.as_str()).unwrap_or("bottom");
+                    me.deck = rest;
+                    let (mut matched, mut remain) = (Vec::new(), Vec::new());
+                    for c in top_n {
+                        if matches_filter(&c, mf) { matched.push(c) } else { remain.push(c) }
+                    }
+                    match match_to {
+                        "hand" => me.hand.extend(matched),
+                        "trash" => me.trash.extend(matched),
+                        "top" => { let mut nd = matched; nd.append(&mut me.deck); me.deck = nd; }
+                        _ => me.deck.extend(matched), // bottom
+                    }
+                    match remain_to {
+                        "trash" => me.trash.extend(remain),
+                        "top" => { let mut nd = remain; nd.append(&mut me.deck); me.deck = nd; }
+                        "hand" => me.hand.extend(remain),
+                        _ => me.deck.extend(remain), // bottom default
+                    }
+                }
+                _ => {
+                    // top = 順番維持 (no-op): 元の順で再構築
+                    me.deck = top_n;
+                    me.deck.extend(rest);
+                }
+            }
+            true
+        }
         // キーワード付与 (effects.py:4628)。 keywords list は AI 優先度で 1 つ選択。
         // duration: turn→granted_keywords / next_opp_turn_end→granted_keywords_through_opp_turn+applier。
         "give_keyword" => {
@@ -1939,7 +1999,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
         "power_pump" | "draw" | "give_keyword" | "add_don" | "add_don_active" | "add_rested_don"
             | "untap_don" | "untap" | "untap_chara" | "rest" | "cost_minus" | "attach_rested_don" | "mill_self_top"
             | "life_to_hand" | "trash_self_hand_random" | "redirect_attack" | "mill_self_life_to_trash"
-            | "mill" | "mill_opp_life_to_hand"
+            | "mill" | "mill_opp_life_to_hand" | "look_top_reorder"
             | "stay_rested_next_refresh" | "set_cannot_rest" | "set_cannot_attack" | "put_top_to_life"
             | "optional_discard_hand_for_battle_buff" | "conditional" | "optional_cost_then"
     )
