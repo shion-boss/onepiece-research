@@ -178,6 +178,9 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             }
             // 自リーダーが多色 (color 2 色以上) か (effects.py:1643)。
             "leader_multicolor" => (me.leader.card.color.len() >= 2) == v.as_bool().unwrap_or(true),
+            // 自場のキャラ数 <= N (effects.py:1156)。
+            "self_field_count_le" => (me.characters.len() as i64) <= v.as_i64().unwrap_or(0),
+            "self_field_count_ge" => (me.characters.len() as i64) >= v.as_i64().unwrap_or(0),
             // コスト0か8以上のキャラが両陣営に居るか (base_cost、 effects.py:1393)。
             "exists_chara_cost_0_or_ge_8" => {
                 let found = me.characters.iter().chain(opp.characters.iter())
@@ -410,6 +413,39 @@ fn resolve_target(
                     .collect();
                 cands.sort_by(|&a, &b| p.characters[b].power().cmp(&p.characters[a].power()));
                 return Some(cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect());
+            }
+            // 相手キャラから filter 一致 1 枚 (effects.py:2182、 _threat_key=power降順)。 sub-filter:
+            //   attached_don_ge / rested / active / blocker / current_power_le / current_cost_eq/le/ge。
+            if t == "one_opponent_character_filtered" {
+                let fo = v.get("filter").and_then(|f| f.as_object());
+                let gi = |k: &str| fo.and_then(|o| o.get(k)).and_then(|x| x.as_i64());
+                let gb = |k: &str| fo.and_then(|o| o.get(k)).and_then(|x| x.as_bool()).unwrap_or(false);
+                let (adg, rr, ar, br) = (gi("attached_don_ge").unwrap_or(0), gb("rested"), gb("active"), gb("blocker"));
+                let (cpl, cce, ccl, ccg) = (gi("current_power_le"), gi("current_cost_eq"), gi("current_cost_le"), gi("current_cost_ge"));
+                let base_filt: Option<Value> = fo.map(|o| {
+                    let mut m = o.clone();
+                    for k in ["attached_don_ge", "rested", "active", "blocker", "current_power_le", "current_cost_eq", "current_cost_le", "current_cost_ge"] {
+                        m.remove(k);
+                    }
+                    Value::Object(m)
+                });
+                let opp = &state.players[opp_idx];
+                let mut cands: Vec<usize> = (0..opp.characters.len())
+                    .filter(|&i| {
+                        let c = &opp.characters[i];
+                        matches_filter(&c.card, base_filt.as_ref())
+                            && (adg <= 0 || c.attached_dons as i64 >= adg)
+                            && (!rr || c.rested)
+                            && (!ar || !c.rested)
+                            && (!br || c.is_blocker_now())
+                            && cpl.map_or(true, |n| c.power() as i64 <= n)
+                            && cce.map_or(true, |n| c.base_cost() as i64 == n)
+                            && ccl.map_or(true, |n| c.base_cost() as i64 <= n)
+                            && ccg.map_or(true, |n| c.base_cost() as i64 >= n)
+                    })
+                    .collect();
+                cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
+                return Some(cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect());
             }
             return None;
         }
