@@ -547,6 +547,8 @@ fn resolve_target(
         "all_opp_characters" | "all_opponent_characters" => (0..state.players[opp_idx].characters.len())
             .map(|i| (opp_idx, Slot::Char(i)))
             .collect(),
+        // ⚠ all_opponent_characters_power_le_N (OP15-114 ko) は resolve 自体は容易だが、 後続 ko multi-victim
+        // + power_pump 相互作用で MISMATCH (KO 順/cascade)。 multi-victim ko cascade 未解決の為 bail 維持。
         // one_opponent_[rested_]character[_(any_)?cost_le_Ncost | _power_le_N | _any]
         // = 相手キャラを filter → opp_value 最大を 1 体 (AI 自動選択、 effects.py:2443/2540/2627)。
         os if os.starts_with("one_opponent_") => {
