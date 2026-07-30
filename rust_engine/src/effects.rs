@@ -3312,6 +3312,13 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // timed base-power override は apply_static_primitive に住むが、 Python は execute 一元管理なので
+        // conditional/trigger 経路でも実行される (ST36-003 trigger→conditional→self_leader 元々パワー7000)。
+        // 一回書き込み型 (turn_base_power_override 等、 recompute 非依存) なので generic 経路で安全に委譲。
+        "set_base_power_timed" => {
+            apply_static_primitive(prim, state, me_idx, src);
+            true
+        }
         _ => false, // 未対応 primitive → skip (該当カードは diverge)
     }
 }
