@@ -2193,10 +2193,9 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 state.last_self_chara_played_from_trash = false;
                 return execute_stage_on_play(state, me_idx, pidx).is_ok();
             }
-            // CHARACTER: field full → trash_weakest 未対応 → bail
-            if state.players[me_idx].characters.len() >= 5 {
-                return false;
-            }
+            // CHARACTER: field full → 最弱キャラを trash (effects.py:6220 can_play_character() →
+            // trash_weakest_chara_for_field_full)。 play_self_from_trash と同一 (parity 検証済)。
+            trash_weakest_for_field_full(state, me_idx);
             let mut ip = InPlay::of(card.clone(), true); // sickness=true
             ip.rested = rested;
             state.players[me_idx].characters.push(ip);
