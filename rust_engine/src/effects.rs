@@ -1150,6 +1150,39 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             // leader/stage/none → no-op (通常 leader battle 続行)
             true
         }
+        // 効果無効 (effects.py:8220)。 spec {target, duration(turn|next_opp_turn_end), also_cannot_attack}。
+        "disable_effect" => {
+            let (target_spec, dur_next, also) = if let Some(o) = v.as_object() {
+                (
+                    o.get("target").cloned().unwrap_or(Value::String("one_opponent_inplay_any".to_string())),
+                    o.get("duration").and_then(|x| x.as_str()) == Some("next_opp_turn_end"),
+                    o.get("also_cannot_attack").and_then(|x| x.as_bool()).unwrap_or(false),
+                )
+            } else {
+                (v.clone(), false, false)
+            };
+            let Some(targets) = resolve_target(Some(&target_spec), me_idx, opp_idx, src, state) else {
+                return false;
+            };
+            if targets.is_empty() {
+                return true; // 対象0 = no-op (Python return False も action 継続)
+            }
+            for (pi, sl) in targets {
+                let ip = get_ip_mut(&mut state.players[pi], sl);
+                if dur_next {
+                    ip.effect_disabled_through_opp_turn = true;
+                    if also {
+                        ip.cannot_attack_through_opp_turn = true;
+                    }
+                } else {
+                    ip.granted_keywords.insert("効果無効".to_string());
+                    if also {
+                        ip.cannot_attack_until_turn_end = true;
+                    }
+                }
+            }
+            true
+        }
         // 対象をアクティブ化 (effects.py:4563)。 target = self/self_leader/all_self_characters (既定 self)。
         "untap" => {
             let spec = if v.is_string() { v.clone() } else { Value::String("self".to_string()) };
