@@ -3350,6 +3350,20 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             apply_static_primitive(prim, state, me_idx, src);
             true
         }
+        // 自ライフ上 1 枚を公開 (場所変えず) → その cost × per_cost を src に turn pump (OP15-119 ルフィ、
+        // effects.py:5902)。 on_opp_blocker_use/opp_event_or_trigger_fired で発火 = src は場のカード (有効)。
+        "reveal_self_life_top_pump_per_cost" => {
+            let per = if v.is_object() {
+                v.get("per_cost").and_then(|x| x.as_i64()).unwrap_or(1000)
+            } else {
+                1000
+            } as i32;
+            if !state.players[me_idx].life.is_empty() {
+                let cost = state.players[me_idx].life[0].cost;
+                get_ip_mut(&mut state.players[me_idx], src).turn_buff += per * cost;
+            }
+            true
+        }
         _ => false, // 未対応 primitive → skip (該当カードは diverge)
     }
 }
@@ -3708,6 +3722,9 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             // block_self_draw_turn = player-level flag のみ (src 非参照/cascade 無)。 OP12-099 の
             // on_self_life_to_hand [draw, block_self_draw_turn] が OP08-098 then_life 経由で発火。
             | "block_self_draw_turn"
+            // reveal_self_life_top_pump_per_cost = src (場のカード) を turn pump。 OP15-119 が
+            // on_opp_blocker_use/opp_event_or_trigger_fired で発火 (src 有効)。
+            | "reveal_self_life_top_pump_per_cost"
     )
 }
 
@@ -4088,6 +4105,8 @@ pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> 
                     | "ko_opp_stage" | "search_top_n" | "set_cannot_attack"
                     | "deal_opp_leader_damage" | "search_from_trash" | "trash_self_hand_random"
                     | "play_self_from_trash" | "optional_cost_then"
+                    // mill_opp_life_to_trash/hand = 相手ライフ削り (opp 対象、 src 不使用) = source-gone 安全。
+                    | "mill_opp_life_to_trash" | "mill_opp_life_to_hand"
             ) {
                 return Err(format!("on_ko primitive 未対応 (source-gone): {k}"));
             }
