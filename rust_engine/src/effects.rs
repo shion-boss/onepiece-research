@@ -921,7 +921,22 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
         }
         // life_to_hand / life_top_or_bottom_to_hand cost: ライフ非空必要 (effects.py:8255)。
         "life_top_or_bottom_to_hand" | "life_to_hand" => Some(!me.life.is_empty()),
+        // return_self_chara_to_hand cost: filter 一致の自キャラ ≥count 必要 (effects.py:8450)。
+        "return_self_chara_to_hand" => {
+            let (count, filt) = count_and_filter(cv);
+            Some(me.characters.iter().filter(|c| matches_filter(&c.card, filt)).count() >= count)
+        }
         _ => None, // 未対応 cost 型 → bail
+    }
+}
+
+/// optional cost spec {count, filter} or int (short) を (count, Option<&filter>) に分解。
+fn count_and_filter(cv: &Value) -> (usize, Option<&Value>) {
+    if let Some(o) = cv.as_object() {
+        let count = o.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+        (count, o.get("filter"))
+    } else {
+        (cv.as_i64().unwrap_or(1) as usize, None)
     }
 }
 
@@ -1078,6 +1093,36 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
         "life_top_or_bottom_to_hand" | "life_to_hand" => {
             if !execute_effect(cs, state, me_idx, src) {
                 return None;
+            }
+        }
+        // return_self_chara_to_hand: AI=power 昇順で count 枚を手札へ (元順で append + 付与ドン返却、
+        // effects.py:8848)。 cv は count_and_filter に渡すため cs から取り出す。
+        "return_self_chara_to_hand" => {
+            let (count, filt) = count_and_filter(&cv);
+            // 候補 index を power 昇順 (stable=元順 ties) で count 枚選択
+            let mut cands: Vec<(usize, i32)> = state.players[me_idx]
+                .characters
+                .iter()
+                .enumerate()
+                .filter(|(_, c)| matches_filter(&c.card, filt))
+                .map(|(i, c)| (i, c.power()))
+                .collect();
+            cands.sort_by(|a, b| a.1.cmp(&b.1));
+            let chosen: std::collections::HashSet<usize> =
+                cands.iter().take(count).map(|(i, _)| *i).collect();
+            // 元順に走査し chosen を手札へ、 他は残す (hand append 順 = 元 character 順)
+            let me = &mut state.players[me_idx];
+            let old = std::mem::take(&mut me.characters);
+            for (i, c) in old.into_iter().enumerate() {
+                if chosen.contains(&i) {
+                    let don = c.attached_dons;
+                    me.hand.push(c.card);
+                    if don > 0 {
+                        me.don_rested += don;
+                    }
+                } else {
+                    me.characters.push(c);
+                }
             }
         }
         _ => return None,
