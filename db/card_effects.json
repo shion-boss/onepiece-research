@@ -62885,6 +62885,9 @@
       ],
       "effect": [
        {
+        "draw": 1
+       },
+       {
         "give_keyword": {
          "target": "self",
          "keyword": "バニッシュ"

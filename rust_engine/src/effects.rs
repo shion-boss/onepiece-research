@@ -175,11 +175,16 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             "leader_features_any" => v.as_array().map_or(false, |arr| {
                 arr.iter().any(|x| me.leader.card.features.iter().any(|f| Some(f.as_str()) == x.as_str()))
             }),
-            "leader_name" => me.leader.card.name == v.as_str().unwrap_or(""),
-            // リーダー名がリストに含まれる (effects.py:1736)。
-            "leader_name_in" => v
-                .as_array()
-                .map_or(false, |arr| arr.iter().any(|x| x.as_str() == Some(me.leader.card.name.as_str()))),
+            // 半角/全角 D を normalize してから一致 (core.py:normalize_card_name = Ｄ→D。 これが無いと
+            // OP13-075/モンキー・Ｄ・ルフィ 系 overlay の leader_name 条件が silent no-op、 effects.py:1732)。
+            "leader_name" => norm_card_name(&me.leader.card.name) == norm_card_name(v.as_str().unwrap_or("")),
+            // リーダー名がリストに含まれる (effects.py:1736、 半角/全角 D normalize)。
+            "leader_name_in" => {
+                let ldr = norm_card_name(&me.leader.card.name);
+                v.as_array().map_or(false, |arr| {
+                    arr.iter().any(|x| x.as_str().map_or(false, |s| norm_card_name(s) == ldr))
+                })
+            }
             "leader_color" => {
                 let val = v.as_str().unwrap_or("");
                 if val == "多色" {
@@ -741,6 +746,13 @@ fn cat_str(c: &Category) -> &'static str {
         Category::Event => "EVENT",
         Category::Stage => "STAGE",
     }
+}
+
+/// core.py:normalize_card_name の port = カード名の全角Ｄ↔半角D 表記揺れを半角D に正準化。
+/// card.name は既に正準 (Python full_dump 由来) だが、 overlay 参照値は生 JSON = 未正準なので
+/// leader_name 等の名前一致で両側を通す (silent no-op 防止)。
+fn norm_card_name(s: &str) -> String {
+    s.replace('Ｄ', "D")
 }
 
 /// effects.py:_walk_prim_names — do ツリーの全 key を集合に集める (list 走査 + dict key 再帰)。

@@ -1730,12 +1730,16 @@ def eval_condition(
             if same:
                 return False
         elif k == "leader_name":
-            # リーダーのカード名一致 (例: "サンジ" / "イム" / "ルーシー")
-            if me.leader.card.name != str(v):
+            # リーダーのカード名一致 (例: "サンジ" / "イム" / "ルーシー")。
+            # 半角/全角 D の表記揺れ (「ゴール・Ｄ・ロジャー」 vs CardDef.name の半角D) を
+            # normalize_card_name で吸収 (leader_name_contains と同じ。 これが無いと OP13-075 /
+            # モンキー・Ｄ・ルフィ 系 overlay の leader_name 条件が silent no-op になる)。
+            if normalize_card_name(me.leader.card.name) != normalize_card_name(str(v)):
                 return False
         elif k == "leader_name_in":
-            # リーダー名がリストに含まれる
-            if me.leader.card.name not in (v or []):
+            # リーダー名がリストに含まれる (半角/全角 D を normalize してから判定)。
+            ldr_name = normalize_card_name(me.leader.card.name)
+            if ldr_name not in [normalize_card_name(str(x)) for x in (v or [])]:
                 return False
         elif k == "leader_name_contains":
             # リーダーのカード名が文字列 v を含む (= 公式『X』を含むカード名)。
