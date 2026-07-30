@@ -2119,6 +2119,29 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             state.last_self_chara_played_from_trash = false;
             execute_on_play(state, me_idx, pidx).is_ok()
         }
+        // このキャラ自身を trash から登場 (effects.py:5923、 OP14-120 on_ko 自己蘇生)。 src_cid=
+        // current_source_card_id で trash から探す (trash のみ、 play_self は hand も見る点が違う)。
+        // field-full は trash_weakest (3-7-6-1)。 rested=false、 sickness=true、 on_play cascade。
+        "play_self_from_trash" => {
+            let Some(cid) = state.current_source_card_id.clone() else {
+                return false;
+            };
+            let idx = state.players[me_idx]
+                .trash
+                .iter()
+                .position(|c| c.card_id == cid && c.category == crate::state::Category::Character);
+            let Some(idx) = idx else {
+                return true; // trash に無い = no-op (Python return False だが do-loop は返値無視)
+            };
+            let card = state.players[me_idx].trash.remove(idx);
+            trash_weakest_for_field_full(state, me_idx);
+            let ip = InPlay::of(card.clone(), true); // sickness=true, rested=false
+            state.players[me_idx].characters.push(ip);
+            let pidx = state.players[me_idx].characters.len() - 1;
+            state.last_self_chara_played_card = Some(card);
+            state.last_self_chara_played_from_trash = false;
+            execute_on_play(state, me_idx, pidx).is_ok()
+        }
         // 自リーダー/キャラ N 枚をレスト (effects.py:rest_self_cards、 AI=アクティブ中 power 低い順)。 cascade 無し。
         "rest_self_cards" => {
             let n = match v {
@@ -3694,16 +3717,10 @@ pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> 
         if eff.get("once_per_turn").is_some() {
             return Err("on_ko once_per_turn 未対応 (canonical 未化)".into());
         }
-        // cost: pay_don のみ対応 (source-gone=Leader placeholder で player-level 安全)。 on_ko cost は
-        // EV 無し=payable なら auto-pay、 払えなければ効果 skip (effects.py:_execute_event 390-394)。
+        // cost: try_pay_counter_cost が扱う型 (pay_don/discard_hand/rest_self_don/life 系/flip 等) のみ対応
+        // (source-gone=Leader placeholder で player-level 安全)。 未対応型は try_pay_counter_cost が Err。
         if let Some(cost) = eff.get("cost") {
             if !cost_is_empty(cost) {
-                let only_pay_don = cost
-                    .as_object()
-                    .map_or(false, |o| o.len() == 1 && o.contains_key("pay_don"));
-                if !only_pay_don {
-                    return Err("on_ko cost 未対応 (source-gone)".into());
-                }
                 match try_pay_counter_cost(state, owner_idx, Slot::Leader, cost)? {
                     true => {}
                     false => continue, // 支払い不能 → 効果 skip
@@ -3714,10 +3731,7 @@ pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> 
         for prim in dos {
             let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("");
             // player-level (src 不使用) のみ許可。 target/self 系は placeholder=leader で誤解決するため bail。
-            // ⚠ search_top_n(自デッキ操作、 src 不使用)/ set_cannot_attack(OP14-111 = target 相手キャラ、
-            //   resolve_target が opp ベースで src 不使用) は source-gone 安全。 self 系 target を持つ
-            //   set_cannot_attack は placeholder=leader で誤解決するが差分で MISMATCH 検出される (sample は
-            //   OP14-111 のみ、 全て opp target)。
+            // play_self_from_trash は current_source_card_id (下で set) で自身を探す = src 不使用で安全。
             if !matches!(
                 k,
                 "draw" | "add_don" | "add_don_active" | "add_rested_don" | "untap_don"
@@ -3725,6 +3739,7 @@ pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> 
                     | "play_from_trash" | "play_multi_from_trash" | "play_from_hand_or_trash"
                     | "ko_opp_stage" | "search_top_n" | "set_cannot_attack"
                     | "deal_opp_leader_damage" | "search_from_trash" | "trash_self_hand_random"
+                    | "play_self_from_trash"
             ) {
                 return Err(format!("on_ko primitive 未対応 (source-gone): {k}"));
             }
@@ -3732,11 +3747,16 @@ pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> 
                 return Err("on_ko draw cascade 未対応".into());
             }
         }
+        // play_self_from_trash 用に victim の card_id を transient set (Python _execute_event=source)。
+        let prev_src = state.current_source_card_id.clone();
+        state.current_source_card_id = Some(victim_cid.to_string());
         for prim in dos {
             if !execute_effect(prim, state, owner_idx, Slot::Leader) {
+                state.current_source_card_id = prev_src.clone();
                 return Err(format!("on_ko primitive 再現不能: {}", prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?")));
             }
         }
+        state.current_source_card_id = prev_src.clone(); // transient を復元 (action 境界で None)
     }
     Ok(())
 }
