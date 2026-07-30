@@ -3517,9 +3517,17 @@ pub fn try_replace_ko(
             for prim in &dos {
                 let pk = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("");
                 // rest_self_cards / return_self_don_to_deck = 非re-leave・非victim参照の safe do (holder=src)。
-                // return_to_deck_bottom 等の re-leave do は再入 risk で bail 維持。
-                if !matches!(pk, "rest_self_cards" | "return_self_don_to_deck") {
+                // return_to_deck_bottom (OP15-052 = one_self_character_any を deck へ) = 自 char の return =
+                // by_self_effect なので replace(全て by_opp_effect 要求)を再誘発しない = 無限ループ無し。
+                // ⚠ 但し返した char の on_self_chara_leave_by_self_effect cascade は execute_effect が自前
+                // 発火しないので、 holder owner 場に該当 when あれば bail (再現不能)。
+                if !matches!(pk, "rest_self_cards" | "return_self_don_to_deck" | "return_to_deck_bottom") {
                     return Err(format!("replace do 未対応 ({pk})"));
+                }
+                if pk == "return_to_deck_bottom"
+                    && me_board_has_when(state, victim_owner, "on_self_chara_leave_by_self_effect")
+                {
+                    return Err("replace do return_to_deck_bottom cascade 未対応".into());
                 }
             }
             for prim in &dos {
