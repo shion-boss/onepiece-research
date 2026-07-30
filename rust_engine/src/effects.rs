@@ -821,6 +821,9 @@ fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
             //   Rust の blanket `_ => false` だと Rust だけ弾いて MISMATCH (ST36-005 キッド redirect で発覚)。
             //   Python 準拠で pass (= 制限なし)。 card.power ベースの厳密判定は Python が未実装なので入れない。
             "truly_original_power_ge" | "truly_original_power_le" | "truly_original_power_eq" => true,
+            // has_trigger = trigger が「【トリガー】」で始まる (effects.py:10603)。 trigger(bool)=非空 alias。
+            "has_trigger" => !v.as_bool().unwrap_or(false) || card.trigger.starts_with("【トリガー】"),
+            "trigger" if v.is_boolean() => !v.as_bool().unwrap_or(false) || !card.trigger.is_empty(),
             _ => return false, // 未知 filter キー → 不一致扱い (安全側)
         };
         if !ok {
