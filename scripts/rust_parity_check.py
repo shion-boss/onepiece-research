@@ -249,6 +249,13 @@ def run_wall(n_games: int | None = None, seeds=(1, 7, 13)):
             try:
                 dr = eng.apply_action_digest(dump, json.dumps(e))
                 c = fast_clone(st)
+                # ⭐ 参照 clone の rng を full_dump が capture した _rng_state に揃える (run_parity と同じ)。
+                # これが無いと rng 依存 effect (shuffle/random discard 等) で偽 MISMATCH を報告する。
+                _src_rng = getattr(st, "rng", None)
+                if _src_rng is not None and hasattr(_src_rng, "getstate"):
+                    _r = random.Random()
+                    _r.setstate(_src_rng.getstate())
+                    c.rng = _r
                 apply_action(c, act)
                 if c.pending_choice is None and dr != state_digest(c):
                     wall = f"MISMATCH[{e['t']}]"

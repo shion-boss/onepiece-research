@@ -573,6 +573,22 @@ fn resolve_target(
                 .map(|i| (opp_idx, Slot::Char(i)))
                 .collect()
         }
+        // one_opponent_inplay_cost_le_N = 相手のリーダー or コスト N 以下のキャラ 1 体 (OP05-038 舞踏石 等)。
+        // ⚠ Python (effects.py:2924) は **power 降順** で選び、 cost≤N キャラが居なければ leader へ fallback。
+        // 汎用 one_opponent_ arm (opp_value sort・leader 非対象) と別扱い = MISMATCH 回避。
+        os if os.starts_with("one_opponent_inplay_cost_le_") => {
+            let n = parse_after(os, "cost_le_").unwrap_or(0);
+            let opp = &state.players[opp_idx];
+            let mut chars: Vec<usize> = (0..opp.characters.len())
+                .filter(|&i| opp.characters[i].card.cost <= n)
+                .collect();
+            // power 降順、 tie は board 順維持 (stable、 Python sorted(key=-power) と一致)。
+            chars.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
+            match chars.first() {
+                Some(&i) => vec![(opp_idx, Slot::Char(i))],
+                None => vec![(opp_idx, Slot::Leader)],
+            }
+        }
         // one_opponent_[rested_]character[_(any_)?cost_le_Ncost | _power_le_N | _any]
         // = 相手キャラを filter → opp_value 最大を 1 体 (AI 自動選択、 effects.py:2443/2540/2627)。
         os if os.starts_with("one_opponent_") => {
