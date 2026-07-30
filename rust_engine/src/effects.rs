@@ -1018,6 +1018,22 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 「指定キャラ/リーダーのアタック中、 相手はブロッカー発動不可」 (effects.py:8187)。
+        // target_spec = v (dict で target キー有れば v.target)。 attacker_prevents_blocker_until_turn_end=true。
+        "prevent_blocker_for_attacker" => {
+            let spec = if v.is_object() && v.get("target").is_some() {
+                v.get("target").unwrap().clone()
+            } else {
+                v.clone()
+            };
+            let Some(targets) = resolve_target(Some(&spec), me_idx, opp_idx, src, state) else {
+                return false;
+            };
+            for (pi, sl) in targets {
+                get_ip_mut(&mut state.players[pi], sl).attacker_prevents_blocker_until_turn_end = true;
+            }
+            true
+        }
         // 「アタッカーのアタック中、 相手はパワーN以下ブロッカー発動不可」 (effects.py:8205)。
         // spec {amount, target(既定 self=attacker)}。 attacker_prevents_blocker_power_le に amount 設定。
         "prevent_blocker_for_attacker_power_le" => {
