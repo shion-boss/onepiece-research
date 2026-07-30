@@ -782,27 +782,31 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                             // play_self trigger (game.py:2117): taken を trash[0] に pre-place してから発火し、
                             // play_self が current_source_card_id で自身を探して登場させる。
                             // ⚠ Python は identity (`_c is taken`) で消費判定するが Rust CardDef は値型 → card_id
-                            //   で近似。 既に trash に同 cid があると誤判定 → bail (correctness 保証)。
-                            if state.players[opp].trash.iter().any(|c| c.card_id == cid) {
-                                return Err("play_self life trigger: trash 同名重複 (identity 判定不能)".into());
-                            }
+                            //   の **枚数差** で消費判定 (pre-place 前の cid 枚数 k を記録 → 発火後に k+1 なら未消費
+                            //   =life札残存、 k なら play_self が消費=場へ)。 同名複製 (X_old が trash に既存) でも
+                            //   CardDef は値同型 = どの複製を消費しても digest 一致。 position 走査は不可なので枚数で判定。
+                            let k = state.players[opp].trash.iter().filter(|c| c.card_id == cid).count();
                             state.players[opp].trash.insert(0, taken);
                             let kept = crate::effects::fire_life_trigger(state, opp, me, &cid)?;
-                            // post-check: taken (cid) が trash に残っているか (pre-place で唯一の cid = card_id で判定可)
-                            match state.players[opp].trash.iter().position(|c| c.card_id == cid) {
-                                Some(pos) => {
-                                    // play_self 未消費 (条件不成立/場full) → 通常 routing
-                                    let t = state.players[opp].trash.remove(pos);
-                                    if kept {
-                                        state.players[opp].hand.push(t);
-                                        true
-                                    } else {
-                                        state.players[opp].trash.push(t);
-                                        false
-                                    }
+                            let count_after = state.players[opp].trash.iter().filter(|c| c.card_id == cid).count();
+                            if count_after > k {
+                                // play_self 未消費 (条件不成立/場full) → life 札を通常 routing (複製は値同型で任意 1 枚)
+                                let pos = state.players[opp]
+                                    .trash
+                                    .iter()
+                                    .position(|c| c.card_id == cid)
+                                    .expect("count_after>k なので必ず存在");
+                                let t = state.players[opp].trash.remove(pos);
+                                if kept {
+                                    state.players[opp].hand.push(t);
+                                    true
+                                } else {
+                                    state.players[opp].trash.push(t);
+                                    false
                                 }
+                            } else {
                                 // play_self が taken を登場させた (played_self、 went_to_hand=false)
-                                None => false,
+                                false
                             }
                         }
                         Some(true) => {
