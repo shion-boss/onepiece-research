@@ -479,6 +479,37 @@ fn resolve_target(
             }
             cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
         }
+        // all_opponent_rested_characters_le_Ncost = 相手レストのコストN以下 全員 (effects.py:2732、 sort 無)。
+        os if os.starts_with("all_opponent_rested_characters_le_") && os.ends_with("cost") => {
+            let n: i32 = os["all_opponent_rested_characters_le_".len()..os.len() - 4].parse().unwrap_or(0);
+            let opp = &state.players[opp_idx];
+            (0..opp.characters.len())
+                .filter(|&i| opp.characters[i].rested && opp.characters[i].card.cost <= n)
+                .map(|i| (opp_idx, Slot::Char(i)))
+                .collect()
+        }
+        // any_opp_rested_chara_cost_le_C_n_N = 相手レストのコストC以下 を _threat_key(power降順) で N 体 (effects.py:2781)。
+        os if os.starts_with("any_opp_rested_chara_cost_le_") => {
+            let rest = &os["any_opp_rested_chara_cost_le_".len()..];
+            let Some((c_str, n_str)) = rest.split_once("_n_") else { return None };
+            let cost_cap: i32 = c_str.parse().unwrap_or(0);
+            let n: usize = n_str.parse().unwrap_or(1);
+            let opp = &state.players[opp_idx];
+            let mut cands: Vec<usize> = (0..opp.characters.len())
+                .filter(|&i| opp.characters[i].rested && opp.characters[i].card.cost <= cost_cap)
+                .collect();
+            cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
+            cands.into_iter().take(n).map(|i| (opp_idx, Slot::Char(i))).collect()
+        }
+        // any_opp_rested_chara_n_N = 相手レストのキャラ を _threat_key で N 体 (effects.py:2796)。
+        os if os.starts_with("any_opp_rested_chara_n_") => {
+            let n: usize = os["any_opp_rested_chara_n_".len()..].parse().unwrap_or(1);
+            let opp = &state.players[opp_idx];
+            let mut cands: Vec<usize> =
+                (0..opp.characters.len()).filter(|&i| opp.characters[i].rested).collect();
+            cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
+            cands.into_iter().take(n).map(|i| (opp_idx, Slot::Char(i))).collect()
+        }
         _ => return None,
     };
     Some(out)
