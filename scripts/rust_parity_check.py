@@ -174,6 +174,15 @@ def run_parity(n_games: int | None = None, seeds=(1, 7), max_turns=220):
                 # static-diff は combat 忠実性の対象外 (evaluate_static のズレは別軸) → skip
                 if eng.recompute_static_digest(dump) == state_digest(st):
                     c = fast_clone(st)
+                    # ⭐ rng を full_dump が capture した state (= Rust が入力に使う _rng_state) に揃える。
+                    # fast_clone は clone に軽い別 rng を与える (探索速度用) が、 差分パリティでは Python 参照
+                    # clone も Rust と同じ rng 列を消費すべき (rng は starting state の一部)。 これで rng 依存
+                    # effect (trash_opp_hand_random / shuffle 等) が bit-match 可能になる。
+                    _src_rng = getattr(st, "rng", None)
+                    if _src_rng is not None and hasattr(_src_rng, "getstate"):
+                        _r = random.Random()
+                        _r.setstate(_src_rng.getstate())
+                        c.rng = _r
                     try:
                         apply_action(c, act)
                         ok = c.pending_choice is None

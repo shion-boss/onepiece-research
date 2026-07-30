@@ -4153,10 +4153,7 @@ pub fn fire_activate_main(
     if let Some(c) = &cost {
         if let Some(o) = c.as_object() {
             for k in o.keys() {
-                // ⚠ trash_to_deck cost は付けない: OP05-082 の do = trash_opp_hand_random (rng 依存) は
-                // 差分ハーネスで bit-match 不可 (fast_clone が clone に別 rng を与える為、 rng 効果は永遠に
-                // MISMATCH)。 rng 効果は standalone self-play では Rust 自前 rng で正しく解決する = bail 維持。
-                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card" | "ko_self_with_filter" | "trash_self") {
+                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card" | "ko_self_with_filter" | "trash_self" | "trash_to_deck") {
                     return Err(format!("activate_main cost 未対応: {k} ({card_id})"));
                 }
             }
@@ -4199,6 +4196,16 @@ pub fn fire_activate_main(
             let n = rest_don.min(me.don_active);
             me.don_active -= n;
             me.don_rested += n;
+        }
+        // trash_to_deck N: トラッシュ上 (front) N 枚をデッキ下 (back) へ (effects.py:13395、 OP05-082)。 cascade 無し。
+        let ttd = c.get("trash_to_deck").and_then(|v| v.as_i64()).unwrap_or(0) as usize;
+        if ttd > 0 {
+            let me = &mut state.players[me_idx];
+            let moved = ttd.min(me.trash.len());
+            for _ in 0..moved {
+                let card = me.trash.remove(0);
+                me.deck.push(card);
+            }
         }
         // rest_own_card: 自分のアクティブカード count 枚をレスト。 AI は 非リーダー + power 昇順
         // (= リーダー/高power キャラ温存、 effects.py:13720)。 直接 rested = 無 cascade。
