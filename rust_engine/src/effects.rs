@@ -3660,7 +3660,7 @@ fn try_pay_counter_cost(
             "once_per_turn" | "pay_don" | "rest_self_don" | "rest_self"
                 | "life_to_hand" | "life_top_or_bottom_to_hand" | "trash_to_deck"
                 | "reveal_hand_with_filter" | "flip_life_face_down" | "flip_life_face_up"
-                | "discard_hand"
+                | "discard_hand" | "discard_hand_with_filter"
         ) {
             return Err(format!("counter cost 未対応: {k}"));
         }
@@ -3688,6 +3688,14 @@ fn try_pay_counter_cost(
         }
         if discard_n > 0 && (me.hand.len() as i32) < discard_n {
             return Ok(false);
+        }
+        if let Some(dwf) = obj.get("discard_hand_with_filter") {
+            if dwf.is_object() {
+                let (filt, cnt) = filter_and_count(dwf);
+                if me.hand.iter().filter(|c| matches_filter(c, Some(&filt))).count() < cnt {
+                    return Ok(false);
+                }
+            }
         }
         if rest_self && get_ip(me, self_src).rested {
             return Ok(false);
@@ -3749,6 +3757,33 @@ fn try_pay_counter_cost(
         let a = rest_don.min(me.don_active);
         me.don_active -= a;
         me.don_rested += a;
+    }
+    // discard_hand_with_filter: 先頭 cnt 個の matching (hand 順) を降順 pop → flag + cascade (effects.py:867)。
+    // Python 順は rest_don 後・rest_self 前。 OP15-057 (EVENT/STAGE 1 枚)。
+    if let Some(dwf) = obj.get("discard_hand_with_filter").cloned() {
+        if dwf.is_object() {
+            let (filt, cnt) = filter_and_count(&dwf);
+            let mut matching: Vec<usize> = state.players[me_idx]
+                .hand
+                .iter()
+                .enumerate()
+                .filter(|(_, c)| matches_filter(c, Some(&filt)))
+                .map(|(i, _)| i)
+                .take(cnt)
+                .collect();
+            matching.sort_unstable_by(|a, b| b.cmp(a)); // 降順 pop
+            let n_disc = matching.len();
+            for i in matching {
+                let c = state.players[me_idx].hand.remove(i);
+                state.players[me_idx].trash.push(c);
+            }
+            if n_disc > 0 {
+                state.players[me_idx].hand_discarded_by_effect_this_turn = true;
+                if fire_field_when(state, me_idx, "on_self_hand_discarded").is_err() {
+                    return Err("counter cost discard_filter cascade 未対応".into());
+                }
+            }
+        }
     }
     if rest_self {
         get_ip_mut(&mut state.players[me_idx], self_src).rested = true;
