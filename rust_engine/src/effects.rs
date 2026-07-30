@@ -558,6 +558,24 @@ fn resolve_target(
             }
             cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
         }
+        // any_opponent_character_cost_le_N / _power_le_N = 該当相手キャラ全員 (board 順、 sort 無、
+        // effects.py:2618/2632)。 count は呼出側 (rest {target,count} 等) が適用する。
+        os if os.starts_with("any_opponent_character_cost_le_") => {
+            let n = parse_after(os, "cost_le_").unwrap_or(0);
+            let opp = &state.players[opp_idx];
+            (0..opp.characters.len())
+                .filter(|&i| opp.characters[i].card.cost <= n)
+                .map(|i| (opp_idx, Slot::Char(i)))
+                .collect()
+        }
+        os if os.starts_with("any_opponent_character_power_le_") => {
+            let n = parse_after(os, "power_le_").unwrap_or(0);
+            let opp = &state.players[opp_idx];
+            (0..opp.characters.len())
+                .filter(|&i| opp.characters[i].power() <= n)
+                .map(|i| (opp_idx, Slot::Char(i)))
+                .collect()
+        }
         // all_opponent_rested_characters_le_Ncost = 相手レストのコストN以下 全員 (effects.py:2732、 sort 無)。
         os if os.starts_with("all_opponent_rested_characters_le_") && os.ends_with("cost") => {
             let n: i32 = os["all_opponent_rested_characters_le_".len()..os.len() - 4].parse().unwrap_or(0);
@@ -1317,8 +1335,39 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             true
         }
         // レスト (effects.py:3761)。 string spec (one_opponent_*) = _opp_value 最大を選ぶ。
-        // ⚠ or_don/{count,target} 変種 + replace_rest は resolve_target=None または diverge → skip 境界。
+        // ⚠ or_don + replace_rest は resolve_target=None または diverge → skip 境界。
         "rest" => {
+            // {target, count} 形式 (effects.py:3742、 OP14-031): 候補全解決 (one_opponent_character_→
+            // any_ 正規化)→active filter→power 降順 (stable)→count 枚をレスト。
+            if let Some(o) = v.as_object() {
+                if o.contains_key("count") && o.contains_key("target") && !o.contains_key("type") {
+                    let rest_count = o.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+                    let cand_spec: Value = match o.get("target").and_then(|x| x.as_str()) {
+                        Some(s) if s.starts_with("one_opponent_character_") => {
+                            Value::String(format!("any_{}", &s["one_".len()..]))
+                        }
+                        _ => o.get("target").cloned().unwrap_or(Value::Null),
+                    };
+                    let Some(cands) = resolve_target(Some(&cand_spec), me_idx, opp_idx, src, state) else {
+                        return false;
+                    };
+                    let mut list: Vec<(usize, Slot)> = cands
+                        .into_iter()
+                        .filter(|&(pi, sl)| {
+                            let ip = get_ip(&state.players[pi], sl);
+                            !ip.rested && !ip.cannot_be_rested_buff
+                        })
+                        .collect();
+                    // -power で安定ソート (tie は board 順維持 = Python cand_list.sort(key=-power) 準拠)。
+                    list.sort_by(|&(pa, sa), &(pb, sb)| {
+                        get_ip(&state.players[pb], sb).power().cmp(&get_ip(&state.players[pa], sa).power())
+                    });
+                    for (pi, sl) in list.into_iter().take(rest_count) {
+                        get_ip_mut(&mut state.players[pi], sl).rested = true;
+                    }
+                    return true;
+                }
+            }
             let Some(targets) = resolve_target(Some(v), me_idx, opp_idx, src, state) else { return false };
             for (pi, sl) in targets {
                 let ip = get_ip_mut(&mut state.players[pi], sl);
@@ -2369,6 +2418,12 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             for (pi, sl) in targets {
                 get_ip_mut(&mut state.players[pi], sl).stay_rested_next_refresh = true;
             }
+            true
+        }
+        // 「このターン終了時に〜」 予約効果 (effects.py:6752、 OP14-031)。 spec を scheduled list に append
+        // (canonical field なので digest に載る)。 ⚠ flush (turn-end 発火) は未実装 = EndPhase で別途 bail。
+        "schedule_at_self_turn_end" => {
+            state.players[me_idx].scheduled_at_self_turn_end.push(v.clone());
             true
         }
         // 「(target) が相手の元コスト N 以下のキャラへアタック不可」 (effects.py:7653、 OP12-020 リーダー)。
