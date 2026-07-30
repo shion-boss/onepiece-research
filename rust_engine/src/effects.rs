@@ -4120,6 +4120,10 @@ pub fn fire_life_trigger(
                     | "mill_self_top" | "put_top_to_life"
                     | "play_from_trash" | "play_multi_from_trash" | "play_from_hand_or_trash"
                     | "play_self" | "rest" | "play_from_hand" | "fire_self_effect"
+                    // trash_self_hand_random = player-level (worst_hand_idx 決定的) + on_self_hand_discarded
+                    // cascade は execute_effect が自前 bail-guard。 conditional = if を src=leader placeholder
+                    // で eval (life-trigger は self_inplay=None なので Python も placeholder 相当) + 内 prim 自己 guard。
+                    | "trash_self_hand_random" | "conditional"
             ) {
                 return Err(format!("life trigger primitive 未対応 (source-gone): {k}"));
             }
