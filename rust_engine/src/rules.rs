@@ -411,14 +411,47 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
             state.phase = Phase::End;
         }
         Phase::End => {
-            // ターン終了時処理 (trigger_end_of_turn、 game.py:783)。 top の予約/一時キャラ処理は複雑 → bail:
-            //  - scheduled_at_self_turn_end (予約効果) / return_to_deck_bottom_at_turn_end / trash_at_self_turn_end
-            if !state.players[me].scheduled_at_self_turn_end.is_empty()
-                || state.players[me].characters.iter().any(|c| {
-                    c.return_to_deck_bottom_at_turn_end || c.trash_at_self_turn_end
-                })
+            // ターン終了時処理 (trigger_end_of_turn 前半、 effects.py:11414)。 Python 順: 予約効果 flush →
+            // return_to_deck → trash → (下の) end_of_turn トリガー。
+            // 1. scheduled_at_self_turn_end flush (source-gone、 safe prim のみ = fire_gated_do、 未対応は bail)。
+            //    Python は list を clear してから saved copy を実行 → mem::take で同順 (bail 時は state 破棄=無害)。
+            let scheduled =
+                std::mem::take(&mut state.players[me].scheduled_at_self_turn_end);
+            for spec in &scheduled {
+                if let Some(dos) = spec.get("do").and_then(|d| d.as_array()) {
+                    crate::effects::fire_gated_do(state, me, crate::effects::Slot::Leader, dos)?;
+                }
+            }
+            // 2. return_to_deck_bottom_at_turn_end: 一時登場キャラを持ち主デッキ下へ (付与ドン→レスト)。
+            //    trigger 発火なし (単純 cleanup、 effects.py:11424)。 board 順で処理。
             {
-                return Err("scheduled/return/trash at_self_turn_end 未対応".into());
+                let p = &mut state.players[me];
+                let mut i = 0;
+                while i < p.characters.len() {
+                    if p.characters[i].return_to_deck_bottom_at_turn_end {
+                        let ip = p.characters.remove(i);
+                        let don = ip.attached_dons;
+                        p.deck.push(ip.card);
+                        p.don_rested += don;
+                    } else {
+                        i += 1;
+                    }
+                }
+            }
+            // 3. trash_at_self_turn_end: 自己犠牲 (trash、 effects.py:11434)。 trigger 発火なし。
+            {
+                let p = &mut state.players[me];
+                let mut i = 0;
+                while i < p.characters.len() {
+                    if p.characters[i].trash_at_self_turn_end {
+                        let ip = p.characters.remove(i);
+                        let don = ip.attached_dons;
+                        p.trash.push(ip.card);
+                        p.don_rested += don;
+                    } else {
+                        i += 1;
+                    }
+                }
             }
             // on-field end_of_turn (me) / opp_end_of_turn (opp) トリガー発火 (costless fire、
             // cost/once/unknown/未対応prim は fire_field_when が Err で bail = 黙って間違えない)。

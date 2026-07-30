@@ -122,7 +122,7 @@ fn opp_value(ip: &InPlay) -> f64 {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Slot {
+pub enum Slot {
     Leader,
     Char(usize),
     Stage(usize),
@@ -3063,7 +3063,7 @@ pub fn fire_on_attack(
 
 /// do-array を allow-list gate + draw cascade guard で発火。 全 prim 再現できたら Ok、 不能なら Err。
 /// (execute_effect の false = 再現不能。 partial mutation は apply_action Err で全破棄 = 無害)。
-fn fire_gated_do(
+pub fn fire_gated_do(
     state: &mut GameState,
     me_idx: usize,
     src: Slot,
