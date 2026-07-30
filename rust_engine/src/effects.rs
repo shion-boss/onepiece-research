@@ -1809,6 +1809,75 @@ pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> 
     Ok(())
 }
 
+/// ライフカードの【トリガー】を発火 (effects.py:trigger_lifecard_trigger、 AI defender 経路)。
+/// should_fire_trigger が Some(true) の時のみ呼ぶ。 戻り値 = kept_in_hand (to_hand_self_trigger で手札保持)。
+/// ライフ札は zone limbo (source-gone) なので Slot::Leader placeholder + player-level 安全 prim のみ。
+/// ⚠ bail 条件: attacker 場に opp_event_or_trigger_fired / defender 場に on_self_trigger_fired (cascade
+///   未実装) / cost / top-level once_per_turn (once_per_turn_used=canonical除外 依存) / 未知条件 / play_self
+///   等 target・self 系 prim / draw cascade。 = 保守的に「draw 等 player-level only の trigger」だけ発火。
+pub fn fire_life_trigger(
+    state: &mut GameState,
+    defender_idx: usize,
+    attacker_idx: usize,
+    card_id: &str,
+) -> Result<bool, String> {
+    let Some(ov) = overlay() else { return Ok(false) };
+    let Some(effs) = ov.get(card_id) else { return Ok(false) };
+    // cascade guard (trigger 発火に伴う 2 系トリガー = 未実装)
+    if me_board_has_when(state, attacker_idx, "opp_event_or_trigger_fired") {
+        return Err("life trigger cascade (opp_event_or_trigger_fired) 未対応".into());
+    }
+    if me_board_has_when(state, defender_idx, "on_self_trigger_fired") {
+        return Err("life trigger cascade (on_self_trigger_fired) 未対応".into());
+    }
+    let mut kept_in_hand = false;
+    for eff in effs {
+        if eff.get("when").and_then(|v| v.as_str()) != Some("trigger") {
+            continue;
+        }
+        if eff.get("cost").map_or(false, |c| !cost_is_empty(c)) {
+            return Err("life trigger cost 未対応".into());
+        }
+        if eff.get("once_per_turn").is_some() {
+            return Err("life trigger once 未対応".into()); // once_per_turn_used = canonical 除外 依存
+        }
+        match eval_effect_conditions(eff, state, defender_idx, None) {
+            Some(true) => {}
+            Some(false) => continue,
+            None => return Err("life trigger 条件 unknown".into()),
+        }
+        let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
+        // safe prim check (source-gone player-level)。 to_hand_self_trigger は routing flag のみ。
+        for prim in dos {
+            let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("");
+            if k == "to_hand_self_trigger" {
+                continue;
+            }
+            if !matches!(
+                k,
+                "draw" | "add_don" | "add_don_active" | "add_rested_don" | "untap_don"
+                    | "mill_self_top" | "put_top_to_life"
+            ) {
+                return Err(format!("life trigger primitive 未対応 (source-gone): {k}"));
+            }
+            if k == "draw" && me_board_has_when(state, defender_idx, "on_self_draw_non_draw_phase") {
+                return Err("life trigger draw cascade 未対応".into());
+            }
+        }
+        for prim in dos {
+            let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("");
+            if k == "to_hand_self_trigger" {
+                kept_in_hand = true; // このカードを手札に加える (trash でなく hand へ)
+                continue;
+            }
+            if !execute_effect(prim, state, defender_idx, Slot::Leader) {
+                return Err("life trigger primitive 再現不能".into());
+            }
+        }
+    }
+    Ok(kept_in_hand)
+}
+
 /// JSON 値の truthy 判定 (Python の `if cost.get(k)` 相当: null/false/0/空 以外)。
 fn json_truthy(v: &Value) -> bool {
     match v {

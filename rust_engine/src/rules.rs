@@ -677,32 +677,47 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     declare_winner(state, me);
                     return Ok(());
                 }
-                // 取られる life 上位 damage 枚: 防御 AI が【トリガー】を発動しない (=手札へ) なら一致、
-                // 発動 or 条件 unknown は未対応 (trigger_lifecard_trigger の発火は複雑) → bail。
-                for i in 0..(damage as usize).min(state.players[opp].life.len()) {
-                    let cid = state.players[opp].life[i].card_id.clone();
-                    match crate::effects::should_fire_trigger(state, opp, &cid) {
-                        Some(false) => {}
-                        _ => return Err("life trigger (fire/unknown) 未対応".into()),
-                    }
-                }
+                // per-hit 処理 (Python _resolve_life_taken)。 トリガー発火は board を変えうるので hit ごとに
+                // should_fire を再評価 (一括 pre-check 不可)。 発火は fire_life_trigger (source-gone 安全 subset、
+                // 未対応 trigger は Err bail)。 発火成立で kept_in_hand=false → trash、 不発 → hand。
                 for _ in 0..damage {
                     if state.players[opp].life.is_empty() {
                         break;
                     }
                     let taken = state.players[opp].life.remove(0);
                     state.players[opp].life_lost_this_turn = true;
+                    let cid = taken.card_id.clone();
                     if is_banish {
                         // バニッシュ = trash 直行、 _resolve_life_taken を通らない = life 移動 trigger 無
                         state.players[opp].trash.push(taken);
-                    } else {
-                        // 手札へ (should_fire=false 済) → 公式 10-1-5 直後の life 移動 trigger を per-hit 発火。
-                        // attacker: on_opp_life_taken / defender: on_self_life_to_hand + on_self_life_taken。
-                        state.players[opp].hand.push(taken);
-                        crate::effects::fire_field_when(state, me, "on_opp_life_taken")?;
-                        crate::effects::fire_field_when(state, opp, "on_self_life_to_hand")?;
-                        crate::effects::fire_field_when(state, opp, "on_self_life_taken")?;
+                        continue;
                     }
+                    let went_to_hand = match crate::effects::should_fire_trigger(state, opp, &cid) {
+                        Some(false) => {
+                            state.players[opp].hand.push(taken); // トリガー不発 → 手札
+                            true
+                        }
+                        Some(true) => {
+                            // トリガー発火 (kept_in_hand で routing)。 未対応 trigger は Err で bail。
+                            let kept = crate::effects::fire_life_trigger(state, opp, me, &cid)?;
+                            if kept {
+                                state.players[opp].hand.push(taken);
+                                true
+                            } else {
+                                state.players[opp].trash.push(taken);
+                                false
+                            }
+                        }
+                        None => return Err("life trigger (unknown) 未対応".into()),
+                    };
+                    // 公式 10-1-5 直後の life 移動トリガー (trigger_on_opp_life_taken、 went_to_hand で分岐)。
+                    crate::effects::fire_field_when(state, me, "on_opp_life_taken")?;
+                    if went_to_hand {
+                        crate::effects::fire_field_when(state, opp, "on_self_life_to_hand")?;
+                    } else {
+                        crate::effects::fire_field_when(state, opp, "on_self_life_to_trash")?;
+                    }
+                    crate::effects::fire_field_when(state, opp, "on_self_life_taken")?;
                 }
             }
             reset_battle_buffs(state);
