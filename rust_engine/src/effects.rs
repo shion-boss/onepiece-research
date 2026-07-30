@@ -3158,6 +3158,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "hand_to_self_life" | "life_top_or_bottom_to_hand" | "disable_effect"
             | "stay_rested_next_refresh" | "set_cannot_rest" | "set_cannot_attack" | "put_top_to_life"
             | "optional_discard_hand_for_battle_buff" | "conditional" | "optional_cost_then"
+            | "play_from_hand" | "play_from_trash" | "play_multi_from_trash"
     )
 }
 
@@ -3578,7 +3579,7 @@ pub fn fire_life_trigger(
                 "draw" | "add_don" | "add_don_active" | "add_rested_don" | "untap_don"
                     | "mill_self_top" | "put_top_to_life"
                     | "play_from_trash" | "play_multi_from_trash" | "play_from_hand_or_trash"
-                    | "play_self" | "rest"
+                    | "play_self" | "rest" | "play_from_hand"
             ) {
                 return Err(format!("life trigger primitive 未対応 (source-gone): {k}"));
             }
