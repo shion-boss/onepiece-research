@@ -3739,7 +3739,7 @@ pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> 
                     | "play_from_trash" | "play_multi_from_trash" | "play_from_hand_or_trash"
                     | "ko_opp_stage" | "search_top_n" | "set_cannot_attack"
                     | "deal_opp_leader_damage" | "search_from_trash" | "trash_self_hand_random"
-                    | "play_self_from_trash"
+                    | "play_self_from_trash" | "optional_cost_then"
             ) {
                 return Err(format!("on_ko primitive 未対応 (source-gone): {k}"));
             }
