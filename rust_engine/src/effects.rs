@@ -176,6 +176,14 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                     me.leader.card.color.iter().any(|c| c == val)
                 }
             }
+            // 自リーダーが多色 (color 2 色以上) か (effects.py:1643)。
+            "leader_multicolor" => (me.leader.card.color.len() >= 2) == v.as_bool().unwrap_or(true),
+            // コスト0か8以上のキャラが両陣営に居るか (base_cost、 effects.py:1393)。
+            "exists_chara_cost_0_or_ge_8" => {
+                let found = me.characters.iter().chain(opp.characters.iter())
+                    .any(|c| c.base_cost() == 0 || c.base_cost() >= 8);
+                found == v.as_bool().unwrap_or(true)
+            }
             "leader_attribute" | "self_leader_attribute" => me.leader.card.attribute == v.as_str().unwrap_or(""),
             "opp_leader_attribute" => opp.leader.card.attribute == v.as_str().unwrap_or(""),
             "self_life_le" => (me.life.len() as i64) <= v.as_i64().unwrap_or(0),
@@ -1284,6 +1292,22 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 相手ライフ上 N 枚を trash (effects.py:mill_opp_life_to_trash、 効果削り=trigger 無し)。
+        "mill_opp_life_to_trash" => {
+            let n = if v.is_object() {
+                v.get("amount").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            };
+            for _ in 0..n {
+                if state.players[opp_idx].life.is_empty() {
+                    break;
+                }
+                let c = state.players[opp_idx].life.remove(0);
+                state.players[opp_idx].trash.push(c);
+            }
+            true
+        }
         // 相手ライフ上 N 枚を相手手札へ (effects.py:mill_opp_life_to_hand、 効果ライフ削り=trigger 無し)。
         "mill_opp_life_to_hand" => {
             let n = if v.is_object() {
@@ -2158,8 +2182,8 @@ fn on_trigger_prim_safe(key: &str) -> bool {
         "power_pump" | "draw" | "give_keyword" | "add_don" | "add_don_active" | "add_rested_don"
             | "untap_don" | "untap" | "untap_chara" | "rest" | "cost_minus" | "attach_rested_don" | "mill_self_top"
             | "life_to_hand" | "trash_self_hand_random" | "redirect_attack" | "mill_self_life_to_trash"
-            | "mill" | "mill_opp_life_to_hand" | "look_top_reorder" | "hand_to_self_life"
-            | "life_top_or_bottom_to_hand"
+            | "mill" | "mill_opp_life_to_hand" | "mill_opp_life_to_trash" | "look_top_reorder"
+            | "hand_to_self_life" | "life_top_or_bottom_to_hand" | "disable_effect"
             | "stay_rested_next_refresh" | "set_cannot_rest" | "set_cannot_attack" | "put_top_to_life"
             | "optional_discard_hand_for_battle_buff" | "conditional" | "optional_cost_then"
     )

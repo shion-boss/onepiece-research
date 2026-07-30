@@ -277,6 +277,15 @@ impl InPlay {
     }
 
     /// core.py InPlay.power = base + DON+1000(所有者ターンのみ)+ 各 buff。
+    /// core.py InPlay.base_cost: override (next_opp_turn_end > base_cost_override > card.cost) - cost_minus。
+    pub fn base_cost(&self) -> i32 {
+        let raw = self
+            .next_opp_turn_end_base_cost_override
+            .or(self.base_cost_override)
+            .unwrap_or(self.card.cost);
+        (raw - self.cost_minus_until_turn_end - self.cost_minus_through_opp_turn).max(0)
+    }
+
     pub fn power(&self) -> i32 {
         let don_buff = if self.is_owners_turn { 1000 * self.attached_dons } else { 0 };
         self.base_power()
