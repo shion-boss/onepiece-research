@@ -3033,6 +3033,25 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 自ドンを任意枚 rest → rest 1枚につき target に battle_buff +amount (effects.py:rest_self_don_for_
+        // battle_buff_per_don、 OP13-001 opp_attack 防御)。 AI = don_active を max まで rest (防御最大化)。
+        "rest_self_don_for_battle_buff_per_don" => {
+            let target_spec = v.get("target").cloned().unwrap_or(Value::String("self_leader".into()));
+            let amount_per = v.get("amount_per_rest").and_then(|x| x.as_i64()).unwrap_or(2000) as i32;
+            let max_n = v.get("max").and_then(|x| x.as_i64()).unwrap_or(5) as i32;
+            let rest_n = state.players[me_idx].don_active.min(max_n);
+            if rest_n <= 0 {
+                return true; // active=0 = no-op (Python return False だが do-loop 返値無視)
+            }
+            state.players[me_idx].don_active -= rest_n;
+            state.players[me_idx].don_rested += rest_n;
+            let buff = amount_per * rest_n;
+            let Some(targets) = resolve_target(Some(&target_spec), me_idx, opp_idx, src, state) else { return false };
+            for (pi, sl) in targets {
+                get_ip_mut(&mut state.players[pi], sl).battle_buff += buff;
+            }
+            true
+        }
         // 自場のドン N 枚 (active 優先→rested) をドンデッキに戻す (effects.py:5302、 replace_leave の do 等)。
         // ⚠ on_self_don_returned_to_deck cascade は me 場に該当 when あれば bail。
         "return_self_don_to_deck" => {
@@ -3459,6 +3478,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "stay_rested_next_refresh" | "set_cannot_rest" | "set_cannot_attack" | "put_top_to_life"
             | "optional_discard_hand_for_battle_buff" | "conditional" | "optional_cost_then"
             | "play_from_hand" | "play_from_trash" | "play_multi_from_trash"
+            | "rest_self_don_for_battle_buff_per_don"
     )
 }
 
