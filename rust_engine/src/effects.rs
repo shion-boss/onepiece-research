@@ -113,7 +113,7 @@ fn opp_value(ip: &InPlay) -> f64 {
     val
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum Slot {
     Leader,
     Char(usize),
@@ -559,6 +559,10 @@ fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
                 Value::Array(a) => !a.iter().any(|x| x.as_str() == Some(card.card_id.as_str())),
                 _ => true,
             },
+            // ⚠ Python の _matches_filter は truly_original_power_* を扱わない = 無視 (pass)。
+            //   Rust の blanket `_ => false` だと Rust だけ弾いて MISMATCH (ST36-005 キッド redirect で発覚)。
+            //   Python 準拠で pass (= 制限なし)。 card.power ベースの厳密判定は Python が未実装なので入れない。
+            "truly_original_power_ge" | "truly_original_power_le" | "truly_original_power_eq" => true,
             _ => return false, // 未知 filter キー → 不一致扱い (安全側)
         };
         if !ok {
@@ -1061,6 +1065,35 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             for (pi, sl) in targets.into_iter().take(limit) {
                 get_ip_mut(&mut state.players[pi], sl).rested = false;
             }
+            true
+        }
+        // アタック対象変更 (effects.py:5636、 opp_attack/counter で発動)。 AI は候補を順に resolve→先頭 target
+        // (dedup)。 leader → no-op (redirect せず=通常 leader battle)、 char → pending_attack_redirect に
+        // 防御側 char index を set (transient、 AttackLeader が読み char battle 再解決)。 iid 不要 (index で代替)。
+        "redirect_attack" => {
+            let mut chosen: Option<Slot> = None;
+            if let Some(cands) = v.get("candidates").and_then(|c| c.as_array()) {
+                let mut seen: Vec<Slot> = vec![];
+                for cand in cands {
+                    if let Some(ts) = resolve_target(Some(cand), me_idx, opp_idx, src, state) {
+                        for (pi, sl) in ts {
+                            if pi == me_idx && !seen.contains(&sl) {
+                                seen.push(sl);
+                            }
+                        }
+                    }
+                }
+                chosen = seen.into_iter().next();
+            } else {
+                let spec = if v.is_string() { v.clone() } else { Value::String("self_leader".to_string()) };
+                if let Some(ts) = resolve_target(Some(&spec), me_idx, opp_idx, src, state) {
+                    chosen = ts.into_iter().find(|(pi, _)| *pi == me_idx).map(|(_, sl)| sl);
+                }
+            }
+            if let Some(Slot::Char(i)) = chosen {
+                state.pending_attack_redirect = Some(i as i32);
+            }
+            // leader/stage/none → no-op (通常 leader battle 続行)
             true
         }
         // 対象をアクティブ化 (effects.py:4563)。 target = self/self_leader/all_self_characters (既定 self)。
@@ -1839,7 +1872,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
         key,
         "power_pump" | "draw" | "give_keyword" | "add_don" | "add_don_active" | "add_rested_don"
             | "untap_don" | "untap" | "untap_chara" | "rest" | "cost_minus" | "attach_rested_don" | "mill_self_top"
-            | "life_to_hand" | "trash_self_hand_random"
+            | "life_to_hand" | "trash_self_hand_random" | "redirect_attack"
             | "stay_rested_next_refresh" | "set_cannot_rest" | "set_cannot_attack" | "put_top_to_life"
             | "optional_discard_hand_for_battle_buff" | "conditional" | "optional_cost_then"
     )

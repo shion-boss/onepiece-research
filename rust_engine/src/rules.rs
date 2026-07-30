@@ -605,6 +605,33 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             let is_double = attacker.is_double_attack_now();
             let is_banish = attacker.is_banish_now();
             let no_block = attacker.has_no_block_now();
+            // === アタック対象変更 (game.py:1472): opp_attack の redirect_attack が pending_attack_redirect を set ===
+            // Some(char_idx) = 相手キャラへ redirect → char battle 再解決して return。 None = 通常 leader battle。
+            // (leader redirect は primitive 側で no-op = None のまま扱う)。
+            if let Some(ri) = state.pending_attack_redirect {
+                state.pending_attack_redirect = None;
+                let ri = ri as usize;
+                if ri >= state.players[opp].characters.len() {
+                    reset_battle_buffs(state); // target 消失 = 空打ち (game.py:1484)
+                    return Ok(());
+                }
+                // counter events は冒頭で bail 済。 counter cards を redirect 先で spend。
+                let counter_added = spend_counters(&mut state.players[opp], &counter_cards);
+                // battle: Python redirect は attr bonus 無し (game.py:1502/1520)。 免疫 = ko_immune/属性のみ。
+                let atk_power = attacker.power();
+                let (def_power, immune) = {
+                    let t = &state.players[opp].characters[ri];
+                    (
+                        t.power() + counter_added,
+                        t.ko_immune_until_turn_end || battle_ko_immune_by_attribute(t, &attacker),
+                    )
+                };
+                if atk_power >= def_power && !immune {
+                    do_battle_ko(state, opp, ri, me, &atk_cid, true)?;
+                }
+                reset_battle_buffs(state);
+                return Ok(());
+            }
             // === ブロックステップ (7-1-2) ===
             let blocker_idx: Option<usize> = if no_block {
                 None
