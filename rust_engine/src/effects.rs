@@ -515,6 +515,14 @@ fn resolve_target(
     };
     let out = match s.as_str() {
         "self" => vec![(me_idx, src)],
+        // このキャラ以外の自キャラ 1 枚 (power 降順、 effects.py:2951)。 src が Char(i) なら i を除外。
+        "other_self_chara" => {
+            let p = &state.players[me_idx];
+            let src_idx = if let Slot::Char(i) = src { Some(i) } else { None };
+            let mut cands: Vec<usize> = (0..p.characters.len()).filter(|&i| Some(i) != src_idx).collect();
+            cands.sort_by(|&a, &b| p.characters[b].power().cmp(&p.characters[a].power()));
+            cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect()
+        }
         // effects.py:2345 「自リーダーかキャラ1枚」 = src ではなく AI=最高power の自カード (leader/char)。
         // ties は原順 (leader→char0→…) = 安定ソート。 counter event (source-gone) 等で src と別。
         "self_inplay" => {
@@ -1084,6 +1092,11 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
         }
         // discard_hand cost: 手札 ≥ n 必要。
         "discard_hand" => Some((me.hand.len() as i64) >= cv.as_i64().unwrap_or(0)),
+        // return_to_hand: other_self_chara cost = このキャラ以外の自キャラが1体以上 (effects.py:8321)。
+        "return_to_hand" if cv.as_str() == Some("other_self_chara") => {
+            let src_idx = if let Slot::Char(i) = src { Some(i) } else { None };
+            Some((0..me.characters.len()).any(|i| Some(i) != src_idx))
+        }
         _ => None, // 未対応 cost 型 → bail
     }
 }
@@ -1281,6 +1294,13 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
                 } else {
                     me.characters.push(c);
                 }
+            }
+        }
+        // return_to_hand cost (other_self_chara 等): execute_effect 委譲 (Python も cost として execute_effect、
+        // effects.py:8949)。 return_to_hand primitive の cascade を通す。
+        "return_to_hand" => {
+            if !execute_effect(cs, state, me_idx, src) {
+                return None;
             }
         }
         // discard_hand cost: worst_hand_idx で n 枚捨てるだけ (effects.py:8736)。 ⚠ optional_cost_then の
@@ -2008,9 +2028,6 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             if hand_ch.is_empty() && trash_ch.is_empty() {
                 return true; // 該当なし = no-op
             }
-            if state.players[me_idx].characters.len() + hand_ch.len() + trash_ch.len() > 5 {
-                return false; // field full → trash_weakest 未対応
-            }
             // removal-timing guard: execute_on_play が観測を持つなら bail
             let opp = 1 - me_idx;
             let board_reacts = me_board_has_when(state, me_idx, "on_self_chara_played")
@@ -2039,6 +2056,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 state.players[me_idx].trash.remove(i);
             }
             for card in order {
+                trash_weakest_for_field_full(state, me_idx); // 場5枚は最弱trash (3-7-6-1、 KO無、 guard で on_play無)
                 let mut ip = InPlay::of(card.clone(), true); // sickness=true
                 ip.rested = rested;
                 state.players[me_idx].characters.push(ip);
@@ -2746,11 +2764,92 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             true
         }
         // 手札に戻す (バウンス)。 protect チェック → 除去 + hand + 付与ドン返却。
+        // 手札に戻す (バウンス、 effects.py:return_to_hand)。 opp victim = add_to_hand_publicly(hand+known)、
+        // self victim = hand のみ。 cascade (replace_leave/on_self_chara_leave_by_opp_effect、 me の leave_by_self/
+        // on_opp_chara_returned_to_hand) 要時は single-victim path (ko/return_to_deck と同構造)、 無ければ一括。
         "return_to_hand" => {
-            let Some(targets) = resolve_target(Some(v), me_idx, opp_idx, src, state) else { return false };
-            let victims = collect_unprotected(state, &targets);
-            remove_victims(state, victims, RemoveDest::Hand);
-            true
+            let tgt_spec: Value = if v.is_object() && v.get("target").is_some() {
+                v.get("target").unwrap().clone()
+            } else {
+                v.clone()
+            };
+            let Some(targets) = resolve_target(Some(&tgt_spec), me_idx, opp_idx, src, state) else { return false };
+            let mut victims: Vec<(usize, usize)> = vec![];
+            for &(pi, sl) in &targets {
+                if let Slot::Char(idx) = sl {
+                    let c = &state.players[pi].characters[idx];
+                    if pi == opp_idx && (c.protect_from_opp_effect || c.static_ko_immune) {
+                        continue;
+                    }
+                    victims.push((pi, idx));
+                }
+            }
+            if victims.is_empty() {
+                return true;
+            }
+            let has_opp_victim = victims.iter().any(|&(pi, _)| pi == opp_idx);
+            let cascade = me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect")
+                || me_board_has_when(state, me_idx, "on_opp_chara_returned_to_hand_by_self_effect")
+                || (has_opp_victim
+                    && (me_board_has_when(state, opp_idx, "on_self_chara_leave_by_opp_effect")
+                        || me_board_has_when(state, opp_idx, "replace_leave")));
+            if !cascade {
+                // 一括: opp=公開手札 (known)、 self=手札のみ。
+                let mut sorted = victims.clone();
+                sorted.sort_by(|a, b| b.1.cmp(&a.1));
+                for (pi, idx) in sorted {
+                    let removed = state.players[pi].characters.remove(idx);
+                    let don = removed.attached_dons;
+                    if pi == opp_idx {
+                        state.players[pi].known_hand_card_ids.push(removed.card.card_id.clone());
+                    }
+                    state.players[pi].hand.push(removed.card);
+                    state.players[pi].don_rested += don;
+                }
+                return true;
+            }
+            if victims.len() > 1 {
+                return false;
+            }
+            let (vpi, vidx) = victims[0];
+            if vpi == opp_idx {
+                match try_replace_ko(state, vpi, vidx, true, "return_to_hand") {
+                    Ok(true) => return true,
+                    Ok(false) => {}
+                    Err(_) => return false,
+                }
+                let vcard = state.players[vpi].characters[vidx].card.clone();
+                let vdon = state.players[vpi].characters[vidx].attached_dons;
+                let removed = state.players[vpi].characters.remove(vidx);
+                state.players[vpi].known_hand_card_ids.push(removed.card.card_id.clone());
+                state.players[vpi].hand.push(removed.card);
+                state.players[vpi].don_rested += vdon;
+                state.last_chara_ko_victim_card = Some(vcard);
+                let mut err = fire_field_when(state, vpi, "on_self_chara_leave_by_opp_effect").is_err();
+                state.last_chara_ko_victim_card = None;
+                if !err {
+                    err = fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err();
+                }
+                if !err {
+                    err = fire_field_when(state, me_idx, "on_opp_chara_returned_to_hand_by_self_effect").is_err();
+                }
+                if err {
+                    return false;
+                }
+                true
+            } else {
+                let vdon = state.players[vpi].characters[vidx].attached_dons;
+                let removed = state.players[vpi].characters.remove(vidx);
+                state.players[vpi].hand.push(removed.card);
+                state.players[vpi].don_rested += vdon;
+                if fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err() {
+                    return false;
+                }
+                if fire_field_when(state, me_idx, "on_opp_chara_returned_to_hand_by_self_effect").is_err() {
+                    return false;
+                }
+                true
+            }
         }
         // デッキ下に戻す (effects.py:5376)。 cascade (opp victim の replace_leave/on_self_chara_leave_by_opp_
         // effect、 me の on_self_chara_leave_by_self_effect) 要時は single-victim path で発火 (ko primitive と
@@ -3193,8 +3292,8 @@ fn effect_cascade_blocked(dos: &[Value], state: &GameState, me_idx: usize) -> bo
                     || has(opp, "replace_ko")
                     || has(opp, "replace_leave")
             }
-            // return_to_deck_bottom (single) は prim 側で cascade を自前処理 → ここでは block しない。
-            "return_to_hand" | "return_to_hand_multi" | "return_to_deck_bottom_multi" => {
+            // return_to_hand/deck_bottom (single) は prim 側で cascade を自前処理 → ここでは block しない。
+            "return_to_hand_multi" | "return_to_deck_bottom_multi" => {
                 has(opp, "on_self_chara_leave_by_self_effect") || has(opp, "replace_leave")
             }
             // rest (single-path) は prim 側で on_self_rested cascade を自前発火 → ここでは block しない。
