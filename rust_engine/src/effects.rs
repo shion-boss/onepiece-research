@@ -176,6 +176,10 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                 arr.iter().any(|x| me.leader.card.features.iter().any(|f| Some(f.as_str()) == x.as_str()))
             }),
             "leader_name" => me.leader.card.name == v.as_str().unwrap_or(""),
+            // リーダー名がリストに含まれる (effects.py:1736)。
+            "leader_name_in" => v
+                .as_array()
+                .map_or(false, |arr| arr.iter().any(|x| x.as_str() == Some(me.leader.card.name.as_str()))),
             "leader_color" => {
                 let val = v.as_str().unwrap_or("");
                 if val == "多色" {
@@ -497,6 +501,9 @@ fn resolve_target(
         os if os.starts_with("one_opponent_") => {
             let rested_only = os.contains("rested_character");
             let cost_le = parse_after(os, "cost_le_"); // c.card.cost <= n
+            // current_cost_le_N = 現在コスト (base_cost、 cost_minus 反映) 版。 通常 cost_le は元コスト
+            // (card.cost)。 クロコダイル「コスト0」系 (effects.py:2603)。
+            let cost_is_current = os.contains("current_cost_le_");
             let mut power_le = parse_after(os, "power_le_"); // c.power() <= n
             // bare "character_le_N" (= power ≤ N、 opp_value sort、 effects.py:2425)
             if power_le.is_none() && cost_le.is_none() {
@@ -516,7 +523,8 @@ fn resolve_target(
                         return false;
                     }
                     if let Some(n) = cost_le {
-                        if c.card.cost > n {
+                        let cc = if cost_is_current { c.base_cost() } else { c.card.cost };
+                        if cc > n {
                             return false;
                         }
                     }
@@ -3783,11 +3791,13 @@ pub fn fire_activate_main(
             eff.get("do").and_then(|v| v.as_array()).cloned().unwrap_or_default(),
         )
     };
+    // trash_self でこの起動源が場から除去されたか (= act_used マークを skip する為)。
+    let mut source_gone = false;
     // cost 支払い。 未対応 cost 種別 or cascade を起こす cost は bail (黙って間違えない)。
     if let Some(c) = &cost {
         if let Some(o) = c.as_object() {
             for k in o.keys() {
-                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card" | "ko_self_with_filter") {
+                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card" | "ko_self_with_filter" | "trash_self") {
                     return Err(format!("activate_main cost 未対応: {k} ({card_id})"));
                 }
             }
@@ -3796,6 +3806,21 @@ pub fn fire_activate_main(
         let pay_don = c.get("pay_don").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
         if pay_don > 0 && me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             return Err("activate_main pay_don cascade 未対応".into());
+        }
+        // trash_self: 起動源自身を場からトラッシュへ (= 自KO 同等、 付与ドンはレストへ)。 cascade 無し
+        // (effects.py:13359、 on_ko/on_self_chara_leave は発火しない = 単純除去)。 → src が場から消える
+        // ので後続の act_used マーク・自陣 do 参照は無効化 (source_gone)。
+        if c.get("trash_self").and_then(|v| v.as_bool()).unwrap_or(false) {
+            let me = &mut state.players[me_idx];
+            let removed = match src {
+                Slot::Char(i) if i < me.characters.len() => me.characters.remove(i),
+                Slot::Stage(i) if i < me.stages.len() => me.stages.remove(i),
+                _ => return Err("trash_self source 不明".into()),
+            };
+            let don = removed.attached_dons;
+            me.trash.push(removed.card);
+            me.don_rested += don;
+            source_gone = true;
         }
         if c.get("rest_self").and_then(|v| v.as_bool()).unwrap_or(false) {
             get_ip_mut(&mut state.players[me_idx], src).rested = true;
@@ -3870,9 +3895,11 @@ pub fn fire_activate_main(
             }
         }
     }
-    // once_per_turn フラグ (effects.py:13726、 default True で発動済マーク)
+    // once_per_turn フラグ (effects.py:13743、 default True で発動済マーク)。 ⚠ source_gone (trash_self)
+    // 時は起動源が場から消えている → Python は off-field object に setattr する (digest 不変=trash は
+    // CardDef のみ) ので Rust は skip (stale index を触らない)。
     let once = cost.as_ref().and_then(|c| c.get("once_per_turn")).and_then(|v| v.as_bool()).unwrap_or(true);
-    if once {
+    if once && !source_gone {
         get_ip_mut(&mut state.players[me_idx], src).act_used = true;
     }
     // do: cascade guard + prim gating
