@@ -398,6 +398,17 @@ class InPlay:
             self.attack_once_used.append(idx)
             self.attack_once_used.sort()
 
+    # field-when (on_self_life_to_hand 等) once_per_turn の canonical mirror。 _check_and_set_once_per_turn の
+    # once_per_turn_used (iid-keyed=canonical 除外) を Rust が bit-match できるよう、 InPlay ごとに "{when}:{idx}"
+    # で並行記録 (additive、 Python の判定は once_per_turn_used のまま)。 refresh で clear。 (2026-07-30)
+    event_once_used: list = field(default_factory=list)
+
+    def mark_event_once(self, when: str, idx: int) -> None:
+        mk = f"{when}:{idx}"
+        if mk not in self.event_once_used:
+            self.event_once_used.append(mk)
+            self.event_once_used.sort()
+
     def has_keyword_active(self, keyword: str) -> bool:
         """カードの基本キーワード or 動的に付与されたキーワードを保有するか。"""
         return (
@@ -535,6 +546,7 @@ class InPlay:
         new.ko_immune_battle_attributes_not_in = self.ko_immune_battle_attributes_not_in.copy()
         # attack_once_used は mutable list → shallow update だと参照共有で fast_clone がクロス汚染する。
         new.attack_once_used = self.attack_once_used.copy()
+        new.event_once_used = self.event_once_used.copy()
         memo[id(self)] = new
         return new
 

@@ -318,7 +318,8 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
                     p.leader.rested = false;
                 }
                 p.leader.act_used = false; // 起動メイン once_per_turn を毎ターン回復
-                p.leader.attack_once_used.clear(); // on_attack/opp_attack once もクリア
+                p.leader.attack_once_used.clear();
+                p.leader.event_once_used.clear();
                 if p.leader.ko_per_turn_immune_max > 0 {
                     p.leader.ko_per_turn_immune_remaining = p.leader.ko_per_turn_immune_max;
                 }
@@ -331,6 +332,7 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
                     }
                     c.act_used = false;
                     c.attack_once_used.clear();
+                    c.event_once_used.clear();
                     don_from_chars += c.attached_dons;
                     c.attached_dons = 0;
                     if c.ko_per_turn_immune_max > 0 {
@@ -352,6 +354,7 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
                     s.rested = false;
                     s.act_used = false;
                     s.attack_once_used.clear();
+                    s.event_once_used.clear();
                 }
                 for c in p.characters.iter_mut() {
                     c.summoning_sickness = false;

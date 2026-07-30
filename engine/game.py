@@ -691,6 +691,9 @@ def advance_phase(state: GameState) -> None:
             # 【ターン1回】 効果の発動済みキー集合をクリア (= 次自ターンで再発動可)。
             # effect spec の top-level `once_per_turn` を _execute_event がガードに使う。
             me.once_per_turn_used.clear()
+            # field-when once の canonical mirror (event_once_used) も同時にクリア (Rust 同期)。
+            for _ip in [me.leader, *me.characters, *me.stages]:
+                _ip.event_once_used.clear()
             # snapshot/animation 用に「REFRESH 完了」 を 1 log = 1 snapshot として明示。
             # 以前は無 log のまま次フェーズへ進み、 戻り DON + 未使用 DON 起き上げ +
             # 後続フェーズ (DRAW / DON deck→cost) が 全部 1 snapshot 内で同時に流れ、

@@ -1004,7 +1004,28 @@ def _check_and_set_once_per_turn(
     if key in me.once_per_turn_used:
         return False
     me.once_per_turn_used.add(key)
+    # Rust 同期用 canonical mirror: field-when (fire_field_when で発火する持続 source 由来) の once を
+    # InPlay.event_once_used に "{when}:{idx}" で並行記録 (iid 非依存 = digest 可)。 Python の判定は上の
+    # once_per_turn_used のまま (additive)。 on_play/on_ko/main/counter/on_attack/end_of_turn は対象外
+    # (= それぞれ別経路で Rust 処理、 mirror すると二重管理で不一致になる)。
+    when_s = eff.get("when", "")
+    if opt is True and source_iid is not None and when_s in _FIELD_WHEN_ONCE_MIRROR:
+        for ip in [me.leader, *me.characters, *me.stages]:
+            if ip.instance_id == source_iid:
+                ip.mark_event_once(when_s, idx)
+                break
     return True
+
+
+# fire_field_when (Rust) で once を追跡する field-when when-type。 _check_and_set_once_per_turn の
+# canonical mirror (event_once_used) 対象。 ここに無い when は mirror されない (Rust も別経路)。
+_FIELD_WHEN_ONCE_MIRROR = frozenset({
+    "on_self_life_to_hand", "on_self_life_to_trash", "on_self_life_taken", "on_opp_life_taken",
+    "on_self_chara_played", "on_opp_chara_played", "on_self_chara_ko", "on_opp_chara_ko",
+    "on_self_hand_discarded", "on_self_don_returned_to_deck", "on_self_event_played",
+    "on_opp_event_or_trigger_fired", "on_self_chara_leave_by_self_effect", "on_self_rested",
+    "on_self_trigger_fired",
+})
 
 
 def _maybe_resolve(state: GameState) -> None:

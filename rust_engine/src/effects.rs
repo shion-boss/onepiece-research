@@ -2758,29 +2758,59 @@ pub fn fire_field_when(state: &mut GameState, owner_idx: usize, when: &str) -> R
     for slot in slots {
         let cid = get_ip(&state.players[owner_idx], slot).card.card_id.clone();
         let Some(effs) = ov.get(&cid) else { continue };
-        for eff in effs {
+        for (idx, eff) in effs.iter().enumerate() {
             if eff.get("when").and_then(|v| v.as_str()) != Some(when) {
                 continue;
             }
-            // cost 持ち (once_per_turn 含む) は支払い/追跡が要る → bail
-            if let Some(cost) = eff.get("cost") {
-                if !cost_is_empty(cost) {
-                    return Err(format!("{when} cost 未対応"));
+            // once_per_turn: cost.once_per_turn or top-level。 mirror 対象 when は event_once_used で追跡、
+            // それ以外 (end_of_turn 等 別トラッカー) は従来通り bail。
+            let once_opt = eff
+                .get("once_per_turn")
+                .or_else(|| eff.get("cost").and_then(|c| c.get("once_per_turn")));
+            if let Some(o) = once_opt {
+                if !field_when_once_mirrored(when) || o.is_string() {
+                    return Err(format!("{when} once_per_turn 未対応")); // 別トラッカー/共有キー = 追跡不可
+                }
+                if o.as_bool() == Some(true) {
+                    let key = format!("{when}:{idx}");
+                    if get_ip(&state.players[owner_idx], slot).event_once_used.contains(&key) {
+                        continue; // ターン既発動
+                    }
                 }
             }
-            if eff.get("once_per_turn").is_some() {
-                return Err(format!("{when} once_per_turn 未対応"));
+            // 実 cost (once_per_turn 以外) が有れば bail (field-when real cost 未対応)。
+            if let Some(cost) = eff.get("cost") {
+                let has_real = cost.as_object().map_or(!cost_is_empty(cost), |o| o.keys().any(|k| k != "once_per_turn"));
+                if has_real {
+                    return Err(format!("{when} cost 未対応"));
+                }
             }
             match eval_effect_conditions(eff, state, owner_idx, Some(slot)) {
                 Some(true) => {}
                 Some(false) => continue,
                 None => return Err(format!("{when} 条件 unknown")),
             }
+            // once mark (Python _check_and_set は fire 前に set、 mirror も同時)。
+            if once_opt.and_then(|o| o.as_bool()) == Some(true) {
+                get_ip_mut(&mut state.players[owner_idx], slot).mark_event_once(when, idx as i64);
+            }
             let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
             fire_gated_do(state, owner_idx, slot, dos)?;
         }
     }
     Ok(())
+}
+
+/// field-when once の canonical mirror (event_once_used) 対象 when か。 Python effects.py:_FIELD_WHEN_ONCE_MIRROR と一致。
+fn field_when_once_mirrored(when: &str) -> bool {
+    matches!(
+        when,
+        "on_self_life_to_hand" | "on_self_life_to_trash" | "on_self_life_taken" | "on_opp_life_taken"
+            | "on_self_chara_played" | "on_opp_chara_played" | "on_self_chara_ko" | "on_opp_chara_ko"
+            | "on_self_hand_discarded" | "on_self_don_returned_to_deck" | "on_self_event_played"
+            | "on_opp_event_or_trigger_fired" | "on_self_chara_leave_by_self_effect" | "on_self_rested"
+            | "on_self_trigger_fired"
+    )
 }
 
 /// 【相手のアタック時】(opp_attack / opp_attack_on_leader / opp_attack_on_chara) を発火 (effects.py:

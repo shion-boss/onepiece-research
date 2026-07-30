@@ -226,6 +226,10 @@ pub struct InPlay {
     // Python core.py InPlay.attack_once_used のミラー。 refresh で clear。
     #[serde(default)]
     pub attack_once_used: Vec<i64>,
+    // field-when (on_self_life_to_hand 等) once_per_turn の canonical mirror ("{when}:{idx}" ソート保持)。
+    // Python core.py InPlay.event_once_used のミラー。 refresh で clear。
+    #[serde(default)]
+    pub event_once_used: Vec<String>,
 }
 
 impl InPlay {
@@ -235,6 +239,15 @@ impl InPlay {
         if !self.attack_once_used.contains(&idx) {
             self.attack_once_used.push(idx);
             self.attack_once_used.sort_unstable();
+        }
+    }
+
+    /// field-when once を消費済に ("{when}:{idx}"、 ソート保持)。 Python InPlay.mark_event_once のミラー。
+    pub fn mark_event_once(&mut self, when: &str, idx: i64) {
+        let mk = format!("{when}:{idx}");
+        if !self.event_once_used.contains(&mk) {
+            self.event_once_used.push(mk);
+            self.event_once_used.sort_unstable();
         }
     }
 
