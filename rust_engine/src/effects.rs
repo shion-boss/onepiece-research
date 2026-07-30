@@ -3660,6 +3660,7 @@ fn try_pay_counter_cost(
             "once_per_turn" | "pay_don" | "rest_self_don" | "rest_self"
                 | "life_to_hand" | "life_top_or_bottom_to_hand" | "trash_to_deck"
                 | "reveal_hand_with_filter" | "flip_life_face_down" | "flip_life_face_up"
+                | "discard_hand"
         ) {
             return Err(format!("counter cost 未対応: {k}"));
         }
@@ -3667,6 +3668,7 @@ fn try_pay_counter_cost(
     let gi = |k: &str| obj.get(k).and_then(|v| v.as_i64()).unwrap_or(0) as i32;
     let pay_don = gi("pay_don");
     let rest_don = gi("rest_self_don");
+    let discard_n = gi("discard_hand");
     let lth = gi("life_to_hand");
     let ltob = gi("life_top_or_bottom_to_hand");
     let ttd = gi("trash_to_deck");
@@ -3682,6 +3684,9 @@ fn try_pay_counter_cost(
             return Ok(false);
         }
         if rest_don > 0 && me.don_active < rest_don {
+            return Ok(false);
+        }
+        if discard_n > 0 && (me.hand.len() as i32) < discard_n {
             return Ok(false);
         }
         if rest_self && get_ip(me, self_src).rested {
@@ -3717,6 +3722,23 @@ fn try_pay_counter_cost(
     // --- cascade guard: pay_don は on_self_don_returned_to_deck を発火しうる ---
     if pay_don > 0 && me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
         return Err("counter cost pay_don cascade 未対応".into());
+    }
+    // --- pay。 Python _pay_counter_cost 順: discard_hand→pay_don→rest_don→…。 discard は先頭。 ---
+    // discard_hand: worst_hand_idx で actual 枚捨て + flag + on_self_hand_discarded cascade (発火/bail)。
+    if discard_n > 0 {
+        let actual = discard_n.min(state.players[me_idx].hand.len() as i32);
+        for _ in 0..actual {
+            let me = &mut state.players[me_idx];
+            let Some(i) = worst_hand_idx(&me.hand, &me.known_hand_card_ids) else { break };
+            let c = me.hand.remove(i);
+            me.trash.push(c);
+        }
+        if actual > 0 {
+            state.players[me_idx].hand_discarded_by_effect_this_turn = true;
+            if fire_field_when(state, me_idx, "on_self_hand_discarded").is_err() {
+                return Err("counter cost discard cascade 未対応".into());
+            }
+        }
     }
     // --- pay (Python _pay_counter_cost の順: pay_don→rest_don→rest_self→life→trash_to_deck→flip) ---
     if pay_don > 0 && !pay_don_field(state, me_idx, pay_don) {
