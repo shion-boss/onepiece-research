@@ -2742,6 +2742,29 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 自場のドン N 枚 (active 優先→rested) をドンデッキに戻す (effects.py:5302、 replace_leave の do 等)。
+        // ⚠ on_self_don_returned_to_deck cascade は me 場に該当 when あれば bail。
+        "return_self_don_to_deck" => {
+            let n = if v.is_object() {
+                v.get("amount").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            } as i32;
+            let moved = {
+                let me = &mut state.players[me_idx];
+                let from_active = n.min(me.don_active);
+                me.don_active -= from_active;
+                me.don_remaining_in_deck += from_active;
+                let from_rested = (n - from_active).min(me.don_rested);
+                me.don_rested -= from_rested;
+                me.don_remaining_in_deck += from_rested;
+                from_active + from_rested
+            };
+            if moved > 0 && me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
+                return false; // cascade 未対応 → bail
+            }
+            true
+        }
         // 自トラッシュから filter 一致 count 枚を手札へ公開追加 (effects.py:7029、 OP14-093 on_ko)。
         // AI = trash 順で先頭 count 枚。 add_to_hand_publicly = hand + known_hand_card_ids。 dynamic filter は bail。
         "search_from_trash" => {
@@ -3365,7 +3388,9 @@ pub fn try_replace_ko(
                 eff.get("do").and_then(|v| v.as_array()).cloned().unwrap_or_default();
             for prim in &dos {
                 let pk = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("");
-                if !matches!(pk, "rest_self_cards") {
+                // rest_self_cards / return_self_don_to_deck = 非re-leave・非victim参照の safe do (holder=src)。
+                // return_to_deck_bottom 等の re-leave do は再入 risk で bail 維持。
+                if !matches!(pk, "rest_self_cards" | "return_self_don_to_deck") {
                     return Err(format!("replace do 未対応 ({pk})"));
                 }
             }
