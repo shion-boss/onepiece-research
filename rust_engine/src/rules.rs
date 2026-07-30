@@ -727,6 +727,33 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                             state.players[opp].hand.push(taken); // トリガー不発 → 手札
                             true
                         }
+                        Some(true) if crate::effects::trigger_contains_play_self(&cid) => {
+                            // play_self trigger (game.py:2117): taken を trash[0] に pre-place してから発火し、
+                            // play_self が current_source_card_id で自身を探して登場させる。
+                            // ⚠ Python は identity (`_c is taken`) で消費判定するが Rust CardDef は値型 → card_id
+                            //   で近似。 既に trash に同 cid があると誤判定 → bail (correctness 保証)。
+                            if state.players[opp].trash.iter().any(|c| c.card_id == cid) {
+                                return Err("play_self life trigger: trash 同名重複 (identity 判定不能)".into());
+                            }
+                            state.players[opp].trash.insert(0, taken);
+                            let kept = crate::effects::fire_life_trigger(state, opp, me, &cid)?;
+                            // post-check: taken (cid) が trash に残っているか (pre-place で唯一の cid = card_id で判定可)
+                            match state.players[opp].trash.iter().position(|c| c.card_id == cid) {
+                                Some(pos) => {
+                                    // play_self 未消費 (条件不成立/場full) → 通常 routing
+                                    let t = state.players[opp].trash.remove(pos);
+                                    if kept {
+                                        state.players[opp].hand.push(t);
+                                        true
+                                    } else {
+                                        state.players[opp].trash.push(t);
+                                        false
+                                    }
+                                }
+                                // play_self が taken を登場させた (played_self、 went_to_hand=false)
+                                None => false,
+                            }
+                        }
                         Some(true) => {
                             // トリガー発火 (kept_in_hand で routing)。 未対応 trigger は Err で bail。
                             let kept = crate::effects::fire_life_trigger(state, opp, me, &cid)?;

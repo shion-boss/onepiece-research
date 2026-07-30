@@ -1665,6 +1665,78 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // このカード自身を登場させる (effects.py:6179 play_self、 trigger/on_ko 等 source-gone)。
+        // src_cid = current_source_card_id (Python: self_inplay有無に関わらず event source と一致)。
+        // trash→hand 順で cid+CHARACTER/STAGE を探し pop→登場 (pop-first なので timing 問題なし)。
+        // played_from_trash は set しない (Python 準拠)。 field-full(CHARACTER)/source 不明は bail。
+        "play_self" => {
+            if v.as_bool() == Some(false) {
+                return true; // play_self:false = 登場させない (no-op)
+            }
+            let Some(cid) = state.current_source_card_id.clone() else {
+                return false; // source card 不明 → bail
+            };
+            let rested = v.as_object().and_then(|o| o.get("rested")).and_then(|x| x.as_bool()).unwrap_or(false);
+            let found: Option<(bool, usize, crate::state::Category)> = {
+                let me = &state.players[me_idx];
+                let mut r = None;
+                for (i, c) in me.trash.iter().enumerate() {
+                    if c.card_id == cid
+                        && matches!(c.category, crate::state::Category::Character | crate::state::Category::Stage)
+                    {
+                        r = Some((true, i, c.category));
+                        break;
+                    }
+                }
+                if r.is_none() {
+                    for (i, c) in me.hand.iter().enumerate() {
+                        if c.card_id == cid
+                            && matches!(c.category, crate::state::Category::Character | crate::state::Category::Stage)
+                        {
+                            r = Some((false, i, c.category));
+                            break;
+                        }
+                    }
+                }
+                r
+            };
+            let Some((from_trash, idx, cat)) = found else {
+                return true; // 見つからない = no-op (Python continue)
+            };
+            let card = if from_trash {
+                state.players[me_idx].trash.remove(idx)
+            } else {
+                state.players[me_idx].hand.remove(idx)
+            };
+            if cat == crate::state::Category::Stage {
+                // STAGE 版: 既存ステージ (MAX 超) をトラッシュへ、 sickness=false で登場
+                while state.players[me_idx].stages.len() >= 1 {
+                    let old = state.players[me_idx].stages.pop().unwrap();
+                    let ad = old.attached_dons;
+                    state.players[me_idx].trash.push(old.card);
+                    if ad > 0 {
+                        state.players[me_idx].don_rested += ad;
+                    }
+                }
+                let ip = InPlay::of(card.clone(), false);
+                state.players[me_idx].stages.push(ip);
+                let pidx = state.players[me_idx].stages.len() - 1;
+                state.last_self_chara_played_card = Some(card);
+                state.last_self_chara_played_from_trash = false;
+                return execute_stage_on_play(state, me_idx, pidx).is_ok();
+            }
+            // CHARACTER: field full → trash_weakest 未対応 → bail
+            if state.players[me_idx].characters.len() >= 5 {
+                return false;
+            }
+            let mut ip = InPlay::of(card.clone(), true); // sickness=true
+            ip.rested = rested;
+            state.players[me_idx].characters.push(ip);
+            let pidx = state.players[me_idx].characters.len() - 1;
+            state.last_self_chara_played_card = Some(card);
+            state.last_self_chara_played_from_trash = false;
+            execute_on_play(state, me_idx, pidx).is_ok()
+        }
         // 自デッキ上 N 枚を見て並べ替え (effects.py:look_top_reorder)。 決定的 (AI 経路)。
         // to: top(順番維持=no-op)/ bottom(上N→下)/ choice(上Nをcost,name昇順)/ split(match_filter で振り分け)。
         "look_top_reorder" => {
@@ -2719,6 +2791,9 @@ pub fn fire_life_trigger(
     if me_board_has_when(state, defender_idx, "on_self_trigger_fired") {
         return Err("life trigger cascade (on_self_trigger_fired) 未対応".into());
     }
+    // play_self が発動元カードを特定できるよう source cid を立てる (effects.py:297)。 action 境界では
+    // 常に None なので Ok 直前で戻す (Err 時は apply_action が state 破棄で無害)。
+    state.current_source_card_id = Some(card_id.to_string());
     let mut kept_in_hand = false;
     for eff in effs {
         if eff.get("when").and_then(|v| v.as_str()) != Some("trigger") {
@@ -2747,6 +2822,7 @@ pub fn fire_life_trigger(
                 "draw" | "add_don" | "add_don_active" | "add_rested_don" | "untap_don"
                     | "mill_self_top" | "put_top_to_life"
                     | "play_from_trash" | "play_multi_from_trash" | "play_from_hand_or_trash"
+                    | "play_self"
             ) {
                 return Err(format!("life trigger primitive 未対応 (source-gone): {k}"));
             }
@@ -2765,7 +2841,42 @@ pub fn fire_life_trigger(
             }
         }
     }
+    state.current_source_card_id = None; // action 境界では None に戻す
     Ok(kept_in_hand)
+}
+
+/// card の trigger 効果の do に play_self が (optional_cost_then/conditional/choice ネスト含め) 含まれるか
+/// (game.py:2098 _contains_play_self)。 含む trigger は life-hit 側で taken を trash に pre-place する必要がある。
+pub fn trigger_contains_play_self(card_id: &str) -> bool {
+    fn scan(steps: &Value) -> bool {
+        let Some(arr) = steps.as_array() else { return false };
+        for step in arr {
+            let Some(obj) = step.as_object() else { continue };
+            if obj.get("play_self").map_or(false, json_truthy) {
+                return true;
+            }
+            for val in obj.values() {
+                if let Some(vo) = val.as_object() {
+                    for sub in ["effect", "do", "then"] {
+                        if let Some(s) = vo.get(sub) {
+                            if scan(s) {
+                                return true;
+                            }
+                        }
+                    }
+                } else if val.is_array() && scan(val) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+    let Some(ov) = overlay() else { return false };
+    let Some(effs) = ov.get(card_id) else { return false };
+    effs.iter().any(|eff| {
+        eff.get("when").and_then(|v| v.as_str()) == Some("trigger")
+            && eff.get("do").map_or(false, scan)
+    })
 }
 
 /// JSON 値の truthy 判定 (Python の `if cost.get(k)` 相当: null/false/0/空 以外)。

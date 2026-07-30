@@ -10,7 +10,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Default)]
 pub enum Category {
     #[serde(rename = "LEADER")]
     Leader,
@@ -453,6 +453,11 @@ pub struct GameState {
     // last_self_chara_played_iid は instance_id タグ = Rust 再現不可 → canonical から除外 (Python _EXCLUDE と一致)
     pub last_self_chara_played_from_trash: bool,
     pub last_trigger_kept_in_hand: bool,
+    // current_source_card_id: 効果処理中だけ立つ transient (effects.py:297 で set / 504 で restore)。
+    // action 境界では常に None (= Python setattr で digest 不参照) → skip。 play_self 等 self_inplay=None の
+    // source-gone 効果が「発動元カード」を特定するのに使う。
+    #[serde(skip)]
+    pub current_source_card_id: Option<String>,
     // rng: full_dump の _rng_state (MT getstate keys 625) を入力として受け、 rng 依存 effect で消費。
     // digest には含めない (Python state_digest は rng 非依存) = skip_serializing。 live は lazy init。
     #[serde(rename = "_rng_state", default, skip_serializing)]
