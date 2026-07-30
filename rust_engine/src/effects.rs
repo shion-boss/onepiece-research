@@ -3481,7 +3481,7 @@ pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> 
                     | "mill_self_top" | "put_top_to_life"
                     | "play_from_trash" | "play_multi_from_trash" | "play_from_hand_or_trash"
                     | "ko_opp_stage" | "search_top_n" | "set_cannot_attack"
-                    | "deal_opp_leader_damage" | "search_from_trash"
+                    | "deal_opp_leader_damage" | "search_from_trash" | "trash_self_hand_random"
             ) {
                 return Err(format!("on_ko primitive 未対応 (source-gone): {k}"));
             }
@@ -3550,12 +3550,20 @@ pub fn fire_life_trigger(
                 "draw" | "add_don" | "add_don_active" | "add_rested_don" | "untap_don"
                     | "mill_self_top" | "put_top_to_life"
                     | "play_from_trash" | "play_multi_from_trash" | "play_from_hand_or_trash"
-                    | "play_self"
+                    | "play_self" | "rest"
             ) {
                 return Err(format!("life trigger primitive 未対応 (source-gone): {k}"));
             }
             if k == "draw" && me_board_has_when(state, defender_idx, "on_self_draw_non_draw_phase") {
                 return Err("life trigger draw cascade 未対応".into());
+            }
+            // rest は execute_effect が on_self_rested cascade を自前発火しない (外側 guard 前提) →
+            // 該当 board があれば bail (source-gone で cascade 再現不能)。
+            if k == "rest"
+                && (me_board_has_when(state, defender_idx, "on_self_rested")
+                    || me_board_has_when(state, 1 - defender_idx, "on_self_rested"))
+            {
+                return Err("life trigger rest cascade 未対応".into());
             }
         }
         for prim in dos {
