@@ -1398,7 +1398,9 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     .collect();
                 cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
                 if let Some(&i) = cands.first() {
-                    state.players[opp_idx].characters[i].rested = true;
+                    if rest_char_with_cascade(state, me_idx, opp_idx, i).is_err() {
+                        return false;
+                    }
                 } else if state.players[opp_idx].don_active > 0 {
                     state.players[opp_idx].don_active -= 1;
                     state.players[opp_idx].don_rested += 1;
@@ -1431,18 +1433,36 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                         get_ip(&state.players[pb], sb).power().cmp(&get_ip(&state.players[pa], sa).power())
                     });
                     for (pi, sl) in list.into_iter().take(rest_count) {
-                        get_ip_mut(&mut state.players[pi], sl).rested = true;
+                        if let Slot::Char(idx) = sl {
+                            if rest_char_with_cascade(state, me_idx, pi, idx).is_err() {
+                                return false;
+                            }
+                        }
                     }
                     return true;
                 }
             }
             let Some(targets) = resolve_target(Some(v), me_idx, opp_idx, src, state) else { return false };
             for (pi, sl) in targets {
-                let ip = get_ip_mut(&mut state.players[pi], sl);
-                if ip.cannot_be_rested_buff || ip.rested {
-                    continue;
+                match sl {
+                    Slot::Char(idx) => {
+                        if rest_char_with_cascade(state, me_idx, pi, idx).is_err() {
+                            return false;
+                        }
+                    }
+                    _ => {
+                        // leader/stage: 当該カードが on_self_rested を持てば cascade 未対応で bail (rare)、
+                        // else 単純 rest。
+                        let cid = get_ip(&state.players[pi], sl).card.card_id.clone();
+                        if card_has_when(&cid, "on_self_rested") {
+                            return false;
+                        }
+                        let ip = get_ip_mut(&mut state.players[pi], sl);
+                        if !ip.cannot_be_rested_buff && !ip.rested {
+                            ip.rested = true;
+                        }
+                    }
                 }
-                ip.rested = true;
             }
             true
         }
@@ -3054,7 +3074,7 @@ fn effect_cascade_blocked(dos: &[Value], state: &GameState, me_idx: usize) -> bo
             | "return_to_deck_bottom_multi" => {
                 has(opp, "on_self_chara_leave_by_self_effect") || has(opp, "replace_leave")
             }
-            "rest" => has(me_idx, "on_self_rested") || has(opp, "on_self_rested"),
+            // rest (single-path) は prim 側で on_self_rested cascade を自前発火 → ここでは block しない。
             _ => false,
         };
         if blocked {
@@ -3107,6 +3127,64 @@ fn execute_card_effects(
         }
     }
     Ok(())
+}
+
+/// レストされた char 自身の【レスト時】(on_self_rested) を発火 (effects.py:trigger_on_self_rested、 targeted)。
+/// bundle = rested char の overlay。 条件 (self_turn 等) を src=rested char で eval、 costless のみ発火、
+/// cost(once_per_turn は iid-keyed=canonical外)/unknown/未対応 prim は Err で bail。
+fn fire_on_self_rested(state: &mut GameState, owner_idx: usize, char_idx: usize) -> Result<(), String> {
+    let cid = state.players[owner_idx].characters[char_idx].card.card_id.clone();
+    let Some(ov) = overlay() else { return Ok(()) };
+    let Some(effs) = ov.get(&cid) else { return Ok(()) };
+    if !effs.iter().any(|e| e.get("when").and_then(|v| v.as_str()) == Some("on_self_rested")) {
+        return Ok(());
+    }
+    for eff in effs {
+        if eff.get("when").and_then(|v| v.as_str()) != Some("on_self_rested") {
+            continue;
+        }
+        let src = Slot::Char(char_idx);
+        match eval_effect_conditions(eff, state, owner_idx, Some(src)) {
+            Some(true) => {}
+            Some(false) => continue,
+            None => return Err("on_self_rested 条件 unknown".into()),
+        }
+        if let Some(cost) = eff.get("cost") {
+            if !cost_is_empty(cost) {
+                return Err("on_self_rested cost 未対応".into()); // once_per_turn=iid-keyed
+            }
+        }
+        if let Some(dos) = eff.get("do").and_then(|v| v.as_array()) {
+            if effect_cascade_blocked(dos, state, owner_idx) {
+                return Err("on_self_rested cascade 未対応".into());
+            }
+            for prim in dos {
+                if !execute_effect(prim, state, owner_idx, src) {
+                    return Err("on_self_rested primitive 再現不能".into());
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// 対象 char をレスト + on_self_rested 発火 (rest cascade)。 replace_rest / on_self_chara_rested_by_self_
+/// effect (field-wide) は未対応で Err bail。 既 rested/cannot_be_rested は skip。 Err = 呼出側 false。
+fn rest_char_with_cascade(state: &mut GameState, me_idx: usize, pi: usize, idx: usize) -> Result<(), String> {
+    {
+        let ip = &state.players[pi].characters[idx];
+        if ip.cannot_be_rested_buff || ip.rested {
+            return Ok(());
+        }
+    }
+    if me_board_has_when(state, pi, "replace_rest") {
+        return Err("rest replace_rest 未対応".into());
+    }
+    if pi == me_idx && me_board_has_when(state, me_idx, "on_self_chara_rested_by_self_effect") {
+        return Err("on_self_chara_rested_by_self_effect 未対応".into());
+    }
+    state.players[pi].characters[idx].rested = true;
+    fire_on_self_rested(state, pi, idx)
 }
 
 /// キャラ登場時の on_play 効果を実行 (effects.py:trigger_on_play)。 played_idx = me.characters の末尾。
