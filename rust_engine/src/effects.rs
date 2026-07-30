@@ -58,6 +58,14 @@ pub fn card_has_when(card_id: &str, when: &str) -> bool {
     })
 }
 
+/// 「手札のこのカードは効果で登場できない」(OP12-036 ゾロ、 effects.py:_no_play_from_hand_via_effect)。
+/// overlay の `_no_play_via_effect: true` marker で判定 → play_from_hand 系が候補から除外する。
+fn card_no_play_via_effect(card_id: &str) -> bool {
+    overlay().and_then(|m| m.get(card_id)).map_or(false, |effs| {
+        effs.iter().any(|e| e.get("_no_play_via_effect").and_then(|v| v.as_bool()).unwrap_or(false))
+    })
+}
+
 /// effects.py:should_fire_trigger = 防御 AI が ライフの【トリガー】を発動すべきか。
 /// Some(true)=発動(=強力効果を含む) / Some(false)=発動しない(=手札へ) / None=条件 unknown で判定不能(=呼出側 bail)。
 /// 強力効果 = ko/return_to_hand/draw/life_to_hand/rest/ko_self/play_self/play_from_trash/
@@ -1432,6 +1440,139 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 }
             }
             true
+        }
+        // 手札からキャラ登場 (effects.py:5010 play_from_hand、 コスト無視=効果代替登場)。 AI 経路=
+        // cost 降順→power 降順→name 昇順 で並べ 先頭 limit 枚。 保守 bail: 動的 filter(cost_le_dynamic/
+        // or/name_in_last_discarded)・no_effect・STAGE・then_life_to_hand(fire_self_life_to_hand cascade)・
+        // field-full(trash_weakest)。 登場後 execute_on_play で on_play cascade 発火。
+        "play_from_hand" => {
+            let spec = v.as_object();
+            let filt = spec.and_then(|o| o.get("filter"));
+            if let Some(fo) = filt.and_then(|f| f.as_object()) {
+                if fo.contains_key("cost_le_dynamic")
+                    || fo.contains_key("or")
+                    || fo.contains_key("name_in_last_discarded")
+                    || fo.contains_key("no_effect")
+                    || fo.get("category").and_then(|x| x.as_str()) == Some("STAGE")
+                {
+                    return false;
+                }
+            }
+            if spec.map_or(false, |o| o.contains_key("then_life_to_hand")) {
+                return false; // 登場後ライフ→手札 (fire_self_life_to_hand cascade) 未対応
+            }
+            let limit = spec.and_then(|o| o.get("limit")).and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+            let rested = spec.and_then(|o| o.get("rested")).and_then(|x| x.as_bool()).unwrap_or(false);
+            let unique = spec.and_then(|o| o.get("unique_name")).and_then(|x| x.as_bool()).unwrap_or(false);
+            // 候補抽出: (hand_idx, cost, power, name)
+            let mut cands: Vec<(usize, i32, i32, String)> = vec![];
+            {
+                let me = &state.players[me_idx];
+                for (i, c) in me.hand.iter().enumerate() {
+                    if c.category != crate::state::Category::Character {
+                        continue;
+                    }
+                    if card_no_play_via_effect(&c.card_id) {
+                        continue;
+                    }
+                    if !matches_filter(c, filt) {
+                        continue;
+                    }
+                    cands.push((i, c.cost, c.power, c.name.clone()));
+                }
+            }
+            if cands.is_empty() {
+                return true; // 該当手札なし = 不発 (no-op)
+            }
+            // AI ヒューリスティック: cost 降順 → power 降順 → name 昇順
+            cands.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| b.2.cmp(&a.2)).then_with(|| a.3.cmp(&b.3)));
+            if unique {
+                let mut seen: Vec<String> = vec![];
+                cands.retain(|t| {
+                    if seen.contains(&t.3) {
+                        false
+                    } else {
+                        seen.push(t.3.clone());
+                        true
+                    }
+                });
+            }
+            let chosen: Vec<usize> = cands.iter().take(limit).map(|t| t.0).collect();
+            // hand から pop (降順 index で ずれ防止)
+            let mut desc = chosen.clone();
+            desc.sort_unstable_by(|a, b| b.cmp(a));
+            let cards: Vec<crate::state::CardDef> =
+                desc.iter().map(|&i| state.players[me_idx].hand.remove(i)).collect();
+            for card in cards {
+                if state.players[me_idx].characters.len() >= 5 {
+                    return false; // field full → trash_weakest 未対応 → bail
+                }
+                let mut ip = InPlay::of(card.clone(), true); // sickness=true
+                ip.rested = rested;
+                state.players[me_idx].characters.push(ip);
+                let played_idx = state.players[me_idx].characters.len() - 1;
+                state.last_self_chara_played_card = Some(card);
+                state.last_self_chara_played_from_trash = false;
+                if execute_on_play(state, me_idx, played_idx).is_err() {
+                    return false;
+                }
+            }
+            true
+        }
+        // 手札からイベント発動 (effects.py:3895 play_event_from_hand、 0 コスト代替発動)。 AI=先頭一致 EVENT。
+        // トラッシュへ送ってから execute_main_event (event main + on_self_event_played + opp_event_or_trigger)。
+        "play_event_from_hand" => {
+            let filt = v.as_object().and_then(|o| o.get("filter"));
+            let mut chosen: Option<usize> = None;
+            {
+                let me = &state.players[me_idx];
+                for (i, c) in me.hand.iter().enumerate() {
+                    if c.category == crate::state::Category::Event && matches_filter(c, filt) {
+                        chosen = Some(i);
+                        break;
+                    }
+                }
+            }
+            let Some(i) = chosen else { return true }; // 該当イベントなし = 不発 (no-op)
+            let card = state.players[me_idx].hand.remove(i);
+            let cid = card.card_id.clone();
+            state.players[me_idx].trash.push(card);
+            execute_main_event(state, me_idx, &cid).is_ok()
+        }
+        // 手札からステージ登場 (effects.py:4981 play_stage_from_hand、 STAGE 専用)。 AI=先頭一致 STAGE。
+        // 既存ステージはトラッシュへ置換 (attached_dons を don_rested へ返却)。 登場後 stage on_play 発火。
+        "play_stage_from_hand" => {
+            let filt = v.as_object().and_then(|o| o.get("filter"));
+            let mut chosen: Option<usize> = None;
+            {
+                let me = &state.players[me_idx];
+                for (i, c) in me.hand.iter().enumerate() {
+                    if c.category == crate::state::Category::Stage && matches_filter(c, filt) {
+                        chosen = Some(i);
+                        break;
+                    }
+                }
+            }
+            let Some(i) = chosen else { return true }; // 該当ステージなし = 不発 (no-op)
+            let card = state.players[me_idx].hand.remove(i);
+            let ctx_card = card.clone();
+            // 既存ステージを forward 順でトラッシュへ (公式: ステージは1枚まで=置換)
+            let old = std::mem::take(&mut state.players[me_idx].stages);
+            for s in old {
+                let ad = s.attached_dons;
+                state.players[me_idx].trash.push(s.card);
+                if ad > 0 {
+                    state.players[me_idx].don_rested += ad;
+                }
+            }
+            let ip = InPlay::of(card, false); // sickness=false (ステージ)
+            state.players[me_idx].stages.push(ip);
+            let played_idx = state.players[me_idx].stages.len() - 1;
+            // trigger_on_play (effects.py:10661) は category 問わず last_self_chara_played_card を更新
+            // (on_self/opp_chara_played 発火のみ CHARACTER 限定)。 通常 PlayStage arm と対称。
+            state.last_self_chara_played_card = Some(ctx_card);
+            state.last_self_chara_played_from_trash = false;
+            execute_stage_on_play(state, me_idx, played_idx).is_ok()
         }
         // 自デッキ上 N 枚を見て並べ替え (effects.py:look_top_reorder)。 決定的 (AI 経路)。
         // to: top(順番維持=no-op)/ bottom(上N→下)/ choice(上Nをcost,name昇順)/ split(match_filter で振り分け)。
