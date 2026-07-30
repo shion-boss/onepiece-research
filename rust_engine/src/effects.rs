@@ -1957,8 +1957,10 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     return false;
                 }
             }
-            // ⚠ then_life_to_hand は battle (on_attack/on_ko) 文脈で on_self_life_to_hand cascade + 進行中
-            // ダメージと絡み MISMATCH → 未対応で bail 維持 (登場後ライフ→手札 = fire_self_life_to_hand)。
+            // ⚠ then_life_to_hand (OP08-098 カルガラ on_attack): 実装すると calgara の on_attack が成功→後続の
+            // 相手 opp_attack 防御が Rust で二重適用 (turn_buff -4000 vs -2000 / face_up 2 vs 1)。 原因は trigger
+            // resolution ordering (Python は _enqueue+_maybe_resolve で resolving flag を尊重、 Rust は即時発火)。
+            // = trigger queue モデリングが要る深い課題 → 未対応で bail 維持 (correctness=MISMATCH0 優先)。
             if spec.map_or(false, |o| o.contains_key("then_life_to_hand")) {
                 return false;
             }
@@ -3246,6 +3248,16 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         // block_chara_play / block_chara_play_turn: 共に自陣キャラ登場禁止 flag (effects.py:5544/5707)。
         "block_chara_play" | "block_chara_play_turn" => {
             state.players[me_idx].block_chara_play_until_turn_end = true;
+            true
+        }
+        // このターン中、 自効果ドロー禁止 (effects.py:block_self_draw_turn、 OP12-099 on_self_life_to_hand)。
+        "block_self_draw_turn" => {
+            state.players[me_idx].block_self_draw_until_turn_end = true;
+            true
+        }
+        // このターン中、 自効果でライフを手札に加えられない (effects.py:prevent_self_life_to_hand_turn)。
+        "prevent_self_life_to_hand_turn" => {
+            state.players[me_idx].prevent_self_life_to_hand_until_turn_end = true;
             true
         }
         // 「その後、 <if> の場合、 <do>」 (effects.py:5952)。 条件成立で sub-do を発火。
