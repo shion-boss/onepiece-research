@@ -4802,11 +4802,6 @@ pub fn fire_counter_events(
     if idxs.is_empty() {
         return Ok(());
     }
-    if me_board_has_when(state, defender_idx, "on_self_event_played")
-        || me_board_has_when(state, attacker_idx, "opp_event_or_trigger_fired")
-    {
-        return Err("counter event の event-played cascade 未対応".into());
-    }
     let mut sorted: Vec<usize> = idxs.iter().map(|&i| i as usize).collect();
     sorted.sort_unstable();
     sorted.dedup();
@@ -4827,7 +4822,11 @@ pub fn fire_counter_events(
         state.players[defender_idx].don_rested += cost;
         state.players[defender_idx].don_active -= cost;
         state.players[defender_idx].trash.push(card);
+        // trigger_counter_event 順 (effects.py:12875): counter 効果 → opp_event_or_trigger_fired(attacker)
+        //   → on_self_event_played(defender)。 各 counter event 毎に発火 (per-event、 Python enqueue+drain 準拠)。
         execute_card_effects(state, defender_idx, &cid, "counter", Slot::Leader)?;
+        fire_field_when(state, attacker_idx, "opp_event_or_trigger_fired")?;
+        fire_field_when(state, defender_idx, "on_self_event_played")?;
     }
     Ok(())
 }
