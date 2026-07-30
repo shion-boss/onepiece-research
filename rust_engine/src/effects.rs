@@ -2858,7 +2858,6 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                             break;
                         }
                     }
-                    let vcard = state.players[*pi].characters[cur_idx].card.clone();
                     let vdon = state.players[*pi].characters[cur_idx].attached_dons;
                     let removed = state.players[*pi].characters.remove(cur_idx);
                     state.players[*pi].trash.push(removed.card);
@@ -2866,7 +2865,8 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     state.players[*pi].chara_ko_taken_this_turn += 1;
                     *removed_count.entry(*pi).or_insert(0) += 1;
                     ko_any = true;
-                    state.last_chara_ko_victim_card = Some(vcard);
+                    // 効果 ko は nested=deferred で victim None (上記 single と同じ)。
+                    state.last_chara_ko_victim_card = None;
                     if fire_on_ko(state, *pi, cid).is_err() {
                         err = true;
                     }
@@ -2902,15 +2902,17 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             let vcid = state.players[vpi].characters[vidx].card.card_id.clone();
             let vdon = state.players[vpi].characters[vidx].attached_dons;
             let removed = state.players[vpi].characters.remove(vidx);
-            let vcard = removed.card.clone();
             state.players[vpi].trash.push(removed.card);
             state.players[vpi].don_rested += vdon;
             state.players[vpi].chara_ko_taken_this_turn += 1;
             // effects.py:3320 順: on_ko(victim側 source-gone)→ on_opp_chara_ko(me)→ on_self_chara_ko(victim側)
             //   → on_self_chara_leave_by_self_effect(me、 effect 発動者視点)。 各 fire 未対応は Err→false。
-            // Python trigger_on_ko が last_chara_ko_victim_card=victim を set、 on_self_chara_ko 末尾で None に
-            // 戻す (victim_* 条件が cascade 中読む)。 digest 時は None = 一致。
-            state.last_chara_ko_victim_card = Some(vcard);
+            // ⭐ **効果 ko は nested resolution** (main/on_play/activate は _execute_event 内=resolving=True)
+            // → Python は trigger_on_self_chara_ko を enqueue し、 その末尾で last_chara_ko_victim_card=None に
+            // reset してから deferred で drain する = cascade 解決時 victim=None (victim_* 条件は空振り)。
+            // battle ko (do_battle_ko、 resolving=False=immediate) だけ victim を set する (rules.rs)。 = 効果 ko は
+            // victim None で発火 (OP15-020 の ko→OP14-041 on_self_chara_ko が Python skip と一致)。
+            state.last_chara_ko_victim_card = None;
             let mut cascade_err = fire_on_ko(state, vpi, &vcid).is_err();
             if !cascade_err {
                 cascade_err = fire_field_when(state, me_idx, "on_opp_chara_ko").is_err();
