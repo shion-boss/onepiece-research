@@ -825,6 +825,8 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
             };
             Some((me.life.len() as i64) >= n)
         }
+        // life_to_hand / life_top_or_bottom_to_hand cost: ライフ非空必要 (effects.py:8255)。
+        "life_top_or_bottom_to_hand" | "life_to_hand" => Some(!me.life.is_empty()),
         _ => None, // 未対応 cost 型 → bail
     }
 }
@@ -974,6 +976,12 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
         }
         // mill_self_life_to_trash: Python fallback (execute_effect) = primitive (life pop→trash、 trigger 無)。
         "mill_self_life_to_trash" => {
+            if !execute_effect(cs, state, me_idx, src) {
+                return None;
+            }
+        }
+        // life_top_or_bottom_to_hand / life_to_hand cost: Python fallback = execute_effect (primitive 委譲)。
+        "life_top_or_bottom_to_hand" | "life_to_hand" => {
             if !execute_effect(cs, state, me_idx, src) {
                 return None;
             }
@@ -1467,6 +1475,35 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // ライフの上か下から N 枚を手札へ (effects.py:life_top_or_bottom_to_hand)。 AI=place で top/bottom、
+        // card は actor(me) の手札へ (owner=opp でも me.hand、 Python 準拠)。 cascade 無 (life_to_hand と別)。
+        "life_top_or_bottom_to_hand" => {
+            let (owner_opp, count, bottom) = if let Some(o) = v.as_object() {
+                (
+                    o.get("owner").and_then(|x| x.as_str()) == Some("opp"),
+                    o.get("count").and_then(|x| x.as_i64()).unwrap_or(1),
+                    o.get("place").and_then(|x| x.as_str()) == Some("bottom"),
+                )
+            } else {
+                (false, v.as_i64().unwrap_or(1), false)
+            };
+            if !owner_opp && state.players[me_idx].prevent_self_life_to_hand_until_turn_end {
+                return true; // 禁止 = no-op (Python return False も action 継続)
+            }
+            let pi = if owner_opp { opp_idx } else { me_idx };
+            for _ in 0..count {
+                if state.players[pi].life.is_empty() {
+                    break;
+                }
+                let card = if bottom {
+                    state.players[pi].life.pop().unwrap()
+                } else {
+                    state.players[pi].life.remove(0)
+                };
+                state.players[me_idx].hand.push(card);
+            }
+            true
+        }
         // 手札から filter 一致 count 枚までを自ライフ上へ (effects.py:hand_to_self_life)。 AI=先頭一致。 cascade 無。
         "hand_to_self_life" => {
             let (filt, count) = if let Some(o) = v.as_object() {
@@ -1855,6 +1892,7 @@ fn pay_don_field(state: &mut GameState, me_idx: usize, n: i32) -> bool {
 /// ⚠ pay_don のみ対応 (deterministic)。 discard_hand(random)/rest_self/once_per_turn 等は未対応 → skip。
 fn pay_on_play_cost(cost: &Value, state: &mut GameState, me_idx: usize) -> Option<bool> {
     let mut pay_don = 0i32;
+    let mut rest_don = 0i32;
     let entries: Vec<(String, i64)> = if let Some(o) = cost.as_object() {
         o.iter().map(|(k, v)| (k.clone(), v.as_i64().unwrap_or(0))).collect()
     } else if let Some(arr) = cost.as_array() {
@@ -1868,8 +1906,19 @@ fn pay_on_play_cost(cost: &Value, state: &mut GameState, me_idx: usize) -> Optio
     for (k, v) in entries {
         match k.as_str() {
             "pay_don" => pay_don += v as i32,
+            "rest_self_don" => rest_don += v as i32,
             _ => return None, // 未対応 cost 種別 → skip effect
         }
+    }
+    // rest_self_don: don_active >= n 必要 (payability)、 active→rested。
+    if rest_don > 0 {
+        let me = &state.players[me_idx];
+        if me.don_active < rest_don {
+            return Some(false); // 支払い不能
+        }
+        let me = &mut state.players[me_idx];
+        me.don_active -= rest_don;
+        me.don_rested += rest_don;
     }
     if pay_don > 0 {
         let me = &state.players[me_idx];
@@ -2020,6 +2069,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "untap_don" | "untap" | "untap_chara" | "rest" | "cost_minus" | "attach_rested_don" | "mill_self_top"
             | "life_to_hand" | "trash_self_hand_random" | "redirect_attack" | "mill_self_life_to_trash"
             | "mill" | "mill_opp_life_to_hand" | "look_top_reorder" | "hand_to_self_life"
+            | "life_top_or_bottom_to_hand"
             | "stay_rested_next_refresh" | "set_cannot_rest" | "set_cannot_attack" | "put_top_to_life"
             | "optional_discard_hand_for_battle_buff" | "conditional" | "optional_cost_then"
     )
