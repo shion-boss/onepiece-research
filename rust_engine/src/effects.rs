@@ -1748,6 +1748,30 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             state.last_self_chara_played_from_trash = false;
             execute_on_play(state, me_idx, pidx).is_ok()
         }
+        // 自リーダー/キャラ N 枚をレスト (effects.py:rest_self_cards、 AI=アクティブ中 power 低い順)。 cascade 無し。
+        "rest_self_cards" => {
+            let n = match v {
+                Value::Object(o) => o.get("count").and_then(|x| x.as_i64()).unwrap_or(1),
+                _ => v.as_i64().unwrap_or(1),
+            } as usize;
+            let mut actives: Vec<(Slot, i32)> = vec![];
+            {
+                let me = &state.players[me_idx];
+                if !me.leader.rested {
+                    actives.push((Slot::Leader, me.leader.power()));
+                }
+                for (i, c) in me.characters.iter().enumerate() {
+                    if !c.rested {
+                        actives.push((Slot::Char(i), c.power()));
+                    }
+                }
+            }
+            actives.sort_by(|a, b| a.1.cmp(&b.1)); // power 昇順 (stable=ties 原順)
+            for (slot, _) in actives.into_iter().take(n) {
+                get_ip_mut(&mut state.players[me_idx], slot).rested = true;
+            }
+            true
+        }
         // 相手のステージ N 枚を KO (effects.py:ko_opp_stage、 cost/cost_le/cost_ge filter)。 player-level。
         // 付与ドン返却は無し (Python 準拠= s.card を trash に append のみ)。
         "ko_opp_stage" => {
@@ -2919,7 +2943,7 @@ fn replace_ko_match(
 /// ⚠ Phase A: 対象一致した replace は cost/do 未実装で bail。 不一致 (by_opp_effect 相違 / filter 外) だけ
 ///   Ok(false) で通常 KO へ流す (battle KO=by_opp_effect false のカードが大半なので大量に解決)。
 pub fn try_replace_ko(
-    state: &GameState,
+    state: &mut GameState,
     victim_owner: usize,
     victim_char_idx: usize,
     by_opp_effect: bool,
@@ -2974,8 +2998,25 @@ pub fn try_replace_ko(
                     None => return Err("replace_ko extra_cond unknown".into()),
                 }
             }
-            // 対象一致 = 置換が発動する。 Phase A では cost/do を実装せず bail (correctness 優先)
-            return Err(format!("replace_ko/leave fire 未対応 ({hcid})"));
+            // 対象一致 = 置換発動 (Phase B)。 cost=空 + cascade 無し・非re-leave・非victim参照の safe do のみ
+            // 実発動、 それ以外は bail (cost / return系[再入・victim] / 未実装 prim)。
+            if eff.get("cost").map_or(false, |c| !cost_is_empty(c)) {
+                return Err(format!("replace cost 未対応 ({hcid})"));
+            }
+            let dos: Vec<Value> =
+                eff.get("do").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            for prim in &dos {
+                let pk = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("");
+                if !matches!(pk, "rest_self_cards") {
+                    return Err(format!("replace do 未対応 ({pk})"));
+                }
+            }
+            for prim in &dos {
+                if !execute_effect(prim, state, victim_owner, hslot) {
+                    return Err(format!("replace do 再現不能 ({hcid})"));
+                }
+            }
+            return Ok(true); // 置換発動 = 本来の KO/離脱をキャンセル
         }
     }
     Ok(false)
