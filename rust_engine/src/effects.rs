@@ -1748,6 +1748,44 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             state.last_self_chara_played_from_trash = false;
             execute_on_play(state, me_idx, pidx).is_ok()
         }
+        // 相手のステージ N 枚を KO (effects.py:ko_opp_stage、 cost/cost_le/cost_ge filter)。 player-level。
+        // 付与ドン返却は無し (Python 準拠= s.card を trash に append のみ)。
+        "ko_opp_stage" => {
+            let spec = v.as_object();
+            let limit = spec.and_then(|o| o.get("limit")).and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+            let cost_eq = spec.and_then(|o| o.get("cost")).and_then(|x| x.as_i64());
+            let cost_le = spec.and_then(|o| o.get("cost_le")).and_then(|x| x.as_i64());
+            let cost_ge = spec.and_then(|o| o.get("cost_ge")).and_then(|x| x.as_i64());
+            let matches = |c: i32| -> bool {
+                if let Some(e) = cost_eq {
+                    if c as i64 != e {
+                        return false;
+                    }
+                }
+                if let Some(le) = cost_le {
+                    if c as i64 > le {
+                        return false;
+                    }
+                }
+                if let Some(ge) = cost_ge {
+                    if (c as i64) < ge {
+                        return false;
+                    }
+                }
+                true
+            };
+            let mut removed = 0usize;
+            let old = std::mem::take(&mut state.players[opp_idx].stages);
+            for s in old {
+                if removed < limit && matches(s.card.cost) {
+                    state.players[opp_idx].trash.push(s.card);
+                    removed += 1;
+                } else {
+                    state.players[opp_idx].stages.push(s);
+                }
+            }
+            true
+        }
         // 自デッキ上 N 枚を見て並べ替え (effects.py:look_top_reorder)。 決定的 (AI 経路)。
         // to: top(順番維持=no-op)/ bottom(上N→下)/ choice(上Nをcost,name昇順)/ split(match_filter で振り分け)。
         "look_top_reorder" => {
@@ -2993,6 +3031,7 @@ pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> 
                 "draw" | "add_don" | "add_don_active" | "add_rested_don" | "untap_don"
                     | "mill_self_top" | "put_top_to_life"
                     | "play_from_trash" | "play_multi_from_trash" | "play_from_hand_or_trash"
+                    | "ko_opp_stage"
             ) {
                 return Err(format!("on_ko primitive 未対応 (source-gone): {k}"));
             }
