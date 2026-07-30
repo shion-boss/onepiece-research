@@ -2756,9 +2756,71 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 remove_victims(state, victims, RemoveDest::Trash);
                 return true;
             }
-            // cascade path: 単一 victim のみ (multi-victim は index shift + per-victim cascade が複雑 → bail)。
+            // multi-victim cascade (effects.py:3282、 OP15-114 等): target 順に interleave で 除去→on_ko/
+            // on_opp_chara_ko/on_self_chara_ko、 after-all で on_self_chara_leave_by_self_effect 1 回。
+            // index shift = 同 player の既除去数を引く。 ⚠ cascade が victim board を想定外に変える (further KO/
+            // replace) 場合は card_id 照合 or replace で bail (correctness 保守)。
             if victims.len() > 1 {
-                return false;
+                let expected: Vec<(usize, usize, String)> = victims
+                    .iter()
+                    .map(|&(pi, idx)| (pi, idx, state.players[pi].characters[idx].card.card_id.clone()))
+                    .collect();
+                let mut removed_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+                let mut ko_any = false;
+                let mut err = false;
+                for (pi, orig_idx, cid) in &expected {
+                    let shift = *removed_count.get(pi).unwrap_or(&0);
+                    if *orig_idx < shift {
+                        err = true;
+                        break;
+                    }
+                    let cur_idx = orig_idx - shift;
+                    if cur_idx >= state.players[*pi].characters.len()
+                        || &state.players[*pi].characters[cur_idx].card.card_id != cid
+                    {
+                        err = true; // board が想定外に変化 → bail
+                        break;
+                    }
+                    match try_replace_ko(state, *pi, cur_idx, true, "ko") {
+                        Ok(true) => continue, // 置換発動 = victim 残存 (KO 阻止)。 removed_count 増やさず次へ
+                        Ok(false) => {}
+                        Err(_) => {
+                            err = true;
+                            break;
+                        }
+                    }
+                    let vcard = state.players[*pi].characters[cur_idx].card.clone();
+                    let vdon = state.players[*pi].characters[cur_idx].attached_dons;
+                    let removed = state.players[*pi].characters.remove(cur_idx);
+                    state.players[*pi].trash.push(removed.card);
+                    state.players[*pi].don_rested += vdon;
+                    state.players[*pi].chara_ko_taken_this_turn += 1;
+                    *removed_count.entry(*pi).or_insert(0) += 1;
+                    ko_any = true;
+                    state.last_chara_ko_victim_card = Some(vcard);
+                    if fire_on_ko(state, *pi, cid).is_err() {
+                        err = true;
+                    }
+                    if !err && fire_field_when(state, me_idx, "on_opp_chara_ko").is_err() {
+                        err = true;
+                    }
+                    if !err && fire_field_when(state, *pi, "on_self_chara_ko").is_err() {
+                        err = true;
+                    }
+                    state.last_chara_ko_victim_card = None;
+                    if err {
+                        break;
+                    }
+                }
+                if err {
+                    return false;
+                }
+                if ko_any
+                    && fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err()
+                {
+                    return false;
+                }
+                return true;
             }
             let (vpi, vidx) = victims[0];
             // 置換効果 (effect KO = by_opp_effect=true)。 Ok(true)=KO阻止 / Ok(false)=続行 / Err=bail。
