@@ -583,13 +583,6 @@ def test_op13_074_on_play_deploy_human_pick():
 #      自分の付与されているドン‼がある場合、ドン‼デッキからドン‼1枚までを、レストで追加する。
 #    【カウンター】自分のリーダーを、このバトル中、パワー+3000。
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason="overlay/engine bug: OP13-075 の main 条件 leader_name が全角 "
-                         "『ゴール・Ｄ・ロジャー』だが CardDef.name は半角 D に正規化される "
-                         "(『ゴール・D・ロジャー』)。 leader_name プリミティブは "
-                         "leader_name_contains と違い 半角/全角 D の normalize を行わないため "
-                         "実 leader (OP13-003) で条件が常に不一致になり main 効果が発火しない。 "
-                         "公式テキスト忠実な assert が通らないため skip。 overlay の全角Ｄ→半角D "
-                         "修正 (または leader_name の normalize) は人間レビューに回す。")
 def test_op13_075_main_add_rested_don_when_roger_and_attached_ai():
     """【メイン】 ドン1レスト (コスト) + リーダー ロジャー & 付与ドンあり → ドン1レスト追加 (AI)。"""
     repo = _repo()
