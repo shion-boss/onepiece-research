@@ -333,8 +333,9 @@ impl InPlay {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum Phase {
+    #[default]
     #[serde(rename = "REFRESH")]
     Refresh,
     #[serde(rename = "DRAW")]
@@ -348,7 +349,7 @@ pub enum Phase {
 }
 
 /// プレイヤー状態 (core.py Player、 39 field)。
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Player {
     pub name: String,
     pub leader: InPlay,
@@ -404,7 +405,7 @@ pub struct Player {
 
 /// ゲーム状態 (core.py GameState の**ルール状態**のみ)。 AI 評価/UI/デッキメタ/human 対話は
 /// 差分対象外 (Python 側 _EXCLUDE と一致)。 last_* トリガー context は action 間では通常 None。
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct GameState {
     pub players: Vec<Player>,
     pub turn_player_idx: usize,

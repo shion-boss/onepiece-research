@@ -13,6 +13,7 @@ use sha1::{Digest, Sha1};
 mod effects;
 mod rng;
 mod rules;
+mod setup;
 mod state;
 
 /// バージョン情報。
@@ -173,8 +174,49 @@ fn apply_raw_effect_digest(state_json: &str, effect_json: &str, me_idx: usize) -
     digest_of(&st).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
 }
 
+/// standalone setup (pre-mulligan) の digest。 deck JSON = {leader, main, don_deck_size}、 rng_state keys、
+/// first_player。 Python setup_game(do_mulligan_and_finalize=False) の state_digest と一致すれば忠実。
+#[pyfunction]
+fn setup_pre_mulligan_digest(
+    deck1_json: &str,
+    deck2_json: &str,
+    rng_state_json: &str,
+    first_player: usize,
+) -> PyResult<String> {
+    let d1: serde_json::Value = serde_json::from_str(deck1_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deck1: {e}")))?;
+    let d2: serde_json::Value = serde_json::from_str(deck2_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deck2: {e}")))?;
+    let rng_state: Vec<u64> = serde_json::from_str(rng_state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("rng_state: {e}")))?;
+    let st = setup::setup_pre_mulligan(&d1, &d2, &rng_state, first_player)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+    digest_of(&st).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+}
+
+#[pyfunction]
+fn setup_pre_mulligan_blob(
+    deck1_json: &str,
+    deck2_json: &str,
+    rng_state_json: &str,
+    first_player: usize,
+) -> PyResult<String> {
+    let d1: serde_json::Value = serde_json::from_str(deck1_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deck1: {e}")))?;
+    let d2: serde_json::Value = serde_json::from_str(deck2_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deck2: {e}")))?;
+    let rng_state: Vec<u64> = serde_json::from_str(rng_state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("rng_state: {e}")))?;
+    let st = setup::setup_pre_mulligan(&d1, &d2, &rng_state, first_player)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+    let v = serde_json::to_value(&st).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+    serde_json::to_string(&v).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
 #[pymodule]
 fn optcg_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(setup_pre_mulligan_digest, m)?)?;
+    m.add_function(wrap_pyfunction!(setup_pre_mulligan_blob, m)?)?;
     m.add_function(wrap_pyfunction!(apply_raw_effect_digest, m)?)?;
     m.add_function(wrap_pyfunction!(mt_getrandbits, m)?)?;
     m.add_function(wrap_pyfunction!(mt_randrange, m)?)?;
