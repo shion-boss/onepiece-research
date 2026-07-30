@@ -1337,6 +1337,32 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         // レスト (effects.py:3761)。 string spec (one_opponent_*) = _opp_value 最大を選ぶ。
         // ⚠ or_don + replace_rest は resolve_target=None または diverge → skip 境界。
         "rest" => {
+            // one_opp_chara_or_don (effects.py:3683、 OP12-037): 相手キャラ or ドン 1 枚レスト。 AI =
+            // 相手アクティブキャラ (power 降順) 優先 → 無ければ opp.don_active 1 枚 → 無ければ no-op。
+            // ドンは Slot でないので resolve_target を通さず inline。 no-op でも true (Python は return False
+            // だが do-loop は返値無視 = 実質 no-op、 bail にしない)。 cost_le filter (dict form)。
+            let is_chara_or_don = v.as_str() == Some("one_opp_chara_or_don")
+                || v.get("type").and_then(|x| x.as_str()) == Some("one_opp_chara_or_don");
+            if is_chara_or_don {
+                let cost_le = v.get("cost_le").and_then(|x| x.as_i64());
+                let opp = &state.players[opp_idx];
+                let mut cands: Vec<usize> = (0..opp.characters.len())
+                    .filter(|&i| {
+                        let c = &opp.characters[i];
+                        !c.rested
+                            && !c.cannot_be_rested_buff
+                            && cost_le.map_or(true, |n| c.card.cost as i64 <= n)
+                    })
+                    .collect();
+                cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
+                if let Some(&i) = cands.first() {
+                    state.players[opp_idx].characters[i].rested = true;
+                } else if state.players[opp_idx].don_active > 0 {
+                    state.players[opp_idx].don_active -= 1;
+                    state.players[opp_idx].don_rested += 1;
+                }
+                return true;
+            }
             // {target, count} 形式 (effects.py:3742、 OP14-031): 候補全解決 (one_opponent_character_→
             // any_ 正規化)→active filter→power 降順 (stable)→count 枚をレスト。
             if let Some(o) = v.as_object() {
