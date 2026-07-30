@@ -535,6 +535,8 @@ fn resolve_target(
             vec![(me_idx, cands[0].0)]
         }
         "self_leader" => vec![(me_idx, Slot::Leader)],
+        // 相手リーダー (effects.py:2354、 one_opponent_leader は overlay 別名 OP06-023 等)。
+        "opponent_leader" | "one_opponent_leader" => vec![(opp_idx, Slot::Leader)],
         // 自リーダー or キャラ 1 体、 AI はリーダー優先 (effects.py:2948)
         "self_inplay_choice" => vec![(me_idx, Slot::Leader)],
         // 自キャラ 1 体、 AI は power 降順 (effects.py:2919)
