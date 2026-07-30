@@ -3906,6 +3906,9 @@ pub fn fire_activate_main(
     if let Some(c) = &cost {
         if let Some(o) = c.as_object() {
             for k in o.keys() {
+                // ⚠ trash_to_deck cost は付けない: OP05-082 の do = trash_opp_hand_random (rng 依存) は
+                // 差分ハーネスで bit-match 不可 (fast_clone が clone に別 rng を与える為、 rng 効果は永遠に
+                // MISMATCH)。 rng 効果は standalone self-play では Rust 自前 rng で正しく解決する = bail 維持。
                 if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card" | "ko_self_with_filter" | "trash_self") {
                     return Err(format!("activate_main cost 未対応: {k} ({card_id})"));
                 }
