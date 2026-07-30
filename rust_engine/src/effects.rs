@@ -1495,6 +1495,40 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 自手札 N 枚をデッキ上/下へ (effects.py:7182、 OP08-050)。 AI = コスト最高 (=死札) を N 枚、
+        // 反復で pop→ to=top なら deck 先頭 insert / bottom なら末尾 push。 ⚠ Python max は tie で最初の
+        // index → Rust max_by_key (tie=最後) でなく first-max を手で求める。 cascade 無し。
+        "self_hand_to_deck_bottom" => {
+            let (n, to_top) = if let Some(o) = v.as_object() {
+                (
+                    o.get("amount").and_then(|x| x.as_i64()).unwrap_or(1) as usize,
+                    o.get("to").and_then(|x| x.as_str()) == Some("top"),
+                )
+            } else {
+                (v.as_i64().unwrap_or(1) as usize, false)
+            };
+            let me = &mut state.players[me_idx];
+            for _ in 0..n {
+                if me.hand.is_empty() {
+                    break;
+                }
+                let mut idx = 0;
+                let mut best = me.hand[0].cost;
+                for i in 1..me.hand.len() {
+                    if me.hand[i].cost > best {
+                        best = me.hand[i].cost;
+                        idx = i;
+                    }
+                }
+                let card = me.hand.remove(idx);
+                if to_top {
+                    me.deck.insert(0, card);
+                } else {
+                    me.deck.push(card);
+                }
+            }
+            true
+        }
         // 「指定キャラ/リーダーのアタック中、 相手はブロッカー発動不可」 (effects.py:8187)。
         // target_spec = v (dict で target キー有れば v.target)。 attacker_prevents_blocker_until_turn_end=true。
         "prevent_blocker_for_attacker" => {
