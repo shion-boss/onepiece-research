@@ -2948,13 +2948,30 @@ pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> 
         if eff.get("when").and_then(|v| v.as_str()) != Some("on_ko") {
             continue;
         }
-        if eff.get("cost").map_or(false, |c| !cost_is_empty(c)) {
-            return Err("on_ko cost 未対応 (source-gone)".into());
-        }
+        // effects.py:_execute_event 順: 条件 → once → cost → do。
         match eval_effect_conditions(eff, state, owner_idx, None) {
             Some(true) => {}
             Some(false) => continue,
             None => return Err("on_ko 条件 unknown".into()),
+        }
+        if eff.get("once_per_turn").is_some() {
+            return Err("on_ko once_per_turn 未対応 (canonical 未化)".into());
+        }
+        // cost: pay_don のみ対応 (source-gone=Leader placeholder で player-level 安全)。 on_ko cost は
+        // EV 無し=payable なら auto-pay、 払えなければ効果 skip (effects.py:_execute_event 390-394)。
+        if let Some(cost) = eff.get("cost") {
+            if !cost_is_empty(cost) {
+                let only_pay_don = cost
+                    .as_object()
+                    .map_or(false, |o| o.len() == 1 && o.contains_key("pay_don"));
+                if !only_pay_don {
+                    return Err("on_ko cost 未対応 (source-gone)".into());
+                }
+                match try_pay_counter_cost(state, owner_idx, Slot::Leader, cost)? {
+                    true => {}
+                    false => continue, // 支払い不能 → 効果 skip
+                }
+            }
         }
         let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
         for prim in dos {
