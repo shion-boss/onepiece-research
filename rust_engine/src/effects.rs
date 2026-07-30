@@ -803,6 +803,15 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
             let (filt, count) = filter_and_count(cv);
             Some(me.hand.iter().filter(|c| matches_filter(c, Some(&filt))).count() >= count)
         }
+        // trash_self_hand_random cost: 手札 N 枚以上必要 (effects.py:8267)。 支払いは primitive 委譲。
+        "trash_self_hand_random" => {
+            let n = if cv.is_object() {
+                cv.get("count").or_else(|| cv.get("amount")).and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                cv.as_i64().unwrap_or(1)
+            };
+            Some((me.hand.len() as i64) >= n)
+        }
         _ => None, // 未対応 cost 型 → bail
     }
 }
@@ -941,6 +950,13 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
                 } else {
                     me.hand.push(c);
                 }
+            }
+        }
+        // trash_self_hand_random: Python optional_cost fallback (effects.py:8928) = execute_effect(cs)
+        //   = primitive (worst_hand_idx pop + hand_discarded flag + on_self_hand_discarded cascade)。
+        "trash_self_hand_random" => {
+            if !execute_effect(cs, state, me_idx, src) {
+                return None;
             }
         }
         _ => return None,
