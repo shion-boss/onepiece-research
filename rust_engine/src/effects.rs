@@ -1467,6 +1467,26 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 手札から filter 一致 count 枚までを自ライフ上へ (effects.py:hand_to_self_life)。 AI=先頭一致。 cascade 無。
+        "hand_to_self_life" => {
+            let (filt, count) = if let Some(o) = v.as_object() {
+                (o.get("filter").cloned(), o.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize)
+            } else {
+                (None, v.as_i64().unwrap_or(1) as usize)
+            };
+            let me = &mut state.players[me_idx];
+            let old = std::mem::take(&mut me.hand);
+            let mut moved = 0;
+            for c in old {
+                if moved < count && matches_filter(&c, filt.as_ref()) {
+                    me.life.push(c);
+                    moved += 1;
+                } else {
+                    me.hand.push(c);
+                }
+            }
+            true
+        }
         // 自手札 N 枚を捨てる (effects.py:3147 trash_self_hand_random)。 ⚠ 名は random だが AI 経路は
         // _worst_hand_idx で決定的 (counter/cost/power/known)。 捨て後 hand_discarded_by_effect_this_turn=true
         // + on_self_hand_discarded cascade (last_discard context は Python が発火後 None にリセット = 不設定で一致)。
@@ -1999,7 +2019,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
         "power_pump" | "draw" | "give_keyword" | "add_don" | "add_don_active" | "add_rested_don"
             | "untap_don" | "untap" | "untap_chara" | "rest" | "cost_minus" | "attach_rested_don" | "mill_self_top"
             | "life_to_hand" | "trash_self_hand_random" | "redirect_attack" | "mill_self_life_to_trash"
-            | "mill" | "mill_opp_life_to_hand" | "look_top_reorder"
+            | "mill" | "mill_opp_life_to_hand" | "look_top_reorder" | "hand_to_self_life"
             | "stay_rested_next_refresh" | "set_cannot_rest" | "set_cannot_attack" | "put_top_to_life"
             | "optional_discard_hand_for_battle_buff" | "conditional" | "optional_cost_then"
     )
