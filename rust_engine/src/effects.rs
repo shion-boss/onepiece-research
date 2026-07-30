@@ -250,6 +250,21 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             "self_rested_chara_count_ge" => {
                 (me.characters.iter().filter(|c| c.rested).count() as i64) >= v.as_i64().unwrap_or(0)
             }
+            // 自/相手のレストカード数 (don_rested + rested chara + leader + stage) >= N (effects.py:1770/1780)。
+            "self_rested_cards_count_ge" => {
+                let cnt = me.don_rested as i64
+                    + me.characters.iter().filter(|c| c.rested).count() as i64
+                    + if me.leader.rested { 1 } else { 0 }
+                    + me.stages.iter().filter(|s| s.rested).count() as i64;
+                cnt >= v.as_i64().unwrap_or(0)
+            }
+            "opp_rested_cards_count_ge" => {
+                let cnt = opp.don_rested as i64
+                    + opp.characters.iter().filter(|c| c.rested).count() as i64
+                    + if opp.leader.rested { 1 } else { 0 }
+                    + opp.stages.iter().filter(|s| s.rested).count() as i64;
+                cnt >= v.as_i64().unwrap_or(0)
+            }
             // 自ドン総数 - 相手ドン総数 <= N (effects.py:don_diff_le)
             "don_diff_le" => {
                 let atk = |p: &Player| (p.don_active + p.don_rested + p.leader.attached_dons
