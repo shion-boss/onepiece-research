@@ -2990,13 +2990,12 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     Ok(false) => {}
                     Err(_) => return false,
                 }
-                let vcard = state.players[vpi].characters[vidx].card.clone();
                 let vdon = state.players[vpi].characters[vidx].attached_dons;
                 let removed = state.players[vpi].characters.remove(vidx);
                 state.players[vpi].known_hand_card_ids.push(removed.card.card_id.clone());
                 state.players[vpi].hand.push(removed.card);
                 state.players[vpi].don_rested += vdon;
-                state.last_chara_ko_victim_card = Some(vcard);
+                state.last_chara_ko_victim_card = None; // 効果 cascade は nested=deferred で victim None
                 let mut err = fire_field_when(state, vpi, "on_self_chara_leave_by_opp_effect").is_err();
                 state.last_chara_ko_victim_card = None;
                 if !err {
@@ -3066,13 +3065,12 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     Ok(false) => {}
                     Err(_) => return false,
                 }
-                let vcard = state.players[vpi].characters[vidx].card.clone();
                 let vdon = state.players[vpi].characters[vidx].attached_dons;
                 let removed = state.players[vpi].characters.remove(vidx);
                 state.players[vpi].deck.push(removed.card);
                 state.players[vpi].don_rested += vdon;
                 // per-victim on_self_chara_leave_by_opp_effect (opp、 victim card、 fire 後 None=Python 12112)。
-                state.last_chara_ko_victim_card = Some(vcard);
+                state.last_chara_ko_victim_card = None; // 効果 cascade は nested=deferred で victim None
                 let mut err = fire_field_when(state, vpi, "on_self_chara_leave_by_opp_effect").is_err();
                 state.last_chara_ko_victim_card = None;
                 if !err {
@@ -4888,13 +4886,12 @@ pub fn fire_activate_main(
             if let Some(i) = me.characters.iter().position(|ch| matches_filter(&ch.card, Some(kf))) {
                 let removed = me.characters.remove(i);
                 let vcid = removed.card.card_id.clone();
-                let vcard = removed.card.clone();
                 let don = removed.attached_dons;
                 me.trash.push(removed.card);
                 me.don_rested += don;
                 me.chara_ko_taken_this_turn += 1; // trigger_on_ko 相当 (全 KO で加算)
                 // last_chara_ko_victim_card set (victim_* 条件用)、 cascade 完了後 None (Python 準拠)。
-                state.last_chara_ko_victim_card = Some(vcard);
+                state.last_chara_ko_victim_card = None; // 効果 cascade は nested=deferred で victim None
                 let mut err: Option<String> = None;
                 if let Err(e) = fire_on_ko(state, me_idx, &vcid) {
                     err = Some(e);
