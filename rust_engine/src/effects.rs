@@ -1007,6 +1007,36 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 対象をアクティブ化 (effects.py:4563)。 target = self/self_leader/all_self_characters (既定 self)。
+        "untap" => {
+            let spec = if v.is_string() { v.clone() } else { Value::String("self".to_string()) };
+            let Some(targets) = resolve_target(Some(&spec), me_idx, opp_idx, src, state) else {
+                return false;
+            };
+            for (pi, sl) in targets {
+                get_ip_mut(&mut state.players[pi], sl).rested = false;
+            }
+            true
+        }
+        // 「アタッカーのアタック中、 相手はパワーN以下ブロッカー発動不可」 (effects.py:8205)。
+        // spec {amount, target(既定 self=attacker)}。 attacker_prevents_blocker_power_le に amount 設定。
+        "prevent_blocker_for_attacker_power_le" => {
+            let (amount, spec) = if v.is_object() {
+                (
+                    v.get("amount").and_then(|x| x.as_i64()).unwrap_or(0) as i32,
+                    v.get("target").cloned().unwrap_or(Value::String("self".to_string())),
+                )
+            } else {
+                (v.as_i64().unwrap_or(0) as i32, Value::String("self".to_string()))
+            };
+            let Some(targets) = resolve_target(Some(&spec), me_idx, opp_idx, src, state) else {
+                return false;
+            };
+            for (pi, sl) in targets {
+                get_ip_mut(&mut state.players[pi], sl).attacker_prevents_blocker_power_le = amount;
+            }
+            true
+        }
         // ドンデッキから N 枚をレストで追加 (effects.py:4536)。
         "add_rested_don" => {
             let n = (v.as_i64().unwrap_or(0) as i32).min(state.players[me_idx].don_remaining_in_deck);
@@ -1687,7 +1717,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
     matches!(
         key,
         "power_pump" | "draw" | "give_keyword" | "add_don" | "add_don_active" | "add_rested_don"
-            | "untap_don" | "cost_minus" | "attach_rested_don" | "mill_self_top"
+            | "untap_don" | "untap" | "rest" | "cost_minus" | "attach_rested_don" | "mill_self_top"
             | "stay_rested_next_refresh" | "set_cannot_rest" | "set_cannot_attack" | "put_top_to_life"
             | "optional_discard_hand_for_battle_buff" | "conditional" | "optional_cost_then"
     )
