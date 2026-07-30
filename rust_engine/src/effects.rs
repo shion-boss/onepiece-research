@@ -1945,6 +1945,43 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             desc.sort_unstable_by(|a, b| b.cmp(a));
             let cards: Vec<crate::state::CardDef> =
                 desc.iter().map(|&i| state.players[me_idx].hand.remove(i)).collect();
+            // then_life_to_hand 有 (OP08-098 カルガラ): Python は on_play を **enqueue** → then_life →
+            // drain。 = 登場カードの on_play は then_life 後の state を観測する (OP15-114 ワイパー は
+            // then_life でライフ移動後に flip_life cost 不能 → optional_cost_then 不発)。 → place all →
+            // then_life → on_play (deferred) → on_self_life_to_hand の順。
+            if let Some(n_life) = spec.and_then(|o| o.get("then_life_to_hand")).and_then(|x| x.as_i64()) {
+                let mut placed: Vec<usize> = vec![];
+                for card in cards {
+                    trash_weakest_for_field_full(state, me_idx);
+                    let mut ip = InPlay::of(card, true);
+                    ip.rested = rested;
+                    state.players[me_idx].characters.push(ip);
+                    placed.push(state.players[me_idx].characters.len() - 1);
+                }
+                let mut moved = 0;
+                if !placed.is_empty() && !state.players[me_idx].prevent_self_life_to_hand_until_turn_end {
+                    for _ in 0..n_life {
+                        if state.players[me_idx].life.is_empty() {
+                            break;
+                        }
+                        let c = state.players[me_idx].life.remove(0);
+                        state.players[me_idx].hand.push(c);
+                        moved += 1;
+                    }
+                }
+                for &pidx in &placed {
+                    let card = state.players[me_idx].characters[pidx].card.clone();
+                    state.last_self_chara_played_card = Some(card);
+                    state.last_self_chara_played_from_trash = false;
+                    if execute_on_play(state, me_idx, pidx).is_err() {
+                        return false;
+                    }
+                }
+                if moved > 0 && fire_field_when(state, me_idx, "on_self_life_to_hand").is_err() {
+                    return false;
+                }
+                return true;
+            }
             for card in cards {
                 trash_weakest_for_field_full(state, me_idx); // 場5枚は最弱trash (3-7-6-1、 KO無)
                 let mut ip = InPlay::of(card.clone(), true); // sickness=true
@@ -1956,13 +1993,6 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 if execute_on_play(state, me_idx, played_idx).is_err() {
                     return false;
                 }
-            }
-            // ⚠ then_life_to_hand (OP08-098 カルガラ on_attack): 実装すると calgara の on_attack が成功→後続の
-            // 相手 opp_attack 防御が Rust で二重適用 (turn_buff -4000 vs -2000 / face_up 2 vs 1)。 原因は trigger
-            // resolution ordering (Python は _enqueue+_maybe_resolve で resolving flag を尊重、 Rust は即時発火)。
-            // = trigger queue モデリングが要る深い課題 → 未対応で bail 維持 (correctness=MISMATCH0 優先)。
-            if spec.map_or(false, |o| o.contains_key("then_life_to_hand")) {
-                return false;
             }
             true
         }
