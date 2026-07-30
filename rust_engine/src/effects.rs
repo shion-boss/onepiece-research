@@ -2692,12 +2692,75 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             remove_victims(state, victims, RemoveDest::Hand);
             true
         }
-        // デッキ下に戻す。 protect チェック → 除去 + deck 末尾 + 付与ドン返却。
+        // デッキ下に戻す (effects.py:5376)。 cascade (opp victim の replace_leave/on_self_chara_leave_by_opp_
+        // effect、 me の on_self_chara_leave_by_self_effect) 要時は single-victim path で発火 (ko primitive と
+        // 同構造)、 無ければ一括除去。
         "return_to_deck_bottom" => {
-            let Some(targets) = resolve_target(Some(v), me_idx, opp_idx, src, state) else { return false };
-            let victims = collect_unprotected(state, &targets);
-            remove_victims(state, victims, RemoveDest::DeckBottom);
-            true
+            let tgt_spec: Value = if v.is_object() && v.get("target").is_some() {
+                v.get("target").unwrap().clone()
+            } else {
+                v.clone()
+            };
+            let Some(targets) = resolve_target(Some(&tgt_spec), me_idx, opp_idx, src, state) else { return false };
+            let mut victims: Vec<(usize, usize)> = vec![];
+            for &(pi, sl) in &targets {
+                if let Slot::Char(idx) = sl {
+                    let c = &state.players[pi].characters[idx];
+                    if pi == opp_idx && (c.protect_from_opp_effect || c.static_ko_immune) {
+                        continue;
+                    }
+                    victims.push((pi, idx));
+                }
+            }
+            if victims.is_empty() {
+                return true;
+            }
+            let has_opp_victim = victims.iter().any(|&(pi, _)| pi == opp_idx);
+            let cascade = me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect")
+                || (has_opp_victim
+                    && (me_board_has_when(state, opp_idx, "on_self_chara_leave_by_opp_effect")
+                        || me_board_has_when(state, opp_idx, "replace_leave")));
+            if !cascade {
+                remove_victims(state, victims, RemoveDest::DeckBottom);
+                return true;
+            }
+            if victims.len() > 1 {
+                return false; // multi-victim cascade = index shift 複雑 → bail
+            }
+            let (vpi, vidx) = victims[0];
+            if vpi == opp_idx {
+                // 置換 (return_to_deck_bottom leave_kind、 by_opp_effect=true)。 Ok(true)=離脱阻止。
+                match try_replace_ko(state, vpi, vidx, true, "return_to_deck_bottom") {
+                    Ok(true) => return true,
+                    Ok(false) => {}
+                    Err(_) => return false,
+                }
+                let vcard = state.players[vpi].characters[vidx].card.clone();
+                let vdon = state.players[vpi].characters[vidx].attached_dons;
+                let removed = state.players[vpi].characters.remove(vidx);
+                state.players[vpi].deck.push(removed.card);
+                state.players[vpi].don_rested += vdon;
+                // per-victim on_self_chara_leave_by_opp_effect (opp、 victim card、 fire 後 None=Python 12112)。
+                state.last_chara_ko_victim_card = Some(vcard);
+                let mut err = fire_field_when(state, vpi, "on_self_chara_leave_by_opp_effect").is_err();
+                state.last_chara_ko_victim_card = None;
+                if !err {
+                    err = fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err();
+                }
+                if err {
+                    return false;
+                }
+                true
+            } else {
+                let vdon = state.players[vpi].characters[vidx].attached_dons;
+                let removed = state.players[vpi].characters.remove(vidx);
+                state.players[vpi].deck.push(removed.card);
+                state.players[vpi].don_rested += vdon;
+                if fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err() {
+                    return false;
+                }
+                true
+            }
         }
         // デッキ上 N 枚を見て filter マッチ先頭 M 枚を手札、 残りをデッキ下 (effects.py:4037)。
         // ⚠ destination=hand + rest_remain=bottom のみ対応 (play/life/trash/top_or_bottom は skip)。
@@ -3070,8 +3133,8 @@ fn effect_cascade_blocked(dos: &[Value], state: &GameState, me_idx: usize) -> bo
                     || has(opp, "replace_ko")
                     || has(opp, "replace_leave")
             }
-            "return_to_hand" | "return_to_hand_multi" | "return_to_deck_bottom"
-            | "return_to_deck_bottom_multi" => {
+            // return_to_deck_bottom (single) は prim 側で cascade を自前処理 → ここでは block しない。
+            "return_to_hand" | "return_to_hand_multi" | "return_to_deck_bottom_multi" => {
                 has(opp, "on_self_chara_leave_by_self_effect") || has(opp, "replace_leave")
             }
             // rest (single-path) は prim 側で on_self_rested cascade を自前発火 → ここでは block しない。
