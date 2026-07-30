@@ -703,14 +703,26 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 };
                 if valid {
                     let bcid = state.players[opp].characters[bi].card.card_id.clone();
-                    if crate::effects::card_has_when(&bcid, "on_block")
-                        || board_has_when(&state.players[me], "on_opp_blocker_use")
-                    {
-                        return Err("on_block/on_opp_blocker_use 未対応".into());
-                    }
                     state.players[opp].characters[bi].rested = true;
                     is_blocked = true;
                     blk_idx = bi;
+                    // game.py:1627 順: ① blocker の【ブロック時】(on_block、 defender=opp 視点、
+                    //   source=blocker slot) → ② attacker (me) の【相手がブロッカー発動時】(on_opp_blocker_use)。
+                    if crate::effects::card_has_when(&bcid, "on_block") {
+                        crate::effects::execute_card_effects(
+                            state, opp, &bcid, "on_block", crate::effects::Slot::Char(bi),
+                        )?;
+                    }
+                    crate::effects::fire_field_when(state, me, "on_opp_blocker_use")?;
+                    // game.py:1632 fizzle: blocker が【ブロック時】等で場から消えた → アタック不発。
+                    // (Rust は iid 無しなので slot 位置 + card_id 一致で blocker 残存を近似。 win_game で
+                    //  game_over でも Python は battle を継続する = 早期 return しない。)
+                    if bi >= state.players[opp].characters.len()
+                        || state.players[opp].characters[bi].card.card_id != bcid
+                    {
+                        reset_battle_buffs(state);
+                        return Ok(());
+                    }
                 }
                 // 不正ブロッカーは無視 = リーダーへ続行 (game.py:1591-1605)
             }
@@ -927,11 +939,21 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 };
                 if valid {
                     let bcid = state.players[opp].characters[bi].card.card_id.clone();
-                    if crate::effects::card_has_when(&bcid, "on_block") {
-                        return Err("on_block 未対応".into());
-                    }
                     state.players[opp].characters[bi].rested = true;
                     actual_idx = bi;
+                    // AttackCharacter は【ブロック時】(on_block) のみ発火 (on_opp_blocker_use は非対称で不発火、
+                    //   game.py:1895)。 ⚠ Python は fizzle return せず actual_target=blocker (object ref) 継続。
+                    if crate::effects::card_has_when(&bcid, "on_block") {
+                        crate::effects::execute_card_effects(
+                            state, opp, &bcid, "on_block", crate::effects::Slot::Char(bi),
+                        )?;
+                        // blocker が on_block で消えると Python は object-ref 継続 = Rust index では再現不能 → bail。
+                        if bi >= state.players[opp].characters.len()
+                            || state.players[opp].characters[bi].card.card_id != bcid
+                        {
+                            return Err("on_block で blocker 消失 (AttackChar object-ref 再現不能)".into());
+                        }
+                    }
                 }
             }
             // === カウンター: counter events → counter cards ===

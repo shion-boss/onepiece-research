@@ -3350,6 +3350,14 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             apply_static_primitive(prim, state, me_idx, src);
             true
         }
+        // 効果による勝利 (OP09-118 速攻ルフィ on_opp_blocker_use、 effects.py:7669 declare_winner)。
+        "win_game" => {
+            if !state.game_over {
+                state.winner = Some(me_idx);
+                state.game_over = true;
+            }
+            true
+        }
         // 自ライフ上 1 枚を公開 (場所変えず) → その cost × per_cost を src に turn pump (OP15-119 ルフィ、
         // effects.py:5902)。 on_opp_blocker_use/opp_event_or_trigger_fired で発火 = src は場のカード (有効)。
         "reveal_self_life_top_pump_per_cost" => {
@@ -3570,7 +3578,7 @@ fn effect_cascade_blocked(dos: &[Value], state: &GameState, me_idx: usize) -> bo
 ///  - 条件 unknown (eval None) / cost 未対応種別 (pay None) / 未対応 primitive (execute_effect false) /
 ///    未対応 cascade (effect_cascade_blocked)。
 /// ⚠ on_opp_chara_played 等の「登場/発動そのもの」由来の cascade は呼出側 (apply_action arm) で別途 guard。
-fn execute_card_effects(
+pub fn execute_card_effects(
     state: &mut GameState,
     me_idx: usize,
     card_id: &str,
@@ -3725,6 +3733,8 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             // reveal_self_life_top_pump_per_cost = src (場のカード) を turn pump。 OP15-119 が
             // on_opp_blocker_use/opp_event_or_trigger_fired で発火 (src 有効)。
             | "reveal_self_life_top_pump_per_cost"
+            // win_game = 効果勝利 (OP09-118 on_opp_blocker_use)。 game_over/winner set のみ。
+            | "win_game"
     )
 }
 
