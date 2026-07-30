@@ -771,8 +771,13 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
                 || me.stages.iter().any(|s| !s.rested && matches_filter(&s.card, filt)))
         }
         // Python は can_pay 未チェック (= 常に払える扱い、 実体無ければ payment で no-op)。
-        "rest_self_leader_filtered_or_don" | "flip_life_face_up" | "flip_life_face_down"
-        | "attach_active_don_to_named_chara" => Some(true),
+        "rest_self_leader_filtered_or_don" | "attach_active_don_to_named_chara" => Some(true),
+        // flip_life は payability あり (effects.py:8515)。 face_up: 裏向きライフ≥1、 face_down: 表向き≥1。
+        "flip_life_face_up" => {
+            let fu = me.face_up_life_count.min(me.life.len() as i32);
+            Some((me.life.len() as i32) - fu >= 1)
+        }
+        "flip_life_face_down" => Some(me.face_up_life_count.min(me.life.len() as i32) >= 1),
         "rest_self_chara_filtered" => {
             let filt = cv.get("filter");
             Some(me.characters.iter().any(|c| !c.rested && matches_filter(&c.card, filt)))
@@ -1004,6 +1009,24 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     continue;
                 }
                 ip.rested = true;
+            }
+            true
+        }
+        // 自キャラ N 枚をアクティブ化 (effects.py:5402)。 spec {target(既定 one_self_character_any), limit(1)}。
+        "untap_chara" => {
+            let (spec, limit) = if v.is_object() {
+                (
+                    v.get("target").cloned().unwrap_or(Value::String("one_self_character_any".to_string())),
+                    v.get("limit").and_then(|x| x.as_i64()).unwrap_or(1) as usize,
+                )
+            } else {
+                (Value::String("one_self_character_any".to_string()), 1)
+            };
+            let Some(targets) = resolve_target(Some(&spec), me_idx, opp_idx, src, state) else {
+                return false;
+            };
+            for (pi, sl) in targets.into_iter().take(limit) {
+                get_ip_mut(&mut state.players[pi], sl).rested = false;
             }
             true
         }
@@ -1733,7 +1756,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
     matches!(
         key,
         "power_pump" | "draw" | "give_keyword" | "add_don" | "add_don_active" | "add_rested_don"
-            | "untap_don" | "untap" | "rest" | "cost_minus" | "attach_rested_don" | "mill_self_top"
+            | "untap_don" | "untap" | "untap_chara" | "rest" | "cost_minus" | "attach_rested_don" | "mill_self_top"
             | "stay_rested_next_refresh" | "set_cannot_rest" | "set_cannot_attack" | "put_top_to_life"
             | "optional_discard_hand_for_battle_buff" | "conditional" | "optional_cost_then"
     )
@@ -1841,7 +1864,8 @@ fn fire_gated_do(
     }
     for prim in dos {
         if !execute_effect(prim, state, me_idx, src) {
-            return Err("trigger primitive 再現不能".into());
+            let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?");
+            return Err(format!("trigger primitive 再現不能: {k}"));
         }
     }
     Ok(())
