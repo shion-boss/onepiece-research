@@ -1903,9 +1903,6 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     return false;
                 }
             }
-            if spec.map_or(false, |o| o.contains_key("then_life_to_hand")) {
-                return false; // 登場後ライフ→手札 (fire_self_life_to_hand cascade) 未対応
-            }
             let limit = spec.and_then(|o| o.get("limit")).and_then(|x| x.as_i64()).unwrap_or(1) as usize;
             let rested = spec.and_then(|o| o.get("rested")).and_then(|x| x.as_bool()).unwrap_or(false);
             let unique = spec.and_then(|o| o.get("unique_name")).and_then(|x| x.as_bool()).unwrap_or(false);
@@ -1959,6 +1956,11 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 if execute_on_play(state, me_idx, played_idx).is_err() {
                     return false;
                 }
+            }
+            // ⚠ then_life_to_hand は battle (on_attack/on_ko) 文脈で on_self_life_to_hand cascade + 進行中
+            // ダメージと絡み MISMATCH → 未対応で bail 維持 (登場後ライフ→手札 = fire_self_life_to_hand)。
+            if spec.map_or(false, |o| o.contains_key("then_life_to_hand")) {
+                return false;
             }
             true
         }
