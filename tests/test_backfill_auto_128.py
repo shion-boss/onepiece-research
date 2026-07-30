@@ -209,9 +209,6 @@ def test_op13_052_on_play_deploy_hancock_cost6_ai():
 #     公式テキスト忠実な assert (draw + banish) が通らないため skip し、 overlay 修正を
 #     人間レビューに回す (= このタスクでは engine/overlay を編集しない方針)。
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason="overlay bug: OP13-053 の on_attack effect が公式テキストの "
-                         "『カード1枚を引き』(draw:1) を欠き give_keyword バニッシュ のみ。 "
-                         "公式テキスト忠実な assert が通らないため skip。 overlay 修正は人間レビュー。")
 def test_op13_053_on_attack_ko_cost_draw_and_banish():
     """【アタック時】 白ひげキャラ1枚をトラッシュ (コスト) → 1ドロー + 自身バニッシュ。"""
     repo = _repo()
