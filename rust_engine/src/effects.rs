@@ -410,7 +410,8 @@ fn resolve_target(
                 return Some(cands.into_iter().take(1).map(|sl| (me_idx, sl)).collect());
             }
             // 自キャラのみから filter 一致 1 枚 (current_power/rested_required + power 降順、 effects.py:2111)。
-            if t == "one_self_chara_filtered" {
+            // one_self_character_filtered は one_self_chara_filtered の別名 (effects.py:2097)。
+            if t == "one_self_chara_filtered" || t == "one_self_character_filtered" {
                 let cpge = v.get("filter").and_then(|f| f.get("current_power_ge")).and_then(|x| x.as_i64());
                 let cple = v.get("filter").and_then(|f| f.get("current_power_le")).and_then(|x| x.as_i64());
                 let rested_req = v.get("rested_required").and_then(|x| x.as_bool()).unwrap_or(false);
@@ -2370,6 +2371,20 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 相手レストキャラの次リフレッシュ非アクティブ化 (effects.py:6770、 OP05-094)。 target 既定
+        // one_opponent_character_any。 ⚠ Python は rested の対象のみ flag (if t.rested)。
+        "keep_opp_rested_chara_next_refresh" => {
+            let default = Value::String("one_opponent_character_any".into());
+            let tgt = v.get("target").unwrap_or(&default);
+            let Some(targets) = resolve_target(Some(tgt), me_idx, opp_idx, src, state) else { return false };
+            for (pi, sl) in targets {
+                let ip = get_ip_mut(&mut state.players[pi], sl);
+                if ip.rested {
+                    ip.stay_rested_next_refresh = true;
+                }
+            }
+            true
+        }
         // レストドンを target に付与 (effects.py:5736)。 source=don_rested。
         "attach_rested_don" => {
             let count = v.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as i32;
@@ -2577,7 +2592,8 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             true
         }
         // このターン中キャラ登場禁止 (effects.py:5686、 OP14-020 緑ミホーク)。 Phase.END でクリア。
-        "block_chara_play" => {
+        // block_chara_play / block_chara_play_turn: 共に自陣キャラ登場禁止 flag (effects.py:5544/5707)。
+        "block_chara_play" | "block_chara_play_turn" => {
             state.players[me_idx].block_chara_play_until_turn_end = true;
             true
         }
