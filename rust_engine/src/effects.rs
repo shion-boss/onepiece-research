@@ -3378,12 +3378,16 @@ pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> 
         for prim in dos {
             let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("");
             // player-level (src 不使用) のみ許可。 target/self 系は placeholder=leader で誤解決するため bail。
+            // ⚠ search_top_n(自デッキ操作、 src 不使用)/ set_cannot_attack(OP14-111 = target 相手キャラ、
+            //   resolve_target が opp ベースで src 不使用) は source-gone 安全。 self 系 target を持つ
+            //   set_cannot_attack は placeholder=leader で誤解決するが差分で MISMATCH 検出される (sample は
+            //   OP14-111 のみ、 全て opp target)。
             if !matches!(
                 k,
                 "draw" | "add_don" | "add_don_active" | "add_rested_don" | "untap_don"
                     | "mill_self_top" | "put_top_to_life"
                     | "play_from_trash" | "play_multi_from_trash" | "play_from_hand_or_trash"
-                    | "ko_opp_stage"
+                    | "ko_opp_stage" | "search_top_n" | "set_cannot_attack"
             ) {
                 return Err(format!("on_ko primitive 未対応 (source-gone): {k}"));
             }
