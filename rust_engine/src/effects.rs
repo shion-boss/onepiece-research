@@ -2025,10 +2025,10 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         //   は保守 bail。 played_from_trash は set しない (Python は trash 由来でも False = last_...from_trash=False)。
         "play_from_hand_or_trash" => {
             let spec = v.as_object();
-            let filt = spec.and_then(|o| o.get("filter"));
+            let resolved = resolve_dynamic_filter(spec.and_then(|o| o.get("filter")), state, me_idx);
+            let filt = resolved.as_ref();
             if let Some(fo) = filt.and_then(|f| f.as_object()) {
-                if fo.contains_key("cost_le_dynamic")
-                    || fo.contains_key("or")
+                if fo.contains_key("or")
                     || fo.contains_key("name_in_last_discarded")
                     || fo.contains_key("no_effect")
                     || fo.get("category").and_then(|x| x.as_str()) == Some("STAGE")
@@ -2038,71 +2038,62 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             let limit = spec.and_then(|o| o.get("limit")).and_then(|x| x.as_i64()).unwrap_or(1) as usize;
             let rested = spec.and_then(|o| o.get("rested")).and_then(|x| x.as_bool()).unwrap_or(false);
-            // AI: 手札を順に take first limit, then トラッシュで残り
-            let mut hand_ch: Vec<usize> = vec![];
-            let mut trash_ch: Vec<usize> = vec![];
             let mut found = 0usize;
-            {
-                let me = &state.players[me_idx];
-                for (i, c) in me.hand.iter().enumerate() {
-                    if found >= limit {
-                        break;
+            // ⭐ Python timing (effects.py:5040): 登場カードは me.hand に残したまま on_play 発火 (on_play が
+            // hand を観測)、 loop 末尾で unplayed を new_hand に再構築して置換。 index-based で on_play の
+            // hand 追加も追随。 filt は cost_le_dynamic 解決済 static。
+            let mut new_hand: Vec<crate::state::CardDef> = vec![];
+            let mut i = 0;
+            while i < state.players[me_idx].hand.len() {
+                let card = state.players[me_idx].hand[i].clone();
+                let m = found < limit
+                    && card.category == crate::state::Category::Character
+                    && matches_filter(&card, filt)
+                    && !card_no_play_via_effect(&card.card_id);
+                if m {
+                    trash_weakest_for_field_full(state, me_idx);
+                    let mut ip = InPlay::of(card.clone(), true);
+                    ip.rested = rested;
+                    state.players[me_idx].characters.push(ip);
+                    let pidx = state.players[me_idx].characters.len() - 1;
+                    state.last_self_chara_played_card = Some(card);
+                    state.last_self_chara_played_from_trash = false;
+                    if execute_on_play(state, me_idx, pidx).is_err() {
+                        return false;
                     }
-                    if c.category == crate::state::Category::Character
-                        && matches_filter(c, filt)
-                        && !card_no_play_via_effect(&c.card_id)
-                    {
-                        hand_ch.push(i);
-                        found += 1;
-                    }
+                    found += 1;
+                } else {
+                    new_hand.push(card);
                 }
-                for (i, c) in me.trash.iter().enumerate() {
-                    if found >= limit {
-                        break;
-                    }
-                    if c.category == crate::state::Category::Character && matches_filter(c, filt) {
-                        trash_ch.push(i);
+                i += 1;
+            }
+            state.players[me_idx].hand = new_hand;
+            if found < limit {
+                let mut new_trash: Vec<crate::state::CardDef> = vec![];
+                let mut ti = 0;
+                while ti < state.players[me_idx].trash.len() {
+                    let card = state.players[me_idx].trash[ti].clone();
+                    let m = found < limit
+                        && card.category == crate::state::Category::Character
+                        && matches_filter(&card, filt);
+                    if m {
+                        trash_weakest_for_field_full(state, me_idx);
+                        let mut ip = InPlay::of(card.clone(), true);
+                        ip.rested = rested;
+                        state.players[me_idx].characters.push(ip);
+                        let pidx = state.players[me_idx].characters.len() - 1;
+                        state.last_self_chara_played_card = Some(card);
+                        state.last_self_chara_played_from_trash = false;
+                        if execute_on_play(state, me_idx, pidx).is_err() {
+                            return false;
+                        }
                         found += 1;
+                    } else {
+                        new_trash.push(card);
                     }
+                    ti += 1;
                 }
-            }
-            if hand_ch.is_empty() && trash_ch.is_empty() {
-                return true; // 該当なし = no-op
-            }
-            // removal-timing guard: execute_on_play が観測を持つなら bail
-            let opp = 1 - me_idx;
-            let board_reacts = me_board_has_when(state, me_idx, "on_self_chara_played")
-                || me_board_has_when(state, opp, "on_opp_chara_played");
-            let any_on_play = hand_ch
-                .iter()
-                .any(|&i| card_has_when(&state.players[me_idx].hand[i].card_id, "on_play"))
-                || trash_ch
-                    .iter()
-                    .any(|&i| card_has_when(&state.players[me_idx].trash[i].card_id, "on_play"));
-            if board_reacts || any_on_play {
-                return false;
-            }
-            // guard 通過 → execute_on_play は no-op。 summon 順 = hand 昇順 → trash 昇順。
-            let mut hand_sorted = hand_ch.clone();
-            hand_sorted.sort_unstable();
-            let mut trash_sorted = trash_ch.clone();
-            trash_sorted.sort_unstable();
-            let mut order: Vec<crate::state::CardDef> =
-                hand_sorted.iter().map(|&i| state.players[me_idx].hand[i].clone()).collect();
-            order.extend(trash_sorted.iter().map(|&i| state.players[me_idx].trash[i].clone()));
-            for &i in hand_sorted.iter().rev() {
-                state.players[me_idx].hand.remove(i);
-            }
-            for &i in trash_sorted.iter().rev() {
-                state.players[me_idx].trash.remove(i);
-            }
-            for card in order {
-                trash_weakest_for_field_full(state, me_idx); // 場5枚は最弱trash (3-7-6-1、 KO無、 guard で on_play無)
-                let mut ip = InPlay::of(card.clone(), true); // sickness=true
-                ip.rested = rested;
-                state.players[me_idx].characters.push(ip);
-                state.last_self_chara_played_card = Some(card);
-                state.last_self_chara_played_from_trash = false; // Python は trash 由来でも False
+                state.players[me_idx].trash = new_trash;
             }
             true
         }
