@@ -572,10 +572,10 @@ fn resolve_target(
                     true
                 })
                 .collect();
-            // ⚠ Python は spec 毎に sort key が異なる: rested_character_power_le は _threat_key
-            // (= power 降順、 effects.py:2716)、 それ以外 (cost_le 等) は _opp_value。 安定ソートで tie は
-            // index 順 (= Python stable sort と一致)。
-            if rested_only && power_le.is_some() {
+            // ⚠ Python は spec 毎に sort key が異なる: **明示 "power_le" を含む spec** (one_opponent_
+            // character_power_le_N=effects.py:2647 / rested_character_power_le=2716) は _threat_key
+            // (= power 降順)、 bare "character_le"/cost_le は _opp_value。 安定ソートで tie は index 順。
+            if os.contains("power_le_") {
                 cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
             } else {
                 cands.sort_by(|&a, &b| {
@@ -1041,6 +1041,8 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
             let (count, filt) = count_and_filter(cv);
             Some(me.characters.iter().filter(|c| matches_filter(&c.card, filt)).count() >= count)
         }
+        // discard_hand cost: 手札 ≥ n 必要。
+        "discard_hand" => Some((me.hand.len() as i64) >= cv.as_i64().unwrap_or(0)),
         _ => None, // 未対応 cost 型 → bail
     }
 }
@@ -1238,6 +1240,18 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
                 } else {
                     me.characters.push(c);
                 }
+            }
+        }
+        // discard_hand cost: worst_hand_idx で n 枚捨てるだけ (effects.py:8736)。 ⚠ optional_cost_then の
+        // discard は flag/on_self_hand_discarded cascade を**発火しない** (counter cost と非対称、 Python 準拠)。
+        "discard_hand" => {
+            let n = cv.as_i64().unwrap_or(0) as i32;
+            let actual = n.min(state.players[me_idx].hand.len() as i32);
+            for _ in 0..actual {
+                let me = &mut state.players[me_idx];
+                let Some(i) = worst_hand_idx(&me.hand, &me.known_hand_card_ids) else { break };
+                let c = me.hand.remove(i);
+                me.trash.push(c);
             }
         }
         _ => return None,
