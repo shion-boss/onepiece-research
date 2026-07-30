@@ -3507,10 +3507,30 @@ pub fn try_replace_ko(
                     None => return Err("replace_ko extra_cond unknown".into()),
                 }
             }
-            // 対象一致 = 置換発動 (Phase B)。 cost=空 + cascade 無し・非re-leave・非victim参照の safe do のみ
-            // 実発動、 それ以外は bail (cost / return系[再入・victim] / 未実装 prim)。
-            if eff.get("cost").map_or(false, |c| !cost_is_empty(c)) {
-                return Err(format!("replace cost 未対応 ({hcid})"));
+            // 対象一致 = 置換発動 (Phase B)。 cost は once_per_turn (canonical field 追跡) のみ対応、
+            // 他 (discard 等) は bail。 do は cascade 無し・非victim参照の safe のみ。
+            let mut has_once = false;
+            if let Some(cost) = eff.get("cost") {
+                let entries: Vec<&Value> = match cost {
+                    Value::Array(a) => a.iter().collect(),
+                    Value::Object(_) => vec![cost],
+                    _ => vec![],
+                };
+                for cs in entries {
+                    if let Some(o) = cs.as_object() {
+                        for k in o.keys() {
+                            if k == "once_per_turn" {
+                                has_once = true;
+                            } else {
+                                return Err(format!("replace cost 未対応 ({hcid})"));
+                            }
+                        }
+                    }
+                }
+            }
+            // once_per_turn: このターン既発動 (card-id-keyed) なら skip → 通常 KO へ (effects.py:12500)。
+            if has_once && state.players[victim_owner].replace_opt_used_cards.contains(&hcid) {
+                continue;
             }
             let dos: Vec<Value> =
                 eff.get("do").and_then(|v| v.as_array()).cloned().unwrap_or_default();
@@ -3528,6 +3548,14 @@ pub fn try_replace_ko(
                     && me_board_has_when(state, victim_owner, "on_self_chara_leave_by_self_effect")
                 {
                     return Err("replace do return_to_deck_bottom cascade 未対応".into());
+                }
+            }
+            // once_per_turn 使用済マーク (Python _pay_replace_cost、 do 前)。 canonical sorted。
+            if has_once {
+                let used = &mut state.players[victim_owner].replace_opt_used_cards;
+                if !used.contains(&hcid) {
+                    used.push(hcid.clone());
+                    used.sort_unstable();
                 }
             }
             for prim in &dos {

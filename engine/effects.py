@@ -12513,9 +12513,12 @@ def _pay_replace_cost(
     """replace_ko / replace_leave の cost 配列を実行 (消費)。"""
     for cs in cost_specs:
         if "once_per_turn" in cs and bool(cs["once_per_turn"]):
-            # 【ターン1回】 使用済みフラグ
+            # 【ターン1回】 使用済みフラグ (+ canonical 並行記録で Rust bit-match)
             if holder_card_id is not None:
                 me.once_per_turn_used.add(f"replace_opt::{holder_card_id}")
+                if holder_card_id not in me.replace_opt_used_cards:
+                    me.replace_opt_used_cards.append(holder_card_id)
+                    me.replace_opt_used_cards.sort()
             continue
         if "trash_self" in cs:
             # 「代わりにこのキャラをトラッシュに置き」 — holder を場からトラッシュへ移動。

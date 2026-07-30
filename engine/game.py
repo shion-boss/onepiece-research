@@ -691,6 +691,8 @@ def advance_phase(state: GameState) -> None:
             # 【ターン1回】 効果の発動済みキー集合をクリア (= 次自ターンで再発動可)。
             # effect spec の top-level `once_per_turn` を _execute_event がガードに使う。
             me.once_per_turn_used.clear()
+            # replace once の canonical mirror も同時にクリア (Rust 同期)。
+            me.replace_opt_used_cards.clear()
             # field-when once の canonical mirror (event_once_used) も同時にクリア (Rust 同期)。
             for _ip in [me.leader, *me.characters, *me.stages]:
                 _ip.event_once_used.clear()

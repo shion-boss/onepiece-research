@@ -387,6 +387,7 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
                     s.next_turn_base_power_override = None;
                 }
                 p.once_per_turn_used.clear();
+                p.replace_opt_used_cards.clear(); // replace once の canonical mirror (game.py:695)
             }
             // ターン開始時トリガー (game.py:707、 turn_number==1 含む全ターン)。
             // turn player の on_turn_start → 非turn player の opp_turn_start の順 (turn-first)。

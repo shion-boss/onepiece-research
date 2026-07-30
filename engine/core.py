@@ -703,6 +703,9 @@ class Player:
     # 自分の REFRESH で全クリア (= 次の自ターンで再発動可)。
     # _execute_event が effect spec の once_per_turn を見て set / check する。
     once_per_turn_used: set = field(default_factory=set)
+    # replace_ko/replace_leave の once_per_turn (card-id-keyed) を Rust が bit-match できるよう並行記録
+    # (canonical、 判定は once_per_turn_used のまま = additive、 refresh で clear)。 (2026-07-30)
+    replace_opt_used_cards: list = field(default_factory=list)
     # 累積カウンタ (Phase 2 / Step 2-pre)。 outcome regression の特徴量に使う。
     # 試合開始時 0、 game.py の各 action 分岐で increment。 game_over まで保持。
     cards_drawn_count: int = 0      # Player.draw() で加算 = 累積ドロー数
