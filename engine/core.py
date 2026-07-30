@@ -201,6 +201,16 @@ def reset_iid(start: int = 1) -> None:
     """
     global _iid
     _iid = itertools.count(start)
+    # 同時に plan_search._CLONE_RNG_COUNTER (fast_clone の clone RNG seed 用グローバル、 探索内 random 効果の
+    # resolution を左右し AI 決定に伝播しうる) も 0 に戻す。 これも game 間で継続する offset で、 reset しないと
+    # 「同一 seed でも 2 回目のゲームで clone seed がズレ→AI 決定が非決定論」 になる (= full-suite で他テストが
+    # clone を回した後に determinism guard が偽陽性で落ちていた原因)。 reset_iid は差分ハーネス専用で deployed の
+    # game.py/harness/api は呼ばない = 配備影響なし。 循環 import 回避のため遅延 import。
+    try:
+        from . import plan_search
+        plan_search._CLONE_RNG_COUNTER = 0
+    except Exception:
+        pass
 
 
 @dataclass
