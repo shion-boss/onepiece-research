@@ -926,6 +926,11 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
     Some(())
 }
 
+/// テスト用: 単一 primitive を execute_effect で適用 (src=Leader placeholder)。 返り値 = 処理できたか。
+pub fn apply_raw_effect(prim: &Value, state: &mut GameState, me_idx: usize) -> bool {
+    execute_effect(prim, state, me_idx, Slot::Leader)
+}
+
 /// 非静的 primitive を実行 (on_play 等)。 返り値 = 処理できたか (false=未対応→呼出側でカードが diverge)。
 /// fidelity 原則: 未対応 primitive は何もしない (誤適用ゼロ)。 rng を使う primitive
 /// (trash_self_hand_random 等) は Rust で bit 再現不可なので未対応扱い。
@@ -1130,6 +1135,42 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             let me = &mut state.players[me_idx];
             me.don_active += n;
             me.don_remaining_in_deck -= n;
+            true
+        }
+        // 自デッキシャッフル (effects.py:5411)。 Python rng.shuffle(me.deck) と同一列 (MT 復元) で並べ替え。
+        "shuffle_self_deck" => {
+            if !state.has_rng() {
+                return false; // rng 未供給 → 再現不能で bail
+            }
+            let n = state.players[me_idx].deck.len();
+            let perm = state.rng_mut().shuffle_perm(n);
+            let me = &mut state.players[me_idx];
+            let old = std::mem::take(&mut me.deck);
+            // Python shuffle は in-place: 結果[i] = 元[perm[i]] (shuffle_perm と同じ index 置換)。
+            me.deck = perm.iter().map(|&j| old[j].clone()).collect();
+            me.known_bottom_card_ids.clear();
+            me.known_top_card_ids.clear();
+            true
+        }
+        // 相手手札からランダム N 枚トラッシュ (effects.py:3199 trash_opp_hand_random / 5347 force_opp_discard)。
+        "trash_opp_hand_random" | "force_opp_discard" => {
+            if !state.has_rng() {
+                return false;
+            }
+            let n = if v.is_object() {
+                v.get("amount").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            };
+            for _ in 0..n {
+                if state.players[opp_idx].hand.is_empty() {
+                    break;
+                }
+                let len = state.players[opp_idx].hand.len() as u64;
+                let idx = state.rng_mut().randrange(len) as usize;
+                let c = state.players[opp_idx].hand.remove(idx);
+                state.players[opp_idx].trash.push(c);
+            }
             true
         }
         // 自デッキ上 N 枚をライフに (effects.py:4619)。

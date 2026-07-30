@@ -11,6 +11,7 @@ use pyo3::prelude::*;
 use sha1::{Digest, Sha1};
 
 mod effects;
+mod rng;
 mod rules;
 mod state;
 
@@ -123,8 +124,61 @@ fn legal_actions_json(state_json: &str) -> PyResult<String> {
     serde_json::to_string(&acts).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
+/// MT 検証: getstate keys (625) を JSON で受け、 各 k について getrandbits(k) を返す (Python 比較用)。
+#[pyfunction]
+fn mt_getrandbits(keys_json: &str, ks_json: &str) -> PyResult<String> {
+    let keys: Vec<u64> = serde_json::from_str(keys_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("keys: {e}")))?;
+    let ks: Vec<u32> = serde_json::from_str(ks_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("ks: {e}")))?;
+    let mut r = rng::PyRandom::from_state(&keys)
+        .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("bad state len"))?;
+    let out: Vec<u64> = ks.iter().map(|&k| r.getrandbits(k)).collect();
+    serde_json::to_string(&out).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
+/// MT 検証: getstate keys (625) を受け、 randrange(stop) の列を返す (stops_json = [u64...])。
+#[pyfunction]
+fn mt_randrange(keys_json: &str, stops_json: &str) -> PyResult<String> {
+    let keys: Vec<u64> = serde_json::from_str(keys_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("keys: {e}")))?;
+    let stops: Vec<u64> = serde_json::from_str(stops_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("stops: {e}")))?;
+    let mut r = rng::PyRandom::from_state(&keys)
+        .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("bad state len"))?;
+    let out: Vec<u64> = stops.iter().map(|&s| r.randrange(s)).collect();
+    serde_json::to_string(&out).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
+/// MT 検証: getstate keys (625) を受け、 shuffle([0..n)) の並びを返す。
+#[pyfunction]
+fn mt_shuffle(keys_json: &str, n: usize) -> PyResult<String> {
+    let keys: Vec<u64> = serde_json::from_str(keys_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("keys: {e}")))?;
+    let mut r = rng::PyRandom::from_state(&keys)
+        .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("bad state len"))?;
+    let out = r.shuffle_perm(n);
+    serde_json::to_string(&out).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
+/// テスト用: full_dump + 単一 effect (JSON) を受け、 execute_effect 適用後の digest を返す。
+/// rng 依存 primitive (shuffle_self_deck / trash_opp_hand_random) の bit-match 検証用。
+#[pyfunction]
+fn apply_raw_effect_digest(state_json: &str, effect_json: &str, me_idx: usize) -> PyResult<String> {
+    let mut st: state::GameState = serde_json::from_str(state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("state: {e}")))?;
+    let eff: serde_json::Value = serde_json::from_str(effect_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("effect: {e}")))?;
+    effects::apply_raw_effect(&eff, &mut st, me_idx);
+    digest_of(&st).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+}
+
 #[pymodule]
 fn optcg_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(apply_raw_effect_digest, m)?)?;
+    m.add_function(wrap_pyfunction!(mt_getrandbits, m)?)?;
+    m.add_function(wrap_pyfunction!(mt_randrange, m)?)?;
+    m.add_function(wrap_pyfunction!(mt_shuffle, m)?)?;
     m.add_function(wrap_pyfunction!(load_overlay, m)?)?;
     m.add_function(wrap_pyfunction!(recompute_static_digest, m)?)?;
     m.add_function(wrap_pyfunction!(recompute_static_blob, m)?)?;

@@ -430,4 +430,24 @@ pub struct GameState {
     // last_self_chara_played_iid は instance_id タグ = Rust 再現不可 → canonical から除外 (Python _EXCLUDE と一致)
     pub last_self_chara_played_from_trash: bool,
     pub last_trigger_kept_in_hand: bool,
+    // rng: full_dump の _rng_state (MT getstate keys 625) を入力として受け、 rng 依存 effect で消費。
+    // digest には含めない (Python state_digest は rng 非依存) = skip_serializing。 live は lazy init。
+    #[serde(rename = "_rng_state", default, skip_serializing)]
+    pub rng_state: Vec<u64>,
+    #[serde(skip)]
+    pub rng: Option<crate::rng::PyRandom>,
+}
+
+impl GameState {
+    /// rng_state (625 keys) から復元した live MT が使えるか。
+    pub fn has_rng(&self) -> bool {
+        self.rng.is_some() || self.rng_state.len() == 625
+    }
+    /// rng 依存 effect 用の live MT (初回に rng_state から復元)。 has_rng() が true の時のみ呼ぶ。
+    pub fn rng_mut(&mut self) -> &mut crate::rng::PyRandom {
+        if self.rng.is_none() {
+            self.rng = crate::rng::PyRandom::from_state(&self.rng_state);
+        }
+        self.rng.as_mut().expect("rng_mut: rng_state 未設定 (has_rng で確認せよ)")
+    }
 }

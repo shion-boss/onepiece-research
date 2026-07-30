@@ -131,8 +131,23 @@ def _ser_full(obj: Any) -> Any:
 
 
 def full_dump(state: Any) -> dict:
-    """Rust engine が deserialize できる full state dump (card は展開、 instance_id 除外)。"""
-    return _ser_full(state)
+    """Rust engine が deserialize できる full state dump (card は展開、 instance_id 除外)。
+
+    rng は _EXCLUDE で digest から除外されるが、 Rust が rng 依存 effect (trash_self_hand_random /
+    shuffle_self_deck 等) を bit-match するには pre-action の rng 内部状態が要る。 そこで full_dump
+    (= Rust の入力、 digest とは別経路) にだけ `_rng_state` = getstate() の keys (625 = mt[0..624]+pos)
+    を添える。 Rust 側はこれを MT19937 に復元し、 同じ乱数列を消費する (state_digest は rng 非依存のまま)。
+    """
+    d = _ser_full(state)
+    rng = getattr(state, "rng", None)
+    if rng is not None and hasattr(rng, "getstate"):
+        try:
+            st = rng.getstate()  # (version, tuple(625), gauss_next)
+            if isinstance(st, tuple) and len(st) >= 2 and isinstance(st[1], (tuple, list)):
+                d["_rng_state"] = [int(x) for x in st[1]]
+        except Exception:
+            pass
+    return d
 
 
 def diff_canonical(a: dict, b: dict, path: str = "") -> list:
