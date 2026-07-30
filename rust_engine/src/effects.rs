@@ -1574,6 +1574,97 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             state.last_self_chara_played_from_trash = false;
             execute_stage_on_play(state, me_idx, played_idx).is_ok()
         }
+        // 手札 or トラッシュからキャラ登場 (effects.py:7678 play_from_hand_or_trash、 AI=手札優先→トラッシュ)。
+        // ⚠ Python は hand 除去を loop 末尾で行う (= summon の on_play が hand を観測すると pop-first だと
+        //   timing がズレる)。 → execute_on_play が観測を持たない場合のみ inline 実行、 それ以外は bail:
+        //   登場カードに on_play / me 場に on_self_chara_played / opp 場に on_opp_chara_played があれば bail。
+        //   guard 通過時は execute_on_play が no-op なので pop-first で安全。 STAGE/dynamic/no_effect/field-full
+        //   は保守 bail。 played_from_trash は set しない (Python は trash 由来でも False = last_...from_trash=False)。
+        "play_from_hand_or_trash" => {
+            let spec = v.as_object();
+            let filt = spec.and_then(|o| o.get("filter"));
+            if let Some(fo) = filt.and_then(|f| f.as_object()) {
+                if fo.contains_key("cost_le_dynamic")
+                    || fo.contains_key("or")
+                    || fo.contains_key("name_in_last_discarded")
+                    || fo.contains_key("no_effect")
+                    || fo.get("category").and_then(|x| x.as_str()) == Some("STAGE")
+                {
+                    return false;
+                }
+            }
+            let limit = spec.and_then(|o| o.get("limit")).and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+            let rested = spec.and_then(|o| o.get("rested")).and_then(|x| x.as_bool()).unwrap_or(false);
+            // AI: 手札を順に take first limit, then トラッシュで残り
+            let mut hand_ch: Vec<usize> = vec![];
+            let mut trash_ch: Vec<usize> = vec![];
+            let mut found = 0usize;
+            {
+                let me = &state.players[me_idx];
+                for (i, c) in me.hand.iter().enumerate() {
+                    if found >= limit {
+                        break;
+                    }
+                    if c.category == crate::state::Category::Character
+                        && matches_filter(c, filt)
+                        && !card_no_play_via_effect(&c.card_id)
+                    {
+                        hand_ch.push(i);
+                        found += 1;
+                    }
+                }
+                for (i, c) in me.trash.iter().enumerate() {
+                    if found >= limit {
+                        break;
+                    }
+                    if c.category == crate::state::Category::Character && matches_filter(c, filt) {
+                        trash_ch.push(i);
+                        found += 1;
+                    }
+                }
+            }
+            if hand_ch.is_empty() && trash_ch.is_empty() {
+                return true; // 該当なし = no-op
+            }
+            if state.players[me_idx].characters.len() + hand_ch.len() + trash_ch.len() > 5 {
+                return false; // field full → trash_weakest 未対応
+            }
+            // removal-timing guard: execute_on_play が観測を持つなら bail
+            let opp = 1 - me_idx;
+            let board_reacts = me_board_has_when(state, me_idx, "on_self_chara_played")
+                || me_board_has_when(state, opp, "on_opp_chara_played");
+            let any_on_play = hand_ch
+                .iter()
+                .any(|&i| card_has_when(&state.players[me_idx].hand[i].card_id, "on_play"))
+                || trash_ch
+                    .iter()
+                    .any(|&i| card_has_when(&state.players[me_idx].trash[i].card_id, "on_play"));
+            if board_reacts || any_on_play {
+                return false;
+            }
+            // guard 通過 → execute_on_play は no-op。 summon 順 = hand 昇順 → trash 昇順。
+            let mut hand_sorted = hand_ch.clone();
+            hand_sorted.sort_unstable();
+            let mut trash_sorted = trash_ch.clone();
+            trash_sorted.sort_unstable();
+            let mut order: Vec<crate::state::CardDef> =
+                hand_sorted.iter().map(|&i| state.players[me_idx].hand[i].clone()).collect();
+            order.extend(trash_sorted.iter().map(|&i| state.players[me_idx].trash[i].clone()));
+            for &i in hand_sorted.iter().rev() {
+                state.players[me_idx].hand.remove(i);
+            }
+            for &i in trash_sorted.iter().rev() {
+                state.players[me_idx].trash.remove(i);
+            }
+            for card in order {
+                let mut ip = InPlay::of(card.clone(), true); // sickness=true
+                ip.rested = rested;
+                state.players[me_idx].characters.push(ip);
+                state.last_self_chara_played_card = Some(card);
+                state.last_self_chara_played_from_trash = false; // Python は trash 由来でも False
+            }
+            true
+        }
         // 自デッキ上 N 枚を見て並べ替え (effects.py:look_top_reorder)。 決定的 (AI 経路)。
         // to: top(順番維持=no-op)/ bottom(上N→下)/ choice(上Nをcost,name昇順)/ split(match_filter で振り分け)。
         "look_top_reorder" => {
@@ -2590,7 +2681,7 @@ pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> 
                 k,
                 "draw" | "add_don" | "add_don_active" | "add_rested_don" | "untap_don"
                     | "mill_self_top" | "put_top_to_life"
-                    | "play_from_trash" | "play_multi_from_trash"
+                    | "play_from_trash" | "play_multi_from_trash" | "play_from_hand_or_trash"
             ) {
                 return Err(format!("on_ko primitive 未対応 (source-gone): {k}"));
             }
@@ -2655,7 +2746,7 @@ pub fn fire_life_trigger(
                 k,
                 "draw" | "add_don" | "add_don_active" | "add_rested_don" | "untap_don"
                     | "mill_self_top" | "put_top_to_life"
-                    | "play_from_trash" | "play_multi_from_trash"
+                    | "play_from_trash" | "play_multi_from_trash" | "play_from_hand_or_trash"
             ) {
                 return Err(format!("life trigger primitive 未対応 (source-gone): {k}"));
             }
