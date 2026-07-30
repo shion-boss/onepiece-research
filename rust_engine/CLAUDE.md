@@ -31,6 +31,31 @@ Rust から見えない → **ターンを跨いで持続する状態は必ず c
 RNG 依存効果は `rng.rs` (MT19937、 CPython `random` の bit 再現) を使い、 `full_dump` の `_rng_state` から
 復元する (digest には rng を含めない = _EXCLUDE)。
 
+### 実装済みの落とし穴 (効果追従時に踏みやすい非自明パターン)
+
+過去に MISMATCH / 追従漏れを起こした「一見無害だが digest に効く」挙動。 新 primitive を書く時に確認する:
+
+- **`trigger_on_play` は category 問わず `last_self_chara_played_card` を更新** (effects.py:10661)。 STAGE 登場
+  (play_stage_from_hand / play_self の stage 版 / 通常 PlayStage) でも set が要る。 `on_self/opp_chara_played`
+  の *発火* だけが CHARACTER 限定。 これを漏らすと stage 登場効果カード (例: OP08-110) が MISMATCH。
+- **登場 primitive の hand 除去タイミング**: `play_from_hand` / `play_from_trash` / `play_self` は pop-first
+  (登場前に zone から除去) だが、 **`play_from_hand_or_trash` は loop 末尾で hand を除去** (= 登場カードの
+  on_play が hand をまだ観測する)。 Rust で pop-first に統一すると on_play が hand を読む効果でズレる →
+  `play_from_hand_or_trash` は execute_on_play が観測を持つ場合 (登場カードに on_play / 場に
+  on_self/opp_chara_played) は bail、 no-op 保証時のみ inline (effects.rs 参照)。
+- **登場系の `played_from_trash`**: `play_from_trash` は True を立てるが **`play_from_hand_or_trash` は trash
+  由来でも False** (Python 準拠) → `last_self_chara_played_from_trash` に効く。
+- **`play_self` の消費判定は object identity** (`_c is taken`、 game.py:2133)。 Rust `CardDef` は値型で identity
+  不可 → `card_id` 近似 + **trash に同名重複がある時は bail** (rules.rs、 correctness 保証)。 発動元 card は
+  transient `current_source_card_id` (state.rs、 `#[serde(skip)]`、 action 境界で None) で `fire_life_trigger`
+  が set/restore する。
+- **source-gone (life-trigger / on_ko / KO時ライフ) の allow-list**: `fire_life_trigger` / `fire_on_ko` は
+  `src=Slot::Leader` placeholder で発火するため、 player-level (src 不使用) primitive だけを allow-list に
+  足す。 target/self 参照する prim を入れると placeholder=leader で誤解決 → MISMATCH。
+- **once_per_turn の canonical 化**: top-level `once_per_turn` の発動済みは `once_per_turn_used` (set、
+  `iid:` 依存で _EXCLUDE) では Rust から見えない。 field-when 系は InPlay の `event_once_used` field に昇格
+  (`_FIELD_WHEN_ONCE_MIRROR`、 refresh で clear) して digest に載せる。
+
 ## ツール
 
 | 用途 | コマンド |
