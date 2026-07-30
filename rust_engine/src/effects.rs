@@ -2721,6 +2721,170 @@ fn fire_gated_do(
 }
 
 /// 【KO時】(on_ko) を発火 (effects.py:trigger_on_ko、 battle KO 経路 = by_opp_effect=false)。
+/// effects.py:_replace_ko_match の port。 Some(true)=対象一致 / Some(false)=不一致 / None=未知 target キーで bail。
+/// holder_is_victim = holder slot == victim slot (Rust は instance_id 無しなので位置で identity 代替)。
+/// truly_original_power = victim.card.power (印字値、 効果非依存)。
+fn replace_ko_match(
+    cond: &serde_json::Map<String, Value>,
+    holder_is_victim: bool,
+    victim: &crate::state::CardDef,
+    by_opp_effect: bool,
+) -> Option<bool> {
+    if cond.get("by_opp_effect").and_then(|v| v.as_bool()).unwrap_or(false) && !by_opp_effect {
+        return Some(false);
+    }
+    if cond.get("by_battle").and_then(|v| v.as_bool()).unwrap_or(false) && by_opp_effect {
+        return Some(false);
+    }
+    match cond.get("target").and_then(|v| v.as_str()).unwrap_or("self") {
+        "self" => {
+            if !holder_is_victim {
+                return Some(false);
+            }
+        }
+        "other_self_chara" => {
+            if holder_is_victim {
+                return Some(false);
+            }
+        }
+        "any_self_chara" => {}
+        _ => return Some(false),
+    }
+    if let Some(a) = cond.get("target_attribute").and_then(|v| v.as_str()) {
+        if !victim.attribute.contains(a) {
+            return Some(false);
+        }
+    }
+    if let Some(n) = cond.get("target_cost_le").and_then(|v| v.as_i64()) {
+        if victim.cost as i64 > n {
+            return Some(false);
+        }
+    }
+    if let Some(n) = cond.get("target_cost_ge").and_then(|v| v.as_i64()) {
+        if (victim.cost as i64) < n {
+            return Some(false);
+        }
+    }
+    if let Some(n) = cond.get("target_power_le").and_then(|v| v.as_i64()) {
+        if victim.power as i64 > n {
+            return Some(false);
+        }
+    }
+    if let Some(n) = cond.get("target_truly_original_power_eq").and_then(|v| v.as_i64()) {
+        if victim.power as i64 != n {
+            return Some(false);
+        }
+    }
+    if let Some(n) = cond.get("target_power_ge").and_then(|v| v.as_i64()) {
+        if (victim.power as i64) < n {
+            return Some(false);
+        }
+    }
+    if let Some(f) = cond.get("target_feature").and_then(|v| v.as_str()) {
+        if !victim.features.iter().any(|x| x == f) {
+            return Some(false);
+        }
+    }
+    if let Some(f) = cond.get("target_feature_contains").and_then(|v| v.as_str()) {
+        if !victim.features.iter().any(|x| x.contains(f)) {
+            return Some(false);
+        }
+    }
+    if let Some(c) = cond.get("target_color").and_then(|v| v.as_str()) {
+        if !victim.color.iter().any(|x| x == c) {
+            return Some(false);
+        }
+    }
+    if let Some(ex) = cond.get("target_name_exclude") {
+        let hit = match ex {
+            Value::String(s) => s == &victim.name,
+            Value::Array(a) => a.iter().any(|x| x.as_str() == Some(victim.name.as_str())),
+            _ => false,
+        };
+        if hit {
+            return Some(false);
+        }
+    }
+    if let Some(nm) = cond.get("target_name") {
+        let ok = match nm {
+            Value::String(s) => s == &victim.name,
+            Value::Array(a) => a.iter().any(|x| x.as_str() == Some(victim.name.as_str())),
+            _ => true,
+        };
+        if !ok {
+            return Some(false);
+        }
+    }
+    Some(true)
+}
+
+/// game.py:try_replace_ko の port (置換効果 replace_ko/replace_leave)。 victim は KO しようとするキャラ。
+/// Ok(true)=置換発動 (KO/離脱を阻止= victim 残存)、 Ok(false)=該当なし (通常 KO 続行)、 Err=再現不能 bail。
+/// ⚠ Phase A: 対象一致した replace は cost/do 未実装で bail。 不一致 (by_opp_effect 相違 / filter 外) だけ
+///   Ok(false) で通常 KO へ流す (battle KO=by_opp_effect false のカードが大半なので大量に解決)。
+pub fn try_replace_ko(
+    state: &GameState,
+    victim_owner: usize,
+    victim_char_idx: usize,
+    by_opp_effect: bool,
+    leave_kind: &str,
+) -> Result<bool, String> {
+    let Some(ov) = overlay() else { return Ok(false) };
+    let victim_slot = Slot::Char(victim_char_idx);
+    let victim_card = get_ip(&state.players[victim_owner], victim_slot).card.clone();
+    // holder 走査順: leader → chars → stages (Python と同順、 先頭一致で発動)
+    let mut holders: Vec<Slot> = vec![Slot::Leader];
+    for i in 0..state.players[victim_owner].characters.len() {
+        holders.push(Slot::Char(i));
+    }
+    for i in 0..state.players[victim_owner].stages.len() {
+        holders.push(Slot::Stage(i));
+    }
+    // extra_cond に回さない target/by_* キー (effects.py:12283 の除外リストと一致)
+    const EXCL: &[&str] = &[
+        "target", "target_attribute", "target_cost_le", "target_power_le", "target_power_ge",
+        "target_feature", "target_feature_contains", "target_color", "target_name_exclude",
+        "target_name", "target_rested", "by_opp_effect", "by_battle",
+    ];
+    let empty = serde_json::Map::new();
+    for hslot in holders {
+        let hcid = get_ip(&state.players[victim_owner], hslot).card.card_id.clone();
+        let Some(effs) = ov.get(&hcid) else { continue };
+        for eff in effs {
+            let matches_leave = match eff.get("when").and_then(|v| v.as_str()) {
+                Some("replace_ko") => leave_kind == "ko",
+                Some("replace_leave") => true,
+                _ => false,
+            };
+            if !matches_leave {
+                continue;
+            }
+            let cond = eff.get("if").and_then(|v| v.as_object()).unwrap_or(&empty);
+            match replace_ko_match(cond, hslot == victim_slot, &victim_card, by_opp_effect) {
+                Some(true) => {}
+                Some(false) => continue,
+                None => return Err("replace_ko match 未知 target キー".into()),
+            }
+            // target/by_* 以外の条件 (leader_feature 等) を eval_condition (holder = src)
+            let extra: serde_json::Map<String, Value> = cond
+                .iter()
+                .filter(|(k, _)| !EXCL.contains(&k.as_str()))
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            if !extra.is_empty() {
+                match eval_condition(&Value::Object(extra), state, victim_owner, Some(hslot)) {
+                    Some(true) => {}
+                    Some(false) => continue,
+                    None => return Err("replace_ko extra_cond unknown".into()),
+                }
+            }
+            // 対象一致 = 置換が発動する。 Phase A では cost/do を実装せず bail (correctness 優先)
+            return Err(format!("replace_ko/leave fire 未対応 ({hcid})"));
+        }
+    }
+    Ok(false)
+}
+
 /// victim は既に trash (source-gone) なので Slot::Leader を placeholder に player-level の安全 prim のみ発火。
 /// chara_ko_taken_this_turn++ は battle_ko_character 側で実施済 (Python は trigger_on_ko で全 KO 分加算、 同義)。
 /// ⚠ source-gone: src (=self) を参照する prim / target 系は placeholder=leader に誤解決するため

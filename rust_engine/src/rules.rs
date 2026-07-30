@@ -166,11 +166,10 @@ fn do_battle_ko(
     fire_self_battle_ko: bool,
 ) -> Result<(), String> {
     let vcid = state.players[victim_owner].characters[victim_idx].card.card_id.clone();
-    // replace_ko/replace_leave は KO を置換 (阻止) する = battle_ko_character を回すと誤 KO → bail 維持。
-    if board_has_when(&state.players[victim_owner], "replace_ko")
-        || board_has_when(&state.players[victim_owner], "replace_leave")
-    {
-        return Err("KO cascade (replace) 未対応".into());
+    // replace_ko/replace_leave 置換効果 (game.py:1949、 battle KO は by_opp_effect=false)。 対象一致で
+    // 置換発動→ KO 阻止 (victim 残存、 on_ko cascade 無し)。 不一致 (by_opp_effect 相違等) は通常 KO へ。
+    if crate::effects::try_replace_ko(state, victim_owner, victim_idx, false, "ko")? {
+        return Ok(());
     }
     if fire_self_battle_ko && crate::effects::card_has_when(attacker_cid, "on_self_battle_ko") {
         return Err("on_self_battle_ko 未対応".into());
