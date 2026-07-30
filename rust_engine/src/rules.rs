@@ -166,6 +166,7 @@ fn do_battle_ko(
     fire_self_battle_ko: bool,
 ) -> Result<(), String> {
     let vcid = state.players[victim_owner].characters[victim_idx].card.card_id.clone();
+    let vcard = state.players[victim_owner].characters[victim_idx].card.clone();
     // replace_ko/replace_leave 置換効果 (game.py:1949、 battle KO は by_opp_effect=false)。 対象一致で
     // 置換発動→ KO 阻止 (victim 残存、 on_ko cascade 無し)。 不一致 (by_opp_effect 相違等) は通常 KO へ。
     if crate::effects::try_replace_ko(state, victim_owner, victim_idx, false, "ko")? {
@@ -176,10 +177,27 @@ fn do_battle_ko(
     }
     battle_ko_character(state, victim_owner, victim_idx);
     // game.py 準拠の順: trigger_on_ko (victim 側) → on_opp_chara_ko (攻撃側) → on_self_chara_ko (victim 側)。
-    crate::effects::fire_on_ko(state, victim_owner, &vcid)?;
-    crate::effects::fire_field_when(state, attacker_owner, "on_opp_chara_ko")?;
-    crate::effects::fire_field_when(state, victim_owner, "on_self_chara_ko")?;
-    Ok(())
+    // Python trigger_on_ko が last_chara_ko_victim_card=victim を set (victim_* 条件用)、 cascade 完了後 None。
+    state.last_chara_ko_victim_card = Some(vcard);
+    let mut err: Option<String> = None;
+    if let Err(e) = crate::effects::fire_on_ko(state, victim_owner, &vcid) {
+        err = Some(e);
+    }
+    if err.is_none() {
+        if let Err(e) = crate::effects::fire_field_when(state, attacker_owner, "on_opp_chara_ko") {
+            err = Some(e);
+        }
+    }
+    if err.is_none() {
+        if let Err(e) = crate::effects::fire_field_when(state, victim_owner, "on_self_chara_ko") {
+            err = Some(e);
+        }
+    }
+    state.last_chara_ko_victim_card = None;
+    match err {
+        Some(e) => Err(e),
+        None => Ok(()),
+    }
 }
 
 /// game.py:_reset_turn_buff = ターン終了時のバフ/フラグクリア (applier-tracking 含む)。

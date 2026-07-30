@@ -229,6 +229,20 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             "self_hand_count_ge" => (me.hand.len() as i64) >= v.as_i64().unwrap_or(0),
             "opp_hand_count_ge" => (opp.hand.len() as i64) >= v.as_i64().unwrap_or(0),
             "opp_hand_count_le" => (opp.hand.len() as i64) <= v.as_i64().unwrap_or(0),
+            // 直近 KO victim の元々パワー (card.power) >= N / 特徴が list に含まれる (effects.py:1428/1434)。
+            // last_chara_ko_victim_card は ko cascade 中のみ set (完了後 None)。
+            "victim_truly_original_power_ge" => state
+                .last_chara_ko_victim_card
+                .as_ref()
+                .map_or(false, |vic| (vic.power as i64) >= v.as_i64().unwrap_or(0)),
+            "victim_feature_in" => state.last_chara_ko_victim_card.as_ref().map_or(false, |vic| {
+                let feats: Vec<&str> = match v {
+                    Value::Array(a) => a.iter().filter_map(|x| x.as_str()).collect(),
+                    Value::String(s) => vec![s.as_str()],
+                    _ => vec![],
+                };
+                feats.iter().any(|f| vic.features.iter().any(|vf| vf == f))
+            }),
             // 相手/自分のレストキャラ数 >= N (effects.py:1250/1326)。
             "opp_rested_chara_count_ge" => {
                 (opp.characters.iter().filter(|c| c.rested).count() as i64) >= v.as_i64().unwrap_or(0)
@@ -2597,21 +2611,28 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             let vcid = state.players[vpi].characters[vidx].card.card_id.clone();
             let vdon = state.players[vpi].characters[vidx].attached_dons;
             let removed = state.players[vpi].characters.remove(vidx);
+            let vcard = removed.card.clone();
             state.players[vpi].trash.push(removed.card);
             state.players[vpi].don_rested += vdon;
             state.players[vpi].chara_ko_taken_this_turn += 1;
             // effects.py:3320 順: on_ko(victim側 source-gone)→ on_opp_chara_ko(me)→ on_self_chara_ko(victim側)
             //   → on_self_chara_leave_by_self_effect(me、 effect 発動者視点)。 各 fire 未対応は Err→false。
-            if fire_on_ko(state, vpi, &vcid).is_err() {
-                return false;
+            // Python trigger_on_ko が last_chara_ko_victim_card=victim を set、 on_self_chara_ko 末尾で None に
+            // 戻す (victim_* 条件が cascade 中読む)。 digest 時は None = 一致。
+            state.last_chara_ko_victim_card = Some(vcard);
+            let mut cascade_err = fire_on_ko(state, vpi, &vcid).is_err();
+            if !cascade_err {
+                cascade_err = fire_field_when(state, me_idx, "on_opp_chara_ko").is_err();
             }
-            if fire_field_when(state, me_idx, "on_opp_chara_ko").is_err() {
-                return false;
+            if !cascade_err {
+                cascade_err = fire_field_when(state, vpi, "on_self_chara_ko").is_err();
             }
-            if fire_field_when(state, vpi, "on_self_chara_ko").is_err() {
-                return false;
+            if !cascade_err {
+                cascade_err =
+                    fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err();
             }
-            if fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err() {
+            state.last_chara_ko_victim_card = None;
+            if cascade_err {
                 return false;
             }
             true
@@ -4224,12 +4245,26 @@ pub fn fire_activate_main(
             if let Some(i) = me.characters.iter().position(|ch| matches_filter(&ch.card, Some(kf))) {
                 let removed = me.characters.remove(i);
                 let vcid = removed.card.card_id.clone();
+                let vcard = removed.card.clone();
                 let don = removed.attached_dons;
                 me.trash.push(removed.card);
                 me.don_rested += don;
                 me.chara_ko_taken_this_turn += 1; // trigger_on_ko 相当 (全 KO で加算)
-                fire_on_ko(state, me_idx, &vcid)?;
-                fire_field_when(state, me_idx, "on_self_chara_ko")?;
+                // last_chara_ko_victim_card set (victim_* 条件用)、 cascade 完了後 None (Python 準拠)。
+                state.last_chara_ko_victim_card = Some(vcard);
+                let mut err: Option<String> = None;
+                if let Err(e) = fire_on_ko(state, me_idx, &vcid) {
+                    err = Some(e);
+                }
+                if err.is_none() {
+                    if let Err(e) = fire_field_when(state, me_idx, "on_self_chara_ko") {
+                        err = Some(e);
+                    }
+                }
+                state.last_chara_ko_victim_card = None;
+                if let Some(e) = err {
+                    return Err(e);
+                }
             }
         }
     }
