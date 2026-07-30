@@ -2724,6 +2724,53 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 相手リーダーに N ダメージ (effects.py:5322、 EB03-055 on_ko)。 相手ライフ N を相手手札へ (トリガー
+        // 判定は省略=公式簡略、 Python 準拠)。 ⚠ ライフ 0 の時は on_life_zero + declare_winner cascade →
+        // 未対応で bail。
+        "deal_opp_leader_damage" => {
+            let n = if v.is_object() {
+                v.get("amount").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            };
+            for _ in 0..n {
+                if state.players[opp_idx].life.is_empty() {
+                    return false; // on_life_zero + declare_winner 未対応
+                }
+                let taken = state.players[opp_idx].life.remove(0);
+                state.players[opp_idx].hand.push(taken);
+            }
+            true
+        }
+        // 自トラッシュから filter 一致 count 枚を手札へ公開追加 (effects.py:7029、 OP14-093 on_ko)。
+        // AI = trash 順で先頭 count 枚。 add_to_hand_publicly = hand + known_hand_card_ids。 dynamic filter は bail。
+        "search_from_trash" => {
+            let filt = v.get("filter");
+            if let Some(fo) = filt.and_then(|f| f.as_object()) {
+                if fo.keys().any(|k| k.ends_with("_dynamic")) {
+                    return false;
+                }
+            }
+            let count = v.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+            let me = &mut state.players[me_idx];
+            let mut picks: Vec<usize> = vec![];
+            for (i, c) in me.trash.iter().enumerate() {
+                if picks.len() >= count {
+                    break;
+                }
+                if matches_filter(c, filt) {
+                    picks.push(i);
+                }
+            }
+            // 降順 pop (index ずれ防止) → hand + known_hand (Python は sorted(-idx) 順で add_to_hand_publicly)。
+            picks.sort_unstable_by(|a, b| b.cmp(a));
+            for i in picks {
+                let c = me.trash.remove(i);
+                me.known_hand_card_ids.push(c.card_id.clone());
+                me.hand.push(c);
+            }
+            true
+        }
         // このターン中キャラ登場禁止 (effects.py:5686、 OP14-020 緑ミホーク)。 Phase.END でクリア。
         // block_chara_play / block_chara_play_turn: 共に自陣キャラ登場禁止 flag (effects.py:5544/5707)。
         "block_chara_play" | "block_chara_play_turn" => {
@@ -3388,6 +3435,7 @@ pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> 
                     | "mill_self_top" | "put_top_to_life"
                     | "play_from_trash" | "play_multi_from_trash" | "play_from_hand_or_trash"
                     | "ko_opp_stage" | "search_top_n" | "set_cannot_attack"
+                    | "deal_opp_leader_damage" | "search_from_trash"
             ) {
                 return Err(format!("on_ko primitive 未対応 (source-gone): {k}"));
             }
