@@ -3674,6 +3674,9 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "optional_discard_hand_for_battle_buff" | "conditional" | "optional_cost_then"
             | "play_from_hand" | "play_from_trash" | "play_multi_from_trash"
             | "rest_self_don_for_battle_buff_per_don"
+            // block_self_draw_turn = player-level flag のみ (src 非参照/cascade 無)。 OP12-099 の
+            // on_self_life_to_hand [draw, block_self_draw_turn] が OP08-098 then_life 経由で発火。
+            | "block_self_draw_turn"
     )
 }
 
