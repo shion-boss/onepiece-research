@@ -229,6 +229,13 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             "self_hand_count_ge" => (me.hand.len() as i64) >= v.as_i64().unwrap_or(0),
             "opp_hand_count_ge" => (opp.hand.len() as i64) >= v.as_i64().unwrap_or(0),
             "opp_hand_count_le" => (opp.hand.len() as i64) <= v.as_i64().unwrap_or(0),
+            // 相手/自分のレストキャラ数 >= N (effects.py:1250/1326)。
+            "opp_rested_chara_count_ge" => {
+                (opp.characters.iter().filter(|c| c.rested).count() as i64) >= v.as_i64().unwrap_or(0)
+            }
+            "self_rested_chara_count_ge" => {
+                (me.characters.iter().filter(|c| c.rested).count() as i64) >= v.as_i64().unwrap_or(0)
+            }
             // 自ドン総数 - 相手ドン総数 <= N (effects.py:don_diff_le)
             "don_diff_le" => {
                 let atk = |p: &Player| (p.don_active + p.don_rested + p.leader.attached_dons
