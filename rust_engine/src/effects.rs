@@ -679,6 +679,37 @@ fn parse_after(s: &str, marker: &str) -> Option<i32> {
     num.parse().ok()
 }
 
+/// cost_le_dynamic を静的 cost_le に解決 (effects.py:_resolve_dynamic_filter)。 filter に cost_le_dynamic が
+/// あれば source から値を計算して cost_le に置換 (無ければ clone をそのまま)。
+fn resolve_dynamic_filter(filt: Option<&Value>, state: &GameState, me_idx: usize) -> Option<Value> {
+    let filt = filt?;
+    let o = filt.as_object()?;
+    if !o.contains_key("cost_le_dynamic") {
+        return Some(filt.clone());
+    }
+    let opp_idx = 1 - me_idx;
+    let me = &state.players[me_idx];
+    let opp = &state.players[opp_idx];
+    let src = o.get("cost_le_dynamic").and_then(|x| x.as_str()).unwrap_or("");
+    let cost_le: i64 = match src {
+        "sum_both_life_count" => (me.life.len() + opp.life.len()) as i64,
+        "self_don_total" => {
+            let attached: i32 = me.leader.attached_dons
+                + me.characters.iter().map(|c| c.attached_dons).sum::<i32>()
+                + me.stages.iter().map(|s| s.attached_dons).sum::<i32>();
+            (me.don_active + me.don_rested + attached) as i64
+        }
+        "self_don_active" => me.don_active as i64,
+        "opp_life_count" => opp.life.len() as i64,
+        "self_life_count" => me.life.len() as i64,
+        _ => 99, // 未知 source = 制限なし相当
+    };
+    let mut m = o.clone();
+    m.remove("cost_le_dynamic");
+    m.insert("cost_le".to_string(), Value::Number(cost_le.into()));
+    Some(Value::Object(m))
+}
+
 /// 場 5 枚での効果登場時、 最弱キャラ (power→cost 昇順、 tie は先頭) を 1 枚トラッシュ (core.py:762、
 /// 公式 3-7-6-1)。 KO ではない = on_ko trigger 無し (単純除去 + 付与ドン返却)。 満杯でなければ no-op。
 fn trash_weakest_for_field_full(state: &mut GameState, me_idx: usize) {
@@ -1860,10 +1891,11 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         // field-full(trash_weakest)。 登場後 execute_on_play で on_play cascade 発火。
         "play_from_hand" => {
             let spec = v.as_object();
-            let filt = spec.and_then(|o| o.get("filter"));
+            // cost_le_dynamic を静的化してから使う (self_don_total 等)。
+            let resolved = resolve_dynamic_filter(spec.and_then(|o| o.get("filter")), state, me_idx);
+            let filt = resolved.as_ref();
             if let Some(fo) = filt.and_then(|f| f.as_object()) {
-                if fo.contains_key("cost_le_dynamic")
-                    || fo.contains_key("or")
+                if fo.contains_key("or")
                     || fo.contains_key("name_in_last_discarded")
                     || fo.contains_key("no_effect")
                     || fo.get("category").and_then(|x| x.as_str()) == Some("STAGE")
