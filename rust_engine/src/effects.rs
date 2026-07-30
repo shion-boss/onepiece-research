@@ -2014,9 +2014,10 @@ fn pay_don_field(state: &mut GameState, me_idx: usize, n: i32) -> bool {
 /// on_play の cost を AI 自動支払い (effects.py: AI は auto-pay)。
 /// Some(true)=支払い済で発動 / Some(false)=支払い不能で skip / None=未対応 cost 種別で skip。
 /// ⚠ pay_don のみ対応 (deterministic)。 discard_hand(random)/rest_self/once_per_turn 等は未対応 → skip。
-fn pay_on_play_cost(cost: &Value, state: &mut GameState, me_idx: usize) -> Option<bool> {
+fn pay_on_play_cost(cost: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> Option<bool> {
     let mut pay_don = 0i32;
     let mut rest_don = 0i32;
+    let mut rest_self = false;
     let entries: Vec<(String, i64)> = if let Some(o) = cost.as_object() {
         o.iter().map(|(k, v)| (k.clone(), v.as_i64().unwrap_or(0))).collect()
     } else if let Some(arr) = cost.as_array() {
@@ -2033,8 +2034,16 @@ fn pay_on_play_cost(cost: &Value, state: &mut GameState, me_idx: usize) -> Optio
             "pay_don" => pay_don += v as i32,
             "rest_self_don" => rest_don += v as i32,
             "discard_hand" => discard_n += v as i32,
+            "rest_self" => rest_self = true,
             _ => return None, // 未対応 cost 種別 → skip effect
         }
+    }
+    // rest_self: source (= 登場カード自身) をレスト。 既レストなら払えない (payability)。
+    if rest_self {
+        if get_ip(&state.players[me_idx], src).rested {
+            return Some(false);
+        }
+        get_ip_mut(&mut state.players[me_idx], src).rested = true;
     }
     // rest_self_don: don_active >= n 必要 (payability)、 active→rested。
     if rest_don > 0 {
@@ -2152,7 +2161,7 @@ fn execute_card_effects(
             None => return Err(format!("{when} 条件 unknown ({card_id})")),
         }
         if let Some(cost) = eff.get("cost") {
-            match pay_on_play_cost(cost, state, me_idx) {
+            match pay_on_play_cost(cost, state, me_idx, src) {
                 Some(true) => {}
                 Some(false) => continue,   // cost 払えない = Python も skip
                 None => return Err(format!("{when} cost 未対応 ({card_id})")),
