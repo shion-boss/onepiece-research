@@ -4815,6 +4815,24 @@ fn field_when_once_mirrored(when: &str) -> bool {
 ///  - cost 持ち: ai_should_fire ヒューリスティックで判定 → skip(=何もしない)なら一致、 fire なら Err
 ///    (cost 支払い + cascade + 防御 target 解決が要る = 未対応で bail)
 ///  走査順 = leader → characters → stages (_enqueue_opp_attack_with_cost)。
+/// trash_self counter cost の do が source-gone (src=trash 済) で発火して安全か。
+/// src (=self) を参照する prim (target "self"/"self_inplay") は Python(None)と Rust(present)でズレるので unsafe。
+/// player-level (draw/untap_don 等) や self_leader 等の非 src target は safe。
+fn trash_self_do_safe(prim: &Value) -> bool {
+    // src (=trash 済 self) を参照する prim (target "self"/"self_inplay") は source-gone 発火で
+    // placeholder=leader に誤解決 = unsafe。 player-level (draw/untap_don) や self_leader は safe。
+    let Some(o) = prim.as_object() else { return true };
+    for (_, v) in o {
+        if matches!(v.get("target").and_then(|t| t.as_str()), Some("self") | Some("self_inplay")) {
+            return false;
+        }
+        if matches!(v.as_str(), Some("self") | Some("self_inplay")) {
+            return false;
+        }
+    }
+    true
+}
+
 pub fn fire_opp_attack(
     state: &mut GameState,
     defender_idx: usize,
@@ -4836,6 +4854,8 @@ pub fn fire_opp_attack(
     //   discard cost payability を狂わせ MISMATCH になる。 よって collect は全 slot を跨いで行い、
     //   fire は collect 完了後に (slot→idx 順 = source→sorted idx 順で) 実行する。
     let mut fired: Vec<(Slot, usize)> = vec![];
+    // trash_self cost 効果: (source char index, do 配列)。 Python 順 = pay(=trash 全部)→fire(全部 source-gone)。
+    let mut trash_self_fires: Vec<(usize, Vec<Value>)> = vec![];
     for slot in slots {
         let cid = get_ip(&state.players[defender_idx], slot).card.card_id.clone();
         let Some(effs) = ov.get(&cid) else { continue };
@@ -4883,6 +4903,30 @@ pub fn fire_opp_attack(
             ) {
                 continue;
             }
+            // trash_self cost の deferred 化 (OP11-049/ST22-002/ST24-002): cost が trash_self(+once)のみ・
+            // do が source-gone-safe (非 src 参照)・on_self_chara_leave_by_self_effect cascade 無し なら、
+            // 通常通り fire を先に回し (source present、 do prim は非 src 参照で source-gone と同値)、 fire 完了
+            // 後に source を trash する (Python は pay=trash→fire=source-gone の順だが、 do/cascade 非依存で
+            // 最終 digest 一致)。 それ以外は従来通り try_pay が Err bail。
+            if let Slot::Char(ci) = slot {
+                if let Some(o) = cost.as_object() {
+                    if o.get("trash_self").map_or(false, json_truthy)
+                        && o.keys().all(|k| k == "trash_self" || k == "once_per_turn")
+                        && eff.get("do").and_then(|v| v.as_array())
+                            .map_or(true, |arr| arr.iter().all(trash_self_do_safe))
+                        // on_self_chara_leave_by_self_effect cascade は source-gone fire で再現不能なので guard。
+                        && !me_board_has_when(state, defender_idx, "on_self_chara_leave_by_self_effect")
+                        && !me_board_has_when(state, 1 - defender_idx, "on_self_chara_leave_by_self_effect")
+                    {
+                        if once.and_then(|q| q.as_bool()) == Some(true) {
+                            get_ip_mut(&mut state.players[defender_idx], slot).mark_attack_once(idx as i64);
+                        }
+                        let dos = eff.get("do").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+                        trash_self_fires.push((ci, dos));
+                        continue;
+                    }
+                }
+            }
             // 支払い (未対応 cost = discard/trash_self 等は Err で bail)
             match try_pay_counter_cost(state, defender_idx, slot, cost)? {
                 true => {}
@@ -4906,6 +4950,23 @@ pub fn fire_opp_attack(
         }
         let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
         fire_gated_do(state, defender_idx, slot, dos)?;
+    }
+    // trash_self cost: ⚠ Python は cost 支払い(=trash)で source が場を離れる → event resolve 時に
+    //   self_inplay=None (source-gone) で opp_attack は _execute_event が **早期 return = do を発火しない**
+    //   (effects.py:270、 opp_attack は on_ko/main/counter/trigger の allow-list 外)。 = ST24-002 キッド&キラー
+    //   の untap_don 等は「自身 trash のみ・効果不発」が公式挙動 (self-trash opp_attack の engine 帰結)。
+    //   → Rust も source を trash するだけで do は fire しない。 index 降順 remove で shift 回避、 付与ドン→レスト、
+    //   KO でなく leave=chara_ko 非加算。 leave cascade は collect 時の guard で無し。
+    if !trash_self_fires.is_empty() {
+        trash_self_fires.sort_by_key(|(ci, _)| *ci);
+        for (ci, _) in trash_self_fires.iter().rev() {
+            if *ci < state.players[defender_idx].characters.len() {
+                let removed = state.players[defender_idx].characters.remove(*ci);
+                let don = removed.attached_dons;
+                state.players[defender_idx].trash.push(removed.card);
+                state.players[defender_idx].don_rested += don;
+            }
+        }
     }
     Ok(())
 }
