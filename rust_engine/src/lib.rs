@@ -218,7 +218,7 @@ fn setup_pre_mulligan_blob(
 /// deck{1,2}_json = setup_pre_mulligan と同じ deck Value、 rng_state_json = MT getstate (625 keys)、
 /// mode = "greedy" | "beam"。 返り値 = {winner, turns, game_over, steps} の JSON。
 #[pyfunction]
-#[pyo3(signature = (deck1_json, deck2_json, rng_state_json, first_player, mode="greedy", weights_json=None, beam_width=8, max_depth=12, max_turns=40, collect_traj=false))]
+#[pyo3(signature = (deck1_json, deck2_json, rng_state_json, first_player, mode="greedy", weights_json=None, beam_width=8, max_depth=12, max_turns=40, collect_traj=false, rollout_plies=80))]
 #[allow(clippy::too_many_arguments)]
 fn self_play(
     deck1_json: &str,
@@ -231,6 +231,7 @@ fn self_play(
     max_depth: usize,
     max_turns: i32,
     collect_traj: bool,
+    rollout_plies: usize,
 ) -> PyResult<String> {
     let d1: serde_json::Value = serde_json::from_str(deck1_json)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deck1: {e}")))?;
@@ -246,17 +247,17 @@ fn self_play(
         _ => None,
     };
     let res = selfplay::play_game(
-        &d1, &d2, &rng_state, first_player, mode, w.as_deref(), w.as_deref(),
-        beam_width, max_depth, max_turns, collect_traj,
+        &d1, &d2, &rng_state, first_player, mode, mode, w.as_deref(), w.as_deref(),
+        beam_width, max_depth, rollout_plies, max_turns, collect_traj,
     )
     .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
     serde_json::to_string(&res).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
 /// A/B eval: player0 が weights0、 player1 が weights1 の value で対戦し winner を返す (head-to-head)。
-/// 学習 value (weights0) vs heuristic/旧 value (weights1=None/旧) の強さ比較用。
+/// 学習 value (weights0) vs heuristic/旧 value (weights1=None/旧) の強さ比較用。 方策は両者同一 (mode)。
 #[pyfunction]
-#[pyo3(signature = (deck1_json, deck2_json, rng_state_json, first_player, mode="beam", weights0_json=None, weights1_json=None, beam_width=8, max_depth=12, max_turns=40))]
+#[pyo3(signature = (deck1_json, deck2_json, rng_state_json, first_player, mode="beam", weights0_json=None, weights1_json=None, beam_width=8, max_depth=12, max_turns=40, rollout_plies=80))]
 #[allow(clippy::too_many_arguments)]
 fn eval_ab(
     deck1_json: &str,
@@ -269,6 +270,7 @@ fn eval_ab(
     beam_width: usize,
     max_depth: usize,
     max_turns: i32,
+    rollout_plies: usize,
 ) -> PyResult<String> {
     let d1: serde_json::Value = serde_json::from_str(deck1_json)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deck1: {e}")))?;
@@ -288,23 +290,68 @@ fn eval_ab(
     let w0 = parse_w(weights0_json)?;
     let w1 = parse_w(weights1_json)?;
     let res = selfplay::play_game(
-        &d1, &d2, &rng_state, first_player, mode, w0.as_deref(), w1.as_deref(),
-        beam_width, max_depth, max_turns, false,
+        &d1, &d2, &rng_state, first_player, mode, mode, w0.as_deref(), w1.as_deref(),
+        beam_width, max_depth, rollout_plies, max_turns, false,
+    )
+    .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+    serde_json::to_string(&res).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
+/// 方策 A/B: player0 が mode0/weights0、 player1 が mode1/weights1 で対戦し winner を返す。
+/// eval_ab と違い **方策 (rollout/beam/greedy) を左右で変えられる** = expert (rollout) vs beam の強さ測定用。
+#[pyfunction]
+#[pyo3(signature = (deck1_json, deck2_json, rng_state_json, first_player, mode0, mode1, weights0_json=None, weights1_json=None, beam_width=8, max_depth=12, max_turns=40, rollout_plies=80))]
+#[allow(clippy::too_many_arguments)]
+fn eval_policies(
+    deck1_json: &str,
+    deck2_json: &str,
+    rng_state_json: &str,
+    first_player: usize,
+    mode0: &str,
+    mode1: &str,
+    weights0_json: Option<&str>,
+    weights1_json: Option<&str>,
+    beam_width: usize,
+    max_depth: usize,
+    max_turns: i32,
+    rollout_plies: usize,
+) -> PyResult<String> {
+    let d1: serde_json::Value = serde_json::from_str(deck1_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deck1: {e}")))?;
+    let d2: serde_json::Value = serde_json::from_str(deck2_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deck2: {e}")))?;
+    let rng_state: Vec<u64> = serde_json::from_str(rng_state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("rng_state: {e}")))?;
+    let parse_w = |s: Option<&str>| -> PyResult<Option<Vec<f64>>> {
+        match s {
+            Some(x) if !x.is_empty() => Ok(Some(
+                serde_json::from_str(x)
+                    .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("weights: {e}")))?,
+            )),
+            _ => Ok(None),
+        }
+    };
+    let w0 = parse_w(weights0_json)?;
+    let w1 = parse_w(weights1_json)?;
+    let res = selfplay::play_game(
+        &d1, &d2, &rng_state, first_player, mode0, mode1, w0.as_deref(), w1.as_deref(),
+        beam_width, max_depth, rollout_plies, max_turns, false,
     )
     .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
     serde_json::to_string(&res).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
 /// 与えられた state (full_dump JSON) に対し Rust の方策/探索が選ぶ action を返す (canonical action dict JSON)。
-/// mode = "greedy" | "beam"、 weights_json = 学習 value 重み (省略で heuristic)。
+/// mode = "greedy" | "beam" | "rollout"、 weights_json = 学習 value 重み (省略で heuristic)。
 #[pyfunction]
-#[pyo3(signature = (state_json, mode="greedy", weights_json=None, beam_width=8, max_depth=12))]
+#[pyo3(signature = (state_json, mode="greedy", weights_json=None, beam_width=8, max_depth=12, rollout_plies=80))]
 fn choose_action(
     state_json: &str,
     mode: &str,
     weights_json: Option<&str>,
     beam_width: usize,
     max_depth: usize,
+    rollout_plies: usize,
 ) -> PyResult<String> {
     let st: state::GameState = serde_json::from_str(state_json)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
@@ -315,17 +362,57 @@ fn choose_action(
         ),
         _ => None,
     };
-    let action = match mode {
-        "beam" => selfplay::beam_action(&st, w.as_deref(), beam_width, max_depth),
-        _ => selfplay::greedy_action(&st, w.as_deref()),
-    };
+    let action = selfplay::choose_move(&st, mode, w.as_deref(), beam_width, max_depth, rollout_plies);
     serde_json::to_string(&action).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
+/// self-play の実装カバレッジ計器を読む。 返り値 JSON:
+///   defense = {attacks, blocker_available, candidate_bails, chose_block, chose_counter}
+///   actions = {<action type>: {ok, bail}}  (diag=true で self-play した分のみ)
+/// bail = 「Rust が解決できず方策が黙って捨てた手」 = 実装漏れの在処。
+#[pyfunction]
+fn coverage_stats() -> PyResult<String> {
+    use std::sync::atomic::Ordering;
+    let d: Vec<u64> = selfplay::DEF_STATS.iter().map(|a| a.load(Ordering::Relaxed)).collect();
+    let acts: serde_json::Value = match selfplay::ACTION_STATS.lock() {
+        Ok(m) => m
+            .iter()
+            .map(|(k, v)| (k.clone(), serde_json::json!({"ok": v[0], "bail": v[1]})))
+            .collect::<serde_json::Map<_, _>>()
+            .into(),
+        Err(_) => serde_json::json!({}),
+    };
+    Ok(serde_json::json!({
+        "defense": {
+            "attacks": d[0], "blocker_available": d[1], "candidate_bails": d[2],
+            "chose_block": d[3], "chose_counter": d[4],
+        },
+        "actions": acts,
+    })
+    .to_string())
+}
+
+/// 計器のリセット + 診断モード切替 (diag=true で action 種別ごとの ok/bail 計数を有効化。 わずかに遅くなる)。
+#[pyfunction]
+#[pyo3(signature = (diag=false))]
+fn reset_coverage_stats(diag: bool) {
+    use std::sync::atomic::Ordering;
+    for a in selfplay::DEF_STATS.iter() {
+        a.store(0, Ordering::Relaxed);
+    }
+    if let Ok(mut m) = selfplay::ACTION_STATS.lock() {
+        m.clear();
+    }
+    selfplay::DIAG_ON.store(diag, Ordering::Relaxed);
 }
 
 #[pymodule]
 fn optcg_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(self_play, m)?)?;
+    m.add_function(wrap_pyfunction!(coverage_stats, m)?)?;
+    m.add_function(wrap_pyfunction!(reset_coverage_stats, m)?)?;
     m.add_function(wrap_pyfunction!(eval_ab, m)?)?;
+    m.add_function(wrap_pyfunction!(eval_policies, m)?)?;
     m.add_function(wrap_pyfunction!(choose_action, m)?)?;
     m.add_function(wrap_pyfunction!(setup_pre_mulligan_digest, m)?)?;
     m.add_function(wrap_pyfunction!(setup_pre_mulligan_blob, m)?)?;

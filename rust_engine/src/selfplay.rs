@@ -105,6 +105,232 @@ pub fn board_eval(st: &GameState, me: usize) -> f64 {
     s
 }
 
+/// value を [0,1] に正規化 (rollout の打ち切り推定 / tie-break 用)。 終局は 1/0.5/0 に振る。
+fn norm_value(st: &GameState, me: usize, weights: Option<&[f64]>) -> f64 {
+    if st.game_over {
+        return match st.winner {
+            Some(w) if w == me => 1.0,
+            Some(_) => 0.0,
+            None => 0.5,
+        };
+    }
+    let v = eval_with(st, me, weights);
+    if weights.is_some() {
+        (v / 1.0e6).clamp(0.0, 1.0)
+    } else {
+        1.0 / (1.0 + (-v / 3000.0).exp())
+    }
+}
+
+// ===== 防御方策 (2026-07-31) =====
+// エンジン (rules.rs) は `blocker` / `counter_card_idxs` を持つ action を Python 一致で解決できるが、
+// `legal_actions` は **攻撃側の合法手しか列挙しない** (= 防御フィールドが付かない)。 そのまま self-play すると
+// 防御側が常にノーガード = カウンター (デッキ総量 ~40000) と要求値が存在しない別ゲームを学習してしまう。
+// → ここで防御側の応手を value で選び action に埋める。 探索 (greedy/beam/rollout) の内部 sim も同じ関数を
+// 通すので、 攻撃側は 「相手は防御してくる」 前提で読む (= 無防御前提の歪んだ攻めを防ぐ)。
+// ⚠ 未対応: カウンターイベント (counter_event_idxs)。 手札の counter 札 + ブロッカーのみ (v2 範囲)。
+
+// 防御の実効カバレッジ計器。 「防御を選ばなかった (方策)」 と 「Rust が解決できず bail した (未実装)」 を
+// 区別する為の大域カウンタ。 無防御への静かな回帰を検出する。 [attacks, blocker_avail, cand_bail, chose_block,
+// chose_counter]。 reset/read は lib.rs の def_stats/reset_def_stats。
+pub static DEF_STATS: [std::sync::atomic::AtomicU64; 5] = [
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+];
+
+#[inline]
+fn bump(i: usize, n: u64) {
+    DEF_STATS[i].fetch_add(n, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// 診断モード (既定 OFF)。 ON にすると action 種別ごとに [成功, bail] を数える。
+/// 探索/方策は bail した手を黙って捨てる (`is_err() → continue`) ので、 Rust 未実装の手が多いと
+/// **action 空間が静かに痩せて別ゲームを学習する**。 その痩せを可視化する計器。
+pub static DIAG_ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+pub static ACTION_STATS: std::sync::Mutex<std::collections::BTreeMap<String, [u64; 2]>> =
+    std::sync::Mutex::new(std::collections::BTreeMap::new());
+
+fn diag_record(action: &Value, ok: bool) {
+    if !DIAG_ON.load(std::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
+    let t = action.get("t").and_then(|v| v.as_str()).unwrap_or("?").to_string();
+    if let Ok(mut m) = ACTION_STATS.lock() {
+        let e = m.entry(t).or_insert([0, 0]);
+        e[if ok { 0 } else { 1 }] += 1;
+    }
+}
+
+fn is_attack(action: &Value) -> bool {
+    matches!(
+        action.get("t").and_then(|v| v.as_str()),
+        Some("AttackLeader") | Some("AttackCharacter")
+    )
+}
+
+/// 防御側手札の counter 札 (hand_idx, counter 値) を値の大きい順に。
+fn counter_cards(p: &Player) -> Vec<(usize, i32)> {
+    let mut v: Vec<(usize, i32)> = p
+        .hand
+        .iter()
+        .enumerate()
+        .filter(|(_, c)| c.counter > 0)
+        .map(|(i, c)| (i, c.counter))
+        .collect();
+    v.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    v
+}
+
+/// need 以上を満たす最小枚数の counter 集合 (大きい札から = 要求値をちょうど満たす人間の計算に近い)。
+/// 届かなければ None。 need<=0 なら空集合。
+fn min_counter_set(cands: &[(usize, i32)], need: i32, max_cards: usize) -> Option<Vec<i64>> {
+    if need <= 0 {
+        return Some(vec![]);
+    }
+    let mut sum = 0;
+    let mut out: Vec<i64> = vec![];
+    for &(i, v) in cands.iter() {
+        if out.len() >= max_cards {
+            break;
+        }
+        out.push(i as i64);
+        sum += v;
+        if sum >= need {
+            return Some(out);
+        }
+    }
+    None
+}
+
+/// ブロック可能なキャラ (アクティブ + ブロッカー + 無効化されていない)。
+fn eligible_blockers(p: &Player) -> Vec<usize> {
+    (0..p.characters.len())
+        .filter(|&i| {
+            let c = &p.characters[i];
+            !c.rested && c.is_blocker_now() && !c.blocker_disabled_until_turn_end
+        })
+        .collect()
+}
+
+/// 攻撃 action に防御側の応手 (ブロッカー / カウンター) を埋め、 **解決後の state ごと** 返す。
+/// 候補を安い順 (無防御 → カウンター → ブロック → ブロック+カウンター) に並べ、 防御側 value 最大を採る
+/// (同点は先頭 = 資源を使わない方)。 全候補が bail したら None (呼出側が素の action にフォールバック)。
+pub fn defended_move(
+    st: &GameState,
+    action: &Value,
+    def_w: Option<&[f64]>,
+) -> Option<(Value, GameState)> {
+    let me = st.turn_player_idx;
+    let def = 1 - me;
+    let to_leader = action.get("t").and_then(|v| v.as_str()) == Some("AttackLeader");
+
+    // shortlist 用の概算 (on_attack 前の power)。 採否は sim 後の value が決めるので概算で足りる。
+    let atk_power = match action.get("attacker_kind").and_then(|v| v.as_str()) {
+        Some("leader") => st.players[me].leader.power(),
+        _ => {
+            let i = action.get("attacker_idx").and_then(|v| v.as_i64()).unwrap_or(0) as usize;
+            st.players[me].characters.get(i).map(|c| c.power()).unwrap_or(0)
+        }
+    };
+    let target_power = if to_leader {
+        st.players[def].leader.power()
+    } else {
+        let ti = action.get("target_idx").and_then(|v| v.as_i64()).unwrap_or(0) as usize;
+        st.players[def].characters.get(ti).map(|c| c.power()).unwrap_or(0)
+    };
+
+    let ccands = counter_cards(&st.players[def]);
+    let mut blockers = eligible_blockers(&st.players[def]);
+    // 失っても軽い順 (power 昇順) = 捨てブロック候補から並べる
+    blockers.sort_by_key(|&i| st.players[def].characters[i].power());
+
+    let mut cands: Vec<Value> = vec![action.clone()]; // ① 無防御
+    // ② カウンターで耐える (要求値ちょうど / +1枚 = パンプ保険)
+    if let Some(set) = min_counter_set(&ccands, atk_power - target_power + 1, 4) {
+        if !set.is_empty() {
+            let mut a = action.clone();
+            a["counter_card_idxs"] = json!(set.clone());
+            cands.push(a);
+            if set.len() < ccands.len() {
+                let mut more = set.clone();
+                more.push(ccands[set.len()].0 as i64);
+                let mut a2 = action.clone();
+                a2["counter_card_idxs"] = json!(more);
+                cands.push(a2);
+            }
+        }
+    }
+    // ③ ブロック (最大 3 体)
+    for &bi in blockers.iter().take(3) {
+        let mut a = action.clone();
+        a["blocker"] = json!({"idx": bi});
+        cands.push(a);
+    }
+    // ④ 一番硬いブロッカーをカウンターで守る
+    if let Some(&bi) = blockers.iter().max_by_key(|&&i| st.players[def].characters[i].power()) {
+        let bp = st.players[def].characters[bi].power();
+        if let Some(set) = min_counter_set(&ccands, atk_power - bp + 1, 3) {
+            if !set.is_empty() {
+                let mut a = action.clone();
+                a["blocker"] = json!({"idx": bi});
+                a["counter_card_idxs"] = json!(set);
+                cands.push(a);
+            }
+        }
+    }
+
+    bump(0, 1);
+    if !blockers.is_empty() {
+        bump(1, 1);
+    }
+    let mut best: Option<(Value, GameState, f64)> = None;
+    for a in &cands {
+        let mut c = st.clone();
+        if apply_action(&mut c, a).is_err() {
+            // 防御候補が Rust 未対応で bail = 「方策が選ばなかった」ではなく「選べなかった」
+            bump(2, 1);
+            continue;
+        }
+        let sc = eval_with(&c, def, def_w);
+        if best.as_ref().map_or(true, |(_, _, b)| sc > *b) {
+            best = Some((a.clone(), c, sc));
+        }
+    }
+    if let Some((a, _, _)) = &best {
+        if a.get("blocker").map_or(false, |b| !b.is_null()) {
+            bump(3, 1);
+        }
+        if a.get("counter_card_idxs").and_then(|v| v.as_array()).map_or(false, |x| !x.is_empty()) {
+            bump(4, 1);
+        }
+    }
+    best.map(|(a, s, _)| (a, s))
+}
+
+/// 1 手適用 (攻撃なら防御側の応手込み)。 返り値 = 実際に適用した action (防御フィールド入り)。
+/// def_w = 防御側の value 重み。 探索内 sim では探索者の weights を渡す (= 相手も自分と同じ value で
+/// 守ると仮定する self-play 標準の相手モデル)。
+pub fn apply_move(
+    st: &mut GameState,
+    action: &Value,
+    def_w: Option<&[f64]>,
+) -> Result<Value, String> {
+    if is_attack(action) {
+        if let Some((chosen, ns)) = defended_move(st, action, def_w) {
+            *st = ns;
+            diag_record(action, true);
+            return Ok(chosen);
+        }
+    }
+    let r = apply_action(st, action);
+    diag_record(action, r.is_ok());
+    r?;
+    Ok(action.clone())
+}
+
 /// 1-ply greedy 方策。 weights で value を切替。
 pub fn greedy_action(st: &GameState, weights: Option<&[f64]>) -> Value {
     let me = st.turn_player_idx;
@@ -116,7 +342,7 @@ pub fn greedy_action(st: &GameState, weights: Option<&[f64]>) -> Value {
     let mut best_score = f64::NEG_INFINITY;
     for a in &acts {
         let mut c = st.clone();
-        if apply_action(&mut c, a).is_err() {
+        if apply_move(&mut c, a, weights).is_err() {
             continue;
         }
         let sc = eval_with(&c, me, weights);
@@ -158,7 +384,7 @@ pub fn beam_action(st: &GameState, weights: Option<&[f64]>, beam_width: usize, m
             }
             for a in &legal_actions(&node.st) {
                 let mut c = node.st.clone();
-                if apply_action(&mut c, a).is_err() {
+                if apply_move(&mut c, a, weights).is_err() {
                     continue;
                 }
                 let first = node.first.clone().or_else(|| Some(a.clone()));
@@ -184,6 +410,83 @@ pub fn beam_action(st: &GameState, weights: Option<&[f64]>, beam_width: usize, m
     best_leaf.map(|(a, _)| a).unwrap_or(json!({"t": "EndPhase"}))
 }
 
+/// start から base 方策で終局まで playout し、 me 視点の結末 (勝1/負0/分0.5) を返す。
+/// max_plies 到達時 (稀) は value を [0,1] に正規化した推定で代替。 = root-rollout の 1 本の playout。
+fn playout_value(start: &GameState, me: usize, weights: Option<&[f64]>,
+                 policy: &str, max_plies: usize) -> f64 {
+    let mut c = start.clone();
+    let mut plies = 0usize;
+    while !c.game_over && plies < max_plies {
+        let a = match policy {
+            "beam" => beam_action(&c, weights, 4, 6),
+            _ => greedy_action(&c, weights),
+        };
+        if apply_move(&mut c, &a, weights).is_err() {
+            break;
+        }
+        plies += 1;
+    }
+    if c.game_over {
+        match c.winner {
+            Some(w) if w == me => 1.0,
+            Some(_) => 0.0,
+            None => 0.5,
+        }
+    } else {
+        // 打ち切り: eval_with を [0,1] に (weights 有→logistic*1e6 を /1e6、 無→heuristic を squash)
+        let v = eval_with(&c, me, weights);
+        if weights.is_some() {
+            (v / 1.0e6).clamp(0.0, 1.0)
+        } else {
+            1.0 / (1.0 + (-v / 3000.0).exp())
+        }
+    }
+}
+
+/// root-rollout 方策 (= expert)。 各 legal action を適用後、 base 方策で終局まで playout した me 視点の
+/// 実結末を評価値として最良 action を返す。 value を迂回して「打ち切ってみる」= 最強教師 (Python で
+/// 63% vs beam 33% を実証した路線)。 rollout_policy = playout の base ("greedy" 既定 / "beam")。
+/// deterministic (state の rng も固定) なので 1 action = 1 playout で確定。
+pub fn rollout_action(st: &GameState, weights: Option<&[f64]>,
+                      rollout_policy: &str, max_plies: usize) -> Value {
+    let me = st.turn_player_idx;
+    let acts = legal_actions(st);
+    if acts.is_empty() {
+        return json!({"t": "EndPhase"});
+    }
+    let mut best = acts[0].clone();
+    let mut best_score = f64::NEG_INFINITY;
+    for a in &acts {
+        let mut c = st.clone();
+        if apply_move(&mut c, a, weights).is_err() {
+            continue;
+        }
+        // ⚠ playout の結末は {0, 0.5, 1} の粗い値 = 同点が大量に出る。 同点を「先頭優先」で解くと
+        // legal_actions の先頭 = EndPhase が勝ち続け、 **1 手も打たずにターンを渡す** 病理になる
+        // (実測 2026-07-31: この bug 込みで rollout vs beam = 7.5%)。 直後盤面 value を 1e-3 の
+        // 重みで tie-break に足す (結末 {0,0.5,1} の順序は壊さない)。
+        let sc = playout_value(&c, me, weights, rollout_policy, max_plies)
+            + 1.0e-3 * norm_value(&c, me, weights);
+        if sc > best_score {
+            best_score = sc;
+            best = a.clone();
+        }
+    }
+    best
+}
+
+/// mode 文字列で 1 手番の action を選ぶ dispatcher。 play_game / choose_action 共通。
+pub fn choose_move(st: &GameState, mode: &str, weights: Option<&[f64]>,
+                   beam_width: usize, max_depth: usize, rollout_plies: usize) -> Value {
+    match mode {
+        "beam" => beam_action(st, weights, beam_width, max_depth),
+        "rollout" => rollout_action(st, weights, "greedy", rollout_plies),
+        // policy-consistent rollout (playout base = beam)。 = faithful rollout の検証用 (激重)
+        "rollout_beam" => rollout_action(st, weights, "beam", rollout_plies),
+        _ => greedy_action(st, weights),
+    }
+}
+
 fn advance_to_main(st: &mut GameState) -> Result<(), String> {
     let mut guard = 0;
     while st.phase != Phase::Main && !st.game_over {
@@ -199,23 +502,29 @@ fn advance_to_main(st: &mut GameState) -> Result<(), String> {
 /// self-play 1 試合。 collect_traj=true で各手番の (features, to_move) を記録し、 決着後に結末ラベル
 /// (y = to_move が勝ったか: 1.0 勝 / 0.0 負 / 0.5 引分) を付けて trajectory を返す。
 /// 返り値 = {winner, turns, game_over, steps, trajectory?: [{f:[..], p:usize, y:f64}]}。
+/// self-play/対戦 1 試合。 player0=mode0/w0、 player1=mode1/w1 で打つ (per-player 方策 + value)。
+/// data-gen は mode0=mode1 / w0=w1、 A/B は value 差、 expert 測定は mode 差 (rollout vs beam) で使う。
 #[allow(clippy::too_many_arguments)]
 pub fn play_game(
     d1: &Value,
     d2: &Value,
     rng_state: &[u64],
     first_player: usize,
-    mode: &str,
+    mode0: &str,
+    mode1: &str,
     w0: Option<&[f64]>, // player 0 の value 重み (None=heuristic)
     w1: Option<&[f64]>, // player 1 の value 重み。 data-gen は w0=w1、 A/B eval は別々
     beam_width: usize,
     max_depth: usize,
+    rollout_plies: usize,
     max_turns: i32,
     collect_traj: bool,
 ) -> Result<Value, String> {
     let mut st = crate::setup::setup_pre_mulligan(d1, d2, rng_state, first_player)?;
     advance_to_main(&mut st)?;
     let mut steps: i64 = 0;
+    // 防御が実際に働いているかの計器 (無防御回帰の検出用)
+    let (mut n_attacks, mut n_blocks, mut n_counter_cards): (i64, i64, i64) = (0, 0, 0);
     // (features, to_move) を貯める。 label は決着後に付ける。
     let mut traj: Vec<(Vec<f64>, usize)> = vec![];
     while !st.game_over && st.turn_number <= max_turns {
@@ -224,11 +533,21 @@ pub fn play_game(
             traj.push((features(&st, me), me));
         }
         let weights = if me == 0 { w0 } else { w1 };
-        let action = match mode {
-            "beam" => beam_action(&st, weights, beam_width, max_depth),
-            _ => greedy_action(&st, weights),
-        };
-        apply_action(&mut st, &action)?;
+        let mode = if me == 0 { mode0 } else { mode1 };
+        let action = choose_move(&st, mode, weights, beam_width, max_depth, rollout_plies);
+        // 防御は **実際の防御側の value** で決める (A/B の公平性: 各 player は自分の value で守る)。
+        let def_w = if me == 0 { w1 } else { w0 };
+        let applied = apply_move(&mut st, &action, def_w)?;
+        if is_attack(&action) {
+            n_attacks += 1;
+            if applied.get("blocker").map_or(false, |b| !b.is_null()) {
+                n_blocks += 1;
+            }
+            n_counter_cards += applied
+                .get("counter_card_idxs")
+                .and_then(|v| v.as_array())
+                .map_or(0, |a| a.len() as i64);
+        }
         steps += 1;
         if steps > 200_000 {
             break;
@@ -239,6 +558,9 @@ pub fn play_game(
         "turns": st.turn_number,
         "game_over": st.game_over,
         "steps": steps,
+        "n_attacks": n_attacks,
+        "n_blocks": n_blocks,
+        "n_counter_cards": n_counter_cards,
     });
     if collect_traj {
         let rows: Vec<Value> = traj
