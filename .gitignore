@@ -297,3 +297,7 @@ db/eiv1/
 rust_engine/target/
 rust_engine/Cargo.lock
 *.so
+
+# Rust シャドウ検証の生成物 (実ゲームから貯まる乖離記録 — 再生成される per-run 産物)
+db/rust_divergence_log.jsonl
+db/rust_divergence/

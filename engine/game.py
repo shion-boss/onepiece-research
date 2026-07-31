@@ -1196,6 +1196,17 @@ def apply_action(state: GameState, action: Action, ai=None) -> None:
         return
     if state.phase != Phase.MAIN:
         raise ValueError("apply_action MAIN only")
+    # Rust シャドウ検証 (ONEPIECE_RUST_SHADOW=1 時のみ): 実ゲームの各手を Rust に後追いさせ、
+    # Python と黙って違う結果 (MISMATCH) を記録に残す。 plan_search の sim clone
+    # (record_action_evals=False) は skip して 実 trajectory のみ検証する。 失敗は握りつぶす。
+    _shadow_tok = None
+    if getattr(state, "record_action_evals", True):
+        try:
+            from . import rust_shadow
+            if rust_shadow.enabled():
+                _shadow_tok = rust_shadow.before(state, action)
+        except Exception:
+            _shadow_tok = None
     # AI 行動品質評価 (R62+): action 開始時の eval を記録。
     # plan_search の cloned state では record_action_evals=False で skip (= R70 高速化)。
     actor_idx = state.turn_player_idx
@@ -1261,6 +1272,15 @@ def apply_action(state: GameState, action: Action, ai=None) -> None:
                 except Exception:
                     # hook 失敗で apply_action 全体を壊さない
                     pass
+
+    # Rust シャドウ検証: 完全正規化後の post-state を Rust の後追い結果と比較し、
+    # MISMATCH なら記録 (db/rust_divergence_log.jsonl + 再現 dump)。 実ゲームには影響しない。
+    if _shadow_tok is not None:
+        try:
+            from . import rust_shadow
+            rust_shadow.after(_shadow_tok, state)
+        except Exception:
+            pass
 
 
 def _compute_filtered_cost_reduction(me: Player, card: CardDef) -> int:

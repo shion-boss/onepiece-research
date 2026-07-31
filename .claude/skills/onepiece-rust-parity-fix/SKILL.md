@@ -38,13 +38,22 @@ source ~/.cargo/env
 .venv/bin/maturin develop --manifest-path rust_engine/Cargo.toml --release   # Rust 最新化
 ```
 
-### 1. 検出 — 広域スキャンで MISMATCH キューを再生成
+### 1. 検出 — 2 つの入力 (両方を消化する)
 
+**(a) シャドウ記録 (優先) — 実ゲームで捕捉した乖離**
+```bash
+.venv/bin/python scripts/rust_shadow_check.py          # db/rust_divergence_log.jsonl を表示
+```
+`engine/rust_shadow.py` (`ONEPIECE_RUST_SHADOW=1` の実ゲーム = self-play/テスト/対戦) が
+**実際に走った局面**で捕捉した silent MISMATCH。 各件に **厳密再現 dump** (`db/rust_divergence/<key>.json`
+= {適用前 dump, action, 期待 py_after}) が付く。 scan より優先 (実到達局面 + 再現が seed 探し不要)。
+
+**(b) 広域スキャン — サンプル的に先回り検出**
 ```bash
 .venv/bin/python scripts/rust_mismatch_scan.py --seeds 1-30
 ```
 → `db/rust_mismatch_queue.md` に各 MISMATCH の **{action, card, field 差分, 再現 pair/seed, log}**。
-0 件なら完了 (この広域サンプルでは完全一致)。 ⚠ サンプルなので「別 seed 範囲で 0」≠「全状態で 0」。
+両方 0 件なら完了。 ⚠ どちらもサンプル/観測なので「0」≠「全状態で 0」(bit 一致の証明ではない)。
 
 ### 2. 診断 — 1 件を選び根本原因を pinpoint
 
@@ -86,14 +95,16 @@ source ~/.cargo/env
 
 ```bash
 source ~/.cargo/env; .venv/bin/maturin develop --manifest-path rust_engine/Cargo.toml --release
-# ① ゲート (回帰なし) + broad で MISMATCH=0
+# ① 対象 MISMATCH が消えたか — シャドウ記録なら厳密再現 dump で高速照合 (ゲーム再生不要)
+.venv/bin/python scripts/rust_shadow_check.py --verify db/rust_divergence/<key>.json   # OK=一致 or bail
+#    scan 由来なら該当 seed で再スキャン: .venv/bin/python scripts/rust_mismatch_scan.py --seeds <対象seed>
+# ② ゲート (回帰なし) + broad で MISMATCH=0
 .venv/bin/python -c "import scripts.rust_parity_check as P; \
 d,_,dm=P.run_parity(); b,_,bm=P.run_parity(seeds=(1,7,13,21,42,99)); \
 print('default',d['match'],d['bail'],d['MISMATCH'],'broad',b['match'],b['bail'],b['MISMATCH']); \
 print('MM',dict(dm.most_common(3)),dict(bm.most_common(3)))"
-# ② 対象 MISMATCH が消えたか (該当 seed/pair で再スキャン)
-.venv/bin/python scripts/rust_mismatch_scan.py --seeds <対象seed>
-# ③ 該当カードの機能テスト (可能なら scratchpad で 単体再現→期待値 assert)
+# ③ 修正済記録を掃除 (verify が通る記録を log+dump から除去) + 該当カード機能テスト
+.venv/bin/python scripts/rust_shadow_check.py --prune
 .venv/bin/pytest tests/test_rust_parity.py -q
 ```
 不変条件: **default 2037/0/0 維持 / broad MISMATCH=0 / 対象 MISMATCH 消滅 / 新 MISMATCH ゼロ**。
@@ -106,15 +117,24 @@ print('MM',dict(dm.most_common(3)),dict(bm.most_common(3)))"
 - 診断が難航し当セッションで直せないものは **queue に残す** (`rust_mismatch_scan.py` を再実行してキュー更新)。
   = 黙って放置せず、 常に最新の MISMATCH 一覧を repo に出す。
 
-## 自律運用 (cron)
+## 自律運用 (cron) — check + 修正はクラウドに置く
 
-- session cron (CronCreate) は揮発。 **恒久運用は cloud cron `optcg-rust-parity-fix`** をこのスキルで起動する
-  (= optcg-effect-bugfix と同型)。 cron prompt 例:
-  > 「/onepiece-rust-parity-fix を実行。 rust_mismatch_scan で MISMATCH を検出し、 上から 1 件ずつ診断→
-  >  Rust を Python に bit 一致 or bail→検証 (broad MISMATCH=0 + 回帰なし)→commit。 潰せないものは queue に残す。
-  >  ゲートが崩れる変更は revert。」
-- CI ゲート: `tests/test_rust_parity.py` が変更毎に **MISMATCH=0 を assert** (回帰検出)。 広域強化するなら
-  `test_rust_parity_no_mismatch_broad` の seed を広げる (35s/実行、 [[project_rust_engine]])。
+構成 (= optcg-effect-bugfix と同型、 3 層):
+
+1. **記録 (detection)** — repo 内に貯まる (`db/rust_divergence_log.jsonl` + `db/rust_divergence/*.json`、 commit
+   済で全環境から見える)。 populate は `ONEPIECE_RUST_SHADOW=1` の実ゲームが行う → **クラウド self-play を
+   この env で回せばクラウドが記録を貯める**。 加えて広域 scan が先回り検出。
+2. **check (CI、 毎 push)** — `tests/test_rust_parity.py` が **MISMATCH=0 を assert** (回帰検出、 クラウド CI で自動)。
+   広域強化は `test_rust_parity_no_mismatch_broad` の seed を広げる (35s/実行)。 シャドウ記録の空 assert は
+   `scripts/rust_shadow_check.py --assert` (exit 1)。
+3. **修正 (cloud cron `optcg-rust-parity-fix`)** — 恒久運用は **claude.ai 側のクラウド cron** に登録する
+   (session cron=CronCreate は揮発するので不可)。 optcg-effect-bugfix を登録したのと同じ場所に、 このスキルを
+   起動する prompt を置く:
+   > 「/onepiece-rust-parity-fix を実行。 (a) `rust_shadow_check.py` のシャドウ記録 と (b) `rust_mismatch_scan.py`
+   >  の広域スキャン で MISMATCH を検出し、 上から 1 件ずつ診断 (再現 dump を blob-diff)→ Rust を Python に
+   >  bit 一致 or 明示 bail→検証 (`--verify` で対象消滅 + broad MISMATCH=0 + 回帰なし)→`--prune`→commit。
+   >  潰せないものは queue/記録に残す (escalate)。 ゲートが崩れる変更は revert。」
+   スケジュール例: 毎日 1 回 (`7 4 * * *` 等、 :00 を避ける)。 CLI からは登録できない (クラウド側 UI で設定)。
 
 ## ツール早見
 
