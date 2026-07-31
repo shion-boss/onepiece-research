@@ -1,27 +1,90 @@
-//! Rust ネイティブ self-play: **方策 (policy) と探索 (search) を Rust 内で回す** (2026-07-31)。
+//! Rust ネイティブ self-play: **方策 (policy) + 探索 (search) + 訓練データ生成 (trajectory)** (2026-07-31)。
 //!
-//! 狙い = self-play 高速化。 state を Rust 所有のまま `clone()` して先読みするので、 差分テスト用の
-//! JSON 往復 (apply_action_digest) のオーバーヘッドが無い。 ゲームロジック本体 (setup / legal_actions /
-//! apply_action / advance_phase) は **差分検証済 (MISMATCH=0) の Python 準拠実装をそのまま再利用**するため、
-//! 「中で起きるゲーム処理」は Python と一致が保証される (方策・探索の heuristic だけが新規)。
+//! 狙い = self-play 学習ループ (Expert Iteration / policy 蒸留) を単一 PC で回すための高速自己対戦。
+//! state を Rust 所有のまま `clone()` して先読み → JSON 往復無し。 ゲームロジック本体 (setup /
+//! legal_actions / apply_action / advance_phase) は差分検証済 (MISMATCH=0) の Python 準拠実装を再利用 =
+//! 「中で起きるゲーム処理」は Python と一致保証、 方策/探索/評価の heuristic だけが新規。
 //!
-//! 構成:
-//!   - `board_eval`      : 盤面 heuristic 評価 (me 視点、 Python board_eval の縮小版)。 探索の葉評価。
-//!   - `greedy_action`   : 1-ply 方策 = 各合法手を試し eval 最大の手。
-//!   - `beam_action`     : 探索 = 1 ターンぶんの行動列を beam 幅で先読みし、 最善の「次の1手」を返す。
-//!   - `play_game`       : setup → 方策で決着まで自動対戦 (self-play 1 試合)。
+//! データフライホイール:
+//!   ① self_play が **軌跡 (各手番の特徴 + to_move + 結末ラベル)** を吐く  ← このファイル
+//!   ② Python が (特徴, 勝敗) で value を学習 → 重みを出力
+//!   ③ その重みを `weights` として渡し直すと value が学習 value になる → 方策が強くなる → ①へ (反復)
 //!
-//! ⚠ v1 の限界 (今後の refine): **防御 (ブロッカー/カウンター) 未実装** = アタックは常に通る前提で自陣手番の
-//!   方策/探索のみ最適化する。 攻撃の eval は「通った後の盤面」= greedy/beam の信号として妥当だが、
-//!   防御側の最適応答は入っていない (次段で defender policy を足す)。 value も heuristic (学習 value は未接続)。
+//! value:
+//!   - weights=None → `board_eval` (heuristic: ライフ/手札/盤面/ドン)
+//!   - weights=Some(w) → `features` の線形結合 → logistic = P(me 勝ち) 推定 (学習 value、 Rust で完結)
 
 use serde_json::{json, Value};
 use crate::state::{GameState, Phase, Player};
 use crate::effects::legal_actions;
 use crate::rules::{apply_action, advance_phase};
 
-/// 盤面評価 (me 視点、 大きいほど me 有利)。 終局は ±1e6 (勝ち/負け)、 引き分け 0。
-/// heuristic: ライフ差・手札差・盤面パワー差・盤面数差・使用可能ドン。 学習 value は未接続 (v1)。
+const N_FEATURES: usize = 16; // features() の次元 (bias 含む)。 value 重みもこの長さ。
+
+fn bpow(p: &Player) -> f64 {
+    p.characters.iter().map(|c| c.power() as f64).sum()
+}
+fn rested_frac(p: &Player) -> f64 {
+    if p.characters.is_empty() {
+        return 0.0;
+    }
+    p.characters.iter().filter(|c| c.rested).count() as f64 / p.characters.len() as f64
+}
+
+/// 学習用特徴ベクトル (me 視点、 次元 = N_FEATURES、 末尾 bias=1)。 順序固定 = value 学習と適用で共有。
+/// 正規化は概ね [-1,1]〜[0,2] に収める (線形/logistic value が扱いやすいスケール)。
+pub fn features(st: &GameState, me: usize) -> Vec<f64> {
+    let opp = 1 - me;
+    let m = &st.players[me];
+    let o = &st.players[opp];
+    let ml = m.life.len() as f64;
+    let ol = o.life.len() as f64;
+    let mh = m.hand.len() as f64;
+    let oh = o.hand.len() as f64;
+    let mc = m.characters.len() as f64;
+    let oc = o.characters.len() as f64;
+    vec![
+        (ml - ol) / 5.0,                                    // ライフ差
+        ml / 5.0,                                           // 自ライフ
+        ol / 5.0,                                           // 相手ライフ
+        (mh - oh) / 5.0,                                    // 手札差
+        mh / 7.0,                                           // 自手札
+        oh / 7.0,                                           // 相手手札
+        (bpow(m) - bpow(o)) / 10000.0,                      // 盤面パワー差
+        (mc - oc) / 5.0,                                    // 盤面数差
+        mc / 5.0,                                           // 自盤面数
+        oc / 5.0,                                           // 相手盤面数
+        m.don_active as f64 / 10.0,                         // 使用可能ドン
+        st.turn_number as f64 / 20.0,                       // ターン進行
+        (m.leader.power() as f64 - o.leader.power() as f64) / 10000.0, // リーダーパワー差
+        rested_frac(m),                                     // 自レスト率
+        rested_frac(o),                                     // 相手レスト率
+        1.0,                                                // bias
+    ]
+}
+
+/// value: weights 無 → heuristic、 有 → features の線形結合を logistic で [0,1] (=P(me 勝ち))。
+/// 終局は勝ち=1e6 / 負け=-1e6 / 引分 0 (heuristic)、 学習 value でも勝敗は 1/0 に振れるので順序整合。
+pub fn eval_with(st: &GameState, me: usize, weights: Option<&[f64]>) -> f64 {
+    if st.game_over {
+        return match st.winner {
+            Some(w) if w == me => 1e6,
+            Some(_) => -1e6,
+            None => 0.0,
+        };
+    }
+    match weights {
+        Some(w) if w.len() == N_FEATURES => {
+            let f = features(st, me);
+            let z: f64 = f.iter().zip(w).map(|(a, b)| a * b).sum();
+            // logistic → [0,1]。 heuristic と混在させない (探索中 weights は固定) ので絶対スケールは任意。
+            1.0e6 / (1.0 + (-z).exp())
+        }
+        _ => board_eval(st, me),
+    }
+}
+
+/// heuristic 盤面評価 (me 視点、 大きいほど有利)。 weights 未学習時のフォールバック。
 pub fn board_eval(st: &GameState, me: usize) -> f64 {
     if st.game_over {
         return match st.winner {
@@ -33,21 +96,17 @@ pub fn board_eval(st: &GameState, me: usize) -> f64 {
     let opp = 1 - me;
     let m = &st.players[me];
     let o = &st.players[opp];
-    let life = |p: &Player| p.life.len() as f64;
-    let hand = |p: &Player| p.hand.len() as f64;
-    let board_pow = |p: &Player| p.characters.iter().map(|c| c.power() as f64).sum::<f64>();
-    let count = |p: &Player| p.characters.len() as f64;
     let mut s = 0.0;
-    s += 2000.0 * (life(m) - life(o)); // ライフ = 防御資源 (被弾すると減る)
-    s += 1500.0 * (hand(m) - hand(o)); // 手札 = 選択肢/カウンター量
-    s += 1.0 * (board_pow(m) - board_pow(o)); // 盤面総パワー
-    s += 1000.0 * (count(m) - count(o)); // 盤面キャラ数
-    s += 300.0 * (m.don_active as f64); // 手番中に使えるドン
+    s += 2000.0 * (m.life.len() as f64 - o.life.len() as f64);
+    s += 1500.0 * (m.hand.len() as f64 - o.hand.len() as f64);
+    s += 1.0 * (bpow(m) - bpow(o));
+    s += 1000.0 * (m.characters.len() as f64 - o.characters.len() as f64);
+    s += 300.0 * (m.don_active as f64);
     s
 }
 
-/// 1-ply greedy 方策: 各合法手を clone-apply して me 視点 eval 最大の手を返す。 空なら EndPhase。
-pub fn greedy_action(st: &GameState) -> Value {
+/// 1-ply greedy 方策。 weights で value を切替。
+pub fn greedy_action(st: &GameState, weights: Option<&[f64]>) -> Value {
     let me = st.turn_player_idx;
     let acts = legal_actions(st);
     if acts.is_empty() {
@@ -60,7 +119,7 @@ pub fn greedy_action(st: &GameState) -> Value {
         if apply_action(&mut c, a).is_err() {
             continue;
         }
-        let sc = board_eval(&c, me);
+        let sc = eval_with(&c, me, weights);
         if sc > best_score {
             best_score = sc;
             best = a.clone();
@@ -69,49 +128,44 @@ pub fn greedy_action(st: &GameState) -> Value {
     best
 }
 
-/// 探索 (beam search): この手番 (me のメインフェイズ) の行動列を beam 幅で先読みし、
-/// 「葉 (EndPhase / 相手手番遷移 / 終局) の eval 最大」に至る系列の **最初の1手** を返す。
-/// 各手番でこれを呼び直す (re-plan) 前提。 max_depth = 1 手番内の最大行動数。
-pub fn beam_action(st: &GameState, beam_width: usize, max_depth: usize) -> Value {
+/// 探索 (beam): この手番の行動列を beam 幅で先読みし、 最善系列の最初の1手を返す。 weights で value 切替。
+pub fn beam_action(st: &GameState, weights: Option<&[f64]>, beam_width: usize, max_depth: usize) -> Value {
     let me = st.turn_player_idx;
     struct Node {
         st: GameState,
-        first: Option<Value>, // この手番で最初に取った手 (返却用)
+        first: Option<Value>,
         score: f64,
     }
     let mut beam: Vec<Node> = vec![Node {
         st: st.clone(),
         first: None,
-        score: board_eval(st, me),
+        score: eval_with(st, me, weights),
     }];
     let mut best_leaf: Option<(Value, f64)> = None;
-    let mut consider_leaf = |first: &Option<Value>, sc: f64, best: &mut Option<(Value, f64)>| {
+    let consider = |first: &Option<Value>, sc: f64, best: &mut Option<(Value, f64)>| {
         if let Some(f) = first {
             if best.as_ref().map_or(true, |(_, b)| sc > *b) {
                 *best = Some((f.clone(), sc));
             }
         }
     };
-
     for _ in 0..max_depth {
         let mut next: Vec<Node> = vec![];
         for node in &beam {
-            // 相手手番へ移った / 終局 / メイン外 = 葉
             if node.st.game_over || node.st.turn_player_idx != me || node.st.phase != Phase::Main {
-                consider_leaf(&node.first, board_eval(&node.st, me), &mut best_leaf);
+                consider(&node.first, eval_with(&node.st, me, weights), &mut best_leaf);
                 continue;
             }
-            let acts = legal_actions(&node.st);
-            for a in &acts {
+            for a in &legal_actions(&node.st) {
                 let mut c = node.st.clone();
                 if apply_action(&mut c, a).is_err() {
                     continue;
                 }
                 let first = node.first.clone().or_else(|| Some(a.clone()));
-                let sc = board_eval(&c, me);
+                let sc = eval_with(&c, me, weights);
                 let is_leaf = a["t"] == json!("EndPhase") || c.game_over || c.turn_player_idx != me;
                 if is_leaf {
-                    consider_leaf(&first, sc, &mut best_leaf);
+                    consider(&first, sc, &mut best_leaf);
                 } else {
                     next.push(Node { st: c, first, score: sc });
                 }
@@ -124,14 +178,12 @@ pub fn beam_action(st: &GameState, beam_width: usize, max_depth: usize) -> Value
         next.truncate(beam_width.max(1));
         beam = next;
     }
-    // beam に残った (max_depth 到達) ノードも葉候補として評価
     for node in &beam {
-        consider_leaf(&node.first, board_eval(&node.st, me), &mut best_leaf);
+        consider(&node.first, eval_with(&node.st, me, weights), &mut best_leaf);
     }
     best_leaf.map(|(a, _)| a).unwrap_or(json!({"t": "EndPhase"}))
 }
 
-/// Refresh 等の非メインフェイズから Main まで進める (play_until_main 相当)。
 fn advance_to_main(st: &mut GameState) -> Result<(), String> {
     let mut guard = 0;
     while st.phase != Phase::Main && !st.game_over {
@@ -144,37 +196,63 @@ fn advance_to_main(st: &mut GameState) -> Result<(), String> {
     Ok(())
 }
 
-/// self-play 1 試合: setup → (mulligan skip=keep) → 方策で決着まで自動対戦。
-/// mode = "greedy" | "beam"。 max_turns 到達で draw (winner=None、 公式 floor_rule 時間切れ proxy)。
-/// 返り値 = {winner: Option<usize>, turns, game_over, steps}。
+/// self-play 1 試合。 collect_traj=true で各手番の (features, to_move) を記録し、 決着後に結末ラベル
+/// (y = to_move が勝ったか: 1.0 勝 / 0.0 負 / 0.5 引分) を付けて trajectory を返す。
+/// 返り値 = {winner, turns, game_over, steps, trajectory?: [{f:[..], p:usize, y:f64}]}。
+#[allow(clippy::too_many_arguments)]
 pub fn play_game(
     d1: &Value,
     d2: &Value,
     rng_state: &[u64],
     first_player: usize,
     mode: &str,
+    w0: Option<&[f64]>, // player 0 の value 重み (None=heuristic)
+    w1: Option<&[f64]>, // player 1 の value 重み。 data-gen は w0=w1、 A/B eval は別々
     beam_width: usize,
     max_depth: usize,
     max_turns: i32,
+    collect_traj: bool,
 ) -> Result<Value, String> {
     let mut st = crate::setup::setup_pre_mulligan(d1, d2, rng_state, first_player)?;
-    advance_to_main(&mut st)?; // mulligan は keep (skip) して Main へ
+    advance_to_main(&mut st)?;
     let mut steps: i64 = 0;
+    // (features, to_move) を貯める。 label は決着後に付ける。
+    let mut traj: Vec<(Vec<f64>, usize)> = vec![];
     while !st.game_over && st.turn_number <= max_turns {
+        let me = st.turn_player_idx;
+        if collect_traj {
+            traj.push((features(&st, me), me));
+        }
+        let weights = if me == 0 { w0 } else { w1 };
         let action = match mode {
-            "beam" => beam_action(&st, beam_width, max_depth),
-            _ => greedy_action(&st),
+            "beam" => beam_action(&st, weights, beam_width, max_depth),
+            _ => greedy_action(&st, weights),
         };
         apply_action(&mut st, &action)?;
         steps += 1;
         if steps > 200_000 {
-            break; // 安全弁 (病的長期戦)
+            break;
         }
     }
-    Ok(json!({
+    let mut out = json!({
         "winner": st.winner,
         "turns": st.turn_number,
         "game_over": st.game_over,
         "steps": steps,
-    }))
+    });
+    if collect_traj {
+        let rows: Vec<Value> = traj
+            .into_iter()
+            .map(|(f, p)| {
+                let y = match st.winner {
+                    Some(w) if w == p => 1.0,
+                    Some(_) => 0.0,
+                    None => 0.5,
+                };
+                json!({"f": f, "p": p, "y": y})
+            })
+            .collect();
+        out["trajectory"] = json!(rows);
+    }
+    Ok(out)
 }

@@ -218,13 +218,54 @@ fn setup_pre_mulligan_blob(
 /// deck{1,2}_json = setup_pre_mulligan と同じ deck Value、 rng_state_json = MT getstate (625 keys)、
 /// mode = "greedy" | "beam"。 返り値 = {winner, turns, game_over, steps} の JSON。
 #[pyfunction]
-#[pyo3(signature = (deck1_json, deck2_json, rng_state_json, first_player, mode="greedy", beam_width=8, max_depth=12, max_turns=40))]
+#[pyo3(signature = (deck1_json, deck2_json, rng_state_json, first_player, mode="greedy", weights_json=None, beam_width=8, max_depth=12, max_turns=40, collect_traj=false))]
+#[allow(clippy::too_many_arguments)]
 fn self_play(
     deck1_json: &str,
     deck2_json: &str,
     rng_state_json: &str,
     first_player: usize,
     mode: &str,
+    weights_json: Option<&str>,
+    beam_width: usize,
+    max_depth: usize,
+    max_turns: i32,
+    collect_traj: bool,
+) -> PyResult<String> {
+    let d1: serde_json::Value = serde_json::from_str(deck1_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deck1: {e}")))?;
+    let d2: serde_json::Value = serde_json::from_str(deck2_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deck2: {e}")))?;
+    let rng_state: Vec<u64> = serde_json::from_str(rng_state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("rng_state: {e}")))?;
+    let w: Option<Vec<f64>> = match weights_json {
+        Some(s) if !s.is_empty() => Some(
+            serde_json::from_str(s)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("weights: {e}")))?,
+        ),
+        _ => None,
+    };
+    let res = selfplay::play_game(
+        &d1, &d2, &rng_state, first_player, mode, w.as_deref(), w.as_deref(),
+        beam_width, max_depth, max_turns, collect_traj,
+    )
+    .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+    serde_json::to_string(&res).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
+/// A/B eval: player0 が weights0、 player1 が weights1 の value で対戦し winner を返す (head-to-head)。
+/// 学習 value (weights0) vs heuristic/旧 value (weights1=None/旧) の強さ比較用。
+#[pyfunction]
+#[pyo3(signature = (deck1_json, deck2_json, rng_state_json, first_player, mode="beam", weights0_json=None, weights1_json=None, beam_width=8, max_depth=12, max_turns=40))]
+#[allow(clippy::too_many_arguments)]
+fn eval_ab(
+    deck1_json: &str,
+    deck2_json: &str,
+    rng_state_json: &str,
+    first_player: usize,
+    mode: &str,
+    weights0_json: Option<&str>,
+    weights1_json: Option<&str>,
     beam_width: usize,
     max_depth: usize,
     max_turns: i32,
@@ -235,21 +276,48 @@ fn self_play(
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deck2: {e}")))?;
     let rng_state: Vec<u64> = serde_json::from_str(rng_state_json)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("rng_state: {e}")))?;
-    let res = selfplay::play_game(&d1, &d2, &rng_state, first_player, mode, beam_width, max_depth, max_turns)
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+    let parse_w = |s: Option<&str>| -> PyResult<Option<Vec<f64>>> {
+        match s {
+            Some(x) if !x.is_empty() => Ok(Some(
+                serde_json::from_str(x)
+                    .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("weights: {e}")))?,
+            )),
+            _ => Ok(None),
+        }
+    };
+    let w0 = parse_w(weights0_json)?;
+    let w1 = parse_w(weights1_json)?;
+    let res = selfplay::play_game(
+        &d1, &d2, &rng_state, first_player, mode, w0.as_deref(), w1.as_deref(),
+        beam_width, max_depth, max_turns, false,
+    )
+    .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
     serde_json::to_string(&res).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
 /// 与えられた state (full_dump JSON) に対し Rust の方策/探索が選ぶ action を返す (canonical action dict JSON)。
-/// mode = "greedy" | "beam"。 Python から Rust 方策を単発で問い合わせる用 (デバッグ/検証/混成対戦)。
+/// mode = "greedy" | "beam"、 weights_json = 学習 value 重み (省略で heuristic)。
 #[pyfunction]
-#[pyo3(signature = (state_json, mode="greedy", beam_width=8, max_depth=12))]
-fn choose_action(state_json: &str, mode: &str, beam_width: usize, max_depth: usize) -> PyResult<String> {
+#[pyo3(signature = (state_json, mode="greedy", weights_json=None, beam_width=8, max_depth=12))]
+fn choose_action(
+    state_json: &str,
+    mode: &str,
+    weights_json: Option<&str>,
+    beam_width: usize,
+    max_depth: usize,
+) -> PyResult<String> {
     let st: state::GameState = serde_json::from_str(state_json)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+    let w: Option<Vec<f64>> = match weights_json {
+        Some(s) if !s.is_empty() => Some(
+            serde_json::from_str(s)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("weights: {e}")))?,
+        ),
+        _ => None,
+    };
     let action = match mode {
-        "beam" => selfplay::beam_action(&st, beam_width, max_depth),
-        _ => selfplay::greedy_action(&st),
+        "beam" => selfplay::beam_action(&st, w.as_deref(), beam_width, max_depth),
+        _ => selfplay::greedy_action(&st, w.as_deref()),
     };
     serde_json::to_string(&action).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
@@ -257,6 +325,7 @@ fn choose_action(state_json: &str, mode: &str, beam_width: usize, max_depth: usi
 #[pymodule]
 fn optcg_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(self_play, m)?)?;
+    m.add_function(wrap_pyfunction!(eval_ab, m)?)?;
     m.add_function(wrap_pyfunction!(choose_action, m)?)?;
     m.add_function(wrap_pyfunction!(setup_pre_mulligan_digest, m)?)?;
     m.add_function(wrap_pyfunction!(setup_pre_mulligan_blob, m)?)?;
