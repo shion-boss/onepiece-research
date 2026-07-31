@@ -2034,6 +2034,107 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 対象キャラを持ち主のデッキ下へ (effects.py:return_to_deck_bottom)。 target spec は 3 形式
+        // (str / {type,filter} / {target})。 相手キャラは protect / static_ko_immune を尊重。
+        // ⚠ leave cascade (replace_leave / on_self_chara_leave_by_opp_effect / _by_self_effect) が
+        //   絡む盤面は再現順が保証できないので明示 bail。
+        "return_to_deck_bottom" => {
+            let tgt_spec: Value = if v.is_object() && v.get("target").is_some() {
+                v.get("target").unwrap().clone()
+            } else if v.is_object() || v.is_string() {
+                v.clone()
+            } else {
+                Value::String("one_opponent_character_le_5000".into())
+            };
+            let Some(targets) = resolve_target(Some(&tgt_spec), me_idx, opp_idx, src, state) else { return false };
+            let mut victims: Vec<(usize, usize)> = vec![];
+            for &(pi, sl) in &targets {
+                if let Slot::Char(idx) = sl {
+                    let c = &state.players[pi].characters[idx];
+                    if pi == opp_idx && (c.protect_from_opp_effect || c.static_ko_immune) {
+                        continue;
+                    }
+                    victims.push((pi, idx));
+                }
+            }
+            if victims.is_empty() {
+                return true;
+            }
+            let has_opp = victims.iter().any(|&(pi, _)| pi == opp_idx);
+            let cascade = me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect")
+                || (has_opp
+                    && (me_board_has_when(state, opp_idx, "on_self_chara_leave_by_opp_effect")
+                        || me_board_has_when(state, opp_idx, "replace_leave")
+                        || me_board_has_when(state, opp_idx, "replace_ko")));
+            if cascade {
+                return false; // cascade 再現不能 → bail
+            }
+            remove_victims(state, victims, RemoveDest::DeckBottom);
+            true
+        }
+        // マルチターゲット版 (effects.py:return_to_deck_bottom_multi)。 spec リストを順に解決 → 除去。
+        // dedup は「除去済は board から消える」で自然に成立する (cascade 無しの前提)。
+        "return_to_deck_bottom_multi" => {
+            let Some(list) = v.as_array() else { return true };
+            for spec in list {
+                let tgt_spec: Value = if spec.is_string() {
+                    spec.clone()
+                } else {
+                    spec.get("target").cloned().unwrap_or(Value::String("one_opponent_character_any".into()))
+                };
+                let Some(targets) = resolve_target(Some(&tgt_spec), me_idx, opp_idx, src, state) else { return false };
+                let mut victims: Vec<(usize, usize)> = vec![];
+                for &(pi, sl) in &targets {
+                    if let Slot::Char(idx) = sl {
+                        let c = &state.players[pi].characters[idx];
+                        if pi == opp_idx && (c.protect_from_opp_effect || c.static_ko_immune) {
+                            continue;
+                        }
+                        victims.push((pi, idx));
+                    }
+                }
+                if victims.is_empty() {
+                    continue;
+                }
+                let has_opp = victims.iter().any(|&(pi, _)| pi == opp_idx);
+                let cascade = me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect")
+                    || (has_opp
+                        && (me_board_has_when(state, opp_idx, "on_self_chara_leave_by_opp_effect")
+                            || me_board_has_when(state, opp_idx, "replace_leave")
+                            || me_board_has_when(state, opp_idx, "replace_ko")));
+                if cascade {
+                    return false;
+                }
+                remove_victims(state, victims, RemoveDest::DeckBottom);
+            }
+            true
+        }
+        // 相手のアクティブドンを N 枚レストにする (effects.py:6436、 ST02-008 等)。 不足はそのまま。
+        "rest_opp_don" => {
+            let n = if v.is_object() {
+                v.get("amount").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            } as i32;
+            let o = &mut state.players[opp_idx];
+            let taken = n.min(o.don_active);
+            o.don_active -= taken;
+            o.don_rested += taken;
+            true
+        }
+        // 「アクティブのキャラにもアタックできる」= キーワード付与 (effects.py:give_attack_active_chara)。
+        "give_attack_active_chara" => {
+            let tspec = if v.is_string() { v.clone() } else {
+                v.get("target").cloned().unwrap_or(Value::String("self".into()))
+            };
+            let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else { return false };
+            for (pi, sl) in targets {
+                get_ip_mut(&mut state.players[pi], sl)
+                    .granted_keywords
+                    .insert("アクティブアタック可".to_string());
+            }
+            true
+        }
         // 効果無効 (effects.py:7648)。 spec = target 文字列 or {target}。 既定 one_opponent_inplay_any。
         // granted_keywords に "効果無効" を足すだけ (Python も同じ近似実装)。 last_negated_iid は
         // dataclass field でない (dynamic attr) = canonical 対象外なので Rust は記録不要。
@@ -4396,6 +4497,9 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             // peek_opp_deck_top = zone 不変 + last_peeked_opp_deck_top 記録のみ (私的情報)。
             // set_base_power_copy = target 解決 → base_power_override 複写 (cascade 無)。
             | "peek_opp_deck_top" | "set_base_power_copy"
+            // rest_opp_don = 相手コストエリアの active→rested のみ (src 非参照、 cascade 無)。
+            // give_attack_active_chara = キーワード付与のみ。
+            | "rest_opp_don" | "give_attack_active_chara"
             // negate_effect = granted_keywords に "効果無効" を足すだけ (cascade 無)。
             | "negate_effect"
             // ko = prim 側で cascade を自前処理 (single/multi victim) or 内部 bail するので安全。
