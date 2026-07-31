@@ -793,11 +793,16 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                         Some(true) if crate::effects::trigger_contains_play_self(&cid) => {
                             // play_self trigger (game.py:2117): taken を trash[0] に pre-place してから発火し、
                             // play_self が current_source_card_id で自身を探して登場させる。
-                            // ⚠ Python は identity (`_c is taken`) で消費判定するが Rust CardDef は値型 → card_id
-                            //   の **枚数差** で消費判定 (pre-place 前の cid 枚数 k を記録 → 発火後に k+1 なら未消費
-                            //   =life札残存、 k なら play_self が消費=場へ)。 同名複製 (X_old が trash に既存) でも
-                            //   CardDef は値同型 = どの複製を消費しても digest 一致。 position 走査は不可なので枚数で判定。
+                            // ⚠ Python は identity (`_c is taken`) で消費判定。 pre-place 前 cid 枚数 k=0 (=trash に
+                            //   同名複製なし) なら「発火後 1 枚残 → 未消費/0 枚 → 消費」で枚数判定が Python と一致。
+                            //   だが k≥1 (同名複製あり) は Python が play_self で **別複製** を消費し taken を末尾へ
+                            //   append する挙動 (OP06-104 菊之丞、 実測) を値型 Rust で再現不能 → bail (correctness)。
                             let k = state.players[opp].trash.iter().filter(|c| c.card_id == cid).count();
+                            if k >= 1 {
+                                return Err(
+                                    "play_self life trigger: trash 同名複製 (identity 消費順 再現不能)".into(),
+                                );
+                            }
                             state.players[opp].trash.insert(0, taken);
                             let kept = crate::effects::fire_life_trigger(state, opp, me, &cid)?;
                             let count_after = state.players[opp].trash.iter().filter(|c| c.card_id == cid).count();
