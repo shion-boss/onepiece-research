@@ -382,12 +382,21 @@ fn coverage_stats() -> PyResult<String> {
             .into(),
         Err(_) => serde_json::json!({}),
     };
+    let reasons: serde_json::Value = match selfplay::BAIL_REASONS.lock() {
+        Ok(m) => m
+            .iter()
+            .map(|(k, v)| (k.clone(), serde_json::json!(v)))
+            .collect::<serde_json::Map<_, _>>()
+            .into(),
+        Err(_) => serde_json::json!({}),
+    };
     Ok(serde_json::json!({
         "defense": {
             "attacks": d[0], "blocker_available": d[1], "candidate_bails": d[2],
-            "chose_block": d[3], "chose_counter": d[4],
+            "chose_block": d[3], "chose_counter": d[4], "chose_counter_event": d[5],
         },
         "actions": acts,
+        "bail_reasons": reasons,
     })
     .to_string())
 }
@@ -401,6 +410,9 @@ fn reset_coverage_stats(diag: bool) {
         a.store(0, Ordering::Relaxed);
     }
     if let Ok(mut m) = selfplay::ACTION_STATS.lock() {
+        m.clear();
+    }
+    if let Ok(mut m) = selfplay::BAIL_REASONS.lock() {
         m.clear();
     }
     selfplay::DIAG_ON.store(diag, Ordering::Relaxed);

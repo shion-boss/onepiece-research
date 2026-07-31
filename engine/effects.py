@@ -1007,6 +1007,10 @@ def _check_and_set_once_per_turn(
     if key in me.once_per_turn_used:
         return False
     me.once_per_turn_used.add(key)
+    # 明示キー (共有 namespace) は instance_id 非依存 → canonical mirror に並行記録 (Rust 同期)。
+    if opt is not True and key not in me.once_shared_used:
+        me.once_shared_used.append(key)
+        me.once_shared_used.sort()
     # Rust 同期用 canonical mirror: field-when (fire_field_when で発火する持続 source 由来) の once を
     # InPlay.event_once_used に "{when}:{idx}" で並行記録 (iid 非依存 = digest 可)。 Python の判定は上の
     # once_per_turn_used のまま (additive)。 on_play/on_ko/main/counter/on_attack/end_of_turn は対象外

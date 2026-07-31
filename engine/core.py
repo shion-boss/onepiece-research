@@ -709,6 +709,11 @@ class Player:
     # replace_ko/replace_leave の once_per_turn (card-id-keyed) を Rust が bit-match できるよう並行記録
     # (canonical、 判定は once_per_turn_used のまま = additive、 refresh で clear)。 (2026-07-30)
     replace_opt_used_cards: list = field(default_factory=list)
+    # 明示キー (文字列) once_per_turn の canonical mirror。 `key:<opt>` は instance_id 非依存なので
+    # そのまま digest 可 = Rust が bit-match できる。 OP13-002 の様に複数 when (KO / ライフ受け) が
+    # 1 つのキーを共有する効果はこれが無いと Rust 側で追跡不能 → 全 bail していた。
+    # 判定は once_per_turn_used のまま (additive)、 refresh で clear。 (2026-07-31)
+    once_shared_used: list = field(default_factory=list)
     # 累積カウンタ (Phase 2 / Step 2-pre)。 outcome regression の特徴量に使う。
     # 試合開始時 0、 game.py の各 action 分岐で increment。 game_over まで保持。
     cards_drawn_count: int = 0      # Player.draw() で加算 = 累積ドロー数

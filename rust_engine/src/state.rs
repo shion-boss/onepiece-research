@@ -417,6 +417,10 @@ pub struct Player {
     // replace_ko/replace_leave の once_per_turn (card-id-keyed) の canonical mirror (core.py 同名)。
     #[serde(default)]
     pub replace_opt_used_cards: Vec<String>,
+    // 明示キー (文字列) once_per_turn の canonical mirror (core.py 同名、 key 形式 "key:<opt>")。
+    // instance_id 非依存なので digest 可。 複数 when が 1 キーを共有する効果 (OP13-002 等) の追跡用。
+    #[serde(default)]
+    pub once_shared_used: Vec<String>,
     pub next_refresh_kept_rested_don: i32,
     // once_per_turn_used は key が instance_id 依存 = canonical 除外 (Python _EXCLUDE と一致)。
     // Rust は追跡しない (single-action の gating は legal_actions 側で担保)。

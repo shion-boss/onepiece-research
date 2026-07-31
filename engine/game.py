@@ -693,6 +693,8 @@ def advance_phase(state: GameState) -> None:
             me.once_per_turn_used.clear()
             # replace once の canonical mirror も同時にクリア (Rust 同期)。
             me.replace_opt_used_cards.clear()
+            # 明示キー once の canonical mirror も同時にクリア (Rust 同期)。
+            me.once_shared_used.clear()
             # field-when once の canonical mirror (event_once_used) も同時にクリア (Rust 同期)。
             for _ip in [me.leader, *me.characters, *me.stages]:
                 _ip.event_once_used.clear()

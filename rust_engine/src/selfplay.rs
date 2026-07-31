@@ -128,12 +128,14 @@ fn norm_value(st: &GameState, me: usize, weights: Option<&[f64]>) -> f64 {
 // 防御側が常にノーガード = カウンター (デッキ総量 ~40000) と要求値が存在しない別ゲームを学習してしまう。
 // → ここで防御側の応手を value で選び action に埋める。 探索 (greedy/beam/rollout) の内部 sim も同じ関数を
 // 通すので、 攻撃側は 「相手は防御してくる」 前提で読む (= 無防御前提の歪んだ攻めを防ぐ)。
-// ⚠ 未対応: カウンターイベント (counter_event_idxs)。 手札の counter 札 + ブロッカーのみ (v2 範囲)。
+// 候補 = 無防御 / 手札カウンター札 / ブロッカー / カウンターイベント (+ 併用)。
+// ⚠ 未対応: 【相手のアタック時】のコスト付き起動防御 (rules.rs が bail するため候補に入れられない)。
 
 // 防御の実効カバレッジ計器。 「防御を選ばなかった (方策)」 と 「Rust が解決できず bail した (未実装)」 を
 // 区別する為の大域カウンタ。 無防御への静かな回帰を検出する。 [attacks, blocker_avail, cand_bail, chose_block,
 // chose_counter]。 reset/read は lib.rs の def_stats/reset_def_stats。
-pub static DEF_STATS: [std::sync::atomic::AtomicU64; 5] = [
+pub static DEF_STATS: [std::sync::atomic::AtomicU64; 6] = [
+    std::sync::atomic::AtomicU64::new(0),
     std::sync::atomic::AtomicU64::new(0),
     std::sync::atomic::AtomicU64::new(0),
     std::sync::atomic::AtomicU64::new(0),
@@ -152,15 +154,23 @@ fn bump(i: usize, n: u64) {
 pub static DIAG_ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 pub static ACTION_STATS: std::sync::Mutex<std::collections::BTreeMap<String, [u64; 2]>> =
     std::sync::Mutex::new(std::collections::BTreeMap::new());
+/// bail の理由別内訳 ("<action種別> | <Err 文字列>" -> 回数)。 残実装の作業リストそのもの。
+pub static BAIL_REASONS: std::sync::Mutex<std::collections::BTreeMap<String, u64>> =
+    std::sync::Mutex::new(std::collections::BTreeMap::new());
 
-fn diag_record(action: &Value, ok: bool) {
+fn diag_record(action: &Value, err: Option<&String>) {
     if !DIAG_ON.load(std::sync::atomic::Ordering::Relaxed) {
         return;
     }
     let t = action.get("t").and_then(|v| v.as_str()).unwrap_or("?").to_string();
     if let Ok(mut m) = ACTION_STATS.lock() {
-        let e = m.entry(t).or_insert([0, 0]);
-        e[if ok { 0 } else { 1 }] += 1;
+        let e = m.entry(t.clone()).or_insert([0, 0]);
+        e[if err.is_none() { 0 } else { 1 }] += 1;
+    }
+    if let Some(e) = err {
+        if let Ok(mut m) = BAIL_REASONS.lock() {
+            *m.entry(format!("{t} | {e}")).or_insert(0) += 1;
+        }
     }
 }
 
@@ -282,6 +292,36 @@ pub fn defended_move(
         }
     }
 
+    // ⑤ カウンターイベント (エンジンは fire_counter_events で実装済)。 相手ターン中に残した
+    //    アクティブドンで払う = 「ドンを残す」判断の受け皿。 払えない/該当なしなら候補は増えない。
+    let cev: Vec<usize> = st.players[def]
+        .hand
+        .iter()
+        .enumerate()
+        .filter(|(_, c)| {
+            c.category == crate::state::Category::Event
+                && c.cost <= st.players[def].don_active
+                && crate::effects::card_has_when(&c.card_id, "counter")
+        })
+        .map(|(i, _)| i)
+        .collect();
+    for (n, &i) in cev.iter().take(2).enumerate() {
+        let mut a = action.clone();
+        a["counter_event_idxs"] = json!([i as i64]);
+        cands.push(a);
+        // 先頭の 1 枚だけ「イベント + 手札カウンター」併用も見る (要求値に届かない分を足す)
+        if n == 0 {
+            if let Some(set) = min_counter_set(&ccands, atk_power - target_power + 1, 2) {
+                if !set.is_empty() {
+                    let mut a2 = action.clone();
+                    a2["counter_event_idxs"] = json!([i as i64]);
+                    a2["counter_card_idxs"] = json!(set);
+                    cands.push(a2);
+                }
+            }
+        }
+    }
+
     bump(0, 1);
     if !blockers.is_empty() {
         bump(1, 1);
@@ -289,9 +329,14 @@ pub fn defended_move(
     let mut best: Option<(Value, GameState, f64)> = None;
     for a in &cands {
         let mut c = st.clone();
-        if apply_action(&mut c, a).is_err() {
+        if let Err(e) = apply_action(&mut c, a) {
             // 防御候補が Rust 未対応で bail = 「方策が選ばなかった」ではなく「選べなかった」
             bump(2, 1);
+            if DIAG_ON.load(std::sync::atomic::Ordering::Relaxed) {
+                if let Ok(mut m) = BAIL_REASONS.lock() {
+                    *m.entry(format!("defense | {e}")).or_insert(0) += 1;
+                }
+            }
             continue;
         }
         let sc = eval_with(&c, def, def_w);
@@ -305,6 +350,9 @@ pub fn defended_move(
         }
         if a.get("counter_card_idxs").and_then(|v| v.as_array()).map_or(false, |x| !x.is_empty()) {
             bump(4, 1);
+        }
+        if a.get("counter_event_idxs").and_then(|v| v.as_array()).map_or(false, |x| !x.is_empty()) {
+            bump(5, 1);
         }
     }
     best.map(|(a, s, _)| (a, s))
@@ -321,12 +369,12 @@ pub fn apply_move(
     if is_attack(action) {
         if let Some((chosen, ns)) = defended_move(st, action, def_w) {
             *st = ns;
-            diag_record(action, true);
+            diag_record(action, None);
             return Ok(chosen);
         }
     }
     let r = apply_action(st, action);
-    diag_record(action, r.is_ok());
+    diag_record(action, r.as_ref().err());
     r?;
     Ok(action.clone())
 }

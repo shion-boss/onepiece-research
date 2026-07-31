@@ -191,20 +191,41 @@ pub enum Slot {
     Leader,
     Char(usize),
     Stage(usize),
+    /// 発動元が **場に居ない** (= Python の `self_inplay=None`)。 【トリガー】(ライフ札)、 【KO時】(KO 済)、
+    /// counter event (手札から trash) 等。 effects.py:256-274 が when in (on_ko/main/counter/trigger) で
+    /// self_inplay=None を許容するのと対応。 **target "self" は 0 対象 = no-op になる** (effects.py:2346
+    /// `if target_spec in (None,"self") and self_inplay is not None`)。 以前は Slot::Leader を placeholder に
+    /// していたが、 それだと "self" が自リーダーへ誤解決するため allow-list で丸ごと bail していた。
+    Detached,
 }
 
 fn get_ip(p: &Player, s: Slot) -> &InPlay {
     match s {
-        Slot::Leader => &p.leader,
+        Slot::Leader | Slot::Detached => &p.leader,
         Slot::Char(i) => &p.characters[i],
         Slot::Stage(i) => &p.stages[i],
     }
 }
 fn get_ip_mut(p: &mut Player, s: Slot) -> &mut InPlay {
     match s {
-        Slot::Leader => &mut p.leader,
+        Slot::Leader | Slot::Detached => &mut p.leader,
         Slot::Char(i) => &mut p.characters[i],
         Slot::Stage(i) => &mut p.stages[i],
+    }
+}
+
+/// 発動元 InPlay を **場に居る時だけ** 返す (Python の self_inplay 相当)。 src を直接参照する primitive は
+/// これを使い、 None なら再現不能として bail する (Slot::Detached で leader に誤解決させない為)。
+fn src_ip(p: &Player, s: Slot) -> Option<&InPlay> {
+    match s {
+        Slot::Detached => None,
+        _ => Some(get_ip(p, s)),
+    }
+}
+fn src_ip_mut(p: &mut Player, s: Slot) -> Option<&mut InPlay> {
+    match s {
+        Slot::Detached => None,
+        _ => Some(get_ip_mut(p, s)),
     }
 }
 
@@ -595,7 +616,14 @@ fn resolve_target(
         }
     };
     let out = match s.as_str() {
-        "self" => vec![(me_idx, src)],
+        // effects.py:2346 — self_inplay=None (source-gone) なら 0 対象 = no-op。
+        "self" => {
+            if src == Slot::Detached {
+                vec![]
+            } else {
+                vec![(me_idx, src)]
+            }
+        }
         // このキャラ以外の自キャラ 1 枚 (power 降順、 effects.py:2951)。 src が Char(i) なら i を除外。
         "other_self_chara" => {
             let p = &state.players[me_idx];
@@ -616,6 +644,33 @@ fn resolve_target(
             vec![(me_idx, cands[0].0)]
         }
         "self_leader" => vec![(me_idx, Slot::Leader)],
+        // 相手リーダー or キャラ 1 枚 (effects.py:2507)。 AI = _opp_value 最大のキャラ → **居なければ
+        // リーダー**。 ⚠ 下の one_opponent_ prefix arm はキャラのみ返すので、 キャラ 0 の時に Python の
+        // leader fallback と食い違う → 明示 arm が要る。 one_opp_chara_or_leader は alias (effects.py:2395)。
+        "one_opponent_inplay_any" | "one_opp_chara_or_leader" => {
+            let opp = &state.players[opp_idx];
+            let mut cands: Vec<usize> = (0..opp.characters.len()).collect();
+            cands.sort_by(|&a, &b| {
+                opp_value(&opp.characters[b])
+                    .partial_cmp(&opp_value(&opp.characters[a]))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            match cands.first() {
+                Some(&i) => vec![(opp_idx, Slot::Char(i))],
+                None => vec![(opp_idx, Slot::Leader)],
+            }
+        }
+        // effects.py:2389 alias。 prefix arm は "one_opponent_" 始まりしか拾わないので明示。
+        "one_opp_character_any" => {
+            let opp = &state.players[opp_idx];
+            let mut cands: Vec<usize> = (0..opp.characters.len()).collect();
+            cands.sort_by(|&a, &b| {
+                opp_value(&opp.characters[b])
+                    .partial_cmp(&opp_value(&opp.characters[a]))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
+        }
         // 相手リーダー (effects.py:2354、 one_opponent_leader は overlay 別名 OP06-023 等)。
         "opponent_leader" | "one_opponent_leader" => vec![(opp_idx, Slot::Leader)],
         // 自リーダー or キャラ 1 体、 AI はリーダー優先 (effects.py:2948)
@@ -1193,7 +1248,8 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
             Some(cap >= n)
         }
         "rest_self_don" => Some(me.don_active >= cv.as_i64().unwrap_or(0) as i32),
-        "rest_self" => Some(!get_ip(me, src).rested), // self_inplay present && !rested
+        // effects.py:544 — self_inplay が居ない (source-gone) or 既レスト なら払えない。
+        "rest_self" => Some(src_ip(me, src).map_or(false, |ip| !ip.rested)),
         "rest_self_target_name" | "rest_self_target" => {
             let name = cv.get("name").and_then(|x| x.as_str()).unwrap_or_else(|| cv.as_str().unwrap_or(""));
             Some(me.characters.iter().chain(me.stages.iter()).any(|ip| ip.card.name == name && !ip.rested))
@@ -1289,7 +1345,8 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
         }
         "rest_self" => {
             if cv == Value::Bool(true) {
-                let ip = get_ip_mut(&mut state.players[me_idx], src);
+                // effects.py:882 — self_inplay が居なければ rest しない (source-gone)。
+                let Some(ip) = src_ip_mut(&mut state.players[me_idx], src) else { return None };
                 if !ip.rested {
                     ip.rested = true;
                 }
@@ -1727,6 +1784,23 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 state.pending_attack_redirect = Some(i as i32);
             }
             // leader/stage/none → no-op (通常 leader battle 続行)
+            true
+        }
+        // 効果無効 (effects.py:7648)。 spec = target 文字列 or {target}。 既定 one_opponent_inplay_any。
+        // granted_keywords に "効果無効" を足すだけ (Python も同じ近似実装)。 last_negated_iid は
+        // dataclass field でない (dynamic attr) = canonical 対象外なので Rust は記録不要。
+        "negate_effect" => {
+            let target_spec = if v.is_string() {
+                v.clone()
+            } else {
+                v.get("target").cloned().unwrap_or(Value::String("one_opponent_inplay_any".into()))
+            };
+            let Some(targets) = resolve_target(Some(&target_spec), me_idx, opp_idx, src, state) else {
+                return false;
+            };
+            for (pi, sl) in targets {
+                get_ip_mut(&mut state.players[pi], sl).granted_keywords.insert("効果無効".to_string());
+            }
             true
         }
         // 効果無効 (effects.py:8220)。 spec {target, duration(turn|next_opp_turn_end), also_cannot_attack}。
@@ -2643,6 +2717,61 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             true
         }
         // 自デッキ上 N 枚をライフに (effects.py:4619)。
+        // 相手デッキ上 N 枚を「見る」(effects.py:5974、 OP11-070 プリン等)。 zone は動かさず、
+        // acting player の私的知識として last_peeked_opp_deck_top (canonical field) に記録するだけ。
+        "peek_opp_deck_top" => {
+            let n = if v.is_object() {
+                v.get("amount").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            }
+            .max(0) as usize;
+            let ids: Vec<String> = state.players[opp_idx]
+                .deck
+                .iter()
+                .take(n)
+                .map(|c| c.card_id.clone())
+                .collect();
+            state.last_peeked_opp_deck_top = Some(json!({"viewer_idx": me_idx, "card_ids": ids}));
+            true
+        }
+        // 「元々のパワーが、 選んだキャラと同じになる」(effects.py:4784、 EB01-061 Mr.2 等)。
+        // from_target の現在 power を to_target の base_power_override に duration 付きで複写。
+        // 対象 0 (from/to どちらか) なら Python は return False = 効果不発 → Rust も false (bail)。
+        "set_base_power_copy" => {
+            let default_from = Value::String("one_opponent_character_any".into());
+            let from_spec = if v.is_object() {
+                v.get("from_target").cloned().unwrap_or(default_from)
+            } else {
+                default_from
+            };
+            let to_spec = if v.is_object() {
+                v.get("to_target").cloned().unwrap_or(Value::String("self".into()))
+            } else {
+                Value::String("self".into())
+            };
+            let duration = if v.is_object() {
+                v.get("duration").and_then(|x| x.as_str()).unwrap_or("turn").to_string()
+            } else {
+                "turn".to_string()
+            };
+            let Some(from_c) = resolve_target(Some(&from_spec), me_idx, opp_idx, src, state) else { return false };
+            let Some(&(fp, fs)) = from_c.first() else { return false };
+            let copied = get_ip(&state.players[fp], fs).power();
+            let Some(to_c) = resolve_target(Some(&to_spec), me_idx, opp_idx, src, state) else { return false };
+            if to_c.is_empty() {
+                return false;
+            }
+            for (pi, sl) in to_c {
+                let ip = get_ip_mut(&mut state.players[pi], sl);
+                match duration.as_str() {
+                    "turn" => ip.turn_base_power_override = Some(copied),
+                    "next_self_turn_start" => ip.next_turn_base_power_override = Some(copied),
+                    _ => ip.base_power_override = Some(copied),
+                }
+            }
+            true
+        }
         "put_top_to_life" => {
             let n = v.as_i64().unwrap_or(0) as i32;
             let me = &mut state.players[me_idx];
@@ -2908,10 +3037,10 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         // ⚠ replace_ko / KO trigger cascade は未対応 → 該当 victim は diverge (差分テストが除外)。
         "ko" => {
             let Some(targets) = resolve_target(Some(v), me_idx, opp_idx, src, state) else { return false };
-            let (src_power, src_attr) = {
-                let s = get_ip(&state.players[me_idx], src);
-                (s.card.power, s.card.attribute.clone())
-            };
+            // source-gone (Detached) では Python も self_inplay=None で source 依存の KO 耐性判定を
+            // **スキップ** する (effects.py:3352 `if thr >= 0 and self_inplay is not None`)。
+            let src_pa: Option<(i32, String)> = src_ip(&state.players[me_idx], src)
+                .map(|s| (s.card.power, s.card.attribute.clone()));
             let mut victims: Vec<(usize, usize)> = vec![];
             for &(pi, sl) in &targets {
                 if let Slot::Char(idx) = sl {
@@ -2926,14 +3055,16 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     if t.ko_immune_until_turn_end || t.static_ko_immune || t.ko_immune_through_opp_turn {
                         continue;
                     }
-                    if t.static_ko_immune_from_source_power_le >= 0
-                        && src_power <= t.static_ko_immune_from_source_power_le
-                    {
-                        continue;
-                    }
-                    let req = t.static_ko_immune_from_non_attribute.clone();
-                    if !req.is_empty() && !src_attr.contains(&req) {
-                        continue;
+                    if let Some((src_power, src_attr)) = &src_pa {
+                        if t.static_ko_immune_from_source_power_le >= 0
+                            && *src_power <= t.static_ko_immune_from_source_power_le
+                        {
+                            continue;
+                        }
+                        let req = t.static_ko_immune_from_non_attribute.clone();
+                        if !req.is_empty() && !src_attr.contains(&req) {
+                            continue;
+                        }
                     }
                     victims.push((pi, idx));
                 }
@@ -3473,7 +3604,9 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             } as i32;
             if !state.players[me_idx].life.is_empty() {
                 let cost = state.players[me_idx].life[0].cost;
-                get_ip_mut(&mut state.players[me_idx], src).turn_buff += per * cost;
+                // source-gone なら pump 先が無い (Python: self_inplay=None → 対象 0) = no-op
+                let Some(ip) = src_ip_mut(&mut state.players[me_idx], src) else { return true };
+                ip.turn_buff += per * cost;
             }
             true
         }
@@ -3580,8 +3713,10 @@ fn pay_on_play_cost(cost: &Value, state: &mut GameState, me_idx: usize, src: Slo
     }
     // rest_self: source (= 登場カード自身) をレスト。 既レストなら払えない (payability)。
     if rest_self {
-        if get_ip(&state.players[me_idx], src).rested {
-            return Some(false);
+        // effects.py:544 — source-gone or 既レスト は払えない
+        match src_ip(&state.players[me_idx], src) {
+            Some(ip) if !ip.rested => {}
+            _ => return Some(false),
         }
         get_ip_mut(&mut state.players[me_idx], src).rested = true;
     }
@@ -3916,6 +4051,11 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "reveal_self_life_top_pump_per_cost"
             // win_game = 効果勝利 (OP09-118 on_opp_blocker_use)。 game_over/winner set のみ。
             | "win_game"
+            // peek_opp_deck_top = zone 不変 + last_peeked_opp_deck_top 記録のみ (私的情報)。
+            // set_base_power_copy = target 解決 → base_power_override 複写 (cascade 無)。
+            | "peek_opp_deck_top" | "set_base_power_copy"
+            // negate_effect = granted_keywords に "効果無効" を足すだけ (cascade 無)。
+            | "negate_effect"
     )
 }
 
@@ -4013,7 +4153,7 @@ pub fn fire_gated_do(
             .map(|s| s.as_str())
             .unwrap_or("");
         if !on_trigger_prim_safe(key) {
-            return Err(format!("trigger primitive 未対応: {key}"));
+            return Err(format!("when-effect primitive 未対応: {key}"));
         }
         if key == "draw" && me_board_has_when(state, me_idx, "on_self_draw_non_draw_phase") {
             return Err("draw cascade (on_self_draw_non_draw_phase) 未対応".into());
@@ -4022,7 +4162,10 @@ pub fn fire_gated_do(
     for prim in dos {
         if !execute_effect(prim, state, me_idx, src) {
             let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?");
-            return Err(format!("trigger primitive 再現不能: {k}"));
+            // 診断用に spec も載せる (どの target/amount 形が未対応かを bail 集計から直に読む為)
+            let spec = prim.to_string();
+            let spec = if spec.len() > 120 { spec[..120].to_string() } else { spec };
+            return Err(format!("when-effect primitive 再現不能: {k} {spec}"));
         }
     }
     Ok(())
@@ -4288,12 +4431,13 @@ pub fn try_replace_ko(
     Ok(false)
 }
 
-/// victim は既に trash (source-gone) なので Slot::Leader を placeholder に player-level の安全 prim のみ発火。
+/// victim は既に trash (source-gone) なので src=Slot::Detached (= Python の self_inplay=None、
+/// effects.py:256-274 が on_ko で None を許容)。 target "self" は 0 対象 = no-op に解決される。
 /// chara_ko_taken_this_turn++ は battle_ko_character 側で実施済 (Python は trigger_on_ko で全 KO 分加算、 同義)。
-/// ⚠ source-gone: src (=self) を参照する prim / target 系は placeholder=leader に誤解決するため
-///   narrow allow-list (draw/add_don/add_rested_don/untap_don/mill_self_top/put_top_to_life = 全て
-///   player-level で src 不使用) 限定。 cost / 未知条件 (by_opp_effect/by_battle/self_attached_don_ge 等) /
-///   非対応 prim / draw cascade は Err で bail。 replace_ko/replace_leave は呼出側 (do_battle_ko) で先に bail。
+/// ⚠ 以前は placeholder=Leader だったため self/target 系が自リーダーに誤解決する危険があり narrow
+///   allow-list で丸ごと bail していたが、 Detached 化で不要になった (2026-07-31)。 再現できない prim は
+///   execute_effect が false を返して bail する。 cost / 未知条件 / draw cascade は従来通り Err。
+///   replace_ko/replace_leave は呼出側 (do_battle_ko) で先に bail。
 pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> Result<(), String> {
     let Some(ov) = overlay() else { return Ok(()) };
     let Some(effs) = ov.get(victim_cid) else { return Ok(()) };
@@ -4317,7 +4461,7 @@ pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> 
         // (source-gone=Leader placeholder で player-level 安全)。 未対応型は try_pay_counter_cost が Err。
         if let Some(cost) = eff.get("cost") {
             if !cost_is_empty(cost) {
-                match try_pay_counter_cost(state, owner_idx, Slot::Leader, cost)? {
+                match try_pay_counter_cost(state, owner_idx, Slot::Detached, cost)? {
                     true => {}
                     false => continue, // 支払い不能 → 効果 skip
                 }
@@ -4326,21 +4470,6 @@ pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> 
         let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
         for prim in dos {
             let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("");
-            // player-level (src 不使用) のみ許可。 target/self 系は placeholder=leader で誤解決するため bail。
-            // play_self_from_trash は current_source_card_id (下で set) で自身を探す = src 不使用で安全。
-            if !matches!(
-                k,
-                "draw" | "add_don" | "add_don_active" | "add_rested_don" | "untap_don"
-                    | "mill_self_top" | "put_top_to_life"
-                    | "play_from_trash" | "play_multi_from_trash" | "play_from_hand_or_trash"
-                    | "ko_opp_stage" | "search_top_n" | "set_cannot_attack"
-                    | "deal_opp_leader_damage" | "search_from_trash" | "trash_self_hand_random"
-                    | "play_self_from_trash" | "optional_cost_then"
-                    // mill_opp_life_to_trash/hand = 相手ライフ削り (opp 対象、 src 不使用) = source-gone 安全。
-                    | "mill_opp_life_to_trash" | "mill_opp_life_to_hand"
-            ) {
-                return Err(format!("on_ko primitive 未対応 (source-gone): {k}"));
-            }
             if k == "draw" && me_board_has_when(state, owner_idx, "on_self_draw_non_draw_phase") {
                 return Err("on_ko draw cascade 未対応".into());
             }
@@ -4349,7 +4478,7 @@ pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> 
         let prev_src = state.current_source_card_id.clone();
         state.current_source_card_id = Some(victim_cid.to_string());
         for prim in dos {
-            if !execute_effect(prim, state, owner_idx, Slot::Leader) {
+            if !execute_effect(prim, state, owner_idx, Slot::Detached) {
                 state.current_source_card_id = prev_src.clone();
                 return Err(format!("on_ko primitive 再現不能: {}", prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?")));
             }
@@ -4406,22 +4535,10 @@ pub fn fire_life_trigger(
             if k == "to_hand_self_trigger" {
                 continue;
             }
-            if !matches!(
-                k,
-                "draw" | "add_don" | "add_don_active" | "add_rested_don" | "untap_don"
-                    | "mill_self_top" | "put_top_to_life"
-                    | "play_from_trash" | "play_multi_from_trash" | "play_from_hand_or_trash"
-                    | "play_self" | "rest" | "play_from_hand" | "fire_self_effect"
-                    // trash_self_hand_random = player-level (worst_hand_idx 決定的) + on_self_hand_discarded
-                    // cascade は execute_effect が自前 bail-guard。 conditional = if を src=leader placeholder
-                    // で eval (life-trigger は self_inplay=None なので Python も placeholder 相当) + 内 prim 自己 guard。
-                    | "trash_self_hand_random" | "conditional"
-                    // ko = 相手キャラ対象 (src 非参照 = source-gone 安全)。 on_ko/on_self_chara_ko cascade は
-                    // execute_effect の single-victim ko が自前発火/bail (victim=None 準拠)。
-                    | "ko"
-            ) {
-                return Err(format!("life trigger primitive 未対応 (source-gone): {k}"));
-            }
+            // ⚠ 以前は placeholder=Leader で self/target 系が自リーダーに誤解決する危険があったため
+            //   narrow allow-list を敷いていたが、 src=Slot::Detached 化 (= Python の self_inplay=None と
+            //   同義、 "self" は 0 対象) で不要になった (2026-07-31)。 再現不能な prim は execute_effect が
+            //   false を返して bail する。 cascade 系の個別 guard だけ残す。
             if k == "draw" && me_board_has_when(state, defender_idx, "on_self_draw_non_draw_phase") {
                 return Err("life trigger draw cascade 未対応".into());
             }
@@ -4440,7 +4557,7 @@ pub fn fire_life_trigger(
                 kept_in_hand = true; // このカードを手札に加える (trash でなく hand へ)
                 continue;
             }
-            if !execute_effect(prim, state, defender_idx, Slot::Leader) {
+            if !execute_effect(prim, state, defender_idx, Slot::Detached) {
                 return Err(format!("life trigger primitive 再現不能: {}", prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?")));
             }
         }
@@ -4851,13 +4968,22 @@ pub fn fire_field_when(state: &mut GameState, owner_idx: usize, when: &str) -> R
                 .get("once_per_turn")
                 .or_else(|| eff.get("cost").and_then(|c| c.get("once_per_turn")));
             if let Some(o) = once_opt {
-                if !field_when_once_mirrored(when) || o.is_string() {
-                    return Err(format!("{when} once_per_turn 未対応")); // 別トラッカー/共有キー = 追跡不可
-                }
-                if o.as_bool() == Some(true) {
-                    let key = format!("{when}:{idx}");
-                    if get_ip(&state.players[owner_idx], slot).event_once_used.contains(&key) {
-                        continue; // ターン既発動
+                if let Some(shared) = o.as_str() {
+                    // 明示キー (共有 namespace)。 effects.py:1009 の key 形式 `key:<opt>` を
+                    // once_shared_used (canonical mirror) で追跡する。
+                    let key = format!("key:{shared}");
+                    if state.players[owner_idx].once_shared_used.contains(&key) {
+                        continue; // ターン既発動 (別 when と共有のことがある)
+                    }
+                } else {
+                    if !field_when_once_mirrored(when) {
+                        return Err(format!("{when} once_per_turn 未対応")); // 別トラッカー = 追跡不可
+                    }
+                    if o.as_bool() == Some(true) {
+                        let key = format!("{when}:{idx}");
+                        if get_ip(&state.players[owner_idx], slot).event_once_used.contains(&key) {
+                            continue; // ターン既発動
+                        }
                     }
                 }
             }
@@ -4876,6 +5002,14 @@ pub fn fire_field_when(state: &mut GameState, owner_idx: usize, when: &str) -> R
             // once mark (Python _check_and_set は fire 前に set、 mirror も同時)。
             if once_opt.and_then(|o| o.as_bool()) == Some(true) {
                 get_ip_mut(&mut state.players[owner_idx], slot).mark_event_once(when, idx as i64);
+            }
+            if let Some(shared) = once_opt.and_then(|o| o.as_str()) {
+                let key = format!("key:{shared}");
+                let used = &mut state.players[owner_idx].once_shared_used;
+                if !used.contains(&key) {
+                    used.push(key);
+                    used.sort(); // Python 側も sort して保持 (digest 一致)
+                }
             }
             let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
             fire_gated_do(state, owner_idx, slot, dos)?;
@@ -5058,12 +5192,13 @@ pub fn fire_opp_attack(
     Ok(())
 }
 
-/// メインイベントの効果を実行 (effects.py:trigger_main_event)。 event はトラッシュ済 = src は leader 仮 placeholder。
+/// メインイベントの効果を実行 (effects.py:trigger_main_event)。 event は既にトラッシュ = source-gone
+/// (Python も source_iid=None、 effects.py:12923) なので src=Slot::Detached。 target "self" は 0 対象。
 pub fn execute_main_event(state: &mut GameState, me_idx: usize, card_id: &str) -> Result<(), String> {
     let opp = 1 - me_idx;
     // trigger_main_event 順 (turn-first FIFO drain): ① event main 効果 → ② on_self_event_played(me)→
     //   ③ opp_event_or_trigger_fired(opp)。 各段 fire は fidelity 保証 (未対応 cost/once/prim は Err bail)。
-    execute_card_effects(state, me_idx, card_id, "main", Slot::Leader)?;
+    execute_card_effects(state, me_idx, card_id, "main", Slot::Detached)?;
     fire_field_when(state, me_idx, "on_self_event_played")?;
     fire_field_when(state, opp, "opp_event_or_trigger_fired")?;
     Ok(())
@@ -5106,7 +5241,7 @@ pub fn fire_counter_events(
         state.players[defender_idx].trash.push(card);
         // trigger_counter_event 順 (effects.py:12875): counter 効果 → opp_event_or_trigger_fired(attacker)
         //   → on_self_event_played(defender)。 各 counter event 毎に発火 (per-event、 Python enqueue+drain 準拠)。
-        execute_card_effects(state, defender_idx, &cid, "counter", Slot::Leader)?;
+        execute_card_effects(state, defender_idx, &cid, "counter", Slot::Detached)?;
         fire_field_when(state, attacker_idx, "opp_event_or_trigger_fired")?;
         fire_field_when(state, defender_idx, "on_self_event_played")?;
     }
@@ -5666,7 +5801,7 @@ pub fn legal_actions(state: &GameState) -> Vec<Value> {
                     _ => continue,
                 }
                 let sidx = match slot {
-                    Slot::Leader => 0,
+                    Slot::Leader | Slot::Detached => 0, // legal_actions は場の slot のみ列挙 (Detached 不到達)
                     Slot::Char(j) | Slot::Stage(j) => j,
                 };
                 out.push(json!({"t": "ActivateMain", "source_kind": kind, "source_idx": sidx, "effect_index": idx}));
