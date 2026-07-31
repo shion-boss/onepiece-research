@@ -2109,6 +2109,132 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 自分のトラッシュから filter 一致 N 枚をデッキへ (effects.py:trash_to_deck)。
+        // spec {filter, limit, to: top|bottom, shuffle}。 該当 0 枚は公式 4-10 で不発 → false。
+        // ⚠ shuffle=true は rng を消費する = Python と同じ MT 列を使うので bit 一致する。
+        "trash_to_deck" => {
+            let filt = v.get("filter");
+            let limit = v.get("limit").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+            let to_top = v.get("to").and_then(|x| x.as_str()) == Some("top");
+            let do_shuffle = v.get("shuffle").and_then(|x| x.as_bool()).unwrap_or(false);
+            let mut picked: Vec<crate::state::CardDef> = vec![];
+            let mut rest: Vec<crate::state::CardDef> = vec![];
+            for card in std::mem::take(&mut state.players[me_idx].trash) {
+                if picked.len() < limit && matches_filter(&card, filt) {
+                    picked.push(card);
+                } else {
+                    rest.push(card);
+                }
+            }
+            if picked.is_empty() {
+                state.players[me_idx].trash = rest;
+                return false; // 公式 4-10: 対象 0 枚 = 解決不能
+            }
+            state.players[me_idx].trash = rest;
+            if to_top {
+                let mut newdeck = picked;
+                newdeck.extend(std::mem::take(&mut state.players[me_idx].deck));
+                state.players[me_idx].deck = newdeck;
+            } else {
+                state.players[me_idx].deck.extend(picked);
+            }
+            if do_shuffle {
+                let n = state.players[me_idx].deck.len();
+                let perm = state.rng_mut().shuffle_perm(n);
+                let old = std::mem::take(&mut state.players[me_idx].deck);
+                state.players[me_idx].deck = perm.iter().map(|&j| old[j].clone()).collect();
+            }
+            true
+        }
+        // 自分の (filter) キャラを N 枚 KO (effects.py:ko_self_chara、 自軍 KO drawback)。
+        // 犠牲順 = power 昇順 (_sacrifice_key)。 ⚠ KO時トリガー等の cascade が有る盤面は bail。
+        "ko_self_chara" => {
+            let count = if v.is_object() {
+                v.get("count").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            } as usize;
+            let filt = v.get("filter");
+            let excl = v.get("exclude_self").and_then(|x| x.as_bool()).unwrap_or(false);
+            let src_idx = if let Slot::Char(i) = src { Some(i) } else { None };
+            let mut cands: Vec<usize> = (0..state.players[me_idx].characters.len())
+                .filter(|&i| {
+                    matches_filter(&state.players[me_idx].characters[i].card, filt)
+                        && !(excl && Some(i) == src_idx)
+                })
+                .collect();
+            cands.sort_by_key(|&i| state.players[me_idx].characters[i].power());
+            let victims: Vec<(usize, usize)> = cands.into_iter().take(count).map(|i| (me_idx, i)).collect();
+            if victims.is_empty() {
+                return true;
+            }
+            if me_board_has_when(state, me_idx, "on_self_chara_ko")
+                || me_board_has_when(state, opp_idx, "on_opp_chara_ko")
+                || me_board_has_when(state, me_idx, "on_ko")
+                || me_board_has_when(state, me_idx, "replace_ko")
+                || me_board_has_when(state, me_idx, "replace_leave")
+            {
+                return false; // KO cascade 再現不能 → bail
+            }
+            remove_victims(state, victims, RemoveDest::Trash);
+            true
+        }
+        // 「このターン中、 バトルで KO されない」 (effects.py:set_battle_ko_immune)。
+        "set_battle_ko_immune" => {
+            let tspec = if v.is_object() {
+                v.get("target").cloned().unwrap_or(Value::String("self".into()))
+            } else {
+                v.clone()
+            };
+            let duration = v.get("duration").and_then(|x| x.as_str()).unwrap_or("turn").to_string();
+            let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else { return false };
+            for (pi, sl) in targets {
+                let ip = get_ip_mut(&mut state.players[pi], sl);
+                match duration.as_str() {
+                    "static" => ip.battle_ko_immune_static = true,
+                    "next_self_turn_start" | "next_opp_turn_end" => {
+                        ip.battle_ko_immune_through_opp_turn = true
+                    }
+                    _ => ip.battle_ko_immune_until_turn_end = true,
+                }
+            }
+            true
+        }
+        // 自分の (filter) カード N 枚をレスト (effects.py:rest_self_cards_filtered、 cost 用)。
+        // active 候補が count 未満なら不発 (false)。 AI は power 昇順で選ぶ。
+        "rest_self_cards_filtered" => {
+            let count = if v.is_object() {
+                v.get("count").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            } as usize;
+            let filt = v.get("filter");
+            let mut cands: Vec<(Slot, i32)> = vec![];
+            {
+                let me = &state.players[me_idx];
+                if !me.leader.rested && matches_filter(&me.leader.card, filt) {
+                    cands.push((Slot::Leader, me.leader.power()));
+                }
+                for (i, c) in me.characters.iter().enumerate() {
+                    if !c.rested && matches_filter(&c.card, filt) {
+                        cands.push((Slot::Char(i), c.power()));
+                    }
+                }
+                for (i, st) in me.stages.iter().enumerate() {
+                    if !st.rested && matches_filter(&st.card, filt) {
+                        cands.push((Slot::Stage(i), st.power()));
+                    }
+                }
+            }
+            if cands.len() < count {
+                return false;
+            }
+            cands.sort_by_key(|&(_, p)| p); // power 昇順 (安定 = tie は leader→char→stage 順)
+            for (sl, _) in cands.into_iter().take(count) {
+                get_ip_mut(&mut state.players[me_idx], sl).rested = true;
+            }
+            true
+        }
         // 相手のアクティブドンを N 枚レストにする (effects.py:6436、 ST02-008 等)。 不足はそのまま。
         "rest_opp_don" => {
             let n = if v.is_object() {
@@ -3005,17 +3131,22 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 return false;
             }
             if effect_cascade_blocked(&effect, state, me_idx) {
+                note_unknown_key("oct_cascade", "effect");
                 return false;
             }
             // cost 支払い (cost_specs 順)。 未対応は None → bail (cost 済でも apply_action Err で全破棄)
             for cs in &cost {
                 if pay_cost_one(cs, state, me_idx, src).is_none() {
+                    let k = cs.as_object().and_then(|o| o.keys().next()).map(|x| x.as_str()).unwrap_or("?");
+                    note_unknown_key("oct_pay", k);
                     return false;
                 }
             }
             // effect 発火 (未対応 prim は false → 呼出側で bail)
             for es in &effect {
                 if !execute_effect(es, state, me_idx, src) {
+                    let k = es.as_object().and_then(|o| o.keys().next()).map(|x| x.as_str()).unwrap_or("?");
+                    note_unknown_key("oct_effect", k);
                     return false;
                 }
             }
