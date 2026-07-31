@@ -5,6 +5,10 @@
 > 空なら「レビュー待ちなし」。 消化するには session で私 (Claude) に「pending review やって」と伝えるか、
 > 各項目を手動修正 → skip 解除 / `_unimplemented` 実装 で対応する。
 
-**合計: 0 件** (skip 0 / _unimplemented 0 / 近似・未実装 0)
+**合計: 1 件** (skip 1 / _unimplemented 0 / 近似・未実装 0)
 
-現在レビュー待ちなし ✅
+## skip されているテスト (engine バグ等)
+
+| テスト | ファイル | 診断 |
+|---|---|---|
+| `test_op16_116_main_play_teach_and_mill_ai` | test_backfill_auto_154.py | engine bug (人間レビュー要): play_from_hand_named_set の 'names' が _normalize_overlay_names の対象キー (_NAME_KEYS / name_in) に 含まれず、 overlay の全角Ｄ名 (マーシャル・Ｄ・ティーチ) が card.name の 半角D正準形と一致せず登場しない (silent no-op)。 engine 側の names 正規化が 必要なため、 このタスクでは engi... |
