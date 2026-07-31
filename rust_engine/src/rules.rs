@@ -793,37 +793,28 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                         Some(true) if crate::effects::trigger_contains_play_self(&cid) => {
                             // play_self trigger (game.py:2117): taken を trash[0] に pre-place してから発火し、
                             // play_self が current_source_card_id で自身を探して登場させる。
-                            // ⚠ Python は identity (`_c is taken`) で消費判定。 pre-place 前 cid 枚数 k=0 (=trash に
-                            //   同名複製なし) なら「発火後 1 枚残 → 未消費/0 枚 → 消費」で枚数判定が Python と一致。
-                            //   だが k≥1 (同名複製あり) は Python が play_self で **別複製** を消費し taken を末尾へ
-                            //   append する挙動 (OP06-104 菊之丞、 実測) を値型 Rust で再現不能 → bail (correctness)。
-                            let k = state.players[opp].trash.iter().filter(|c| c.card_id == cid).count();
-                            if k >= 1 {
-                                return Err(
-                                    "play_self life trigger: trash 同名複製 (identity 消費順 再現不能)".into(),
-                                );
-                            }
+                            // ⭐ Python の消費判定は identity (`_c is taken`) だが、 CardDef は **repository 共有
+                            //   instance** = 同名カードは全て同一 object。 よって Python の still_in_trash loop
+                            //   (`for _c in trash: if _c is taken`) は trash 内の任意の同名 cid に一致し、 先頭を pop
+                            //   → routing する。 = position(cid) で先頭を探して routing する position ベースが同名複製
+                            //   込みで Python と完全一致 (k≥1 の bail は不要だった)。 見つからない = play_self が全消費
+                            //   (played_self=True, went_to_hand=false)。
                             state.players[opp].trash.insert(0, taken);
                             let kept = crate::effects::fire_life_trigger(state, opp, me, &cid)?;
-                            let count_after = state.players[opp].trash.iter().filter(|c| c.card_id == cid).count();
-                            if count_after > k {
-                                // play_self 未消費 (条件不成立/場full) → life 札を通常 routing (複製は値同型で任意 1 枚)
-                                let pos = state.players[opp]
-                                    .trash
-                                    .iter()
-                                    .position(|c| c.card_id == cid)
-                                    .expect("count_after>k なので必ず存在");
-                                let t = state.players[opp].trash.remove(pos);
-                                if kept {
-                                    state.players[opp].hand.push(t);
-                                    true
-                                } else {
-                                    state.players[opp].trash.push(t);
-                                    false
+                            match state.players[opp].trash.iter().position(|c| c.card_id == cid) {
+                                Some(pos) => {
+                                    // still_in_trash → played_self=False → life 札 (共有 object の任意 1 枚) を routing。
+                                    let t = state.players[opp].trash.remove(pos);
+                                    if kept {
+                                        state.players[opp].hand.push(t);
+                                        true
+                                    } else {
+                                        state.players[opp].trash.push(t);
+                                        false
+                                    }
                                 }
-                            } else {
-                                // play_self が taken を登場させた (played_self、 went_to_hand=false)
-                                false
+                                // trash に cid 無し = play_self が taken を登場させた (played_self、 went_to_hand=false)
+                                None => false,
                             }
                         }
                         Some(true) => {
