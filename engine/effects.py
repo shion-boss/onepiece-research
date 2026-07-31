@@ -1032,6 +1032,9 @@ _FIELD_WHEN_ONCE_MIRROR = frozenset({
     "on_self_hand_discarded", "on_self_don_returned_to_deck", "on_self_event_played",
     "on_opp_event_or_trigger_fired", "on_self_chara_leave_by_self_effect", "on_self_rested",
     "on_self_trigger_fired",
+    # ライフ 0 トリガー (OP05-098 紫エネル)。 source はリーダー (= 永続 InPlay) なので mirror 可能。
+    # これが無いと Rust 側で「ターン1回」を追跡できず、 該当効果が丸ごと bail する (2026-07-31)。
+    "on_life_zero",
 })
 
 

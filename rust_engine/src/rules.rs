@@ -783,15 +783,18 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             if atk_power_base >= def_power {
                 let damage = if is_double { 2 } else { 1 };
                 if state.players[opp].life.is_empty() {
-                    if crate::effects::card_has_when(
-                        &state.players[opp].leader.card.card_id,
-                        "on_life_zero",
-                    ) {
-                        return Err("on_life_zero 未対応".into());
+                    // ライフ 0 トリガー (game.py:1760、 OP05-098 紫エネル等「デッキ上 1 枚をライフへ」)。
+                    // 先に発火させ、 **それでもまだ 0 なら** 敗北宣言 (回復すれば試合続行)。
+                    // src = 相手リーダー (Python も source_iid=leader.instance_id)。
+                    let lcid = state.players[opp].leader.card.card_id.clone();
+                    if crate::effects::card_has_when(&lcid, "on_life_zero") {
+                        crate::effects::fire_on_life_zero(state, opp)?;
                     }
-                    // 敗北宣言 (game.py:1748 は reset_battle_buffs せず return)
-                    declare_winner(state, me);
-                    return Ok(());
+                    if state.players[opp].life.is_empty() {
+                        // 敗北宣言 (game.py:1765 は reset_battle_buffs せず return)
+                        declare_winner(state, me);
+                        return Ok(());
+                    }
                 }
                 // per-hit 処理 (Python _resolve_life_taken)。 トリガー発火は board を変えうるので hit ごとに
                 // should_fire を再評価 (一括 pre-check 不可)。 発火は fire_life_trigger (source-gone 安全 subset、

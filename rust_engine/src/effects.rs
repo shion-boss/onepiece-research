@@ -4865,7 +4865,21 @@ pub fn fire_life_trigger(
         if eff.get("when").and_then(|v| v.as_str()) != Some("trigger") {
             continue;
         }
-        if eff.get("cost").map_or(false, |c| !cost_is_empty(c)) {
+        // cost 持ちトリガー (overlay 実績: pay_don 16 / discard_hand 1 / once_per_turn 1)。
+        // on_ko と同じく try_pay_counter_cost に委譲する (source-gone = Slot::Detached)。
+        // once_per_turn は iid-keyed で Rust から追跡できないので従来通り bail。
+        if let Some(cost) = eff.get("cost") {
+            if !cost_is_empty(cost) {
+                if cost.get("once_per_turn").is_some() {
+                    return Err("life trigger once cost 未対応 (iid-keyed)".into());
+                }
+                match try_pay_counter_cost(state, defender_idx, Slot::Detached, cost)? {
+                    true => {}
+                    false => continue, // 支払い不能 → この効果は発動しない
+                }
+            }
+        }
+        if false {
             return Err("life trigger cost 未対応".into());
         }
         if eff.get("once_per_turn").is_some() {
@@ -5363,6 +5377,42 @@ pub fn fire_field_when(state: &mut GameState, owner_idx: usize, when: &str) -> R
     Ok(())
 }
 
+/// ライフ 0 トリガー (effects.py:trigger_on_life_zero、 OP05-098 紫エネル「デッキ上1枚をライフへ」)。
+/// source = 自リーダー (永続 InPlay) なので once_per_turn は event_once_used の canonical mirror で追跡できる。
+/// 呼出側は発火後に life が回復したか再判定する (回復していれば敗北宣言しない)。
+pub fn fire_on_life_zero(state: &mut GameState, owner_idx: usize) -> Result<(), String> {
+    let Some(ov) = overlay() else { return Ok(()) };
+    let cid = state.players[owner_idx].leader.card.card_id.clone();
+    let Some(effs) = ov.get(&cid) else { return Ok(()) };
+    for (idx, eff) in effs.iter().enumerate() {
+        if eff.get("when").and_then(|v| v.as_str()) != Some("on_life_zero") {
+            continue;
+        }
+        match eval_effect_conditions(eff, state, owner_idx, Some(Slot::Leader)) {
+            Some(true) => {}
+            Some(false) => continue,
+            None => return Err("on_life_zero 条件 unknown".into()),
+        }
+        // cost は once_per_turn のみ対応 (overlay 実績: OP05-098 系のみ)。 他の cost は bail。
+        if let Some(cost) = eff.get("cost") {
+            let only_once = cost.as_object().map_or(true, |o| o.keys().all(|k| k == "once_per_turn"));
+            if !only_once {
+                return Err("on_life_zero cost 未対応".into());
+            }
+            if cost.get("once_per_turn").and_then(|v| v.as_bool()) == Some(true) {
+                let key = format!("on_life_zero:{idx}");
+                if state.players[owner_idx].leader.event_once_used.contains(&key) {
+                    continue; // ターン既発動
+                }
+                state.players[owner_idx].leader.mark_event_once("on_life_zero", idx as i64);
+            }
+        }
+        let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
+        fire_gated_do(state, owner_idx, Slot::Leader, dos)?;
+    }
+    Ok(())
+}
+
 /// field-when once の canonical mirror (event_once_used) 対象 when か。 Python effects.py:_FIELD_WHEN_ONCE_MIRROR と一致。
 fn field_when_once_mirrored(when: &str) -> bool {
     matches!(
@@ -5371,7 +5421,7 @@ fn field_when_once_mirrored(when: &str) -> bool {
             | "on_self_chara_played" | "on_opp_chara_played" | "on_self_chara_ko" | "on_opp_chara_ko"
             | "on_self_hand_discarded" | "on_self_don_returned_to_deck" | "on_self_event_played"
             | "on_opp_event_or_trigger_fired" | "on_self_chara_leave_by_self_effect" | "on_self_rested"
-            | "on_self_trigger_fired"
+            | "on_self_trigger_fired" | "on_life_zero"
     )
 }
 
