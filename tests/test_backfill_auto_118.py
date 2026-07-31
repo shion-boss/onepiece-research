@@ -609,8 +609,11 @@ def test_op12_020_activate_main_once_per_turn():
 # --------------------------------------------------------------------------- #
 #  OP12-021 いっぽんマツ (CHARACTER): リーダー属性(斬)+レストドン6以上で 相手効果でレストされない (static)
 # --------------------------------------------------------------------------- #
-def test_op12_021_static_protect_when_condition_met():
-    """リーダー属性(斬) + レストドン6以上 → 相手効果でレストされない (protect_from_opp_effect)。"""
+def test_op12_021_static_cannot_be_rested_when_condition_met():
+    """リーダー属性(斬) + レストドン6以上 → このキャラは相手の効果でレストされない
+    (static_cannot_be_rested)。 公式文言「レストにされない」= rest 限定免疫 (KO/離脱は防がない)。
+    旧テストは protect_from_opp_effect (=場を離れない) を検証していたが、 本セッションで公式通り
+    set_cannot_be_rested_static に修正済 (rest 免疫であって leave 保護ではない)。"""
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, _LEADER_ZAN, overlay)  # OP12-020 leader = 属性 斬
@@ -620,12 +623,12 @@ def test_op12_021_static_protect_when_condition_met():
     me.don_rested = 6  # レストドン6以上
 
     evaluate_static_effects(st, overlay)
-    assert matsu.protect_from_opp_effect is True, \
-        "斬リーダー + レストドン6 で 相手効果からの保護が付与されていない"
+    assert matsu.static_cannot_be_rested is True, \
+        "斬リーダー + レストドン6 で レスト免疫 (static_cannot_be_rested) が付与されていない"
 
 
-def test_op12_021_static_no_protect_when_don_insufficient():
-    """レストドンが5枚 (< 6) なら 静的条件 不成立 → 保護されない。"""
+def test_op12_021_static_no_rest_immunity_when_don_insufficient():
+    """レストドンが5枚 (< 6) なら 静的条件 不成立 → レスト免疫は付かない。"""
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, _LEADER_ZAN, overlay)
@@ -635,8 +638,8 @@ def test_op12_021_static_no_protect_when_don_insufficient():
     me.don_rested = 5  # < 6
 
     evaluate_static_effects(st, overlay)
-    assert matsu.protect_from_opp_effect is False, \
-        "レストドン5枚 (条件不成立) で 保護が付いてはいけない"
+    assert matsu.static_cannot_be_rested is False, \
+        "レストドン5枚 (条件不成立) で レスト免疫が付いてはいけない"
 
 
 # --------------------------------------------------------------------------- #
