@@ -786,6 +786,25 @@ fn resolve_target(
             }
             // 相手キャラから filter 一致 1 枚 (effects.py:2182、 _threat_key=power降順)。 sub-filter:
             //   attached_don_ge / rested / active / blocker / current_power_le / current_cost_eq/le/ge。
+            // 相手キャラ全員 (filter 一致)。 limit 指定で opp_value 降順に N 枚まで (effects.py:2260)。
+            if t == "all_opponent_chara_filtered" {
+                let filt = v.get("filter");
+                let opp = &state.players[opp_idx];
+                let mut cands: Vec<usize> = (0..opp.characters.len())
+                    .filter(|&i| matches_filter(&opp.characters[i].card, filt))
+                    .collect();
+                match v.get("limit").and_then(|x| x.as_i64()) {
+                    Some(lim) => {
+                        cands.sort_by(|&a, &b| {
+                            opp_value(&opp.characters[b])
+                                .partial_cmp(&opp_value(&opp.characters[a]))
+                                .unwrap_or(std::cmp::Ordering::Equal)
+                        });
+                        return Some(cands.into_iter().take(lim as usize).map(|i| (opp_idx, Slot::Char(i))).collect());
+                    }
+                    None => return Some(cands.into_iter().map(|i| (opp_idx, Slot::Char(i))).collect()),
+                }
+            }
             if t == "one_opponent_character_filtered" {
                 let fo = v.get("filter").and_then(|f| f.as_object());
                 let gi = |k: &str| fo.and_then(|o| o.get(k)).and_then(|x| x.as_i64());
@@ -849,6 +868,26 @@ fn resolve_target(
             vec![(me_idx, cands[0].0)]
         }
         "self_leader" => vec![(me_idx, Slot::Leader)],
+        // 「このキャラ以外の自分のリーダーかキャラ 1 枚」 (effects.py:2334、 ST01-005)。
+        // 発動元を除外して power 降順 1 枚 (tie は leader→char の board 順 = 安定ソート)。
+        "self_team_except_self" => {
+            let me = &state.players[me_idx];
+            let src_idx = if let Slot::Char(i) = src { Some(i) } else { None };
+            let mut cands: Vec<(Slot, i32)> = vec![];
+            if !matches!(src, Slot::Leader) {
+                cands.push((Slot::Leader, me.leader.power()));
+            }
+            for (i, c) in me.characters.iter().enumerate() {
+                if Some(i) != src_idx {
+                    cands.push((Slot::Char(i), c.power()));
+                }
+            }
+            cands.sort_by(|a, b| b.1.cmp(&a.1));
+            match cands.first() {
+                Some(&(sl, _)) => vec![(me_idx, sl)],
+                None => vec![],
+            }
+        }
         // 相手リーダー or キャラ 1 枚 (effects.py:2507)。 AI = _opp_value 最大のキャラ → **居なければ
         // リーダー**。 ⚠ 下の one_opponent_ prefix arm はキャラのみ返すので、 キャラ 0 の時に Python の
         // leader fallback と食い違う → 明示 arm が要る。 one_opp_chara_or_leader は alias (effects.py:2395)。
@@ -4770,6 +4809,8 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             // rest_opp_don = 相手コストエリアの active→rested のみ (src 非参照、 cascade 無)。
             // give_attack_active_chara = キーワード付与のみ。
             | "rest_opp_don" | "give_attack_active_chara"
+            // return_to_hand = prim 側で leave cascade を自前判定 or bail するので安全。
+            | "return_to_hand"
             // negate_effect = granted_keywords に "効果無効" を足すだけ (cascade 無)。
             | "negate_effect"
             // ko = prim 側で cascade を自前処理 (single/multi victim) or 内部 bail するので安全。
