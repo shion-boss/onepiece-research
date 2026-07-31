@@ -25,7 +25,7 @@ pub fn load_overlay(json_str: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn overlay() -> Option<&'static HashMap<String, Vec<Value>>> {
+pub fn overlay() -> Option<&'static HashMap<String, Vec<Value>>> {
     OVERLAY.get()
 }
 

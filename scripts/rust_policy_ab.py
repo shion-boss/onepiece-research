@@ -41,11 +41,8 @@ _deck_cache: dict[str, str] = {}
 
 
 def deck_value(slug: str) -> str:
-    if slug not in _deck_cache:
-        d = P._dl(slug)
-        _deck_cache[slug] = json.dumps({"leader": _ser_full(d.leader),
-                                        "main": [_ser_full(c) for c in d.main]})
-    return _deck_cache[slug]
+    """マリガン判定材料込みの deck Value (rust_parity_check.deck_value に集約)。"""
+    return P.deck_value(slug)
 
 
 def rng_state(seed: int) -> str:

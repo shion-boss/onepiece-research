@@ -195,6 +195,36 @@ fn setup_pre_mulligan_digest(
     digest_of(&st).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
 }
 
+/// setup_game(do_mulligan_and_finalize=True) 相当 = pre-mulligan + マリガン + _recompute_static。
+/// blob=true で canonical blob、 false で digest を返す。 Python の setup_game と bit 一致を検証する用。
+#[pyfunction]
+#[pyo3(signature = (deck1_json, deck2_json, rng_state_json, first_player, blob=false))]
+fn setup_full(
+    deck1_json: &str,
+    deck2_json: &str,
+    rng_state_json: &str,
+    first_player: usize,
+    blob: bool,
+) -> PyResult<String> {
+    let d1: serde_json::Value = serde_json::from_str(deck1_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deck1: {e}")))?;
+    let d2: serde_json::Value = serde_json::from_str(deck2_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deck2: {e}")))?;
+    let rng_state: Vec<u64> = serde_json::from_str(rng_state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("rng_state: {e}")))?;
+    let mut st = setup::setup_pre_mulligan(&d1, &d2, &rng_state, first_player)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+    setup::apply_mulligan(&mut st, &d1, &d2, first_player);
+    effects::evaluate_static_effects(&mut st);
+    if blob {
+        let v = serde_json::to_value(&st)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+        serde_json::to_string(&v).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    } else {
+        digest_of(&st).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+    }
+}
+
 #[pyfunction]
 fn setup_pre_mulligan_blob(
     deck1_json: &str,
@@ -428,6 +458,7 @@ fn optcg_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(choose_action, m)?)?;
     m.add_function(wrap_pyfunction!(setup_pre_mulligan_digest, m)?)?;
     m.add_function(wrap_pyfunction!(setup_pre_mulligan_blob, m)?)?;
+    m.add_function(wrap_pyfunction!(setup_full, m)?)?;
     m.add_function(wrap_pyfunction!(apply_raw_effect_digest, m)?)?;
     m.add_function(wrap_pyfunction!(mt_getrandbits, m)?)?;
     m.add_function(wrap_pyfunction!(mt_randrange, m)?)?;

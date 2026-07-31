@@ -569,6 +569,10 @@ pub fn play_game(
     collect_traj: bool,
 ) -> Result<Value, String> {
     let mut st = crate::setup::setup_pre_mulligan(d1, d2, rng_state, first_player)?;
+    // マリガン (game.py:182)。 これが無いと初手品質の分布が実戦とズレる (= キーカード依存の
+    // control 側が不当に不利)。 判定材料 (keep/prior card_ids) は deck Value 経由で受け取る。
+    crate::setup::apply_mulligan(&mut st, d1, d2, first_player);
+    crate::effects::evaluate_static_effects(&mut st);
     advance_to_main(&mut st)?;
     let mut steps: i64 = 0;
     // 防御が実際に働いているかの計器 (無防御回帰の検出用)

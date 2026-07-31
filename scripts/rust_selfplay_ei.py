@@ -63,12 +63,11 @@ _leader_cache: dict[str, tuple[str, str]] = {}   # slug -> (leader_id, leader_na
 
 
 def deck_value(slug: str) -> str:
-    if slug not in _deck_cache:
+    """Rust に渡す deck Value (マリガン判定材料込み、 rust_parity_check.deck_value に集約)。"""
+    if slug not in _leader_cache:
         d = P._dl(slug)
-        _deck_cache[slug] = json.dumps({"leader": _ser_full(d.leader),
-                                        "main": [_ser_full(c) for c in d.main]})
         _leader_cache[slug] = (d.leader.card_id, getattr(d.leader, "name", d.leader.card_id))
-    return _deck_cache[slug]
+    return P.deck_value(slug)
 
 
 def leader_of(slug: str) -> tuple[str, str]:

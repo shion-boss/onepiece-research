@@ -65,8 +65,15 @@ pub fn setup_pre_mulligan(
         turn_player_idx: 0,
         turn_number: 1,
         phase: Phase::Refresh,
+        // game_start ステージ登場が deck shuffle で rng を使うので、 ここで載せておく
+        // (以後の rng 依存 effect もこれを継続使用する)。
+        rng: Some(rng),
         ..Default::default()
     };
+    // リーダーの【ゲーム開始時】ステージ登場 (game.py:_apply_game_start_stage_summons、 OP13-079 イム)。
+    // 公式 FAQ: 先攻後攻決定後・最初の手札を準備する **前** = ライフ配置/ドローより先。 rng も
+    // ここで shuffle を消費するので順序を守らないと以降の全ドローがズレる。
+    apply_game_start_stage_summons(&mut st);
     // _place_life_and_draw: 各 player の deck 上から leader.life 枚を life へ、 その後 5 枚 draw。
     for p in st.players.iter_mut() {
         let life_n = p.leader.card.life;
@@ -89,7 +96,116 @@ pub fn setup_pre_mulligan(
         }
         p.cards_drawn_count += drawn;
     }
-    // rng を state に載せておく (以後の rng 依存 effect 継続用)。 pre-mulligan の getstate 相当。
-    st.rng = Some(rng);
     Ok(st)
+}
+
+/// リーダーの【ゲーム開始時】ステージ登場 (game.py:229 _apply_game_start_stage_summons)。
+/// 対応 primitive = summon_stage_from_deck_with_feature。 AI 経路 = 該当ステージのうち **最高コスト**
+/// (tie は deck 内で先に現れる方 = Python max の first-max 準拠) を 1 枚登場 → deck を shuffle。
+/// 該当 0 枚なら何もしない (shuffle も無し = Python と同じ)。
+fn apply_game_start_stage_summons(st: &mut GameState) {
+    let Some(ov) = crate::effects::overlay() else { return };
+    for pidx in 0..st.players.len() {
+        let lid = st.players[pidx].leader.card.card_id.clone();
+        let Some(effs) = ov.get(&lid) else { continue };
+        // 対象 primitive の feature を先に集める (borrow 分離)
+        let feats: Vec<String> = effs
+            .iter()
+            .filter(|e| e.get("when").and_then(|v| v.as_str()) == Some("game_start"))
+            .filter_map(|e| e.get("do").and_then(|v| v.as_array()))
+            .flatten()
+            .filter_map(|prim| {
+                prim.get("summon_stage_from_deck_with_feature")
+                    .map(|v| v.as_str().unwrap_or("").to_string())
+            })
+            .filter(|f| !f.is_empty())
+            .collect();
+        for feat in feats {
+            let p = &mut st.players[pidx];
+            let qualifying: Vec<usize> = (0..p.deck.len())
+                .filter(|&i| {
+                    p.deck[i].category == crate::state::Category::Stage
+                        && p.deck[i].features.iter().any(|f| *f == feat)
+                })
+                .collect();
+            if qualifying.is_empty() {
+                continue;
+            }
+            // Python max(key=cost) は tie で **最初** の要素を返す
+            let mut best = qualifying[0];
+            for &i in qualifying.iter().skip(1) {
+                if p.deck[i].cost > p.deck[best].cost {
+                    best = i;
+                }
+            }
+            let card = p.deck.remove(best);
+            p.stages.push(crate::state::InPlay::of(card, false));
+            // p.shuffle_deck(rng) (公式: search 後はシャッフル)
+            let n = p.deck.len();
+            let perm = st.rng_mut().shuffle_perm(n);
+            let old = std::mem::take(&mut st.players[pidx].deck);
+            st.players[pidx].deck = perm.iter().map(|&j| old[j].clone()).collect();
+        }
+    }
+}
+
+/// マリガン判定 (game.py:_should_mulligan の 3 段)。 tier1 = deck の mulligan_keep_card_ids に
+/// 手札が 1 枚でも該当すれば keep、 tier2 = imitation prior で優先度 0.5 以上の card_id 集合
+/// (mulligan_prior_card_ids、 Python 側で db/imitation_patterns.json から算出して渡す) に該当なら keep、
+/// tier3 = コスト 3 以下の CHARACTER が 0 枚なら引き直し。
+fn should_mulligan(p: &crate::state::Player, keep: &[String], prior: &[String]) -> bool {
+    if !keep.is_empty() {
+        return !p.hand.iter().any(|c| keep.contains(&c.card_id));
+    }
+    if !prior.is_empty() && p.hand.iter().any(|c| prior.contains(&c.card_id)) {
+        return false;
+    }
+    !p.hand
+        .iter()
+        .any(|c| c.category == crate::state::Category::Character && c.cost <= 3)
+}
+
+fn id_list(deck: &Value, key: &str) -> Vec<String> {
+    deck.get(key)
+        .and_then(|v| v.as_array())
+        .map(|a| a.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect())
+        .unwrap_or_default()
+}
+
+/// マリガンを適用 (game.py:182 / finalize_setup_after_mulligan)。 players[0] → players[1] の順に
+/// 判定し、 引き直しなら hand を deck へ戻して shuffle → 5 枚 draw (= Python の rng 消費順と同一)。
+/// deck1/deck2 は setup に渡したものと同じ Value (mulligan_keep_card_ids / mulligan_prior_card_ids を読む)。
+/// first_player で players と deck の対応が入れ替わることに注意 (players[0] は first_player 側)。
+pub fn apply_mulligan(st: &mut GameState, deck1: &Value, deck2: &Value, first_player: usize) {
+    // Python finalize_setup_after_mulligan は最後に _recompute_static (= ownership flags 更新を含む)
+    // を呼ぶ。 Rust ネイティブ setup では誰も owner_idx を立てないので (-1 のまま) ここで揃える。
+    crate::rules::update_ownership_flags(st);
+    // players[0] = first_player==0 ? deck1 : deck2
+    let decks: [&Value; 2] = if first_player == 0 { [deck1, deck2] } else { [deck2, deck1] };
+    for i in 0..2 {
+        let keep = id_list(decks[i], "mulligan_keep_card_ids");
+        let prior = id_list(decks[i], "mulligan_prior_card_ids");
+        if !should_mulligan(&st.players[i], &keep, &prior) {
+            st.players[i].did_mulligan = false;
+            continue;
+        }
+        // Python: deck.extend(hand) → hand=[] → shuffle_deck(rng) → draw(5)
+        let hand = std::mem::take(&mut st.players[i].hand);
+        st.players[i].deck.extend(hand);
+        let n = st.players[i].deck.len();
+        let perm = st.rng_mut().shuffle_perm(n);
+        let old = std::mem::take(&mut st.players[i].deck);
+        st.players[i].deck = perm.iter().map(|&j| old[j].clone()).collect();
+        let mut drawn = 0;
+        for _ in 0..5 {
+            if st.players[i].deck.is_empty() {
+                break;
+            }
+            let c = st.players[i].deck.remove(0);
+            st.players[i].hand.push(c);
+            drawn += 1;
+        }
+        st.players[i].cards_drawn_count += drawn;
+        st.players[i].did_mulligan = true;
+    }
 }

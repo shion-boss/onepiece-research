@@ -70,6 +70,52 @@ def _dl(slug: str):
     return make_deck_from_dict(_deck_cache[slug], repo)
 
 
+def deck_analysis(slug: str) -> dict | None:
+    """decks/<slug>.analysis.json (無ければ None)。 マリガン判定 tier1 の keep card 群を持つ。"""
+    p = REPO / "decks" / f"{slug}.analysis.json"
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+_dv_cache: dict = {}
+
+
+def deck_value(slug: str) -> str:
+    """Rust self_play / setup_full に渡す deck Value (JSON 文字列)。
+
+    leader/main に加え **マリガン判定材料** を載せる (Rust 側 should_mulligan の tier1/tier2)。
+    - mulligan_keep_card_ids: decks/<slug>.analysis.json のキープ札 (tier1)
+    - mulligan_prior_card_ids: imitation prior (大会採用率) が 0.5 以上の card_id (tier2)
+    これを渡さないと Rust は tier3 (コスト3以下キャラの有無) だけで判断し、 Python の AI と挙動が
+    ズレる (= 初手分布が変わる)。 game.py:_should_mulligan と対応。
+    """
+    if slug in _dv_cache:
+        return _dv_cache[slug]
+    from engine.state_snapshot import _ser_full
+
+    d = _dl(slug)
+    v = {"leader": _ser_full(d.leader), "main": [_ser_full(c) for c in d.main]}
+    an = deck_analysis(slug) or {}
+    v["mulligan_keep_card_ids"] = list(an.get("mulligan_keep_card_ids") or [])
+    prior: list[str] = []
+    if not v["mulligan_keep_card_ids"]:
+        try:
+            from engine.imitation_prior import get_mulligan_priority
+
+            lid = d.leader.card_id
+            seen = {c.card_id for c in d.main}
+            prior = sorted(i for i in seen if get_mulligan_priority(lid, i) >= 0.5)
+        except Exception:
+            prior = []
+    v["mulligan_prior_card_ids"] = prior
+    _dv_cache[slug] = json.dumps(v)
+    return _dv_cache[slug]
+
+
 def _kidx(p, iid):
     if iid == p.leader.instance_id:
         return "leader", 0
