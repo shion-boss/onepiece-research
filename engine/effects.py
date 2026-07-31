@@ -5296,7 +5296,10 @@ def _execute_effect_body(
             # - filter は names 制約とAND結合。
             # 各 name について 手札先頭の 1 枚を取り出し登場 (= AI 簡易: 最も若い index)。
             spec = v if isinstance(v, dict) else {"names": []}
-            names = list(spec.get("names", []))
+            # overlay 側 names は 未正規化 (= _NAME_KEYS に 'names' が無い) だが card.name は
+            # load 時に normalize_card_name 済 (全角Ｄ→半角D)。 両者を 揃えないと 全角Ｄ名
+            # (マーシャル・Ｄ・ティーチ 等) が silent no-op になる (self_field_named_all_with_power と同じ扱い)。
+            names = [normalize_card_name(n) for n in spec.get("names", [])]
             rested = bool(spec.get("rested", False))
             extra_filt = spec.get("filter", {})
             # cost 制約も filter 互換に統合

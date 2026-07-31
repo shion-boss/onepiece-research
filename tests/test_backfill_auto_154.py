@@ -461,12 +461,6 @@ def test_op16_115_trigger_negate_effect_ai():
 #             その後、相手のライフ上1枚までを、持ち主の手札に加える。
 #    【トリガー】カード2枚を引き、自分の手札1枚を捨てる。
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason="engine bug (人間レビュー要): play_from_hand_named_set の "
-                         "'names' が _normalize_overlay_names の対象キー (_NAME_KEYS / name_in) に "
-                         "含まれず、 overlay の全角Ｄ名 (マーシャル・Ｄ・ティーチ) が card.name の "
-                         "半角D正準形と一致せず登場しない (silent no-op)。 engine 側の names 正規化が "
-                         "必要なため、 このタスクでは engine を編集せず skip。 mill 部分は "
-                         "test_op16_107 で別途担保。")
 def test_op16_116_main_play_teach_and_mill_ai():
     """【メイン】(ドン10) 手札のティーチを登場 + 相手ライフ上1枚を相手手札へ (AI 自動)。"""
     repo = _repo()
