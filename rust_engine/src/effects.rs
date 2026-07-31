@@ -266,6 +266,41 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             // === 全カード掃引で「条件 unknown」上位に出た述語を Python から一括移植 (2026-07-31) ===
             // 自分の レストドン >= N (effects.py:1336)
             "self_don_rested_ge" => me.don_rested as i64 >= v.as_i64().unwrap_or(0),
+            // --- 掃引 2 巡目で上位に出た述語 (2026-07-31) ---
+            "self_chara_count_le" => (me.characters.len() as i64) <= v.as_i64().unwrap_or(0),
+            "self_chara_only_feature" => {
+                let f = v.as_str().unwrap_or("");
+                me.characters.iter().all(|c| c.card.features.iter().any(|x| x == f))
+            }
+            // 自分の場のドン (コストエリア active+rested) が 0 か 3 以上 (effects.py:self_field_don_zero_or_ge_3)
+            "self_field_don_zero_or_ge_3" => {
+                let fd = me.don_active + me.don_rested;
+                fd == 0 || fd >= 3
+            }
+            // 相手の元々パワー 6000 以上の リーダー/キャラ が N 体以上
+            "opp_inplay_truly_original_power_ge_6000_count_ge" => {
+                let n = std::iter::once(&opp.leader)
+                    .chain(opp.characters.iter())
+                    .filter(|ip| ip.card.power >= 6000)
+                    .count() as i64;
+                n >= v.as_i64().unwrap_or(0)
+            }
+            // 相手キャラの filter 一致数が N 以下
+            "opp_chara_filtered_count_le" => {
+                let filt = v.get("filter");
+                let limit = v.get("count").and_then(|x| x.as_i64()).unwrap_or(0);
+                (opp.characters.iter().filter(|c| matches_filter(&c.card, filt)).count() as i64) <= limit
+            }
+            // 発動元が召喚酔い中 (= このキャラが登場したターン)。 src 不明なら False (Python 準拠)。
+            "self_summoning_sickness" => {
+                v.as_bool().unwrap_or(true)
+                    == src.and_then(|sl| src_ip(me, sl)).map_or(false, |ip| ip.summoning_sickness)
+            }
+            // どちらかの場に「現在コスト」N 以下のキャラが居るか (effects.py:exists_chara_cost_le)
+            "exists_chara_cost_le" => {
+                let n = v.as_i64().unwrap_or(0);
+                me.characters.iter().chain(opp.characters.iter()).any(|c| c.base_cost() as i64 <= n)
+            }
             // 発動元が場に居てアクティブ (effects.py:1330)。 source-gone は False (unknown ではない)。
             "self_not_rested" => src.and_then(|sl| src_ip(me, sl)).map_or(false, |ip| !ip.rested),
             // 直近に登場した自キャラが【トリガー】持ちか (effects.py:1486)
@@ -1452,7 +1487,25 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
         }
         // return_self_to_deck_bottom cost = 自身が場 (キャラ or ステージ) に居る必要 (effects.py:8394)。
         "return_self_to_deck_bottom" => Some(matches!(src, Slot::Char(_) | Slot::Stage(_))),
-        _ => None, // 未対応 cost 型 → bail
+        // ⚠ Python は can_pay=True から始め、 **既知キーだけが False にできる** (effects.py:8340)。
+        //   未知キーは「払える」扱いで、 支払いは execute_effect に委譲される。 Rust もこれに合わせる
+        //   (以前は未知キーを一律 bail していたため mill_self_top / trash_to_deck / ko_self_chara 等
+        //    実装済 primitive の optional cost が全部落ちていた)。 primitive 未実装なら支払い側で bail。
+        _ => {
+            note_unknown_key("optional_cost", k);
+            Some(true)
+        }
+    }
+}
+
+/// 未対応キーの内訳を記録 (診断時のみ)。 cat = "optional_cost" / "on_play_cost" / "activate_cost" 等。
+/// 「cost 未対応」 としか出ないと どの支払い種別が足りないか分からないので、 条件と同じ粒度で残す。
+fn note_unknown_key(cat: &str, key: &str) {
+    if !crate::selfplay::DIAG_ON.load(std::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
+    if let Ok(mut m) = crate::selfplay::UNKNOWN_CONDS.lock() {
+        *m.entry(format!("[{cat}] {key}")).or_insert(0) += 1;
     }
 }
 
@@ -1671,15 +1724,13 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
                 me.trash.push(c);
             }
         }
-        // 自身/自リーダーの弱体化・自身の帰還・ドン返却を cost として払う (effects.py:8407/8379/8394/8400)。
-        // いずれも対応する primitive にそのまま委譲する (Python も同じ prim を実行する)。
-        "power_pump" | "return_self_to_hand" | "return_self_to_trash"
-        | "return_self_to_deck_bottom" | "return_self_don_to_deck" => {
+        // 上記以外の cost は対応する primitive にそのまま委譲する (Python effects.py:8659 の汎用パス)。
+        // 未実装 primitive なら execute_effect が false を返し、 呼出側が bail する = 黙って無視しない。
+        _ => {
             if !execute_effect(cs, state, me_idx, src) {
                 return None;
             }
         }
-        _ => return None,
     }
     Some(())
 }
@@ -3989,7 +4040,10 @@ fn pay_on_play_cost(cost: &Value, state: &mut GameState, me_idx: usize, src: Slo
             "discard_hand" => discard_n += v as i32,
             "rest_self" => rest_self = true,
             "reveal_hand_with_filter" => {} // 上で判定済 (消費なし)
-            _ => return None, // 未対応 cost 種別 → skip effect
+            _ => {
+                note_unknown_key("on_play_cost", &k);
+                return None; // 未対応 cost 種別 → skip effect
+            }
         }
     }
     // rest_self: source (= 登場カード自身) をレスト。 既レストなら払えない (payability)。
@@ -5576,7 +5630,8 @@ pub fn fire_activate_main(
     if let Some(c) = &cost {
         if let Some(o) = c.as_object() {
             for k in o.keys() {
-                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card" | "ko_self_with_filter" | "trash_self" | "trash_to_deck" | "discard_hand_or_trash_filtered_chara") {
+                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card" | "ko_self_with_filter" | "trash_self" | "trash_to_deck" | "discard_hand_or_trash_filtered_chara" | "discard_hand" | "return_self_to_hand") {
+                    note_unknown_key("activate_cost", k);
                     return Err(format!("activate_main cost 未対応: {k} ({card_id})"));
                 }
             }
@@ -5619,6 +5674,31 @@ pub fn fire_activate_main(
             let n = rest_don.min(me.don_active);
             me.don_active -= n;
             me.don_rested += n;
+        }
+        // discard_hand cost: worst_hand_idx で n 枚捨てる (effects.py:13xxx activate_main cost)。
+        let dn = c.get("discard_hand").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+        if dn > 0 {
+            if (state.players[me_idx].hand.len() as i32) < dn {
+                return Ok(()); // 払えない = 発動しない
+            }
+            for _ in 0..dn {
+                let me = &mut state.players[me_idx];
+                let Some(i) = worst_hand_idx(&me.hand, &me.known_hand_card_ids) else { break };
+                let card = me.hand.remove(i);
+                me.trash.push(card);
+            }
+        }
+        // return_self_to_hand cost: 起動源自身を手札へ (付与ドンはレストへ)。 src が場から消える。
+        if c.get("return_self_to_hand").and_then(|v| v.as_bool()).unwrap_or(false) {
+            let me = &mut state.players[me_idx];
+            let removed = match src {
+                Slot::Char(i) if i < me.characters.len() => me.characters.remove(i),
+                _ => return Err("return_self_to_hand source 不明".into()),
+            };
+            let don = removed.attached_dons;
+            me.hand.push(removed.card);
+            me.don_rested += don;
+            source_gone = true;
         }
         // discard_hand_or_trash_filtered_chara (effects.py:13566、 OP13-079 イム):
         // 「特徴 X のキャラ か 手札 1 枚 を トラッシュ」 の選択コスト。 AI は **手札優先**
