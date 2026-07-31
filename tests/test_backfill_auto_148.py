@@ -590,13 +590,6 @@ def test_op16_032_on_play_set_cannot_rest_human_pick():
 #  OP16-033 モーリー (CHARACTER 緑 cost4 power5000):
 #    このキャラがKOされる場合、代わりに自分のカード2枚をレストにできる。【ブロック不可】
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason=(
-    "engine gap (要人間レビュー): _can_pay_replace_cost が replace_ko の cost "
-    "'rest_self_cards' を未対応 (未対応 cost は支払不能扱い=False) のため、 "
-    "OP16-033 の『KOされる代わりに自カード2枚をレスト』置換が発火しない。 "
-    "engine/effects.py:_can_pay_replace_cost + _pay_replace_cost に rest_self_cards "
-    "分岐を追加する必要があるが、 本自動タスクでは engine を編集しないため skip。"
-))
 def test_op16_033_replace_ko_rest_two_ai():
     """replace_ko: KOされる代わりに 自カード2枚をレストにして 場に残る (AI 自動)。"""
     repo = _repo()
@@ -619,10 +612,6 @@ def test_op16_033_replace_ko_rest_two_ai():
         f"置換コストで自カードが2枚レストされるべき: {rested_before}→{rested_after}"
 
 
-@pytest.mark.skip(reason=(
-    "engine gap (要人間レビュー): 同上。 replace_ko cost 'rest_self_cards' 未対応 → "
-    "optional でも _can_pay_replace_cost=False で replace_ko_optional modal が立たない。"
-))
 def test_op16_033_replace_ko_human_confirm():
     """人間 actor: replace_ko は 任意 → replace_ko_optional modal が立つ。"""
     repo = _repo()
