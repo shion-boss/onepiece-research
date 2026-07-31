@@ -304,3 +304,6 @@ db/rust_divergence/
 
 # Rust self-play EI 学習 value 重み (生成物、 adoption 時のみ書出)
 db/rust_value_weights.json
+
+# Rust self-play EI / 方策 A/B の run 産物 (manifest・checkpoint・ログ = 再生成される)
+db/rust_selfplay/
