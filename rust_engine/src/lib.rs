@@ -13,6 +13,7 @@ use sha1::{Digest, Sha1};
 mod effects;
 mod rng;
 mod rules;
+mod selfplay;
 mod setup;
 mod state;
 
@@ -213,8 +214,50 @@ fn setup_pre_mulligan_blob(
     serde_json::to_string(&v).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
+/// Rust ネイティブ self-play を 1 試合走らせる (方策/探索は Rust 内、 JSON 往復無し)。
+/// deck{1,2}_json = setup_pre_mulligan と同じ deck Value、 rng_state_json = MT getstate (625 keys)、
+/// mode = "greedy" | "beam"。 返り値 = {winner, turns, game_over, steps} の JSON。
+#[pyfunction]
+#[pyo3(signature = (deck1_json, deck2_json, rng_state_json, first_player, mode="greedy", beam_width=8, max_depth=12, max_turns=40))]
+fn self_play(
+    deck1_json: &str,
+    deck2_json: &str,
+    rng_state_json: &str,
+    first_player: usize,
+    mode: &str,
+    beam_width: usize,
+    max_depth: usize,
+    max_turns: i32,
+) -> PyResult<String> {
+    let d1: serde_json::Value = serde_json::from_str(deck1_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deck1: {e}")))?;
+    let d2: serde_json::Value = serde_json::from_str(deck2_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deck2: {e}")))?;
+    let rng_state: Vec<u64> = serde_json::from_str(rng_state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("rng_state: {e}")))?;
+    let res = selfplay::play_game(&d1, &d2, &rng_state, first_player, mode, beam_width, max_depth, max_turns)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+    serde_json::to_string(&res).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
+/// 与えられた state (full_dump JSON) に対し Rust の方策/探索が選ぶ action を返す (canonical action dict JSON)。
+/// mode = "greedy" | "beam"。 Python から Rust 方策を単発で問い合わせる用 (デバッグ/検証/混成対戦)。
+#[pyfunction]
+#[pyo3(signature = (state_json, mode="greedy", beam_width=8, max_depth=12))]
+fn choose_action(state_json: &str, mode: &str, beam_width: usize, max_depth: usize) -> PyResult<String> {
+    let st: state::GameState = serde_json::from_str(state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+    let action = match mode {
+        "beam" => selfplay::beam_action(&st, beam_width, max_depth),
+        _ => selfplay::greedy_action(&st),
+    };
+    serde_json::to_string(&action).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
 #[pymodule]
 fn optcg_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(self_play, m)?)?;
+    m.add_function(wrap_pyfunction!(choose_action, m)?)?;
     m.add_function(wrap_pyfunction!(setup_pre_mulligan_digest, m)?)?;
     m.add_function(wrap_pyfunction!(setup_pre_mulligan_blob, m)?)?;
     m.add_function(wrap_pyfunction!(apply_raw_effect_digest, m)?)?;
