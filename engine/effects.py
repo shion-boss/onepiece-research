@@ -1000,6 +1000,9 @@ def _check_and_set_once_per_turn(
         else:
             key = f"{card_id}:{eff.get('when', '')}:{idx}"
     else:
+        # 文字列 opt = 名前付き共有キー (= プレイヤー横断の共有 namespace、 複数 when [KO / 離脱] を
+        # 跨いで「ターン1回」を束ねる用途。 OP13-002 / OP16-041 バギー。 単一 instance では正確、
+        # 同名 2 枚は共有される既存仕様 = test_once_per_turn_explicit_key_shared_across_instances)。
         key = f"key:{opt}"
     if key in me.once_per_turn_used:
         return False
@@ -2398,6 +2401,23 @@ def _resolve_target(
     if target_spec == "all_opp_chara_blocker_filtered":
         # 相手の【ブロッカー】 を持つ キャラ 全員 (= OP11-013 等)。
         return [c for c in opp.characters if c.is_blocker_now]
+    if target_spec == "one_self_chara_no_on_attack_effect":
+        # 「自分の【アタック時】効果を持たないキャラ 1 枚」 (= EB03-001 ビビ の 速攻付与対象)。
+        # overlay に when=="on_attack" が 無い キャラを候補 (= アタック時効果を持たない)。
+        overlay_map = state.effects_overlay or {}
+        def _no_on_attack(card):
+            bundle = overlay_map.get(card.card_id)
+            if bundle is None:
+                return True
+            return not any(e.get("when") == "on_attack" for e in bundle.effects)
+        cands = [c for c in me.characters if _no_on_attack(c.card)]
+        if outer_kind and _maybe_request_target_pick(
+            state, cands, 1, outer_kind, outer_value, self_inplay,
+            description="自キャラ から 1 枚 選択 (【アタック時】効果なし)",
+        ):
+            return []
+        cands.sort(key=lambda c: -c.power)
+        return cands[:1]
     if target_spec == "one_self_chara_no_effect":
         # 「自分の元々の効果のないキャラ 1 枚」 (= EB03-009 等)。
         # overlay に effect が 登録されてない (= effects=[]) を 「効果なし」 と判定。
@@ -2828,6 +2848,21 @@ def _resolve_target(
             ):
                 return []
             cands.sort(key=_threat_key)  # 脅威度優先 + power tie-break
+            return cands[:n]
+
+        # any_opp_rested_chara_or_stage_n_N (= 相手のレストの キャラ か ステージ 合計 N 枚 まで、
+        # OP14-021 イッショウ)。 キャラ + レストステージ を候補に (AI は threat 優先 = キャラ先)。
+        m = re.match(r"any_opp_rested_chara_or_stage_n_(\d+)$", target_spec)
+        if m:
+            n = int(m.group(1))
+            cands: list[InPlay] = [c for c in opp.characters if c.rested]
+            cands.extend([s for s in opp.stages if s.rested])
+            if outer_kind and len(cands) > n and _maybe_request_target_pick(
+                state, cands, n, outer_kind, outer_value, self_inplay,
+                description=f"相手レスト キャラ/ステージ から {n} 枚 まで 選択",
+            ):
+                return []
+            cands.sort(key=_threat_key)
             return cands[:n]
 
         # any_opp_rested_inplay_n_N (= 相手のレスト の リーダー と キャラ 合計 N 枚 まで)
@@ -3267,6 +3302,29 @@ def _execute_effect_body(
                     trigger_on_self_chara_leave_by_self_effect(
                         state, me, opp, state.effects_overlay
                     )
+        elif k == "ko_self":
+            # このキャラ (発動元=holder) 自身を KO する (OP16-014 マルコ の replace_leave do
+            # 「代わりにこのキャラをKO」)。 trigger_on_ko + on_self_chara_ko を発火 (= マルコの
+            # 【KO時】蘇生に繋がる)。 付与ドンはレストへ。 self_ko (cost) の DO 版。
+            src = self_inplay
+            if src is not None:
+                vad = int(getattr(src, "attached_dons", 0) or 0)
+                removed = False
+                if src in me.characters:
+                    me.characters.remove(src); removed = True
+                elif src in me.stages:
+                    me.stages.remove(src); removed = True
+                if removed:
+                    me.trash.append(src.card)
+                    if vad > 0:
+                        me.don_rested += vad
+                        src.attached_dons = 0
+                    state.push_log(f"  効果: {src.card.name} を KO (このキャラ)")
+                    if state.effects_overlay:
+                        trigger_on_ko(state, me, opp, src.card, state.effects_overlay,
+                                      by_opp_effect=False, victim_attached_don=vad)
+                        trigger_on_self_chara_ko(state, me, opp, state.effects_overlay,
+                                                 victim_card=src.card)
         elif k == "ko":
             targets = _resolve_target(
                 v, state, me, opp, self_inplay,
@@ -3624,7 +3682,7 @@ def _execute_effect_body(
                 if state.pending_choice is not None:
                     return True
                 # アクティブ かつ レスト可能 を 脅威順 (= power 高) に 上限まで
-                cands = [t for t in cands if not t.rested and not t.cannot_be_rested_buff]
+                cands = [t for t in cands if not t.rested and not t.cannot_be_rested_buff and not t.static_cannot_be_rested]
                 cands.sort(key=lambda ip: -ip.power)
                 for t in cands[:count]:
                     t.rested = True
@@ -3646,7 +3704,7 @@ def _execute_effect_body(
                     _cost_le = sub.get("cost_le") if isinstance(sub, dict) else None
                     active_charas = [
                         c for c in opp.characters
-                        if not c.rested and not c.cannot_be_rested_buff and id(c) not in already
+                        if not c.rested and not c.cannot_be_rested_buff and not c.static_cannot_be_rested and id(c) not in already
                     ]
                     if _cost_le is not None:
                         active_charas = [
@@ -3674,7 +3732,7 @@ def _execute_effect_body(
                 for t in targets:
                     if id(t) in already:
                         continue
-                    if t.cannot_be_rested_buff:
+                    if t.cannot_be_rested_buff or t.static_cannot_be_rested:
                         state.push_log(f"  レスト不能保護: {t.card.name}")
                         continue
                     t.rested = True
@@ -3693,7 +3751,7 @@ def _execute_effect_body(
                 iid_picks = None
                 if isinstance(v, dict) and "_iid_picks" in v:
                     iid_picks = v["_iid_picks"]
-                active_charas = [c for c in opp.characters if not c.rested and not c.cannot_be_rested_buff]
+                active_charas = [c for c in opp.characters if not c.rested and not c.cannot_be_rested_buff and not c.static_cannot_be_rested]
                 # cost_le 制約 (= ST26-002 「コスト1以下のキャラかドン1枚」 等)。 dict spec のみ、
                 # string form は 後方互換で 無制約のまま。 DON 側は cost 概念なしで常に対象。
                 _cost_le = v.get("cost_le") if isinstance(v, dict) else None
@@ -3762,7 +3820,7 @@ def _execute_effect_body(
                 cand_list = _resolve_target(cand_target, state, me, opp, self_inplay)
                 cand_list = [
                     c for c in cand_list
-                    if not c.rested and not c.cannot_be_rested_buff
+                    if not c.rested and not c.cannot_be_rested_buff and not c.static_cannot_be_rested
                 ]
                 if _maybe_request_target_pick(
                     state, cand_list, rest_count, "rest", v, self_inplay,
@@ -3784,8 +3842,8 @@ def _execute_effect_body(
                 and self_inplay.card.category == Category.CHARACTER
             )
             for t in targets:
-                # 「レストにできない」 保護 (OP14-033 等)
-                if t.cannot_be_rested_buff:
+                # 「レストにできない」 保護 (OP14-033 の buff / OP12-021 の static rest 免疫)
+                if t.cannot_be_rested_buff or t.static_cannot_be_rested:
                     state.push_log(f"  レスト不能保護: {t.card.name}")
                     continue
                 # 既に rested → 効果が no-op (= 観戦コメント由来: 「リーダー既に rested
@@ -10767,6 +10825,7 @@ def evaluate_static_effects(
             ip.attack_taunt = False
             ip.cannot_attack_static = False
             ip.protect_from_opp_effect = False
+            ip.static_cannot_be_rested = False
             ip.ko_immune_battle_attributes_in.clear()
             ip.ko_immune_battle_attributes_not_in.clear()
             ip.battle_ko_immune_static = False
@@ -10943,8 +11002,8 @@ def evaluate_static_effects(
                         for t in targets:
                             t.protect_from_opp_effect = True
                         continue
-                    # 「対象は相手の効果でレストにされない」常在 (OP12-021 等)
-                    # 簡略: protect_from_opp_effect で 代用 (= rest 含む opp 効果 全般 ブロック)
+                    # 「対象は相手の効果でレストにされない」常在 (OP12-021 いっぽんマツ 等)。
+                    # rest 限定の免疫 = static_cannot_be_rested (KO/離脱は防がない = 公式通り)。
                     if "set_cannot_be_rested_static" in primitive:
                         spec = primitive["set_cannot_be_rested_static"]
                         if isinstance(spec, dict):
@@ -10953,7 +11012,7 @@ def evaluate_static_effects(
                             target_spec = "self"
                         targets = _resolve_target(target_spec, state, me, opp, inplay)
                         for t in targets:
-                            t.protect_from_opp_effect = True
+                            t.static_cannot_be_rested = True
                         continue
                     # 「属性 X を持つカードとのバトルで KO されない」 (P-052 ミホーク等)
                     # spec: {"target": "self", "attributes": ["斬"], "negate": false}

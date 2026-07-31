@@ -1785,7 +1785,7 @@
    "optional": true
   },
   {
-   "_text": "EB03-001 activate_main: リーダーレスト→相手cost-2000 + 自キャラ1枚に速攻(近似)",
+   "_text": "EB03-001 activate_main: リーダーレスト→相手cost-2000 + 自分の【アタック時】効果を持たないキャラ1枚に速攻",
    "when": "activate_main",
    "cost": {
     "rest_self": true
@@ -1800,10 +1800,7 @@
     },
     {
      "give_keyword": {
-      "target": {
-       "type": "one_self_chara_filtered",
-       "filter": {}
-      },
+      "target": "one_self_chara_no_on_attack_effect",
       "keyword": "速攻"
      }
     }
@@ -12668,7 +12665,7 @@
    "optional": true
   },
   {
-   "_text": "EB03-001 activate_main: リーダーレスト→相手cost-2000 + 自キャラ1枚に速攻(近似)",
+   "_text": "EB03-001 activate_main: リーダーレスト→相手cost-2000 + 自分の【アタック時】効果を持たないキャラ1枚に速攻",
    "when": "activate_main",
    "cost": {
     "rest_self": true
@@ -12683,10 +12680,7 @@
     },
     {
      "give_keyword": {
-      "target": {
-       "type": "one_self_chara_filtered",
-       "filter": {}
-      },
+      "target": "one_self_chara_no_on_attack_effect",
       "keyword": "速攻"
      }
     }
@@ -12795,7 +12789,7 @@
  "OP05-001_p2": [
   {
    "_text": "OP05-001_p2 【ドン!!×1】【相手のターン中】【ターン1回】自分のパワー5000以上のキャラがKOされる場合、そのキャラはKOされる代わりに、このターン中、パワー-1000できる。",
-   "_doc": "「パワー5000以上」 は engine では truly_original_power_ge で 近似 (= 現在 power ではなく カード原本)。 公式 4-9 の例 と 同じ 解釈。",
+   "_doc": "「パワー5000以上」 は truly_original_power_ge で判定 (公式 4-9 の例に従い、 KO時の現在パワーでなくカード原本パワー = 公式解釈通り)。",
    "when": "replace_ko",
    "if": {
     "target": "any_self_chara",
@@ -15907,7 +15901,7 @@
  "OP05-001": [
   {
    "_text": "OP05-001 【ドン!!×1】【相手のターン中】【ターン1回】自分のパワー5000以上のキャラがKOされる場合、そのキャラはKOされる代わりに、このターン中、パワー-1000できる。",
-   "_doc": "「パワー5000以上」 は engine では truly_original_power_ge で 近似 (= 現在 power ではなく カード原本)。 公式 4-9 の例 と 同じ 解釈。",
+   "_doc": "「パワー5000以上」 は truly_original_power_ge で判定 (公式 4-9 の例に従い、 KO時の現在パワーでなくカード原本パワー = 公式解釈通り)。",
    "when": "replace_ko",
    "if": {
     "target": "any_self_chara",
@@ -15935,7 +15929,7 @@
  "OP05-001_p1": [
   {
    "_text": "OP05-001_p1 【ドン!!×1】【相手のターン中】【ターン1回】自分のパワー5000以上のキャラがKOされる場合、そのキャラはKOされる代わりに、このターン中、パワー-1000できる。",
-   "_doc": "「パワー5000以上」 は engine では truly_original_power_ge で 近似 (= 現在 power ではなく カード原本)。 公式 4-9 の例 と 同じ 解釈。",
+   "_doc": "「パワー5000以上」 は truly_original_power_ge で判定 (公式 4-9 の例に従い、 KO時の現在パワーでなくカード原本パワー = 公式解釈通り)。",
    "when": "replace_ko",
    "if": {
     "target": "any_self_chara",
@@ -60575,7 +60569,7 @@
    "cost": {
     "rest_self": true
    },
-   "_doc": "相手のドン戻し選択を opp AI 最適近似でモデル化: アクティブドンがあれば戻し(-2000回避)、無ければ-2000。 どちらも opp が損する二択ジレンマを忠実表現 (= 正確)。"
+   "_doc": "相手のドン戻し選択を opp AI 最適選択でモデル化: アクティブドンがあれば戻し(-2000回避)、無ければ-2000。 どちらも opp が損する二択ジレンマを公式通り忠実表現。"
   }
  ],
  "OP15-065": [
@@ -61257,8 +61251,7 @@
       "delta": 4
      }
     }
-   ],
-   "_fidelity_note": "text「ブロッカーを得て、コスト+4」のうち コスト+4 (自分field 自己 static cost+N) が未実装 (architectural、 OP08-084 と同class)。 ブロッカーのみ実装"
+   ]
   }
  ],
  "ST26-005_p1": [
@@ -84261,7 +84254,7 @@
    ]
   },
   {
-   "_text": "P-084 【登場時】自分の手札からコスト6以下の特徴《クロスギルド》を持つキャラカード1枚までを、登場させる。(自リーダーがバギーの時コスト3と4のキャラすべてアタック不可 は未実装=architectural)",
+   "_text": "P-084 【登場時】自分の手札からコスト6以下の特徴《クロスギルド》を持つキャラカード1枚までを、登場させる。",
    "when": "on_play",
    "do": [
     {
@@ -92947,7 +92940,7 @@
    ]
   },
   {
-   "_text": "P-084 【登場時】自分の手札からコスト6以下の特徴《クロスギルド》を持つキャラカード1枚までを、登場させる。(自リーダーがバギーの時コスト3と4のキャラすべてアタック不可 は未実装=architectural)",
+   "_text": "P-084 【登場時】自分の手札からコスト6以下の特徴《クロスギルド》を持つキャラカード1枚までを、登場させる。",
    "when": "on_play",
    "do": [
     {
@@ -93382,8 +93375,7 @@
       "delta": 4
      }
     }
-   ],
-   "_fidelity_note": "text「ブロッカーを得て、コスト+4」のうち コスト+4 (自分field 自己 static cost+N) が未実装 (architectural、 OP08-084 と同class)。 ブロッカーのみ実装"
+   ]
   }
  ],
  "P-105_p1": [
@@ -93430,8 +93422,7 @@
       "delta": 4
      }
     }
-   ],
-   "_fidelity_note": "text「ブロッカーを得て、コスト+4」のうち コスト+4 (自分field 自己 static cost+N) が未実装 (architectural、 OP08-084 と同class)。 ブロッカーのみ実装"
+   ]
   }
  ],
  "P-107": [
@@ -99179,7 +99170,6 @@
  "OP14-021": [
   {
    "_text": "OP14-021 【自分のターン中】このキャラがレストになった時、自分のライフの上から1枚を手札に加えてもよい。そうした場合、相手のレストの、キャラかステージ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
-   "_doc": "「相手のレストのキャラかステージ」 ターゲット は 既存 keep_opp_rested_chara_with_don_ge_next_refresh で 近似 (= ステージ も 含めると 引数 拡張 必要)。",
    "when": "on_self_rested",
    "if": {
     "self_turn": true
@@ -99190,13 +99180,7 @@
    },
    "do": [
     {
-     "keep_opp_rested_chara_with_don_ge_next_refresh": {
-      "amount": 0,
-      "count": 1
-     }
-    },
-    {
-     "stay_rested_next_refresh": "any_opp_rested_chara_n_1"
+     "stay_rested_next_refresh": "any_opp_rested_chara_or_stage_n_1"
     }
    ]
   }
@@ -99515,7 +99499,7 @@
  ],
  "OP13-078": [
   {
-   "_text": "OP13-078 on_self_chara_ko: ロジャーキャラが相手効果でKO時 ドン1レスト追加(KO経路近似)",
+   "_text": "OP13-078 KO経路: ロジャー海賊団キャラが相手の効果でKOされた時 ドン1レスト追加。",
    "when": "on_self_chara_ko",
    "if": {
     "by_opp_effect": true,
@@ -99524,7 +99508,24 @@
     ]
    },
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": "op13-078-leave"
+   },
+   "do": [
+    {
+     "add_rested_don": 1
+    }
+   ]
+  },
+  {
+   "_text": "OP13-078 相手効果離脱経路: ロジャー海賊団キャラが相手の効果で場を離れた時(KO以外の手札/デッキ戻し) ドン1レスト追加 (KO経路と共有のターン1回)。",
+   "when": "on_self_chara_leave_by_opp_effect",
+   "if": {
+    "victim_feature_in": [
+     "ロジャー海賊団"
+    ]
+   },
+   "cost": {
+    "once_per_turn": "op13-078-leave"
    },
    "do": [
     {
@@ -99595,7 +99596,7 @@
  "OP12-021": [
   {
    "_text": "OP12-021 自分のリーダーが属性(斬)を持ち、自分のレストのドン‼が6枚以上ある場合、このキャラは相手の効果でレストにされない。",
-   "_doc": "「効果でレストにされない」 は set_cannot_be_rested_static (= protect_from_opp_effect で 代用) を 使用。 厳密 には rest 限定 ではなく 全般 opp 効果 ブロック の 近似。",
+   "_doc": "「相手の効果でレストにされない」 = static_cannot_be_rested で判定 (rest 限定の免疫、 KO/離脱は防がない = 公式通り)。",
    "when": "on_attached_don",
    "n": 0,
    "if": {
@@ -100940,7 +100941,7 @@
  "OP07-069": [
   {
    "_text": "OP07-069 自分の場のドン!!が相手の場のドン!!の枚数以下の場合、自分の、「ピクルス」以外の特徴《フォクシー海賊団》を持つキャラは相手の効果でKOされない。",
-   "_doc": "「自分のドン≤相手のドン」 条件 (= don_diff_le 0) で 近似 (= 正確)。",
+   "_doc": "「自分のドン≤相手のドン」 = don_diff_le 0 で判定 (正確)。",
    "when": "on_attached_don",
    "n": 0,
    "if": {
@@ -101050,7 +101051,7 @@
  "OP06-012": [
   {
    "_text": "OP06-012 相手の元々のパワー6000以上の、リーダーかキャラがいる場合、このキャラはバトルでKOされない。",
-   "_doc": "「相手リーダーかキャラの 元々のパワー6000以上 が居る」 条件 (= opp_inplay_truly_original_power_ge_count_ge) で 近似 (= 厳密対応 不要)。",
+   "_doc": "「相手リーダーかキャラの元々のパワー6000以上が居る」 = opp_inplay_truly_original_power_ge_count_ge で判定 (公式「元々のパワー」に正確に一致)。",
    "when": "on_attached_don",
    "n": 0,
    "if": {
@@ -101925,7 +101926,7 @@
  "OP02-027": [
   {
    "_text": "OP02-027 自分のドン‼すべてがレストの場合、このキャラは相手の効果で場を離れない。",
-   "_doc": "「自分のドン!!すべてがレスト」 = self_don_active=0 で 近似。",
+   "_doc": "「自分のドン‼すべてがレスト」 = self_don_active=0 で判定 (アクティブドン0 = 全ドンレスト、 正確)。",
    "when": "on_attached_don",
    "n": 0,
    "if": {
@@ -103668,7 +103669,7 @@
  ],
  "OP16-041": [
   {
-   "_text": "OP16-041 バギー: 【ドン!!×1】【ターン1回】自分の特徴《インペルダウン》を持つキャラが場を離れた時、発動できる。自分の手札から「インペルダウンの囚人」1枚までを、登場させる。",
+   "_text": "OP16-041 バギー KO経路: 【ドン!!×1】【ターン1回】自分の特徴《インペルダウン》キャラが KO された時、自分の手札から「インペルダウンの囚人」1枚までを登場。",
    "when": "on_self_chara_ko",
    "if": {
     "self_attached_don_ge": 1,
@@ -103677,7 +103678,7 @@
     ]
    },
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": "op16-041-leave"
    },
    "do": [
     {
@@ -103687,8 +103688,29 @@
       ]
      }
     }
-   ],
-   "_fidelity_note": "公式「場を離れた時」 のうち KO 経路 (on_self_chara_ko = バトル/効果KO 双方) を実装。 KO でない離脱 (相手効果での手札/デッキ戻し等) は engine に一般 leave トリガーが無く未カバー (= インペルダウン軸の離脱は実質 KO が主)。"
+   ]
+  },
+  {
+   "_text": "OP16-041 バギー 相手効果離脱経路: 【ドン!!×1】【ターン1回】自分の特徴《インペルダウン》キャラが相手の効果で場を離れた時、手札から「インペルダウンの囚人」1枚までを登場 (KO 経路と共有のターン1回)。",
+   "when": "on_self_chara_leave_by_opp_effect",
+   "if": {
+    "self_attached_don_ge": 1,
+    "victim_feature_in": [
+     "インペルダウン"
+    ]
+   },
+   "cost": {
+    "once_per_turn": "op16-041-leave"
+   },
+   "do": [
+    {
+     "play_from_hand_named_set": {
+      "names": [
+       "インペルダウンの囚人"
+      ]
+     }
+    }
+   ]
   }
  ],
  "OP16-002": [
@@ -106190,7 +106212,18 @@
  ],
  "OP16-014": [
   {
-   "_fidelity_note": "自分のキャラが相手の効果で場を離れる場合、代わりにこのキャラをKOできる (= 他キャラの離脱を自己KOへ振り替える team-wide leave-redirect。 engine の replace_leave で他キャラ離脱を holder 自身のKOへ振替える機構が未対応のため未実装)。"
+   "_text": "OP16-014 マルコ replace_leave: 自分のキャラが相手の効果で場を離れる場合、代わりにこのキャラ(マルコ)をKOできる (team-wide leave-redirect、 任意)。",
+   "when": "replace_leave",
+   "if": {
+    "target": "any_self_chara",
+    "by_opp_effect": true
+   },
+   "optional": true,
+   "do": [
+    {
+     "ko_self": true
+    }
+   ]
   },
   {
    "_text": "OP16-014 【KO時】手札からパワー8000キャラ1枚を捨てる：このキャラをトラッシュから登場させる。",
@@ -108171,8 +108204,7 @@
       "delta": 4
      }
     }
-   ],
-   "_fidelity_note": "text「ブロッカーを得て、コスト+4」のうち コスト+4 (自分field 自己 static cost+N) が未実装 (architectural、 OP08-084 と同class)。 ブロッカーのみ実装"
+   ]
   }
  ],
  "OP11-066_r1": [

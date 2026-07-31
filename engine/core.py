@@ -384,6 +384,9 @@ class InPlay:
     cannot_be_rested_buff: bool = False
     cannot_be_rested_applier_idx: int = -1
     cannot_be_rested_applied_turn: int = 0
+    # 常在「相手の効果でレストにされない」 (= set_cannot_be_rested_static、 OP12-021 いっぽんマツ)。
+    # rest 限定の免疫 (protect_from_opp_effect と違い KO/離脱は防がない)。 recompute_static で再計算。
+    static_cannot_be_rested: bool = False
     # 所有者プレイヤー idx (0 or 1)。-1 は未設定 (テスト用直接生成のデフォルト)。
     # _recompute_static / evaluate_static_effects で state.players から逆引き設定
     owner_idx: int = -1

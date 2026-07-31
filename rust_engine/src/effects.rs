@@ -1006,6 +1006,14 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
                 get_ip_mut(&mut state.players[pi], sl).protect_from_opp_effect = true;
             }
         }
+        // 「相手の効果でレストにされない」 常在 (OP12-021、 rest 限定免疫)。 effects.py:set_cannot_be_rested_static。
+        "set_cannot_be_rested_static" => {
+            let tspec = if spec.is_object() { spec.get("target").cloned() } else { Some(Value::String("self".into())) };
+            let Some(targets) = resolve_target(tspec.as_ref(), me_idx, opp_idx, src, state) else { return };
+            for (pi, sl) in targets {
+                get_ip_mut(&mut state.players[pi], sl).static_cannot_be_rested = true;
+            }
+        }
         // 「相手キャラは自分の効果で離れない」 (OP14-079 黒クロコ) = 相手キャラ全員に protect。
         "set_opp_protect_static" => {
             for i in 0..state.players[opp_idx].characters.len() {
@@ -1527,6 +1535,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                         let c = &opp.characters[i];
                         !c.rested
                             && !c.cannot_be_rested_buff
+                            && !c.static_cannot_be_rested
                             && cost_le.map_or(true, |n| c.card.cost as i64 <= n)
                     })
                     .collect();
@@ -1559,7 +1568,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                         .into_iter()
                         .filter(|&(pi, sl)| {
                             let ip = get_ip(&state.players[pi], sl);
-                            !ip.rested && !ip.cannot_be_rested_buff
+                            !ip.rested && !ip.cannot_be_rested_buff && !ip.static_cannot_be_rested
                         })
                         .collect();
                     // -power で安定ソート (tie は board 順維持 = Python cand_list.sort(key=-power) 準拠)。
@@ -1592,7 +1601,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                             return false;
                         }
                         let ip = get_ip_mut(&mut state.players[pi], sl);
-                        if !ip.cannot_be_rested_buff && !ip.rested {
+                        if !ip.cannot_be_rested_buff && !ip.static_cannot_be_rested && !ip.rested {
                             ip.rested = true;
                         }
                     }
@@ -3662,7 +3671,7 @@ fn fire_on_self_rested(state: &mut GameState, owner_idx: usize, char_idx: usize)
 fn rest_char_with_cascade(state: &mut GameState, me_idx: usize, pi: usize, idx: usize) -> Result<(), String> {
     {
         let ip = &state.players[pi].characters[idx];
-        if ip.cannot_be_rested_buff || ip.rested {
+        if ip.cannot_be_rested_buff || ip.static_cannot_be_rested || ip.rested {
             return Ok(());
         }
     }
@@ -5028,6 +5037,7 @@ pub fn evaluate_static_effects(state: &mut GameState) {
             ip.attack_taunt = false;
             ip.cannot_attack_static = false;
             ip.protect_from_opp_effect = false;
+            ip.static_cannot_be_rested = false;
             ip.ko_immune_battle_attributes_in.clear();
             ip.ko_immune_battle_attributes_not_in.clear();
             ip.battle_ko_immune_static = false;
@@ -5282,6 +5292,7 @@ pub fn legal_actions(state: &GameState) -> Vec<Value> {
             && !l.cannot_attack_static
             && !l.cannot_attack_through_opp_turn
             && !l.cannot_be_rested_buff
+            && !l.static_cannot_be_rested
         {
             attackers.push(("leader".into(), 0));
         }
@@ -5291,6 +5302,7 @@ pub fn legal_actions(state: &GameState) -> Vec<Value> {
                 || ch.cannot_attack_static
                 || ch.cannot_attack_through_opp_turn
                 || ch.cannot_be_rested_buff
+                || ch.static_cannot_be_rested
             {
                 continue;
             }

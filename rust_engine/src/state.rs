@@ -216,6 +216,9 @@ pub struct InPlay {
     pub cannot_be_rested_buff: bool,
     pub cannot_be_rested_applier_idx: i32,
     pub cannot_be_rested_applied_turn: i32,
+    // 常在「相手の効果でレストにされない」 (OP12-021、 set_cannot_be_rested_static)。 recompute で再計算。
+    #[serde(default)]
+    pub static_cannot_be_rested: bool,
     // ownership
     pub owner_idx: i32,
     pub is_owners_turn: bool,
