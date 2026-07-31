@@ -268,6 +268,58 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             "self_don_rested_ge" => me.don_rested as i64 >= v.as_i64().unwrap_or(0),
             // --- 掃引 2 巡目で上位に出た述語 (2026-07-31) ---
             "self_chara_count_le" => (me.characters.len() as i64) <= v.as_i64().unwrap_or(0),
+            // --- 掃引 3 巡目の述語 (2026-07-31) ---
+            "self_trash_has_named_all" => {
+                let names: Vec<&str> = v.as_array().map_or_else(
+                    || v.as_str().into_iter().collect(),
+                    |a| a.iter().filter_map(|x| x.as_str()).collect(),
+                );
+                names.iter().all(|n| me.trash.iter().any(|c| c.name == *n))
+            }
+            // 「自分の他の <name> が存在しない」 = 自身を除いた同名キャラ 0。 src 不明は False。
+            "self_chara_unique_name" => {
+                let name = v.as_str().unwrap_or("");
+                match src {
+                    Some(Slot::Char(si)) => !me
+                        .characters
+                        .iter()
+                        .enumerate()
+                        .any(|(i, c)| i != si && c.card.name == name),
+                    Some(_) => !me.characters.iter().any(|c| c.card.name == name),
+                    None => false,
+                }
+            }
+            "either_player_don_total_eq_10" => {
+                state.players.iter().any(|p| p.don_active + p.don_rested == 10)
+            }
+            "self_chara_power_ge" => {
+                let n = v.as_i64().unwrap_or(0);
+                me.characters.iter().any(|c| c.power() as i64 >= n)
+            }
+            // 手札に「v を含む特徴」のカードがあるか (部分一致)
+            "self_hand_has_feature" => {
+                let f = v.as_str().unwrap_or("");
+                me.hand.iter().any(|c| c.features.iter().any(|x| x.contains(f)))
+            }
+            "self_chara_filtered_count_le" => {
+                let filt = v.get("filter");
+                let need = v.get("count").and_then(|x| x.as_i64()).unwrap_or(0);
+                (me.characters.iter().filter(|c| matches_filter(&c.card, filt)).count() as i64) <= need
+            }
+            "self_inplay_attached_dons_ge" => {
+                let n = v.as_i64().unwrap_or(0);
+                src.and_then(|sl| src_ip(me, sl)).map_or(false, |ip| ip.attached_dons as i64 >= n)
+            }
+            "has_face_up_life" => {
+                let present = me.face_up_life_count.min(me.life.len() as i32) > 0;
+                v.as_bool().unwrap_or(true) == present
+            }
+            "self_leader_power_le" => (me.leader.power() as i64) <= v.as_i64().unwrap_or(0),
+            // 自キャラ (リーダー除く) の現在コスト合計 >= N
+            "self_chara_cost_sum_ge" => {
+                let total: i32 = me.characters.iter().map(|c| c.base_cost()).sum();
+                total as i64 >= v.as_i64().unwrap_or(0)
+            }
             "self_chara_only_feature" => {
                 let f = v.as_str().unwrap_or("");
                 me.characters.iter().all(|c| c.card.features.iter().any(|x| x == f))
@@ -1498,6 +1550,9 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
     }
 }
 
+/// fire_self_effect の再帰深度 (Python の state._fire_self_depth 相当、 canonical ではない)。
+static FIRE_SELF_DEPTH: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
 /// 未対応キーの内訳を記録 (診断時のみ)。 cat = "optional_cost" / "on_play_cost" / "activate_cost" 等。
 /// 「cost 未対応」 としか出ないと どの支払い種別が足りないか分からないので、 条件と同じ粒度で残す。
 fn note_unknown_key(cat: &str, key: &str) {
@@ -2232,6 +2287,90 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             cands.sort_by_key(|&(_, p)| p); // power 昇順 (安定 = tie は leader→char→stage 順)
             for (sl, _) in cands.into_iter().take(count) {
                 get_ip_mut(&mut state.players[me_idx], sl).rested = true;
+            }
+            true
+        }
+        // 自身の別 when 効果を再発火 (effects.py:fire_self_effect)。 再帰は深度 2 で打ち切り (Python 準拠)。
+        // source は src (場のカード) か current_source_card_id (source-gone 経路)。 cost は払わない。
+        "fire_self_effect" => {
+            let when_kind = if v.is_object() {
+                v.get("when_kind").and_then(|x| x.as_str()).unwrap_or("main").to_string()
+            } else {
+                v.as_str().unwrap_or("main").to_string()
+            };
+            let src_cid = src_ip(&state.players[me_idx], src)
+                .map(|ip| ip.card.card_id.clone())
+                .or_else(|| state.current_source_card_id.clone());
+            let Some(cid) = src_cid else { return true };
+            let depth = FIRE_SELF_DEPTH.load(std::sync::atomic::Ordering::Relaxed);
+            if depth >= 2 {
+                return true; // 再帰深度上限 = Python も skip (no-op)
+            }
+            let Some(ov) = overlay() else { return true };
+            let Some(effs) = ov.get(&cid).cloned() else { return true };
+            FIRE_SELF_DEPTH.store(depth + 1, std::sync::atomic::Ordering::Relaxed);
+            let mut ok = true;
+            for eff in &effs {
+                if eff.get("when").and_then(|x| x.as_str()) != Some(when_kind.as_str()) {
+                    continue;
+                }
+                match eval_effect_conditions(eff, state, me_idx, Some(src)) {
+                    Some(true) => {}
+                    Some(false) => continue,
+                    None => { ok = false; break; }
+                }
+                let Some(dos) = eff.get("do").and_then(|x| x.as_array()) else { continue };
+                for prim in dos {
+                    if !execute_effect(prim, state, me_idx, src) {
+                        ok = false;
+                        break;
+                    }
+                }
+                if !ok {
+                    break;
+                }
+            }
+            FIRE_SELF_DEPTH.store(depth, std::sync::atomic::Ordering::Relaxed);
+            ok
+        }
+        // 自キャラを持ち主のライフへ (effects.py:chara_to_self_life、 KO ではないので KO時トリガー無し)。
+        // AI は top 既定。 ⚠ 付与ドンは **active** へ戻す (Python 準拠、 他の離場と非対称)。
+        "chara_to_self_life" => {
+            let tspec = if v.is_object() {
+                v.get("target").cloned().unwrap_or(Value::String("one_self_character_any".into()))
+            } else {
+                v.clone()
+            };
+            let place_bottom = v.get("place").and_then(|x| x.as_str()) == Some("bottom");
+            let face_up = v.get("face_up").and_then(|x| x.as_bool()).unwrap_or(false);
+            let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else { return false };
+            if targets.is_empty() {
+                return false; // Python も return False
+            }
+            if me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect") {
+                return false; // leave cascade 再現不能 → bail
+            }
+            let mut idxs: Vec<usize> = targets
+                .iter()
+                .filter(|&&(pi, _)| pi == me_idx)
+                .filter_map(|&(_, sl)| if let Slot::Char(i) = sl { Some(i) } else { None })
+                .collect();
+            idxs.sort_unstable();
+            for i in idxs.into_iter().rev() {
+                let me = &mut state.players[me_idx];
+                if i >= me.characters.len() {
+                    continue;
+                }
+                let removed = me.characters.remove(i);
+                me.don_active += removed.attached_dons;
+                if place_bottom {
+                    me.life.push(removed.card);
+                } else {
+                    me.life.insert(0, removed.card);
+                }
+                if face_up {
+                    me.face_up_life_count = (me.face_up_life_count + 1).min(me.life.len() as i32);
+                }
             }
             true
         }
