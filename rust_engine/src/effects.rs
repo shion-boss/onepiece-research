@@ -119,6 +119,18 @@ fn card_no_play_via_effect(card_id: &str) -> bool {
     })
 }
 
+/// カードが on_play (登場時) 効果を持つか。 Python は登場カードの on_play を **enqueue→drain (deferred)**
+/// するため、 効果解決中に別 primitive (play_from_hand_or_trash 等) から登場したキャラの on_play は
+/// 「そのキャラが hand から除去され、 loop が終わった**後**」に走る。 Rust は inline 発火 = hand にまだ
+/// 居る状態で on_play が走り、 hand を観測/mutate する on_play (draw/discard/hand-size) がズレる
+/// (OP14-091 の on_ko → Mr.5(OP14-094) 登場 → Mr.5 の draw+discard で trash_self_hand の候補が Mr.5 を
+/// 含む 5 枚 vs Python 4 枚)。 = trigger-queue モデリング領域。 → こういう登場は inline せず明示 bail。
+fn card_has_on_play(card_id: &str) -> bool {
+    overlay().and_then(|m| m.get(card_id)).map_or(false, |effs| {
+        effs.iter().any(|e| e.get("when").and_then(|v| v.as_str()) == Some("on_play"))
+    })
+}
+
 /// effects.py:should_fire_trigger = 防御 AI が ライフの【トリガー】を発動すべきか。
 /// Some(true)=発動(=強力効果を含む) / Some(false)=発動しない(=手札へ) / None=条件 unknown で判定不能(=呼出側 bail)。
 /// 強力効果 = ko/return_to_hand/draw/life_to_hand/rest/ko_self/play_self/play_from_trash/
@@ -2193,6 +2205,11 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     && matches_filter(&card, filt)
                     && !card_no_play_via_effect(&card.card_id);
                 if m {
+                    // 登場カードが on_play を持つ = Python の deferred drain (hand 除去後に on_play) を
+                    // inline では再現できず hand 観測がズレる → 明示 bail。
+                    if card_has_on_play(&card.card_id) {
+                        return false;
+                    }
                     trash_weakest_for_field_full(state, me_idx);
                     let mut ip = InPlay::of(card.clone(), true);
                     ip.rested = rested;
@@ -2219,6 +2236,10 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                         && card.category == crate::state::Category::Character
                         && matches_filter(&card, filt);
                     if m {
+                        // trash 由来登場でも on_play deferred 順は同じ問題 → 明示 bail。
+                        if card_has_on_play(&card.card_id) {
+                            return false;
+                        }
                         trash_weakest_for_field_full(state, me_idx);
                         let mut ip = InPlay::of(card.clone(), true);
                         ip.rested = rested;
