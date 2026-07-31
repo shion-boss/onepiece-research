@@ -216,16 +216,22 @@ fn get_ip_mut(p: &mut Player, s: Slot) -> &mut InPlay {
 
 /// 発動元 InPlay を **場に居る時だけ** 返す (Python の self_inplay 相当)。 src を直接参照する primitive は
 /// これを使い、 None なら再現不能として bail する (Slot::Detached で leader に誤解決させない為)。
+/// ⚠ 範囲外 (= 効果解決の途中で場が縮み slot が stale になった) も None を返す。 panic は
+///    「黙って間違えない」不変条件の外 (プロセスが死んで self-play が止まる) なので許容しない。
 fn src_ip(p: &Player, s: Slot) -> Option<&InPlay> {
     match s {
         Slot::Detached => None,
-        _ => Some(get_ip(p, s)),
+        Slot::Leader => Some(&p.leader),
+        Slot::Char(i) => p.characters.get(i),
+        Slot::Stage(i) => p.stages.get(i),
     }
 }
 fn src_ip_mut(p: &mut Player, s: Slot) -> Option<&mut InPlay> {
     match s {
         Slot::Detached => None,
-        _ => Some(get_ip_mut(p, s)),
+        Slot::Leader => Some(&mut p.leader),
+        Slot::Char(i) => p.characters.get_mut(i),
+        Slot::Stage(i) => p.stages.get_mut(i),
     }
 }
 
@@ -257,6 +263,101 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
     for (k, v) in obj {
         let ok = match k.as_str() {
             "opp_turn" => (state.turn_player_idx != me_idx) == v.as_bool().unwrap_or(true),
+            // === 全カード掃引で「条件 unknown」上位に出た述語を Python から一括移植 (2026-07-31) ===
+            // 自分の レストドン >= N (effects.py:1336)
+            "self_don_rested_ge" => me.don_rested as i64 >= v.as_i64().unwrap_or(0),
+            // 発動元が場に居てアクティブ (effects.py:1330)。 source-gone は False (unknown ではない)。
+            "self_not_rested" => src.and_then(|sl| src_ip(me, sl)).map_or(false, |ip| !ip.rested),
+            // 直近に登場した自キャラが【トリガー】持ちか (effects.py:1486)
+            "played_self_chara_has_trigger" => match &state.last_self_chara_played_card {
+                Some(c) => v.as_bool().unwrap_or(true) == !c.trigger.is_empty(),
+                None => false,
+            },
+            // 直近に登場した自キャラに overlay 効果が無いか (effects.py:1469)
+            "played_self_chara_has_no_effect" => match &state.last_self_chara_played_card {
+                Some(c) => {
+                    let has = overlay().and_then(|m| m.get(&c.card_id)).map_or(false, |e| !e.is_empty());
+                    v.as_bool().unwrap_or(true) == !has
+                }
+                None => false,
+            },
+            // 直近に登場した自キャラの特徴がリストのいずれかに一致 (effects.py:1500)
+            "played_self_chara_feature_in" => match &state.last_self_chara_played_card {
+                Some(c) => v.as_array().map_or_else(
+                    || v.as_str().map_or(false, |x| c.features.iter().any(|f| f == x)),
+                    |arr| arr.iter().any(|x| x.as_str().map_or(false, |sx| c.features.iter().any(|f| f == sx))),
+                ),
+                None => false,
+            },
+            // 直近に登場した **相手** キャラの元々コスト >= N (effects.py:1464)
+            "played_chara_truly_original_cost_ge" => match &state.last_opp_chara_played_card {
+                Some(c) => c.cost as i64 >= v.as_i64().unwrap_or(0),
+                None => false,
+            },
+            // 直近に登場した自キャラがトラッシュ由来か (effects.py:1496)
+            "played_from_trash" => v.as_bool().unwrap_or(true) == state.last_self_chara_played_from_trash,
+            // 元々パワー (= 印字値 card.power、 公式 4-9) N 以上の自キャラが居る/居ない
+            "self_chara_truly_original_power_ge" => {
+                let n = v.as_i64().unwrap_or(0);
+                me.characters.iter().any(|c| c.card.power as i64 >= n)
+            }
+            "self_chara_no_truly_original_power_ge" => {
+                let n = v.as_i64().unwrap_or(0);
+                !me.characters.iter().any(|c| c.card.power as i64 >= n)
+            }
+            // 自キャラが全員 特徴 v を持つ (空なら vacuously true、 effects.py:1352)
+            "self_all_chara_feature" => {
+                let f = v.as_str().unwrap_or("");
+                me.characters.iter().all(|c| c.card.features.iter().any(|x| x == f))
+            }
+            // 自キャラが全員「v を含む特徴」を持つ (部分一致、 effects.py:1357/1700)
+            "self_all_chara_feature_contains" | "self_chara_only_feature_contains" => {
+                let f = v.as_str().unwrap_or("");
+                me.characters.iter().all(|c| c.card.features.iter().any(|x| x.contains(f)))
+            }
+            // 特徴 v を持つ自キャラが count 枚以上 (effects.py:1428)
+            "self_chara_feature_count_ge" => {
+                let f = v.get("feature").and_then(|x| x.as_str()).unwrap_or("");
+                let need = v.get("count").and_then(|x| x.as_i64()).unwrap_or(1);
+                me.characters.iter().filter(|c| c.card.features.iter().any(|x| x == f)).count() as i64 >= need
+            }
+            // コスト cost_ge 以上の自キャラが n 枚以上 (effects.py:1653)
+            "self_chara_cost_ge_count" => {
+                let cg = v.get("cost_ge").and_then(|x| x.as_i64()).unwrap_or(0);
+                let need = v.get("n").and_then(|x| x.as_i64()).unwrap_or(1);
+                me.characters.iter().filter(|c| c.card.cost as i64 >= cg).count() as i64 >= need
+            }
+            // 自リーダーが多色 (effects.py:1833)
+            "leader_color_multi" | "leader_multicolor" => {
+                v.as_bool().unwrap_or(true) == (me.leader.card.color.len() >= 2)
+            }
+            // 自リーダーの特徴に v を含むものがある (部分一致)
+            "leader_feature_contains" => {
+                let f = v.as_str().unwrap_or("");
+                me.leader.card.features.iter().any(|x| x.contains(f))
+            }
+            "self_deck_count_le" => (me.deck.len() as i64) <= v.as_i64().unwrap_or(0),
+            "total_life_le" => (me.life.len() + opp.life.len()) as i64 <= v.as_i64().unwrap_or(0),
+            "self_life_plus_hand_le" => (me.life.len() + me.hand.len()) as i64 <= v.as_i64().unwrap_or(0),
+            "self_life_lt_opp" => v.as_bool().unwrap_or(true) == (me.life.len() < opp.life.len()),
+            "self_leader_active" => v.as_bool().unwrap_or(true) == !me.leader.rested,
+            "opp_don_count_le" => total_don(opp) <= v.as_i64().unwrap_or(0),
+            // 発動元自身の現在パワー >= N (effects.py:self_power_ge / self_inplay_power_ge)
+            "self_power_ge" | "self_inplay_power_ge" => {
+                let n = v.as_i64().unwrap_or(0);
+                src.and_then(|sl| src_ip(me, sl)).map_or(false, |ip| ip.power() as i64 >= n)
+            }
+            // 自リーダー+自キャラの付与ドン合計 >= N (effects.py:self_attached_don_ge)
+            // ⚠ source-gone (KO時等) は Python が victim の付与ドンを足し戻すが、 Rust には
+            //   その退避値が無い → src 不明時は判定不能として bail (誤判定を作らない)。
+            "self_attached_don_ge" => {
+                if src.is_none() {
+                    return None;
+                }
+                let total: i32 = me.leader.attached_dons
+                    + me.characters.iter().map(|c| c.attached_dons).sum::<i32>();
+                total as i64 >= v.as_i64().unwrap_or(0)
+            }
             "self_turn" => (state.turn_player_idx == me_idx) == v.as_bool().unwrap_or(true),
             // source (静的効果の発動元カード) がレストか。 src 不明なら判定不能 (None)。
             "self_rested" => match src {
@@ -458,7 +559,16 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                 }
                 all
             }
-            _ => return None, // 未知条件キー → 評価不能 → skip
+            _ => {
+                // 未知条件キー → 評価不能 → skip。 診断にキー名だけを記録する
+                // (オブジェクト全体を記録すると同居する既知キーまで数えてしまう)。
+                if crate::selfplay::DIAG_ON.load(std::sync::atomic::Ordering::Relaxed) {
+                    if let Ok(mut m) = crate::selfplay::UNKNOWN_CONDS.lock() {
+                        *m.entry(k.clone()).or_insert(0) += 1;
+                    }
+                }
+                return None;
+            }
         };
         if !ok {
             result = false;
@@ -488,6 +598,7 @@ fn eval_effect_conditions(eff: &Value, state: &GameState, me_idx: usize, src: Op
     }
     Some(true)
 }
+
 
 /// target spec → 対象 (player_idx, Slot) のリスト。 None=未知 target (→ primitive skip)。
 fn resolve_target(
@@ -4010,10 +4121,14 @@ pub fn execute_card_effects(
             if effect_cascade_blocked(dos, state, me_idx) {
                 return Err(format!("{when} cascade 未対応 ({card_id})"));
             }
+            let src_cid: Option<String> = src_ip(&state.players[me_idx], src).map(|ip| ip.card.card_id.clone());
             for prim in dos {
                 if !execute_effect(prim, state, me_idx, src) {
                     let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?");
                     return Err(format!("{when} primitive 未対応: {k} ({card_id})"));
+                }
+                if src_shifted(state, me_idx, src, src_cid.as_ref()) {
+                    return Err(format!("{when}: do 実行中に src が移動 (Rust は index 解決) ({card_id})"));
                 }
             }
         }
@@ -5626,13 +5741,34 @@ pub fn fire_activate_main(
     if effect_cascade_blocked(&dos, state, me_idx) {
         return Err(format!("activate_main cascade 未対応 ({card_id})"));
     }
+    // ⚠ trash_self cost で起動源が場を離れた後は src (位置 index) が無効。 そのまま渡すと
+    //   get_ip が index out of bounds で **panic** していた (OP07-109 / OP05-027/028、 全カード掃引で検出)。
+    //   Python は self_inplay を object 参照で保持するが、 場を離れた InPlay への変更は digest に現れない
+    //   (trash には CardDef しか残らない) ので、 Slot::Detached (= target "self" は 0 対象) と等価。
+    let do_src = if source_gone { Slot::Detached } else { src };
+    let src_cid: Option<String> = src_ip(&state.players[me_idx], do_src).map(|ip| ip.card.card_id.clone());
     for prim in &dos {
-        if !execute_effect(prim, state, me_idx, src) {
+        if !execute_effect(prim, state, me_idx, do_src) {
             let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?");
             return Err(format!("activate_main primitive 未対応: {k} ({card_id})"));
         }
+        if src_shifted(state, me_idx, do_src, src_cid.as_ref()) {
+            return Err(format!("activate_main: do 実行中に src が移動 (Rust は index 解決) ({card_id})"));
+        }
     }
     Ok(())
+}
+
+/// do-list 実行中に src が「別のカードを指す / 範囲外になる」ことがある (前の primitive が場を縮めた場合)。
+/// Python は self_inplay を **object 参照** で追うので影響を受けないが、 Rust は位置 index なので
+/// 黙って別カードへ適用する (= MISMATCH) か panic する。 → 検知して明示 bail する。
+/// 例: ST22-005 `[{return_to_hand: other_self_chara}, {untap: self}]` (全カード掃引で panic として検出)。
+fn src_shifted(state: &GameState, me_idx: usize, src: Slot, expect: Option<&String>) -> bool {
+    let Some(cid) = expect else { return false };
+    match src {
+        Slot::Detached | Slot::Leader => false,
+        s => src_ip(&state.players[me_idx], s).map_or(true, |ip| &ip.card.card_id != cid),
+    }
 }
 
 /// game.py:evaluate_static_effects の移植 (on_attached_don 常在)。

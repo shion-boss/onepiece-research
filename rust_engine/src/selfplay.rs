@@ -163,6 +163,9 @@ pub static BAIL_REASONS: std::sync::Mutex<std::collections::BTreeMap<String, u64
 /// Rust 固有の実装ミス (index ズレ / clone のクロス汚染 / zone 移動漏れ) を単独で捕まえられる。
 pub static INV_VIOLATIONS: std::sync::Mutex<std::collections::BTreeMap<String, u64>> =
     std::sync::Mutex::new(std::collections::BTreeMap::new());
+/// 未対応だった条件キーの内訳 (bail 「条件 unknown」の中身)。 実装すべき eval_condition の一覧。
+pub static UNKNOWN_CONDS: std::sync::Mutex<std::collections::BTreeMap<String, u64>> =
+    std::sync::Mutex::new(std::collections::BTreeMap::new());
 /// 効果が一度でも実行された card_id (「デッキに入っている」≠「発火した」を区別する)。
 pub static FIRED_CARDS: std::sync::Mutex<std::collections::BTreeSet<String>> =
     std::sync::Mutex::new(std::collections::BTreeSet::new());

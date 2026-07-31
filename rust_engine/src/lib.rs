@@ -429,7 +429,13 @@ fn coverage_stats() -> PyResult<String> {
         Ok(m) => m.iter().cloned().collect(),
         Err(_) => vec![],
     };
+    let unk: serde_json::Value = match selfplay::UNKNOWN_CONDS.lock() {
+        Ok(m) => m.iter().map(|(k, v)| (k.clone(), serde_json::json!(v)))
+            .collect::<serde_json::Map<_, _>>().into(),
+        Err(_) => serde_json::json!({}),
+    };
     Ok(serde_json::json!({
+        "unknown_conditions": unk,
         "invariant_violations": inv,
         "fired_cards": fired,
         "defense": {
@@ -457,6 +463,9 @@ fn reset_coverage_stats(diag: bool) {
         m.clear();
     }
     if let Ok(mut m) = selfplay::INV_VIOLATIONS.lock() {
+        m.clear();
+    }
+    if let Ok(mut m) = selfplay::UNKNOWN_CONDS.lock() {
         m.clear();
     }
     if let Ok(mut m) = selfplay::FIRED_CARDS.lock() {
