@@ -4761,7 +4761,7 @@ def _execute_effect_body(
             target_spec = spec.get("target", "self")
             amount = int(spec.get("amount", 0))
             duration = spec.get("duration", "turn")
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="set_base_power_timed", outer_value=target_spec)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="set_base_power_timed", outer_value=v)
             me_idx = state.players.index(me)
             for t in targets:
                 if duration == "turn":

@@ -704,14 +704,6 @@ def test_op16_106_on_ko_draw_and_set_power_ai():
         f"自リーダーの元々のパワーが 7000 になっていない: {me.leader.power}"
 
 
-@pytest.mark.skip(reason=(
-    "engine バグ (要人間レビュー): set_base_power_timed が _resolve_target に "
-    "outer_value=target_spec (= 'self_inplay' 文字列) を渡しており "
-    "(engine/effects.py:4764)、 人間 target_pick 解決後の再実行で primitive の "
-    "amount が失われ 0 に default する (set_base_power_copy は outer_value=v で正しい)。 "
-    "AI パス (test_op16_106_on_ko_draw_and_set_power_ai) と 条件 は green。 "
-    "engine 修正 = outer_value=v に変更。 このタスクでは engine を編集しない。"
-))
 def test_op16_106_on_ko_set_power_human_pick():
     """人間 + 自リーダー/キャラ複数 → 元々パワー7000化の target_pick modal が立つ。"""
     repo = _repo()
