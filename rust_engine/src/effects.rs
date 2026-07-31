@@ -1541,7 +1541,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     .collect();
                 cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
                 if let Some(&i) = cands.first() {
-                    if rest_char_with_cascade(state, me_idx, opp_idx, i).is_err() {
+                    if rest_char_with_cascade(state, me_idx, opp_idx, i, src).is_err() {
                         return false;
                     }
                 } else if state.players[opp_idx].don_active > 0 {
@@ -1577,7 +1577,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     });
                     for (pi, sl) in list.into_iter().take(rest_count) {
                         if let Slot::Char(idx) = sl {
-                            if rest_char_with_cascade(state, me_idx, pi, idx).is_err() {
+                            if rest_char_with_cascade(state, me_idx, pi, idx, src).is_err() {
                                 return false;
                             }
                         }
@@ -1589,7 +1589,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             for (pi, sl) in targets {
                 match sl {
                     Slot::Char(idx) => {
-                        if rest_char_with_cascade(state, me_idx, pi, idx).is_err() {
+                        if rest_char_with_cascade(state, me_idx, pi, idx, src).is_err() {
                             return false;
                         }
                     }
@@ -3226,9 +3226,9 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
-        // 相手リーダーに N ダメージ (effects.py:5322、 EB03-055 on_ko)。 相手ライフ N を相手手札へ (トリガー
-        // 判定は省略=公式簡略、 Python 準拠)。 ⚠ ライフ 0 の時は on_life_zero + declare_winner cascade →
-        // 未対応で bail。
+        // 相手リーダーに N ダメージ (effects.py:5384、 EB03-055 on_ko)。 相手ライフ N を相手手札へ (トリガー
+        // 判定は省略=公式簡略、 Python 準拠)。 ライフ 0 で受けると【敗北】= on_life_zero (エネル等回復) を試み、
+        // まだ 0 なら declare_winner。 opp 場に on_life_zero があれば回復 cascade 再現不能で bail、 無ければ勝利宣言。
         "deal_opp_leader_damage" => {
             let n = if v.is_object() {
                 v.get("amount").and_then(|x| x.as_i64()).unwrap_or(1)
@@ -3237,7 +3237,16 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             };
             for _ in 0..n {
                 if state.players[opp_idx].life.is_empty() {
-                    return false; // on_life_zero + declare_winner 未対応
+                    // on_life_zero (回復効果) を持つ相手は cascade 再現不能 → bail。
+                    if me_board_has_when(state, opp_idx, "on_life_zero") {
+                        return false;
+                    }
+                    // 回復手段なし → 効果ダメージで敗北宣言 (declare_winner 相当)。
+                    if !state.game_over {
+                        state.winner = Some(me_idx);
+                        state.game_over = true;
+                    }
+                    return true;
                 }
                 let taken = state.players[opp_idx].life.remove(0);
                 state.players[opp_idx].hand.push(taken);
@@ -3668,21 +3677,97 @@ fn fire_on_self_rested(state: &mut GameState, owner_idx: usize, char_idx: usize)
 
 /// 対象 char をレスト + on_self_rested 発火 (rest cascade)。 replace_rest / on_self_chara_rested_by_self_
 /// effect (field-wide) は未対応で Err bail。 既 rested/cannot_be_rested は skip。 Err = 呼出側 false。
-fn rest_char_with_cascade(state: &mut GameState, me_idx: usize, pi: usize, idx: usize) -> Result<(), String> {
+fn rest_char_with_cascade(
+    state: &mut GameState,
+    me_idx: usize,
+    pi: usize,
+    idx: usize,
+    src: Slot,
+) -> Result<(), String> {
     {
         let ip = &state.players[pi].characters[idx];
         if ip.cannot_be_rested_buff || ip.static_cannot_be_rested || ip.rested {
             return Ok(());
         }
     }
+    // 置換効果 (replace_rest、 PRB02-006 ゾロ): victim 自身の overlay を試行。 発動で rest キャンセル。
+    // by_opp_chara_effect = 別プレイヤーの CHARACTER 効果でレストされる場合 (src が Char)。
     if me_board_has_when(state, pi, "replace_rest") {
-        return Err("rest replace_rest 未対応".into());
+        let by_opp_chara = pi != me_idx && matches!(src, Slot::Char(_));
+        if try_replace_rest(state, pi, me_idx, idx, by_opp_chara)? {
+            return Ok(()); // 置換発動 = 本来の rest はキャンセル
+        }
     }
     if pi == me_idx && me_board_has_when(state, me_idx, "on_self_chara_rested_by_self_effect") {
         return Err("on_self_chara_rested_by_self_effect 未対応".into());
     }
     state.players[pi].characters[idx].rested = true;
     fire_on_self_rested(state, pi, idx)
+}
+
+/// rest 効果が victim にかかる前の置換 (when="replace_rest"、 effects.py:try_replace_rest)。
+/// victim 自身の overlay の replace_rest を試行。 発動・成功で Ok(true) (本来の rest をキャンセル)。
+/// target=self のみ / cost 持ちや未対応 do は Err で bail。
+fn try_replace_rest(
+    state: &mut GameState,
+    victim_pi: usize,
+    actor_idx: usize,
+    victim_idx: usize,
+    by_opp_chara_effect: bool,
+) -> Result<bool, String> {
+    let _ = actor_idx;
+    let vcid = state.players[victim_pi].characters[victim_idx].card.card_id.clone();
+    let Some(ov) = overlay() else { return Ok(false) };
+    let Some(effs) = ov.get(&vcid) else { return Ok(false) };
+    for eff in effs {
+        if eff.get("when").and_then(|v| v.as_str()) != Some("replace_rest") {
+            continue;
+        }
+        let if_spec = eff.get("if").and_then(|v| v.as_object());
+        let target = if_spec
+            .and_then(|o| o.get("target"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("self");
+        if target != "self" {
+            continue; // victim 自身が holder の case のみ対応
+        }
+        let need_opp_chara = if_spec
+            .and_then(|o| o.get("by_opp_chara_effect"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        if need_opp_chara && !by_opp_chara_effect {
+            continue;
+        }
+        // 残り condition (opp_turn 等) を victim 視点で eval (target/by_opp_* は除外)。
+        if let Some(o) = if_spec {
+            let mut extra = serde_json::Map::new();
+            for (k, val) in o {
+                if !matches!(k.as_str(), "target" | "by_opp_chara_effect" | "by_opp_effect") {
+                    extra.insert(k.clone(), val.clone());
+                }
+            }
+            if !extra.is_empty() {
+                match eval_condition(&Value::Object(extra), state, victim_pi, Some(Slot::Char(victim_idx))) {
+                    Some(true) => {}
+                    Some(false) => continue,
+                    None => return Err("replace_rest 条件 unknown".into()),
+                }
+            }
+        }
+        if eff.get("cost").map_or(false, |c| !cost_is_empty(c)) {
+            return Err("replace_rest cost 未対応".into());
+        }
+        // do を holder=victim slot で実行 (rest other_self_chara 等)。 未対応 prim は bail。
+        if let Some(dos) = eff.get("do").and_then(|v| v.as_array()) {
+            for prim in dos {
+                if !execute_effect(prim, state, victim_pi, Slot::Char(victim_idx)) {
+                    return Err("replace_rest do 未対応".into());
+                }
+            }
+        }
+        return Ok(true);
+    }
+    Ok(false)
 }
 
 /// キャラ登場時の on_play 効果を実行 (effects.py:trigger_on_play)。 played_idx = me.characters の末尾。
