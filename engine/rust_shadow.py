@@ -52,6 +52,12 @@ def _load() -> None:
     except Exception:
         _eng = None
         return
+    # ⚠ Rust overlay (global OnceLock) を必ずロード。 未ロードだと execute_card_effects が全カード
+    #   no-op → 効果カード全部が false MISMATCH になる。 二重 load は Rust 側で無視 (OnceLock)。
+    try:
+        _eng.load_overlay(str(_ROOT / "db" / "card_effects.json"))
+    except Exception:
+        pass
     try:
         # action → Rust JSON エンコーダは差分ハーネスに実装済 (再利用)
         from scripts.rust_parity_check import _enc  # noqa

@@ -29,6 +29,59 @@ fn overlay() -> Option<&'static HashMap<String, Vec<Value>>> {
     OVERLAY.get()
 }
 
+/// 登場カードの on_play が「順序観測できる zone (deck/trash/life) を並べ替える」primitive を含むか。
+/// Python は play_from_trash で登場したキャラの on_play を **enqueue→アクション境界で drain (deferred)**
+/// するが、 Rust は inline 発火する。 通常は結果同一だが、 同じ do 内で後続が同 zone を触ると **append 順**
+/// がズレて digest MISMATCH (例 OP14-084: バレンタインの search_top_n leftover と 2枚目の field-full trash が
+/// 入れ替わる)。 = trigger-queue モデリングが要る領域なので、 この risk がある登場は inline せず **明示 bail**。
+/// (単発 play_from_trash で後続 zone 変化が無ければ inline でも一致するが、 文脈判定が局所化できないため
+///  安全側で「並べ替え on_play を持つ登場」は一律 bail。 単純 on_play=buff/ko/draw固定 は inline 継続。)
+fn on_play_defers_zone_reorder(card_id: &str) -> bool {
+    // deferred inline 発火で deck/trash/life の append 順が観測されうる primitive。
+    const RISKY: &[&str] = &[
+        "search", "search_top_n", "reveal_top_then", "reveal_top_play",
+        "reveal_self_life_top_pump_per_cost", "summon_from_deck",
+        "mill_self_life_until_n", "mill_opp_life_to_hand", "mill_opp_life_to_trash",
+        "scry_life", "scry_all_life_one_to_deck", "scry_all_life_reorder", "peek_self_life_top",
+        "put_top_to_life", "life_top_or_bottom_to_hand", "trash_to_deck", "opp_trash_to_deck_bottom",
+        "draw_per_hand_to_deck_bottom", "return_to_deck_bottom", "return_to_deck_bottom_multi",
+        "play_from_trash", "play_multi_from_trash", "play_from_hand_or_trash", "play_from_trash_or_hand",
+    ];
+    let Some(ov) = overlay() else { return false };
+    let Some(effs) = ov.get(card_id) else { return false };
+    for eff in effs {
+        if eff.get("when").and_then(|v| v.as_str()) != Some("on_play") {
+            continue;
+        }
+        if let Some(dos) = eff.get("do").and_then(|v| v.as_array()) {
+            for prim in dos {
+                if let Some(obj) = prim.as_object() {
+                    for k in obj.keys() {
+                        if RISKY.contains(&k.as_str()) {
+                            return true;
+                        }
+                        // conditional { do: [...] } の中の risky も拾う (浅い 1 段)。
+                        if k == "conditional" {
+                            if let Some(inner) = obj.get("conditional")
+                                .and_then(|c| c.get("do")).and_then(|d| d.as_array())
+                            {
+                                for p2 in inner {
+                                    if let Some(o2) = p2.as_object() {
+                                        if o2.keys().any(|kk| RISKY.contains(&kk.as_str())) {
+                                            return true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
 static ROLES: OnceLock<HashMap<String, String>> = OnceLock::new();
 
 /// db/card_roles.json を読み込む (card_id → primary_role)。 _opp_value の role bonus 用。
@@ -1909,6 +1962,11 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             // 登場カードを先に trash から除去 (公式: 登場でトラッシュを離れて**から** on_play)。
             let cards: Vec<crate::state::CardDef> =
                 chosen.iter().map(|&i| state.players[me_idx].trash[i].clone()).collect();
+            // 登場キャラの on_play が zone 並べ替えを含む = Python の deferred trigger 順を inline で
+            // 再現できない (OP14-084 の search_top_n × field-full trash 順ズレ) → 明示 bail。
+            if cards.iter().any(|c| on_play_defers_zone_reorder(&c.card_id)) {
+                return false;
+            }
             let mut desc = chosen.clone();
             desc.sort_unstable_by(|a, b| b.cmp(a));
             for i in desc {

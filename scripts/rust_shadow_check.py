@@ -48,6 +48,12 @@ def verify(dump_file: str) -> bool:
     True = Rust が Python に一致 (= 修正済 or 元々一致) / False = まだ乖離 or bail。"""
     import optcg_engine as eng
     from engine.state_snapshot import diff_canonical
+    # ⚠ Rust overlay (global OnceLock) を必ずロード。 未ロードだと全カード on_play が no-op になり
+    #   false な「まだ乖離」を出す。 二重 load は OnceLock で無視。
+    try:
+        eng.load_overlay(str(ROOT / "db" / "card_effects.json"))
+    except Exception:
+        pass
     p = Path(dump_file)
     if not p.is_absolute():
         p = ROOT / dump_file
