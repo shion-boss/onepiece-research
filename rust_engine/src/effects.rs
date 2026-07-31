@@ -158,7 +158,15 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
     };
     let me = &state.players[me_idx];
     let opp = &state.players[1 - me_idx];
-    let total_don = |p: &Player| (p.don_active + p.don_rested) as i64;
+    // 自場のドン‼合計 = コストエリア (active+rested) + 付与ドン (leader + 全 chara)。 effects.py:1307
+    //   (self_don_ge/le)。 ⚠ 付与ドンを含めないと AttachDon (cost area→chara) で総数が誤減少し、
+    //   self_don_ge 条件 (OP15-119 モンキー・D・ルフィ 静的速攻=自場ドン6以上) が MISMATCH する。
+    let total_don = |p: &Player| {
+        (p.don_active
+            + p.don_rested
+            + p.leader.attached_dons
+            + p.characters.iter().map(|c| c.attached_dons).sum::<i32>()) as i64
+    };
     let mut result = true;
     for (k, v) in obj {
         let ok = match k.as_str() {
