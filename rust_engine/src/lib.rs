@@ -420,7 +420,18 @@ fn coverage_stats() -> PyResult<String> {
             .into(),
         Err(_) => serde_json::json!({}),
     };
+    let inv: serde_json::Value = match selfplay::INV_VIOLATIONS.lock() {
+        Ok(m) => m.iter().map(|(k, v)| (k.clone(), serde_json::json!(v)))
+            .collect::<serde_json::Map<_, _>>().into(),
+        Err(_) => serde_json::json!({}),
+    };
+    let fired: Vec<String> = match selfplay::FIRED_CARDS.lock() {
+        Ok(m) => m.iter().cloned().collect(),
+        Err(_) => vec![],
+    };
     Ok(serde_json::json!({
+        "invariant_violations": inv,
+        "fired_cards": fired,
         "defense": {
             "attacks": d[0], "blocker_available": d[1], "candidate_bails": d[2],
             "chose_block": d[3], "chose_counter": d[4], "chose_counter_event": d[5],
@@ -443,6 +454,12 @@ fn reset_coverage_stats(diag: bool) {
         m.clear();
     }
     if let Ok(mut m) = selfplay::BAIL_REASONS.lock() {
+        m.clear();
+    }
+    if let Ok(mut m) = selfplay::INV_VIOLATIONS.lock() {
+        m.clear();
+    }
+    if let Ok(mut m) = selfplay::FIRED_CARDS.lock() {
         m.clear();
     }
     selfplay::DIAG_ON.store(diag, Ordering::Relaxed);

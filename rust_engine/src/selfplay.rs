@@ -158,6 +158,92 @@ pub static ACTION_STATS: std::sync::Mutex<std::collections::BTreeMap<String, [u6
 pub static BAIL_REASONS: std::sync::Mutex<std::collections::BTreeMap<String, u64>> =
     std::sync::Mutex::new(std::collections::BTreeMap::new());
 
+/// 保存則違反の集計 ("<rule_id>: <詳細>" -> 回数)。 Python を **使わず** に「壊れた状態」を検出する層。
+/// 差分検証 (Python 一致) は「Python の正しさが天井」だが、 保存則は言語非依存の絶対条件なので
+/// Rust 固有の実装ミス (index ズレ / clone のクロス汚染 / zone 移動漏れ) を単独で捕まえられる。
+pub static INV_VIOLATIONS: std::sync::Mutex<std::collections::BTreeMap<String, u64>> =
+    std::sync::Mutex::new(std::collections::BTreeMap::new());
+/// 効果が一度でも実行された card_id (「デッキに入っている」≠「発火した」を区別する)。
+pub static FIRED_CARDS: std::sync::Mutex<std::collections::BTreeSet<String>> =
+    std::sync::Mutex::new(std::collections::BTreeSet::new());
+
+fn note_violation(rule: &str, detail: String) {
+    if let Ok(mut m) = INV_VIOLATIONS.lock() {
+        *m.entry(format!("{rule}: {detail}")).or_insert(0) += 1;
+    }
+}
+
+/// player の全 zone に存在するカード枚数 (leader は除く = 常に 1 枚で不変)。
+fn zone_card_count(p: &Player) -> usize {
+    p.deck.len() + p.hand.len() + p.life.len() + p.trash.len() + p.characters.len() + p.stages.len()
+}
+
+/// player のドン総数 (コストエリア active/rested + 付与 + ドンデッキ残)。 ドンは所有者を移らない。
+fn don_total(p: &Player) -> i32 {
+    p.don_active
+        + p.don_rested
+        + p.don_remaining_in_deck
+        + p.leader.attached_dons
+        + p.characters.iter().map(|c| c.attached_dons).sum::<i32>()
+        + p.stages.iter().map(|c| c.attached_dons).sum::<i32>()
+}
+
+/// 状態の絶対条件を検査 (Python 不要)。 base = 試合開始時の (カード枚数, ドン総数) × 2 player。
+/// 検出したら INV_VIOLATIONS に積む。 戻り値 = このチェックで見つけた違反数。
+pub fn check_invariants(st: &GameState, base: &[(usize, i32); 2], ctx: &str) -> usize {
+    let mut n = 0;
+    let total_now: usize = st.players.iter().map(zone_card_count).sum();
+    let total_base: usize = base[0].0 + base[1].0;
+    if total_now != total_base {
+        note_violation("INV-card-total", format!("{total_base} → {total_now} ({ctx})"));
+        n += 1;
+    }
+    for (i, p) in st.players.iter().enumerate() {
+        // カードは所有者を移らない = player 単位でも不変
+        if zone_card_count(p) != base[i].0 {
+            note_violation("INV-card-player", format!("p{i} {} → {} ({ctx})", base[i].0, zone_card_count(p)));
+            n += 1;
+        }
+        if don_total(p) != base[i].1 {
+            note_violation("INV-don-total", format!("p{i} {} → {} ({ctx})", base[i].1, don_total(p)));
+            n += 1;
+        }
+        if p.don_active < 0 || p.don_rested < 0 || p.don_remaining_in_deck < 0 {
+            note_violation("INV-don-negative", format!("p{i} a={} r={} deck={} ({ctx})", p.don_active, p.don_rested, p.don_remaining_in_deck, ctx = ctx));
+            n += 1;
+        }
+        // 公式 1-3-2: キャラエリアは 5 枚まで / ステージは 1 枚まで
+        if p.characters.len() > 5 {
+            note_violation("INV-field-max5", format!("p{i} {} 体 ({ctx})", p.characters.len()));
+            n += 1;
+        }
+        if p.stages.len() > 1 {
+            note_violation("INV-stage-max1", format!("p{i} {} 枚 ({ctx})", p.stages.len()));
+            n += 1;
+        }
+        if p.leader.card.card_id.is_empty() {
+            note_violation("INV-leader-exists", format!("p{i} ({ctx})"));
+            n += 1;
+        }
+        if p.characters.iter().any(|c| c.attached_dons < 0) || p.leader.attached_dons < 0 {
+            note_violation("INV-attached-negative", format!("p{i} ({ctx})"));
+            n += 1;
+        }
+    }
+    n
+}
+
+pub fn note_fired(card_id: &str) {
+    if !DIAG_ON.load(std::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
+    if let Ok(mut m) = FIRED_CARDS.lock() {
+        if !m.contains(card_id) {
+            m.insert(card_id.to_string());
+        }
+    }
+}
+
 fn diag_record(action: &Value, err: Option<&String>) {
     if !DIAG_ON.load(std::sync::atomic::Ordering::Relaxed) {
         return;
@@ -575,6 +661,13 @@ pub fn play_game(
     crate::effects::evaluate_static_effects(&mut st);
     advance_to_main(&mut st)?;
     let mut steps: i64 = 0;
+    // 保存則の基準 (試合開始時のカード枚数 / ドン総数)。 diag 時のみ各手後に照合する。
+    let inv_base: [(usize, i32); 2] = [
+        (zone_card_count(&st.players[0]), don_total(&st.players[0])),
+        (zone_card_count(&st.players[1]), don_total(&st.players[1])),
+    ];
+    let diag = DIAG_ON.load(std::sync::atomic::Ordering::Relaxed);
+    let mut inv_bad: i64 = 0;
     // 防御が実際に働いているかの計器 (無防御回帰の検出用)
     let (mut n_attacks, mut n_blocks, mut n_counter_cards): (i64, i64, i64) = (0, 0, 0);
     // (features, to_move) を貯める。 label は決着後に付ける。
@@ -601,6 +694,9 @@ pub fn play_game(
                 .map_or(0, |a| a.len() as i64);
         }
         steps += 1;
+        if diag {
+            inv_bad += check_invariants(&st, &inv_base, action["t"].as_str().unwrap_or("?")) as i64;
+        }
         if steps > 200_000 {
             break;
         }
@@ -613,6 +709,7 @@ pub fn play_game(
         "n_attacks": n_attacks,
         "n_blocks": n_blocks,
         "n_counter_cards": n_counter_cards,
+        "invariant_violations": inv_bad,
     });
     if collect_traj {
         let rows: Vec<Value> = traj

@@ -664,11 +664,17 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     return Err("blocker idx stale after opp_attack board shift (Rust に iid 無し)".into());
                 }
             }
-            // on_attack/opp_attack で power/keyword が変化しうるので attacker を再スナップショット
+            // on_attack/opp_attack で power/keyword が変化しうるので attacker を再スナップショット。
+            // ⚠ trigger の途中で attacker 自身が場を離れることがある (自 trash / 相手の除去)。 Python は
+            //   attacker を **オブジェクト参照** で保持し離場後も同じ実体で解決を続けるが、 Rust は位置
+            //   index なので追跡できない → 明示 bail (以前はここで index out of bounds panic していた)。
             let attacker: InPlay = if is_leader {
                 state.players[me].leader.clone()
             } else {
-                state.players[me].characters[atk_idx].clone()
+                match state.players[me].characters.get(atk_idx) {
+                    Some(a) => a.clone(),
+                    None => return Err("attacker が on_attack/opp_attack 中に場を離れた (Rust は index 解決)".into()),
+                }
             };
             let atk_power_base = attacker.power();
             let is_double = attacker.is_double_attack_now();
@@ -933,11 +939,15 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 reset_battle_buffs(state);
                 return Ok(());
             }
-            // on_attack で power/keyword が変化しうるので再スナップショット
+            // on_attack で power/keyword が変化しうるので再スナップショット。
+            // ⚠ AttackLeader 側と同じく、 trigger 中に attacker が場を離れると index が無効 → 明示 bail。
             let attacker: InPlay = if is_leader {
                 state.players[me].leader.clone()
             } else {
-                state.players[me].characters[atk_idx].clone()
+                match state.players[me].characters.get(atk_idx) {
+                    Some(a) => a.clone(),
+                    None => return Err("attacker が on_attack 中に場を離れた (Rust は index 解決)".into()),
+                }
             };
             // === ブロック (AttackCharacter は has_no_block を見ない、 on_opp_blocker_use も発火しない) ===
             let mut actual_idx = tgt_idx as usize;

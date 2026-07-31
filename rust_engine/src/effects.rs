@@ -1314,6 +1314,33 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
             let src_idx = if let Slot::Char(i) = src { Some(i) } else { None };
             Some((0..me.characters.len()).any(|i| Some(i) != src_idx))
         }
+        // power_pump cost = 自リーダー/自身を弱体化して払う (effects.py:8407、 EB03-006 ナミ系)。
+        // Python は target=self_leader なら常に払える扱い。 target=self で source-gone かつ
+        // 自キャラも居ない場合のみ不可。
+        "power_pump" => {
+            let tgt = cv.get("target").and_then(|x| x.as_str()).unwrap_or("self");
+            let amt = cv.get("amount").and_then(|x| x.as_i64()).unwrap_or(0);
+            if amt < 0 && tgt == "self" && me.characters.is_empty() && src_ip(me, src).is_none() {
+                Some(false)
+            } else {
+                Some(true)
+            }
+        }
+        // return_self_don_to_deck cost = 場のドン (active+rested) が N 枚以上 (effects.py:8400)。
+        "return_self_don_to_deck" => {
+            let n = if cv.is_object() {
+                cv.get("amount").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                cv.as_i64().unwrap_or(1)
+            };
+            Some((me.don_active + me.don_rested) as i64 >= n)
+        }
+        // return_self_to_hand / return_self_to_trash cost = 自身が場のキャラである必要 (effects.py:8379)。
+        "return_self_to_hand" | "return_self_to_trash" => {
+            Some(matches!(src, Slot::Char(i) if i < me.characters.len()))
+        }
+        // return_self_to_deck_bottom cost = 自身が場 (キャラ or ステージ) に居る必要 (effects.py:8394)。
+        "return_self_to_deck_bottom" => Some(matches!(src, Slot::Char(_) | Slot::Stage(_))),
         _ => None, // 未対応 cost 型 → bail
     }
 }
@@ -1531,6 +1558,14 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
                 let Some(i) = worst_hand_idx(&me.hand, &me.known_hand_card_ids) else { break };
                 let c = me.hand.remove(i);
                 me.trash.push(c);
+            }
+        }
+        // 自身/自リーダーの弱体化・自身の帰還・ドン返却を cost として払う (effects.py:8407/8379/8394/8400)。
+        // いずれも対応する primitive にそのまま委譲する (Python も同じ prim を実行する)。
+        "power_pump" | "return_self_to_hand" | "return_self_to_trash"
+        | "return_self_to_deck_bottom" | "return_self_don_to_deck" => {
+            if !execute_effect(cs, state, me_idx, src) {
+                return None;
             }
         }
         _ => return None,
@@ -3070,17 +3105,48 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             true
         }
         // レストドンを target に付与 (effects.py:5736)。 source=don_rested。
+        // レストのドンを付与 (effects.py:5821)。
+        // ⚠ 供給元は **to_opp なら相手の**ドン (OP15-008/015/025/028 「相手のキャラに相手のレストのドンを
+        //   付与」= 相手の tempo 妨害)。 ここを常に me から引いていたため **ドンがプレイヤー間を移動** し、
+        //   全カード掃引の保存則チェックで検出された (INV-don-total p0 10→7 / p1 10→13、 2026-07-31)。
+        // from_cost_area=true なら rested 不足分を active からも取る。 per_target=true は各 target に count 枚、
+        // 既定は先頭 target にまとめて count 枚 (effects.py:5894)。
         "attach_rested_don" => {
             let count = v.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as i32;
+            let to_opp = v.get("to_opp").and_then(|x| x.as_bool()).unwrap_or(false);
+            let from_cost_area = v.get("from_cost_area").and_then(|x| x.as_bool()).unwrap_or(false);
+            let per_target = v.get("per_target").and_then(|x| x.as_bool()).unwrap_or(false);
+            let owner = if to_opp { opp_idx } else { me_idx };
             let target_val = v.get("target").cloned().unwrap_or(Value::String("self_leader".into()));
             let Some(targets) = resolve_target(Some(&target_val), me_idx, opp_idx, src, state) else { return false };
-            for (pi, sl) in targets {
-                let take = count.min(state.players[me_idx].don_rested);
-                if take <= 0 {
-                    continue;
+            if targets.is_empty() {
+                return true;
+            }
+            let mut take_from_owner = |state: &mut GameState, k: i32| -> i32 {
+                let p = &mut state.players[owner];
+                let mut taken = k.min(p.don_rested);
+                p.don_rested -= taken;
+                if from_cost_area && taken < k {
+                    let more = (k - taken).min(p.don_active);
+                    p.don_active -= more;
+                    taken += more;
                 }
-                state.players[me_idx].don_rested -= take;
-                get_ip_mut(&mut state.players[pi], sl).attached_dons += take;
+                taken
+            };
+            if per_target {
+                for (pi, sl) in targets {
+                    let give = take_from_owner(state, count);
+                    if give <= 0 {
+                        break;
+                    }
+                    get_ip_mut(&mut state.players[pi], sl).attached_dons += give;
+                }
+            } else {
+                let give = take_from_owner(state, count);
+                if give > 0 {
+                    let (pi, sl) = targets[0];
+                    get_ip_mut(&mut state.players[pi], sl).attached_dons += give;
+                }
             }
             true
         }
@@ -3920,6 +3986,10 @@ pub fn execute_card_effects(
 ) -> Result<(), String> {
     let Some(ov) = overlay() else { return Ok(()) };
     let Some(effs) = ov.get(card_id) else { return Ok(()) };
+    // 発火追跡 (診断時のみ)。 「デッキに入っている」≠「効果が実行された」を区別する。
+    if effs.iter().any(|e| e.get("when").and_then(|v| v.as_str()) == Some(when)) {
+        crate::selfplay::note_fired(card_id);
+    }
     for eff in effs {
         if eff.get("when").and_then(|v| v.as_str()) != Some(when) {
             continue;
@@ -4270,8 +4340,8 @@ pub fn fire_gated_do(
         if !execute_effect(prim, state, me_idx, src) {
             let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?");
             // 診断用に spec も載せる (どの target/amount 形が未対応かを bail 集計から直に読む為)
-            let spec = prim.to_string();
-            let spec = if spec.len() > 120 { spec[..120].to_string() } else { spec };
+            // ⚠ UTF-8 の途中で切ると panic するので char 境界で truncate する
+            let spec: String = prim.to_string().chars().take(110).collect();
             return Err(format!("when-effect primitive 再現不能: {k} {spec}"));
         }
     }
@@ -4551,6 +4621,7 @@ pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> 
     if !effs.iter().any(|e| e.get("when").and_then(|v| v.as_str()) == Some("on_ko")) {
         return Ok(());
     }
+    crate::selfplay::note_fired(victim_cid);
     for eff in effs {
         if eff.get("when").and_then(|v| v.as_str()) != Some("on_ko") {
             continue;
@@ -4609,6 +4680,7 @@ pub fn fire_life_trigger(
 ) -> Result<bool, String> {
     let Some(ov) = overlay() else { return Ok(false) };
     let Some(effs) = ov.get(card_id) else { return Ok(false) };
+    crate::selfplay::note_fired(card_id);
     // cascade guard (trigger 発火に伴う 2 系トリガー = 未実装)
     if me_board_has_when(state, attacker_idx, "opp_event_or_trigger_fired") {
         return Err("life trigger cascade (opp_event_or_trigger_fired) 未対応".into());
@@ -5065,6 +5137,7 @@ pub fn fire_field_when(state: &mut GameState, owner_idx: usize, when: &str) -> R
             if eff.get("when").and_then(|v| v.as_str()) != Some(when) {
                 continue;
             }
+            crate::selfplay::note_fired(&cid);
             // once_per_turn: cost.once_per_turn or top-level。 mirror 対象 when は event_once_used で追跡、
             // それ以外 (end_of_turn 等 別トラッカー) は従来通り bail。
             let once_opt = eff
