@@ -644,9 +644,25 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             };
             let ap = if is_leader { state.players[me].leader.power() } else { state.players[me].characters[atk_idx].power() };
             let dp = state.players[opp].leader.power();
+            // ブロッカー idx を opp_attack 発火**前**に捕捉した card_id と対で保持。 Python は blocker_iid で
+            // 安定解決 (game.py:1602) するが、 Rust は canonical に iid が無く位置 idx で解決する。 opp_attack の
+            // 【相手のアタック時】(ST24-002 自 trash 等) が defender char を除去/並替すると idx が別 char を指す
+            // → 黙って違う blocker をブロックすると MISMATCH。 shift 検知時は明示 bail (iid tracking 不能)。
+            let declared_blocker_cid: Option<(usize, String)> = action
+                .get("blocker")
+                .and_then(|b| if b.is_null() { None } else { b.get("idx").and_then(|v| v.as_i64()) })
+                .map(|i| i as usize)
+                .and_then(|bi| state.players[opp].characters.get(bi).map(|c| (bi, c.card.card_id.clone())));
             crate::effects::fire_opp_attack(state, opp, "opp_attack", ap, atk_cost, dp)?;
             let dp2 = state.players[opp].leader.power();
             crate::effects::fire_opp_attack(state, opp, "opp_attack_on_leader", ap, atk_cost, dp2)?;
+            // opp_attack で defender char が動いた → 宣言 idx が別 card_id を指すなら bail (iid 無しで
+            // 正しい blocker を追えない)。 同 idx に同 card_id が残っていれば安全に続行。
+            if let Some((bi, cid)) = &declared_blocker_cid {
+                if state.players[opp].characters.get(*bi).map(|c| c.card.card_id.as_str()) != Some(cid.as_str()) {
+                    return Err("blocker idx stale after opp_attack board shift (Rust に iid 無し)".into());
+                }
+            }
             // on_attack/opp_attack で power/keyword が変化しうるので attacker を再スナップショット
             let attacker: InPlay = if is_leader {
                 state.players[me].leader.clone()
