@@ -495,12 +495,18 @@ def test_op16_014_on_ko_discard_then_play_self_from_trash_ai():
     assert any(t.card_id == F8000 for t in me.trash), "捨てた手札8000がトラッシュに無い"
 
 
-def test_op16_014_replace_leave_documented_as_unimplemented():
-    """team-wide leave-redirect (replace_leave) は fidelity note で未実装宣言 (近似禁止)。"""
+def test_op16_014_replace_leave_implemented():
+    """team-wide leave-redirect (replace_leave) は実装済: 自分のキャラが相手の効果で場を離れる
+    代わりに、 このマルコ (OP16-014) を KO できる (optional / by_opp_effect / ko_self)。
+    旧 fidelity-note 版 (未実装宣言) から実装に更新済 (本セッションで replace_leave 実装、 近似でなく忠実)。"""
     overlay = _overlay()
     effects = overlay.get("OP16-014").effects
-    assert any("_fidelity_note" in e for e in effects), \
-        "OP16-014 の replace_leave 未実装 fidelity note が overlay に無い"
+    rl = [e for e in effects if e.get("when") == "replace_leave"]
+    assert rl, "OP16-014 の replace_leave 効果が overlay に無い"
+    e = rl[0]
+    assert e.get("optional") is True, "replace_leave は任意 (optional=True)"
+    assert e.get("if", {}).get("by_opp_effect") is True, "相手効果で離れる場合が条件 (by_opp_effect)"
+    assert any("ko_self" in prim for prim in e.get("do", [])), "代替 = 自身 (マルコ) を KO (ko_self)"
 
 
 # --------------------------------------------------------------------------- #
