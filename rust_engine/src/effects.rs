@@ -502,7 +502,14 @@ fn resolve_target(
         None => "self".to_string(),
         Some(v) => {
             // {"type": "all_self_chara_filtered", "filter": {...}}
-            let t = v.get("type").and_then(|x| x.as_str()).unwrap_or("");
+            // chara/character 表記揺れ alias (effects.py:_TYPE_ALIASES)。 これが無いと該当 overlay が
+            // 未知 type 扱いで bail (Python 側は 2026-06-05 に同じ理由で silent no-op bug を修正済)。
+            let t = match v.get("type").and_then(|x| x.as_str()).unwrap_or("") {
+                "one_opp_chara_filtered" => "one_opponent_character_filtered",
+                "one_opp_chara_any" => "one_opponent_character_any",
+                "one_self_character_filtered" => "one_self_chara_filtered",
+                other => other,
+            };
             if t == "all_self_chara_filtered" {
                 let filt = v.get("filter");
                 let p = &state.players[me_idx];
@@ -1671,7 +1678,8 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     .collect();
                 cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
                 if let Some(&i) = cands.first() {
-                    if rest_char_with_cascade(state, me_idx, opp_idx, i, src).is_err() {
+                    if let Err(e) = rest_char_with_cascade(state, me_idx, opp_idx, i, src) {
+                        note_prim_err(&e);
                         return false;
                     }
                 } else if state.players[opp_idx].don_active > 0 {
@@ -1707,7 +1715,8 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     });
                     for (pi, sl) in list.into_iter().take(rest_count) {
                         if let Slot::Char(idx) = sl {
-                            if rest_char_with_cascade(state, me_idx, pi, idx, src).is_err() {
+                            if let Err(e) = rest_char_with_cascade(state, me_idx, pi, idx, src) {
+                                note_prim_err(&e);
                                 return false;
                             }
                         }
@@ -1719,7 +1728,8 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             for (pi, sl) in targets {
                 match sl {
                     Slot::Char(idx) => {
-                        if rest_char_with_cascade(state, me_idx, pi, idx, src).is_err() {
+                        if let Err(e) = rest_char_with_cascade(state, me_idx, pi, idx, src) {
+                            note_prim_err(&e);
                             return false;
                         }
                     }
@@ -3397,10 +3407,13 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         "search_top_n" => {
             let destination = v.get("destination").and_then(|x| x.as_str()).unwrap_or("hand");
             let rest_remain = v.get("rest_remain").and_then(|x| x.as_str()).unwrap_or("bottom");
-            if destination != "hand" || !(rest_remain == "bottom" || rest_remain == "trash") {
+            if destination != "hand"
+                || !(rest_remain == "bottom" || rest_remain == "trash" || rest_remain == "top_or_bottom")
+            {
                 return false;
             }
             let rest_to_trash = rest_remain == "trash";
+            let rest_top_or_bottom = rest_remain == "top_or_bottom";
             let depth = v.get("depth").and_then(|x| x.as_i64()).unwrap_or(5) as usize;
             let limit = v.get("limit").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
             let public = v.get("public").and_then(|x| x.as_bool()).unwrap_or(false);
@@ -3423,6 +3436,29 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     picked += 1;
                 } else {
                     remaining.push(c);
+                }
+            }
+            // rest_remain="top_or_bottom" (effects.py:4249): 「残りをデッキの上または下に置く」。
+            // AI 判断 = 次ターンに払えるコスト (don_active+1 以下) の中で power/1000 + counter/1000 が
+            // 最大の 1 枚を **上** へ (= 次ドロー確定)、 残りは下へ。 tie は先に現れた方 (Python は > 比較)。
+            if rest_top_or_bottom && !remaining.is_empty() {
+                let cap = me.don_active + 1;
+                let mut best_i: Option<usize> = None;
+                let mut best_v = 0.0f64;
+                for (i, c) in remaining.iter().enumerate() {
+                    if c.cost > cap {
+                        continue;
+                    }
+                    let v = c.power as f64 / 1000.0 + c.counter as f64 / 1000.0;
+                    if v > best_v {
+                        best_v = v;
+                        best_i = Some(i);
+                    }
+                }
+                if let Some(i) = best_i {
+                    let top_card = remaining.remove(i);
+                    me.known_top_card_ids.push(top_card.card_id.clone());
+                    me.deck.insert(0, top_card);
                 }
             }
             for c in remaining {
@@ -3718,7 +3754,24 @@ fn pay_don_field(state: &mut GameState, me_idx: usize, n: i32) -> bool {
         removed += more;
     }
     if removed < n {
-        return false; // 付与ドン払い (power 依存) は未対応
+        // area 不足 → 付与ドンから (effects.py:815、 power 昇順で温存。 Python の
+        // sorted([*characters, leader], key=power) は安定ソート = tie は characters→leader の順)。
+        let mut order: Vec<Slot> = (0..me.characters.len()).map(Slot::Char).collect();
+        order.push(Slot::Leader);
+        order.sort_by_key(|&s| get_ip(me, s).power());
+        for s in order {
+            if removed >= n {
+                break;
+            }
+            let ip = get_ip_mut(me, s);
+            let take = (n - removed).min(ip.attached_dons);
+            ip.attached_dons -= take;
+            me.don_remaining_in_deck += take;
+            removed += take;
+        }
+    }
+    if removed < n {
+        return false; // 場のドンを全部返しても足りない (Python は部分払いだが Rust は bail = 保守的)
     }
     state.last_returned_don_count = removed;
     true
@@ -3940,6 +3993,16 @@ fn fire_on_self_rested(state: &mut GameState, owner_idx: usize, char_idx: usize)
 
 /// 対象 char をレスト + on_self_rested 発火 (rest cascade)。 replace_rest / on_self_chara_rested_by_self_
 /// effect (field-wide) は未対応で Err bail。 既 rested/cannot_be_rested は skip。 Err = 呼出側 false。
+/// 直近に primitive 内部で発生した Err 文字列 (execute_effect は bool しか返せないので、 bail の
+/// 理由を診断で読めるようにする為の置き場)。 correctness には影響しない。
+pub static LAST_PRIM_ERR: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+
+pub fn note_prim_err(e: &str) {
+    if let Ok(mut m) = LAST_PRIM_ERR.lock() {
+        *m = e.to_string();
+    }
+}
+
 fn rest_char_with_cascade(
     state: &mut GameState,
     me_idx: usize,
@@ -4097,6 +4160,10 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "peek_opp_deck_top" | "set_base_power_copy"
             // negate_effect = granted_keywords に "効果無効" を足すだけ (cascade 無)。
             | "negate_effect"
+            // ko = prim 側で cascade を自前処理 (single/multi victim) or 内部 bail するので安全。
+            | "ko"
+            // search_top_n = デッキ上 N 枚を見て 1 枚手札へ + 残りをデッキ下 (rng 消費順も Python 準拠)。
+            | "search_top_n"
     )
 }
 
@@ -4593,7 +4660,9 @@ pub fn fire_life_trigger(
                 continue;
             }
             if !execute_effect(prim, state, defender_idx, Slot::Detached) {
-                return Err(format!("life trigger primitive 再現不能: {}", prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?")));
+                let inner = LAST_PRIM_ERR.lock().map(|m| m.clone()).unwrap_or_default();
+                return Err(format!("life trigger primitive 再現不能: {} [{}]",
+                    prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?"), inner));
             }
         }
     }
