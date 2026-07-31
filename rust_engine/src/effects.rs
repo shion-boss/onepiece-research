@@ -4099,9 +4099,10 @@ pub fn try_replace_ko(
                     None => return Err("replace_ko extra_cond unknown".into()),
                 }
             }
-            // 対象一致 = 置換発動 (Phase B)。 cost は once_per_turn (canonical field 追跡) のみ対応、
-            // 他 (discard 等) は bail。 do は cascade 無し・非victim参照の safe のみ。
+            // 対象一致 = 置換発動 (Phase B)。 cost は once_per_turn (canonical 追跡) + discard_hand_with_filter
+            // (payability check) に対応、 他 (pay_don/life 等) は bail。 do は cascade 無し・非victim参照の safe のみ。
             let mut has_once = false;
+            let mut discard_filter: Option<Value> = None;
             if let Some(cost) = eff.get("cost") {
                 let entries: Vec<&Value> = match cost {
                     Value::Array(a) => a.iter().collect(),
@@ -4110,11 +4111,11 @@ pub fn try_replace_ko(
                 };
                 for cs in entries {
                     if let Some(o) = cs.as_object() {
-                        for k in o.keys() {
-                            if k == "once_per_turn" {
-                                has_once = true;
-                            } else {
-                                return Err(format!("replace cost 未対応 ({hcid})"));
+                        for (k, val) in o {
+                            match k.as_str() {
+                                "once_per_turn" => has_once = true,
+                                "discard_hand_with_filter" => discard_filter = Some(val.clone()),
+                                _ => return Err(format!("replace cost 未対応 ({hcid})")),
                             }
                         }
                     }
@@ -4124,6 +4125,21 @@ pub fn try_replace_ko(
             if has_once && state.players[victim_owner].replace_opt_used_cards.contains(&hcid) {
                 continue;
             }
+            // discard_hand_with_filter cost の payability (= 該当手札不足なら払えない → 通常 KO へ continue)。
+            let discard_cost: Option<(Value, usize)> = if let Some(dwf) = &discard_filter {
+                let (filt, cnt) = filter_and_count(dwf);
+                let avail = state.players[victim_owner]
+                    .hand
+                    .iter()
+                    .filter(|c| matches_filter(c, Some(&filt)))
+                    .count();
+                if avail < cnt {
+                    continue; // 払えない = 置換不発 → 通常 KO
+                }
+                Some((filt, cnt))
+            } else {
+                None
+            };
             let dos: Vec<Value> =
                 eff.get("do").and_then(|v| v.as_array()).cloned().unwrap_or_default();
             for prim in &dos {
@@ -4140,6 +4156,30 @@ pub fn try_replace_ko(
                     && me_board_has_when(state, victim_owner, "on_self_chara_leave_by_self_effect")
                 {
                     return Err("replace do return_to_deck_bottom cascade 未対応".into());
+                }
+            }
+            // discard_hand_with_filter cost 支払い (Python _pay_replace_cost、 do 前)。 先頭 cnt 個の matching を
+            // 降順 pop → hand_discarded flag + on_self_hand_discarded cascade (未対応なら bail)。 OP15-014。
+            if let Some((filt, cnt)) = discard_cost {
+                let mut matching: Vec<usize> = state.players[victim_owner]
+                    .hand
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, c)| matches_filter(c, Some(&filt)))
+                    .map(|(i, _)| i)
+                    .take(cnt)
+                    .collect();
+                matching.sort_unstable_by(|a, b| b.cmp(a));
+                let n_disc = matching.len();
+                for i in matching {
+                    let c = state.players[victim_owner].hand.remove(i);
+                    state.players[victim_owner].trash.push(c);
+                }
+                if n_disc > 0 {
+                    state.players[victim_owner].hand_discarded_by_effect_this_turn = true;
+                    if fire_field_when(state, victim_owner, "on_self_hand_discarded").is_err() {
+                        return Err("replace cost discard cascade 未対応".into());
+                    }
                 }
             }
             // once_per_turn 使用済マーク (Python _pay_replace_cost、 do 前)。 canonical sorted。
