@@ -3796,12 +3796,22 @@ fn pay_on_play_cost(cost: &Value, state: &mut GameState, me_idx: usize, src: Slo
         return None;
     };
     let mut discard_n = 0i32;
+    // reveal_hand_with_filter (effects.py:563): 該当手札 count 枚以上あれば払える。 公開するだけで
+    // 消費しない (state 変化なし) = payability 判定のみ。
+    if let Some(rfs) = cost.get("reveal_hand_with_filter").and_then(|v| v.as_object()) {
+        let r_filt = rfs.get("filter");
+        let r_count = rfs.get("count").and_then(|v| v.as_i64()).unwrap_or(1) as usize;
+        if state.players[me_idx].hand.iter().filter(|c| matches_filter(c, r_filt)).count() < r_count {
+            return Some(false);
+        }
+    }
     for (k, v) in entries {
         match k.as_str() {
             "pay_don" => pay_don += v as i32,
             "rest_self_don" => rest_don += v as i32,
             "discard_hand" => discard_n += v as i32,
             "rest_self" => rest_self = true,
+            "reveal_hand_with_filter" => {} // 上で判定済 (消費なし)
             _ => return None, // 未対応 cost 種別 → skip effect
         }
     }
@@ -3855,22 +3865,11 @@ fn pay_on_play_cost(cost: &Value, state: &mut GameState, me_idx: usize, src: Slo
         if capacity < pay_don {
             return Some(false); // 支払い不能
         }
-        let me = &mut state.players[me_idx];
-        let mut removed = 0;
-        let taken = pay_don.min(me.don_active);
-        me.don_active -= taken;
-        me.don_remaining_in_deck += taken;
-        removed += taken;
-        if removed < pay_don {
-            let more = (pay_don - removed).min(me.don_rested);
-            me.don_rested -= more;
-            me.don_remaining_in_deck += more;
-            removed += more;
+        // area (active→rested) → 付与ドン の順で払う (effects.py:_pay_don_from_field)。
+        // capacity 判定済なので通常は成功する。
+        if !pay_don_field(state, me_idx, pay_don) {
+            return Some(false);
         }
-        if removed < pay_don {
-            return None; // area 不足 → 付与ドン払い (稀、 power 依存) は未対応 → skip
-        }
-        state.last_returned_don_count = removed;
     }
     Some(true)
 }
@@ -5389,7 +5388,7 @@ pub fn fire_activate_main(
     if let Some(c) = &cost {
         if let Some(o) = c.as_object() {
             for k in o.keys() {
-                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card" | "ko_self_with_filter" | "trash_self" | "trash_to_deck") {
+                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card" | "ko_self_with_filter" | "trash_self" | "trash_to_deck" | "discard_hand_or_trash_filtered_chara") {
                     return Err(format!("activate_main cost 未対応: {k} ({card_id})"));
                 }
             }
@@ -5432,6 +5431,39 @@ pub fn fire_activate_main(
             let n = rest_don.min(me.don_active);
             me.don_active -= n;
             me.don_rested += n;
+        }
+        // discard_hand_or_trash_filtered_chara (effects.py:13566、 OP13-079 イム):
+        // 「特徴 X のキャラ か 手札 1 枚 を トラッシュ」 の選択コスト。 AI は **手札優先**
+        // (手札 >= n なら worst_hand_idx を n 枚)、 手札不足なら filter 一致キャラを power 昇順で n 体。
+        if let Some(cc) = c.get("discard_hand_or_trash_filtered_chara") {
+            let n = cc.get("n").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+            let filt = cc.get("filter");
+            if state.players[me_idx].hand.len() >= n {
+                for _ in 0..n {
+                    let me = &mut state.players[me_idx];
+                    if me.hand.is_empty() {
+                        break;
+                    }
+                    let Some(i) = worst_hand_idx(&me.hand, &me.known_hand_card_ids) else { break };
+                    let card = me.hand.remove(i);
+                    me.trash.push(card);
+                }
+            } else {
+                let mut cands: Vec<usize> = (0..state.players[me_idx].characters.len())
+                    .filter(|&i| matches_filter(&state.players[me_idx].characters[i].card, filt))
+                    .collect();
+                // Python: chara_cands.sort(key=power) = 昇順 (安定 = tie は board 順)
+                cands.sort_by_key(|&i| state.players[me_idx].characters[i].power());
+                let mut chosen: Vec<usize> = cands.into_iter().take(n).collect();
+                chosen.sort_unstable();
+                for i in chosen.into_iter().rev() {
+                    let me = &mut state.players[me_idx];
+                    let removed = me.characters.remove(i);
+                    let don = removed.attached_dons;
+                    me.trash.push(removed.card);
+                    me.don_rested += don;
+                }
+            }
         }
         // trash_to_deck N: トラッシュ上 (front) N 枚をデッキ下 (back) へ (effects.py:13395、 OP05-082)。 cascade 無し。
         let ttd = c.get("trash_to_deck").and_then(|v| v.as_i64()).unwrap_or(0) as usize;
