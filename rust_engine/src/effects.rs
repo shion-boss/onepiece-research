@@ -1786,6 +1786,47 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             // leader/stage/none → no-op (通常 leader battle 続行)
             true
         }
+        // マルチターゲット KO (effects.py:7401、 OP12-038 等)。 v = target spec のリストを順に解決 → KO。
+        // ⚠ cascade (on_ko / on_opp_chara_ko / on_self_chara_ko / replace_ko / replace_leave /
+        //   on_self_chara_leave_by_self_effect) が絡む盤面は effect_cascade_blocked が呼出前に bail するので、
+        //   ここは「素の除去」だけを Python と同順で再現する。 spec 毎に現盤面へ解決 = Python の逐次除去と同義。
+        //   KO 耐性判定は Python の ko_multi と同じ 3 種のみ (ko と違い source power/attribute 耐性は見ない)。
+        "ko_multi" => {
+            let Some(list) = v.as_array() else { return true }; // Python: 非 list は continue = no-op
+            for spec in list {
+                let tspec: Value = if spec.is_string()
+                    || spec.get("type").is_some()
+                    || spec.get("filter").is_some()
+                {
+                    spec.clone()
+                } else {
+                    spec.get("target")
+                        .cloned()
+                        .unwrap_or(Value::String("one_opponent_character_any".into()))
+                };
+                let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else { return false };
+                let mut victims: Vec<(usize, usize)> = vec![];
+                for (pi, sl) in targets {
+                    let Slot::Char(idx) = sl else { continue };
+                    let t = &mut state.players[pi].characters[idx];
+                    if t.protect_from_opp_effect {
+                        continue;
+                    }
+                    if t.ko_per_turn_immune_remaining > 0 {
+                        t.ko_per_turn_immune_remaining -= 1;
+                        continue;
+                    }
+                    if t.ko_immune_until_turn_end || t.static_ko_immune || t.ko_immune_through_opp_turn {
+                        continue;
+                    }
+                    victims.push((pi, idx));
+                }
+                if !victims.is_empty() {
+                    remove_victims(state, victims, RemoveDest::Trash);
+                }
+            }
+            true
+        }
         // 効果無効 (effects.py:7648)。 spec = target 文字列 or {target}。 既定 one_opponent_inplay_any。
         // granted_keywords に "効果無効" を足すだけ (Python も同じ近似実装)。 last_negated_iid は
         // dataclass field でない (dynamic attr) = canonical 対象外なので Rust は記録不要。
@@ -4542,14 +4583,8 @@ pub fn fire_life_trigger(
             if k == "draw" && me_board_has_when(state, defender_idx, "on_self_draw_non_draw_phase") {
                 return Err("life trigger draw cascade 未対応".into());
             }
-            // rest は execute_effect が on_self_rested cascade を自前発火しない (外側 guard 前提) →
-            // 該当 board があれば bail (source-gone で cascade 再現不能)。
-            if k == "rest"
-                && (me_board_has_when(state, defender_idx, "on_self_rested")
-                    || me_board_has_when(state, 1 - defender_idx, "on_self_rested"))
-            {
-                return Err("life trigger rest cascade 未対応".into());
-            }
+            // (rest の on_self_rested cascade は rest_char_with_cascade が発火する = 外側 guard 不要。
+            //  cascade が再現不能なら execute_effect が false を返して bail する。 2026-07-31)
         }
         for prim in dos {
             let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("");
