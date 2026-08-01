@@ -268,6 +268,16 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             "self_don_rested_ge" => me.don_rested as i64 >= v.as_i64().unwrap_or(0),
             // --- 掃引 2 巡目で上位に出た述語 (2026-07-31) ---
             "self_chara_count_le" => (me.characters.len() as i64) <= v.as_i64().unwrap_or(0),
+            // 手札破棄を起こした効果の発動元カードの特徴に v を含むか (effects.py:actor_source_feature_contains、
+            // OP12-040 クザン)。 Python は last_discard_source_inplay、 Rust は fire_hand_discarded が
+            // 載せる transient を見る。 未設定 = 発動元不明 → False (Python も src None で False)。
+            "actor_source_feature_contains" => {
+                let needle = v.as_str().unwrap_or("");
+                match &state.current_discard_source_features {
+                    Some(fs) => fs.join("/").contains(needle),
+                    None => false,
+                }
+            }
             // --- 掃引 5 巡目の述語 (2026-08-01) ---
             "self_inplay_summoning_sickness" => {
                 src.and_then(|sl| src_ip(me, sl)).map_or(false, |ip| ip.summoning_sickness)
@@ -4279,7 +4289,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             if discarded > 0 {
                 state.players[me_idx].hand_discarded_by_effect_this_turn = true;
-                if fire_field_when(state, me_idx, "on_self_hand_discarded").is_err() {
+                if fire_hand_discarded(state, me_idx, src).is_err() {
                     return false; // cascade (on_self_hand_discarded) 再現不能 → bail
                 }
             }
@@ -5271,7 +5281,7 @@ fn pay_on_play_cost(cost: &Value, state: &mut GameState, me_idx: usize, src: Slo
         }
         if discarded > 0 {
             state.players[me_idx].hand_discarded_by_effect_this_turn = true;
-            if fire_field_when(state, me_idx, "on_self_hand_discarded").is_err() {
+            if fire_hand_discarded(state, me_idx, src).is_err() {
                 return None; // cascade 再現不能 → bail
             }
         }
@@ -6283,7 +6293,7 @@ fn try_pay_counter_cost(
         }
         if actual > 0 {
             state.players[me_idx].hand_discarded_by_effect_this_turn = true;
-            if fire_field_when(state, me_idx, "on_self_hand_discarded").is_err() {
+            if fire_hand_discarded(state, me_idx, self_src).is_err() {
                 return Err("counter cost discard cascade 未対応".into());
             }
         }
@@ -6327,7 +6337,7 @@ fn try_pay_counter_cost(
             }
             if n_disc > 0 {
                 state.players[me_idx].hand_discarded_by_effect_this_turn = true;
-                if fire_field_when(state, me_idx, "on_self_hand_discarded").is_err() {
+                if fire_hand_discarded(state, me_idx, self_src).is_err() {
                     return Err("counter cost discard_filter cascade 未対応".into());
                 }
             }
@@ -7200,6 +7210,17 @@ pub fn execute_one_effect(
         }
     }
     Ok(())
+}
+
+/// on_self_hand_discarded を発火する前に「破棄を起こした効果の発動元」の特徴を transient に載せる
+/// (Python の trigger_on_self_hand_discarded が last_discard_source_inplay を一時設定するのと対応)。
+/// 条件 actor_source_feature_contains がこれを見る。 発火後は必ず None に戻す。
+fn fire_hand_discarded(state: &mut GameState, me_idx: usize, src: Slot) -> Result<(), String> {
+    state.current_discard_source_features =
+        src_ip(&state.players[me_idx], src).map(|ip| ip.card.features.clone());
+    let r = fire_field_when(state, me_idx, "on_self_hand_discarded");
+    state.current_discard_source_features = None;
+    r
 }
 
 /// game.py:evaluate_static_effects の移植 (on_attached_don 常在)。

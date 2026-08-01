@@ -472,6 +472,10 @@ pub struct GameState {
     // Python は current_attacker_iid から InPlay を引くが、 Rust は iid が無いので属性を直接持つ。
     #[serde(skip)]
     pub current_attacker_attribute: Option<String>,
+    // 手札破棄を起こした効果の発動元カードの特徴 (transient)。 Python の
+    // state.last_discard_source_inplay 相当で、 条件 actor_source_feature_contains が参照する。
+    #[serde(skip)]
+    pub current_discard_source_features: Option<Vec<String>>,
     // rng: full_dump の _rng_state (MT getstate keys 625) を入力として受け、 rng 依存 effect で消費。
     // digest には含めない (Python state_digest は rng 非依存) = skip_serializing。 live は lazy init。
     #[serde(rename = "_rng_state", default, skip_serializing)]
