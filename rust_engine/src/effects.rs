@@ -2389,6 +2389,153 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             let spec = json!({"when_kind": "main"});
             execute_effect(&json!({"fire_self_effect": spec}), state, me_idx, src)
         }
+        // 「(条件) でない場合、 このキャラを持ち主のデッキの下に置く」 (effects.py、 P-098 等)。
+        "return_self_to_deck_bottom_if_condition" => {
+            let cond = v.get("if_not");
+            if let Some(c) = cond {
+                match eval_condition(c, state, me_idx, Some(src)) {
+                    Some(true) => return true,  // 条件成立 → 発動しない (no-op)
+                    Some(false) => {}
+                    None => return false,       // 条件不明 → bail
+                }
+            }
+            let Slot::Char(i) = src else { return true };
+            if i >= state.players[me_idx].characters.len() {
+                return true;
+            }
+            if me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect") {
+                return false; // leave cascade 再現不能
+            }
+            let me = &mut state.players[me_idx];
+            let removed = me.characters.remove(i);
+            me.don_rested += removed.attached_dons;
+            me.deck.push(removed.card);
+            true
+        }
+        // 相手は自身の手札 N 枚をデッキ下へ (effects.py:opp_hand_to_deck_bottom)。 AI は worst_hand_idx。
+        "opp_hand_to_deck_bottom" => {
+            let n = if v.is_object() {
+                v.get("amount").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            };
+            for _ in 0..n {
+                let o = &mut state.players[opp_idx];
+                if o.hand.is_empty() {
+                    break;
+                }
+                let Some(i) = worst_hand_idx(&o.hand, &o.known_hand_card_ids) else { break };
+                let c = o.hand.remove(i);
+                o.deck.push(c);
+            }
+            true
+        }
+        // 期間限定のコスト変更 (effects.py:set_base_cost_timed、 EB02-041 メリー号等)。
+        // spec {target, amount | delta, duration}。 amount は絶対値、 delta は現在値からの増減 (下限 0)。
+        "set_base_cost_timed" => {
+            let tspec = v.get("target").cloned().unwrap_or(Value::String("self".into()));
+            let duration = v.get("duration").and_then(|x| x.as_str()).unwrap_or("next_opp_turn_end").to_string();
+            let amount = v.get("amount").and_then(|x| x.as_i64());
+            let delta = v.get("delta").and_then(|x| x.as_i64()).unwrap_or(0);
+            let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else { return false };
+            let turn = state.turn_number;
+            for (pi, sl) in targets {
+                let ip = get_ip_mut(&mut state.players[pi], sl);
+                let new_val = match amount {
+                    Some(a) => a as i32,
+                    None => {
+                        let cur = ip
+                            .next_opp_turn_end_base_cost_override
+                            .or(ip.base_cost_override)
+                            .unwrap_or(ip.card.cost);
+                        (cur + delta as i32).max(0)
+                    }
+                };
+                ip.next_opp_turn_end_base_cost_override = Some(new_val);
+                if duration == "next_opp_turn_end" {
+                    ip.next_opp_turn_end_base_cost_override_applier_idx = me_idx as i32;
+                    ip.next_opp_turn_end_base_cost_override_applied_turn = turn;
+                }
+            }
+            true
+        }
+        // 自分の filter 一致キャラに「次の相手ターン終了時まで効果で KO されない」(OP09-033)。
+        "give_ko_immune_through_opp_turn" => {
+            let filt = v.get("filter");
+            for c in state.players[me_idx].characters.iter_mut() {
+                if matches_filter(&c.card, filt) {
+                    c.ko_immune_through_opp_turn = true;
+                }
+            }
+            true
+        }
+        // 【トリガー】「このカードを手札に加える」 (effects.py:to_hand_self_trigger)。 flag のみ。
+        "to_hand_self_trigger" => {
+            state.last_trigger_kept_in_hand = true;
+            true
+        }
+        // 「(範囲) のキャラ N 枚までをレストにする」 (effects.py:rest_multi)。 dict 形 {target,count} は
+        // 全解決 → active かつレスト可能を power 降順に count 体。 list 形は各 spec を順に解決。
+        "rest_multi" => {
+            let do_rest = |state: &mut GameState, targets: Vec<(usize, Slot)>, count: usize| {
+                let mut cands: Vec<(usize, Slot, i32)> = targets
+                    .into_iter()
+                    .filter(|&(pi, sl)| {
+                        let ip = get_ip(&state.players[pi], sl);
+                        !ip.rested && !ip.cannot_be_rested_buff && !ip.static_cannot_be_rested
+                    })
+                    .map(|(pi, sl)| {
+                        let p = get_ip(&state.players[pi], sl).power();
+                        (pi, sl, p)
+                    })
+                    .collect();
+                cands.sort_by(|a, b| b.2.cmp(&a.2)); // power 降順
+                for (pi, sl, _) in cands.into_iter().take(count) {
+                    get_ip_mut(&mut state.players[pi], sl).rested = true;
+                }
+            };
+            if v.is_object() && v.get("count").is_some() {
+                let tspec = v.get("target").cloned().unwrap_or(Value::String("any_opponent_character_any".into()));
+                let count = v.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+                let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else { return false };
+                do_rest(state, targets, count);
+                return true;
+            }
+            let Some(list) = v.as_array() else { return false };
+            for spec in list {
+                let Some(targets) = resolve_target(Some(spec), me_idx, opp_idx, src, state) else { return false };
+                do_rest(state, targets, 1);
+            }
+            true
+        }
+        // 「トラッシュに置く」= 非 KO の離場 (effects.py:chara_to_trash)。 KO 耐性は受けず【KO時】も
+        // 発動しないが、 protect_from_opp_effect と replace_leave / leave トリガーは効く → cascade は bail。
+        "chara_to_trash" => {
+            let Some(targets) = resolve_target(Some(v), me_idx, opp_idx, src, state) else { return false };
+            let mut victims: Vec<(usize, usize)> = vec![];
+            for &(pi, sl) in &targets {
+                if let Slot::Char(idx) = sl {
+                    if pi == opp_idx && state.players[pi].characters[idx].protect_from_opp_effect {
+                        continue;
+                    }
+                    victims.push((pi, idx));
+                }
+            }
+            if victims.is_empty() {
+                return true;
+            }
+            let has_opp = victims.iter().any(|&(pi, _)| pi == opp_idx);
+            if me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect")
+                || (has_opp
+                    && (me_board_has_when(state, opp_idx, "on_self_chara_leave_by_opp_effect")
+                        || me_board_has_when(state, opp_idx, "replace_leave")
+                        || me_board_has_when(state, opp_idx, "replace_ko")))
+            {
+                return false;
+            }
+            remove_victims(state, victims, RemoveDest::Trash);
+            true
+        }
         // 自分のトラッシュから filter 一致 N 枚をデッキへ (effects.py:trash_to_deck)。
         // spec {filter, limit, to: top|bottom, shuffle}。 該当 0 枚は不発 (何も起きない = true)。
         "trash_to_deck" => {
