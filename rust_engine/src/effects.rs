@@ -2929,9 +2929,18 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             if v.as_bool() == Some(false) {
                 return true; // play_self:false = 登場させない (no-op)
             }
-            let Some(cid) = state.current_source_card_id.clone() else {
+            // Python (effects.py:play_self) は self_inplay → current_source_card_id の順で source を解決。
+            // src が場に居る場合はそれを使う (以前は current_source_card_id のみ見て bail していた)。
+            let cid_opt = src_ip(&state.players[me_idx], src)
+                .map(|ip| ip.card.card_id.clone())
+                .or_else(|| state.current_source_card_id.clone());
+            let Some(cid) = cid_opt else {
                 return false; // source card 不明 → bail
             };
+            // 既に場に居る (= 発動元自身が場) なら二重登場しない (effects.py:play_self の iid guard)
+            if matches!(src, Slot::Char(_)) {
+                return true;
+            }
             let rested = v.as_object().and_then(|o| o.get("rested")).and_then(|x| x.as_bool()).unwrap_or(false);
             let found: Option<(bool, usize, crate::state::Category)> = {
                 let me = &state.players[me_idx];

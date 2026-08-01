@@ -497,7 +497,11 @@ fn fire_effect_smoke(
         i if i >= 0 => effects::Slot::Char(i as usize),
         _ => effects::Slot::Detached,
     };
+    // 実経路 (fire_life_trigger / fire_on_ko / counter) は発火前に current_source_card_id を立てる。
+    // スモークで立てないと play_self 等が「source 不明」で bail し、 未実装と誤計上される。
+    st.current_source_card_id = Some(card_id.to_string());
     let r = effects::execute_one_effect(&mut st, 0, card_id, when, effect_index, src);
+    st.current_source_card_id = None;
     let inv = selfplay::check_invariants(&st, &base, "smoke");
     let out = match r {
         Ok(()) => serde_json::json!({"ok": true, "invariant_violations": inv}),
