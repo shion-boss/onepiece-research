@@ -177,12 +177,12 @@ fn note_violation(rule: &str, detail: String) {
 }
 
 /// player の全 zone に存在するカード枚数 (leader は除く = 常に 1 枚で不変)。
-fn zone_card_count(p: &Player) -> usize {
+pub fn zone_card_count(p: &Player) -> usize {
     p.deck.len() + p.hand.len() + p.life.len() + p.trash.len() + p.characters.len() + p.stages.len()
 }
 
 /// player のドン総数 (コストエリア active/rested + 付与 + ドンデッキ残)。 ドンは所有者を移らない。
-fn don_total(p: &Player) -> i32 {
+pub fn don_total(p: &Player) -> i32 {
     p.don_active
         + p.don_rested
         + p.don_remaining_in_deck

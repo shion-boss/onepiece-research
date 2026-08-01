@@ -6316,6 +6316,48 @@ fn src_shifted(state: &GameState, me_idx: usize, src: Slot, expect: Option<&Stri
     }
 }
 
+/// スモーク用: card_id の effect_index 番目の効果だけを発火する (条件/cost/do を通常経路と同じ順で)。
+/// 通常の対戦経路ではないので once_per_turn の canonical mirror 等は触らない (実行可否の測定が目的)。
+pub fn execute_one_effect(
+    state: &mut GameState,
+    me_idx: usize,
+    card_id: &str,
+    when: &str,
+    effect_index: usize,
+    src: Slot,
+) -> Result<(), String> {
+    let Some(ov) = overlay() else { return Err("overlay 未ロード".into()) };
+    let Some(effs) = ov.get(card_id) else { return Err("overlay に該当カード無し".into()) };
+    let Some(eff) = effs.get(effect_index) else { return Err("effect_index 範囲外".into()) };
+    if eff.get("when").and_then(|v| v.as_str()) != Some(when) {
+        return Err("when 不一致".into());
+    }
+    match eval_effect_conditions(eff, state, me_idx, Some(src)) {
+        Some(true) => {}
+        Some(false) => return Ok(()), // 条件不成立 = 発動しない (実装漏れではない)
+        None => return Err("条件 unknown".into()),
+    }
+    if let Some(cost) = eff.get("cost") {
+        if !cost_is_empty(cost) {
+            let only_once = cost.as_object().map_or(false, |o| o.keys().all(|k| k == "once_per_turn"));
+            if !only_once {
+                match try_pay_counter_cost(state, me_idx, src, cost)? {
+                    true => {}
+                    false => return Ok(()), // 払えない = 発動しない
+                }
+            }
+        }
+    }
+    let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { return Ok(()) };
+    for prim in dos {
+        if !execute_effect(prim, state, me_idx, src) {
+            let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?");
+            return Err(format!("primitive 未対応/再現不能: {k}"));
+        }
+    }
+    Ok(())
+}
+
 /// game.py:evaluate_static_effects の移植 (on_attached_don 常在)。
 pub fn evaluate_static_effects(state: &mut GameState) {
     let Some(ov) = overlay() else { return };
@@ -6368,6 +6410,7 @@ pub fn evaluate_static_effects(state: &mut GameState) {
                 continue;
             }
             let Some(effs) = ov.get(&card_id) else { continue };
+            crate::selfplay::note_fired(&card_id); // 静的効果も「発火」として記録 (計測漏れ防止)
             for eff in effs {
                 if eff.get("when").and_then(|v| v.as_str()) != Some("on_attached_don") {
                     continue;

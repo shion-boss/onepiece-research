@@ -474,6 +474,38 @@ fn reset_coverage_stats(diag: bool) {
     selfplay::DIAG_ON.store(diag, Ordering::Relaxed);
 }
 
+/// 全カード効果スモーク用: 与えられた state に対し card_id の effect_index 番目の効果を **直接発火** し、
+/// 実行できたか (ok) / 降参したか (err) と保存則違反数を返す。 self-play では踏めない効果 (発火率 ~60%
+/// で頭打ち) を 100% 実行させて「そもそも Rust で実行できるのか」を測るための入口。
+/// src_idx: >=0 = 自場キャラ index / -2 = 自場ステージ 0 / -1 = 場に置かない (source-gone)。
+#[pyfunction]
+fn fire_effect_smoke(
+    state_json: &str,
+    card_id: &str,
+    when: &str,
+    effect_index: usize,
+    src_idx: i64,
+) -> PyResult<String> {
+    let mut st: state::GameState = serde_json::from_str(state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("state: {e}")))?;
+    let base = [
+        (selfplay::zone_card_count(&st.players[0]), selfplay::don_total(&st.players[0])),
+        (selfplay::zone_card_count(&st.players[1]), selfplay::don_total(&st.players[1])),
+    ];
+    let src = match src_idx {
+        -2 => effects::Slot::Stage(0),
+        i if i >= 0 => effects::Slot::Char(i as usize),
+        _ => effects::Slot::Detached,
+    };
+    let r = effects::execute_one_effect(&mut st, 0, card_id, when, effect_index, src);
+    let inv = selfplay::check_invariants(&st, &base, "smoke");
+    let out = match r {
+        Ok(()) => serde_json::json!({"ok": true, "invariant_violations": inv}),
+        Err(e) => serde_json::json!({"ok": false, "err": e, "invariant_violations": inv}),
+    };
+    Ok(out.to_string())
+}
+
 #[pymodule]
 fn optcg_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(self_play, m)?)?;
@@ -485,6 +517,7 @@ fn optcg_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(setup_pre_mulligan_digest, m)?)?;
     m.add_function(wrap_pyfunction!(setup_pre_mulligan_blob, m)?)?;
     m.add_function(wrap_pyfunction!(setup_full, m)?)?;
+    m.add_function(wrap_pyfunction!(fire_effect_smoke, m)?)?;
     m.add_function(wrap_pyfunction!(apply_raw_effect_digest, m)?)?;
     m.add_function(wrap_pyfunction!(mt_getrandbits, m)?)?;
     m.add_function(wrap_pyfunction!(mt_randrange, m)?)?;
