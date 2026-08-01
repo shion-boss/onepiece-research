@@ -476,6 +476,17 @@ pub struct GameState {
     // state.last_discard_source_inplay 相当で、 条件 actor_source_feature_contains が参照する。
     #[serde(skip)]
     pub current_discard_source_features: Option<Vec<String>>,
+    // ===== trigger キュー (Python effects.py:event_queue / resolving の移植、 2026-08-01) =====
+    // Python は【登場時】等を enqueue し、 resolving=false の時だけ drain する。 つまり
+    // **トリガー解決の途中で登場したキャラの on_play は後回し** になる (zone 操作が終わってから発火)。
+    // Rust が inline 発火していたため、 zone を並べ替える on_play で順序がズレて bail していた。
+    // ⚠ action 境界では必ず空になるので digest には現れない (= serde skip で Python と一致)。
+    // ⚠ canonical の event_queue/resolving (Python full_dump 由来、 上記) とは別に、 Rust 内部の
+    //   解決キューを持つ (型が違う & action 境界では両方空なので digest 不変)。
+    #[serde(skip)]
+    pub rust_event_queue: Vec<crate::effects::PendingTrigger>,
+    #[serde(skip)]
+    pub rust_resolving: bool,
     // rng: full_dump の _rng_state (MT getstate keys 625) を入力として受け、 rng 依存 effect で消費。
     // digest には含めない (Python state_digest は rng 非依存) = skip_serializing。 live は lazy init。
     #[serde(rename = "_rng_state", default, skip_serializing)]

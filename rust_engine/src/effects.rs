@@ -186,7 +186,7 @@ fn opp_value(ip: &InPlay) -> f64 {
     val
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Slot {
     Leader,
     Char(usize),
@@ -3611,11 +3611,9 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             // 登場カードを先に trash から除去 (公式: 登場でトラッシュを離れて**から** on_play)。
             let cards: Vec<crate::state::CardDef> =
                 chosen.iter().map(|&i| state.players[me_idx].trash[i].clone()).collect();
-            // 登場キャラの on_play が zone 並べ替えを含む = Python の deferred trigger 順を inline で
-            // 再現できない (OP14-084 の search_top_n × field-full trash 順ズレ) → 明示 bail。
-            if cards.iter().any(|c| on_play_defers_zone_reorder(&c.card_id)) {
-                return false;
-            }
+            // (旧: 登場キャラの on_play が zone 並べ替えを含むと inline 発火では順序がズレるため bail
+            //  していたが、 trigger キュー導入で on_play は resolving 中なら後回しになり Python と
+            //  同じ順序になったため撤去。 2026-08-01)
             let mut desc = chosen.clone();
             desc.sort_unstable_by(|a, b| b.cmp(a));
             for i in desc {
@@ -3842,11 +3840,8 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     && matches_filter(&card, filt)
                     && !card_no_play_via_effect(&card.card_id);
                 if m {
-                    // 登場カードが on_play を持つ = Python の deferred drain (hand 除去後に on_play) を
-                    // inline では再現できず hand 観測がズレる → 明示 bail。
-                    if card_has_on_play(&card.card_id) {
-                        return false;
-                    }
+                    // (旧: 登場カードが on_play を持つと hand 観測がズレるため bail していたが、
+                    //  trigger キュー導入で on_play は hand 再構築後に drain されるため撤去。 2026-08-01)
                     trash_weakest_for_field_full(state, me_idx);
                     let mut ip = InPlay::of(card.clone(), true);
                     ip.rested = rested;
@@ -5781,15 +5776,102 @@ fn try_replace_rest(
 pub fn execute_on_play(state: &mut GameState, me_idx: usize, played_idx: usize) -> Result<(), String> {
     let opp = 1 - me_idx;
     let card_id = state.players[me_idx].characters[played_idx].card.card_id.clone();
-    // ① 登場カード自身の on_play (OP09-081 相手効果で無効化されていなければ)
+    // Python (effects.py:trigger_on_play) は ①②③ を **enqueue** してから _maybe_resolve を呼ぶ。
+    // _maybe_resolve は resolving=true (= 既にトリガー解決中) なら no-op なので、 **トリガーの中で
+    // 登場したキャラの on_play は後回し** になる (外側の do-list が zone 操作を終えてから発火)。
+    // ここを inline 実行していたため zone 並べ替えを含む on_play で順序がズレ bail していた。
     if !state.players[me_idx].opp_on_play_disabled_through_opp_turn {
-        execute_card_effects(state, me_idx, &card_id, "on_play", Slot::Char(played_idx))?;
+        enqueue_trigger(state, "on_play", me_idx, &card_id, Slot::Char(played_idx));
     }
-    // ② on_self_chara_played(me)→ ③ on_opp_chara_played(opp)。 last_opp_chara_played_card は
-    //   Python が cascade 完了後 None に戻すので Rust は触らず None 維持(= 一致)。
-    fire_field_when(state, me_idx, "on_self_chara_played")?;
-    fire_field_when(state, opp, "on_opp_chara_played")?;
-    Ok(())
+    enqueue_trigger(state, "on_self_chara_played", me_idx, &card_id, Slot::Char(played_idx));
+    enqueue_trigger(state, "on_opp_chara_played", opp, &card_id, Slot::Char(played_idx));
+    maybe_resolve(state)
+}
+
+/// キューに積まれたトリガー 1 件 (Python effects.py:TriggerEvent の移植)。
+/// slot は発火元の位置。 drain 時に card_id 照合し、 ズレていれば一意な位置へ追随 (曖昧なら bail)。
+#[derive(Clone, Debug, PartialEq)]
+pub struct PendingTrigger {
+    pub when: String,
+    pub owner_idx: usize,
+    pub card_id: String,
+    pub slot: Slot,
+}
+
+/// トリガーをキューに積む (Python:enqueue_event)。
+fn enqueue_trigger(state: &mut GameState, when: &str, owner_idx: usize, card_id: &str, slot: Slot) {
+    state.rust_event_queue.push(PendingTrigger {
+        when: when.to_string(),
+        owner_idx,
+        card_id: card_id.to_string(),
+        slot,
+    });
+}
+
+/// Python:_pop_next_event = ターンプレイヤー側を優先し、 同 owner 内は FIFO。
+fn pop_next_event(state: &mut GameState) -> Option<PendingTrigger> {
+    if state.rust_event_queue.is_empty() {
+        return None;
+    }
+    let turn_idx = state.turn_player_idx;
+    let pos = state
+        .rust_event_queue
+        .iter()
+        .position(|e| e.owner_idx == turn_idx)
+        .unwrap_or(0);
+    Some(state.rust_event_queue.remove(pos))
+}
+
+/// Python:_maybe_resolve + resolve_triggers = 再入なら no-op、 そうでなければ空になるまで drain。
+pub fn maybe_resolve(state: &mut GameState) -> Result<(), String> {
+    if state.rust_resolving || state.rust_event_queue.is_empty() {
+        return Ok(());
+    }
+    state.rust_resolving = true;
+    let r = (|| -> Result<(), String> {
+        while let Some(evt) = pop_next_event(state) {
+            execute_pending(state, &evt)?;
+        }
+        Ok(())
+    })();
+    state.rust_resolving = false;
+    r
+}
+
+/// キューから取り出した 1 件を実行。 on_play は発火元スロットの card_id を照合し、
+/// ズレていたら同 card_id が一意な位置へ追随する (曖昧なら明示 bail = 誤発火を作らない)。
+fn execute_pending(state: &mut GameState, evt: &PendingTrigger) -> Result<(), String> {
+    match evt.when.as_str() {
+        "on_play" => {
+            let me = evt.owner_idx;
+            let slot = match evt.slot {
+                Slot::Char(i)
+                    if state.players[me]
+                        .characters
+                        .get(i)
+                        .map(|c| c.card.card_id.as_str())
+                        == Some(evt.card_id.as_str()) =>
+                {
+                    Slot::Char(i)
+                }
+                Slot::Char(_) => {
+                    let hits: Vec<usize> = (0..state.players[me].characters.len())
+                        .filter(|&i| state.players[me].characters[i].card.card_id == evt.card_id)
+                        .collect();
+                    if hits.len() == 1 {
+                        Slot::Char(hits[0])
+                    } else if hits.is_empty() {
+                        return Ok(()); // 発火前に場を離れた = Python も self_inplay None で早期 return
+                    } else {
+                        return Err("on_play drain: 発火元の位置が曖昧 (Rust は index 解決)".into());
+                    }
+                }
+                other => other,
+            };
+            execute_card_effects(state, me, &evt.card_id, "on_play", slot)
+        }
+        w => fire_field_when(state, evt.owner_idx, w),
+    }
 }
 
 /// player の場に指定 when 効果を持つカードがあるか (draw cascade guard 用)。
@@ -6321,6 +6403,11 @@ pub fn fire_life_trigger(
     // play_self が発動元カードを特定できるよう source cid を立てる (effects.py:297)。 action 境界では
     // 常に None なので Ok 直前で戻す (Err 時は apply_action が state 破棄で無害)。
     state.current_source_card_id = Some(card_id.to_string());
+    // Python の trigger_lifecard_trigger は event を enqueue して _maybe_resolve を呼ぶ = トリガーの
+    // do-list は **resolve_triggers の中** で走る。 その間 resolving=true なので、 do の中で登場した
+    // キャラの on_play は enqueue されるだけで後回しになる。 Rust も同じ文脈を作る。
+    let prev_resolving = state.rust_resolving;
+    state.rust_resolving = true;
     let mut kept_in_hand = false;
     for eff in effs {
         if eff.get("when").and_then(|v| v.as_str()) != Some("trigger") {
@@ -6386,6 +6473,11 @@ pub fn fire_life_trigger(
     //   → ③ defender の on_self_trigger_fired。 FIFO drain なのでこの順で発火する。
     fire_field_when(state, attacker_idx, "opp_event_or_trigger_fired")?;
     fire_field_when(state, defender_idx, "on_self_trigger_fired")?;
+    // resolving を戻し、 外側に居なければ溜まった on_play 等をここで drain する。
+    state.rust_resolving = prev_resolving;
+    if !prev_resolving {
+        maybe_resolve(state)?;
+    }
     Ok(kept_in_hand)
 }
 
