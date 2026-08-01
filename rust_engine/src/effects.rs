@@ -2787,6 +2787,57 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 自分の付与済ドン合計 N 枚までを自キャラ 1 枚に再配分 (effects.py:move_attached_don、 OP07-001)。
+        // 付与元の優先度: レスト中キャラ → 他 active キャラ → リーダー (leader の付与ドンは最後)。
+        "move_attached_don" => {
+            let max_n = v
+                .get("count")
+                .or_else(|| v.get("amount"))
+                .and_then(|x| x.as_i64())
+                .unwrap_or(2) as i32;
+            let tspec = v.get("target").cloned().unwrap_or(Value::String("one_self_character_any".into()));
+            let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else { return false };
+            let Some(&(tpi, tsl)) = targets.first() else { return true };
+            if tpi != me_idx {
+                return true;
+            }
+            let tgt_idx = if let Slot::Char(i) = tsl { Some(i) } else { None };
+            // 付与元候補を Python と同じ順で並べる
+            let mut srcs: Vec<Slot> = vec![];
+            {
+                let me = &state.players[me_idx];
+                for (i, c) in me.characters.iter().enumerate() {
+                    if Some(i) != tgt_idx && c.rested && c.attached_dons > 0 {
+                        srcs.push(Slot::Char(i));
+                    }
+                }
+                for (i, c) in me.characters.iter().enumerate() {
+                    if Some(i) != tgt_idx && !c.rested && c.attached_dons > 0 {
+                        srcs.push(Slot::Char(i));
+                    }
+                }
+                if !matches!(tsl, Slot::Leader) && me.leader.attached_dons > 0 {
+                    srcs.push(Slot::Leader);
+                }
+            }
+            let mut moved = 0;
+            for sl in srcs {
+                if moved >= max_n {
+                    break;
+                }
+                let avail = get_ip(&state.players[me_idx], sl).attached_dons;
+                let take = avail.min(max_n - moved);
+                if take <= 0 {
+                    continue;
+                }
+                get_ip_mut(&mut state.players[me_idx], sl).attached_dons -= take;
+                moved += take;
+            }
+            if moved > 0 {
+                get_ip_mut(&mut state.players[me_idx], tsl).attached_dons += moved;
+            }
+            true
+        }
         // 自分のトラッシュから filter 一致 N 枚をデッキへ (effects.py:trash_to_deck)。
         // spec {filter, limit, to: top|bottom, shuffle}。 該当 0 枚は不発 (何も起きない = true)。
         "trash_to_deck" => {
