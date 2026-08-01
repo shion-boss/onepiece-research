@@ -326,9 +326,6 @@ def test_p088_law_trigger_condition_false_no_supernova():
 #  (= 特徴で手札を絞る動的コスト召喚が発火しない engine ギャップ)。 engine 修正は
 #  人間レビュー案件 (このタスクでは engine を編集しない) のため skip。
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(reason="engine gap: play_from_hand_named_with_dynamic_cost が "
-                         "name_filter (特徴フィルタ) 未対応で silent no-op。 engine "
-                         "修正は人間レビューへ (このタスクでは engine を編集しない)")
 def test_p090_smoothie_on_ko_play_bigmom_ai():
     repo = _repo()
     overlay = _overlay()

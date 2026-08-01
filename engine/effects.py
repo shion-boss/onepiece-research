@@ -5267,8 +5267,13 @@ def _execute_effect_body(
             # 公式: 「自分の手札からコスト N 以上でかつ、 (動的閾値) 以下のコストを持つ 『XXX』 1 枚を登場」
             # OP08-062 シャーロット・カタクリ起動メイン 等。
             # spec: {"name": "シャーロット・カタクリ", "cost_ge": 3, "cost_le_source": "opp_don_total"}
+            # 別形: name の代わりに name_filter (= _matches_filter 互換 dict、 特徴/名前除外 等) を
+            #       取り、 動的コスト上限内で該当キャラ 1 枚までを登場 (P-090 シャーロット・スムージー
+            #       「特徴《ビッグ・マム海賊団》を持ち『シャーロット・スムージー』以外の、 相手の場の
+            #       ドン以下のコストのキャラ1枚まで」)。 name / name_filter のいずれかを持つ。
             spec = v if isinstance(v, dict) else {}
             name = spec.get("name", "")
+            name_filter = spec.get("name_filter")
             cost_ge = int(spec.get("cost_ge", 0))
             src = spec.get("cost_le_source", "opp_don_total")
             if src == "opp_don_total":
@@ -5277,24 +5282,36 @@ def _execute_effect_body(
                 cost_le = me.don_active + me.don_rested + me.leader.attached_dons + sum(c.attached_dons for c in me.characters)
             else:
                 cost_le = int(spec.get("cost_le", 99))
+            # 候補抽出: name (完全一致) か name_filter (_matches_filter) + 動的コスト境界。
+            candidates: list[tuple[int, CardDef]] = []
             for i, card in enumerate(me.hand):
                 if card.category != Category.CHARACTER:
                     continue
-                if card.name != name:
+                if name_filter is not None:
+                    if not _matches_filter(card, name_filter):
+                        continue
+                elif card.name != name:
                     continue
                 if card.cost < cost_ge or card.cost > cost_le:
                     continue
-                if not me.can_play_character():
-                    me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
-                ip = InPlay.of(card, rested=False, sickness=True)
-                me.characters.append(ip)
-                me.hand.pop(i)
-                state.push_log(f"  効果: {name} を手札から登場 (動的cost_le={cost_le})")
-                if state.effects_overlay:
-                    trigger_on_play(state, me, opp, ip, state.effects_overlay)
-                return True
-            state.push_log(f"  効果: {name} 該当なし (cost_ge={cost_ge}, cost_le={cost_le})")
-            return False
+                candidates.append((i, card))
+            if not candidates:
+                label = name or _describe_filter_jp(name_filter or {})
+                state.push_log(f"  効果: {label} 該当なし (cost_ge={cost_ge}, cost_le={cost_le})")
+                return False
+            # 「1 枚まで」 = 任意で 1 枚。 ヒューリスティック: cost 降順 → power 降順 → name
+            # (= play_from_hand と同じ、 動的上限に最も近い/最も強いキャラを登場)。
+            candidates.sort(key=lambda t: (-t[1].cost, -t[1].power, t[1].name))
+            idx, card = candidates[0]
+            if not me.can_play_character():
+                me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
+            ip = InPlay.of(card, rested=False, sickness=True)
+            me.characters.append(ip)
+            me.hand.pop(idx)
+            state.push_log(f"  効果: {card.name} を手札から登場 (動的cost_le={cost_le})")
+            if state.effects_overlay:
+                trigger_on_play(state, me, opp, ip, state.effects_overlay)
+            return True
         elif k == "play_from_hand_named_set":
             # R4: 「自分の手札から、 N1 と N2 と N3 ... それぞれ 1 枚ずつまでを、 登場させる」 (ST13-006 等)。
             # spec: {"names": ["サボ", "ポートガス・D・エース", "モンキー・D・ルフィ"],
