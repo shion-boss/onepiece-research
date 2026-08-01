@@ -269,6 +269,25 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             // --- 掃引 2 巡目で上位に出た述語 (2026-07-31) ---
             "self_chara_count_le" => (me.characters.len() as i64) <= v.as_i64().unwrap_or(0),
             "self_don_count_eq" => (me.don_active + me.don_rested) as i64 == v.as_i64().unwrap_or(0),
+            "life_zero_either" => {
+                v.as_bool().unwrap_or(true) == (me.life.is_empty() || opp.life.is_empty())
+            }
+            "opp_life_lost_this_turn" => v.as_bool().unwrap_or(true) == opp.life_lost_this_turn,
+            "self_hand_discarded_by_effect_this_turn" => {
+                v.as_bool().unwrap_or(true) == me.hand_discarded_by_effect_this_turn
+            }
+            // 自場の filter 一致キャラの「カード名の異なる」数 >= N (OP16-038)
+            "self_distinct_name_count_filtered_ge" => {
+                let filt = v.get("filter");
+                let need = v.get("count").and_then(|x| x.as_i64()).unwrap_or(1);
+                let names: std::collections::BTreeSet<&str> = me
+                    .characters
+                    .iter()
+                    .filter(|c| matches_filter(&c.card, filt))
+                    .map(|c| c.card.name.as_str())
+                    .collect();
+                names.len() as i64 >= need
+            }
             // 手札破棄を起こした効果の発動元カードの特徴に v を含むか (effects.py:actor_source_feature_contains、
             // OP12-040 クザン)。 Python は last_discard_source_inplay、 Rust は fire_hand_discarded が
             // 載せる transient を見る。 未設定 = 発動元不明 → False (Python も src None で False)。
@@ -4225,10 +4244,30 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     return false;
                 }
             }
-            if src_shifted(state, me_idx, src, src_cid_before.as_ref()) {
-                note_unknown_key("oct_pay", "src が cost で移動/消失");
-                return false;
-            }
+            // cost が **別の** キャラを除去した場合、 src の index は 1 つ手前にズレるだけで
+            // 発動元自身は場に残っている (Python は object 参照なので影響なし)。 同 card_id が
+            // 盤面に 1 つだけなら一意に追随できる (曖昧なら従来通り bail = 誤対応を作らない)。
+            let src = if src_shifted(state, me_idx, src, src_cid_before.as_ref()) {
+                match (src_cid_before.as_ref(), src) {
+                    (Some(cid), Slot::Char(_)) => {
+                        let hits: Vec<usize> = (0..state.players[me_idx].characters.len())
+                            .filter(|&i| &state.players[me_idx].characters[i].card.card_id == cid)
+                            .collect();
+                        if hits.len() == 1 {
+                            Slot::Char(hits[0])
+                        } else {
+                            note_unknown_key("oct_pay", "src が cost で移動/消失");
+                            return false;
+                        }
+                    }
+                    _ => {
+                        note_unknown_key("oct_pay", "src が cost で移動/消失");
+                        return false;
+                    }
+                }
+            } else {
+                src
+            };
             // effect 発火 (未対応 prim は false → 呼出側で bail)
             for es in &effect {
                 if !execute_effect(es, state, me_idx, src) {
