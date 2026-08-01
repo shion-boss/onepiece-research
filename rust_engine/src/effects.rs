@@ -268,6 +268,7 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             "self_don_rested_ge" => me.don_rested as i64 >= v.as_i64().unwrap_or(0),
             // --- 掃引 2 巡目で上位に出た述語 (2026-07-31) ---
             "self_chara_count_le" => (me.characters.len() as i64) <= v.as_i64().unwrap_or(0),
+            "self_don_count_eq" => (me.don_active + me.don_rested) as i64 == v.as_i64().unwrap_or(0),
             // 手札破棄を起こした効果の発動元カードの特徴に v を含むか (effects.py:actor_source_feature_contains、
             // OP12-040 クザン)。 Python は last_discard_source_inplay、 Rust は fire_hand_discarded が
             // 載せる transient を見る。 未設定 = 発動元不明 → False (Python も src None で False)。
@@ -2895,6 +2896,115 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             if moved > 0 {
                 get_ip_mut(&mut state.players[me_idx], tsl).attached_dons += moved;
+            }
+            true
+        }
+        // 手札から指定名を 1 枚ずつ登場 (effects.py:play_from_hand_named_set、 ST13-006 / OP16-116)。
+        // ⚠ overlay の names は未正規化 → norm_card_name で全角Ｄ→D を揃える (揃えないと silent no-op)。
+        // 手札除去は Python 同様「全部登場させてから降順 pop」= 登場時効果は手札を未除去で観測する。
+        "play_from_hand_named_set" => {
+            let names: Vec<String> = v
+                .get("names")
+                .and_then(|x| x.as_array())
+                .map(|a| a.iter().filter_map(|x| x.as_str()).map(norm_card_name).collect())
+                .unwrap_or_default();
+            let rested = v.get("rested").and_then(|x| x.as_bool()).unwrap_or(false);
+            let mut extra = v.get("filter").cloned().unwrap_or(json!({}));
+            for k2 in ["cost_eq", "cost_le"] {
+                if let Some(x) = v.get(k2) {
+                    extra[k2] = x.clone();
+                }
+            }
+            let mut consumed: Vec<usize> = vec![];
+            for nm in &names {
+                let mut hit: Option<usize> = None;
+                for i in 0..state.players[me_idx].hand.len() {
+                    if consumed.contains(&i) {
+                        continue;
+                    }
+                    let c = &state.players[me_idx].hand[i];
+                    if c.category != crate::state::Category::Character
+                        || norm_card_name(&c.name) != *nm
+                        || !matches_filter(c, Some(&extra))
+                    {
+                        continue;
+                    }
+                    hit = Some(i);
+                    break;
+                }
+                let Some(i) = hit else { continue };
+                trash_weakest_for_field_full(state, me_idx);
+                let card = state.players[me_idx].hand[i].clone();
+                let mut ip = InPlay::of(card.clone(), true);
+                ip.rested = rested;
+                state.players[me_idx].characters.push(ip);
+                let pidx = state.players[me_idx].characters.len() - 1;
+                state.last_self_chara_played_card = Some(card);
+                state.last_self_chara_played_from_trash = false;
+                consumed.push(i);
+                if execute_on_play(state, me_idx, pidx).is_err() {
+                    return false;
+                }
+            }
+            consumed.sort_unstable();
+            for i in consumed.into_iter().rev() {
+                if i < state.players[me_idx].hand.len() {
+                    state.players[me_idx].hand.remove(i);
+                }
+            }
+            true
+        }
+        // 手札 or トラッシュの filter 一致カードを自ライフ上へ (effects.py:hand_or_trash_to_self_life)。
+        // from_zone: both (手札優先→trash) | trash。 face_up=true で表向き枚数を加算。
+        "hand_or_trash_to_self_life" => {
+            if let Some(cond) = v.get("if") {
+                match eval_condition(cond, state, me_idx, Some(src)) {
+                    Some(true) => {}
+                    Some(false) => return true,
+                    None => return false,
+                }
+            }
+            let filt = v.get("filter");
+            let count = v.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+            let from_zone = v.get("from_zone").and_then(|x| x.as_str()).unwrap_or("both");
+            let face_up = v.get("face_up").and_then(|x| x.as_bool()).unwrap_or(false);
+            let mut hand_idx: Vec<usize> = if from_zone == "trash" {
+                vec![]
+            } else {
+                (0..state.players[me_idx].hand.len())
+                    .filter(|&i| matches_filter(&state.players[me_idx].hand[i], filt))
+                    .collect()
+            };
+            hand_idx.truncate(count);
+            let need = count.saturating_sub(hand_idx.len());
+            let mut trash_idx: Vec<usize> = (0..state.players[me_idx].trash.len())
+                .filter(|&i| matches_filter(&state.players[me_idx].trash[i], filt))
+                .collect();
+            trash_idx.truncate(need);
+            let mut added = 0;
+            for &i in hand_idx.iter() {
+                let c = state.players[me_idx].hand[i].clone();
+                state.players[me_idx].life.insert(0, c);
+                added += 1;
+            }
+            for &i in trash_idx.iter() {
+                let c = state.players[me_idx].trash[i].clone();
+                state.players[me_idx].life.insert(0, c);
+                added += 1;
+            }
+            for &i in hand_idx.iter().rev() {
+                if i < state.players[me_idx].hand.len() {
+                    state.players[me_idx].hand.remove(i);
+                }
+            }
+            for &i in trash_idx.iter().rev() {
+                if i < state.players[me_idx].trash.len() {
+                    state.players[me_idx].trash.remove(i);
+                }
+            }
+            if face_up && added > 0 {
+                let me = &mut state.players[me_idx];
+                me.face_up_life_count = (me.face_up_life_count + added).min(me.life.len() as i32);
             }
             true
         }
