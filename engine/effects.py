@@ -4768,7 +4768,7 @@ def _execute_effect_body(
             target_spec = spec.get("target", "self")
             amount = int(spec.get("amount", 0))
             duration = spec.get("duration", "turn")
-            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="set_base_power_timed", outer_value=target_spec)
+            targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="set_base_power_timed", outer_value=v)
             me_idx = state.players.index(me)
             for t in targets:
                 if duration == "turn":
@@ -5303,7 +5303,10 @@ def _execute_effect_body(
             # - filter は names 制約とAND結合。
             # 各 name について 手札先頭の 1 枚を取り出し登場 (= AI 簡易: 最も若い index)。
             spec = v if isinstance(v, dict) else {"names": []}
-            names = list(spec.get("names", []))
+            # overlay 側 names は 未正規化 (= _NAME_KEYS に 'names' が無い) だが card.name は
+            # load 時に normalize_card_name 済 (全角Ｄ→半角D)。 両者を 揃えないと 全角Ｄ名
+            # (マーシャル・Ｄ・ティーチ 等) が silent no-op になる (self_field_named_all_with_power と同じ扱い)。
+            names = [normalize_card_name(n) for n in spec.get("names", [])]
             rested = bool(spec.get("rested", False))
             extra_filt = spec.get("filter", {})
             # cost 制約も filter 互換に統合
@@ -12561,6 +12564,15 @@ def _can_pay_replace_cost(
             n = int(cs["return_self_don_to_deck"]) if not isinstance(cs["return_self_don_to_deck"], dict) else 1
             if (me.don_active + me.don_rested) < n:
                 return False
+        elif "rest_self_cards" in cs:
+            # 「代わりに自分のカード N 枚をレストにできる」 (OP16-033 モーリー 等)。
+            # 自リーダー/キャラの アクティブ が N 枚以上 あれば 払える。
+            rs_spec = cs["rest_self_cards"]
+            n = int(rs_spec.get("count", 1)) if isinstance(rs_spec, dict) else int(rs_spec)
+            actives = [me.leader] + list(me.characters)
+            actives = [ip for ip in actives if ip is not None and not ip.rested]
+            if len(actives) < n:
+                return False
         elif "once_per_turn" in cs:
             # 【ターン1回】 — 同一ターン内 同一 holder の 同一 replace 発動 を 1 回 に 制限。
             # holder_card_id があれば per-card per-turn フラグ で 管理。
@@ -12654,6 +12666,17 @@ def _pay_replace_cost(
                 me.don_rested -= more
                 me.don_remaining_in_deck += more
             state.push_log(f"  離脱置換コスト: ドン{n}をドンデッキへ")
+        elif "rest_self_cards" in cs:
+            # 「代わりに自分のカード N 枚をレストにできる」 (OP16-033 モーリー 等)。
+            # AI 簡易: アクティブの power 低い順に N 枚レスト (primitive と同方針)。
+            rs_spec = cs["rest_self_cards"]
+            n = int(rs_spec.get("count", 1)) if isinstance(rs_spec, dict) else int(rs_spec)
+            actives = [me.leader] + list(me.characters)
+            actives = [ip for ip in actives if ip is not None and not ip.rested]
+            actives.sort(key=lambda ip: ip.power)
+            for ip in actives[:n]:
+                ip.rested = True
+                state.push_log(f"  離脱置換コスト: 自カードレスト {ip.card.name}")
 
 
 def _replace_ko_match(
