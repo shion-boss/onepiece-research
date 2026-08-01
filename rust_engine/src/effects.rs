@@ -268,6 +268,22 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             "self_don_rested_ge" => me.don_rested as i64 >= v.as_i64().unwrap_or(0),
             // --- 掃引 2 巡目で上位に出た述語 (2026-07-31) ---
             "self_chara_count_le" => (me.characters.len() as i64) <= v.as_i64().unwrap_or(0),
+            // --- 掃引 5 巡目の述語 (2026-08-01) ---
+            "self_inplay_summoning_sickness" => {
+                src.and_then(|sl| src_ip(me, sl)).map_or(false, |ip| ip.summoning_sickness)
+            }
+            // 自キャラのうち現在パワー N 以上が count 枚【以下】 (effects.py:self_chara_power_ge_count_le)
+            "self_chara_power_ge_count_le" => {
+                let pg = v.get("power").or_else(|| v.get("power_ge")).and_then(|x| x.as_i64()).unwrap_or(5000);
+                let cap = v.get("count").and_then(|x| x.as_i64()).unwrap_or(2);
+                (me.characters.iter().filter(|c| c.power() as i64 >= pg).count() as i64) <= cap
+            }
+            "self_stage_named" => {
+                let name = v.as_str().unwrap_or("");
+                me.stages.iter().any(|st| st.card.name == name)
+            }
+            "self_chara_count_lt_opp" => me.characters.len() < opp.characters.len(),
+            "self_hand_eq" => (me.hand.len() as i64) == v.as_i64().unwrap_or(0),
             // --- 掃引 4 巡目の述語 (2026-08-01) ---
             "self_leader_attached_don_ge" => me.leader.attached_dons as i64 >= v.as_i64().unwrap_or(0),
             "leader_power_ge" => me.leader.power() as i64 >= v.as_i64().unwrap_or(0),
