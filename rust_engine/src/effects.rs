@@ -894,6 +894,16 @@ fn resolve_target(
             vec![(me_idx, cands[0].0)]
         }
         "self_leader" => vec![(me_idx, Slot::Leader)],
+        // 自分のリーダー or キャラ 1 枚 (effects.py:one_self_team_any、 power 降順)
+        "one_self_team_any" => {
+            let me = &state.players[me_idx];
+            let mut cands: Vec<(Slot, i32)> = vec![(Slot::Leader, me.leader.power())];
+            for (i, c) in me.characters.iter().enumerate() {
+                cands.push((Slot::Char(i), c.power()));
+            }
+            cands.sort_by(|a, b| b.1.cmp(&a.1));
+            vec![(me_idx, cands[0].0)]
+        }
         // one_self_character_cost_eq_N (effects.py:2803) = 自分の元コスト N ぴったりのキャラ 1 枚 (power 降順)
         os if os.starts_with("one_self_character_cost_eq_") => {
             let n = parse_after(os, "cost_eq_").unwrap_or(-1);
@@ -2573,6 +2583,123 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 return false;
             }
             remove_victims(state, victims, RemoveDest::Trash);
+            true
+        }
+        // 自ライフ全部を見て 1 枚をデッキへ + 残りを並べ替え (effects.py:scry_all_life_one_to_deck)。
+        // AI 判断 = 価値 (トリガー有無, カウンター, パワー) 最大をデッキへ、 残りも価値降順でライフに積む。
+        "scry_all_life_one_to_deck" => {
+            if state.players[me_idx].life.is_empty() {
+                return true; // ライフ空 = 不発
+            }
+            let to_bottom = v.get("to").and_then(|x| x.as_str()) == Some("bottom");
+            let mut life = std::mem::take(&mut state.players[me_idx].life);
+            let key = |c: &crate::state::CardDef| {
+                (if c.trigger.is_empty() { 0 } else { 1 }, c.counter, c.power)
+            };
+            life.sort_by(|a, b| key(b).cmp(&key(a))); // 価値降順 (安定 = tie は元順)
+            let to_deck = life.remove(0);
+            state.players[me_idx].life = life;
+            if to_bottom {
+                state.players[me_idx].deck.push(to_deck);
+            } else {
+                state.players[me_idx].deck.insert(0, to_deck);
+            }
+            true
+        }
+        // 「相手のキャラ N 枚までを、 パワー合計が X 以下になるように KO」 (effects.py:ko_total_power_le)。
+        // AI = 合計 <= cap の組合せのうち (除去 power 合計, 枚数) 最大。 ⚠ KO cascade 盤面は bail。
+        "ko_total_power_le" => {
+            let max_count = v.get("max_count").and_then(|x| x.as_i64()).unwrap_or(2) as usize;
+            let cap = v.get("total_power_le").and_then(|x| x.as_i64()).unwrap_or(4000) as i32;
+            let pool: Vec<usize> = (0..state.players[opp_idx].characters.len())
+                .filter(|&i| {
+                    let c = &state.players[opp_idx].characters[i];
+                    !(c.protect_from_opp_effect
+                        || c.static_ko_immune
+                        || c.ko_immune_until_turn_end
+                        || c.ko_immune_through_opp_turn
+                        || c.ko_per_turn_immune_remaining > 0)
+                })
+                .collect();
+            // 全組合せ (pool は最大 5 なので 2^5 で十分)
+            let mut best: Vec<usize> = vec![];
+            let mut best_key = (-1i32, -1i64);
+            for mask in 1u32..(1u32 << pool.len()) {
+                let combo: Vec<usize> = (0..pool.len())
+                    .filter(|&b| mask & (1 << b) != 0)
+                    .map(|b| pool[b])
+                    .collect();
+                if combo.len() > max_count {
+                    continue;
+                }
+                let sum: i32 = combo.iter().map(|&i| state.players[opp_idx].characters[i].power()).sum();
+                if sum <= cap {
+                    let key = (sum, combo.len() as i64);
+                    if key > best_key {
+                        best_key = key;
+                        best = combo;
+                    }
+                }
+            }
+            if best.is_empty() {
+                return true;
+            }
+            if me_board_has_when(state, me_idx, "on_opp_chara_ko")
+                || me_board_has_when(state, opp_idx, "on_self_chara_ko")
+                || me_board_has_when(state, opp_idx, "on_ko")
+                || me_board_has_when(state, opp_idx, "replace_ko")
+                || me_board_has_when(state, opp_idx, "replace_leave")
+                || me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect")
+            {
+                return false; // KO cascade 再現不能 → bail
+            }
+            let victims: Vec<(usize, usize)> = best.into_iter().map(|i| (opp_idx, i)).collect();
+            remove_victims(state, victims, RemoveDest::Trash);
+            true
+        }
+        // 相手は手札を全てデッキに戻しシャッフル → N 枚ドロー (effects.py:opp_hand_to_deck_then_draw)。
+        "opp_hand_to_deck_then_draw" => {
+            let n = if v.is_object() {
+                v.get("draw").and_then(|x| x.as_i64()).unwrap_or(5)
+            } else {
+                v.as_i64().unwrap_or(5)
+            };
+            {
+                let o = &mut state.players[opp_idx];
+                let hand = std::mem::take(&mut o.hand);
+                o.deck.extend(hand);
+                o.known_bottom_card_ids.clear();
+                o.known_top_card_ids.clear();
+            }
+            let len = state.players[opp_idx].deck.len();
+            let perm = state.rng_mut().shuffle_perm(len);
+            let old = std::mem::take(&mut state.players[opp_idx].deck);
+            state.players[opp_idx].deck = perm.iter().map(|&j| old[j].clone()).collect();
+            let o = &mut state.players[opp_idx];
+            let mut drawn = 0;
+            for _ in 0..n {
+                if o.deck.is_empty() {
+                    break;
+                }
+                let c = o.deck.remove(0);
+                o.hand.push(c);
+                drawn += 1;
+            }
+            o.cards_drawn_count += drawn;
+            true
+        }
+        // 自ライフが N 枚になるように上からトラッシュ (effects.py:mill_self_life_until_n)。
+        "mill_self_life_until_n" => {
+            let target = if v.is_object() {
+                v.get("target_count").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            }
+            .max(0) as usize;
+            while state.players[me_idx].life.len() > target {
+                let c = state.players[me_idx].life.remove(0);
+                state.players[me_idx].trash.push(c);
+            }
             true
         }
         // 自分のトラッシュから filter 一致 N 枚をデッキへ (effects.py:trash_to_deck)。
