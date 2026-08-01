@@ -910,6 +910,19 @@ fn resolve_target(
             vec![(me_idx, cands[0].0)]
         }
         "self_leader" => vec![(me_idx, Slot::Leader)],
+        // 相手の【ブロッカー】持ちキャラ 1 枚 (effects.py:2504、 opp_value 降順)
+        "one_opp_chara_blocker" => {
+            let opp = &state.players[opp_idx];
+            let mut cands: Vec<usize> = (0..opp.characters.len())
+                .filter(|&i| opp.characters[i].is_blocker_now())
+                .collect();
+            cands.sort_by(|&a, &b| {
+                opp_value(&opp.characters[b])
+                    .partial_cmp(&opp_value(&opp.characters[a]))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
+        }
         // 自分のリーダー or キャラ 1 枚 (effects.py:one_self_team_any、 power 降順)
         "one_self_team_any" => {
             let me = &state.players[me_idx];
@@ -3265,15 +3278,39 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         "play_from_trash" | "play_multi_from_trash" => {
             let spec = v.as_object();
             let filt = spec.and_then(|o| o.get("filter"));
+            // filter.category == STAGE なら ステージとして登場 (effects.py:2026-05-31 拡張、 OP13-092)。
+            // 既存ステージがあれば持ち主のトラッシュへ (公式 上限 1)。 sickness/rested 無関係。
+            if filt.and_then(|f| f.get("category")).and_then(|x| x.as_str()) == Some("STAGE") {
+                let limit = spec.and_then(|o| o.get("limit")).and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+                let mut placed = 0usize;
+                while placed < limit {
+                    let idx = state.players[me_idx].trash.iter().position(|c| {
+                        c.category == crate::state::Category::Stage && matches_filter(c, filt)
+                    });
+                    let Some(idx) = idx else { break };
+                    if !state.players[me_idx].stages.is_empty() {
+                        let old = state.players[me_idx].stages.remove(0);
+                        let ad = old.attached_dons;
+                        state.players[me_idx].trash.push(old.card);
+                        state.players[me_idx].don_rested += ad;
+                    }
+                    let card = state.players[me_idx].trash.remove(idx);
+                    let ip = InPlay::of(card, false);
+                    state.players[me_idx].stages.push(ip);
+                    let pidx = state.players[me_idx].stages.len() - 1;
+                    if execute_stage_on_play(state, me_idx, pidx).is_err() {
+                        return false;
+                    }
+                    placed += 1;
+                }
+                return true;
+            }
             // dynamic filter (cost_le_dynamic 等) / no_effect は未対応 → bail
             if let Some(fo) = filt.and_then(|f| f.as_object()) {
                 if fo.keys().any(|k| k.ends_with("_dynamic")) || fo.contains_key("no_effect") {
                     return false;
                 }
-                // STAGE 登場は別処理 → bail
-                if fo.get("category").and_then(|x| x.as_str()) == Some("STAGE") {
-                    return false;
-                }
+                // STAGE 登場は下で専用処理する (以前は bail していた)
             }
             let limit = spec.and_then(|o| o.get("limit")).and_then(|x| x.as_i64()).unwrap_or(1) as usize;
             let rested = spec.and_then(|o| o.get("rested")).and_then(|x| x.as_bool()).unwrap_or(false);
