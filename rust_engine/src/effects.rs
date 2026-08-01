@@ -2466,6 +2466,99 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 自分のトラッシュから filter 一致 N 枚を手札へ (effects.py:trash_to_hand)。
+        "trash_to_hand" => {
+            let filt = v.get("filter");
+            let limit = v.get("limit").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+            let mut found = 0usize;
+            let mut rest: Vec<crate::state::CardDef> = vec![];
+            for card in std::mem::take(&mut state.players[me_idx].trash) {
+                if found < limit && matches_filter(&card, filt) {
+                    state.players[me_idx].hand.push(card);
+                    found += 1;
+                } else {
+                    rest.push(card);
+                }
+            }
+            state.players[me_idx].trash = rest;
+            true
+        }
+        // 相手キャラを持ち主のライフへ (effects.py:to_opp_life)。 KO ではないので【KO時】は発火しない。
+        // 付与ドンはレストでコストエリアへ (6-5-5-4)。 protect_from_opp_effect は尊重。
+        "to_opp_life" => {
+            let tspec = if v.is_string() {
+                v.clone()
+            } else {
+                v.get("target").cloned().unwrap_or(Value::String("one_opponent_character_any".into()))
+            };
+            let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else { return false };
+            let mut idxs: Vec<usize> = targets
+                .iter()
+                .filter(|&&(pi, _)| pi == opp_idx)
+                .filter_map(|&(_, sl)| if let Slot::Char(i) = sl { Some(i) } else { None })
+                .filter(|&i| !state.players[opp_idx].characters[i].protect_from_opp_effect)
+                .collect();
+            idxs.sort_unstable();
+            for i in idxs.into_iter().rev() {
+                let o = &mut state.players[opp_idx];
+                if i >= o.characters.len() {
+                    continue;
+                }
+                let removed = o.characters.remove(i);
+                o.don_rested += removed.attached_dons;
+                o.life.push(removed.card);
+            }
+            true
+        }
+        // 相手が自身の場のドン N 枚をドンデッキへ (effects.py:return_opp_don)。 active 優先 → rested。
+        "return_opp_don" => {
+            let n = if v.is_object() {
+                v.get("amount").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            } as i32;
+            let o = &mut state.players[opp_idx];
+            let a = n.min(o.don_active);
+            o.don_active -= a;
+            o.don_remaining_in_deck += a;
+            let r = (n - a).min(o.don_rested);
+            o.don_rested -= r;
+            o.don_remaining_in_deck += r;
+            true
+        }
+        // このキャラ以外の自キャラ全てをデッキ下へ (effects.py:other_self_charas_to_deck_bottom)。
+        "other_self_charas_to_deck_bottom" => {
+            if me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect") {
+                return false; // leave cascade 再現不能 → bail
+            }
+            let src_idx = if let Slot::Char(i) = src { Some(i) } else { None };
+            let victims: Vec<(usize, usize)> = (0..state.players[me_idx].characters.len())
+                .filter(|&i| Some(i) != src_idx)
+                .map(|i| (me_idx, i))
+                .collect();
+            if !victims.is_empty() {
+                remove_victims(state, victims, RemoveDest::DeckBottom);
+            }
+            true
+        }
+        // 「このターン中【ブロッカー】を発動できない」 (effects.py:disable_blocker、 OP12-051 等)。
+        "disable_blocker" => {
+            let tspec = if v.is_object() {
+                v.get("target").cloned().unwrap_or(Value::String("one_opponent_character_any".into()))
+            } else {
+                v.clone()
+            };
+            let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else { return false };
+            for (pi, sl) in targets {
+                get_ip_mut(&mut state.players[pi], sl).blocker_disabled_until_turn_end = true;
+            }
+            true
+        }
+        // 「このカードの【メイン】効果を発動する」= fire_self_effect(when_kind="main") の shorthand。
+        "fire_self_main" => {
+            let spec = json!({"when_kind": "main"});
+            execute_effect(&json!({"fire_self_effect": spec}), state, me_idx, src)
+        }
         // 相手のアクティブドンを N 枚レストにする (effects.py:6436、 ST02-008 等)。 不足はそのまま。
         "rest_opp_don" => {
             let n = if v.is_object() {
@@ -5471,6 +5564,9 @@ fn try_pay_counter_cost(
                 | "life_to_hand" | "life_top_or_bottom_to_hand" | "trash_to_deck"
                 | "reveal_hand_with_filter" | "flip_life_face_down" | "flip_life_face_up"
                 | "discard_hand" | "discard_hand_with_filter"
+                // trash_self / self_ko = 発動元自身を場から除去 (effects.py:934)。 self_ko は KO 扱いで
+                // 【KO時】が発火するので、 該当 when を持つ盤面は下の payability で bail する。
+                | "trash_self" | "self_ko" | "return_self_to_hand"
         ) {
             return Err(format!("counter cost 未対応: {k}"));
         }
@@ -5485,6 +5581,9 @@ fn try_pay_counter_cost(
     let rest_self = obj.get("rest_self").map_or(false, json_truthy);
     let flip_down = obj.get("flip_life_face_down").map_or(false, json_truthy);
     let flip_up = obj.get("flip_life_face_up").map_or(false, json_truthy);
+    let trash_self = obj.get("trash_self").map_or(false, json_truthy);
+    let self_ko = obj.get("self_ko").map_or(false, json_truthy);
+    let ret_self_hand = obj.get("return_self_to_hand").map_or(false, json_truthy);
     // --- payability (_can_pay_counter_cost)。 一つでも払えなければ Ok(false) (効果 skip) ---
     {
         let me = &state.players[me_idx];
@@ -5497,6 +5596,10 @@ fn try_pay_counter_cost(
             return Ok(false);
         }
         if discard_n > 0 && (me.hand.len() as i32) < discard_n {
+            return Ok(false);
+        }
+        // effects.py:570 — trash_self / self_ko / return_self_to_hand は source 不在なら払えない
+        if (trash_self || self_ko || ret_self_hand) && src_ip(me, self_src).is_none() {
             return Ok(false);
         }
         if let Some(dwf) = obj.get("discard_hand_with_filter") {
@@ -5627,6 +5730,46 @@ fn try_pay_counter_cost(
     if flip_up {
         let me = &mut state.players[me_idx];
         me.face_up_life_count = (me.face_up_life_count + 1).min(me.life.len() as i32);
+    }
+    // trash_self / self_ko / return_self_to_hand: source 自身を場から除去 (effects.py:934)。
+    // ⚠ self_ko は KO 扱いで【KO時】/on_self_chara_ko、 trash_self は on_self_chara_leave_by_self_effect
+    //   が発火する。 該当 when を持つ盤面は cascade 再現不能なので bail (黙って発火漏れにしない)。
+    if trash_self || self_ko || ret_self_hand {
+        if self_ko
+            && (crate::effects::me_board_has_when(state, me_idx, "on_self_chara_ko")
+                || crate::effects::me_board_has_when(state, 1 - me_idx, "on_opp_chara_ko"))
+        {
+            return Err("counter cost self_ko cascade 未対応".into());
+        }
+        if (trash_self || ret_self_hand)
+            && crate::effects::me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect")
+        {
+            return Err("counter cost trash_self cascade 未対応".into());
+        }
+        let me = &mut state.players[me_idx];
+        let removed = match self_src {
+            Slot::Char(i) if i < me.characters.len() => Some(me.characters.remove(i)),
+            Slot::Stage(i) if i < me.stages.len() => Some(me.stages.remove(i)),
+            _ => None,
+        };
+        if let Some(r) = removed {
+            let don = r.attached_dons;
+            if ret_self_hand {
+                me.hand.push(r.card);
+            } else {
+                me.trash.push(r.card);
+            }
+            me.don_rested += don; // 6-5-5-4: 付与ドンはレストで戻る
+            // self_ko は victim 自身の【KO時】も発火する (source-gone)
+            if self_ko {
+                let cid = state.players[me_idx].trash.last().map(|c| c.card_id.clone());
+                if let Some(cid) = cid {
+                    if card_has_when(&cid, "on_ko") {
+                        fire_on_ko(state, me_idx, &cid)?;
+                    }
+                }
+            }
+        }
     }
     Ok(true)
 }
