@@ -465,7 +465,7 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             "leader_multicolor" | "leader_color_multi" => (me.leader.card.color.len() >= 2) == v.as_bool().unwrap_or(true),
             // 自場のキャラ数 <= N (effects.py:1156)。
             "self_field_count_le" => (me.characters.len() as i64) <= v.as_i64().unwrap_or(0),
-            "self_field_count_ge" => (me.characters.len() as i64) >= v.as_i64().unwrap_or(0),
+            "self_field_count_ge" | "self_chara_count_ge" => (me.characters.len() as i64) >= v.as_i64().unwrap_or(0),
             // コスト0か8以上のキャラが両陣営に居るか (base_cost、 effects.py:1393)。
             "exists_chara_cost_0_or_ge_8" => {
                 let found = me.characters.iter().chain(opp.characters.iter())
@@ -549,7 +549,6 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             }
             // このターン中にコスト N 以上のイベントを使用したか (max_event_cost_this_turn)
             "self_event_cost_used_ge" => (me.max_event_cost_this_turn as i64) >= v.as_i64().unwrap_or(0),
-            "self_field_count_ge" | "self_chara_count_ge" => (me.characters.len() as i64) >= v.as_i64().unwrap_or(0),
             // 複合 filter (色/特徴/cost 等 + current_power + rested) で自キャラ数 N 以上 (effects.py:1340)
             "self_chara_filtered_count_ge" => {
                 let need = v.get("count").and_then(|x| x.as_i64()).unwrap_or(1);

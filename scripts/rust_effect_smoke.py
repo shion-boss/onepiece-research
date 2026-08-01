@@ -144,6 +144,13 @@ def main() -> None:
           f"bail {res['bail']} / panic {res.get('PANIC',0)} / 保存則違反 {res.get('inv',0)}")
     print(f"1 回以上実行できたカード: {len(fired_cards)}/{len(cards)}")
     print(f"skip: when 対象外 {res.get('skip(when)',0)} / state 構築失敗 {res.get('skip(state)',0)}")
+    # optional_cost_then など「外側は実装済だが内側で落ちた」内訳 ([oct_pay]/[oct_effect] 等)
+    cv = json.loads(eng.coverage_stats())
+    inner = {k: v for k, v in (cv.get("unknown_conditions") or {}).items() if k.startswith("[")}
+    if inner:
+        print("\n内側の未対応 (optional_cost_then 等) top15:")
+        for k, v in sorted(inner.items(), key=lambda kv: -kv[1])[:15]:
+            print(f"  {v:6d}  {k}")
     print("\nbail 理由 top20:")
     for k, v in bails.most_common(20):
         print(f"  {v:6d}  {k}")
