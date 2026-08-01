@@ -3313,12 +3313,22 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 return false;
             }
             // cost 支払い (cost_specs 順)。 未対応は None → bail (cost 済でも apply_action Err で全破棄)
+            // ⚠ cost が自陣を除去する系 (ko_self_chara 等) だと、 支払い後に src (位置 index) が
+            //   別カードを指す / 範囲外になる。 そのまま effect の "self" を解決すると **別キャラに
+            //   適用** するか panic する (OP03-012 / OP06-083 / OP13-053、 効果スモークで検出)。
+            //   Python は self_inplay を object 参照で追うので影響を受けない。 → ズレたら明示 bail。
+            let src_cid_before: Option<String> =
+                src_ip(&state.players[me_idx], src).map(|ip| ip.card.card_id.clone());
             for cs in &cost {
                 if pay_cost_one(cs, state, me_idx, src).is_none() {
                     let k = cs.as_object().and_then(|o| o.keys().next()).map(|x| x.as_str()).unwrap_or("?");
                     note_unknown_key("oct_pay", k);
                     return false;
                 }
+            }
+            if src_shifted(state, me_idx, src, src_cid_before.as_ref()) {
+                note_unknown_key("oct_pay", "src が cost で移動/消失");
+                return false;
             }
             // effect 発火 (未対応 prim は false → 呼出側で bail)
             for es in &effect {
