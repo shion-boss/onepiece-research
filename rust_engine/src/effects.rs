@@ -2347,6 +2347,123 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             let spec = json!({"when_kind": "main"});
             execute_effect(&json!({"fire_self_effect": spec}), state, me_idx, src)
         }
+        // デッキ上 N 枚を公開し、 filter 一致があれば then、 無ければ else を実行 → 公開分を
+        // rest_remain (top/bottom/trash) へ (effects.py:reveal_top_then)。 デッキ空は不発 (false)。
+        "reveal_top_then" => {
+            let depth = v.get("depth").and_then(|x| x.as_i64()).unwrap_or(1).max(0) as usize;
+            let filt = v.get("filter");
+            let rest_remain = v.get("rest_remain").and_then(|x| x.as_str()).unwrap_or("bottom").to_string();
+            if state.players[me_idx].deck.is_empty() {
+                return false;
+            }
+            let n = depth.min(state.players[me_idx].deck.len());
+            let revealed: Vec<crate::state::CardDef> =
+                state.players[me_idx].deck.drain(0..n).collect();
+            let matched = revealed.iter().any(|c| matches_filter(c, filt));
+            let branch = if matched { v.get("then") } else { v.get("else") };
+            if let Some(specs) = branch.and_then(|x| x.as_array()) {
+                for spec in specs {
+                    if !execute_effect(spec, state, me_idx, src) {
+                        return false;
+                    }
+                }
+            }
+            let me = &mut state.players[me_idx];
+            match rest_remain.as_str() {
+                "top" => {
+                    let mut d = revealed;
+                    d.extend(std::mem::take(&mut me.deck));
+                    me.deck = d;
+                }
+                "trash" => me.trash.extend(revealed),
+                _ => me.deck.extend(revealed),
+            }
+            true
+        }
+        // デッキ上 1 枚を公開し、 CHARACTER かつ filter 一致なら登場、 残りは rest_remain へ
+        // (effects.py:reveal_top_play)。 AI は「登場できるなら登場」(Python の人間 modal は AI では auto)。
+        "reveal_top_play" | "reveal_life_top_play" => {
+            let from_life = key == "reveal_life_top_play";
+            let filt = v.get("filter");
+            let rested_flag = v.get("rested").and_then(|x| x.as_bool()).unwrap_or(false);
+            let rest_remain = v.get("rest_remain").and_then(|x| x.as_str()).unwrap_or("bottom").to_string();
+            let empty = if from_life {
+                state.players[me_idx].life.is_empty()
+            } else {
+                state.players[me_idx].deck.is_empty()
+            };
+            if empty {
+                return false;
+            }
+            let revealed = if from_life {
+                state.players[me_idx].life.remove(0)
+            } else {
+                state.players[me_idx].deck.remove(0)
+            };
+            let matched = revealed.category == crate::state::Category::Character
+                && matches_filter(&revealed, filt);
+            if matched {
+                trash_weakest_for_field_full(state, me_idx);
+                let mut ip = InPlay::of(revealed.clone(), true); // sickness=true
+                ip.rested = rested_flag;
+                state.players[me_idx].characters.push(ip);
+                let pidx = state.players[me_idx].characters.len() - 1;
+                state.last_self_chara_played_card = Some(revealed);
+                state.last_self_chara_played_from_trash = false;
+                return execute_on_play(state, me_idx, pidx).is_ok();
+            }
+            let me = &mut state.players[me_idx];
+            match rest_remain.as_str() {
+                "top" => me.deck.insert(0, revealed),
+                "trash" => me.trash.push(revealed),
+                _ => me.deck.push(revealed),
+            }
+            true
+        }
+        // ライフ上 N 枚を見て上/下に置き直す (effects.py:scry_life)。 AI 判断 = 自ライフなら
+        // 有用札 (トリガー持ち or カウンター2000以上) を上に残す / 相手ライフなら有用札を下に埋める。
+        "scry_life" => {
+            let owner = v.get("owner").and_then(|x| x.as_str()).unwrap_or("self").to_string();
+            let depth = if v.is_object() {
+                v.get("depth").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            }
+            .max(0) as usize;
+            let is_good = |c: &crate::state::CardDef| !c.trigger.is_empty() || c.counter >= 2000;
+            let target = match owner.as_str() {
+                "opp" => opp_idx,
+                "self" => me_idx,
+                _ => {
+                    // self_or_opp: 相手の上ライフが強いなら妨害しに行く (Python の AI 分岐)
+                    let o = &state.players[opp_idx];
+                    if o.life.first().map_or(false, |c| is_good(c)) { opp_idx } else { me_idx }
+                }
+            };
+            if state.players[target].life.is_empty() {
+                return false;
+            }
+            let is_self = target == me_idx;
+            let n = depth.min(state.players[target].life.len());
+            let life = std::mem::take(&mut state.players[target].life);
+            let (seen, rest) = life.split_at(n);
+            let mut top_grp = vec![];
+            let mut bot_grp = vec![];
+            for c in seen {
+                let keep_top = if is_self { is_good(c) } else { !is_good(c) };
+                if keep_top { top_grp.push(c.clone()) } else { bot_grp.push(c.clone()) }
+            }
+            let mut newlife = top_grp;
+            newlife.extend_from_slice(rest);
+            newlife.extend(bot_grp);
+            state.players[target].life = newlife;
+            true
+        }
+        // 「このターンの後に自分のターンを追加で得る」 (effects.py:extra_turn)。 flag のみ。
+        "extra_turn" => {
+            state.extra_turn_pending = true;
+            true
+        }
         // 相手のアクティブドンを N 枚レストにする (effects.py:6436、 ST02-008 等)。 不足はそのまま。
         "rest_opp_don" => {
             let n = if v.is_object() {
