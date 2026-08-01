@@ -6151,7 +6151,14 @@ pub fn try_replace_ko(
                 // by_self_effect なので replace(全て by_opp_effect 要求)を再誘発しない = 無限ループ無し。
                 // ⚠ 但し返した char の on_self_chara_leave_by_self_effect cascade は execute_effect が自前
                 // 発火しないので、 holder owner 場に該当 when あれば bail (再現不能)。
-                if !matches!(pk, "rest_self_cards" | "return_self_don_to_deck" | "return_to_deck_bottom") {
+                // 追加 (2026-08-01): player-level で victim を参照せず、 場からの離脱も起こさない
+                // primitive は replace の do として安全 (= replace を再誘発しない = 無限ループ無し)。
+                //   draw / life_to_hand / mill_self_life_to_trash / trash_to_deck / trash_self_hand_random
+                //   / power_pump (holder=src への buff) / flip_life_face_up_effect
+                // ⚠ rest / return_self_to_* は「離脱・レスト」を起こし replace を再誘発しうるので除外のまま。
+                if !matches!(pk, "rest_self_cards" | "return_self_don_to_deck" | "return_to_deck_bottom"
+                    | "draw" | "life_to_hand" | "mill_self_life_to_trash" | "trash_to_deck"
+                    | "trash_self_hand_random" | "power_pump" | "flip_life_face_up_effect") {
                     return Err(format!("replace do 未対応 ({pk})"));
                 }
                 if pk == "return_to_deck_bottom"
