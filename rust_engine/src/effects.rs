@@ -3027,6 +3027,36 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 条件分岐つき置換 (effects.py:replace_ko_complex)。 branches を上から評価し、
+        // 最初に成立した branch の do を実行 (排他)。 どれも不成立なら不発 (Python は return False)。
+        "replace_ko_complex" => {
+            let branches = if v.is_object() {
+                v.get("branches").and_then(|x| x.as_array()).cloned().unwrap_or_default()
+            } else {
+                v.as_array().cloned().unwrap_or_default()
+            };
+            let mut chosen: Option<Value> = None;
+            for br in &branches {
+                let cond = br.get("if").cloned().unwrap_or(json!({}));
+                match eval_condition(&cond, state, me_idx, Some(src)) {
+                    Some(true) => {
+                        chosen = Some(br.clone());
+                        break;
+                    }
+                    Some(false) => continue,
+                    None => return false, // 条件不明 → bail
+                }
+            }
+            let Some(br) = chosen else { return true }; // 該当なし = 不発 (何も起きない)
+            if let Some(dos) = br.get("do").and_then(|x| x.as_array()) {
+                for sub in dos {
+                    if !execute_effect(sub, state, me_idx, src) {
+                        return false;
+                    }
+                }
+            }
+            true
+        }
         // 自分のトラッシュから filter 一致 N 枚をデッキへ (effects.py:trash_to_deck)。
         // spec {filter, limit, to: top|bottom, shuffle}。 該当 0 枚は不発 (何も起きない = true)。
         "trash_to_deck" => {
@@ -5822,6 +5852,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "opp_hand_to_deck_bottom" | "opp_hand_to_deck_then_draw" | "extra_turn"
             | "disable_blocker" | "disable_opp_on_play_through_opp_turn" | "set_battle_ko_immune"
             | "rest_self_cards_filtered" | "ko_self_chara" | "fire_self_main"
+            | "replace_ko_complex"
             // negate_effect = granted_keywords に "効果無効" を足すだけ (cascade 無)。
             | "negate_effect"
             // ko = prim 側で cascade を自前処理 (single/multi victim) or 内部 bail するので安全。
