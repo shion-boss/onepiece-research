@@ -414,10 +414,6 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                 let need = v.get("n").and_then(|x| x.as_i64()).unwrap_or(1);
                 me.characters.iter().filter(|c| c.card.cost as i64 >= cg).count() as i64 >= need
             }
-            // 自リーダーが多色 (effects.py:1833)
-            "leader_color_multi" | "leader_multicolor" => {
-                v.as_bool().unwrap_or(true) == (me.leader.card.color.len() >= 2)
-            }
             // 自リーダーの特徴に v を含むものがある (部分一致)
             "leader_feature_contains" => {
                 let f = v.as_str().unwrap_or("");
@@ -433,17 +429,6 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             "self_power_ge" | "self_inplay_power_ge" => {
                 let n = v.as_i64().unwrap_or(0);
                 src.and_then(|sl| src_ip(me, sl)).map_or(false, |ip| ip.power() as i64 >= n)
-            }
-            // 自リーダー+自キャラの付与ドン合計 >= N (effects.py:self_attached_don_ge)
-            // ⚠ source-gone (KO時等) は Python が victim の付与ドンを足し戻すが、 Rust には
-            //   その退避値が無い → src 不明時は判定不能として bail (誤判定を作らない)。
-            "self_attached_don_ge" => {
-                if src.is_none() {
-                    return None;
-                }
-                let total: i32 = me.leader.attached_dons
-                    + me.characters.iter().map(|c| c.attached_dons).sum::<i32>();
-                total as i64 >= v.as_i64().unwrap_or(0)
             }
             "self_turn" => (state.turn_player_idx == me_idx) == v.as_bool().unwrap_or(true),
             // source (静的効果の発動元カード) がレストか。 src 不明なら判定不能 (None)。
@@ -476,7 +461,8 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                 }
             }
             // 自リーダーが多色 (color 2 色以上) か (effects.py:1643)。
-            "leader_multicolor" => (me.leader.card.color.len() >= 2) == v.as_bool().unwrap_or(true),
+            // leader_color_multi は overlay の別名 (effects.py:1833)
+            "leader_multicolor" | "leader_color_multi" => (me.leader.card.color.len() >= 2) == v.as_bool().unwrap_or(true),
             // 自場のキャラ数 <= N (effects.py:1156)。
             "self_field_count_le" => (me.characters.len() as i64) <= v.as_i64().unwrap_or(0),
             "self_field_count_ge" => (me.characters.len() as i64) >= v.as_i64().unwrap_or(0),
@@ -1645,6 +1631,15 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
 /// fire_self_effect の再帰深度 (Python の state._fire_self_depth 相当、 canonical ではない)。
 static FIRE_SELF_DEPTH: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
+/// fire_self_effect の再帰深度を抜ける時に必ず戻す (途中 return が多いので RAII)。
+struct FireSelfGuard(usize);
+impl Drop for FireSelfGuard {
+    fn drop(&mut self) {
+        FIRE_SELF_DEPTH.store(self.0, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+
 /// 未対応キーの内訳を記録 (診断時のみ)。 cat = "optional_cost" / "on_play_cost" / "activate_cost" 等。
 /// 「cost 未対応」 としか出ないと どの支払い種別が足りないか分からないので、 条件と同じ粒度で残す。
 fn note_unknown_key(cat: &str, key: &str) {
@@ -2181,44 +2176,6 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
-        // 対象キャラを持ち主のデッキ下へ (effects.py:return_to_deck_bottom)。 target spec は 3 形式
-        // (str / {type,filter} / {target})。 相手キャラは protect / static_ko_immune を尊重。
-        // ⚠ leave cascade (replace_leave / on_self_chara_leave_by_opp_effect / _by_self_effect) が
-        //   絡む盤面は再現順が保証できないので明示 bail。
-        "return_to_deck_bottom" => {
-            let tgt_spec: Value = if v.is_object() && v.get("target").is_some() {
-                v.get("target").unwrap().clone()
-            } else if v.is_object() || v.is_string() {
-                v.clone()
-            } else {
-                Value::String("one_opponent_character_le_5000".into())
-            };
-            let Some(targets) = resolve_target(Some(&tgt_spec), me_idx, opp_idx, src, state) else { return false };
-            let mut victims: Vec<(usize, usize)> = vec![];
-            for &(pi, sl) in &targets {
-                if let Slot::Char(idx) = sl {
-                    let c = &state.players[pi].characters[idx];
-                    if pi == opp_idx && (c.protect_from_opp_effect || c.static_ko_immune) {
-                        continue;
-                    }
-                    victims.push((pi, idx));
-                }
-            }
-            if victims.is_empty() {
-                return true;
-            }
-            let has_opp = victims.iter().any(|&(pi, _)| pi == opp_idx);
-            let cascade = me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect")
-                || (has_opp
-                    && (me_board_has_when(state, opp_idx, "on_self_chara_leave_by_opp_effect")
-                        || me_board_has_when(state, opp_idx, "replace_leave")
-                        || me_board_has_when(state, opp_idx, "replace_ko")));
-            if cascade {
-                return false; // cascade 再現不能 → bail
-            }
-            remove_victims(state, victims, RemoveDest::DeckBottom);
-            true
-        }
         // マルチターゲット版 (effects.py:return_to_deck_bottom_multi)。 spec リストを順に解決 → 除去。
         // dedup は「除去済は board から消える」で自然に成立する (cascade 無しの前提)。
         "return_to_deck_bottom_multi" => {
@@ -2255,175 +2212,6 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 remove_victims(state, victims, RemoveDest::DeckBottom);
             }
             true
-        }
-        // 自分のトラッシュから filter 一致 N 枚をデッキへ (effects.py:trash_to_deck)。
-        // spec {filter, limit, to: top|bottom, shuffle}。 該当 0 枚は公式 4-10 で不発 → false。
-        // ⚠ shuffle=true は rng を消費する = Python と同じ MT 列を使うので bit 一致する。
-        "trash_to_deck" => {
-            let filt = v.get("filter");
-            let limit = v.get("limit").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
-            let to_top = v.get("to").and_then(|x| x.as_str()) == Some("top");
-            let do_shuffle = v.get("shuffle").and_then(|x| x.as_bool()).unwrap_or(false);
-            let mut picked: Vec<crate::state::CardDef> = vec![];
-            let mut rest: Vec<crate::state::CardDef> = vec![];
-            for card in std::mem::take(&mut state.players[me_idx].trash) {
-                if picked.len() < limit && matches_filter(&card, filt) {
-                    picked.push(card);
-                } else {
-                    rest.push(card);
-                }
-            }
-            if picked.is_empty() {
-                state.players[me_idx].trash = rest;
-                return false; // 公式 4-10: 対象 0 枚 = 解決不能
-            }
-            state.players[me_idx].trash = rest;
-            if to_top {
-                let mut newdeck = picked;
-                newdeck.extend(std::mem::take(&mut state.players[me_idx].deck));
-                state.players[me_idx].deck = newdeck;
-            } else {
-                state.players[me_idx].deck.extend(picked);
-            }
-            if do_shuffle {
-                let n = state.players[me_idx].deck.len();
-                let perm = state.rng_mut().shuffle_perm(n);
-                let old = std::mem::take(&mut state.players[me_idx].deck);
-                state.players[me_idx].deck = perm.iter().map(|&j| old[j].clone()).collect();
-            }
-            true
-        }
-        // 自分の (filter) キャラを N 枚 KO (effects.py:ko_self_chara、 自軍 KO drawback)。
-        // 犠牲順 = power 昇順 (_sacrifice_key)。 ⚠ KO時トリガー等の cascade が有る盤面は bail。
-        "ko_self_chara" => {
-            let count = if v.is_object() {
-                v.get("count").and_then(|x| x.as_i64()).unwrap_or(1)
-            } else {
-                v.as_i64().unwrap_or(1)
-            } as usize;
-            let filt = v.get("filter");
-            let excl = v.get("exclude_self").and_then(|x| x.as_bool()).unwrap_or(false);
-            let src_idx = if let Slot::Char(i) = src { Some(i) } else { None };
-            let mut cands: Vec<usize> = (0..state.players[me_idx].characters.len())
-                .filter(|&i| {
-                    matches_filter(&state.players[me_idx].characters[i].card, filt)
-                        && !(excl && Some(i) == src_idx)
-                })
-                .collect();
-            cands.sort_by_key(|&i| state.players[me_idx].characters[i].power());
-            let victims: Vec<(usize, usize)> = cands.into_iter().take(count).map(|i| (me_idx, i)).collect();
-            if victims.is_empty() {
-                return true;
-            }
-            if me_board_has_when(state, me_idx, "on_self_chara_ko")
-                || me_board_has_when(state, opp_idx, "on_opp_chara_ko")
-                || me_board_has_when(state, me_idx, "on_ko")
-                || me_board_has_when(state, me_idx, "replace_ko")
-                || me_board_has_when(state, me_idx, "replace_leave")
-            {
-                return false; // KO cascade 再現不能 → bail
-            }
-            remove_victims(state, victims, RemoveDest::Trash);
-            true
-        }
-        // 「このターン中、 バトルで KO されない」 (effects.py:set_battle_ko_immune)。
-        "set_battle_ko_immune" => {
-            let tspec = if v.is_object() {
-                v.get("target").cloned().unwrap_or(Value::String("self".into()))
-            } else {
-                v.clone()
-            };
-            let duration = v.get("duration").and_then(|x| x.as_str()).unwrap_or("turn").to_string();
-            let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else { return false };
-            for (pi, sl) in targets {
-                let ip = get_ip_mut(&mut state.players[pi], sl);
-                match duration.as_str() {
-                    "static" => ip.battle_ko_immune_static = true,
-                    "next_self_turn_start" | "next_opp_turn_end" => {
-                        ip.battle_ko_immune_through_opp_turn = true
-                    }
-                    _ => ip.battle_ko_immune_until_turn_end = true,
-                }
-            }
-            true
-        }
-        // 自分の (filter) カード N 枚をレスト (effects.py:rest_self_cards_filtered、 cost 用)。
-        // active 候補が count 未満なら不発 (false)。 AI は power 昇順で選ぶ。
-        "rest_self_cards_filtered" => {
-            let count = if v.is_object() {
-                v.get("count").and_then(|x| x.as_i64()).unwrap_or(1)
-            } else {
-                v.as_i64().unwrap_or(1)
-            } as usize;
-            let filt = v.get("filter");
-            let mut cands: Vec<(Slot, i32)> = vec![];
-            {
-                let me = &state.players[me_idx];
-                if !me.leader.rested && matches_filter(&me.leader.card, filt) {
-                    cands.push((Slot::Leader, me.leader.power()));
-                }
-                for (i, c) in me.characters.iter().enumerate() {
-                    if !c.rested && matches_filter(&c.card, filt) {
-                        cands.push((Slot::Char(i), c.power()));
-                    }
-                }
-                for (i, st) in me.stages.iter().enumerate() {
-                    if !st.rested && matches_filter(&st.card, filt) {
-                        cands.push((Slot::Stage(i), st.power()));
-                    }
-                }
-            }
-            if cands.len() < count {
-                return false;
-            }
-            cands.sort_by_key(|&(_, p)| p); // power 昇順 (安定 = tie は leader→char→stage 順)
-            for (sl, _) in cands.into_iter().take(count) {
-                get_ip_mut(&mut state.players[me_idx], sl).rested = true;
-            }
-            true
-        }
-        // 自身の別 when 効果を再発火 (effects.py:fire_self_effect)。 再帰は深度 2 で打ち切り (Python 準拠)。
-        // source は src (場のカード) か current_source_card_id (source-gone 経路)。 cost は払わない。
-        "fire_self_effect" => {
-            let when_kind = if v.is_object() {
-                v.get("when_kind").and_then(|x| x.as_str()).unwrap_or("main").to_string()
-            } else {
-                v.as_str().unwrap_or("main").to_string()
-            };
-            let src_cid = src_ip(&state.players[me_idx], src)
-                .map(|ip| ip.card.card_id.clone())
-                .or_else(|| state.current_source_card_id.clone());
-            let Some(cid) = src_cid else { return true };
-            let depth = FIRE_SELF_DEPTH.load(std::sync::atomic::Ordering::Relaxed);
-            if depth >= 2 {
-                return true; // 再帰深度上限 = Python も skip (no-op)
-            }
-            let Some(ov) = overlay() else { return true };
-            let Some(effs) = ov.get(&cid).cloned() else { return true };
-            FIRE_SELF_DEPTH.store(depth + 1, std::sync::atomic::Ordering::Relaxed);
-            let mut ok = true;
-            for eff in &effs {
-                if eff.get("when").and_then(|x| x.as_str()) != Some(when_kind.as_str()) {
-                    continue;
-                }
-                match eval_effect_conditions(eff, state, me_idx, Some(src)) {
-                    Some(true) => {}
-                    Some(false) => continue,
-                    None => { ok = false; break; }
-                }
-                let Some(dos) = eff.get("do").and_then(|x| x.as_array()) else { continue };
-                for prim in dos {
-                    if !execute_effect(prim, state, me_idx, src) {
-                        ok = false;
-                        break;
-                    }
-                }
-                if !ok {
-                    break;
-                }
-            }
-            FIRE_SELF_DEPTH.store(depth, std::sync::atomic::Ordering::Relaxed);
-            ok
         }
         // 自キャラを持ち主のライフへ (effects.py:chara_to_self_life、 KO ではないので KO時トリガー無し)。
         // AI は top 既定。 ⚠ 付与ドンは **active** へ戻す (Python 準拠、 他の離場と非対称)。
@@ -3237,7 +3025,19 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 v.as_str().unwrap_or("main")
             }
             .to_string();
-            let Some(cid) = state.current_source_card_id.clone() else { return true };
+            // source は「場に居る発動元」優先、 無ければ current_source_card_id (source-gone 経路)。
+            // Python (effects.py:fire_self_effect) も self_inplay → current_source_card_id の順。
+            let cid_opt = src_ip(&state.players[me_idx], src)
+                .map(|ip| ip.card.card_id.clone())
+                .or_else(|| state.current_source_card_id.clone());
+            let Some(cid) = cid_opt else { return true };
+            // 再帰は深度 2 で打ち切り (Python の state._fire_self_depth 相当)
+            let depth = FIRE_SELF_DEPTH.load(std::sync::atomic::Ordering::Relaxed);
+            if depth >= 2 {
+                return true;
+            }
+            FIRE_SELF_DEPTH.store(depth + 1, std::sync::atomic::Ordering::Relaxed);
+            let _guard = FireSelfGuard(depth);
             let effs: Vec<Value> = match overlay().and_then(|ov| ov.get(&cid)) {
                 Some(e) => e.clone(),
                 None => return true,
