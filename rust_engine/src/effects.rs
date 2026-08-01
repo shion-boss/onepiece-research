@@ -2264,8 +2264,10 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             let place_bottom = v.get("place").and_then(|x| x.as_str()) == Some("bottom");
             let face_up = v.get("face_up").and_then(|x| x.as_bool()).unwrap_or(false);
             let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else { return false };
+            // ⚠ 対象 0 枚は「忠実に再現した結果 何も起きない」= true。 Python の return False は
+            //   caller (do-loop / optional_cost_then) が無視するので、 false にすると bail に化ける。
             if targets.is_empty() {
-                return false; // Python も return False
+                return true;
             }
             if me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect") {
                 return false; // leave cascade 再現不能 → bail
@@ -2387,6 +2389,131 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             let spec = json!({"when_kind": "main"});
             execute_effect(&json!({"fire_self_effect": spec}), state, me_idx, src)
         }
+        // 自分のトラッシュから filter 一致 N 枚をデッキへ (effects.py:trash_to_deck)。
+        // spec {filter, limit, to: top|bottom, shuffle}。 該当 0 枚は不発 (何も起きない = true)。
+        "trash_to_deck" => {
+            let filt = v.get("filter");
+            let limit = v.get("limit").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+            let to_top = v.get("to").and_then(|x| x.as_str()) == Some("top");
+            let do_shuffle = v.get("shuffle").and_then(|x| x.as_bool()).unwrap_or(false);
+            let mut picked: Vec<crate::state::CardDef> = vec![];
+            let mut rest: Vec<crate::state::CardDef> = vec![];
+            for card in std::mem::take(&mut state.players[me_idx].trash) {
+                if picked.len() < limit && matches_filter(&card, filt) {
+                    picked.push(card);
+                } else {
+                    rest.push(card);
+                }
+            }
+            state.players[me_idx].trash = rest;
+            if picked.is_empty() {
+                return true; // 公式 4-10 不発 = 何も起きない (再現できている)
+            }
+            if to_top {
+                let mut d = picked;
+                d.extend(std::mem::take(&mut state.players[me_idx].deck));
+                state.players[me_idx].deck = d;
+            } else {
+                state.players[me_idx].deck.extend(picked);
+            }
+            if do_shuffle {
+                let n = state.players[me_idx].deck.len();
+                let perm = state.rng_mut().shuffle_perm(n);
+                let old = std::mem::take(&mut state.players[me_idx].deck);
+                state.players[me_idx].deck = perm.iter().map(|&j| old[j].clone()).collect();
+            }
+            true
+        }
+        // 自分の (filter) キャラを N 枚 KO (effects.py:ko_self_chara)。 犠牲順 = power 昇順。
+        // ⚠ KO cascade が絡む盤面は再現不能で bail。
+        "ko_self_chara" => {
+            let count = if v.is_object() {
+                v.get("count").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            } as usize;
+            let filt = v.get("filter");
+            let excl = v.get("exclude_self").and_then(|x| x.as_bool()).unwrap_or(false);
+            let src_idx = if let Slot::Char(i) = src { Some(i) } else { None };
+            let mut cands: Vec<usize> = (0..state.players[me_idx].characters.len())
+                .filter(|&i| {
+                    matches_filter(&state.players[me_idx].characters[i].card, filt)
+                        && !(excl && Some(i) == src_idx)
+                })
+                .collect();
+            cands.sort_by_key(|&i| state.players[me_idx].characters[i].power());
+            let victims: Vec<(usize, usize)> =
+                cands.into_iter().take(count).map(|i| (me_idx, i)).collect();
+            if victims.is_empty() {
+                return true;
+            }
+            if me_board_has_when(state, me_idx, "on_self_chara_ko")
+                || me_board_has_when(state, opp_idx, "on_opp_chara_ko")
+                || me_board_has_when(state, me_idx, "on_ko")
+                || me_board_has_when(state, me_idx, "replace_ko")
+                || me_board_has_when(state, me_idx, "replace_leave")
+            {
+                return false; // KO cascade 再現不能 → bail
+            }
+            remove_victims(state, victims, RemoveDest::Trash);
+            true
+        }
+        // 「このターン中、 バトルで KO されない」 (effects.py:set_battle_ko_immune)。
+        "set_battle_ko_immune" => {
+            let tspec = if v.is_object() {
+                v.get("target").cloned().unwrap_or(Value::String("self".into()))
+            } else {
+                v.clone()
+            };
+            let duration = v.get("duration").and_then(|x| x.as_str()).unwrap_or("turn").to_string();
+            let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else { return false };
+            for (pi, sl) in targets {
+                let ip = get_ip_mut(&mut state.players[pi], sl);
+                match duration.as_str() {
+                    "static" => ip.battle_ko_immune_static = true,
+                    "next_self_turn_start" | "next_opp_turn_end" => {
+                        ip.battle_ko_immune_through_opp_turn = true
+                    }
+                    _ => ip.battle_ko_immune_until_turn_end = true,
+                }
+            }
+            true
+        }
+        // 自分の (filter) カード N 枚をレスト (effects.py:rest_self_cards_filtered)。
+        // active 候補が count 未満なら不発 (何も起きない = true)。 AI は power 昇順で選ぶ。
+        "rest_self_cards_filtered" => {
+            let count = if v.is_object() {
+                v.get("count").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            } as usize;
+            let filt = v.get("filter");
+            let mut cands: Vec<(Slot, i32)> = vec![];
+            {
+                let me = &state.players[me_idx];
+                if !me.leader.rested && matches_filter(&me.leader.card, filt) {
+                    cands.push((Slot::Leader, me.leader.power()));
+                }
+                for (i, c) in me.characters.iter().enumerate() {
+                    if !c.rested && matches_filter(&c.card, filt) {
+                        cands.push((Slot::Char(i), c.power()));
+                    }
+                }
+                for (i, st) in me.stages.iter().enumerate() {
+                    if !st.rested && matches_filter(&st.card, filt) {
+                        cands.push((Slot::Stage(i), st.power()));
+                    }
+                }
+            }
+            if cands.len() < count {
+                return true; // active 不足 = 不発 (再現できている)
+            }
+            cands.sort_by_key(|&(_, p)| p);
+            for (sl, _) in cands.into_iter().take(count) {
+                get_ip_mut(&mut state.players[me_idx], sl).rested = true;
+            }
+            true
+        }
         // デッキ上 N 枚を公開し、 filter 一致があれば then、 無ければ else を実行 → 公開分を
         // rest_remain (top/bottom/trash) へ (effects.py:reveal_top_then)。 デッキ空は不発 (false)。
         "reveal_top_then" => {
@@ -2394,7 +2521,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             let filt = v.get("filter");
             let rest_remain = v.get("rest_remain").and_then(|x| x.as_str()).unwrap_or("bottom").to_string();
             if state.players[me_idx].deck.is_empty() {
-                return false;
+                return true; // デッキ空 = 不発 (再現できている)
             }
             let n = depth.min(state.players[me_idx].deck.len());
             let revealed: Vec<crate::state::CardDef> =
@@ -2433,7 +2560,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 state.players[me_idx].deck.is_empty()
             };
             if empty {
-                return false;
+                return true; // 空 = 不発 (再現できている)
             }
             let revealed = if from_life {
                 state.players[me_idx].life.remove(0)
@@ -2481,7 +2608,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 }
             };
             if state.players[target].life.is_empty() {
-                return false;
+                return true; // ライフ空 = 不発 (再現できている)
             }
             let is_self = target == me_idx;
             let n = depth.min(state.players[target].life.len());
