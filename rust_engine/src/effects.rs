@@ -894,6 +894,45 @@ fn resolve_target(
             vec![(me_idx, cands[0].0)]
         }
         "self_leader" => vec![(me_idx, Slot::Leader)],
+        // one_self_character_cost_eq_N (effects.py:2803) = 自分の元コスト N ぴったりのキャラ 1 枚 (power 降順)
+        os if os.starts_with("one_self_character_cost_eq_") => {
+            let n = parse_after(os, "cost_eq_").unwrap_or(-1);
+            let me = &state.players[me_idx];
+            let mut cands: Vec<usize> = (0..me.characters.len())
+                .filter(|&i| me.characters[i].card.cost == n)
+                .collect();
+            cands.sort_by(|&a, &b| me.characters[b].power().cmp(&me.characters[a].power()));
+            cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect()
+        }
+        // any_opp_inplay_n_N (effects.py:2816) = 相手のリーダーかキャラ 合計 N 枚まで。
+        // AI: キャラを power 降順で優先、 N 体未満ならリーダーを補充。
+        os if os.starts_with("any_opp_inplay_n_") => {
+            let n = parse_after(os, "_n_").unwrap_or(1).max(0) as usize;
+            let opp = &state.players[opp_idx];
+            let mut chara: Vec<usize> = (0..opp.characters.len()).collect();
+            chara.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
+            let mut out: Vec<(usize, Slot)> =
+                chara.iter().map(|&i| (opp_idx, Slot::Char(i))).collect();
+            if out.len() < n {
+                out.push((opp_idx, Slot::Leader));
+            }
+            out.truncate(n);
+            out
+        }
+        // one_character_either_cost_le_N = 両陣営のキャラから 元コスト N 以下 1 枚 (相手優先 power 降順)
+        os if os.starts_with("one_character_either_cost_le_") => {
+            let n = parse_after(os, "cost_le_").unwrap_or(0);
+            let mut cands: Vec<(usize, usize, i32)> = vec![];
+            for (pi, pl) in [(opp_idx, &state.players[opp_idx]), (me_idx, &state.players[me_idx])] {
+                for (i, c) in pl.characters.iter().enumerate() {
+                    if c.card.cost <= n {
+                        cands.push((pi, i, c.power()));
+                    }
+                }
+            }
+            cands.sort_by(|a, b| b.2.cmp(&a.2));
+            cands.into_iter().take(1).map(|(pi, i, _)| (pi, Slot::Char(i))).collect()
+        }
         // 「このキャラ以外の自分のリーダーかキャラ 1 枚」 (effects.py:2334、 ST01-005)。
         // 発動元を除外して power 降順 1 枚 (tie は leader→char の board 順 = 安定ソート)。
         "self_team_except_self" => {
@@ -4441,11 +4480,12 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         "search_top_n" => {
             let destination = v.get("destination").and_then(|x| x.as_str()).unwrap_or("hand");
             let rest_remain = v.get("rest_remain").and_then(|x| x.as_str()).unwrap_or("bottom");
-            if destination != "hand"
+            if !matches!(destination, "hand" | "play" | "trash" | "life" | "life_face_up")
                 || !(rest_remain == "bottom" || rest_remain == "trash" || rest_remain == "top_or_bottom")
             {
                 return false;
             }
+            let rested_flag = v.get("rested").and_then(|x| x.as_bool()).unwrap_or(false);
             let rest_to_trash = rest_remain == "trash";
             let rest_top_or_bottom = rest_remain == "top_or_bottom";
             let depth = v.get("depth").and_then(|x| x.as_i64()).unwrap_or(5) as usize;
@@ -4460,18 +4500,66 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             let seen: Vec<crate::state::CardDef> = me.deck.drain(0..d).collect();
             let mut picked = 0;
             let mut remaining: Vec<crate::state::CardDef> = vec![];
+            let mut to_play: Vec<crate::state::CardDef> = vec![];
             for c in seen {
                 if picked < limit && matches_filter(&c, filt) {
                     let cid = c.card_id.clone();
-                    me.hand.push(c);
-                    if public {
-                        me.known_hand_card_ids.push(cid);
+                    match destination {
+                        "play" => to_play.push(c),
+                        "trash" => me.trash.push(c),
+                        "life" | "life_face_up" => {
+                            me.life.insert(0, c);
+                            if destination == "life_face_up" {
+                                me.face_up_life_count =
+                                    (me.face_up_life_count + 1).min(me.life.len() as i32);
+                            }
+                        }
+                        _ => {
+                            me.hand.push(c);
+                            if public {
+                                me.known_hand_card_ids.push(cid);
+                            }
+                        }
                     }
                     picked += 1;
                 } else {
                     remaining.push(c);
                 }
             }
+            // destination="play": CHARACTER は登場 (field-full は最弱 trash / sickness=true)、
+            // STAGE はステージ登場、 それ以外は手札へフォールバック (effects.py:4193)。
+            for c in to_play {
+                match c.category {
+                    crate::state::Category::Stage => {
+                        while state.players[me_idx].stages.len() >= 1 {
+                            let old = state.players[me_idx].stages.pop().unwrap();
+                            let ad = old.attached_dons;
+                            state.players[me_idx].trash.push(old.card);
+                            state.players[me_idx].don_rested += ad;
+                        }
+                        let ip = InPlay::of(c, false);
+                        state.players[me_idx].stages.push(ip);
+                        let pidx = state.players[me_idx].stages.len() - 1;
+                        if execute_stage_on_play(state, me_idx, pidx).is_err() {
+                            return false;
+                        }
+                    }
+                    crate::state::Category::Character => {
+                        trash_weakest_for_field_full(state, me_idx);
+                        let mut ip = InPlay::of(c.clone(), true);
+                        ip.rested = rested_flag;
+                        state.players[me_idx].characters.push(ip);
+                        let pidx = state.players[me_idx].characters.len() - 1;
+                        state.last_self_chara_played_card = Some(c);
+                        state.last_self_chara_played_from_trash = false;
+                        if execute_on_play(state, me_idx, pidx).is_err() {
+                            return false;
+                        }
+                    }
+                    _ => state.players[me_idx].hand.push(c),
+                }
+            }
+            let me = &mut state.players[me_idx];
             // rest_remain="top_or_bottom" (effects.py:4249): 「残りをデッキの上または下に置く」。
             // AI 判断 = 次ターンに払えるコスト (don_active+1 以下) の中で power/1000 + counter/1000 が
             // 最大の 1 枚を **上** へ (= 次ドロー確定)、 残りは下へ。 tie は先に現れた方 (Python は > 比較)。
@@ -6803,7 +6891,9 @@ pub fn execute_one_effect(
     for prim in dos {
         if !execute_effect(prim, state, me_idx, src) {
             let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?");
-            return Err(format!("primitive 未対応/再現不能: {k}"));
+            // 実装済 primitive が spec 変種で落ちるケースを特定できるよう spec も返す (char 境界で truncate)
+            let spec: String = prim.to_string().chars().take(120).collect();
+            return Err(format!("primitive 未対応/再現不能: {k} {spec}"));
         }
     }
     Ok(())
