@@ -2287,6 +2287,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         //   KO 耐性判定は Python の ko_multi と同じ 3 種のみ (ko と違い source power/attribute 耐性は見ない)。
         "ko_multi" => {
             let Some(list) = v.as_array() else { return true }; // Python: 非 list は continue = no-op
+            let mut kom_any = false;
             for spec in list {
                 let tspec: Value = if spec.is_string()
                     || spec.get("type").is_some()
@@ -2315,9 +2316,58 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     }
                     victims.push((pi, idx));
                 }
-                if !victims.is_empty() {
-                    remove_victims(state, victims, RemoveDest::Trash);
+                if victims.is_empty() {
+                    continue;
                 }
+                // cascade (【KO時】/ on_opp_chara_ko / on_self_chara_ko / replace_ko) が絡むかを判定。
+                // 絡まなければ従来通り一括除去、 絡むなら Python と同じ順で 1 体ずつ処理する。
+                let vowner = victims[0].0;
+                let cascade = me_board_has_when(state, me_idx, "on_opp_chara_ko")
+                    || me_board_has_when(state, vowner, "on_self_chara_ko")
+                    || me_board_has_when(state, vowner, "on_ko")
+                    || me_board_has_when(state, vowner, "replace_ko")
+                    || me_board_has_when(state, vowner, "replace_leave");
+                if !cascade {
+                    remove_victims(state, victims, RemoveDest::Trash);
+                    kom_any = true;
+                    continue;
+                }
+                // ⚠ 複数 victim × cascade は除去順で index が動き Python の object 参照と対応が取れない
+                //   → 単体のみ対応、 複数なら明示 bail (誤対応を作らない)。
+                if victims.len() > 1 {
+                    return false;
+                }
+                let (vpi, vidx) = victims[0];
+                match try_replace_ko(state, vpi, vidx, true, "ko") {
+                    Ok(true) => continue, // 置換発動 = KO 阻止
+                    Ok(false) => {}
+                    Err(_) => return false,
+                }
+                if vidx >= state.players[vpi].characters.len() {
+                    continue;
+                }
+                let removed = state.players[vpi].characters.remove(vidx);
+                let cid = removed.card.card_id.clone();
+                let don = removed.attached_dons;
+                state.players[vpi].trash.push(removed.card);
+                state.players[vpi].don_rested += don;
+                kom_any = true;
+                // Python 順: on_ko (victim 側 source-gone) → on_opp_chara_ko (me) → on_self_chara_ko (victim 側)
+                if fire_on_ko(state, vpi, &cid).is_err() {
+                    return false;
+                }
+                if fire_field_when(state, me_idx, "on_opp_chara_ko").is_err() {
+                    return false;
+                }
+                if fire_field_when(state, vpi, "on_self_chara_ko").is_err() {
+                    return false;
+                }
+            }
+            // 1 体でも KO したら最後に 1 回だけ (effects.py:ko_multi 末尾)
+            if kom_any && me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect")
+                && fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err()
+            {
+                return false;
             }
             true
         }
@@ -3827,18 +3877,29 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     Some(false) => continue,
                     None => {
                         note_unknown_key("fse", "条件 unknown");
+                        note_prim_err("fire_self_effect: 内側 条件 unknown");
                         return false;
                     }
                 }
                 if let Some(dos) = eff.get("do").and_then(|d| d.as_array()) {
                     if effect_cascade_blocked(dos, state, me_idx) {
-                        note_unknown_key("fse", "cascade");
+                        let bk = dos
+                            .iter()
+                            .find(|d| effect_cascade_blocked(std::slice::from_ref(d), state, me_idx))
+                            .and_then(|d| d.as_object())
+                            .and_then(|o| o.keys().next())
+                            .map(|x| x.as_str())
+                            .unwrap_or("?")
+                            .to_string();
+                        note_unknown_key("fse", &format!("cascade:{bk}"));
+                        note_prim_err(&format!("fire_self_effect: 内側 cascade {bk}"));
                         return false;
                     }
                     for prim in dos {
                         if !execute_effect(prim, state, me_idx, src) {
                             let pk = prim.as_object().and_then(|o| o.keys().next()).map(|x| x.as_str()).unwrap_or("?");
                             note_unknown_key("fse", pk);
+                            note_prim_err(&format!("fire_self_effect: 内側 prim {pk}"));
                             return false;
                         }
                     }
@@ -5313,7 +5374,8 @@ fn effect_cascade_blocked(dos: &[Value], state: &GameState, me_idx: usize) -> bo
         let blocked = match key {
             "draw" => has(me_idx, "on_self_draw_non_draw_phase"),
             // ko (single) は prim 側で cascade を自前処理 (single victim) or 内部 bail → ここでは block しない。
-            "ko_multi" | "ko_all_others" => {
+            // ko_multi は prim 側で cascade を自前処理 (single victim) or 明示 bail するので block しない。
+            "ko_all_others" => {
                 has(me_idx, "on_opp_chara_ko")
                     || has(opp, "on_self_chara_ko")
                     || has(opp, "on_ko")
@@ -6065,13 +6127,10 @@ pub fn fire_life_trigger(
     let Some(ov) = overlay() else { return Ok(false) };
     let Some(effs) = ov.get(card_id) else { return Ok(false) };
     crate::selfplay::note_fired(card_id);
-    // cascade guard (trigger 発火に伴う 2 系トリガー = 未実装)
-    if me_board_has_when(state, attacker_idx, "opp_event_or_trigger_fired") {
-        return Err("life trigger cascade (opp_event_or_trigger_fired) 未対応".into());
-    }
-    if me_board_has_when(state, defender_idx, "on_self_trigger_fired") {
-        return Err("life trigger cascade (on_self_trigger_fired) 未対応".into());
-    }
+    // ⚠ 2 系トリガー (attacker の【相手がイベント/トリガーを発動した時】、 defender の
+    //   【自分のトリガーが発動した時】) は Python では trigger 本体の後に enqueue され FIFO で drain
+    //   される (effects.py:trigger_lifecard_trigger)。 → 本体発火後に同じ順で inline 発火する
+    //   (以前はここで一律 bail していた)。
     // play_self が発動元カードを特定できるよう source cid を立てる (effects.py:297)。 action 境界では
     // 常に None なので Ok 直前で戻す (Err 時は apply_action が state 破棄で無害)。
     state.current_source_card_id = Some(card_id.to_string());
@@ -6136,6 +6195,10 @@ pub fn fire_life_trigger(
         }
     }
     state.current_source_card_id = None; // action 境界では None に戻す
+    // Python の enqueue 順: ① trigger 本体 → ② attacker の opp_event_or_trigger_fired
+    //   → ③ defender の on_self_trigger_fired。 FIFO drain なのでこの順で発火する。
+    fire_field_when(state, attacker_idx, "opp_event_or_trigger_fired")?;
+    fire_field_when(state, defender_idx, "on_self_trigger_fired")?;
     Ok(kept_in_hand)
 }
 
