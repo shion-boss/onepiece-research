@@ -1578,10 +1578,63 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
         }
         // return_self_to_deck_bottom cost = 自身が場 (キャラ or ステージ) に居る必要 (effects.py:8394)。
         "return_self_to_deck_bottom" => Some(matches!(src, Slot::Char(_) | Slot::Stage(_))),
-        // ⚠ Python は can_pay=True から始め、 **既知キーだけが False にできる** (effects.py:8340)。
-        //   未知キーは「払える」扱いで、 支払いは execute_effect に委譲される。 Rust もこれに合わせる
-        //   (以前は未知キーを一律 bail していたため mill_self_top / trash_to_deck / ko_self_chara 等
-        //    実装済 primitive の optional cost が全部落ちていた)。 primitive 未実装なら支払い側で bail。
+        // Python が payability を判定するキー (effects.py:8340 以降の elif 連鎖)。 ここに載っている
+        // キーは **Rust も同じ判定をしないと「Python は払えないのに Rust は払う」divergence** になる。
+        // ⚠ 以前ここを「未知キーは払える」既定にしたが、 それだと下記キーで判定が食い違う。
+        "chara_to_self_life" => {
+            let filt = cv.get("target").and_then(|t| t.get("filter"));
+            Some(me.characters.iter().any(|c| matches_filter(&c.card, filt)))
+        }
+        "ko_self_chara" => {
+            let (n, filt, excl) = if cv.is_object() {
+                (cv.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize,
+                 cv.get("filter"),
+                 cv.get("exclude_self").and_then(|x| x.as_bool()).unwrap_or(false))
+            } else {
+                (cv.as_i64().unwrap_or(1) as usize, None, false)
+            };
+            let src_idx = if let Slot::Char(i) = src { Some(i) } else { None };
+            let cnt = (0..me.characters.len())
+                .filter(|&i| matches_filter(&me.characters[i].card, filt) && !(excl && Some(i) == src_idx))
+                .count();
+            Some(cnt >= n)
+        }
+        "trash_to_deck" => {
+            let (limit, filt) = if cv.is_object() {
+                (cv.get("limit").and_then(|x| x.as_i64()).unwrap_or(1) as usize, cv.get("filter"))
+            } else {
+                (cv.as_i64().unwrap_or(1) as usize, None)
+            };
+            Some(me.trash.iter().filter(|c| matches_filter(c, filt)).count() >= limit)
+        }
+        "return_self_chara_to_deck_bottom" => {
+            let (n, filt) = if cv.is_object() {
+                (cv.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize, cv.get("filter"))
+            } else {
+                (cv.as_i64().unwrap_or(1) as usize, None)
+            };
+            Some(me.characters.iter().filter(|c| matches_filter(&c.card, filt)).count() >= n)
+        }
+        "stage_to_deck_bottom" => {
+            let n = if cv.is_object() {
+                cv.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize
+            } else {
+                cv.as_i64().unwrap_or(1) as usize
+            };
+            Some(me.stages.len() >= n)
+        }
+        "attach_opp_don_to_opp_chara" => {
+            let (n, from_cost) = if cv.is_object() {
+                (cv.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as i32,
+                 cv.get("from_cost_area").and_then(|x| x.as_bool()).unwrap_or(false))
+            } else {
+                (cv.as_i64().unwrap_or(1) as i32, false)
+            };
+            let opp = &state.players[1 - me_idx];
+            let avail = opp.don_rested + if from_cost { opp.don_active } else { 0 };
+            Some(!opp.characters.is_empty() && avail >= n)
+        }
+        // ここに無いキーは Python も payability を見ていない = 「払える」扱いで primitive に委譲。
         _ => {
             note_unknown_key("optional_cost", k);
             Some(true)
@@ -4596,12 +4649,15 @@ pub fn execute_card_effects(
                 return Err(format!("{when} cascade 未対応 ({card_id})"));
             }
             let src_cid: Option<String> = src_ip(&state.players[me_idx], src).map(|ip| ip.card.card_id.clone());
-            for prim in dos {
+            let last = dos.len().saturating_sub(1);
+            for (pi_, prim) in dos.iter().enumerate() {
                 if !execute_effect(prim, state, me_idx, src) {
                     let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?");
                     return Err(format!("{when} primitive 未対応: {k} ({card_id})"));
                 }
-                if src_shifted(state, me_idx, src, src_cid.as_ref()) {
+                // ⚠ 検査は「この後もう一度 src を使う」時だけ。 最終 prim の後は誰も src を参照しない
+                //   ので、 そこで bail すると正しく処理できたケースまで落としてしまう (過剰 bail)。
+                if pi_ < last && src_shifted(state, me_idx, src, src_cid.as_ref()) {
                     return Err(format!("{when}: do 実行中に src が移動 (Rust は index 解決) ({card_id})"));
                 }
             }
@@ -6302,12 +6358,14 @@ pub fn fire_activate_main(
     //   (trash には CardDef しか残らない) ので、 Slot::Detached (= target "self" は 0 対象) と等価。
     let do_src = if source_gone { Slot::Detached } else { src };
     let src_cid: Option<String> = src_ip(&state.players[me_idx], do_src).map(|ip| ip.card.card_id.clone());
-    for prim in &dos {
+    let last = dos.len().saturating_sub(1);
+    for (pi_, prim) in dos.iter().enumerate() {
         if !execute_effect(prim, state, me_idx, do_src) {
             let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?");
             return Err(format!("activate_main primitive 未対応: {k} ({card_id})"));
         }
-        if src_shifted(state, me_idx, do_src, src_cid.as_ref()) {
+        // 最終 prim の後は src を参照しないので検査不要 (過剰 bail 回避)
+        if pi_ < last && src_shifted(state, me_idx, do_src, src_cid.as_ref()) {
             return Err(format!("activate_main: do 実行中に src が移動 (Rust は index 解決) ({card_id})"));
         }
     }
