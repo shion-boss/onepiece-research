@@ -3764,14 +3764,20 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 match eval_effect_conditions(eff, state, me_idx, Some(src)) {
                     Some(true) => {}
                     Some(false) => continue,
-                    None => return false,
+                    None => {
+                        note_unknown_key("fse", "条件 unknown");
+                        return false;
+                    }
                 }
                 if let Some(dos) = eff.get("do").and_then(|d| d.as_array()) {
                     if effect_cascade_blocked(dos, state, me_idx) {
+                        note_unknown_key("fse", "cascade");
                         return false;
                     }
                     for prim in dos {
                         if !execute_effect(prim, state, me_idx, src) {
+                            let pk = prim.as_object().and_then(|o| o.keys().next()).map(|x| x.as_str()).unwrap_or("?");
+                            note_unknown_key("fse", pk);
                             return false;
                         }
                     }
@@ -5534,6 +5540,16 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "rest_opp_don" | "give_attack_active_chara"
             // return_to_hand = prim 側で leave cascade を自前判定 or bail するので安全。
             | "return_to_hand"
+            // 以下も prim 側で cascade を自前判定 or 明示 bail する (= 黙って発火漏れにしない)。
+            | "return_to_deck_bottom" | "return_to_deck_bottom_multi" | "return_to_hand_multi"
+            | "reveal_top_play" | "reveal_life_top_play" | "reveal_top_then"
+            | "trash_to_hand" | "trash_to_deck" | "to_opp_life" | "return_opp_don"
+            | "chara_to_trash" | "chara_to_self_life" | "scry_life" | "scry_all_life_one_to_deck"
+            | "mill_self_life_until_n" | "set_base_cost_timed" | "give_ko_immune_through_opp_turn"
+            | "to_hand_self_trigger" | "rest_multi" | "ko_total_power_le" | "ko_multi"
+            | "opp_hand_to_deck_bottom" | "opp_hand_to_deck_then_draw" | "extra_turn"
+            | "disable_blocker" | "disable_opp_on_play_through_opp_turn" | "set_battle_ko_immune"
+            | "rest_self_cards_filtered" | "ko_self_chara" | "fire_self_main"
             // negate_effect = granted_keywords に "効果無効" を足すだけ (cascade 無)。
             | "negate_effect"
             // ko = prim 側で cascade を自前処理 (single/multi victim) or 内部 bail するので安全。
