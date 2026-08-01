@@ -268,6 +268,47 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             "self_don_rested_ge" => me.don_rested as i64 >= v.as_i64().unwrap_or(0),
             // --- 掃引 2 巡目で上位に出た述語 (2026-07-31) ---
             "self_chara_count_le" => (me.characters.len() as i64) <= v.as_i64().unwrap_or(0),
+            // --- 掃引 4 巡目の述語 (2026-08-01) ---
+            "self_leader_attached_don_ge" => me.leader.attached_dons as i64 >= v.as_i64().unwrap_or(0),
+            "leader_power_ge" => me.leader.power() as i64 >= v.as_i64().unwrap_or(0),
+            "total_life_ge" => (me.life.len() + opp.life.len()) as i64 >= v.as_i64().unwrap_or(0),
+            // 相手の場に 現在コスト N 以下 / 現在パワー N 以上 のキャラが居るか
+            "exists_opp_chara_cost_le" => {
+                let n = v.as_i64().unwrap_or(0);
+                opp.characters.iter().any(|c| c.base_cost() as i64 <= n)
+            }
+            "exists_opp_chara_power_ge" => {
+                let n = v.as_i64().unwrap_or(0);
+                opp.characters.iter().any(|c| c.power() as i64 >= n)
+            }
+            // 自分の場のドン (コストエリア) が 0 か 8 以上 (ST10-002 ルフィ)
+            "self_field_don_zero_or_ge_8" => {
+                let fd = me.don_active + me.don_rested;
+                fd == 0 || fd >= 8
+            }
+            // 自場 (リーダー+キャラ) に指定名が全て居るか。 power_eq 指定時は元々パワー一致に限定。
+            // ⚠ overlay の names は未正規化なので normalize_card_name を通す (全角Ｄ→D)。
+            "self_field_named_all_with_power" => {
+                let names: Vec<String> = v
+                    .get("names")
+                    .and_then(|x| x.as_array())
+                    .map(|a| a.iter().filter_map(|x| x.as_str()).map(norm_card_name).collect())
+                    .unwrap_or_default();
+                let power_eq = v.get("power_eq").and_then(|x| x.as_i64());
+                names.iter().all(|nm| {
+                    std::iter::once(&me.leader).chain(me.characters.iter()).any(|c| {
+                        norm_card_name(&c.card.name) == *nm
+                            && power_eq.map_or(true, |p| c.card.power as i64 == p)
+                    })
+                })
+            }
+            // アタックしてきた相手キャラの属性 (effects.py:opp_attacker_attribute、 OP11-088 シュウ)。
+            // Python は current_attacker_iid → InPlay を引くが、 Rust は iid が無いので
+            // 解決中に立てた current_attacker_attribute (transient) を見る。
+            "opp_attacker_attribute" => match &state.current_attacker_attribute {
+                Some(attr) => attr.contains(v.as_str().unwrap_or("")),
+                None => return None, // 属性不明 = 判定不能 (誤判定を作らない)
+            },
             // --- 掃引 3 巡目の述語 (2026-07-31) ---
             "self_trash_has_named_all" => {
                 let names: Vec<&str> = v.as_array().map_or_else(

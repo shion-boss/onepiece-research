@@ -654,6 +654,11 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 .and_then(|b| if b.is_null() { None } else { b.get("idx").and_then(|v| v.as_i64()) })
                 .map(|i| i as usize)
                 .and_then(|bi| state.players[opp].characters.get(bi).map(|c| (bi, c.card.card_id.clone())));
+            // opp_attack 条件 (opp_attacker_attribute) 用に attacker 属性を transient で公開
+            state.current_attacker_attribute = Some({
+                let a = if is_leader { &state.players[me].leader } else { &state.players[me].characters[atk_idx] };
+                a.card.attribute.clone()
+            });
             crate::effects::fire_opp_attack(state, opp, "opp_attack", ap, atk_cost, dp)?;
             let dp2 = state.players[opp].leader.power();
             crate::effects::fire_opp_attack(state, opp, "opp_attack_on_leader", ap, atk_cost, dp2)?;

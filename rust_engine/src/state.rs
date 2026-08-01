@@ -468,6 +468,10 @@ pub struct GameState {
     // source-gone 効果が「発動元カード」を特定するのに使う。
     #[serde(skip)]
     pub current_source_card_id: Option<String>,
+    // アタック解決中だけ立つ transient。 opp_attack 系の条件 (opp_attacker_attribute) が参照する。
+    // Python は current_attacker_iid から InPlay を引くが、 Rust は iid が無いので属性を直接持つ。
+    #[serde(skip)]
+    pub current_attacker_attribute: Option<String>,
     // rng: full_dump の _rng_state (MT getstate keys 625) を入力として受け、 rng 依存 effect で消費。
     // digest には含めない (Python state_digest は rng 非依存) = skip_serializing。 live は lazy init。
     #[serde(rename = "_rng_state", default, skip_serializing)]
