@@ -1971,6 +1971,23 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
                 me.trash.push(c);
             }
         }
+        // 相手キャラに相手のドンを付与する cost (effects.py:attach_opp_don_to_opp_chara)。
+        // = attach_rested_don の to_opp 版に委譲する。
+        "attach_opp_don_to_opp_chara" => {
+            let n = if cv.is_object() {
+                cv.get("count").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                cv.as_i64().unwrap_or(1)
+            };
+            let from_cost = cv.get("from_cost_area").and_then(|x| x.as_bool()).unwrap_or(false);
+            let prim = json!({"attach_rested_don": {
+                "target": "one_opponent_character_any", "count": n,
+                "to_opp": true, "from_cost_area": from_cost
+            }});
+            if !execute_effect(&prim, state, me_idx, src) {
+                return None;
+            }
+        }
         // 上記以外の cost は対応する primitive にそのまま委譲する (Python effects.py:8659 の汎用パス)。
         // 未実装 primitive なら execute_effect が false を返し、 呼出側が bail する = 黙って無視しない。
         _ => {
@@ -2715,6 +2732,45 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             while state.players[me_idx].life.len() > target {
                 let c = state.players[me_idx].life.remove(0);
                 state.players[me_idx].trash.push(c);
+            }
+            true
+        }
+        // 「次の相手ターン終了時まで相手の【登場時】効果を無効」(effects.py、 OP09-081 ティーチ)。
+        "disable_opp_on_play_through_opp_turn" => {
+            state.players[opp_idx].opp_on_play_disabled_through_opp_turn = true;
+            true
+        }
+        // 「相手は自身の手札から (cost_le) キャラ N 枚までを登場させる」(effects.py:force_opp_play_from_hand)。
+        // AI/人間とも最善は「出す」なので power 降順に count 体。 ⚠ require_prior_bounce は
+        // 直前 bounce の成否 (Python の transient) が Rust に無いので bail (誤発火を作らない)。
+        "force_opp_play_from_hand" => {
+            if v.get("require_prior_bounce").and_then(|x| x.as_bool()).unwrap_or(false) {
+                return false;
+            }
+            let cost_le = v.get("cost_le").and_then(|x| x.as_i64());
+            let count = v.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+            let mut cands: Vec<usize> = (0..state.players[opp_idx].hand.len())
+                .filter(|&i| {
+                    let c = &state.players[opp_idx].hand[i];
+                    c.category == crate::state::Category::Character
+                        && cost_le.map_or(true, |n| c.cost as i64 <= n)
+                })
+                .collect();
+            cands.sort_by(|&a, &b| {
+                state.players[opp_idx].hand[b].power.cmp(&state.players[opp_idx].hand[a].power)
+            });
+            let mut picked: Vec<usize> = vec![];
+            for &i in cands.iter() {
+                if picked.len() >= count || state.players[opp_idx].characters.len() >= 5 {
+                    break;
+                }
+                let card = state.players[opp_idx].hand[i].clone();
+                state.players[opp_idx].characters.push(InPlay::of(card, true));
+                picked.push(i);
+            }
+            picked.sort_unstable();
+            for i in picked.into_iter().rev() {
+                state.players[opp_idx].hand.remove(i);
             }
             true
         }
