@@ -3130,6 +3130,55 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 自分の手札 N 枚をデッキの上に置く (effects.py:6634、 ST17-001/ST22-001)。
+        // Python は self_hand_to_deck_bottom(to="top") に委譲する。
+        "discard_self_to_deck_top" => {
+            let n = if v.is_object() {
+                v.get("count").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            };
+            if state.players[me_idx].hand.is_empty() {
+                return true; // Python は return False = 後続を止めない no-op
+            }
+            let prim = json!({"self_hand_to_deck_bottom": {"amount": n, "to": "top"}});
+            return execute_effect(&prim, state, me_idx, src);
+        }
+        // 「A するか B する」 (effects.py:9062)。 AI heuristic: life_count なら 自ライフ≤1 で option 1、
+        // それ以外は option 0 (公式テキスト先頭)。
+        "choice" => {
+            let (options, heuristic) = if v.is_object() {
+                (
+                    v.get("options").and_then(|x| x.as_array()).cloned().unwrap_or_default(),
+                    // Python の既定は "life_count" (effects.py:9091 spec_val.get(..., "life_count"))
+                    v.get("heuristic").and_then(|x| x.as_str()).unwrap_or("life_count").to_string(),
+                )
+            } else {
+                (v.as_array().cloned().unwrap_or_default(), "life_count".to_string())
+            };
+            if options.is_empty() {
+                return true;
+            }
+            let mut idx = 0usize;
+            if heuristic == "life_count" && state.players[me_idx].life.len() <= 1 && options.len() >= 2 {
+                idx = 1;
+            }
+            // chosen は do リスト or {"do": [...]} のどちらも許容 (Python 同様)。
+            let chosen = &options[idx];
+            let inner: Vec<Value> = if let Some(d) = chosen.get("do").and_then(|x| x.as_array()) {
+                d.clone()
+            } else if let Some(a) = chosen.as_array() {
+                a.clone()
+            } else {
+                vec![chosen.clone()]
+            };
+            for sub in &inner {
+                if !execute_effect(sub, state, me_idx, src) {
+                    return false;
+                }
+            }
+            true
+        }
         "other_self_charas_to_deck_bottom" => {
             if me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect") {
                 return false; // leave cascade 再現不能 → bail
@@ -6546,7 +6595,8 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "return_attached_don_to_cost_rested" | "swap_base_power_self_leader_chara"
             | "declare_cost_reveal_then" | "self_hand_to_deck_bottom" | "choice_effect"
             | "play_from_hand_or_trash" | "play_from_hand_named_with_dynamic_cost"
-            | "power_pump_multi" | "trash_all_self_chara" | "untap_chara"
+            | "power_pump_multi" | "trash_all_self_chara" | "untap_chara" | "choice"
+            | "discard_self_to_deck_top"
     )
 }
 
@@ -6824,6 +6874,7 @@ pub fn try_replace_ko(
             // (payability check) に対応、 他 (pay_don/life 等) は bail。 do は cascade 無し・非victim参照の safe のみ。
             let mut has_once = false;
             let mut discard_filter: Option<Value> = None;
+            let mut rest_ls: Option<Value> = None;
             if let Some(cost) = eff.get("cost") {
                 let entries: Vec<&Value> = match cost {
                     Value::Array(a) => a.iter().collect(),
@@ -6836,7 +6887,12 @@ pub fn try_replace_ko(
                             match k.as_str() {
                                 "once_per_turn" => has_once = true,
                                 "discard_hand_with_filter" => discard_filter = Some(val.clone()),
-                                _ => return Err(format!("replace cost 未対応 ({hcid})")),
+                                // 「自分の (filter) リーダーかステージ N 枚をレストにできる」
+                                // (effects.py:8586/12664、 OP04-082 コロシアム等)。
+                                "rest_self_leader_or_stage_filtered" => {
+                                    rest_ls = Some(val.clone())
+                                }
+                                _ => return Err(format!("replace cost 未対応 ({hcid}:{k})")),
                             }
                         }
                     }
@@ -6861,6 +6917,23 @@ pub fn try_replace_ko(
             } else {
                 None
             };
+            // rest_self_leader_or_stage_filtered の payability: leader + stages のアクティブ かつ
+            // filter 一致が N 枚以上 (effects.py:8593)。 足りなければ置換不発 → 通常 KO。
+            if let Some(rl) = &rest_ls {
+                let (filt, n) = if rl.is_object() {
+                    (rl.get("filter").cloned(), rl.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize)
+                } else {
+                    (None, rl.as_i64().unwrap_or(1) as usize)
+                };
+                let pl = &state.players[victim_owner];
+                let avail = std::iter::once(&pl.leader)
+                    .chain(pl.stages.iter())
+                    .filter(|ip| !ip.rested && matches_filter(&ip.card, filt.as_ref()))
+                    .count();
+                if avail < n {
+                    continue;
+                }
+            }
             let dos: Vec<Value> =
                 eff.get("do").and_then(|v| v.as_array()).cloned().unwrap_or_default();
             for prim in &dos {
@@ -6884,6 +6957,23 @@ pub fn try_replace_ko(
                     && me_board_has_when(state, victim_owner, "on_self_chara_leave_by_self_effect")
                 {
                     return Err("replace do return_to_deck_bottom cascade 未対応".into());
+                }
+            }
+            // rest_self_leader_or_stage_filtered 支払い (effects.py:12664)。 ⚠ ステージ優先で rest
+            // (リーダー温存)、 1 枚のみ (Python は break)。
+            if let Some(rl) = &rest_ls {
+                let filt = if rl.is_object() { rl.get("filter").cloned() } else { None };
+                let pl = &mut state.players[victim_owner];
+                let mut done = false;
+                for ip in pl.stages.iter_mut() {
+                    if !ip.rested && matches_filter(&ip.card, filt.as_ref()) {
+                        ip.rested = true;
+                        done = true;
+                        break;
+                    }
+                }
+                if !done && !pl.leader.rested && matches_filter(&pl.leader.card, filt.as_ref()) {
+                    pl.leader.rested = true;
                 }
             }
             // discard_hand_with_filter cost 支払い (Python _pay_replace_cost、 do 前)。 先頭 cnt 個の matching を
