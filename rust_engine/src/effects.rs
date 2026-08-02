@@ -8190,15 +8190,18 @@ pub fn fire_field_when(state: &mut GameState, owner_idx: usize, when: &str) -> R
     //   Rust は位置 index なので、 効果/コストが盤面を動かすと後続 slot が別カードを指す or 範囲外
     //   (= index out of bounds で panic していた、 EB01-021 の end_of_turn cost で検出)。
     //   一意トークンで各 source を追跡し、 場を離れたものは明示 bail する。
-    let toks: Vec<Option<u64>> = slots.iter().map(|&sl| tag_src(state, owner_idx, sl)).collect();
-    for tok in toks {
+    let toks: Vec<(Option<u64>, String)> = slots
+        .iter()
+        .map(|&sl| {
+            let cid = get_ip(&state.players[owner_idx], sl).card.card_id.clone();
+            (tag_src(state, owner_idx, sl), cid)
+        })
+        .collect();
+    for (tok, cid) in toks {
+        // 先行 source の効果/コストがこの source を場から除いた場合、 Python は場外オブジェクトの
+        // まま処理を続ける (bundle は card_id 引き)。 Rust は Slot::Detached で続行する
+        // (= "self" 対象は 0 件、 場外への変更は digest に現れないので等価)。
         let slot = find_tagged(state, owner_idx, tok);
-        if slot == Slot::Detached {
-            // 先行 source の効果/コストがこの source を場から除いた。 Python は場外オブジェクトで
-            // 処理を続けるので再現不能 → bail (稀)。
-            return Err(format!("{when}: 走査中に source が場を離れた"));
-        }
-        let cid = get_ip(&state.players[owner_idx], slot).card.card_id.clone();
         let Some(effs) = ov.get(&cid) else { continue };
         for (idx, eff) in effs.iter().enumerate() {
             if eff.get("when").and_then(|v| v.as_str()) != Some(when) {
