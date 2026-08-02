@@ -667,31 +667,52 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 state.players[me].characters[atk_idx].card.card_id.clone()
             };
             crate::effects::fire_on_attack(state, me, is_leader, atk_idx)?;
+            // ⭐ Python は attacker を object 参照で保持するので、 on_attack で自身が場を離れても
+            //   そのオブジェクトを読み続けてバトルを解決する。 Rust は fire_gated_do / cost 支払いが
+            //   離場直前のスナップショットを state.rust_detached_src に残すので、 それを使う。
+            let mut atk_gone: Option<InPlay> = None;
             let atk_idx = if is_leader {
                 atk_idx
             } else {
                 match crate::effects::find_tagged(state, me, atk_tok) {
                     crate::effects::Slot::Char(i) => i,
-                    _ => {
-                        crate::effects::note_unknown_key("atk_lost", &atk_cid_dbg);
-                        return Err("attacker が on_attack 中に場を離れた (Rust は index 解決)".into());
-                    }
+                    _ => match state.rust_detached_src.take() {
+                        Some(ip) => {
+                            atk_gone = Some(ip);
+                            usize::MAX
+                        }
+                        None => {
+                            crate::effects::note_unknown_key("atk_lost", &atk_cid_dbg);
+                            return Err(
+                                "attacker が on_attack 中に場を離れた (スナップショット無し)".into(),
+                            );
+                        }
+                    },
                 }
             };
             // target spec "opponent_attacker" (= 防御側から見たアタッカー) 解決用にタグを維持する。
             // Python の state.current_attacker_iid 相当。 action 境界で transient がクリアされる。
-            state.current_attacker_tok = crate::effects::tag_src(
-                state,
-                me,
-                if is_leader { crate::effects::Slot::Leader } else { crate::effects::Slot::Char(atk_idx) },
-            );
+            state.current_attacker_tok = if atk_gone.is_some() {
+                None
+            } else {
+                crate::effects::tag_src(
+                    state,
+                    me,
+                    if is_leader { crate::effects::Slot::Leader } else { crate::effects::Slot::Char(atk_idx) },
+                )
+            };
             // 【相手のアタック時】(opp_attack + on_leader) 発火 (game.py:1476、 defended_target=leader)。
             // AI が発動しない (skip) なら一致、 cost effect fire は Err (防御 EV heuristic 移植済)。
-            let atk_cost = {
-                let a = if is_leader { &state.players[me].leader } else { &state.players[me].characters[atk_idx] };
-                a.card.cost
+            let atk_cost = match &atk_gone {
+                Some(g) => g.card.cost,
+                None if is_leader => state.players[me].leader.card.cost,
+                None => state.players[me].characters[atk_idx].card.cost,
             };
-            let ap = if is_leader { state.players[me].leader.power() } else { state.players[me].characters[atk_idx].power() };
+            let ap = match &atk_gone {
+                Some(g) => g.power(),
+                None if is_leader => state.players[me].leader.power(),
+                None => state.players[me].characters[atk_idx].power(),
+            };
             let dp = state.players[opp].leader.power();
             // ブロッカー idx を opp_attack 発火**前**に捕捉した card_id と対で保持。 Python は blocker_iid で
             // 安定解決 (game.py:1602) するが、 Rust は canonical に iid が無く位置 idx で解決する。 opp_attack の
@@ -724,7 +745,9 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             // ⚠ trigger の途中で attacker 自身が場を離れることがある (自 trash / 相手の除去)。 Python は
             //   attacker を **オブジェクト参照** で保持し離場後も同じ実体で解決を続けるが、 Rust は位置
             //   index なので追跡できない → 明示 bail (以前はここで index out of bounds panic していた)。
-            let attacker: InPlay = if is_leader {
+            let attacker: InPlay = if let Some(g) = &atk_gone {
+                g.clone()
+            } else if is_leader {
                 state.players[me].leader.clone()
             } else {
                 match state.players[me].characters.get(atk_idx) {
@@ -993,31 +1016,52 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 state.players[me].characters[atk_idx].card.card_id.clone()
             };
             crate::effects::fire_on_attack(state, me, is_leader, atk_idx)?;
+            // ⭐ Python は attacker を object 参照で保持するので、 on_attack で自身が場を離れても
+            //   そのオブジェクトを読み続けてバトルを解決する。 Rust は fire_gated_do / cost 支払いが
+            //   離場直前のスナップショットを state.rust_detached_src に残すので、 それを使う。
+            let mut atk_gone: Option<InPlay> = None;
             let atk_idx = if is_leader {
                 atk_idx
             } else {
                 match crate::effects::find_tagged(state, me, atk_tok) {
                     crate::effects::Slot::Char(i) => i,
-                    _ => {
-                        crate::effects::note_unknown_key("atk_lost", &atk_cid_dbg);
-                        return Err("attacker が on_attack 中に場を離れた (Rust は index 解決)".into());
-                    }
+                    _ => match state.rust_detached_src.take() {
+                        Some(ip) => {
+                            atk_gone = Some(ip);
+                            usize::MAX
+                        }
+                        None => {
+                            crate::effects::note_unknown_key("atk_lost", &atk_cid_dbg);
+                            return Err(
+                                "attacker が on_attack 中に場を離れた (スナップショット無し)".into(),
+                            );
+                        }
+                    },
                 }
             };
             // target spec "opponent_attacker" (= 防御側から見たアタッカー) 解決用にタグを維持する。
             // Python の state.current_attacker_iid 相当。 action 境界で transient がクリアされる。
-            state.current_attacker_tok = crate::effects::tag_src(
-                state,
-                me,
-                if is_leader { crate::effects::Slot::Leader } else { crate::effects::Slot::Char(atk_idx) },
-            );
+            state.current_attacker_tok = if atk_gone.is_some() {
+                None
+            } else {
+                crate::effects::tag_src(
+                    state,
+                    me,
+                    if is_leader { crate::effects::Slot::Leader } else { crate::effects::Slot::Char(atk_idx) },
+                )
+            };
             // 【相手のアタック時】(opp_attack + on_chara) 発火 (game.py:1843、 defended_target=対象キャラ)。
             // target 消失時 (= 通常起きない、 fire は bail) は defended_power=0 で扱う。
-            let atk_cost = {
-                let a = if is_leader { &state.players[me].leader } else { &state.players[me].characters[atk_idx] };
-                a.card.cost
+            let atk_cost = match &atk_gone {
+                Some(g) => g.card.cost,
+                None if is_leader => state.players[me].leader.card.cost,
+                None => state.players[me].characters[atk_idx].card.cost,
             };
-            let ap = if is_leader { state.players[me].leader.power() } else { state.players[me].characters[atk_idx].power() };
+            let ap = match &atk_gone {
+                Some(g) => g.power(),
+                None if is_leader => state.players[me].leader.power(),
+                None => state.players[me].characters[atk_idx].power(),
+            };
             let dp = if (tgt_idx as usize) < state.players[opp].characters.len() {
                 state.players[opp].characters[tgt_idx as usize].power()
             } else {
@@ -1037,7 +1081,9 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             }
             // on_attack で power/keyword が変化しうるので再スナップショット。
             // ⚠ AttackLeader 側と同じく、 trigger 中に attacker が場を離れると index が無効 → 明示 bail。
-            let attacker: InPlay = if is_leader {
+            let attacker: InPlay = if let Some(g) = &atk_gone {
+                g.clone()
+            } else if is_leader {
                 state.players[me].leader.clone()
             } else {
                 match state.players[me].characters.get(atk_idx) {

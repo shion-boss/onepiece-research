@@ -6917,12 +6917,22 @@ pub fn fire_on_attack(
         if !can_pay_counter_cost_full(state, me_idx, src, cost) {
             continue;
         }
-        match try_pay_counter_cost(state, me_idx, src, cost)? {
-            true => {}
-            false => continue, // 払えない → 効果不発 (公式 4-10)
+        // cost が発動元自身を場から除く (trash_self / self_ko / return_self_to_hand) ことがある。
+        // 直前スナップショットを残して以降の参照 (アタック解決の power/cost) を成立させる。
+        let snap = src_ip(&state.players[me_idx], src).cloned();
+        let tok = tag_src(state, me_idx, src);
+        let paid = try_pay_counter_cost(state, me_idx, src, cost)?;
+        let after = find_tagged(state, me_idx, tok);
+        if after == Slot::Detached && snap.is_some() {
+            state.rust_detached_src = snap;
+        }
+        if !paid {
+            continue; // 払えない → 効果不発 (公式 4-10)
         }
         if once.and_then(|o| o.as_bool()) == Some(true) {
-            get_ip_mut(&mut state.players[me_idx], src).mark_attack_once(idx as i64);
+            if let Some(ip) = src_ip_mut(&mut state.players[me_idx], after) {
+                ip.mark_attack_once(idx as i64);
+            }
         }
         fired.push(idx);
     }
@@ -6962,15 +6972,34 @@ pub fn fire_gated_do(
             return Err("draw cascade (on_self_draw_non_draw_phase) 未対応".into());
         }
     }
+    // ⚠ do の途中で発動元が場を離れる (自 trash / 自 KO) ことがある。 Python は self_inplay を
+    //   object 参照で保持するので、 離場後もそのオブジェクトを読み続ける。 Rust は位置 index なので
+    //   一意トークンで追い、 見失ったら直前スナップショットを rust_detached_src に残す
+    //   (= 呼出側 (アタック解決等) が power/cost を読める)。
+    let mut cur = src;
+    let mut tok = tag_src(state, me_idx, cur);
     for prim in dos {
-        if !execute_effect(prim, state, me_idx, src) {
+        let snap = src_ip(&state.players[me_idx], cur).cloned();
+        if !execute_effect(prim, state, me_idx, cur) {
+            find_tagged(state, me_idx, tok);
             let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?");
             // 診断用に spec も載せる (どの target/amount 形が未対応かを bail 集計から直に読む為)
             // ⚠ UTF-8 の途中で切ると panic するので char 境界で truncate する
             let spec: String = prim.to_string().chars().take(110).collect();
             return Err(format!("when-effect primitive 再現不能: {k} {spec}"));
         }
+        cur = find_tagged(state, me_idx, tok);
+        if cur == Slot::Detached {
+            // 発動元がこの primitive で場を離れた → 直前スナップショットを残して以降 Detached。
+            if snap.is_some() {
+                state.rust_detached_src = snap;
+            }
+            tok = None;
+        } else {
+            tok = tag_src(state, me_idx, cur);
+        }
     }
+    find_tagged(state, me_idx, tok);
     Ok(())
 }
 

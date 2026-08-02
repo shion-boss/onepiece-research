@@ -503,6 +503,10 @@ pub struct GameState {
     pub rust_event_queue: Vec<crate::effects::PendingTrigger>,
     #[serde(skip)]
     pub rust_resolving: bool,
+    /// 効果解決中に発動元が場を離れた時の直前スナップショット。 Python は self_inplay を
+    /// object 参照で保持し場外でも読めるので、 その代替 (アタッカーの power/cost 参照等)。
+    #[serde(skip)]
+    pub rust_detached_src: Option<InPlay>,
     /// 直前の return_to_hand が実際に 1 枚以上バウンスしたか (effects.py:3970
     /// `last_return_to_hand_success`)。 OP13-119 の「そうした場合」 gate に使う。
     #[serde(skip)]
