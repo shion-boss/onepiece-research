@@ -4030,6 +4030,32 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 「相手の手札 1 枚を公開し、 イベントなら相手ライフ N 枚をデッキ下へ」 (effects.py:6968、 OP01-063)。
+        // AI は rng でランダム 1 枚公開 (Python と同じ MT 列を消費する)。
+        "reveal_opp_hand_and_if_event_mill_life" => {
+            let mill_n = if v.is_object() {
+                v.get("mill_life").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                1
+            };
+            if state.players[opp_idx].hand.is_empty() {
+                return true; // Python は return False = 忠実な no-op
+            }
+            let n = state.players[opp_idx].hand.len() as u64;
+            let idx = state.rng_mut().randrange(n) as usize;
+            let is_event = state.players[opp_idx].hand[idx].category == crate::state::Category::Event;
+            if is_event {
+                for _ in 0..mill_n {
+                    let o = &mut state.players[opp_idx];
+                    if o.life.is_empty() {
+                        break;
+                    }
+                    let c = o.life.remove(0);
+                    o.deck.push(c);
+                }
+            }
+            true
+        }
         // 「A するか B する」 (effects.py:9062)。 AI heuristic: life_count なら 自ライフ≤1 で option 1、
         // それ以外は option 0 (公式テキスト先頭)。
         "choice" => {
@@ -7522,7 +7548,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "set_ko_per_turn_immune" | "bounce_self_chara_then_play_diff_color"
             | "pay_don" | "prevent_blocker_for_attacker_power_le" | "force_opp_draw"
             | "prevent_ko" | "draw_per_self_chara_then_discard"
-            | "prevent_opp_blocker_for_cost_le"
+            | "prevent_opp_blocker_for_cost_le" | "reveal_opp_hand_and_if_event_mill_life"
     )
 }
 
