@@ -976,6 +976,16 @@ fn resolve_target(
             cands.sort_by(|a, b| b.1.cmp(&a.1));
             vec![(me_idx, cands[0].0)]
         }
+        // one_self_character_cost_le_N(cost) (effects.py:2720) = 自分の元コスト N 以下のキャラ 1 枚 (power 降順)
+        os if os.starts_with("one_self_character_cost_le_") => {
+            let n = parse_after(os, "cost_le_").unwrap_or(0);
+            let me = &state.players[me_idx];
+            let mut cands: Vec<usize> = (0..me.characters.len())
+                .filter(|&i| me.characters[i].card.cost <= n)
+                .collect();
+            cands.sort_by(|&a, &b| me.characters[b].power().cmp(&me.characters[a].power()));
+            cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect()
+        }
         // one_self_character_cost_eq_N (effects.py:2803) = 自分の元コスト N ぴったりのキャラ 1 枚 (power 降順)
         os if os.starts_with("one_self_character_cost_eq_") => {
             let n = parse_after(os, "cost_eq_").unwrap_or(-1);
@@ -1000,6 +1010,23 @@ fn resolve_target(
             }
             out.truncate(n);
             out
+        }
+        // opp_just_negated_(power|cost)_le_N = 直前に negate した相手キャラを、 power/cost 閾値を
+        // 満たす場合のみ返す (effects.py:2316、 「その後、 そのキャラのコストがX以下ならKO」 OP09-098)。
+        os if os.starts_with("opp_just_negated_power_le_")
+            || os.starts_with("opp_just_negated_cost_le_") =>
+        {
+            let is_power = os.starts_with("opp_just_negated_power_le_");
+            let thr = parse_after(os, "_le_").unwrap_or(0);
+            // Python は iid で opp.characters を走査 = 場を離れていれば [] (index 越境も同義)。
+            match state.last_negated {
+                Some((pi, ci)) if pi == opp_idx && ci < state.players[pi].characters.len() => {
+                    let ip = &state.players[pi].characters[ci];
+                    let val = if is_power { ip.power() } else { ip.base_cost() };
+                    if val <= thr { vec![(pi, Slot::Char(ci))] } else { vec![] }
+                }
+                _ => vec![],
+            }
         }
         // one_character_either_cost_le_N = 両陣営のキャラから 元コスト N 以下 1 枚 (相手優先 power 降順)
         os if os.starts_with("one_character_either_cost_le_") => {
@@ -1308,6 +1335,56 @@ fn place_played_card(
     state.last_self_chara_played_card = Some(card);
     state.last_self_chara_played_from_trash = false;
     execute_on_play(state, me_idx, pidx)
+}
+
+thread_local! {
+    static SRC_TAG_SEQ: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+/// 発動元 InPlay に一意トークンを打つ。 返り値を find_tagged に渡すと現在位置が取れる。
+/// 場外 (Detached / 範囲外) なら None = 追跡不要。
+fn tag_src(state: &mut GameState, me_idx: usize, src: Slot) -> Option<u64> {
+    let tok = SRC_TAG_SEQ.with(|c| {
+        let v = c.get() + 1;
+        c.set(v);
+        v
+    });
+    let ip = src_ip_mut(&mut state.players[me_idx], src)?;
+    ip.rust_src_tag = tok;
+    Some(tok)
+}
+
+/// tag_src で打ったトークンを探して現在の Slot を返す (見つかればタグは消す)。
+/// 見つからない = 発動元が場を離れた → Python の self_inplay は生きているが場外 = Slot::Detached 相当。
+fn find_tagged(state: &mut GameState, me_idx: usize, tok: Option<u64>) -> Slot {
+    let Some(tok) = tok else { return Slot::Detached };
+    let mut found = Slot::Detached;
+    for pi in 0..2 {
+        let pl = &mut state.players[pi];
+        if pl.leader.rust_src_tag == tok {
+            pl.leader.rust_src_tag = 0;
+            if pi == me_idx {
+                found = Slot::Leader;
+            }
+        }
+        for i in 0..pl.characters.len() {
+            if pl.characters[i].rust_src_tag == tok {
+                pl.characters[i].rust_src_tag = 0;
+                if pi == me_idx {
+                    found = Slot::Char(i);
+                }
+            }
+        }
+        for i in 0..pl.stages.len() {
+            if pl.stages[i].rust_src_tag == tok {
+                pl.stages[i].rust_src_tag = 0;
+                if pi == me_idx {
+                    found = Slot::Stage(i);
+                }
+            }
+        }
+    }
+    found
 }
 
 /// 場 5 枚での効果登場時、 最弱キャラ (power→cost 昇順、 tie は先頭) を 1 枚トラッシュ (core.py:762、
@@ -2607,6 +2684,56 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             true
         }
         // このキャラ以外の自キャラ全てをデッキ下へ (effects.py:other_self_charas_to_deck_bottom)。
+        // 自分のキャラすべてをトラッシュ (effects.py:3290、 OP13-082 五老星)。 KO ではない = 【KO時】は
+        // 発火しないが 「自分の効果で場を離れた」 trigger は発火する。 付与ドンはレストで返却。
+        "trash_all_self_chara" => {
+            let victims: Vec<(usize, usize)> =
+                (0..state.players[me_idx].characters.len()).map(|i| (me_idx, i)).collect();
+            if !victims.is_empty() {
+                remove_victims(state, victims, RemoveDest::Trash);
+                if me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect")
+                    && fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err()
+                {
+                    return false;
+                }
+            }
+            true
+        }
+        // 「コスト N 以上かつ (動的閾値) 以下の 『XXX』 1 枚を手札から登場」 (effects.py:5266、 OP08-062)。
+        "play_from_hand_named_with_dynamic_cost" => {
+            let name = norm_card_name(v.get("name").and_then(|x| x.as_str()).unwrap_or(""));
+            let cost_ge = v.get("cost_ge").and_then(|x| x.as_i64()).unwrap_or(0) as i32;
+            let cl_src = v.get("cost_le_source").and_then(|x| x.as_str()).unwrap_or("opp_don_total");
+            let don_total = |pl: &crate::state::Player| -> i32 {
+                pl.don_active
+                    + pl.don_rested
+                    + pl.leader.attached_dons
+                    + pl.characters.iter().map(|c| c.attached_dons).sum::<i32>()
+            };
+            let cost_le = match cl_src {
+                "opp_don_total" => don_total(&state.players[opp_idx]),
+                "self_don_total" => don_total(&state.players[me_idx]),
+                _ => v.get("cost_le").and_then(|x| x.as_i64()).unwrap_or(99) as i32,
+            };
+            let pick = (0..state.players[me_idx].hand.len()).find(|&i| {
+                let c = &state.players[me_idx].hand[i];
+                c.category == crate::state::Category::Character
+                    && norm_card_name(&c.name) == name
+                    && c.cost >= cost_ge
+                    && c.cost <= cost_le
+            });
+            if let Some(i) = pick {
+                // ⚠ Python は append→pop(i) の順 (= field-full trash が先、 hand pop は後)。 pop 前に
+                //   on_play は走らない (append 後 push_log のみ) ので pop-first でも観測差は出ない。
+                trash_weakest_for_field_full(state, me_idx);
+                let card = state.players[me_idx].hand.remove(i);
+                let ip = InPlay::of(card.clone(), true);
+                state.players[me_idx].characters.push(ip);
+                state.last_self_chara_played_card = Some(card);
+                state.last_self_chara_played_from_trash = false;
+            }
+            true
+        }
         "other_self_charas_to_deck_bottom" => {
             if me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect") {
                 return false; // leave cascade 再現不能 → bail
@@ -3515,9 +3642,17 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             let Some(targets) = resolve_target(Some(&target_spec), me_idx, opp_idx, src, state) else {
                 return false;
             };
+            let first = targets.first().cloned();
             for (pi, sl) in targets {
                 get_ip_mut(&mut state.players[pi], sl).granted_keywords.insert("効果無効".to_string());
             }
+            // 「その後、 そのキャラの〜」 (opp_just_negated_*) 用に直近 negate 対象を記録
+            // (effects.py:7666)。 キャラ以外 (リーダー等) は記録しない = Python の iid 照合が
+            // opp.characters のみを走査するのと等価。
+            state.last_negated = match first {
+                Some((pi, Slot::Char(i))) => Some((pi, i)),
+                _ => None,
+            };
             true
         }
         // 効果無効 (effects.py:8220)。 spec {target, duration(turn|next_opp_turn_end), also_cannot_attack}。
@@ -4417,6 +4552,9 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             //   Python は self_inplay を object 参照で追うので影響を受けない。 → ズレたら明示 bail。
             let src_cid_before: Option<String> =
                 src_ip(&state.players[me_idx], src).map(|ip| ip.card.card_id.clone());
+            // 発動元に一時タグを打つ = cost 後に位置 index が動いても一意に再取得できる
+            // (Python の self_inplay object 参照の代替)。 同名複数でも取り違えない。
+            let src_tok = tag_src(state, me_idx, src);
             for cs in &cost {
                 if pay_cost_one(cs, state, me_idx, src).is_none() {
                     let k = cs.as_object().and_then(|o| o.keys().next()).map(|x| x.as_str()).unwrap_or("?");
@@ -4427,31 +4565,13 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             // cost が **別の** キャラを除去した場合、 src の index は 1 つ手前にズレるだけで
             // 発動元自身は場に残っている (Python は object 参照なので影響なし)。 同 card_id が
             // 盤面に 1 つだけなら一意に追随できる (曖昧なら従来通り bail = 誤対応を作らない)。
-            let src = if src_shifted(state, me_idx, src, src_cid_before.as_ref()) {
-                match (src_cid_before.as_ref(), src) {
-                    (Some(cid), Slot::Char(_)) => {
-                        let hits: Vec<usize> = (0..state.players[me_idx].characters.len())
-                            .filter(|&i| &state.players[me_idx].characters[i].card.card_id == cid)
-                            .collect();
-                        if hits.len() == 1 {
-                            Slot::Char(hits[0])
-                        } else if hits.is_empty() {
-                            // 発動元自身が cost で場を離れた = Python の self_inplay は生きているが
-                            // 場外なので "self" 対象は 0 件になる → Slot::Detached と等価。
-                            Slot::Detached
-                        } else {
-                            note_unknown_key("oct_pay", "src が cost で移動/消失 (同名複数で追随不能)");
-                            return false;
-                        }
-                    }
-                    _ => {
-                        note_unknown_key("oct_pay", "src が cost で移動/消失");
-                        return false;
-                    }
-                }
-            } else {
-                src
+            // タグを回収して発動元の現在位置を求める。 見つからない = cost で場を離れた
+            // (Python の self_inplay は生きているが場外 → "self" 対象 0 件 = Slot::Detached と等価)。
+            let src = match src {
+                Slot::Detached => Slot::Detached,
+                _ => find_tagged(state, me_idx, src_tok),
             };
+            let _ = &src_cid_before;
             // effect 発火 (未対応 prim は false → 呼出側で bail)
             for es in &effect {
                 if !execute_effect(es, state, me_idx, src) {
@@ -5791,17 +5911,22 @@ pub fn execute_card_effects(
             if effect_cascade_blocked(dos, state, me_idx) {
                 return Err(format!("{when} cascade 未対応 ({card_id})"));
             }
-            let src_cid: Option<String> = src_ip(&state.players[me_idx], src).map(|ip| ip.card.card_id.clone());
+            // do の途中で盤面が動いても発動元を見失わないよう一意トークンで追跡する
+            // (Python の self_inplay object 参照と等価。 場外に出たら Detached)。
+            let mut cur = src;
+            let mut tok = tag_src(state, me_idx, cur);
             let last = dos.len().saturating_sub(1);
             for (pi_, prim) in dos.iter().enumerate() {
-                if !execute_effect(prim, state, me_idx, src) {
+                if !execute_effect(prim, state, me_idx, cur) {
                     let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?");
+                    find_tagged(state, me_idx, tok);
                     return Err(format!("{when} primitive 未対応: {k} ({card_id})"));
                 }
-                // ⚠ 検査は「この後もう一度 src を使う」時だけ。 最終 prim の後は誰も src を参照しない
-                //   ので、 そこで bail すると正しく処理できたケースまで落としてしまう (過剰 bail)。
-                if pi_ < last && src_shifted(state, me_idx, src, src_cid.as_ref()) {
-                    return Err(format!("{when}: do 実行中に src が移動 (Rust は index 解決) ({card_id})"));
+                if pi_ < last {
+                    cur = find_tagged(state, me_idx, tok);
+                    tok = tag_src(state, me_idx, cur);
+                } else {
+                    find_tagged(state, me_idx, tok);
                 }
             }
         }
@@ -7665,17 +7790,23 @@ pub fn fire_activate_main(
     //   get_ip が index out of bounds で **panic** していた (OP07-109 / OP05-027/028、 全カード掃引で検出)。
     //   Python は self_inplay を object 参照で保持するが、 場を離れた InPlay への変更は digest に現れない
     //   (trash には CardDef しか残らない) ので、 Slot::Detached (= target "self" は 0 対象) と等価。
-    let do_src = if source_gone { Slot::Detached } else { src };
-    let src_cid: Option<String> = src_ip(&state.players[me_idx], do_src).map(|ip| ip.card.card_id.clone());
+    let mut do_src = if source_gone { Slot::Detached } else { src };
+    // do の途中で盤面が動いても発動元を見失わないよう、 一意トークンで追跡する
+    // (Python の self_inplay object 参照と等価。 場外に出たら Detached)。
+    let mut tok = tag_src(state, me_idx, do_src);
     let last = dos.len().saturating_sub(1);
     for (pi_, prim) in dos.iter().enumerate() {
         if !execute_effect(prim, state, me_idx, do_src) {
             let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?");
+            find_tagged(state, me_idx, tok);
             return Err(format!("activate_main primitive 未対応: {k} ({card_id})"));
         }
-        // 最終 prim の後は src を参照しないので検査不要 (過剰 bail 回避)
-        if pi_ < last && src_shifted(state, me_idx, do_src, src_cid.as_ref()) {
-            return Err(format!("activate_main: do 実行中に src が移動 (Rust は index 解決) ({card_id})"));
+        // 最終 prim の後は src を参照しないので取り直し不要
+        if pi_ < last {
+            do_src = find_tagged(state, me_idx, tok);
+            tok = tag_src(state, me_idx, do_src);
+        } else {
+            find_tagged(state, me_idx, tok);
         }
     }
     Ok(())

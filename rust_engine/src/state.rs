@@ -233,6 +233,12 @@ pub struct InPlay {
     // Python core.py InPlay.event_once_used のミラー。 refresh で clear。
     #[serde(default)]
     pub event_once_used: Vec<String>,
+    /// 効果解決中に「この InPlay が発動元」であることを一時的に印付ける一意トークン (0 = 無印)。
+    /// cost / 各 primitive が盤面を動かした後に発動元の位置 index を取り直すために使う =
+    /// Python の self_inplay (object 参照) の代替。 canonical 化からは除外 (serde skip) するので
+    /// 差分照合には現れない。 入れ子は別トークンになるので互いを消さない。
+    #[serde(skip)]
+    pub rust_src_tag: u64,
 }
 
 impl InPlay {
@@ -491,6 +497,10 @@ pub struct GameState {
     pub rust_event_queue: Vec<crate::effects::PendingTrigger>,
     #[serde(skip)]
     pub rust_resolving: bool,
+    /// 直前に negate_effect した相手キャラ (player_idx, char_idx)。 effects.py:7666
+    /// `state.last_negated_iid` の代替。 opp_just_negated_cost_le_N 解決に使う (OP09-098)。
+    #[serde(skip)]
+    pub last_negated: Option<(usize, usize)>,
     /// 直前に cost の discard_hand_with_filter で捨てたカード名 (effects.py:8877
     /// `state.last_discarded_names`)。 filter の name_in_last_discarded 解決に使う (EB02-039)。
     #[serde(skip)]
