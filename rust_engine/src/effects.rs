@@ -4059,6 +4059,19 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 自分のアクティブドン N 枚をレストにする (effects.py:5406)。
+        "rest_self_don" => {
+            let n = if v.is_object() {
+                v.get("amount").and_then(|x| x.as_i64()).unwrap_or(1) as i32
+            } else {
+                v.as_i64().unwrap_or(1) as i32
+            };
+            let me = &mut state.players[me_idx];
+            let actual = n.min(me.don_active);
+            me.don_active -= actual;
+            me.don_rested += actual;
+            true
+        }
         // このキャラをトラッシュに置く (effects.py:7761)。 付与ドンはレストへ。
         "return_self_to_trash" => {
             if let Slot::Char(i) = src {
