@@ -791,6 +791,19 @@ fn resolve_target(
                 }
                 return Some(out);
             }
+            // 自キャラから名前一致 1 枚 (effects.py:2108)。 ⚠ overlay の name は未正規化の場合が
+            // あるので norm_card_name で両側を揃える (全角Ｄ→D)。
+            if t == "self_chara_named" {
+                let name = norm_card_name(v.get("name").and_then(|x| x.as_str()).unwrap_or(""));
+                let p = &state.players[me_idx];
+                return Some(
+                    (0..p.characters.len())
+                        .filter(|&i| norm_card_name(&p.characters[i].card.name) == name)
+                        .take(1)
+                        .map(|i| (me_idx, Slot::Char(i)))
+                        .collect(),
+                );
+            }
             if t == "all_self_chara_named" {
                 let name = v.get("name").and_then(|x| x.as_str()).unwrap_or("");
                 let p = &state.players[me_idx];
@@ -1216,7 +1229,10 @@ fn parse_after(s: &str, marker: &str) -> Option<i32> {
 fn resolve_dynamic_filter(filt: Option<&Value>, state: &GameState, me_idx: usize) -> Option<Value> {
     let filt = filt?;
     let o = filt.as_object()?;
-    if !o.contains_key("cost_le_dynamic") {
+    if !o.contains_key("cost_le_dynamic")
+        && !o.contains_key("or")
+        && !o.contains_key("name_in_last_discarded")
+    {
         return Some(filt.clone());
     }
     let opp_idx = 1 - me_idx;
@@ -1237,9 +1253,61 @@ fn resolve_dynamic_filter(filt: Option<&Value>, state: &GameState, me_idx: usize
         _ => 99, // 未知 source = 制限なし相当
     };
     let mut m = o.clone();
-    m.remove("cost_le_dynamic");
-    m.insert("cost_le".to_string(), Value::Number(cost_le.into()));
+    // EB02-039: 「捨てたカードと同名」 = 直前に cost で捨てたカード名で絞る (effects.py:10545)。
+    if m.remove("name_in_last_discarded").map_or(false, |v| v.as_bool() != Some(false)) {
+        m.insert(
+            "name_in".to_string(),
+            Value::Array(
+                state.last_discarded_names.iter().map(|n| Value::String(n.clone())).collect(),
+            ),
+        );
+    }
+    if o.contains_key("cost_le_dynamic") {
+        m.remove("cost_le_dynamic");
+        m.insert("cost_le".to_string(), Value::Number(cost_le.into()));
+    }
+    // or 節も再帰的に解決 (effects.py:10570)。
+    if let Some(Value::Array(subs)) = m.get("or").cloned() {
+        let resolved: Vec<Value> = subs
+            .iter()
+            .map(|sub| resolve_dynamic_filter(Some(sub), state, me_idx).unwrap_or(sub.clone()))
+            .collect();
+        m.insert("or".to_string(), Value::Array(resolved));
+    }
     Some(Value::Object(m))
+}
+
+/// play_from_hand_or_trash の登場配置 (effects.py:7767 `_place_pfhot`)。 STAGE なら MAX 超過分を
+/// トラッシュ (付与ドンは rested へ返却) してから append、 それ以外はキャラエリア (満杯なら最弱破棄)。
+/// 登場後に on_play を発火する (キュー経由なので実行は解決境界まで defer される)。
+fn place_played_card(
+    state: &mut GameState,
+    me_idx: usize,
+    card: crate::state::CardDef,
+    rested: bool,
+    cat: crate::state::Category,
+) -> Result<(), String> {
+    if cat == crate::state::Category::Stage {
+        while state.players[me_idx].stages.len() >= 1 {
+            let old = state.players[me_idx].stages.pop().unwrap();
+            let ad = old.attached_dons;
+            state.players[me_idx].trash.push(old.card);
+            state.players[me_idx].don_rested += ad;
+        }
+        let mut ip = InPlay::of(card, true);
+        ip.rested = rested;
+        state.players[me_idx].stages.push(ip);
+        let pidx = state.players[me_idx].stages.len() - 1;
+        return execute_stage_on_play(state, me_idx, pidx);
+    }
+    trash_weakest_for_field_full(state, me_idx);
+    let mut ip = InPlay::of(card.clone(), true);
+    ip.rested = rested;
+    state.players[me_idx].characters.push(ip);
+    let pidx = state.players[me_idx].characters.len() - 1;
+    state.last_self_chara_played_card = Some(card);
+    state.last_self_chara_played_from_trash = false;
+    execute_on_play(state, me_idx, pidx)
 }
 
 /// 場 5 枚での効果登場時、 最弱キャラ (power→cost 昇順、 tie は先頭) を 1 枚トラッシュ (core.py:762、
@@ -1397,6 +1465,9 @@ fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
             //   Rust の blanket `_ => false` だと Rust だけ弾いて MISMATCH (ST36-005 キッド redirect で発覚)。
             //   Python 準拠で pass (= 制限なし)。 card.power ベースの厳密判定は Python が未実装なので入れない。
             "truly_original_power_ge" | "truly_original_power_le" | "truly_original_power_eq" => true,
+            // Python の _matches_filter が扱わない key は 制限なし (= pass) として素通りする。
+            // no_effect / name_in_last_discarded(解決済) 等。 Rust だけ弾くと MISMATCH になる。
+            "no_effect" | "name_in_last_discarded" => true,
             // has_trigger = trigger が「【トリガー】」で始まる (effects.py:10603)。 trigger(bool)=非空 alias。
             "has_trigger" => !v.as_bool().unwrap_or(false) || card.trigger.starts_with("【トリガー】"),
             "trigger" if v.is_boolean() => !v.as_bool().unwrap_or(false) || !card.trigger.is_empty(),
@@ -1937,14 +2008,18 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
             let me = &mut state.players[me_idx];
             let old = std::mem::take(&mut me.hand);
             let mut discarded = 0;
+            let mut names: Vec<String> = vec![];
             for c in old {
                 if discarded < count && matches_filter(&c, Some(&filt)) {
+                    names.push(c.name.clone());
                     me.trash.push(c);
                     discarded += 1;
                 } else {
                     me.hand.push(c);
                 }
             }
+            // EB02-039 の name_in_last_discarded 用に記録 (effects.py:8877)。
+            state.last_discarded_names = names;
         }
         // trash_self_hand_random: Python optional_cost fallback (effects.py:8928) = execute_effect(cs)
         //   = primitive (worst_hand_idx pop + hand_discarded flag + on_self_hand_discarded cascade)。
@@ -3678,13 +3753,9 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 }
                 return true;
             }
-            // dynamic filter (cost_le_dynamic 等) / no_effect は未対応 → bail
-            if let Some(fo) = filt.and_then(|f| f.as_object()) {
-                if fo.keys().any(|k| k.ends_with("_dynamic")) || fo.contains_key("no_effect") {
-                    return false;
-                }
-                // STAGE 登場は下で専用処理する (以前は bail していた)
-            }
+            // 動的 filter は resolve_dynamic_filter で静的化済 (cost_le_dynamic / or /
+            // name_in_last_discarded)。 未知 key は matches_filter が Python 同様 pass する。
+            // STAGE 登場は上で専用処理済。
             let limit = spec.and_then(|o| o.get("limit")).and_then(|x| x.as_i64()).unwrap_or(1) as usize;
             let rested = spec.and_then(|o| o.get("rested")).and_then(|x| x.as_bool()).unwrap_or(false);
             let unique = spec.and_then(|o| o.get("unique_name")).and_then(|x| x.as_bool()).unwrap_or(false);
@@ -3753,9 +3824,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             let resolved = resolve_dynamic_filter(spec.and_then(|o| o.get("filter")), state, me_idx);
             let filt = resolved.as_ref();
             if let Some(fo) = filt.and_then(|f| f.as_object()) {
-                if fo.contains_key("or")
-                    || fo.contains_key("name_in_last_discarded")
-                    || fo.contains_key("no_effect")
+                if false
                     || fo.get("category").and_then(|x| x.as_str()) == Some("STAGE")
                 {
                     return false;
@@ -3919,40 +3988,33 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             let spec = v.as_object();
             let resolved = resolve_dynamic_filter(spec.and_then(|o| o.get("filter")), state, me_idx);
             let filt = resolved.as_ref();
-            if let Some(fo) = filt.and_then(|f| f.as_object()) {
-                if fo.contains_key("or")
-                    || fo.contains_key("name_in_last_discarded")
-                    || fo.contains_key("no_effect")
-                    || fo.get("category").and_then(|x| x.as_str()) == Some("STAGE")
-                {
-                    return false;
-                }
-            }
+            // filter.category が STAGE ならステージとして登場 (OP16-102 ハチノス、 effects.py:7761)。
+            let target_cat = match filt
+                .and_then(|f| f.get("category"))
+                .and_then(|x| x.as_str())
+                .unwrap_or("CHARACTER")
+            {
+                "STAGE" => crate::state::Category::Stage,
+                "EVENT" => crate::state::Category::Event,
+                "LEADER" => crate::state::Category::Leader,
+                _ => crate::state::Category::Character,
+            };
             let limit = spec.and_then(|o| o.get("limit")).and_then(|x| x.as_i64()).unwrap_or(1) as usize;
             let rested = spec.and_then(|o| o.get("rested")).and_then(|x| x.as_bool()).unwrap_or(false);
             let mut found = 0usize;
-            // ⭐ Python timing (effects.py:5040): 登場カードは me.hand に残したまま on_play 発火 (on_play が
+            // ⭐ Python timing (effects.py:7878): 登場カードは me.hand に残したまま on_play 発火 (on_play が
             // hand を観測)、 loop 末尾で unplayed を new_hand に再構築して置換。 index-based で on_play の
-            // hand 追加も追随。 filt は cost_le_dynamic 解決済 static。
+            // hand 追加も追随。 on_play は trigger キューで defer されるので Python と同じ順序になる。
             let mut new_hand: Vec<crate::state::CardDef> = vec![];
             let mut i = 0;
             while i < state.players[me_idx].hand.len() {
                 let card = state.players[me_idx].hand[i].clone();
                 let m = found < limit
-                    && card.category == crate::state::Category::Character
+                    && card.category == target_cat
                     && matches_filter(&card, filt)
                     && !card_no_play_via_effect(&card.card_id);
                 if m {
-                    // (旧: 登場カードが on_play を持つと hand 観測がズレるため bail していたが、
-                    //  trigger キュー導入で on_play は hand 再構築後に drain されるため撤去。 2026-08-01)
-                    trash_weakest_for_field_full(state, me_idx);
-                    let mut ip = InPlay::of(card.clone(), true);
-                    ip.rested = rested;
-                    state.players[me_idx].characters.push(ip);
-                    let pidx = state.players[me_idx].characters.len() - 1;
-                    state.last_self_chara_played_card = Some(card);
-                    state.last_self_chara_played_from_trash = false;
-                    if execute_on_play(state, me_idx, pidx).is_err() {
+                    if place_played_card(state, me_idx, card.clone(), rested, target_cat).is_err() {
                         return false;
                     }
                     found += 1;
@@ -3968,21 +4030,11 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 while ti < state.players[me_idx].trash.len() {
                     let card = state.players[me_idx].trash[ti].clone();
                     let m = found < limit
-                        && card.category == crate::state::Category::Character
+                        && card.category == target_cat
                         && matches_filter(&card, filt);
                     if m {
-                        // trash 由来登場でも on_play deferred 順は同じ問題 → 明示 bail。
-                        if card_has_on_play(&card.card_id) {
-                            return false;
-                        }
-                        trash_weakest_for_field_full(state, me_idx);
-                        let mut ip = InPlay::of(card.clone(), true);
-                        ip.rested = rested;
-                        state.players[me_idx].characters.push(ip);
-                        let pidx = state.players[me_idx].characters.len() - 1;
-                        state.last_self_chara_played_card = Some(card);
-                        state.last_self_chara_played_from_trash = false;
-                        if execute_on_play(state, me_idx, pidx).is_err() {
+                        if place_played_card(state, me_idx, card.clone(), rested, target_cat).is_err()
+                        {
                             return false;
                         }
                         found += 1;
@@ -4383,8 +4435,12 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                             .collect();
                         if hits.len() == 1 {
                             Slot::Char(hits[0])
+                        } else if hits.is_empty() {
+                            // 発動元自身が cost で場を離れた = Python の self_inplay は生きているが
+                            // 場外なので "self" 対象は 0 件になる → Slot::Detached と等価。
+                            Slot::Detached
                         } else {
-                            note_unknown_key("oct_pay", "src が cost で移動/消失");
+                            note_unknown_key("oct_pay", "src が cost で移動/消失 (同名複数で追随不能)");
                             return false;
                         }
                     }

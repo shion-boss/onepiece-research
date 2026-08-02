@@ -491,6 +491,10 @@ pub struct GameState {
     pub rust_event_queue: Vec<crate::effects::PendingTrigger>,
     #[serde(skip)]
     pub rust_resolving: bool,
+    /// 直前に cost の discard_hand_with_filter で捨てたカード名 (effects.py:8877
+    /// `state.last_discarded_names`)。 filter の name_in_last_discarded 解決に使う (EB02-039)。
+    #[serde(skip)]
+    pub last_discarded_names: Vec<String>,
     // rng: full_dump の _rng_state (MT getstate keys 625) を入力として受け、 rng 依存 effect で消費。
     // digest には含めない (Python state_digest は rng 非依存) = skip_serializing。 live は lazy init。
     #[serde(rename = "_rng_state", default, skip_serializing)]
