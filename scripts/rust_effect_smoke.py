@@ -50,7 +50,19 @@ FIELD_WHENS = {
     "on_self_hand_discarded", "on_self_event_played", "on_self_rested", "on_self_trigger_fired",
     "on_opp_event_or_trigger_fired", "on_self_chara_leave_by_self_effect",
     "on_self_don_returned_to_deck", "on_opp_blocker_use", "on_life_zero",
+    # 2026-08-02: Rust 実装済になった field-when 群 (execute_one_effect が同経路で扱える)
+    "opp_event_or_trigger_fired", "on_self_chara_rested_by_self_effect", "on_self_battled",
+    "on_self_chara_leave_by_opp_effect", "on_self_don_attached", "on_self_battle_ko",
+    "on_opp_chara_returned_to_hand_by_self_effect", "on_self_draw_non_draw_phase",
+    "game_start",
 }
+# DON フェイズ専用経路 (apply_don_phase_modifier)。 execute_one_effect では踏めない
+# (auto_attach_to_leader は do-primitive ではなくフェイズ処理側が読む)。 専用に発火させる。
+DON_PHASE_WHENS = {"don_phase_modifier"}
+# 静的効果 (evaluate_static_effects が適用)。 execute_one_effect では踏めないので専用経路で測る。
+STATIC_WHENS = {"on_attached_don", "in_hand", "setup_modifier"}
+# 置換効果。 try_replace_ko を直接叩いて踏ませる。
+REPLACE_WHENS = {"replace_ko", "replace_leave", "replace_rest"}
 DETACHED_WHENS = {"main", "counter", "trigger", "on_ko"}
 
 
@@ -71,12 +83,70 @@ def build_state_json(repo, overlay, card_id: str, when: str) -> tuple[str, int]:
     return json.dumps(full_dump(st)), idx
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--limit", type=int, default=0)
-    ap.add_argument("--report-sec", type=float, default=10.0)
-    args = ap.parse_args()
+def build_don_phase_state_json(repo, overlay, card_id: str) -> str:
+    """ドンフェイズ修飾用の最小 state。 当該カードを自リーダーに据える (= don_phase_modifier は
+    リーダー overlay のみが持つ、 game.py:747)。"""
+    reset_iid()
+    st = make_state(repo, overlay, card_id)
+    card = repo._by_id[card_id]
+    st.players[0].leader = InPlay.of(card, sickness=False)
+    return json.dumps(full_dump(st))
 
+
+def build_static_state_json(repo, overlay, card_id: str, eff: dict) -> str:
+    """静的効果用の最小 state。 source を自場に置き、 `n` (= DON×N 条件) 分のドンを付与する。
+
+    リーダー効果ならリーダーを差し替える (= leader の常在も踏める)。
+    """
+    reset_iid()
+    st = make_state(repo, overlay, card_id)
+    card = repo._by_id[card_id]
+    cat = str(getattr(card.category, "value", card.category)).upper()
+    n_don = int(eff.get("n", 0) or 0)
+    if "LEADER" in cat:
+        st.players[0].leader = InPlay.of(card, sickness=False)
+        st.players[0].leader.attached_dons = min(n_don, st.players[0].don_active)
+        st.players[0].don_active -= st.players[0].leader.attached_dons
+    else:
+        ip = InPlay.of(card, sickness=False)
+        take = min(n_don, st.players[0].don_active)
+        ip.attached_dons = take
+        st.players[0].don_active -= take
+        if "STAGE" in cat:
+            st.players[0].stages.append(ip)
+        else:
+            st.players[0].characters.append(ip)
+    return json.dumps(full_dump(st))
+
+
+def build_replace_state_json(repo, overlay, card_id: str) -> tuple[str, int]:
+    """置換効果用の最小 state。 holder (= 効果保有カード) と victim を自場に置く。
+
+    victim は holder 自身にもなり得る (if.target=self 系) ので、 holder を index 0 に置き
+    それを victim として渡す。 「他の自キャラ」 を要求する条件のためにダミーも 1 枚足す。
+    """
+    reset_iid()
+    st = make_state(repo, overlay, card_id)
+    card = repo._by_id[card_id]
+    holder = InPlay.of(card, sickness=False)
+    st.players[0].characters.append(holder)          # idx 0 = holder = victim
+    # ダミー (holder 以外の自キャラを要求する条件/コスト用)。 手札から適当な CHARACTER を借りる。
+    for c in st.players[0].hand:
+        if str(getattr(c.category, "value", c.category)).upper().find("CHARACTER") >= 0:
+            st.players[0].characters.append(InPlay.of(c, sickness=False))
+            break
+    return json.dumps(full_dump(st)), 0
+
+
+def run_smoke(limit: int = 0, report_sec: float = 1e9, quiet: bool = True):
+    """スモーク本体。 戻り値 (res, bails, fired_cards 数, cards 数)。 テストからも呼ぶ。"""
+    class _A:
+        pass
+
+    args = _A()
+    args.limit = limit
+    args.report_sec = report_sec
+    _quiet = quiet
     repo, overlay_py = P._load()
     overlay = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
     cards = [(cid, effs) for cid, effs in overlay.items()
@@ -97,6 +167,83 @@ def main() -> None:
     for n, (cid, effs) in enumerate(cards):
         for idx, eff in enumerate(effs):
             when = eff.get("when") or ""
+            if when in DON_PHASE_WHENS:
+                # ドンフェイズ修飾: リーダーに置いて apply_don_phase_modifier を走らせる。
+                try:
+                    sj = build_don_phase_state_json(repo, overlay_py, cid)
+                except Exception as e:
+                    res["skip(state)"] += 1
+                    bails[f"don_phase state 構築失敗: {type(e).__name__} {str(e)[:60]}"] += 1
+                    continue
+                try:
+                    out = json.loads(eng.don_phase_modifier_smoke(sj))
+                    if out.get("ok"):
+                        res["ok"] += 1
+                        fired_cards.add(cid)
+                        per_when[when] += 1
+                        if out.get("invariant_violations"):
+                            res["inv"] += 1
+                            bails[f"保存則違反 @{cid} [{when}]"] += 1
+                    else:
+                        res["bail"] += 1
+                        bails[str(out.get("err", "?"))[:120]] += 1
+                except BaseException as e:
+                    kind = "PANIC" if "Panic" in type(e).__name__ else type(e).__name__
+                    res[kind] += 1
+                    bails[f"{kind} @{cid} [{when}]: {str(e)[:90]}"] += 1
+                continue
+            if when in STATIC_WHENS:
+                # 静的効果: source を場に置き (DON×N 条件を満たすようドンも付与) 再評価させる。
+                try:
+                    sj = build_static_state_json(repo, overlay_py, cid, eff)
+                except Exception as e:
+                    res["skip(state)"] += 1
+                    bails[f"static state 構築失敗: {type(e).__name__} {str(e)[:60]}"] += 1
+                    continue
+                try:
+                    out = json.loads(eng.static_effect_smoke(sj))
+                    res["ok"] += 1
+                    fired_cards.add(cid)
+                    per_when[when] += 1
+                    if out.get("invariant_violations"):
+                        res["inv"] += 1
+                        bails[f"保存則違反 @{cid} [{when}]"] += 1
+                except BaseException as e:
+                    kind = "PANIC" if "Panic" in type(e).__name__ else type(e).__name__
+                    res[kind] += 1
+                    bails[f"{kind} @{cid} [{when}]: {str(e)[:90]}"] += 1
+                continue
+            if when in REPLACE_WHENS:
+                # 置換効果: holder を場に置き、 別の自キャラを victim にして KO を試みる。
+                try:
+                    sj, vidx = build_replace_state_json(repo, overlay_py, cid)
+                except Exception as e:
+                    res["skip(state)"] += 1
+                    bails[f"replace state 構築失敗: {type(e).__name__} {str(e)[:60]}"] += 1
+                    continue
+                kind_arg = "ko" if when == "replace_ko" else (
+                    "rest" if when == "replace_rest" else "return_to_hand")
+                try:
+                    out = json.loads(eng.replace_effect_smoke(sj, 0, vidx, True, kind_arg))
+                    if out.get("ok"):
+                        res["ok"] += 1
+                        fired_cards.add(cid)
+                        per_when[when] += 1
+                        if out.get("invariant_violations"):
+                            res["inv"] += 1
+                            bails[f"保存則違反 @{cid} [{when}]"] += 1
+                    else:
+                        res["bail"] += 1
+                        bails[str(out.get("err", "?"))[:120]] += 1
+                except BaseException as e:
+                    kind = "PANIC" if "Panic" in type(e).__name__ else type(e).__name__
+                    res[kind] += 1
+                    bails[f"{kind} @{cid} [{when}]: {str(e)[:90]}"] += 1
+                continue
+            if not when:
+                # `_no_play_via_effect` 等のマーカー entry (効果ではない)。
+                res["skip(marker)"] += 1
+                continue
             if when not in FIELD_WHENS and when not in DETACHED_WHENS:
                 res["skip(when)"] += 1
                 continue
@@ -125,8 +272,9 @@ def main() -> None:
         now = time.time()
         if now - last >= args.report_sec or n == len(cards) - 1:
             done = sum(res.values())
-            print(f"[{n+1}/{len(cards)} 枚 | {done} 効果 | {now-t0:.0f}s] "
-                  f"ok {res['ok']} / bail {res['bail']} / panic {res.get('PANIC',0)}", flush=True)
+            if not _quiet:
+                print(f"[{n+1}/{len(cards)} 枚 | {done} 効果 | {now-t0:.0f}s] "
+                      f"ok {res['ok']} / bail {res['bail']} / panic {res.get('PANIC',0)}", flush=True)
             last = now
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
@@ -138,12 +286,22 @@ def main() -> None:
         "sec": time.time() - t0,
     }, ensure_ascii=False, indent=1), encoding="utf-8")
 
+    return res, bails, len(fired_cards), len(cards)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--report-sec", type=float, default=10.0)
+    args = ap.parse_args()
+    res, bails, fired, n_cards = run_smoke(args.limit, args.report_sec, quiet=False)
     print("\n=== 結果 ===")
     tot = res["ok"] + res["bail"] + res.get("PANIC", 0)
     print(f"実行 {tot} 効果: ok {res['ok']} ({res['ok']/max(tot,1):.1%}) / "
           f"bail {res['bail']} / panic {res.get('PANIC',0)} / 保存則違反 {res.get('inv',0)}")
-    print(f"1 回以上実行できたカード: {len(fired_cards)}/{len(cards)}")
-    print(f"skip: when 対象外 {res.get('skip(when)',0)} / state 構築失敗 {res.get('skip(state)',0)}")
+    print(f"1 回以上実行できたカード: {fired}/{n_cards}")
+    print(f"skip: when 対象外 {res.get('skip(when)',0)} / マーカー {res.get('skip(marker)',0)} "
+          f"/ state 構築失敗 {res.get('skip(state)',0)}")
     # optional_cost_then など「外側は実装済だが内側で落ちた」内訳 ([oct_pay]/[oct_effect] 等)
     cv = json.loads(eng.coverage_stats())
     inner = {k: v for k, v in (cv.get("unknown_conditions") or {}).items() if k.startswith("[")}

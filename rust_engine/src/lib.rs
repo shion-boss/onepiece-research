@@ -510,6 +510,64 @@ fn fire_effect_smoke(
     Ok(out.to_string())
 }
 
+/// ドンフェイズ修飾スモーク (don_phase_modifier / auto_attach_to_leader)。
+#[pyfunction]
+fn don_phase_modifier_smoke(state_json: &str) -> PyResult<String> {
+    let mut st: state::GameState = serde_json::from_str(state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("state: {e}")))?;
+    let base = [
+        (selfplay::zone_card_count(&st.players[0]), selfplay::don_total(&st.players[0])),
+        (selfplay::zone_card_count(&st.players[1]), selfplay::don_total(&st.players[1])),
+    ];
+    let r = effects::apply_don_phase_modifier(&mut st, 0);
+    let inv = selfplay::check_invariants(&st, &base, "don_phase_smoke");
+    let out = match r {
+        Ok(()) => serde_json::json!({"ok": true, "invariant_violations": inv}),
+        Err(e) => serde_json::json!({"ok": false, "err": e, "invariant_violations": inv}),
+    };
+    Ok(out.to_string())
+}
+
+/// 静的効果スモーク: state に対し evaluate_static_effects を走らせ、 保存則違反 / panic を測る。
+/// on_attached_don (= DON×N の常在) 等、 execute_one_effect では踏めない経路の網羅に使う。
+#[pyfunction]
+fn static_effect_smoke(state_json: &str) -> PyResult<String> {
+    let mut st: state::GameState = serde_json::from_str(state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("state: {e}")))?;
+    let base = [
+        (selfplay::zone_card_count(&st.players[0]), selfplay::don_total(&st.players[0])),
+        (selfplay::zone_card_count(&st.players[1]), selfplay::don_total(&st.players[1])),
+    ];
+    effects::evaluate_static_effects(&mut st);
+    let inv = selfplay::check_invariants(&st, &base, "static_smoke");
+    Ok(serde_json::json!({"ok": true, "invariant_violations": inv}).to_string())
+}
+
+/// 置換効果スモーク: victim を KO しようとして replace_ko / replace_leave / replace_rest を踏ませる。
+/// ok=true かつ replaced=true なら置換が発動した。 Err は「再現不能」= 未実装の在処。
+#[pyfunction]
+fn replace_effect_smoke(
+    state_json: &str,
+    victim_owner: usize,
+    victim_idx: usize,
+    by_opp_effect: bool,
+    leave_kind: &str,
+) -> PyResult<String> {
+    let mut st: state::GameState = serde_json::from_str(state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("state: {e}")))?;
+    let base = [
+        (selfplay::zone_card_count(&st.players[0]), selfplay::don_total(&st.players[0])),
+        (selfplay::zone_card_count(&st.players[1]), selfplay::don_total(&st.players[1])),
+    ];
+    let r = effects::try_replace_ko(&mut st, victim_owner, victim_idx, by_opp_effect, leave_kind);
+    let inv = selfplay::check_invariants(&st, &base, "replace_smoke");
+    let out = match r {
+        Ok(replaced) => serde_json::json!({"ok": true, "replaced": replaced, "invariant_violations": inv}),
+        Err(e) => serde_json::json!({"ok": false, "err": e, "invariant_violations": inv}),
+    };
+    Ok(out.to_string())
+}
+
 #[pymodule]
 fn optcg_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(self_play, m)?)?;
@@ -528,6 +586,9 @@ fn optcg_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(mt_shuffle, m)?)?;
     m.add_function(wrap_pyfunction!(load_overlay, m)?)?;
     m.add_function(wrap_pyfunction!(recompute_static_digest, m)?)?;
+    m.add_function(wrap_pyfunction!(static_effect_smoke, m)?)?;
+    m.add_function(wrap_pyfunction!(don_phase_modifier_smoke, m)?)?;
+    m.add_function(wrap_pyfunction!(replace_effect_smoke, m)?)?;
     m.add_function(wrap_pyfunction!(recompute_static_blob, m)?)?;
     m.add_function(wrap_pyfunction!(version, m)?)?;
     m.add_function(wrap_pyfunction!(canonical_digest, m)?)?;
