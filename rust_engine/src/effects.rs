@@ -825,6 +825,24 @@ fn resolve_target(
                 "one_self_character_filtered" => "one_self_chara_filtered",
                 other => other,
             };
+            // {"type": "one_opponent_inplay_filtered", "filter": {...}} = 相手リーダー/キャラから
+            // filter 一致 1 枚 (effects.py:2288、 threat_key = power 降順、 leader も候補)。
+            if t == "one_opponent_inplay_filtered" {
+                let filt = v.get("filter");
+                let opp = &state.players[opp_idx];
+                let mut cands: Vec<(Slot, i32)> = vec![];
+                if matches_filter(&opp.leader.card, filt) {
+                    cands.push((Slot::Leader, opp.leader.power()));
+                }
+                for i in 0..opp.characters.len() {
+                    if matches_filter(&opp.characters[i].card, filt) {
+                        cands.push((Slot::Char(i), opp.characters[i].power()));
+                    }
+                }
+                // Python は [leader, *characters] の順に集めてから power 降順で stable sort。
+                cands.sort_by(|a, b| b.1.cmp(&a.1));
+                return Some(cands.into_iter().take(1).map(|(sl, _)| (opp_idx, sl)).collect());
+            }
             if t == "all_self_chara_filtered" {
                 let filt = v.get("filter");
                 let p = &state.players[me_idx];
@@ -1146,6 +1164,24 @@ fn resolve_target(
                 .filter(|&i| state.players[me_idx].characters[i].card.cost <= n)
                 .map(|i| (me_idx, Slot::Char(i)))
                 .collect()
+        }
+        // 「相手のドン N 枚以上付与キャラ 1 体」 (effects.py:2717、 OP15-001)。 threat_key = power 降順。
+        os if os.starts_with("one_opponent_character_attached_don_ge_") => {
+            let n = parse_after(os, "don_ge_").unwrap_or(0);
+            let opp = &state.players[opp_idx];
+            let mut cands: Vec<usize> =
+                (0..opp.characters.len()).filter(|&i| opp.characters[i].attached_dons >= n).collect();
+            cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
+            cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
+        }
+        // 「自分の【アタック時】効果を持たないキャラ 1 枚」 (effects.py:2421、 EB03-001)。 power 降順。
+        "one_self_chara_no_on_attack_effect" => {
+            let me = &state.players[me_idx];
+            let mut cands: Vec<usize> = (0..me.characters.len())
+                .filter(|&i| !card_has_when(&me.characters[i].card.card_id, "on_attack"))
+                .collect();
+            cands.sort_by(|&a, &b| me.characters[b].power().cmp(&me.characters[a].power()));
+            cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect()
         }
         // 「自分のコスト N 以下で【登場時】効果を持たないキャラ 1 枚」 (effects.py:2745、 PRB01-001)。
         os if os.starts_with("one_self_chara_no_on_play_cost_le_") => {
@@ -3484,8 +3520,11 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         // AI/人間とも最善は「出す」なので power 降順に count 体。 ⚠ require_prior_bounce は
         // 直前 bounce の成否 (Python の transient) が Rust に無いので bail (誤発火を作らない)。
         "force_opp_play_from_hand" => {
-            if v.get("require_prior_bounce").and_then(|x| x.as_bool()).unwrap_or(false) {
-                return false;
+            // 「そうした場合 (= 直前 bounce が起きた場合)」 gate (effects.py:5420)。
+            if v.get("require_prior_bounce").and_then(|x| x.as_bool()).unwrap_or(false)
+                && !state.last_return_to_hand_success
+            {
+                return true; // Python は continue = 後続 primitive へ (no-op)
             }
             let cost_le = v.get("cost_le").and_then(|x| x.as_i64());
             let count = v.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
@@ -5549,6 +5588,8 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     victims.push((pi, idx));
                 }
             }
+            // OP13-119 「そうした場合」 gate 用 (effects.py:3970)。 対象 0 なら false のまま。
+            state.last_return_to_hand_success = !victims.is_empty();
             if victims.is_empty() {
                 return true;
             }

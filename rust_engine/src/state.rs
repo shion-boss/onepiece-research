@@ -503,6 +503,10 @@ pub struct GameState {
     pub rust_event_queue: Vec<crate::effects::PendingTrigger>,
     #[serde(skip)]
     pub rust_resolving: bool,
+    /// 直前の return_to_hand が実際に 1 枚以上バウンスしたか (effects.py:3970
+    /// `last_return_to_hand_success`)。 OP13-119 の「そうした場合」 gate に使う。
+    #[serde(skip)]
+    pub last_return_to_hand_success: bool,
     /// 直前の KO が「相手の効果由来」か (effects.py の動的属性 `last_ko_by_opp_effect` 相当)。
     /// 条件 by_opp_effect / by_battle の判定に使う。 fire_on_ko の引数から設定する。
     #[serde(skip)]
