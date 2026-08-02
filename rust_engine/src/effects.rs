@@ -4072,6 +4072,31 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             me.don_rested += actual;
             true
         }
+        // 「ドン!! -N: 相手のドンを N 枚ドンデッキに戻す」 (effects.py:4699)。 active 優先。
+        "don_minus_opp" => {
+            let n = if v.is_object() {
+                v.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as i32
+            } else {
+                v.as_i64().unwrap_or(1) as i32
+            };
+            let opp = &mut state.players[opp_idx];
+            let taken = n.min(opp.don_active);
+            opp.don_active -= taken;
+            opp.don_remaining_in_deck += taken;
+            let more = (n - taken).min(opp.don_rested);
+            opp.don_rested -= more;
+            opp.don_remaining_in_deck += more;
+            let removed = taken + more;
+            if removed > 0 {
+                state.last_returned_don_count = removed;
+                if me_board_has_when(state, opp_idx, "on_self_don_returned_to_deck")
+                    && fire_field_when(state, opp_idx, "on_self_don_returned_to_deck").is_err()
+                {
+                    return false;
+                }
+            }
+            true
+        }
         // このキャラをトラッシュに置く (effects.py:7761)。 付与ドンはレストへ。
         "return_self_to_trash" => {
             if let Slot::Char(i) = src {
@@ -7420,15 +7445,20 @@ pub struct PendingTrigger {
     pub owner_idx: usize,
     pub card_id: String,
     pub slot: Slot,
+    /// 発火元を一意に追う token (enqueue 時に打つ)。 drain までに盤面が動いても位置を復元できる
+    /// = Python の source_iid 相当。 同名複数でも取り違えない。
+    pub tok: Option<u64>,
 }
 
 /// トリガーをキューに積む (Python:enqueue_event)。
 fn enqueue_trigger(state: &mut GameState, when: &str, owner_idx: usize, card_id: &str, slot: Slot) {
+    let tok = tag_src(state, owner_idx, slot);
     state.rust_event_queue.push(PendingTrigger {
         when: when.to_string(),
         owner_idx,
         card_id: card_id.to_string(),
         slot,
+        tok,
     });
 }
 
@@ -7468,29 +7498,17 @@ fn execute_pending(state: &mut GameState, evt: &PendingTrigger) -> Result<(), St
     match evt.when.as_str() {
         "on_play" => {
             let me = evt.owner_idx;
+            // enqueue 時に打ったトークンで発火元の現在位置を復元する (Python の source_iid 相当)。
+            // 見つからない = drain 前に場を離れた → Python も self_inplay=None で早期 return。
             let slot = match evt.slot {
-                Slot::Char(i)
-                    if state.players[me]
-                        .characters
-                        .get(i)
-                        .map(|c| c.card.card_id.as_str())
-                        == Some(evt.card_id.as_str()) =>
-                {
-                    Slot::Char(i)
+                Slot::Char(_) => match find_tagged(state, me, evt.tok) {
+                    Slot::Char(i) => Slot::Char(i),
+                    _ => return Ok(()),
+                },
+                other => {
+                    find_tagged(state, me, evt.tok);
+                    other
                 }
-                Slot::Char(_) => {
-                    let hits: Vec<usize> = (0..state.players[me].characters.len())
-                        .filter(|&i| state.players[me].characters[i].card.card_id == evt.card_id)
-                        .collect();
-                    if hits.len() == 1 {
-                        Slot::Char(hits[0])
-                    } else if hits.is_empty() {
-                        return Ok(()); // 発火前に場を離れた = Python も self_inplay None で早期 return
-                    } else {
-                        return Err("on_play drain: 発火元の位置が曖昧 (Rust は index 解決)".into());
-                    }
-                }
-                other => other,
             };
             execute_card_effects(state, me, &evt.card_id, "on_play", slot)
         }
@@ -7586,6 +7604,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "pay_don" | "prevent_blocker_for_attacker_power_le" | "force_opp_draw"
             | "prevent_ko" | "draw_per_self_chara_then_discard"
             | "prevent_opp_blocker_for_cost_le" | "reveal_opp_hand_and_if_event_mill_life"
+            | "don_minus_opp" | "set_base_power_timed" | "return_self_to_trash" | "rest_self_don"
     )
 }
 
@@ -7894,6 +7913,8 @@ pub fn try_replace_ko(
             let mut discard_plain: usize = 0;
             let mut rest_cards: Option<Value> = None;
             let mut trash_holder = false;
+            let mut ret_don: i32 = 0;
+            let mut rand_discard: usize = 0;
             if let Some(cost) = eff.get("cost") {
                 let entries: Vec<&Value> = match cost {
                     Value::Array(a) => a.iter().collect(),
@@ -7920,6 +7941,14 @@ pub fn try_replace_ko(
                                 // 「代わりにこのキャラをトラッシュに置き」 (OP08-045 サッチ)。
                                 // holder が場のキャラなら常に払える (effects.py:12545)。
                                 "trash_self" => trash_holder = json_truthy(val),
+                                // 「代わりに自分の場のドン N 枚をドンデッキに戻す」 (EB04-031)。
+                                "return_self_don_to_deck" => {
+                                    ret_don = val.as_i64().unwrap_or(1) as i32
+                                }
+                                // 「代わりに自分の手札 N 枚をランダムに捨てる」 (OP12-048)。
+                                "trash_self_hand_random" => {
+                                    rand_discard = val.as_i64().unwrap_or(1) as usize
+                                }
                                 _ => return Err(format!("replace cost 未対応 ({hcid}:{k})")),
                             }
                         }
@@ -7945,6 +7974,17 @@ pub fn try_replace_ko(
             } else {
                 None
             };
+            // return_self_don_to_deck の payability: 場のドンが N 枚以上 (effects.py:12564)。
+            if ret_don > 0 {
+                let pl = &state.players[victim_owner];
+                if pl.don_active + pl.don_rested < ret_don {
+                    continue;
+                }
+            }
+            // trash_self_hand_random の payability: 手札が N 枚以上。
+            if rand_discard > 0 && state.players[victim_owner].hand.len() < rand_discard {
+                continue;
+            }
             // trash_self の payability: holder が場のキャラである必要 (effects.py:12550)。
             if trash_holder && !matches!(hslot, Slot::Char(_)) {
                 continue;
@@ -8018,6 +8058,24 @@ pub fn try_replace_ko(
                     return Err("replace do return_to_deck_bottom cascade 未対応".into());
                 }
             }
+            // return_self_don_to_deck 支払い (effects.py:12572)。 active 優先。
+            if ret_don > 0 {
+                let pl = &mut state.players[victim_owner];
+                let taken = ret_don.min(pl.don_active);
+                pl.don_active -= taken;
+                pl.don_remaining_in_deck += taken;
+                let more = (ret_don - taken).min(pl.don_rested);
+                pl.don_rested -= more;
+                pl.don_remaining_in_deck += more;
+            }
+            // trash_self_hand_random 支払い (effects.py:12662)。 ⚠ 名前に反して AI は
+            // worst_hand_idx (= 最悪札) を捨てる (rng は消費しない)。
+            for _ in 0..rand_discard {
+                let pl = &mut state.players[victim_owner];
+                let Some(i) = worst_hand_idx(&pl.hand, &pl.known_hand_card_ids) else { break };
+                let c = pl.hand.remove(i);
+                pl.trash.push(c);
+            }
             // trash_self 支払い: holder を場からトラッシュへ (effects.py:12622)。 付与ドンはレストへ。
             // ⚠ victim == holder のケース (if.target=self) では victim が場から消えるので、
             //    呼出側は「置換発動 = 通常 KO しない」= Ok(true) を返す前提。
@@ -8063,17 +8121,17 @@ pub fn try_replace_ko(
             }
             // discard_hand 支払い (AI は worst_hand_idx から。 on_self_hand_discarded cascade は
             // 該当 when が場にあれば再現不能 → bail)。
-            if discard_plain > 0 {
-                if me_board_has_when(state, victim_owner, "on_self_hand_discarded") {
-                    return Err("replace cost discard_hand cascade 未対応".into());
+            // ⚠ Python (effects.py:12670) は毎回 hand を (power, cost) 昇順で **in-place ソート** して
+            //    先頭を捨てる = 手札の並び順そのものが変わる (digest に効く)。 同じ手順を再現する。
+            //    hand_discarded flag は立てない (Python も立てない)。
+            for _ in 0..discard_plain {
+                let pl = &mut state.players[victim_owner];
+                if pl.hand.is_empty() {
+                    break;
                 }
-                for _ in 0..discard_plain {
-                    let pl = &mut state.players[victim_owner];
-                    let Some(i) = worst_hand_idx(&pl.hand, &pl.known_hand_card_ids) else { break };
-                    let c = pl.hand.remove(i);
-                    pl.trash.push(c);
-                }
-                state.players[victim_owner].hand_discarded_by_effect_this_turn = true;
+                pl.hand.sort_by(|a, b| (a.power, a.cost).cmp(&(b.power, b.cost)));
+                let c = pl.hand.remove(0);
+                pl.trash.push(c);
             }
             // rest_self_leader_or_stage_filtered 支払い (effects.py:12664)。 ⚠ ステージ優先で rest
             // (リーダー温存)、 1 枚のみ (Python は break)。
@@ -8182,9 +8240,7 @@ pub fn fire_on_ko(
         let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
         for prim in dos {
             let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("");
-            if k == "draw" && me_board_has_when(state, owner_idx, "on_self_draw_non_draw_phase") {
-                return Err("on_ko draw cascade 未対応".into());
-            }
+
         }
         // play_self_from_trash 用に victim の card_id を transient set (Python _execute_event=source)。
         let prev_src = state.current_source_card_id.clone();
