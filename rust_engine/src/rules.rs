@@ -762,7 +762,13 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 .map(|i| i as usize)
                 .filter(|&bi| bi < state.players[opp].characters.len())
                 .and_then(|bi| crate::effects::tag_src(state, opp, crate::effects::Slot::Char(bi)));
-            // opp_attack 条件 (opp_attacker_attribute) 用に attacker 属性を transient で公開
+            // ⚠ 【相手のアタック時】は **アタッカー自身を除去しうる** (相手の除去効果)。 その場合も
+            //   Python は object 参照でバトルを続行するので、 発火前にスナップショットを退避する。
+            let atk_pre_opp: Option<InPlay> = if is_leader {
+                None
+            } else {
+                state.players[me].characters.get(atk_idx).cloned()
+            };
             crate::effects::fire_opp_attack(state, opp, "opp_attack", ap, atk_cost, dp)?;
             let dp2 = state.players[opp].leader.power();
             crate::effects::fire_opp_attack(state, opp, "opp_attack_on_leader", ap, atk_cost, dp2)?;
@@ -784,11 +790,11 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             } else if is_leader {
                 state.players[me].leader.clone()
             } else {
-                match state.players[me].characters.get(atk_idx) {
-                    Some(a) => a.clone(),
-                    // opp_attack 中に離場した場合も直前スナップショットで解決する (Python は
-                    // object 参照でバトルを続行する)。 スナップショットも無ければ明示 bail。
-                    None => match state.rust_detached_src.take() {
+                match crate::effects::peek_tagged(state, me, state.current_attacker_tok) {
+                    crate::effects::Slot::Char(i) => state.players[me].characters[i].clone(),
+                    // opp_attack 中に離場した場合は発火前スナップショットで続行する
+                    // (Python は object 参照でバトルを継続する)。
+                    _ => match atk_pre_opp.clone().or_else(|| state.rust_detached_src.take()) {
                         Some(ip) => ip,
                         None => {
                             return Err(
@@ -1113,6 +1119,12 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             } else {
                 0
             };
+            // 【相手のアタック時】がアタッカー自身を除去しうる → 発火前スナップショットを退避。
+            let atk_pre_opp: Option<InPlay> = if is_leader {
+                None
+            } else {
+                state.players[me].characters.get(atk_idx).cloned()
+            };
             crate::effects::fire_opp_attack(state, opp, "opp_attack", ap, atk_cost, dp)?;
             let dp2 = if (tgt_idx as usize) < state.players[opp].characters.len() {
                 state.players[opp].characters[tgt_idx as usize].power()
@@ -1132,10 +1144,10 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             } else if is_leader {
                 state.players[me].leader.clone()
             } else {
-                match state.players[me].characters.get(atk_idx) {
-                    Some(a) => a.clone(),
-                    // opp_attack 中に離場 → 直前スナップショットで解決 (Python は object 参照で継続)。
-                    None => match state.rust_detached_src.take() {
+                match crate::effects::peek_tagged(state, me, state.current_attacker_tok) {
+                    crate::effects::Slot::Char(i) => state.players[me].characters[i].clone(),
+                    // opp_attack 中に離場 → 発火前スナップショットで継続 (Python は object 参照)。
+                    _ => match atk_pre_opp.clone().or_else(|| state.rust_detached_src.take()) {
                         Some(ip) => ip,
                         None => {
                             return Err(
