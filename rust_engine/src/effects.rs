@@ -3568,6 +3568,58 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             state.players[me_idx].cannot_attack_leader_until_turn_end = true;
             true
         }
+        // 「自分の手札すべてをデッキの下に置き、 置いた枚数分引く」 (effects.py:6481、 P-046)。
+        "draw_per_hand_to_deck_bottom" => {
+            let n = state.players[me_idx].hand.len();
+            if n == 0 {
+                return true; // Python は return False = 忠実な no-op
+            }
+            let hand = std::mem::take(&mut state.players[me_idx].hand);
+            state.players[me_idx].deck.extend(hand);
+            if state.players[me_idx].block_self_draw_until_turn_end {
+                return true;
+            }
+            return execute_effect(&json!({"draw": n}), state, me_idx, src);
+        }
+        // 「相手の手札 N 枚を公開する」 (effects.py:6627、 OP01-105)。 公開のみ = known_hand に記録。
+        "reveal_opp_hand" => {
+            let n = if v.is_object() {
+                v.get("count").and_then(|x| x.as_i64()).unwrap_or(2) as usize
+            } else {
+                v.as_i64().unwrap_or(2) as usize
+            };
+            let opp = &mut state.players[opp_idx];
+            let ids: Vec<String> = opp.hand.iter().take(n).map(|c| c.card_id.clone()).collect();
+            for cid in ids {
+                if !opp.known_hand_card_ids.contains(&cid) {
+                    opp.known_hand_card_ids.push(cid);
+                }
+            }
+            true
+        }
+        // 「付与ドン 1 枚につきパワー±N」 (effects.py:5929、 OP15-008)。
+        "power_pump_per_target_attached_don" => {
+            let tspec = v.get("target").cloned()
+                .unwrap_or(Value::String("all_opponent_characters".into()));
+            let amount_per = v.get("amount_per_don").and_then(|x| x.as_i64()).unwrap_or(-1000) as i32;
+            let duration = v.get("duration").and_then(|x| x.as_str()).unwrap_or("turn").to_string();
+            let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else {
+                return false;
+            };
+            for (pi, sl) in targets {
+                let ip = get_ip_mut(&mut state.players[pi], sl);
+                let buff = amount_per * ip.attached_dons;
+                if buff == 0 {
+                    continue;
+                }
+                match duration.as_str() {
+                    "static" => ip.static_buff += buff,
+                    "battle" => ip.battle_buff += buff,
+                    _ => ip.turn_buff += buff,
+                }
+            }
+            true
+        }
         // 「A するか B する」 (effects.py:9062)。 AI heuristic: life_count なら 自ライフ≤1 で option 1、
         // それ以外は option 0 (公式テキスト先頭)。
         "choice" => {
@@ -7032,7 +7084,8 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "set_all_life_face_down" | "hand_to_deck_bottom"
             | "schedule_self_trash_at_turn_end" | "set_ko_immune_timed"
             | "opp_hand_to_size" | "block_chara_play_cost_ge" | "draw_to_hand_size"
-            | "block_self_attack_leader_turn"
+            | "block_self_attack_leader_turn" | "draw_per_hand_to_deck_bottom"
+            | "reveal_opp_hand" | "power_pump_per_target_attached_don"
     )
 }
 
