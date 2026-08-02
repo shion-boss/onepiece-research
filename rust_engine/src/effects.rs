@@ -349,12 +349,12 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                 })
             }
             // アタックしてきた相手キャラの属性 (effects.py:opp_attacker_attribute、 OP11-088 シュウ)。
-            // Python は current_attacker_iid → InPlay を引くが、 Rust は iid が無いので
-            // 解決中に立てた current_attacker_attribute (transient) を見る。
-            "opp_attacker_attribute" => match &state.current_attacker_attribute {
-                Some(attr) => attr.contains(v.as_str().unwrap_or("")),
-                None => return None, // 属性不明 = 判定不能 (誤判定を作らない)
-            },
+            // ⚠ Python は `state.current_attacker_iid` から InPlay を引くが、 **engine のどこからも
+            //   set されておらず常に None** = `atk is None` で必ず条件 False (= OP11-088 等が
+            //   silent 不発)。 Rust だけ属性を見ると MISMATCH になるので Python の実挙動に合わせる。
+            //   Python 側の欠陥は要レビュー (db/_pending_review.md)。 current_attacker_attribute は
+            //   Python 修正後に繋ぐための配線として残す。
+            "opp_attacker_attribute" => false,
             // --- 掃引 3 巡目の述語 (2026-07-31) ---
             "self_trash_has_named_all" => {
                 let names: Vec<&str> = v.as_array().map_or_else(
@@ -1091,6 +1091,34 @@ fn resolve_target(
         }
         // 相手リーダー (effects.py:2354、 one_opponent_leader は overlay 別名 OP06-023 等)。
         "opponent_leader" | "one_opponent_leader" => vec![(opp_idx, Slot::Leader)],
+        // 「自分の元々の効果のないキャラ 1 枚」 (effects.py:2428、 power 降順)。
+        "one_self_chara_no_effect" => {
+            let me = &state.players[me_idx];
+            let mut cands: Vec<usize> = (0..me.characters.len())
+                .filter(|&i| card_has_no_effect(&me.characters[i].card.card_id))
+                .collect();
+            cands.sort_by(|&a, &b| me.characters[b].power().cmp(&me.characters[a].power()));
+            cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect()
+        }
+        // 「相手の元々の効果のないキャラ 1 枚」 (effects.py:2443、 opp_value 降順)。
+        "one_opp_chara_no_effect" => {
+            let opp = &state.players[opp_idx];
+            let mut cands: Vec<usize> = (0..opp.characters.len())
+                .filter(|&i| card_has_no_effect(&opp.characters[i].card.card_id))
+                .collect();
+            cands.sort_by(|&a, &b| {
+                opp_value(&opp.characters[b])
+                    .partial_cmp(&opp_value(&opp.characters[a]))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
+        }
+        // 「相手のアタックしているリーダーかキャラ」 (effects.py:2460)。
+        // ⚠ Python は `state.current_attacker_iid` を参照するが、 **engine のどこからも set されて
+        //   おらず常に None** = 常に 0 対象 (= 該当効果は silent 不発)。 Rust だけ実装すると
+        //   MISMATCH になるので Python の実挙動に合わせる。 Python 側の欠陥は要レビュー
+        //   (db/_pending_review.md)。 peek_tagged / current_attacker_tok は修正後に繋ぐ用の配線。
+        "opponent_attacker" => vec![],
         // 自リーダー or キャラ 1 体、 AI はリーダー優先 (effects.py:2948)
         "self_inplay_choice" => vec![(me_idx, Slot::Leader)],
         // 自キャラ 1 体、 AI は power 降順 (effects.py:2919)
@@ -1350,8 +1378,33 @@ pub(crate) fn tag_src(state: &mut GameState, me_idx: usize, src: Slot) -> Option
         v
     });
     let ip = src_ip_mut(&mut state.players[me_idx], src)?;
-    ip.rust_src_tag = tok;
+    ip.rust_src_tag.push(tok);
     Some(tok)
+}
+
+/// find_tagged のタグを消さない版。 継続的に位置を追う用途 (アタッカー等)。
+pub(crate) fn peek_tagged(state: &GameState, me_idx: usize, tok: Option<u64>) -> Slot {
+    let Some(tok) = tok else { return Slot::Detached };
+    let pl = &state.players[me_idx];
+    if pl.leader.rust_src_tag.contains(&tok) {
+        return Slot::Leader;
+    }
+    for i in 0..pl.characters.len() {
+        if pl.characters[i].rust_src_tag.contains(&tok) {
+            return Slot::Char(i);
+        }
+    }
+    for i in 0..pl.stages.len() {
+        if pl.stages[i].rust_src_tag.contains(&tok) {
+            return Slot::Stage(i);
+        }
+    }
+    Slot::Detached
+}
+
+/// カードが「元々の効果を持たない」 (overlay 未登録 or 空) か (effects.py:2432 `_no_effect`)。
+fn card_has_no_effect(card_id: &str) -> bool {
+    overlay().and_then(|m| m.get(card_id)).map_or(true, |effs| effs.is_empty())
 }
 
 /// tag_src で打ったトークンを探して現在の Slot を返す (見つかればタグは消す)。
@@ -1359,28 +1412,27 @@ pub(crate) fn tag_src(state: &mut GameState, me_idx: usize, src: Slot) -> Option
 pub(crate) fn find_tagged(state: &mut GameState, me_idx: usize, tok: Option<u64>) -> Slot {
     let Some(tok) = tok else { return Slot::Detached };
     let mut found = Slot::Detached;
+    let mut drop_tok = |ip: &mut InPlay| -> bool {
+        if ip.rust_src_tag.contains(&tok) {
+            ip.rust_src_tag.retain(|x| *x != tok);
+            true
+        } else {
+            false
+        }
+    };
     for pi in 0..2 {
         let pl = &mut state.players[pi];
-        if pl.leader.rust_src_tag == tok {
-            pl.leader.rust_src_tag = 0;
-            if pi == me_idx {
-                found = Slot::Leader;
-            }
+        if drop_tok(&mut pl.leader) && pi == me_idx {
+            found = Slot::Leader;
         }
         for i in 0..pl.characters.len() {
-            if pl.characters[i].rust_src_tag == tok {
-                pl.characters[i].rust_src_tag = 0;
-                if pi == me_idx {
-                    found = Slot::Char(i);
-                }
+            if drop_tok(&mut pl.characters[i]) && pi == me_idx {
+                found = Slot::Char(i);
             }
         }
         for i in 0..pl.stages.len() {
-            if pl.stages[i].rust_src_tag == tok {
-                pl.stages[i].rust_src_tag = 0;
-                if pi == me_idx {
-                    found = Slot::Stage(i);
-                }
+            if drop_tok(&mut pl.stages[i]) && pi == me_idx {
+                found = Slot::Stage(i);
             }
         }
     }
@@ -1938,7 +1990,7 @@ impl Drop for FireSelfGuard {
 
 /// 未対応キーの内訳を記録 (診断時のみ)。 cat = "optional_cost" / "on_play_cost" / "activate_cost" 等。
 /// 「cost 未対応」 としか出ないと どの支払い種別が足りないか分からないので、 条件と同じ粒度で残す。
-fn note_unknown_key(cat: &str, key: &str) {
+pub(crate) fn note_unknown_key(cat: &str, key: &str) {
     if !crate::selfplay::DIAG_ON.load(std::sync::atomic::Ordering::Relaxed) {
         return;
     }

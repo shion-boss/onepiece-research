@@ -237,8 +237,10 @@ pub struct InPlay {
     /// cost / 各 primitive が盤面を動かした後に発動元の位置 index を取り直すために使う =
     /// Python の self_inplay (object 参照) の代替。 canonical 化からは除外 (serde skip) するので
     /// 差分照合には現れない。 入れ子は別トークンになるので互いを消さない。
+    /// ⚠ 入れ子 (do 内の optional_cost_then 等) で同じ InPlay に複数タグが乗るのでスタックにする。
+    /// 単一値だと内側の tag_src が外側のトークンを上書きし、 外側が発動元を見失う。
     #[serde(skip)]
-    pub rust_src_tag: u64,
+    pub rust_src_tag: Vec<u64>,
 }
 
 impl InPlay {
@@ -478,6 +480,10 @@ pub struct GameState {
     // Python は current_attacker_iid から InPlay を引くが、 Rust は iid が無いので属性を直接持つ。
     #[serde(skip)]
     pub current_attacker_attribute: Option<String>,
+    /// 現在アタック中のカードを指す一時トークン (effects.py の `current_attacker_iid` 相当)。
+    /// target spec "opponent_attacker" の解決に使う。 action 境界で None に戻る。
+    #[serde(skip)]
+    pub current_attacker_tok: Option<u64>,
     // 手札破棄を起こした効果の発動元カードの特徴 (transient)。 Python の
     // state.last_discard_source_inplay 相当で、 条件 actor_source_feature_contains が参照する。
     #[serde(skip)]

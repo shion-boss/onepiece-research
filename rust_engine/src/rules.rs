@@ -661,15 +661,30 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             } else {
                 crate::effects::tag_src(state, me, crate::effects::Slot::Char(atk_idx))
             };
+            let atk_cid_dbg = if is_leader {
+                String::new()
+            } else {
+                state.players[me].characters[atk_idx].card.card_id.clone()
+            };
             crate::effects::fire_on_attack(state, me, is_leader, atk_idx)?;
             let atk_idx = if is_leader {
                 atk_idx
             } else {
                 match crate::effects::find_tagged(state, me, atk_tok) {
                     crate::effects::Slot::Char(i) => i,
-                    _ => return Err("attacker が on_attack 中に場を離れた (Rust は index 解決)".into()),
+                    _ => {
+                        crate::effects::note_unknown_key("atk_lost", &atk_cid_dbg);
+                        return Err("attacker が on_attack 中に場を離れた (Rust は index 解決)".into());
+                    }
                 }
             };
+            // target spec "opponent_attacker" (= 防御側から見たアタッカー) 解決用にタグを維持する。
+            // Python の state.current_attacker_iid 相当。 action 境界で transient がクリアされる。
+            state.current_attacker_tok = crate::effects::tag_src(
+                state,
+                me,
+                if is_leader { crate::effects::Slot::Leader } else { crate::effects::Slot::Char(atk_idx) },
+            );
             // 【相手のアタック時】(opp_attack + on_leader) 発火 (game.py:1476、 defended_target=leader)。
             // AI が発動しない (skip) なら一致、 cost effect fire は Err (防御 EV heuristic 移植済)。
             let atk_cost = {
@@ -976,15 +991,30 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             } else {
                 crate::effects::tag_src(state, me, crate::effects::Slot::Char(atk_idx))
             };
+            let atk_cid_dbg = if is_leader {
+                String::new()
+            } else {
+                state.players[me].characters[atk_idx].card.card_id.clone()
+            };
             crate::effects::fire_on_attack(state, me, is_leader, atk_idx)?;
             let atk_idx = if is_leader {
                 atk_idx
             } else {
                 match crate::effects::find_tagged(state, me, atk_tok) {
                     crate::effects::Slot::Char(i) => i,
-                    _ => return Err("attacker が on_attack 中に場を離れた (Rust は index 解決)".into()),
+                    _ => {
+                        crate::effects::note_unknown_key("atk_lost", &atk_cid_dbg);
+                        return Err("attacker が on_attack 中に場を離れた (Rust は index 解決)".into());
+                    }
                 }
             };
+            // target spec "opponent_attacker" (= 防御側から見たアタッカー) 解決用にタグを維持する。
+            // Python の state.current_attacker_iid 相当。 action 境界で transient がクリアされる。
+            state.current_attacker_tok = crate::effects::tag_src(
+                state,
+                me,
+                if is_leader { crate::effects::Slot::Leader } else { crate::effects::Slot::Char(atk_idx) },
+            );
             // 【相手のアタック時】(opp_attack + on_chara) 発火 (game.py:1843、 defended_target=対象キャラ)。
             // target 消失時 (= 通常起きない、 fire は bail) は defended_power=0 で扱う。
             let atk_cost = {
