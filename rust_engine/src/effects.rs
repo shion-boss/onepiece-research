@@ -3967,7 +3967,10 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     match try_replace_ko(state, pi, idx, true, "return_to_hand") {
                         Ok(true) => continue,
                         Ok(false) => {}
-                        Err(_) => return false,
+                        Err(e) => {
+                            note_unknown_key("rth", &format!("replace: {e}"));
+                            return false;
+                        }
                     }
                     let ip = state.players[pi].characters.remove(idx);
                     let don = ip.attached_dons;
@@ -4052,6 +4055,18 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     }
                     let c = o.life.remove(0);
                     o.deck.push(c);
+                }
+            }
+            true
+        }
+        // このキャラをトラッシュに置く (effects.py:7761)。 付与ドンはレストへ。
+        "return_self_to_trash" => {
+            if let Slot::Char(i) = src {
+                if i < state.players[me_idx].characters.len() {
+                    let ip = state.players[me_idx].characters.remove(i);
+                    let don = ip.attached_dons;
+                    state.players[me_idx].don_rested += don;
+                    state.players[me_idx].trash.push(ip.card);
                 }
             }
             true
@@ -5947,7 +5962,13 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             let mut can_pay = true;
             for cs in &cost {
                 match cost_payable_one(cs, state, me_idx, src) {
-                    None => return false,           // 未対応 cost 型 → bail (誤適用ゼロ)
+                    None => {
+                        note_unknown_key(
+                            "oct_payable",
+                            cs.as_object().and_then(|o| o.keys().next()).map(|x| x.as_str()).unwrap_or("?"),
+                        );
+                        return false; // 未対応 cost 型 → bail (誤適用ゼロ)
+                    }
                     Some(false) => { can_pay = false; break; }
                     Some(true) => {}
                 }
@@ -5967,11 +5988,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             if !should_fire {
                 return true;
             }
-            // cascade guard: pay_don の on_self_don_returned_to_deck + effect の nested cascade
-            let has_pay_don = cost.iter().any(|c| c.get("pay_don").is_some());
-            if has_pay_don && me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
-                return false;
-            }
+            // (pay_don の on_self_don_returned_to_deck cascade は primitive 側で発火するので guard 不要)
             if effect_cascade_blocked(&effect, state, me_idx) {
                 note_unknown_key("oct_cascade", "effect");
                 return false;
@@ -6540,7 +6557,8 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     any = true;
                     // 相手効果による離脱 → victim 側の【自分のキャラが相手の効果で場を離れた時】
                     state.last_chara_ko_victim_card = None;
-                    if fire_field_when(state, pi, "on_self_chara_leave_by_opp_effect").is_err() {
+                    if let Err(e) = fire_field_when(state, pi, "on_self_chara_leave_by_opp_effect") {
+                        note_unknown_key("rth", &format!("leave_by_opp: {e}"));
                         return false;
                     }
                     state.last_chara_ko_victim_card = None;
@@ -6556,10 +6574,14 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             // OP13-119 「そうした場合」 gate 用 (effects.py:3970)。
             state.last_return_to_hand_success = any;
             if any {
-                if fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err()
-                    || fire_field_when(state, me_idx, "on_opp_chara_returned_to_hand_by_self_effect")
-                        .is_err()
+                if let Err(e) = fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect") {
+                    note_unknown_key("rth", &format!("leave_by_self: {e}"));
+                    return false;
+                }
+                if let Err(e) =
+                    fire_field_when(state, me_idx, "on_opp_chara_returned_to_hand_by_self_effect")
                 {
+                    note_unknown_key("rth", &format!("returned_by_self: {e}"));
                     return false;
                 }
             }
@@ -7972,7 +7994,7 @@ pub fn try_replace_ko(
                 if !matches!(pk, "rest_self_cards" | "return_self_don_to_deck" | "return_to_deck_bottom"
                     | "draw" | "life_to_hand" | "mill_self_life_to_trash" | "trash_to_deck"
                     | "trash_self_hand_random" | "power_pump" | "flip_life_face_up_effect"
-                    | "rest" | "ko_self" | "rest_self_don") {
+                    | "rest" | "ko_self" | "rest_self_don" | "return_self_to_trash") {
                     return Err(format!("replace do 未対応 ({pk})"));
                 }
                 if pk == "return_to_deck_bottom"
