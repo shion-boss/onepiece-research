@@ -1386,8 +1386,18 @@ fn resolve_target(
         }
         // any_opponent_character_cost_le_N / _power_le_N = 該当相手キャラ全員 (board 順、 sort 無、
         // effects.py:2618/2632)。 count は呼出側 (rest {target,count} 等) が適用する。
-        os if os.starts_with("any_opponent_character_cost_le_") => {
-            let n = parse_after(os, "cost_le_").unwrap_or(0);
+        // ⚠ OP14-069 は `any_opponent_character_le_Ncost` の引数順違い表記も使う (effects.py:2663)。
+        os if os.starts_with("any_opponent_character_cost_le_")
+            || (os.starts_with("any_opponent_character_le_") && os.ends_with("cost")) =>
+        {
+            let n = if os.starts_with("any_opponent_character_cost_le_") {
+                parse_after(os, "cost_le_").unwrap_or(0)
+            } else {
+                os.trim_start_matches("any_opponent_character_le_")
+                    .trim_end_matches("cost")
+                    .parse::<i32>()
+                    .unwrap_or(0)
+            };
             let opp = &state.players[opp_idx];
             (0..opp.characters.len())
                 .filter(|&i| opp.characters[i].card.cost <= n)
@@ -7709,6 +7719,7 @@ pub fn try_replace_ko(
             let mut rest_ls: Option<Value> = None;
             let mut discard_plain: usize = 0;
             let mut rest_cards: Option<Value> = None;
+            let mut trash_holder = false;
             if let Some(cost) = eff.get("cost") {
                 let entries: Vec<&Value> = match cost {
                     Value::Array(a) => a.iter().collect(),
@@ -7732,6 +7743,9 @@ pub fn try_replace_ko(
                                 }
                                 // 「代わりに自分のカード N 枚をレストにできる」 (OP16-033 モーリー)。
                                 "rest_self_cards" => rest_cards = Some(val.clone()),
+                                // 「代わりにこのキャラをトラッシュに置き」 (OP08-045 サッチ)。
+                                // holder が場のキャラなら常に払える (effects.py:12545)。
+                                "trash_self" => trash_holder = json_truthy(val),
                                 _ => return Err(format!("replace cost 未対応 ({hcid}:{k})")),
                             }
                         }
@@ -7757,6 +7771,10 @@ pub fn try_replace_ko(
             } else {
                 None
             };
+            // trash_self の payability: holder が場のキャラである必要 (effects.py:12550)。
+            if trash_holder && !matches!(hslot, Slot::Char(_)) {
+                continue;
+            }
             // rest_self_cards の payability: 自リーダー+キャラのアクティブが N 枚以上 (effects.py:12584)。
             if let Some(rc) = &rest_cards {
                 let n = if rc.is_object() {
@@ -7817,6 +7835,19 @@ pub fn try_replace_ko(
                     && me_board_has_when(state, victim_owner, "on_self_chara_leave_by_self_effect")
                 {
                     return Err("replace do return_to_deck_bottom cascade 未対応".into());
+                }
+            }
+            // trash_self 支払い: holder を場からトラッシュへ (effects.py:12622)。 付与ドンはレストへ。
+            // ⚠ victim == holder のケース (if.target=self) では victim が場から消えるので、
+            //    呼出側は「置換発動 = 通常 KO しない」= Ok(true) を返す前提。
+            if trash_holder {
+                if let Slot::Char(hi) = hslot {
+                    if hi < state.players[victim_owner].characters.len() {
+                        let ip = state.players[victim_owner].characters.remove(hi);
+                        let don = ip.attached_dons;
+                        state.players[victim_owner].trash.push(ip.card);
+                        state.players[victim_owner].don_rested += don;
+                    }
                 }
             }
             // rest_self_cards 支払い (effects.py:12686、 AI は power 昇順で N 枚レスト)。
