@@ -11962,7 +11962,7 @@ def trigger_on_self_battle_ko(
     bundle = effects_overlay.get(attacker.card.card_id)
     if bundle is None:
         return
-    for eff in bundle.effects:
+    for idx, eff in enumerate(bundle.effects):
         if eff.get("when") != "on_self_battle_ko":
             continue
         if not eval_all_conditions(eff, state, me, attacker):
@@ -11973,6 +11973,8 @@ def trigger_on_self_battle_ko(
             if key in me.once_per_turn_used:
                 continue
             me.once_per_turn_used.add(key)
+            # canonical mirror (Rust 同期用、 判定は once_per_turn_used のまま = 挙動不変)。
+            attacker.mark_event_once("on_self_battle_ko", idx)
         for prim in eff.get("do", []):
             execute_effect(prim, state, me, opp, attacker)
     _maybe_resolve(state)

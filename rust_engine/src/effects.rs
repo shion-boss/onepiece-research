@@ -8979,6 +8979,44 @@ fn fire_on_self_draw_non_draw_phase(state: &mut GameState, me_idx: usize) -> Res
     Ok(())
 }
 
+/// 【このキャラのバトルによって相手のキャラを KO した時】(effects.py:11945、 OP04-086)。
+/// attacker 本人の効果だけを self-scope で発火する。
+pub fn fire_on_self_battle_ko(
+    state: &mut GameState,
+    me_idx: usize,
+    card_id: &str,
+    src: Slot,
+) -> Result<(), String> {
+    let Some(ov) = overlay() else { return Ok(()) };
+    let Some(effs) = ov.get(card_id) else { return Ok(()) };
+    for (idx, eff) in effs.iter().enumerate() {
+        if eff.get("when").and_then(|v| v.as_str()) != Some("on_self_battle_ko") {
+            continue;
+        }
+        crate::selfplay::note_fired(card_id);
+        match eval_effect_conditions(eff, state, me_idx, Some(src)) {
+            Some(true) => {}
+            Some(false) => continue,
+            None => return Err("on_self_battle_ko 条件 unknown".into()),
+        }
+        // 【ターン1回】: Python は `_self_battle_ko_{iid}` で判定しつつ event_once_used へ mirror。
+        if eff.get("cost").and_then(|c| c.get("once_per_turn")).is_some() {
+            let key = format!("on_self_battle_ko:{idx}");
+            match src_ip(&state.players[me_idx], src) {
+                Some(ip) if ip.event_once_used.contains(&key) => continue,
+                Some(_) => {}
+                None => return Err("on_self_battle_ko: src 不在".into()),
+            }
+            if let Some(ip) = src_ip_mut(&mut state.players[me_idx], src) {
+                ip.mark_event_once("on_self_battle_ko", idx as i64);
+            }
+        }
+        let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
+        fire_gated_do(state, me_idx, src, dos)?;
+    }
+    Ok(())
+}
+
 /// end_of_turn の cost が user-optional 支払いを伴うか (effects.py:11220 `_end_of_turn_cost_is_real`)。
 fn end_of_turn_cost_is_real(cost: &Value) -> bool {
     let Some(o) = cost.as_object() else { return false };

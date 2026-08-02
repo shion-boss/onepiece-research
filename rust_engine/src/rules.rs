@@ -164,6 +164,7 @@ fn do_battle_ko(
     attacker_owner: usize,
     attacker_cid: &str,
     fire_self_battle_ko: bool,
+    attacker_slot: Option<crate::effects::Slot>,
 ) -> Result<(), String> {
     let vcid = state.players[victim_owner].characters[victim_idx].card.card_id.clone();
     let vcard = state.players[victim_owner].characters[victim_idx].card.clone();
@@ -172,9 +173,17 @@ fn do_battle_ko(
     if crate::effects::try_replace_ko(state, victim_owner, victim_idx, false, "ko")? {
         return Ok(());
     }
-    if fire_self_battle_ko && crate::effects::card_has_when(attacker_cid, "on_self_battle_ko") {
-        return Err("on_self_battle_ko 未対応".into());
-    }
+    // 【このキャラのバトルによって相手のキャラをKOした時】は KO 実行の **前** に発火する
+    // (game.py:1591 は KO 判定直後 = victim 除去前ではないが、 Python の呼出順に合わせる)。
+    let pending_battle_ko: Option<crate::effects::Slot> =
+        if fire_self_battle_ko && crate::effects::card_has_when(attacker_cid, "on_self_battle_ko") {
+            match attacker_slot {
+                Some(sl) => Some(sl),
+                None => return Err("on_self_battle_ko: attacker slot 不明".into()),
+            }
+        } else {
+            None
+        };
     battle_ko_character(state, victim_owner, victim_idx);
     // game.py 準拠の順: trigger_on_ko (victim 側) → on_opp_chara_ko (攻撃側) → on_self_chara_ko (victim 側)。
     // Python trigger_on_ko が last_chara_ko_victim_card=victim を set (victim_* 条件用)、 cascade 完了後 None。
@@ -194,6 +203,16 @@ fn do_battle_ko(
         }
     }
     state.last_chara_ko_victim_card = None;
+    if err.is_none() {
+        // 「このキャラのバトルによって相手のキャラをKOした時」 (game.py:1591、 on_ko 群の後)。
+        if let Some(sl) = pending_battle_ko {
+            if let Err(e) =
+                crate::effects::fire_on_self_battle_ko(state, attacker_owner, attacker_cid, sl)
+            {
+                err = Some(e);
+            }
+        }
+    }
     match err {
         Some(e) => Err(e),
         None => Ok(()),
@@ -783,7 +802,7 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     )
                 };
                 if atk_power >= def_power && !immune {
-                    do_battle_ko(state, opp, ri, me, &atk_cid, true)?;
+                    do_battle_ko(state, opp, ri, me, &atk_cid, true, Some(if is_leader { crate::effects::Slot::Leader } else { crate::effects::Slot::Char(atk_idx) }))?;
                 }
                 reset_battle_buffs(state);
                 return Ok(());
@@ -845,7 +864,7 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     {
                         return Err("battle_ko_save_discard 未対応".into());
                     }
-                    do_battle_ko(state, opp, blk_idx, me, &atk_cid, true)?;
+                    do_battle_ko(state, opp, blk_idx, me, &atk_cid, true, Some(if is_leader { crate::effects::Slot::Leader } else { crate::effects::Slot::Char(atk_idx) }))?;
                 }
                 reset_battle_buffs(state);
                 return Ok(());
@@ -1140,7 +1159,7 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 (ap, dp, imm)
             };
             if atk_power >= def_power && !immune {
-                do_battle_ko(state, opp, actual_idx, me, &atk_cid, false)?;
+                do_battle_ko(state, opp, actual_idx, me, &atk_cid, false, None)?;
             }
             // バトル終了時: 【このキャラがバトルした時】(on_self_battled、 game.py:2006、 ST02-010)。
             // AttackCharacter は常に char vs char バトルなので成立時は必ず発火。 attacker が場に
