@@ -11289,6 +11289,7 @@ def _pay_end_of_turn_cost(
     source: InPlay,
     cost: dict,
     eff_idx: int,
+    eff: Optional[dict] = None,
 ) -> None:
     """end_of_turn cost を 実際 に 支払う (= activate_main の fire_activate_main 風)。
 
@@ -11388,6 +11389,9 @@ def _pay_end_of_turn_cost(
     # once_per_turn フラグ
     if cost.get("once_per_turn"):
         setattr(source, f"_end_of_turn_used_{eff_idx}", True)
+        # canonical mirror (= digest に載せて Rust から追跡可能にする、 2026-08-02)。
+        # 判定は上の動的属性のまま = Python の挙動は不変。 when は呼出側の when_key と一致。
+        source.mark_event_once(str((eff or {}).get("when") or "end_of_turn"), eff_idx)
 
 
 def _ai_should_fire_end_of_turn_cost(
@@ -11572,7 +11576,7 @@ def trigger_end_of_turn(
                     # AI: heuristic で 即決
                     if _ai_should_fire_end_of_turn_cost(state, player, source, eff):
                         opp_for_pay = state.players[1 - player_idx]
-                        _pay_end_of_turn_cost(state, player, opp_for_pay, source, cost, idx)
+                        _pay_end_of_turn_cost(state, player, opp_for_pay, source, cost, idx, eff)
                         forced_idxs.append(idx)
             if forced_idxs:
                 enqueue_event(

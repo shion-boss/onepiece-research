@@ -7510,13 +7510,38 @@ pub fn fire_field_when(state: &mut GameState, owner_idx: usize, when: &str) -> R
                     }
                 }
             }
-            // 実 cost (once_per_turn 以外) が有れば bail (field-when real cost 未対応)。
+            // 実 cost (once_per_turn 以外) の扱い。 end_of_turn / opp_end_of_turn は Python が
+            // AI heuristic で 払う/払わない を決める専用経路 (effects.py:11572) を持つのでそれを再現。
+            // それ以外の field-when は real cost 未対応 → bail。
+            let mut eot_paid = false;
             if let Some(cost) = eff.get("cost") {
                 let has_real = cost.as_object().map_or(!cost_is_empty(cost), |o| o.keys().any(|k| k != "once_per_turn"));
                 if has_real {
-                    return Err(format!("{when} cost 未対応"));
+                    if when != "end_of_turn" && when != "opp_end_of_turn" {
+                        return Err(format!("{when} cost 未対応"));
+                    }
+                    if !end_of_turn_cost_is_real(cost) {
+                        return Err(format!("{when} cost 未対応 (非 EOT cost 種別)"));
+                    }
+                    // cost-bearing optional: 条件 → 支払可否 → AI heuristic の順 (Python 同順)。
+                    match eval_effect_conditions(eff, state, owner_idx, Some(slot)) {
+                        Some(true) => {}
+                        Some(false) => continue,
+                        None => return Err(format!("{when} 条件 unknown")),
+                    }
+                    if !can_pay_end_of_turn_cost(state, owner_idx, slot, cost) {
+                        continue;
+                    }
+                    if !ai_should_fire_end_of_turn_cost(state, owner_idx, slot, eff) {
+                        continue;
+                    }
+                    if pay_end_of_turn_cost(state, owner_idx, slot, cost, idx, when).is_err() {
+                        return Err(format!("{when} cost 支払い再現不能"));
+                    }
+                    eot_paid = true;
                 }
             }
+            let _ = eot_paid;
             match eval_effect_conditions(eff, state, owner_idx, Some(slot)) {
                 Some(true) => {}
                 Some(false) => continue,
@@ -7577,6 +7602,247 @@ pub fn fire_on_life_zero(state: &mut GameState, owner_idx: usize) -> Result<(), 
     Ok(())
 }
 
+/// end_of_turn の cost が user-optional 支払いを伴うか (effects.py:11220 `_end_of_turn_cost_is_real`)。
+fn end_of_turn_cost_is_real(cost: &Value) -> bool {
+    let Some(o) = cost.as_object() else { return false };
+    [
+        "trash_self", "return_self_to_hand", "return_self_chara_to_hand", "discard_hand",
+        "discard_hand_with_filter", "pay_don", "rest_self_don", "ko_self_with_filter", "rest_self",
+    ]
+    .iter()
+    .any(|k| o.contains_key(*k))
+}
+
+/// end_of_turn cost が支払い可能か (effects.py:11243 `_can_pay_end_of_turn_cost`)。
+fn can_pay_end_of_turn_cost(state: &GameState, owner: usize, src: Slot, cost: &Value) -> bool {
+    let Some(o) = cost.as_object() else { return true };
+    let pl = &state.players[owner];
+    let geti = |k: &str| o.get(k).and_then(|x| x.as_i64()).unwrap_or(0) as i32;
+    if geti("pay_don") > 0 && pl.don_active + pl.don_rested < geti("pay_don") {
+        return false;
+    }
+    if geti("rest_self_don") > 0 && pl.don_active < geti("rest_self_don") {
+        return false;
+    }
+    if geti("discard_hand") > 0 && (pl.hand.len() as i32) < geti("discard_hand") {
+        return false;
+    }
+    let on_field = matches!(src, Slot::Char(_) | Slot::Stage(_));
+    if o.contains_key("return_self_to_hand") && !on_field {
+        return false;
+    }
+    if o.contains_key("trash_self") && !on_field {
+        return false;
+    }
+    if let Some(rsc) = o.get("return_self_chara_to_hand") {
+        let (filt, need) = if rsc.is_object() {
+            (rsc.get("filter").cloned(), rsc.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize)
+        } else {
+            (None, 1)
+        };
+        if pl.characters.iter().filter(|c| matches_filter(&c.card, filt.as_ref())).count() < need {
+            return false;
+        }
+    }
+    if let Some(ksf) = o.get("ko_self_with_filter") {
+        if !pl.characters.iter().any(|c| matches_filter(&c.card, Some(ksf))) {
+            return false;
+        }
+    }
+    true
+}
+
+/// AI が cost 付き end_of_turn 効果を自発発動するかの EV heuristic (effects.py:11393)。
+fn ai_should_fire_end_of_turn_cost(state: &GameState, owner: usize, src: Slot, eff: &Value) -> bool {
+    let cost = eff.get("cost").cloned().unwrap_or(json!({}));
+    let co = cost.as_object().cloned().unwrap_or_default();
+    let mut do_keys: std::collections::HashSet<String> = std::collections::HashSet::new();
+    if let Some(dos) = eff.get("do").and_then(|d| d.as_array()) {
+        for prim in dos {
+            if let Some(o) = prim.as_object() {
+                for k in o.keys() {
+                    do_keys.insert(k.clone());
+                }
+            }
+        }
+    }
+    let geti = |k: &str| co.get(k).and_then(|x| x.as_i64()).unwrap_or(0) as i64;
+    let (pay_don, rest_don, discard_n) = (geti("pay_don"), geti("rest_self_don"), geti("discard_hand"));
+    let mut cost_value = pay_don * 800 + rest_don * 400 + discard_n * 1500;
+    let Some(sip) = src_ip(&state.players[owner], src) else { return false };
+    let (ccost, cpower) = (sip.card.cost as i64, sip.card.power as i64);
+    if co.contains_key("trash_self") {
+        cost_value += ccost * 1000 + cpower / 2;
+    }
+    if co.contains_key("return_self_to_hand") {
+        cost_value += ccost * 500 + cpower / 4;
+    }
+    if co.contains_key("rest_self") && !sip.rested {
+        cost_value += 600;
+    }
+    let has = |k: &str| do_keys.contains(k);
+    let mut benefit: i64 = 0;
+    if has("draw") {
+        benefit += 1500;
+    }
+    if has("search") || has("search_top_n") {
+        benefit += 2000;
+    }
+    if has("add_don") {
+        benefit += 1000;
+    }
+    if has("untap_don") {
+        benefit += 800 + state.players[1 - owner].don_active as i64 * 50;
+    }
+    if has("ko") || has("ko_multi") {
+        benefit += 3000;
+    }
+    if has("return_to_hand") || has("return_to_hand_multi") {
+        benefit += 2500;
+    }
+    if has("power_pump") {
+        benefit += 1500;
+    }
+    if has("give_keyword") {
+        benefit += 2000;
+    }
+    let pl = &state.players[owner];
+    if pl.life.len() <= 1 {
+        benefit += 1000;
+    }
+    if pl.hand.len() <= 2 {
+        if discard_n > 0 {
+            cost_value += 2000;
+        }
+        if has("draw") || has("search") {
+            benefit += 1500;
+        }
+    }
+    if co.contains_key("trash_self") && ccost <= 3 && cpower <= 4000 {
+        cost_value -= 1500;
+    }
+    benefit > cost_value
+}
+
+/// end_of_turn cost を支払う (effects.py:11285 `_pay_end_of_turn_cost`)。 cascade を伴う分岐
+/// (pay_don の on_self_don_returned_to_deck / ko_self_with_filter の KO時) は Err で bail。
+fn pay_end_of_turn_cost(
+    state: &mut GameState,
+    owner: usize,
+    src: Slot,
+    cost: &Value,
+    eff_idx: usize,
+    when: &str,
+) -> Result<(), String> {
+    let co = cost.as_object().cloned().unwrap_or_default();
+    let geti = |k: &str| co.get(k).and_then(|x| x.as_i64()).unwrap_or(0) as i32;
+    // trash_self / return_self_to_hand: source を場から除去 (付与ドンはレストへ)。
+    let mut src_slot = src;
+    if co.contains_key("trash_self") || co.contains_key("return_self_to_hand") {
+        let to_hand = co.contains_key("return_self_to_hand") && !co.contains_key("trash_self");
+        match src_slot {
+            Slot::Char(i) if i < state.players[owner].characters.len() => {
+                let ip = state.players[owner].characters.remove(i);
+                let don = ip.attached_dons;
+                if to_hand {
+                    state.players[owner].hand.push(ip.card);
+                } else {
+                    state.players[owner].trash.push(ip.card);
+                }
+                state.players[owner].don_rested += don;
+                src_slot = Slot::Detached;
+            }
+            Slot::Stage(i) if !to_hand && i < state.players[owner].stages.len() => {
+                let ip = state.players[owner].stages.remove(i);
+                let don = ip.attached_dons;
+                state.players[owner].trash.push(ip.card);
+                state.players[owner].don_rested += don;
+                src_slot = Slot::Detached;
+            }
+            _ => {}
+        }
+    }
+    // pay_don: active → rested の順でドンデッキへ。 戻した枚数>0 なら on_self_don_returned_to_deck。
+    let pay_don = geti("pay_don");
+    if pay_don > 0 {
+        let pl = &mut state.players[owner];
+        let taken = pay_don.min(pl.don_active);
+        pl.don_active -= taken;
+        pl.don_remaining_in_deck += taken;
+        let more = (pay_don - taken).min(pl.don_rested);
+        pl.don_rested -= more;
+        pl.don_remaining_in_deck += more;
+        if taken + more > 0 {
+            state.last_returned_don_count = taken + more;
+            if me_board_has_when(state, owner, "on_self_don_returned_to_deck") {
+                fire_field_when(state, owner, "on_self_don_returned_to_deck")?;
+            }
+        }
+    }
+    let rest_don = geti("rest_self_don");
+    if rest_don > 0 {
+        let pl = &mut state.players[owner];
+        let actual = rest_don.min(pl.don_active);
+        pl.don_active -= actual;
+        pl.don_rested += actual;
+    }
+    if co.contains_key("rest_self") {
+        if let Some(ip) = src_ip_mut(&mut state.players[owner], src_slot) {
+            ip.rested = true;
+        }
+    }
+    let discard_n = geti("discard_hand");
+    for _ in 0..discard_n.min(state.players[owner].hand.len() as i32) {
+        let pl = &mut state.players[owner];
+        let Some(i) = worst_hand_idx(&pl.hand, &pl.known_hand_card_ids) else { break };
+        let c = pl.hand.remove(i);
+        pl.trash.push(c);
+    }
+    if let Some(rsc) = co.get("return_self_chara_to_hand") {
+        let (filt, need) = if rsc.is_object() {
+            (rsc.get("filter").cloned(), rsc.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize)
+        } else {
+            (None, 1)
+        };
+        let mut returned = 0usize;
+        let mut i = 0usize;
+        while i < state.players[owner].characters.len() && returned < need {
+            if matches_filter(&state.players[owner].characters[i].card, filt.as_ref()) {
+                let ip = state.players[owner].characters.remove(i);
+                let don = ip.attached_dons;
+                state.players[owner].hand.push(ip.card);
+                state.players[owner].don_rested += don;
+                returned += 1;
+            } else {
+                i += 1;
+            }
+        }
+    }
+    if let Some(ksf) = co.get("ko_self_with_filter").cloned() {
+        // Python は最初の 1 体のみ KO し、 KO時トリガーを発火する。
+        if let Some(i) = (0..state.players[owner].characters.len())
+            .find(|&i| matches_filter(&state.players[owner].characters[i].card, Some(&ksf)))
+        {
+            let vcid = state.players[owner].characters[i].card.card_id.clone();
+            let ip = state.players[owner].characters.remove(i);
+            let don = ip.attached_dons;
+            state.players[owner].trash.push(ip.card);
+            state.players[owner].don_rested += don;
+            state.last_chara_ko_victim_card = None;
+            fire_on_ko(state, owner, &vcid, false)?;
+            fire_field_when(state, owner, "on_self_chara_ko")?;
+            state.last_chara_ko_victim_card = None;
+        }
+    }
+    // once_per_turn の canonical mirror (Python は _end_of_turn_used_N 動的属性 + mark_event_once)。
+    if co.contains_key("once_per_turn") {
+        if let Some(ip) = src_ip_mut(&mut state.players[owner], src_slot) {
+            ip.mark_event_once(when, eff_idx as i64);
+        }
+    }
+    Ok(())
+}
+
 /// field-when once の canonical mirror (event_once_used) 対象 when か。 Python effects.py:_FIELD_WHEN_ONCE_MIRROR と一致。
 fn field_when_once_mirrored(when: &str) -> bool {
     matches!(
@@ -7586,6 +7852,9 @@ fn field_when_once_mirrored(when: &str) -> bool {
             | "on_self_hand_discarded" | "on_self_don_returned_to_deck" | "on_self_event_played"
             | "on_opp_event_or_trigger_fired" | "on_self_chara_leave_by_self_effect" | "on_self_rested"
             | "on_self_trigger_fired" | "on_life_zero" | "on_play" | "on_block"
+            // end_of_turn / opp_end_of_turn は _pay_end_of_turn_cost が mark_event_once で
+            // canonical mirror する (2026-08-02)。 これで Rust も「ターン1回」を追跡できる。
+            | "end_of_turn" | "opp_end_of_turn"
     )
 }
 
