@@ -3232,6 +3232,112 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // このキャラを持ち主の手札に戻す (effects.py:7716)。 場に居なければ no-op。
+        "return_self_to_hand" => {
+            if let Slot::Char(i) = src {
+                if i < state.players[me_idx].characters.len() {
+                    let ip = state.players[me_idx].characters.remove(i);
+                    let don = ip.attached_dons;
+                    state.players[me_idx].don_rested += don;
+                    state.players[me_idx].hand.push(ip.card);
+                }
+            }
+            true
+        }
+        // 速攻付与 (effects.py:4670)。 target は str / {"type":..} / {"target":..}、 既定 self。
+        "give_rush" => {
+            let tspec: Value = if v.is_object() {
+                if v.get("type").is_some() {
+                    v.clone()
+                } else {
+                    v.get("target").cloned().unwrap_or(Value::String("self".into()))
+                }
+            } else if v.is_string() {
+                v.clone()
+            } else {
+                Value::String("self".into())
+            };
+            let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else {
+                return false;
+            };
+            for (pi, sl) in targets {
+                get_ip_mut(&mut state.players[pi], sl).summoning_sickness = false;
+            }
+            true
+        }
+        // 「相手は自身のトラッシュから (filter) N 枚をデッキの下に置く」 (effects.py:6456、 OP15-091)。
+        "opp_trash_to_deck_bottom" => {
+            let (count, filt) = if v.is_object() {
+                (v.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize, v.get("filter").cloned())
+            } else {
+                (v.as_i64().unwrap_or(1) as usize, None)
+            };
+            let opp = &mut state.players[opp_idx];
+            let old = std::mem::take(&mut opp.trash);
+            let mut picked: Vec<crate::state::CardDef> = vec![];
+            for c in old {
+                if picked.len() < count && matches_filter(&c, filt.as_ref()) {
+                    picked.push(c);
+                } else {
+                    opp.trash.push(c);
+                }
+            }
+            // Python は該当 0 で return False (= 忠実な no-op)。
+            opp.deck.extend(picked);
+            true
+        }
+        // 「相手のレストのドン N 枚までは次の相手リフレッシュでアクティブにならない」
+        // (effects.py:6117、 OP10-033 ナミ)。
+        "keep_opp_rested_don_next_refresh" => {
+            let n = if v.is_object() {
+                v.get("amount").and_then(|x| x.as_i64()).unwrap_or(1) as i32
+            } else {
+                v.as_i64().unwrap_or(1) as i32
+            };
+            let opp = &mut state.players[opp_idx];
+            opp.next_refresh_kept_rested_don += n.min(opp.don_rested);
+            true
+        }
+        // デッキから filter 一致のキャラを登場 (effects.py:4036、 OP11-022)。 AI は先頭から limit 枚、
+        // 最後にデッキをシャッフル (公式 8-7-3-3、 rng 消費順も Python 準拠)。
+        "summon_from_deck" => {
+            let spec = v.as_object();
+            let filt = spec.and_then(|o| o.get("filter")).cloned();
+            let limit = spec.and_then(|o| o.get("limit")).and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+            let rested = spec.and_then(|o| o.get("rested")).and_then(|x| x.as_bool()).unwrap_or(false);
+            let sickness = spec.and_then(|o| o.get("sickness")).and_then(|x| x.as_bool()).unwrap_or(true);
+            let mut found = 0usize;
+            let mut remaining: Vec<crate::state::CardDef> = vec![];
+            let old = std::mem::take(&mut state.players[me_idx].deck);
+            for c in old {
+                if found < limit
+                    && c.category == crate::state::Category::Character
+                    && matches_filter(&c, filt.as_ref())
+                {
+                    trash_weakest_for_field_full(state, me_idx);
+                    let mut ip = InPlay::of(c.clone(), sickness);
+                    ip.rested = rested;
+                    state.players[me_idx].characters.push(ip);
+                    let pidx = state.players[me_idx].characters.len() - 1;
+                    state.last_self_chara_played_card = Some(c);
+                    state.last_self_chara_played_from_trash = false;
+                    if execute_on_play(state, me_idx, pidx).is_err() {
+                        return false;
+                    }
+                    found += 1;
+                } else {
+                    remaining.push(c);
+                }
+            }
+            state.players[me_idx].deck = remaining;
+            let len = state.players[me_idx].deck.len();
+            let perm = state.rng_mut().shuffle_perm(len);
+            let old = std::mem::take(&mut state.players[me_idx].deck);
+            state.players[me_idx].deck = perm.iter().map(|&j| old[j].clone()).collect();
+            state.players[me_idx].known_bottom_card_ids.clear();
+            state.players[me_idx].known_top_card_ids.clear();
+            true
+        }
         // 「A するか B する」 (effects.py:9062)。 AI heuristic: life_count なら 自ライフ≤1 で option 1、
         // それ以外は option 0 (公式テキスト先頭)。
         "choice" => {
@@ -6688,9 +6794,10 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "return_attached_don_to_cost_rested" | "swap_base_power_self_leader_chara"
             | "declare_cost_reveal_then" | "self_hand_to_deck_bottom" | "choice_effect"
             | "play_from_hand_or_trash" | "play_from_hand_named_with_dynamic_cost"
-            | "power_pump_multi" | "trash_all_self_chara" | "untap_chara" | "choice"
+            | "power_pump_multi" | "trash_all_self_chara" | "choice"
             | "discard_self_to_deck_top" | "opp_don_to_deck" | "summon_from_deck"
-            | "return_self_to_hand" | "give_rush"
+            | "return_self_to_hand" | "give_rush" | "opp_trash_to_deck_bottom"
+            | "keep_opp_rested_don_next_refresh"
     )
 }
 
