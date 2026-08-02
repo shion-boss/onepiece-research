@@ -772,7 +772,17 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             } else {
                 match state.players[me].characters.get(atk_idx) {
                     Some(a) => a.clone(),
-                    None => return Err("attacker が on_attack/opp_attack 中に場を離れた (Rust は index 解決)".into()),
+                    // opp_attack 中に離場した場合も直前スナップショットで解決する (Python は
+                    // object 参照でバトルを続行する)。 スナップショットも無ければ明示 bail。
+                    None => match state.rust_detached_src.take() {
+                        Some(ip) => ip,
+                        None => {
+                            return Err(
+                                "attacker が on_attack/opp_attack 中に場を離れた (スナップショット無し)"
+                                    .into(),
+                            )
+                        }
+                    },
                 }
             };
             let atk_power_base = attacker.power();

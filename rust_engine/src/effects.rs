@@ -6055,7 +6055,14 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             // (Python の self_inplay は生きているが場外 → "self" 対象 0 件 = Slot::Detached と等価)。
             let src = match src {
                 Slot::Detached => Slot::Detached,
-                _ => find_tagged(state, me_idx, src_tok),
+                _ => {
+                    let snap = src_ip(&state.players[me_idx], src).cloned();
+                    let found = find_tagged(state, me_idx, src_tok);
+                    if found == Slot::Detached && snap.is_some() {
+                        state.rust_detached_src = snap;
+                    }
+                    found
+                }
             };
             let _ = &src_cid_before;
             // effect 発火 (未対応 prim は false → 呼出側で bail)
@@ -7256,20 +7263,26 @@ pub fn execute_card_effects(
             // (Python の self_inplay object 参照と等価。 場外に出たら Detached)。
             let mut cur = src;
             let mut tok = tag_src(state, me_idx, cur);
-            let last = dos.len().saturating_sub(1);
-            for (pi_, prim) in dos.iter().enumerate() {
+            for prim in dos.iter() {
+                let snap = src_ip(&state.players[me_idx], cur).cloned();
                 if !execute_effect(prim, state, me_idx, cur) {
                     let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?");
                     find_tagged(state, me_idx, tok);
                     return Err(format!("{when} primitive 未対応: {k} ({card_id})"));
                 }
-                if pi_ < last {
-                    cur = find_tagged(state, me_idx, tok);
-                    tok = tag_src(state, me_idx, cur);
+                cur = find_tagged(state, me_idx, tok);
+                if cur == Slot::Detached {
+                    // 発動元がこの primitive で場を離れた → 直前スナップショットを残す
+                    // (アタック解決が attacker の power/cost を読むため)。
+                    if snap.is_some() {
+                        state.rust_detached_src = snap;
+                    }
+                    tok = None;
                 } else {
-                    find_tagged(state, me_idx, tok);
+                    tok = tag_src(state, me_idx, cur);
                 }
             }
+            find_tagged(state, me_idx, tok);
         }
     }
     Ok(())
