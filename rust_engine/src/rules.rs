@@ -1109,14 +1109,20 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     // AttackCharacter は【ブロック時】(on_block) のみ発火 (on_opp_blocker_use は非対称で不発火、
                     //   game.py:1895)。 ⚠ Python は fizzle return せず actual_target=blocker (object ref) 継続。
                     if crate::effects::card_has_when(&bcid, "on_block") {
+                        // on_block で盤面が動いてもブロッカーを見失わないようタグで追う。
+                        let btok = crate::effects::tag_src(state, opp, crate::effects::Slot::Char(bi));
                         crate::effects::execute_card_effects(
                             state, opp, &bcid, "on_block", crate::effects::Slot::Char(bi),
                         )?;
-                        // blocker が on_block で消えると Python は object-ref 継続 = Rust index では再現不能 → bail。
-                        if bi >= state.players[opp].characters.len()
-                            || state.players[opp].characters[bi].card.card_id != bcid
-                        {
-                            return Err("on_block で blocker 消失 (AttackChar object-ref 再現不能)".into());
+                        match crate::effects::find_tagged(state, opp, btok) {
+                            crate::effects::Slot::Char(i) => actual_idx = i,
+                            // 場を離れた = Python は object-ref を保持して battle を続けるが、
+                            // 盤面に居ないので Rust では再現不能 → 明示 bail。
+                            _ => {
+                                return Err(
+                                    "on_block で blocker 消失 (AttackChar object-ref 再現不能)".into(),
+                                )
+                            }
                         }
                     }
                 }

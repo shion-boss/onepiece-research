@@ -3398,6 +3398,46 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             state.players[me_idx].life = life;
             true
         }
+        // 「自分のライフすべてを裏向きにする」 (effects.py:6804、 OP08-075)。
+        "set_all_life_face_down" => {
+            state.players[me_idx].face_up_life_count = 0;
+            true
+        }
+        // 「自分の手札 N 枚をデッキの下に置く」 = self_hand_to_deck_bottom の alias (effects.py:6470)。
+        "hand_to_deck_bottom" => {
+            let n = if v.is_object() {
+                v.get("count").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            };
+            let prim = json!({"self_hand_to_deck_bottom": {"amount": n, "to": "bottom"}});
+            return execute_effect(&prim, state, me_idx, src);
+        }
+        // 「このターン終了時、 このキャラをトラッシュに置く」 予約 (effects.py:6830、 OP03-005)。
+        "schedule_self_trash_at_turn_end" => {
+            if let Some(ip) = src_ip_mut(&mut state.players[me_idx], src) {
+                ip.trash_at_self_turn_end = true;
+            }
+            true
+        }
+        // 「(target) は次の相手ターン終了時まで KO されない」 (effects.py:7024)。
+        "set_ko_immune_timed" => {
+            let tspec = v.get("target").cloned().unwrap_or(Value::String("self".into()));
+            let through = v.get("duration").and_then(|x| x.as_str()).unwrap_or("next_opp_turn_end")
+                == "next_opp_turn_end";
+            let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else {
+                return false;
+            };
+            for (pi, sl) in targets {
+                let ip = get_ip_mut(&mut state.players[pi], sl);
+                if through {
+                    ip.ko_immune_through_opp_turn = true;
+                } else {
+                    ip.ko_immune_until_turn_end = true;
+                }
+            }
+            true
+        }
         // 「A するか B する」 (effects.py:9062)。 AI heuristic: life_count なら 自ライフ≤1 で option 1、
         // それ以外は option 0 (公式テキスト先頭)。
         "choice" => {
@@ -6858,7 +6898,9 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "discard_self_to_deck_top" | "opp_don_to_deck" | "summon_from_deck"
             | "return_self_to_hand" | "give_rush" | "opp_trash_to_deck_bottom"
             | "keep_opp_rested_don_next_refresh" | "give_attribute"
-            | "reduce_play_cost_filtered_turn"
+            | "reduce_play_cost_filtered_turn" | "trash_opp_hand_random"
+            | "set_all_life_face_down" | "hand_to_deck_bottom"
+            | "schedule_self_trash_at_turn_end" | "set_ko_immune_timed"
     )
 }
 
@@ -7166,6 +7208,7 @@ pub fn try_replace_ko(
             let mut has_once = false;
             let mut discard_filter: Option<Value> = None;
             let mut rest_ls: Option<Value> = None;
+            let mut discard_plain: usize = 0;
             if let Some(cost) = eff.get("cost") {
                 let entries: Vec<&Value> = match cost {
                     Value::Array(a) => a.iter().collect(),
@@ -7182,6 +7225,10 @@ pub fn try_replace_ko(
                                 // (effects.py:8586/12664、 OP04-082 コロシアム等)。
                                 "rest_self_leader_or_stage_filtered" => {
                                     rest_ls = Some(val.clone())
+                                }
+                                // 「代わりに自分の手札 N 枚を捨てる」 (OP12-053 等)。 filter 無し版。
+                                "discard_hand" => {
+                                    discard_plain = val.as_i64().unwrap_or(0) as usize
                                 }
                                 _ => return Err(format!("replace cost 未対応 ({hcid}:{k})")),
                             }
@@ -7208,6 +7255,10 @@ pub fn try_replace_ko(
             } else {
                 None
             };
+            // discard_hand (filter 無し) の payability: 手札が足りなければ置換不発 → 通常 KO。
+            if discard_plain > 0 && state.players[victim_owner].hand.len() < discard_plain {
+                continue;
+            }
             // rest_self_leader_or_stage_filtered の payability: leader + stages のアクティブ かつ
             // filter 一致が N 枚以上 (effects.py:8593)。 足りなければ置換不発 → 通常 KO。
             if let Some(rl) = &rest_ls {
@@ -7249,6 +7300,20 @@ pub fn try_replace_ko(
                 {
                     return Err("replace do return_to_deck_bottom cascade 未対応".into());
                 }
+            }
+            // discard_hand 支払い (AI は worst_hand_idx から。 on_self_hand_discarded cascade は
+            // 該当 when が場にあれば再現不能 → bail)。
+            if discard_plain > 0 {
+                if me_board_has_when(state, victim_owner, "on_self_hand_discarded") {
+                    return Err("replace cost discard_hand cascade 未対応".into());
+                }
+                for _ in 0..discard_plain {
+                    let pl = &mut state.players[victim_owner];
+                    let Some(i) = worst_hand_idx(&pl.hand, &pl.known_hand_card_ids) else { break };
+                    let c = pl.hand.remove(i);
+                    pl.trash.push(c);
+                }
+                state.players[victim_owner].hand_discarded_by_effect_this_turn = true;
             }
             // rest_self_leader_or_stage_filtered 支払い (effects.py:12664)。 ⚠ ステージ優先で rest
             // (リーダー温存)、 1 枚のみ (Python は break)。
