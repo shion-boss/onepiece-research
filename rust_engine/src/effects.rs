@@ -6560,7 +6560,10 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     match try_replace_ko(state, pi, idx, true, "return_to_hand") {
                         Ok(true) => continue,
                         Ok(false) => {}
-                        Err(_) => return false,
+                        Err(e) => {
+                            note_unknown_key("rth", &format!("replace: {e}"));
+                            return false;
+                        }
                     }
                     let ip = state.players[pi].characters.remove(idx);
                     let don = ip.attached_dons;
@@ -6902,8 +6905,14 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 me.don_remaining_in_deck += from_rested;
                 from_active + from_rested
             };
-            if moved > 0 && me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
-                return false; // cascade 未対応 → bail
+            // 「ドンをドンデッキに戻した時」 (EB02-035 / P-077)。 発火できるので bail 不要。
+            if moved > 0 {
+                state.last_returned_don_count = moved;
+                if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck")
+                    && fire_field_when(state, me_idx, "on_self_don_returned_to_deck").is_err()
+                {
+                    return false;
+                }
             }
             true
         }
