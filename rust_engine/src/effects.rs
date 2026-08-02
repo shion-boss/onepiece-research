@@ -1229,6 +1229,22 @@ fn resolve_target(
             }
             _ => vec![],
         },
+        // one_opponent_character_(any_)cost_le_N = 元コスト N 以下の相手キャラ 1 体
+        // (effects.py:2606、 opp_value 降順)。 `any_` infix は冗長 alias。
+        os if os.starts_with("one_opponent_character_cost_le_")
+            || os.starts_with("one_opponent_character_any_cost_le_") =>
+        {
+            let n = parse_after(os, "cost_le_").unwrap_or(0);
+            let opp = &state.players[opp_idx];
+            let mut cands: Vec<usize> =
+                (0..opp.characters.len()).filter(|&i| opp.characters[i].card.cost <= n).collect();
+            cands.sort_by(|&a, &b| {
+                opp_value(&opp.characters[b])
+                    .partial_cmp(&opp_value(&opp.characters[a]))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
+        }
         // one_opponent_character_power_le_N = 現パワー N 以下の相手キャラ 1 体 (effects.py:2698、 power 降順)。
         os if os.starts_with("one_opponent_character_power_le_") => {
             let n = parse_after(os, "power_le_").unwrap_or(0);
@@ -2551,6 +2567,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         // ドロー N (effects.py:3121)。 block_self_draw 中は不発。
         "draw" => {
             let n = v.as_i64().unwrap_or(0) as i32;
+            let mut drew = false;
             let me = &mut state.players[me_idx];
             if me.block_self_draw_until_turn_end {
                 return true;
@@ -2568,6 +2585,13 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 }
                 me.hand.push(c);
                 me.cards_drawn_count += 1;
+                drew = true;
+            }
+            // 「ドローフェイズ以外でカードを引いた時」 (effects.py:3676、 OP05-053)。
+            if drew && me_board_has_when(state, me_idx, "on_self_draw_non_draw_phase")
+                && fire_on_self_draw_non_draw_phase(state, me_idx).is_err()
+            {
+                return false;
             }
             true
         }
@@ -7038,7 +7062,7 @@ fn effect_cascade_blocked(dos: &[Value], state: &GameState, me_idx: usize) -> bo
     for prim in dos {
         let key = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("");
         let blocked = match key {
-            "draw" => has(me_idx, "on_self_draw_non_draw_phase"),
+            // draw は prim 側で on_self_draw_non_draw_phase を自前発火する → block 不要。
             // ko (single) は prim 側で cascade を自前処理 (single victim) or 内部 bail → ここでは block しない。
             // ko_multi は prim 側で cascade を自前処理 (single victim) or 明示 bail するので block しない。
             "ko_all_others" => {
@@ -7608,9 +7632,7 @@ pub fn fire_gated_do(
         if !on_trigger_prim_safe(key) {
             return Err(format!("when-effect primitive 未対応: {key}"));
         }
-        if key == "draw" && me_board_has_when(state, me_idx, "on_self_draw_non_draw_phase") {
-            return Err("draw cascade (on_self_draw_non_draw_phase) 未対応".into());
-        }
+
     }
     // ⚠ do の途中で発動元が場を離れる (自 trash / 自 KO) ことがある。 Python は self_inplay を
     //   object 参照で保持するので、 離場後もそのオブジェクトを読み続ける。 Rust は位置 index なので
@@ -8872,6 +8894,41 @@ pub fn fire_on_self_battled(
             if !execute_effect(prim, state, me_idx, src) {
                 return Err("on_self_battled primitive 再現不能".into());
             }
+        }
+    }
+    Ok(())
+}
+
+/// 【自分がドローフェイズ以外でカードを引いた時】(effects.py:12011、 OP05-053)。
+/// ⚠ 走査対象は me.characters のみ (leader/stage は対象外)。 once_per_turn は iid キーで
+/// canonical 外なので該当効果は明示 bail。
+fn fire_on_self_draw_non_draw_phase(state: &mut GameState, me_idx: usize) -> Result<(), String> {
+    let Some(ov) = overlay() else { return Ok(()) };
+    let n = state.players[me_idx].characters.len();
+    let toks: Vec<(Option<u64>, String)> = (0..n)
+        .map(|i| {
+            let cid = state.players[me_idx].characters[i].card.card_id.clone();
+            (tag_src(state, me_idx, Slot::Char(i)), cid)
+        })
+        .collect();
+    for (tok, cid) in toks {
+        let slot = find_tagged(state, me_idx, tok);
+        let Some(effs) = ov.get(&cid) else { continue };
+        for eff in effs {
+            if eff.get("when").and_then(|v| v.as_str()) != Some("on_self_draw_non_draw_phase") {
+                continue;
+            }
+            crate::selfplay::note_fired(&cid);
+            match eval_effect_conditions(eff, state, me_idx, Some(slot)) {
+                Some(true) => {}
+                Some(false) => continue,
+                None => return Err("on_self_draw_non_draw_phase 条件 unknown".into()),
+            }
+            if eff.get("cost").and_then(|c| c.get("once_per_turn")).is_some() {
+                return Err("on_self_draw_non_draw_phase once_per_turn 未対応 (iid-keyed)".into());
+            }
+            let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
+            fire_gated_do(state, me_idx, slot, dos)?;
         }
     }
     Ok(())
