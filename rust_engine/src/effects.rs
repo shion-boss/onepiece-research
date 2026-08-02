@@ -1343,7 +1343,7 @@ thread_local! {
 
 /// 発動元 InPlay に一意トークンを打つ。 返り値を find_tagged に渡すと現在位置が取れる。
 /// 場外 (Detached / 範囲外) なら None = 追跡不要。
-fn tag_src(state: &mut GameState, me_idx: usize, src: Slot) -> Option<u64> {
+pub(crate) fn tag_src(state: &mut GameState, me_idx: usize, src: Slot) -> Option<u64> {
     let tok = SRC_TAG_SEQ.with(|c| {
         let v = c.get() + 1;
         c.set(v);
@@ -1356,7 +1356,7 @@ fn tag_src(state: &mut GameState, me_idx: usize, src: Slot) -> Option<u64> {
 
 /// tag_src で打ったトークンを探して現在の Slot を返す (見つかればタグは消す)。
 /// 見つからない = 発動元が場を離れた → Python の self_inplay は生きているが場外 = Slot::Detached 相当。
-fn find_tagged(state: &mut GameState, me_idx: usize, tok: Option<u64>) -> Slot {
+pub(crate) fn find_tagged(state: &mut GameState, me_idx: usize, tok: Option<u64>) -> Slot {
     let Some(tok) = tok else { return Slot::Detached };
     let mut found = Slot::Detached;
     for pi in 0..2 {
@@ -2547,36 +2547,56 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         // dedup は「除去済は board から消える」で自然に成立する (cascade 無しの前提)。
         "return_to_deck_bottom_multi" => {
             let Some(list) = v.as_array() else { return true };
+            let mut any_removed = false;
+            // Python (effects.py:7555) は spec ごとに現盤面へ解決し、 対象を 1 体ずつ即座に処理する
+            // (= 除去で index が動くので都度解決)。 相手キャラは protect/ko_immune を尊重し、
+            // replace_ko/replace_leave があれば置換を試みる。
             for spec in list {
                 let tgt_spec: Value = if spec.is_string() {
                     spec.clone()
                 } else {
                     spec.get("target").cloned().unwrap_or(Value::String("one_opponent_character_any".into()))
                 };
-                let Some(targets) = resolve_target(Some(&tgt_spec), me_idx, opp_idx, src, state) else { return false };
-                let mut victims: Vec<(usize, usize)> = vec![];
-                for &(pi, sl) in &targets {
-                    if let Slot::Char(idx) = sl {
+                let Some(targets) = resolve_target(Some(&tgt_spec), me_idx, opp_idx, src, state) else {
+                    note_unknown_key("rtdb_multi", "target 未対応");
+                    return false;
+                };
+                // 除去で index がずれるので、 大きい index から処理する (同一 spec 内の相対順は
+                // Python の逐次 remove と一致する = 各 victim は独立に自陣/敵陣から抜けるだけ)。
+                let mut idxs: Vec<(usize, usize)> = targets
+                    .iter()
+                    .filter_map(|&(pi, sl)| if let Slot::Char(i) = sl { Some((pi, i)) } else { None })
+                    .collect();
+                idxs.sort_by(|a, b| b.1.cmp(&a.1));
+                for (pi, idx) in idxs {
+                    if idx >= state.players[pi].characters.len() {
+                        continue;
+                    }
+                    if pi == opp_idx {
                         let c = &state.players[pi].characters[idx];
-                        if pi == opp_idx && (c.protect_from_opp_effect || c.static_ko_immune) {
+                        if c.protect_from_opp_effect || c.static_ko_immune {
                             continue;
                         }
-                        victims.push((pi, idx));
+                        match try_replace_ko(state, pi, idx, true, "return_to_deck_bottom") {
+                            Ok(true) => continue, // 置換発動 = デッキ下へは行かない
+                            Ok(false) => {}
+                            Err(_) => {
+                                note_unknown_key("rtdb_multi", "replace 再現不能");
+                                return false;
+                            }
+                        }
                     }
+                    remove_victims(state, vec![(pi, idx)], RemoveDest::DeckBottom);
+                    any_removed = true;
                 }
-                if victims.is_empty() {
-                    continue;
-                }
-                let has_opp = victims.iter().any(|&(pi, _)| pi == opp_idx);
-                let cascade = me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect")
-                    || (has_opp
-                        && (me_board_has_when(state, opp_idx, "on_self_chara_leave_by_opp_effect")
-                            || me_board_has_when(state, opp_idx, "replace_leave")
-                            || me_board_has_when(state, opp_idx, "replace_ko")));
-                if cascade {
-                    return false;
-                }
-                remove_victims(state, victims, RemoveDest::DeckBottom);
+            }
+            // Python は loop 全体の後に 1 回だけ actor 側の【自分の効果で場を離れた時】を発火
+            // (effects.py:7588 `if _rdm_any`)。
+            if any_removed
+                && me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect")
+                && fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err()
+            {
+                return false;
             }
             true
         }
@@ -5860,7 +5880,9 @@ fn effect_cascade_blocked(dos: &[Value], state: &GameState, me_idx: usize) -> bo
                     || has(opp, "replace_leave")
             }
             // return_to_hand/deck_bottom (single) は prim 側で cascade を自前処理 → ここでは block しない。
-            "return_to_hand_multi" | "return_to_deck_bottom_multi" => {
+            // return_to_deck_bottom_multi も prim 側で actor 側 leave trigger を発火 + 相手 replace は
+            // 明示 bail するので block 不要 (OP06-056)。
+            "return_to_hand_multi" => {
                 has(opp, "on_self_chara_leave_by_self_effect") || has(opp, "replace_leave")
             }
             // rest (single-path) は prim 側で on_self_rested cascade を自前発火 → ここでは block しない。
