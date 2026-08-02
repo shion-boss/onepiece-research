@@ -4668,6 +4668,73 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             state.players[me_idx].characters[ti].attached_dons += moved;
             true
         }
+        // 「このキャラ以外のキャラすべてを KO」 (effects.py:7375、 OP01-094 カイドウ)。
+        // Python の順: 自陣 (発動元を除く) → 相手陣、 各 victim ごとに耐性/置換/KO時トリガー、
+        // 最後に on_self_chara_leave_by_self_effect を 1 回。 タグ追跡で盤面ずれを吸収する。
+        "ko_all_others" => {
+            let src_idx = if let Slot::Char(i) = src { Some(i) } else { None };
+            let mut toks: Vec<(usize, Option<u64>)> = vec![];
+            for i in 0..state.players[me_idx].characters.len() {
+                if Some(i) == src_idx {
+                    continue;
+                }
+                let t = tag_src(state, me_idx, Slot::Char(i));
+                toks.push((me_idx, t));
+            }
+            for i in 0..state.players[opp_idx].characters.len() {
+                let t = tag_src(state, opp_idx, Slot::Char(i));
+                toks.push((opp_idx, t));
+            }
+            let mut ko_any = false;
+            for (pi, tok) in toks {
+                let Slot::Char(idx) = find_tagged(state, pi, tok) else { continue };
+                let by_opp = pi == opp_idx; // victim から見て「相手の効果」か
+                {
+                    let t = &mut state.players[pi].characters[idx];
+                    if by_opp && t.protect_from_opp_effect {
+                        continue;
+                    }
+                    if t.ko_per_turn_immune_remaining > 0 {
+                        t.ko_per_turn_immune_remaining -= 1;
+                        continue;
+                    }
+                    if t.ko_immune_until_turn_end || t.static_ko_immune || t.ko_immune_through_opp_turn {
+                        continue;
+                    }
+                }
+                match try_replace_ko(state, pi, idx, by_opp, "ko") {
+                    Ok(true) => continue,
+                    Ok(false) => {}
+                    Err(_) => return false,
+                }
+                let vcid = state.players[pi].characters[idx].card.card_id.clone();
+                let ip = state.players[pi].characters.remove(idx);
+                let don = ip.attached_dons;
+                state.players[pi].trash.push(ip.card);
+                state.players[pi].don_rested += don;
+                if by_opp {
+                    state.players[pi].chara_ko_taken_this_turn += 1;
+                }
+                ko_any = true;
+                state.last_chara_ko_victim_card = None;
+                if fire_on_ko(state, pi, &vcid, by_opp).is_err() {
+                    return false;
+                }
+                // 相手 victim のときだけ 発動側の【相手のキャラがKOされた時】が発火する。
+                if by_opp && fire_field_when(state, me_idx, "on_opp_chara_ko").is_err() {
+                    return false;
+                }
+                if fire_field_when(state, pi, "on_self_chara_ko").is_err() {
+                    return false;
+                }
+                state.last_chara_ko_victim_card = None;
+            }
+            if ko_any && fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err()
+            {
+                return false;
+            }
+            true
+        }
         // このキャラをトラッシュに置く (effects.py:7761)。 付与ドンはレストへ。
         "return_self_to_trash" => {
             if let Slot::Char(i) = src {
@@ -7735,13 +7802,7 @@ fn effect_cascade_blocked(dos: &[Value], state: &GameState, me_idx: usize) -> bo
             // draw は prim 側で on_self_draw_non_draw_phase を自前発火する → block 不要。
             // ko (single) は prim 側で cascade を自前処理 (single victim) or 内部 bail → ここでは block しない。
             // ko_multi は prim 側で cascade を自前処理 (single victim) or 明示 bail するので block しない。
-            "ko_all_others" => {
-                has(me_idx, "on_opp_chara_ko")
-                    || has(opp, "on_self_chara_ko")
-                    || has(opp, "on_ko")
-                    || has(opp, "replace_ko")
-                    || has(opp, "replace_leave")
-            }
+            // ko_all_others は prim 側でタグ追跡の逐次 KO + cascade を自前処理する → block 不要。
             // return_to_hand/deck_bottom (single) は prim 側で cascade を自前処理 → ここでは block しない。
             // return_to_deck_bottom_multi も prim 側で actor 側 leave trigger を発火 + 相手 replace は
             // 明示 bail するので block 不要 (OP06-056)。
@@ -8199,7 +8260,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "summon_stage_from_deck_with_feature" | "opp_may_return_active_don_else_debuff"
             | "return_self_charas_then_pump_per" | "play_from_hand_choice"
             | "fire_event_main_from_trash" | "set_don_deck_size"
-            | "flip_life_face_up_effect" | "transfer_attached_don_to_feature"
+            | "flip_life_face_up_effect" | "transfer_attached_don_to_feature" | "ko_all_others"
     )
 }
 
