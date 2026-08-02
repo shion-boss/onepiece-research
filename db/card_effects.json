@@ -102777,7 +102777,7 @@
       "type": "one_opponent_character_filtered",
       "filter": {
        "cost_le": 3,
-       "rested_required": true
+       "rested": true
       }
      }
     }

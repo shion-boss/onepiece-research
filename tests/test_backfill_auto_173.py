@@ -630,14 +630,6 @@ def test_st10_007_on_don_returned_ko_rested_cost3_ai():
     assert victim not in opp.characters, "相手のレストのコスト3以下キャラが KO されていない"
 
 
-@pytest.mark.skip(reason=(
-    "engine gap (人間レビュー用): ST10-007 overlay の filter は "
-    "{'cost_le': 3, 'rested_required': true} だが、 engine の "
-    "one_opponent_character_filtered リゾルバは filter 内 'rested' キーのみ honored し "
-    "'rested_required' を無視する (effects.py:2221)。 このため公式テキスト "
-    "『相手のレストのコスト3以下キャラ』の レスト制約が効かず、 アクティブなキャラも "
-    "KO 対象になってしまう。 overlay を 'rested': true に直すか engine で "
-    "'rested_required' を honor する修正が必要なため skip。"))
 def test_st10_007_on_don_returned_no_ko_when_active():
     """相手のコスト3以下キャラが アクティブ (非レスト) なら 対象外 → KO されない。"""
     repo = _repo()
