@@ -476,6 +476,10 @@ pub struct GameState {
     // state.last_discard_source_inplay 相当で、 条件 actor_source_feature_contains が参照する。
     #[serde(skip)]
     pub current_discard_source_features: Option<Vec<String>>,
+    // 直近に効果で捨てた手札の枚数 (transient、 Python の state.last_discard_count 相当)。
+    // draw_per_self_hand_discarded (OP12-040 クザン「捨てた枚数分ドロー」) が読む。
+    #[serde(skip)]
+    pub current_discard_count: i32,
     // ===== trigger キュー (Python effects.py:event_queue / resolving の移植、 2026-08-01) =====
     // Python は【登場時】等を enqueue し、 resolving=false の時だけ drain する。 つまり
     // **トリガー解決の途中で登場したキャラの on_play は後回し** になる (zone 操作が終わってから発火)。
