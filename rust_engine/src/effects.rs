@@ -8179,6 +8179,9 @@ fn try_pay_counter_cost(
                 // trash_self / self_ko = 発動元自身を場から除去 (effects.py:934)。 self_ko は KO 扱いで
                 // 【KO時】が発火するので、 該当 when を持つ盤面は下の payability で bail する。
                 | "trash_self" | "self_ko" | "return_self_to_hand"
+                // return_self_don_to_deck: 場のドン N 枚をドンデッキへ (effects.py:889)。
+                // ⭐ rested を優先して返す (active DON を温存 = 常に tempo 同等以上)。
+                | "return_self_don_to_deck"
         ) {
             return Err(format!("counter cost 未対応: {k}"));
         }
@@ -8190,6 +8193,7 @@ fn try_pay_counter_cost(
     let lth = gi("life_to_hand");
     let ltob = gi("life_top_or_bottom_to_hand");
     let ttd = gi("trash_to_deck");
+    let rdon = gi("return_self_don_to_deck");
     let rest_self = obj.get("rest_self").map_or(false, json_truthy);
     let flip_down = obj.get("flip_life_face_down").map_or(false, json_truthy);
     let flip_up = obj.get("flip_life_face_up").map_or(false, json_truthy);
@@ -8286,6 +8290,27 @@ fn try_pay_counter_cost(
         let a = rest_don.min(me.don_active);
         me.don_active -= a;
         me.don_rested += a;
+    }
+    // return_self_don_to_deck: 場のドン N 枚をドンデッキへ (effects.py:889)。 rested 優先で返す。
+    if rdon > 0 {
+        let moved = {
+            let me = &mut state.players[me_idx];
+            let from_rested = me.don_rested.min(rdon);
+            me.don_rested -= from_rested;
+            me.don_remaining_in_deck += from_rested;
+            let from_active = (rdon - from_rested).min(me.don_active);
+            me.don_active -= from_active;
+            me.don_remaining_in_deck += from_active;
+            from_rested + from_active
+        };
+        if moved > 0 {
+            state.last_returned_don_count = moved;
+            if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck")
+                && fire_field_when(state, me_idx, "on_self_don_returned_to_deck").is_err()
+            {
+                return Err("counter cost return_self_don_to_deck cascade 未対応".into());
+            }
+        }
     }
     // discard_hand_with_filter: 先頭 cnt 個の matching (hand 順) を降順 pop → flag + cascade (effects.py:867)。
     // Python 順は rest_don 後・rest_self 前。 OP15-057 (EVENT/STAGE 1 枚)。
