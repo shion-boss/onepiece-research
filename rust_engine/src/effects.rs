@@ -310,7 +310,7 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             }
             "self_stage_named" => {
                 let name = v.as_str().unwrap_or("");
-                me.stages.iter().any(|st| st.card.name == name)
+                me.stages.iter().any(|st| name_matches(&st.card, name))
             }
             "self_chara_count_lt_opp" => me.characters.len() < opp.characters.len(),
             "self_hand_eq" => (me.hand.len() as i64) == v.as_i64().unwrap_or(0),
@@ -372,8 +372,8 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                         .characters
                         .iter()
                         .enumerate()
-                        .any(|(i, c)| i != si && c.card.name == name),
-                    Some(_) => !me.characters.iter().any(|c| c.card.name == name),
+                        .any(|(i, c)| i != si && name_matches(&c.card, name)),
+                    Some(_) => !me.characters.iter().any(|c| name_matches(&c.card, name)),
                     None => false,
                 }
             }
@@ -466,12 +466,12 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                 } else {
                     v.as_str().unwrap_or("").to_string()
                 };
-                !me.characters.iter().chain(opp.characters.iter()).any(|c| c.card.name == name)
+                !me.characters.iter().chain(opp.characters.iter()).any(|c| name_matches(&c.card, &name))
             }
             // 自分の場に カード名 v のキャラが いない (effects.py:1214、 OP08-005 / OP03-027)。
             "self_chara_named_absent" => {
                 let name = v.as_str().unwrap_or("");
-                !me.characters.iter().any(|c| c.card.name == name)
+                !me.characters.iter().any(|c| name_matches(&c.card, name))
             }
             // リーダー名が文字列 v を含む (effects.py:1754、 OP16-015)。 表記揺れは norm_card_name で吸収。
             "leader_name_contains" => {
@@ -924,7 +924,7 @@ fn resolve_target(
                 let p = &state.players[me_idx];
                 return Some(
                     (0..p.characters.len())
-                        .filter(|&i| norm_card_name(&p.characters[i].card.name) == name)
+                        .filter(|&i| name_matches(&p.characters[i].card, &name))
                         .take(1)
                         .map(|i| (me_idx, Slot::Char(i)))
                         .collect(),
@@ -935,7 +935,7 @@ fn resolve_target(
                 let p = &state.players[me_idx];
                 return Some(
                     (0..p.characters.len())
-                        .filter(|&i| p.characters[i].card.name == name)
+                        .filter(|&i| name_matches(&p.characters[i].card, name))
                         .map(|i| (me_idx, Slot::Char(i)))
                         .collect(),
                 );
@@ -944,11 +944,11 @@ fn resolve_target(
             if t == "self_chara_or_leader_named" {
                 let name = v.get("name").and_then(|x| x.as_str()).unwrap_or("");
                 let p = &state.players[me_idx];
-                if p.leader.card.name == name {
+                if name_matches(&p.leader.card, name) {
                     return Some(vec![(me_idx, Slot::Leader)]);
                 }
                 for i in 0..p.characters.len() {
-                    if p.characters[i].card.name == name {
+                    if name_matches(&p.characters[i].card, name) {
                         return Some(vec![(me_idx, Slot::Char(i))]);
                     }
                 }
@@ -1303,7 +1303,7 @@ fn resolve_target(
             );
             let me = &state.players[me_idx];
             (0..me.characters.len())
-                .filter(|&i| norm_card_name(&me.characters[i].card.name) == name)
+                .filter(|&i| name_matches(&me.characters[i].card, &name))
                 .take(1)
                 .map(|i| (me_idx, Slot::Char(i)))
                 .collect()
@@ -1744,6 +1744,51 @@ fn cat_str(c: &Category) -> &'static str {
 /// core.py:normalize_card_name の port = カード名の全角Ｄ↔半角D 表記揺れを半角D に正準化。
 /// card.name は既に正準 (Python full_dump 由来) だが、 overlay 参照値は生 JSON = 未正準なので
 /// leader_name 等の名前一致で両側を通す (silent no-op 防止)。
+/// `db/card_alt_names.json` = 「ルール上、このカードはカード名を「X」としても扱う」 の別名テーブル。
+/// 該当カード (16 枚) は自身の名前に加えて別名でも参照される (effects.py:card_names)。
+/// ⚠ 「カード名の異なるキャラ」 の **種類数え** では別名を数えない (公式 Q&A)。
+/// overlay 読込時 (load_overlay) に同じディレクトリから読む。 未ロードなら別名なし = 自名のみ。
+static ALT_NAMES: std::sync::OnceLock<std::collections::HashMap<String, Vec<String>>> =
+    std::sync::OnceLock::new();
+
+pub fn load_alt_names(path: &str) {
+    let map = std::fs::read_to_string(path)
+        .ok()
+        .and_then(|t| serde_json::from_str::<Value>(&t).ok())
+        .and_then(|v| v.get("alt_names").cloned())
+        .and_then(|v| v.as_object().cloned())
+        .map(|o| {
+            o.into_iter()
+                .map(|(k, v)| {
+                    let names = v
+                        .as_array()
+                        .map(|a| a.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect())
+                        .unwrap_or_default();
+                    (k, names)
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let _ = ALT_NAMES.set(map);
+}
+
+fn alt_names(card_id: &str) -> &'static [String] {
+    ALT_NAMES
+        .get()
+        .and_then(|m| m.get(card_id))
+        .map(|v| v.as_slice())
+        .unwrap_or(&[])
+}
+
+/// カード名一致 (別名ルール込み、 表記ゆれは norm_card_name で吸収)。 effects.py:name_matches。
+fn name_matches(card: &crate::state::CardDef, target: &str) -> bool {
+    let t = norm_card_name(target);
+    if norm_card_name(&card.name) == t {
+        return true;
+    }
+    alt_names(&card.card_id).iter().any(|n| norm_card_name(n) == t)
+}
+
 fn norm_card_name(s: &str) -> String {
     s.replace('Ｄ', "D")
 }
@@ -2079,7 +2124,7 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
                 spec.as_str().unwrap_or("").to_string()
             };
             for c in state.players[me_idx].characters.iter_mut() {
-                if c.card.name == name {
+                if name_matches(&c.card, &name) {
                     c.attack_taunt = true;
                 }
             }
@@ -2296,7 +2341,7 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
         "rest_self" => Some(src_ip(me, src).map_or(false, |ip| !ip.rested)),
         "rest_self_target_name" | "rest_self_target" => {
             let name = cv.get("name").and_then(|x| x.as_str()).unwrap_or_else(|| cv.as_str().unwrap_or(""));
-            Some(me.characters.iter().chain(me.stages.iter()).any(|ip| ip.card.name == name && !ip.rested))
+            Some(me.characters.iter().chain(me.stages.iter()).any(|ip| name_matches(&ip.card, name) && !ip.rested))
         }
         "rest_self_leader_or_stage_filtered" => {
             let filt = cv.get("filter");
@@ -2352,8 +2397,8 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
                 cv.as_str().unwrap_or("").to_string()
             };
             Some(
-                me.stages.iter().any(|s| s.card.name == name)
-                    || me.hand.iter().any(|c| c.name == name),
+                me.stages.iter().any(|s| name_matches(&s.card, &name))
+                    || me.hand.iter().any(|c| name_matches(c, &name)),
             )
         }
         // discard_hand cost: 手札 ≥ n 必要。
@@ -2524,7 +2569,7 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
             let me = &mut state.players[me_idx];
             let mut done = false;
             for i in 0..me.characters.len() {
-                if me.characters[i].card.name == name && !me.characters[i].rested {
+                if name_matches(&me.characters[i].card, &name) && !me.characters[i].rested {
                     me.characters[i].rested = true;
                     done = true;
                     break;
@@ -2532,7 +2577,7 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
             }
             if !done {
                 for i in 0..me.stages.len() {
-                    if me.stages[i].card.name == name && !me.stages[i].rested {
+                    if name_matches(&me.stages[i].card, &name) && !me.stages[i].rested {
                         me.stages[i].rested = true;
                         break;
                     }
@@ -2601,7 +2646,7 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
             let n = cv.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as i32;
             let me = &mut state.players[me_idx];
             for i in 0..me.characters.len() {
-                if me.characters[i].card.name == name {
+                if name_matches(&me.characters[i].card, &name) {
                     let give = n.min(me.don_active);
                     me.don_active -= give;
                     me.characters[i].attached_dons += give;
@@ -10863,7 +10908,7 @@ fn can_pay_activate_cost(state: &GameState, me_idx: usize, ip: &InPlay, on_field
     if let Some(rn) = o.get("rest_self_target_name").or_else(|| o.get("rest_self_target")) {
         let name = rn.get("name").and_then(|v| v.as_str()).or_else(|| rn.as_str()).unwrap_or("");
         let ok = me.characters.iter().chain(me.stages.iter())
-            .any(|ip| ip.card.name == name && !ip.rested);
+            .any(|ip| name_matches(&ip.card, name) && !ip.rested);
         if !ok {
             return false;
         }

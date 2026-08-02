@@ -274,12 +274,17 @@ def detect_issues(card: dict, effects: list[dict], qa_list: list[dict]) -> list[
     # 「【登場時】」 のうち「【登場時】効果」 (= フィルタ参照) は trigger ではない。
     # 例: PRB01-001 サンジ 「自分のコスト8以下の【登場時】効果を持たないキャラ1枚...」
     # 該当パターン 「【登場時】効果」 を除いて素の「【登場時】」 が残るか確認。
+    # ⚠ 「【XXX】効果を持たないキャラ」 のように **効果の種類を指す語** は、 そのカード自身が
+    #   その when を持つことを意味しない。 on_play だけ除外していたが on_ko / on_attack も同様
+    #   (EB03-001 ビビ = 「自分の【アタック時】効果を持たないキャラ1枚」 を誤検知していた)。
     text_for_on_play = (text or "").replace("【登場時】効果", "")
+    text_for_on_ko = (text or "").replace("【KO時】効果", "")
+    text_for_on_attack = (text or "").replace("【アタック時】効果", "")
     if "【登場時】" in text_for_on_play and "on_play" not in when_set:
         issues.append("missing_on_play")
-    if "【KO時】" in text and "on_ko" not in when_set:
+    if "【KO時】" in text_for_on_ko and "on_ko" not in when_set:
         issues.append("missing_on_ko")
-    if "【アタック時】" in text and "on_attack" not in when_set:
+    if "【アタック時】" in text_for_on_attack and "on_attack" not in when_set:
         issues.append("missing_on_attack")
     if "【ブロック時】" in text and "on_block" not in when_set:
         issues.append("missing_on_block")
@@ -329,6 +334,10 @@ def detect_issues(card: dict, effects: list[dict], qa_list: list[dict]) -> list[
             "self_don_ge", "self_don_active_ge", "self_attached_don_ge",
             "self_don_le", "don_count_ge", "don_count_le",
             "opp_don_count_ge", "opp_don_count_le",
+            # 2026-08-02 追加: 実 overlay で使われている同義キー。 これらを認識しないと
+            # 正しくモデル化済のカード (EB04-038 = don_diff_le) を誤検知する。
+            "don_diff_le", "don_diff_ge", "self_don_count_ge", "self_don_count_eq",
+            "opp_don_total_ge", "either_player_don_total_eq_10", "self_don_active_le",
         )
     ):
         # ドン!! 枚数条件の可能性

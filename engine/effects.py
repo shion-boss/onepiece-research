@@ -2127,10 +2127,10 @@ def _resolve_target(
             t = _TYPE_ALIASES[t]
         if t == "self_chara_named":
             name = target_spec.get("name", "")
-            return [ip for ip in me.characters if ip.card.name == name][:1]
+            return [ip for ip in me.characters if name_matches(ip.card, name)][:1]
         if t == "self_chara_or_leader_named":
             name = target_spec.get("name", "")
-            cands = [ip for ip in [me.leader, *me.characters] if ip.card.name == name]
+            cands = [ip for ip in [me.leader, *me.characters] if name_matches(ip.card, name)]
             # 同名(例「エネル」)が リーダーとキャラで複数居る場合、 人間は modal で選べる
             # (2026-07-08、 ohtsuki 指摘: 放電/神の裁き counter でキャラのエネルを選べなかった bug)。
             if len(cands) > 1 and outer_kind and _maybe_request_target_pick(
@@ -2141,7 +2141,7 @@ def _resolve_target(
             return cands[:1]
         if t == "all_self_chara_named":
             name = target_spec.get("name", "")
-            return [ip for ip in me.characters if ip.card.name == name]
+            return [ip for ip in me.characters if name_matches(ip.card, name)]
         if t == "one_self_chara_or_leader_filtered":
             # 自リーダー / キャラから filter にマッチする 1 枚 (パワー高い順、 human は modal で選択)
             filt = target_spec.get("filter", {})
@@ -2926,7 +2926,7 @@ def _resolve_target(
         m = re.match(r"one_self_(?:character|chara)_named_(.+)$", target_spec)
         if m:
             target_name = m.group(1)
-            cands = [c for c in me.characters if c.card.name == target_name]
+            cands = [c for c in me.characters if name_matches(c.card, target_name)]
             if outer_kind and len(cands) > 1 and _maybe_request_target_pick(
                 state, cands, 1, outer_kind, outer_value, self_inplay,
                 description=f"自キャラ から 1 枚 選択 ({target_name})",
@@ -2938,7 +2938,7 @@ def _resolve_target(
         m = re.match(r"all_self_characters_named_(.+)$", target_spec)
         if m:
             target_name = m.group(1)
-            return [c for c in me.characters if c.card.name == target_name]
+            return [c for c in me.characters if name_matches(c.card, target_name)]
 
         # one_self_character_feature_X (= 自分の特徴 X を持つキャラ 1 体、 power 高い順)
         # OP11-031 ジンベエ系。
@@ -10630,6 +10630,44 @@ def _no_play_from_hand_via_effect(card: CardDef, overlay) -> bool:
                for e in getattr(bundle, "effects", []))
 
 
+_ALT_NAMES_CACHE: dict[str, list[str]] | None = None
+
+
+def _alt_names_map() -> dict[str, list[str]]:
+    """`db/card_alt_names.json` (= 「ルール上、このカードはカード名を「X」としても扱う」) を読む。
+
+    公式ルール: 該当カードは **自身の名前に加えて** 別名でも参照される (OP03-122_r1 そげキング =
+    「ウソップ」 / EB04-038 = 「トラファルガー・ロー」+「ドンキホーテ・ロシナンテ」 等 16 枚)。
+    名前一致の filter / target spec / サーチ がこれを見ないと該当カードを取りこぼす。
+    ⚠ 「カード名の異なるキャラ」 の **種類数え** では別名を数えない (公式 Q&A、 EB04-038 は 1 種類)。
+    """
+    global _ALT_NAMES_CACHE
+    if _ALT_NAMES_CACHE is None:
+        import json as _json
+        from pathlib import Path as _Path
+
+        try:
+            _p = _Path(__file__).resolve().parents[1] / "db" / "card_alt_names.json"
+            _ALT_NAMES_CACHE = dict(
+                _json.loads(_p.read_text(encoding="utf-8")).get("alt_names") or {}
+            )
+        except Exception:
+            _ALT_NAMES_CACHE = {}
+    return _ALT_NAMES_CACHE
+
+
+def card_names(card: CardDef) -> list[str]:
+    """このカードが「そのカード名として扱われる」名前すべて (本来の名前 + 別名)。"""
+    alt = _alt_names_map().get(getattr(card, "card_id", ""), [])
+    return [card.name, *alt] if alt else [card.name]
+
+
+def name_matches(card: CardDef, target: str) -> bool:
+    """カード名一致 (別名ルール込み、 表記ゆれは normalize_card_name で吸収)。"""
+    t = normalize_card_name(str(target))
+    return any(normalize_card_name(n) == t for n in card_names(card))
+
+
 def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
     if not filt:
         return True
@@ -10695,11 +10733,11 @@ def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
             return False
     if "color" in filt and filt["color"] not in card.color:
         return False
-    if "exclude_name" in filt and card.name == filt["exclude_name"]:
+    if "exclude_name" in filt and name_matches(card, filt["exclude_name"]):
         return False
     # name_exclude: exclude_name の variant 表記 (= overlay に両表記が混在)。 未処理だと
     # 名前除外が silently 無視される (= 2026-06-05 filter キー監査で検出)。
-    if "name_exclude" in filt and card.name == filt["name_exclude"]:
+    if "name_exclude" in filt and name_matches(card, filt["name_exclude"]):
         return False
     # exclude_card_id: 特定 card_id を除外 (= ST22-002「自身以外の白ひげ海賊団」 等)。 未処理だと
     # 除外が無効で **そのカード自身も対象** になる (= 14 箇所、 2026-06-05 filter キー監査で検出)。
@@ -10723,15 +10761,15 @@ def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
         spec = filt["feature_or_name"]
         feat = spec.get("feature")
         name = spec.get("name")
-        if not ((feat and feat in card.features) or (name and card.name == name)):
+        if not ((feat and feat in card.features) or (name and name_matches(card, name))):
             return False
-    if "name" in filt and card.name != filt["name"]:
+    if "name" in filt and not name_matches(card, filt["name"]):
         return False
     if "name_in" in filt:
         names = filt["name_in"]
         if isinstance(names, str):
             names = [names]
-        if card.name not in names:
+        if not any(name_matches(card, _n) for _n in names):
             return False
     if "attribute" in filt and str(filt["attribute"]) not in (card.attribute or ""):
         # 公式「属性(X)を持つカード」 = X が card の属性 (「斬/打」 等 複数可) に含まれれば真。

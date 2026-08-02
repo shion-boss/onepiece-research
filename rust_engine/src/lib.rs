@@ -94,6 +94,8 @@ fn load_overlay(path: &str) -> PyResult<()> {
     if let Ok(rs) = std::fs::read_to_string(&roles_path) {
         let _ = effects::load_roles(&rs);
     }
+    // 同ディレクトリの card_alt_names.json も読む (= 「ルール上、カード名を X としても扱う」)。
+    effects::load_alt_names(&path.replace("card_effects.json", "card_alt_names.json"));
     Ok(())
 }
 
