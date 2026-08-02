@@ -4686,11 +4686,12 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 "turn".to_string()
             };
             let Some(from_c) = resolve_target(Some(&from_spec), me_idx, opp_idx, src, state) else { return false };
-            let Some(&(fp, fs)) = from_c.first() else { return false };
+            // 対象 0 = Python も `return False` (= 後続 do を止めない no-op、 _chain 未使用) → 不発扱い。
+            let Some(&(fp, fs)) = from_c.first() else { return true };
             let copied = get_ip(&state.players[fp], fs).power();
             let Some(to_c) = resolve_target(Some(&to_spec), me_idx, opp_idx, src, state) else { return false };
             if to_c.is_empty() {
-                return false;
+                return true;
             }
             for (pi, sl) in to_c {
                 let ip = get_ip_mut(&mut state.players[pi], sl);
