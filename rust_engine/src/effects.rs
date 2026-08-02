@@ -3967,6 +3967,38 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // このキャラ (発動元) 自身を KO (effects.py:3331、 OP16-014 マルコの replace_leave do)。
+        // 【KO時】+【自分のキャラがKOされた時】を発火 (自分の効果なので by_opp_effect=false)。
+        "ko_self" => {
+            let (pi, removed_cid, don) = match src {
+                Slot::Char(i) if i < state.players[me_idx].characters.len() => {
+                    let ip = state.players[me_idx].characters.remove(i);
+                    let d = ip.attached_dons;
+                    let cid = ip.card.card_id.clone();
+                    state.players[me_idx].trash.push(ip.card);
+                    (Some(me_idx), Some(cid), d)
+                }
+                Slot::Stage(i) if i < state.players[me_idx].stages.len() => {
+                    let ip = state.players[me_idx].stages.remove(i);
+                    let d = ip.attached_dons;
+                    let cid = ip.card.card_id.clone();
+                    state.players[me_idx].trash.push(ip.card);
+                    (Some(me_idx), Some(cid), d)
+                }
+                _ => (None, None, 0),
+            };
+            if let (Some(pi), Some(cid)) = (pi, removed_cid) {
+                state.players[pi].don_rested += don;
+                state.last_chara_ko_victim_card = None;
+                if fire_on_ko(state, pi, &cid, false).is_err()
+                    || fire_field_when(state, pi, "on_self_chara_ko").is_err()
+                {
+                    return false;
+                }
+                state.last_chara_ko_victim_card = None;
+            }
+            true
+        }
         // 「A するか B する」 (effects.py:9062)。 AI heuristic: life_count なら 自ライフ≤1 で option 1、
         // それ以外は option 0 (公式テキスト先頭)。
         "choice" => {
@@ -7902,9 +7934,13 @@ pub fn try_replace_ko(
                 //   draw / life_to_hand / mill_self_life_to_trash / trash_to_deck / trash_self_hand_random
                 //   / power_pump (holder=src への buff) / flip_life_face_up_effect
                 // ⚠ rest / return_self_to_* は「離脱・レスト」を起こし replace を再誘発しうるので除外のまま。
+                // 追加 (2026-08-02): rest = prim 側で on_self_rested cascade を自前発火/bail する。
+                // ko_self = holder 自身の KO (prim 側で on_ko/on_self_chara_ko を発火、 replace は
+                // 再誘発しない = victim は既に場外)。 rest_self_don = コストエリア操作のみ。
                 if !matches!(pk, "rest_self_cards" | "return_self_don_to_deck" | "return_to_deck_bottom"
                     | "draw" | "life_to_hand" | "mill_self_life_to_trash" | "trash_to_deck"
-                    | "trash_self_hand_random" | "power_pump" | "flip_life_face_up_effect") {
+                    | "trash_self_hand_random" | "power_pump" | "flip_life_face_up_effect"
+                    | "rest" | "ko_self" | "rest_self_don") {
                     return Err(format!("replace do 未対応 ({pk})"));
                 }
                 if pk == "return_to_deck_bottom"
