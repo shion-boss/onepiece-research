@@ -3438,6 +3438,63 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 「自分のデッキから (filter) N 枚までを手札に加え、 デッキをシャッフル」 (effects.py:4428)。
+        // AI は (cost, power) 降順で limit 枚。 公開して加える (= 相手に見える = known_hand)。
+        "search" => {
+            let filt = v.get("filter").cloned();
+            let limit = v.get("limit").and_then(|x| x.as_i64()).unwrap_or(1).max(0) as usize;
+            let me = &state.players[me_idx];
+            let mut idxs: Vec<usize> =
+                (0..me.deck.len()).filter(|&i| matches_filter(&me.deck[i], filt.as_ref())).collect();
+            // Python: sorted(key=(cost, power), reverse=True) = stable な降順
+            idxs.sort_by(|&a, &b| {
+                (me.deck[b].cost, me.deck[b].power).cmp(&(me.deck[a].cost, me.deck[a].power))
+            });
+            idxs.truncate(limit);
+            let chosen: std::collections::BTreeSet<usize> = idxs.iter().copied().collect();
+            let picked: Vec<crate::state::CardDef> = idxs.iter().map(|&i| me.deck[i].clone()).collect();
+            let kept: Vec<crate::state::CardDef> = (0..me.deck.len())
+                .filter(|i| !chosen.contains(i))
+                .map(|i| me.deck[i].clone())
+                .collect();
+            state.players[me_idx].deck = kept;
+            for c in picked {
+                state.players[me_idx].known_hand_card_ids.push(c.card_id.clone());
+                state.players[me_idx].hand.push(c);
+            }
+            let len = state.players[me_idx].deck.len();
+            let perm = state.rng_mut().shuffle_perm(len);
+            let old = std::mem::take(&mut state.players[me_idx].deck);
+            state.players[me_idx].deck = perm.iter().map(|&j| old[j].clone()).collect();
+            state.players[me_idx].known_bottom_card_ids.clear();
+            state.players[me_idx].known_top_card_ids.clear();
+            true
+        }
+        // 「相手は手札が N 枚になるように捨てる」 (effects.py:6699、 OP05-058)。 AI は worst_hand_idx。
+        "opp_hand_to_size" => {
+            let target = if v.is_object() {
+                v.get("size").and_then(|x| x.as_i64()).unwrap_or(5) as usize
+            } else {
+                v.as_i64().unwrap_or(5) as usize
+            };
+            while state.players[opp_idx].hand.len() > target {
+                let o = &mut state.players[opp_idx];
+                let Some(i) = worst_hand_idx(&o.hand, &o.known_hand_card_ids) else { break };
+                let c = o.hand.remove(i);
+                o.trash.push(c);
+            }
+            true
+        }
+        // 「このターン中、 元々のコスト N 以上のキャラを登場できない」 (effects.py:5596、 OP13-023)。
+        "block_chara_play_cost_ge" => {
+            let n = if v.is_object() {
+                v.get("amount").and_then(|x| x.as_i64()).unwrap_or(7) as i32
+            } else {
+                v.as_i64().unwrap_or(7) as i32
+            };
+            state.players[me_idx].block_chara_play_cost_ge_threshold = n;
+            true
+        }
         // 「A するか B する」 (effects.py:9062)。 AI heuristic: life_count なら 自ライフ≤1 で option 1、
         // それ以外は option 0 (公式テキスト先頭)。
         "choice" => {
@@ -6901,6 +6958,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "reduce_play_cost_filtered_turn" | "trash_opp_hand_random"
             | "set_all_life_face_down" | "hand_to_deck_bottom"
             | "schedule_self_trash_at_turn_end" | "set_ko_immune_timed"
+            | "opp_hand_to_size" | "block_chara_play_cost_ge"
     )
 }
 
