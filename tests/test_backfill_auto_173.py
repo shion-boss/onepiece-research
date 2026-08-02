@@ -191,13 +191,6 @@ def test_st09_010_replace_ko_mill_life_ai():
     assert len(me.trash) == trash_before + 1, "自ライフ1枚がトラッシュに置かれるべき"
 
 
-@pytest.mark.skip(reason=(
-    "engine gap (人間レビュー用): ST09-010 の replace_ko は "
-    "mill_self_life_to_trash を do (コストではなく効果本体) で表現しているため、 "
-    "ライフ0枚でも try_replace_ko が True を返し KO を無償で代替してしまう。 "
-    "公式テキスト『ライフの上か下から1枚をトラッシュに置くことができる』では "
-    "ライフが無ければ置換不能であるべき (= 置換に life 支払い可能性の gate が要る)。 "
-    "engine 側修正が必要なため skip。"))
 def test_st09_010_replace_ko_no_life():
     """ライフが0枚なら 置換コストを払えず KO を代替できない (= 本来 False であるべき)。"""
     repo = _repo()
