@@ -38,6 +38,24 @@ if [ "$sk_after" -gt "$sk_before" ]; then
   git checkout -- .; exit 1
 fi
 
+# 不変条件1c: engine/ を直したなら rust_engine/ も直す (= Rust 追従漏れ backlog、 2026-08-02)。
+# tests/test_rust_overlay_coverage.py が「overlay キーの未実装」は捕まえるが、 **既存キーの
+# 挙動変更** (例: play_from_hand_named_with_dynamic_cost の選択順変更) は静的には見えない。
+# その場合 Rust は黙って別挙動になるので、 engine/ 変更で rust_engine/ が無変更なら backlog に積み、
+# optcg-rust-parity-fix ルーティンが拾えるようにする (= revert はしない。 Python の修正自体は正しい)。
+if ! git diff --quiet --cached -- engine/ 2>/dev/null || ! git diff --quiet -- engine/ 2>/dev/null; then
+  if git diff --quiet -- rust_engine/src/ && git diff --quiet --cached -- rust_engine/src/; then
+    {
+      echo "- [ ] $(date -u +%Y-%m-%dT%H:%M:%SZ) \`engine/\` を変更したが \`rust_engine/src/\` は無変更"
+      echo "  - 変更ファイル: $(git diff --name-only -- engine/ | tr '\n' ' ')"
+      echo "  - commit 予定: ${MSG}"
+      echo "  - 対応: Rust を同じ挙動に追従させる (skill onepiece-rust-parity-fix)。"
+      echo "    検証 = \`pytest tests/test_rust_parity.py tests/test_rust_overlay_coverage.py -q\`"
+    } >> db/_rust_followup.md
+    echo "GATE: engine/ 変更に rust_engine/ が追従していない → db/_rust_followup.md に記録"
+  fi
+fi
+
 # 不変条件2: フル pytest が green
 echo "GATE: フル pytest 実行中..."
 if ! "$PY" -m pytest tests/ -q -p no:warnings; then

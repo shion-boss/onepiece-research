@@ -83,3 +83,60 @@ def test_rust_setup_matches_python_including_mulligan():
         f"マリガン判定材料 (deck_value の mulligan_*_card_ids) / game_start ステージ / "
         f"rng 消費順 / ownership flags のいずれかがズレている。"
     )
+
+
+def test_rust_selfplay_meta_pool_no_bail():
+    """メタデッキ self-play で Rust が bail しない (= 実デッキを最後まで正しく回せる) ことの gate。
+
+    差分ハーネスが見ない「Rust 単独で完走できるか」を守る。 Python 側の変更で Rust が追従できなく
+    なると bail (= 明示降参) が増えるので、 0 を維持することで追従漏れを検出する。
+    ⚠ 実行時間を抑えるため少数ゲーム。 広域は scripts/rust_fullsweep.py / meta 広域 sweep で。
+    """
+    import json
+    import random
+
+    import optcg_engine as eng
+
+    from scripts.rust_parity_check import _load, deck_value
+
+    _load()  # overlay 読み込み (未 load だと全効果 no-op で false negative になる)
+    pool = ["cardrush_1342", "cardrush_1454", "pros02_enel"]
+    pool = [s for s in pool if _deck_exists(s)]
+    if len(pool) < 2:
+        pytest.skip("メタデッキが見つからない")
+
+    eng.reset_coverage_stats(True)
+    for g in range(12):
+        seed = 4242 + g
+        a = pool[seed % len(pool)]
+        b = pool[(seed // len(pool) + 1) % len(pool)]
+        if a == b:
+            b = pool[(seed + 1) % len(pool)]
+        rng_state = json.dumps(list(random.Random(seed).getstate()[1]))
+        try:
+            eng.self_play(
+                deck_value(a), deck_value(b), rng_state, seed % 2,
+                "greedy", None, 8, 12, 40, False, 80,
+            )
+        except BaseException as e:  # noqa: BLE001 - pyo3 panic は Exception でない
+            raise AssertionError(f"Rust self-play が異常終了: {type(e).__name__}: {e}") from e
+
+    cv = json.loads(eng.coverage_stats())
+    acts = cv.get("actions") or {}
+    bail = sum(v["bail"] for v in acts.values())
+    total = sum(v["ok"] + v["bail"] for v in acts.values())
+    reasons = sorted(
+        (cv.get("bail_reasons") or {}).items(), key=lambda kv: -kv[1]
+    )[:5]
+    assert total > 1000, f"action={total} が異常に少ない (ハーネス破損?)"
+    assert bail == 0, (
+        f"Rust self-play bail={bail}/{total} (Python 追従漏れ)。 上位理由: {reasons}"
+    )
+    inv = cv.get("invariant_violations") or {}
+    assert not inv, f"保存則違反: {dict(list(inv.items())[:5])}"
+
+
+def _deck_exists(slug: str) -> bool:
+    import pathlib as _pl
+
+    return (_pl.Path(__file__).resolve().parents[1] / "decks" / f"{slug}.json").exists()

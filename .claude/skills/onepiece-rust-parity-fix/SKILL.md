@@ -24,9 +24,44 @@ description: >-
   理解すれば解ける。 難しいのは「未理解」であって「不可能」ではない。
 - 潰せない (診断に時間が要る) ものは **queue に残す** (= 黙って放置しない、 effect_bugfix_escalate と同型)。
 
+## ⚠ MISMATCH だけを見ていると漏れる (2026-08-02 追加)
+
+差分ハーネスは **サンプルに現れた action しか見ない**。 Python に新しい primitive / spec 変種 /
+trigger が入っても、 そのカードがサンプルに出なければ **MISMATCH=0 のまま Rust が黙って効果を落とす**。
+実際に見逃していた例:
+
+- 静的効果 **15 種** が Rust 未実装 (= 常在効果が黙って消える)
+- when **3 種** が Rust で未発火 (`on_self_don_attached` / `don_phase_modifier` / `setup_modifier`)
+- `play_from_hand_named_with_dynamic_cost` の `name_filter` 追加 (Python だけ直り Rust 未追従)
+
+→ **静的な網羅チェックを必ず併走させる**:
+
+```bash
+.venv/bin/python scripts/scan_overlay_engine_gaps.py   # overlay キー vs 両エンジン実装
+.venv/bin/pytest tests/test_rust_parity.py -q          # CI gate (MISMATCH + 網羅 + self-play bail)
+```
+
+gate は 3 本:
+1. `tests/test_rust_parity.py::test_rust_parity_no_mismatch(_broad)` — 差分 MISMATCH=0 **(要 Rust ビルド)**
+2. `tests/test_rust_overlay_coverage.py::test_rust_covers_all_overlay_keys` — overlay の
+   primitive/condition/when を Rust が全実装 **(ビルド不要 = ソースを grep するだけ)**
+3. `tests/test_rust_parity.py::test_rust_selfplay_meta_pool_no_bail` — メタデッキ self-play で
+   bail 0 + 保存則違反 0 **(要 Rust ビルド)**
+
+⚠ **2 を別ファイルに置いてある理由**: `test_rust_parity.py` は先頭で `importorskip("optcg_engine")`
+するので、 **Rust 未ビルドのクラウド環境ではモジュールごと skip** される。 効果自動修正ルーティン
+(`optcg-effect-bugfix`) はそこで走るため、 ビルド不要の 2 が無いと「Python だけ直して push」が素通りする
+(実際に `play_from_hand_named_with_dynamic_cost` の `name_filter` 追加で素通りした)。
+
+**Python engine (`engine/`) を直したら 同じ commit で `rust_engine/` も直す**。
+`scripts/effect_bugfix_gate.sh` は `engine/` 変更 + `rust_engine/src/` 無変更 を検出したら
+**`db/_rust_followup.md` に追記**する (revert はしない — Python の修正自体は正しいので)。
+このルーティンの入口で **まず `db/_rust_followup.md` を読み、 溜まっている項目を消化する**。
+
 ## ループ (1 MISMATCH = 1 サイクル)
 
 ```
+0. `db/_rust_followup.md` を読む (Python 側が先行修正された項目) →
 1. 検出 → 2. 診断 → 3. 修正 (bit一致 or bail) → 4. 検証 → 5. commit / escalate
         └──────────────── 次の MISMATCH ────────────────┘
 ```
