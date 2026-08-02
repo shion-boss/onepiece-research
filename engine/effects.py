@@ -1008,7 +1008,10 @@ def _check_and_set_once_per_turn(
         return False
     me.once_per_turn_used.add(key)
     # 明示キー (共有 namespace) は instance_id 非依存 → canonical mirror に並行記録 (Rust 同期)。
-    if opt is not True and key not in me.once_shared_used:
+    # source_iid が無い場合 (= ライフトリガー / イベント等、 場に InPlay が無い source) の
+    # 自動キーも card_id ベースで instance 非依存なので同じく mirror する (2026-08-02、
+    # これが無いと Rust が「ターン1回」を追跡できず該当トリガーが丸ごと bail する)。
+    if (opt is not True or source_iid is None) and key not in me.once_shared_used:
         me.once_shared_used.append(key)
         me.once_shared_used.sort()
     # Rust 同期用 canonical mirror: field-when (fire_field_when で発火する持続 source 由来) の once を

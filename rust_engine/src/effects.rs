@@ -7313,18 +7313,40 @@ pub fn fire_life_trigger(
     let prev_resolving = state.rust_resolving;
     state.rust_resolving = true;
     let mut kept_in_hand = false;
-    for eff in effs {
+    for (eff_idx, eff) in effs.iter().enumerate() {
         if eff.get("when").and_then(|v| v.as_str()) != Some("trigger") {
             continue;
+        }
+        // 【ターン1回】: ライフトリガーは source_iid が無いので Python の自動キーは
+        // `{card_id}:trigger:{idx}` (card_id ベース = instance 非依存) になり、
+        // once_shared_used に canonical mirror されている (effects.py:1009)。 それを見る。
+        let once_opt = eff
+            .get("once_per_turn")
+            .or_else(|| eff.get("cost").and_then(|c| c.get("once_per_turn")));
+        let once_key: Option<String> = match once_opt {
+            Some(o) if o.as_bool() == Some(true) => Some(format!("{card_id}:trigger:{eff_idx}")),
+            Some(o) => o.as_str().map(|k| format!("key:{k}")),
+            None => None,
+        };
+        if let Some(k) = &once_key {
+            if state.players[defender_idx].once_shared_used.contains(k) {
+                continue; // ターン既発動
+            }
+        }
+        // Python は _check_and_set_once_per_turn を cost 判定より **前** に呼ぶ (= 判定時点で
+        // 使用済みフラグが立つ) ので、 ここで mark してから cost に進む。
+        if let Some(k) = &once_key {
+            let used = &mut state.players[defender_idx].once_shared_used;
+            if !used.contains(k) {
+                used.push(k.clone());
+                used.sort();
+            }
         }
         // cost 持ちトリガー (overlay 実績: pay_don 16 / discard_hand 1 / once_per_turn 1)。
         // on_ko と同じく try_pay_counter_cost に委譲する (source-gone = Slot::Detached)。
         // once_per_turn は iid-keyed で Rust から追跡できないので従来通り bail。
         if let Some(cost) = eff.get("cost") {
             if !cost_is_empty(cost) {
-                if cost.get("once_per_turn").is_some() {
-                    return Err("life trigger once cost 未対応 (iid-keyed)".into());
-                }
                 match try_pay_counter_cost(state, defender_idx, Slot::Detached, cost)? {
                     true => {}
                     false => continue, // 支払い不能 → この効果は発動しない
