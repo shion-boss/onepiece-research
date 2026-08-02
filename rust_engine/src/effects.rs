@@ -9266,7 +9266,7 @@ pub fn fire_activate_main(
     if let Some(c) = &cost {
         if let Some(o) = c.as_object() {
             for k in o.keys() {
-                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card" | "ko_self_with_filter" | "trash_self" | "trash_to_deck" | "discard_hand_or_trash_filtered_chara" | "discard_hand" | "return_self_to_hand") {
+                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card" | "ko_self_with_filter" | "trash_self" | "trash_to_deck" | "discard_hand_or_trash_filtered_chara" | "discard_hand" | "return_self_to_hand" | "discard_hand_with_filter" | "reveal_hand_with_filter") {
                     note_unknown_key("activate_cost", k);
                     return Err(format!("activate_main cost 未対応: {k} ({card_id})"));
                 }
@@ -9317,6 +9317,33 @@ pub fn fire_activate_main(
             me.don_active -= n;
             me.don_rested += n;
         }
+        // discard_hand_with_filter cost (effects.py:13524)。 hand 順に filter 一致を count 枚 trash。
+        // ⚠ payability は can_pay_activate_cost で判定済。 filter は {"filter":{..}} か直書きの両形。
+        if let Some(dfs) = c.get("discard_hand_with_filter").cloned() {
+            if dfs.is_object() {
+                let d_filt = match dfs.get("filter") {
+                    Some(f) => f.clone(),
+                    None => {
+                        let mut o = dfs.as_object().unwrap().clone();
+                        o.remove("count");
+                        Value::Object(o)
+                    }
+                };
+                let d_count = dfs.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+                let me = &mut state.players[me_idx];
+                let old_hand = std::mem::take(&mut me.hand);
+                let mut discarded = 0usize;
+                for card in old_hand {
+                    if discarded < d_count && matches_filter(&card, Some(&d_filt)) {
+                        me.trash.push(card);
+                        discarded += 1;
+                    } else {
+                        me.hand.push(card);
+                    }
+                }
+            }
+        }
+        // reveal_hand_with_filter は公開のみ = state 変化なし (payability で確認済)。
         // discard_hand cost: worst_hand_idx で n 枚捨てる (effects.py:13xxx activate_main cost)。
         let dn = c.get("discard_hand").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
         if dn > 0 {
