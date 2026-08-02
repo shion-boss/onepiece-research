@@ -4997,15 +4997,28 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         // KO (effects.py:3245)。 免疫チェック → 除去 + trash + 付与ドン返却 + chara_ko_taken。
         // ⚠ replace_ko / KO trigger cascade は未対応 → 該当 victim は diverge (差分テストが除外)。
         "ko" => {
-            let Some(targets) = resolve_target(Some(v), me_idx, opp_idx, src, state) else { return false };
+            let Some(targets) = resolve_target(Some(v), me_idx, opp_idx, src, state) else {
+                note_unknown_key("ko", "target 未対応");
+                return false;
+            };
+            // Python (effects.py:3336) は解決順に 1 体ずつ処理し、 各段で「まだ相手の場に居るか」を
+            // object 参照で見る (置換効果 replace_leave が別キャラを場から抜くと index が総ずれする)。
+            // Rust は位置 index なので一意トークンで追跡して同じ意味論にする。
+            // ⚠ 相手キャラ以外 (自陣/リーダー) は Python が `if t in opp.characters` で弾く = 対象外。
+            let toks: Vec<Option<u64>> = targets
+                .iter()
+                .filter(|&&(pi, sl)| pi == opp_idx && matches!(sl, Slot::Char(_)))
+                .map(|&(pi, sl)| tag_src(state, pi, sl))
+                .collect();
             // source-gone (Detached) では Python も self_inplay=None で source 依存の KO 耐性判定を
             // **スキップ** する (effects.py:3352 `if thr >= 0 and self_inplay is not None`)。
             let src_pa: Option<(i32, String)> = src_ip(&state.players[me_idx], src)
                 .map(|s| (s.card.power, s.card.attribute.clone()));
-            let mut victims: Vec<(usize, usize)> = vec![];
-            for &(pi, sl) in &targets {
-                if let Slot::Char(idx) = sl {
-                    let t = &mut state.players[pi].characters[idx];
+            let mut ko_any = false;
+            for tok in toks {
+                let Slot::Char(idx) = find_tagged(state, opp_idx, tok) else { continue };
+                {
+                    let t = &mut state.players[opp_idx].characters[idx];
                     if t.protect_from_opp_effect {
                         continue;
                     }
@@ -5027,125 +5040,44 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                             continue;
                         }
                     }
-                    victims.push((pi, idx));
                 }
-            }
-            if victims.is_empty() {
-                return true; // 全 immune = 除去0・cascade 無し (immune 減算は済)
-            }
-            // KO cascade 発火要否 (effect_cascade_blocked と同基準)。 無ければ従来の一括除去。
-            let vowner = victims[0].0;
-            let cascade = me_board_has_when(state, me_idx, "on_opp_chara_ko")
-                || me_board_has_when(state, vowner, "on_self_chara_ko")
-                || me_board_has_when(state, vowner, "on_ko")
-                || me_board_has_when(state, vowner, "replace_ko")
-                || me_board_has_when(state, vowner, "replace_leave")
-                || me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect");
-            if !cascade {
-                remove_victims(state, victims, RemoveDest::Trash);
-                return true;
-            }
-            // multi-victim cascade (effects.py:3282、 OP15-114 等): target 順に interleave で 除去→on_ko/
-            // on_opp_chara_ko/on_self_chara_ko、 after-all で on_self_chara_leave_by_self_effect 1 回。
-            // index shift = 同 player の既除去数を引く。 ⚠ cascade が victim board を想定外に変える (further KO/
-            // replace) 場合は card_id 照合 or replace で bail (correctness 保守)。
-            if victims.len() > 1 {
-                let expected: Vec<(usize, usize, String)> = victims
-                    .iter()
-                    .map(|&(pi, idx)| (pi, idx, state.players[pi].characters[idx].card.card_id.clone()))
-                    .collect();
-                let mut removed_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-                let mut ko_any = false;
-                let mut err = false;
-                for (pi, orig_idx, cid) in &expected {
-                    let shift = *removed_count.get(pi).unwrap_or(&0);
-                    if *orig_idx < shift {
-                        err = true;
-                        break;
-                    }
-                    let cur_idx = orig_idx - shift;
-                    if cur_idx >= state.players[*pi].characters.len()
-                        || &state.players[*pi].characters[cur_idx].card.card_id != cid
-                    {
-                        err = true; // board が想定外に変化 → bail
-                        break;
-                    }
-                    match try_replace_ko(state, *pi, cur_idx, true, "ko") {
-                        Ok(true) => continue, // 置換発動 = victim 残存 (KO 阻止)。 removed_count 増やさず次へ
-                        Ok(false) => {}
-                        Err(_) => {
-                            err = true;
-                            break;
-                        }
-                    }
-                    let vdon = state.players[*pi].characters[cur_idx].attached_dons;
-                    let removed = state.players[*pi].characters.remove(cur_idx);
-                    state.players[*pi].trash.push(removed.card);
-                    state.players[*pi].don_rested += vdon;
-                    state.players[*pi].chara_ko_taken_this_turn += 1;
-                    *removed_count.entry(*pi).or_insert(0) += 1;
-                    ko_any = true;
-                    // 効果 ko は nested=deferred で victim None (上記 single と同じ)。
-                    state.last_chara_ko_victim_card = None;
-                    if fire_on_ko(state, *pi, cid).is_err() {
-                        err = true;
-                    }
-                    if !err && fire_field_when(state, me_idx, "on_opp_chara_ko").is_err() {
-                        err = true;
-                    }
-                    if !err && fire_field_when(state, *pi, "on_self_chara_ko").is_err() {
-                        err = true;
-                    }
-                    state.last_chara_ko_victim_card = None;
-                    if err {
-                        break;
+                // 置換効果 (KO される場合、 代わりに〜)。 Ok(true)=KO 阻止 / Err=再現不能
+                match try_replace_ko(state, opp_idx, idx, true, "ko") {
+                    Ok(true) => continue,
+                    Ok(false) => {}
+                    Err(_) => {
+                        note_unknown_key("ko", "replace 再現不能");
+                        return false;
                     }
                 }
-                if err {
+                let vcid = state.players[opp_idx].characters[idx].card.card_id.clone();
+                let vdon = state.players[opp_idx].characters[idx].attached_dons;
+                let removed = state.players[opp_idx].characters.remove(idx);
+                state.players[opp_idx].trash.push(removed.card);
+                state.players[opp_idx].don_rested += vdon;
+                state.players[opp_idx].chara_ko_taken_this_turn += 1;
+                ko_any = true;
+                // effects.py:3391 順: on_ko(victim側) → on_opp_chara_ko(me) → on_self_chara_ko(victim側)。
+                // ⭐ 効果 ko は nested resolution = Python は trigger を enqueue し、 その末尾で
+                // last_chara_ko_victim_card=None に戻してから deferred drain する = victim None で発火。
+                state.last_chara_ko_victim_card = None;
+                if fire_on_ko(state, opp_idx, &vcid).is_err() {
+                    note_unknown_key("ko", "on_ko");
                     return false;
                 }
-                if ko_any
-                    && fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err()
-                {
+                if fire_field_when(state, me_idx, "on_opp_chara_ko").is_err() {
+                    note_unknown_key("ko", "on_opp_chara_ko");
                     return false;
                 }
-                return true;
+                if fire_field_when(state, opp_idx, "on_self_chara_ko").is_err() {
+                    note_unknown_key("ko", "on_self_chara_ko");
+                    return false;
+                }
+                state.last_chara_ko_victim_card = None;
             }
-            let (vpi, vidx) = victims[0];
-            // 置換効果 (effect KO = by_opp_effect=true)。 Ok(true)=KO阻止 / Ok(false)=続行 / Err=bail。
-            match try_replace_ko(state, vpi, vidx, true, "ko") {
-                Ok(true) => return true, // _ko_any=false → on_self_chara_leave 無し
-                Ok(false) => {}
-                Err(_) => return false,
-            }
-            // 除去 (remove+trash+付与ドン返却+chara_ko++、 battle_ko_character 相当) → per-victim cascade。
-            let vcid = state.players[vpi].characters[vidx].card.card_id.clone();
-            let vdon = state.players[vpi].characters[vidx].attached_dons;
-            let removed = state.players[vpi].characters.remove(vidx);
-            state.players[vpi].trash.push(removed.card);
-            state.players[vpi].don_rested += vdon;
-            state.players[vpi].chara_ko_taken_this_turn += 1;
-            // effects.py:3320 順: on_ko(victim側 source-gone)→ on_opp_chara_ko(me)→ on_self_chara_ko(victim側)
-            //   → on_self_chara_leave_by_self_effect(me、 effect 発動者視点)。 各 fire 未対応は Err→false。
-            // ⭐ **効果 ko は nested resolution** (main/on_play/activate は _execute_event 内=resolving=True)
-            // → Python は trigger_on_self_chara_ko を enqueue し、 その末尾で last_chara_ko_victim_card=None に
-            // reset してから deferred で drain する = cascade 解決時 victim=None (victim_* 条件は空振り)。
-            // battle ko (do_battle_ko、 resolving=False=immediate) だけ victim を set する (rules.rs)。 = 効果 ko は
-            // victim None で発火 (OP15-020 の ko→OP14-041 on_self_chara_ko が Python skip と一致)。
-            state.last_chara_ko_victim_card = None;
-            let mut cascade_err = fire_on_ko(state, vpi, &vcid).is_err();
-            if !cascade_err {
-                cascade_err = fire_field_when(state, me_idx, "on_opp_chara_ko").is_err();
-            }
-            if !cascade_err {
-                cascade_err = fire_field_when(state, vpi, "on_self_chara_ko").is_err();
-            }
-            if !cascade_err {
-                cascade_err =
-                    fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err();
-            }
-            state.last_chara_ko_victim_card = None;
-            if cascade_err {
+            // 「キャラが自分の効果で場を離れた時」 は loop 後に 1 回だけ (effects.py:3394)。
+            if ko_any && fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err() {
+                note_unknown_key("ko", "leave_by_self");
                 return false;
             }
             true
