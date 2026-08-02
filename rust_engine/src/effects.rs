@@ -1295,6 +1295,38 @@ fn resolve_target(
             cands.sort_by(|&a, &b| me.characters[b].power().cmp(&me.characters[a].power()));
             cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect()
         }
+        // one_self_(character|chara)_named_X = 名前一致の自キャラ 1 枚 (effects.py:2926)。
+        os if os.starts_with("one_self_character_named_") || os.starts_with("one_self_chara_named_") => {
+            let name = norm_card_name(
+                os.trim_start_matches("one_self_character_named_")
+                    .trim_start_matches("one_self_chara_named_"),
+            );
+            let me = &state.players[me_idx];
+            (0..me.characters.len())
+                .filter(|&i| norm_card_name(&me.characters[i].card.name) == name)
+                .take(1)
+                .map(|i| (me_idx, Slot::Char(i)))
+                .collect()
+        }
+        // any_opp_rested_chara_or_stage_n_N = 相手のレストのキャラ/ステージ 合計 N 枚まで
+        // (effects.py:2881、 OP14-021)。 候補順 = characters → stages、 その後 power 降順。
+        os if os.starts_with("any_opp_rested_chara_or_stage_n_") => {
+            let n = parse_after(os, "_n_").unwrap_or(1).max(0) as usize;
+            let opp = &state.players[opp_idx];
+            let mut cands: Vec<(Slot, i32)> = vec![];
+            for i in 0..opp.characters.len() {
+                if opp.characters[i].rested {
+                    cands.push((Slot::Char(i), opp.characters[i].power()));
+                }
+            }
+            for i in 0..opp.stages.len() {
+                if opp.stages[i].rested {
+                    cands.push((Slot::Stage(i), opp.stages[i].power()));
+                }
+            }
+            cands.sort_by(|a, b| b.1.cmp(&a.1)); // _threat_key = power 降順 (stable)
+            cands.into_iter().take(n).map(|(sl, _)| (opp_idx, sl)).collect()
+        }
         // 「自分のキャラ 1 枚」 の別名 (effects.py:2398、 one_self_character_any と同 semantics、 power 降順)。
         "any_self_chara" => {
             let me = &state.players[me_idx];
@@ -4589,6 +4621,53 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         // setup_modifier 専用 (ゲーム開始時のドンデッキ枚数)。 do として実行される文脈は無いが、
         // 万一走っても no-op が正しい (実際の反映は deck の don_deck_size で行う)。
         "set_don_deck_size" => true,
+        // 「自分のライフの上から N 枚を表向きにする」 (effects.py:6831)。
+        "flip_life_face_up_effect" => {
+            let n = if v.is_object() {
+                v.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as i32
+            } else {
+                v.as_i64().unwrap_or(1) as i32
+            };
+            let me = &mut state.players[me_idx];
+            me.face_up_life_count = (me.face_up_life_count + n).min(me.life.len() as i32);
+            true
+        }
+        // 「自分の付与ドン N 枚までを、 特徴 X を持つ自キャラ 1 枚に付与する」
+        // (effects.py:6924、 EB02-009)。 AI = 移動元は power 昇順の先頭、 移動先は特徴一致の先頭。
+        "transfer_attached_don_to_feature" => {
+            let feature = v.get("feature").and_then(|x| x.as_str()).unwrap_or("").to_string();
+            let count = v.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as i32;
+            let me = &state.players[me_idx];
+            // 取り出し元 = leader + characters のうち attached_dons > 0 (Python の順)
+            let mut sources: Vec<(Slot, i32)> = vec![];
+            if me.leader.attached_dons > 0 {
+                sources.push((Slot::Leader, me.leader.power()));
+            }
+            for i in 0..me.characters.len() {
+                if me.characters[i].attached_dons > 0 {
+                    sources.push((Slot::Char(i), me.characters[i].power()));
+                }
+            }
+            if sources.is_empty() {
+                return true; // Python は return False = 忠実な no-op
+            }
+            let target = (0..me.characters.len())
+                .find(|&i| me.characters[i].card.features.iter().any(|f| f == &feature));
+            let Some(ti) = target else { return true };
+            sources.sort_by(|a, b| a.1.cmp(&b.1)); // power 昇順 (stable)
+            let src_slot = sources[0].0;
+            if src_slot == Slot::Char(ti) {
+                return true; // 同一カード間の移動は無意味 (Python も実質 no-op)
+            }
+            let moved = {
+                let ip = get_ip_mut(&mut state.players[me_idx], src_slot);
+                let m = count.min(ip.attached_dons);
+                ip.attached_dons -= m;
+                m
+            };
+            state.players[me_idx].characters[ti].attached_dons += moved;
+            true
+        }
         // このキャラをトラッシュに置く (effects.py:7761)。 付与ドンはレストへ。
         "return_self_to_trash" => {
             if let Slot::Char(i) = src {
@@ -8120,6 +8199,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "summon_stage_from_deck_with_feature" | "opp_may_return_active_don_else_debuff"
             | "return_self_charas_then_pump_per" | "play_from_hand_choice"
             | "fire_event_main_from_trash" | "set_don_deck_size"
+            | "flip_life_face_up_effect" | "transfer_attached_don_to_feature"
     )
 }
 
@@ -10489,6 +10569,18 @@ pub fn execute_one_effect(
         Some(true) => {}
         Some(false) => return Ok(()), // 条件不成立 = 発動しない (実装漏れではない)
         None => return Err("条件 unknown".into()),
+    }
+    // ⚠ activate_main の cost は専用機構 (fire_activate_main = can_pay_activate_cost + 支払い) が
+    //   扱う。 ここで counter cost 経路に流すと ko_self_with_filter 等が「未対応」に見えてしまう
+    //   (= ハーネス由来の偽陽性。 2026-08-02 にスモークで 6 件計上されていた)。 実経路に委譲する。
+    if when == "activate_main" {
+        let (kind, idx) = match src {
+            Slot::Leader => ("leader", 0usize),
+            Slot::Char(i) => ("char", i),
+            Slot::Stage(i) => ("stage", i),
+            Slot::Detached => ("leader", 0usize),
+        };
+        return fire_activate_main(state, me_idx, card_id, effect_index, kind, idx);
     }
     if let Some(cost) = eff.get("cost") {
         if !cost_is_empty(cost) {
