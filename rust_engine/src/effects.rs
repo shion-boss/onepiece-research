@@ -6612,65 +6612,55 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             } else {
                 v.clone()
             };
-            let Some(targets) = resolve_target(Some(&tgt_spec), me_idx, opp_idx, src, state) else { return false };
-            let mut victims: Vec<(usize, usize)> = vec![];
-            for &(pi, sl) in &targets {
-                if let Slot::Char(idx) = sl {
-                    let c = &state.players[pi].characters[idx];
-                    if pi == opp_idx && (c.protect_from_opp_effect || c.static_ko_immune) {
-                        continue;
+            let Some(targets) = resolve_target(Some(&tgt_spec), me_idx, opp_idx, src, state) else {
+                return false;
+            };
+            // Python (effects.py:5376) は targets を順に 1 体ずつ処理する。 タグ追跡で index ずれを吸収。
+            let toks: Vec<(usize, Option<u64>)> = targets
+                .iter()
+                .filter(|&&(_, sl)| matches!(sl, Slot::Char(_)))
+                .map(|&(pi, sl)| (pi, tag_src(state, pi, sl)))
+                .collect();
+            let mut any = false;
+            for (pi, tok) in toks {
+                let Slot::Char(idx) = find_tagged(state, pi, tok) else { continue };
+                if pi == opp_idx {
+                    {
+                        let c = &state.players[pi].characters[idx];
+                        if c.protect_from_opp_effect || c.static_ko_immune {
+                            continue;
+                        }
                     }
-                    victims.push((pi, idx));
+                    match try_replace_ko(state, pi, idx, true, "return_to_deck_bottom") {
+                        Ok(true) => continue,
+                        Ok(false) => {}
+                        Err(e) => {
+                            note_unknown_key("rtdb", &format!("replace: {e}"));
+                            return false;
+                        }
+                    }
+                }
+                let ip = state.players[pi].characters.remove(idx);
+                let don = ip.attached_dons;
+                state.players[pi].deck.push(ip.card);
+                state.players[pi].don_rested += don;
+                any = true;
+                if pi == opp_idx {
+                    state.last_chara_ko_victim_card = None;
+                    if let Err(e) = fire_field_when(state, pi, "on_self_chara_leave_by_opp_effect") {
+                        note_unknown_key("rtdb", &format!("leave_by_opp: {e}"));
+                        return false;
+                    }
+                    state.last_chara_ko_victim_card = None;
                 }
             }
-            if victims.is_empty() {
-                return true;
-            }
-            let has_opp_victim = victims.iter().any(|&(pi, _)| pi == opp_idx);
-            let cascade = me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect")
-                || (has_opp_victim
-                    && (me_board_has_when(state, opp_idx, "on_self_chara_leave_by_opp_effect")
-                        || me_board_has_when(state, opp_idx, "replace_leave")));
-            if !cascade {
-                remove_victims(state, victims, RemoveDest::DeckBottom);
-                return true;
-            }
-            if victims.len() > 1 {
-                return false; // multi-victim cascade = index shift 複雑 → bail
-            }
-            let (vpi, vidx) = victims[0];
-            if vpi == opp_idx {
-                // 置換 (return_to_deck_bottom leave_kind、 by_opp_effect=true)。 Ok(true)=離脱阻止。
-                match try_replace_ko(state, vpi, vidx, true, "return_to_deck_bottom") {
-                    Ok(true) => return true,
-                    Ok(false) => {}
-                    Err(_) => return false,
-                }
-                let vdon = state.players[vpi].characters[vidx].attached_dons;
-                let removed = state.players[vpi].characters.remove(vidx);
-                state.players[vpi].deck.push(removed.card);
-                state.players[vpi].don_rested += vdon;
-                // per-victim on_self_chara_leave_by_opp_effect (opp、 victim card、 fire 後 None=Python 12112)。
-                state.last_chara_ko_victim_card = None; // 効果 cascade は nested=deferred で victim None
-                let mut err = fire_field_when(state, vpi, "on_self_chara_leave_by_opp_effect").is_err();
-                state.last_chara_ko_victim_card = None;
-                if !err {
-                    err = fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err();
-                }
-                if err {
+            if any {
+                if let Err(e) = fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect") {
+                    note_unknown_key("rtdb", &format!("leave_by_self: {e}"));
                     return false;
                 }
-                true
-            } else {
-                let vdon = state.players[vpi].characters[vidx].attached_dons;
-                let removed = state.players[vpi].characters.remove(vidx);
-                state.players[vpi].deck.push(removed.card);
-                state.players[vpi].don_rested += vdon;
-                if fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err() {
-                    return false;
-                }
-                true
             }
+            true
         }
         // デッキ上 N 枚を見て filter マッチ先頭 M 枚を手札、 残りをデッキ下 (effects.py:4037)。
         // ⚠ destination=hand + rest_remain=bottom のみ対応 (play/life/trash/top_or_bottom は skip)。
