@@ -1030,7 +1030,11 @@ _FIELD_WHEN_ONCE_MIRROR = frozenset({
     "on_self_life_to_hand", "on_self_life_to_trash", "on_self_life_taken", "on_opp_life_taken",
     "on_self_chara_played", "on_opp_chara_played", "on_self_chara_ko", "on_opp_chara_ko",
     "on_self_hand_discarded", "on_self_don_returned_to_deck", "on_self_event_played",
-    "on_opp_event_or_trigger_fired", "on_self_chara_leave_by_self_effect", "on_self_rested",
+    # ⚠ 実際の when キーは "opp_event_or_trigger_fired" (on_ 無し、 _enqueue_field_when の実引数)。
+    # 旧 "on_opp_event_or_trigger_fired" は綴り違いで一度も一致せず mirror されていなかった
+    # (= Rust が「ターン1回」を追跡できず該当効果が丸ごと bail、 2026-08-02 修正)。 両方載せる。
+    "opp_event_or_trigger_fired", "on_opp_event_or_trigger_fired",
+    "on_self_chara_leave_by_self_effect", "on_self_rested",
     "on_self_trigger_fired",
     # ライフ 0 トリガー (OP05-098 紫エネル)。 source はリーダー (= 永続 InPlay) なので mirror 可能。
     # これが無いと Rust 側で「ターン1回」を追跡できず、 該当効果が丸ごと bail する (2026-07-31)。

@@ -1136,6 +1136,18 @@ fn resolve_target(
         }
         // 相手リーダー (effects.py:2354、 one_opponent_leader は overlay 別名 OP06-023 等)。
         "opponent_leader" | "one_opponent_leader" => vec![(opp_idx, Slot::Leader)],
+        // 「自分のコスト N 以下で【登場時】効果を持たないキャラ 1 枚」 (effects.py:2745、 PRB01-001)。
+        os if os.starts_with("one_self_chara_no_on_play_cost_le_") => {
+            let n = parse_after(os, "cost_le_").unwrap_or(0);
+            let me = &state.players[me_idx];
+            let mut cands: Vec<usize> = (0..me.characters.len())
+                .filter(|&i| {
+                    me.characters[i].card.cost <= n && !card_has_on_play(&me.characters[i].card.card_id)
+                })
+                .collect();
+            cands.sort_by(|&a, &b| me.characters[b].power().cmp(&me.characters[a].power()));
+            cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect()
+        }
         // 「自分の元々の効果のないキャラ 1 枚」 (effects.py:2428、 power 降順)。
         "one_self_chara_no_effect" => {
             let me = &state.players[me_idx];
@@ -3788,15 +3800,35 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             if victims.is_empty() {
                 return true;
             }
-            if me_board_has_when(state, me_idx, "on_self_chara_ko")
-                || me_board_has_when(state, opp_idx, "on_opp_chara_ko")
-                || me_board_has_when(state, me_idx, "on_ko")
-                || me_board_has_when(state, me_idx, "replace_ko")
-                || me_board_has_when(state, me_idx, "replace_leave")
-            {
-                return false; // KO cascade 再現不能 → bail
+            // Python (effects.py:3396) は victim ごとに逐次除去 → on_ko → on_self_chara_ko を発火し、
+            // 最後に on_self_chara_leave_by_self_effect を 1 回。 自分の効果による自陣 KO なので
+            // on_opp_chara_ko は発火しない。 chara_ko_taken_this_turn も加算しない。
+            // ⚠ replace_ko/replace_leave は Python が ko_self_chara では呼ばないので考慮不要。
+            let toks: Vec<Option<u64>> = victims
+                .into_iter()
+                .map(|(pi, i)| tag_src(state, pi, Slot::Char(i)))
+                .collect();
+            let mut ko_any = false;
+            for tok in toks {
+                let Slot::Char(i) = find_tagged(state, me_idx, tok) else { continue };
+                let vcid = state.players[me_idx].characters[i].card.card_id.clone();
+                let ip = state.players[me_idx].characters.remove(i);
+                let don = ip.attached_dons;
+                state.players[me_idx].trash.push(ip.card);
+                state.players[me_idx].don_rested += don;
+                ko_any = true;
+                state.last_chara_ko_victim_card = None;
+                if fire_on_ko(state, me_idx, &vcid, false).is_err() {
+                    return false;
+                }
+                if fire_field_when(state, me_idx, "on_self_chara_ko").is_err() {
+                    return false;
+                }
+                state.last_chara_ko_victim_card = None;
             }
-            remove_victims(state, victims, RemoveDest::Trash);
+            if ko_any && fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err() {
+                return false;
+            }
             true
         }
         // 「このターン中、 バトルで KO されない」 (effects.py:set_battle_ko_immune)。
@@ -7850,7 +7882,9 @@ fn field_when_once_mirrored(when: &str) -> bool {
         "on_self_life_to_hand" | "on_self_life_to_trash" | "on_self_life_taken" | "on_opp_life_taken"
             | "on_self_chara_played" | "on_opp_chara_played" | "on_self_chara_ko" | "on_opp_chara_ko"
             | "on_self_hand_discarded" | "on_self_don_returned_to_deck" | "on_self_event_played"
-            | "on_opp_event_or_trigger_fired" | "on_self_chara_leave_by_self_effect" | "on_self_rested"
+            // ⚠ 実キーは on_ 無しの "opp_event_or_trigger_fired" (Python の綴り違いを修正済)。
+            | "opp_event_or_trigger_fired" | "on_opp_event_or_trigger_fired"
+            | "on_self_chara_leave_by_self_effect" | "on_self_rested"
             | "on_self_trigger_fired" | "on_life_zero" | "on_play" | "on_block"
             // end_of_turn / opp_end_of_turn は _pay_end_of_turn_cost が mark_event_once で
             // canonical mirror する (2026-08-02)。 これで Rust も「ターン1回」を追跡できる。
@@ -8119,11 +8153,10 @@ pub fn fire_activate_main(
                 }
             }
         }
-        // pay_don は on_self_don_returned_to_deck cascade を起こす → 該当時 bail
+        // pay_don は on_self_don_returned_to_deck cascade を起こす。 発火できるようになったので
+        // ここでは bail しない (下の支払い後に fire する)。
         let pay_don = c.get("pay_don").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-        if pay_don > 0 && me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
-            return Err("activate_main pay_don cascade 未対応".into());
-        }
+
         // trash_self: 起動源自身を場からトラッシュへ (= 自KO 同等、 付与ドンはレストへ)。 cascade 無し
         // (effects.py:13359、 on_ko/on_self_chara_leave は発火しない = 単純除去)。 → src が場から消える
         // ので後続の act_used マーク・自陣 do 参照は無効化 (source_gone)。
@@ -8150,6 +8183,13 @@ pub fn fire_activate_main(
             let more = (pay_don - taken).min(me.don_rested);
             me.don_rested -= more;
             me.don_remaining_in_deck += more;
+            // 「ドンをドンデッキに戻した時」 (EB02-035 / P-077)。 Python も同順で発火する。
+            if taken + more > 0 {
+                state.last_returned_don_count = taken + more;
+                if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
+                    fire_field_when(state, me_idx, "on_self_don_returned_to_deck")?;
+                }
+            }
         }
         let rest_don = c.get("rest_self_don").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
         if rest_don > 0 {
