@@ -10,15 +10,14 @@
 |---|---|
 | メタ 92 デッキ self-play (400 game) | **action bail 0 / 353,015**、 保存則違反 0、 中断 0 |
 | メタ広域 (1500 game、 beam 込み) | **action bail 0 / 4,891,075**、 保存則違反 0、 中断 0 |
-| 全カード合成デッキ掃引 (329 デッキ = 4,263 効果カード / 987 game) | **action bail 0 / 829,101**、 保存則違反 0、 panic 0、 中断 0、 発火 96.6% |
+| 全カード合成デッキ掃引 深掘り (329 デッキ = 4,263 効果カード / 2,632 game) | **action bail 0 / 2,242,104**、 保存則違反 0、 panic 0、 中断 0、 発火 97.4% |
 | 差分ハーネス (`rust_parity_check --assert`) | **match 2037 / bail 0 / MISMATCH 0** |
-| 全カード掃引 深掘り (2,632 game / 2.24M action) | bail 18 (0.0008%) = 下記の既知 1 クラスのみ |
+| overlay 網羅 | primitive / condition / when / target spec が **全て実装済 (未対応 0)** |
 
-**残る既知クラス**: 「on_attack/opp_attack の解決中にアタッカー自身が場を離れ、 直前スナップショットも
-取れていない」。 Python は attacker を **object 参照** で持つので場外でもバトルを続行するが、 Rust は
-位置 index なので追えない。 主要経路 (cost 支払い / do ループ / optional_cost_then) では離場直前の
-`InPlay` を `state.rust_detached_src` に退避して解決できるようにしてあり、 それでも取れない稀な経路
-(他カードの cascade がアタッカーを除去する等) だけが明示 bail する。 実メタデッキでは 0 件。
+**アタッカーの離場**: on_attack/opp_attack の解決中にアタッカー自身が場を離れても、 Python は
+attacker を **object 参照** で持つのでバトルを続行する。 Rust は位置 index なので、 離場直前の
+`InPlay` を `state.rust_detached_src` (cost 支払い / do ループ / optional_cost_then) と
+`atk_pre_opp` (opp_attack 発火前) に退避し、 タグで見失った時にそれで解決する。
 
 **発動元 (self_inplay) 追跡の一意トークン**: Python は `self_inplay` を object 参照で持つので盤面が
 動いても発動元を見失わない。 Rust は位置 index なので `InPlay.rust_src_tag: Vec<u64>` (serde skip) に
