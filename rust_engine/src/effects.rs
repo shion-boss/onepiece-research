@@ -1132,7 +1132,8 @@ fn resolve_target(
             }
         }
         // one_character_either_cost_le_N = 両陣営のキャラから 元コスト N 以下 1 枚 (相手優先 power 降順)
-        os if os.starts_with("one_character_either_cost_le_") => {
+        // ⚠ overlay の `one_inplay_cost_le_N` 表記も同 semantics (effects.py:2626、 OP02-062 等)。
+        os if os.starts_with("one_character_either_cost_le_") || os.starts_with("one_inplay_cost_le_") => {
             let n = parse_after(os, "cost_le_").unwrap_or(0);
             let mut cands: Vec<(usize, usize, i32)> = vec![];
             for (pi, pl) in [(opp_idx, &state.players[opp_idx]), (me_idx, &state.players[me_idx])] {

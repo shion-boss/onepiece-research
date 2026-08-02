@@ -2623,7 +2623,13 @@ def _resolve_target(
         # 公式 「コストN以下のキャラ1枚まで(両陣営)、 持ち主の手札/デッキの下に戻す」
         # (OP10-046/OP07-040/OP03-122/OP05-051/P-030/OP12-054 等)。 AI は相手キャラ優先
         # (= 除去価値)、 human は modal で両陣営から選ぶ。
-        m = re.match(r"one_character_either(_except_self)?_cost_le_(\d+)(?:cost)?$", target_spec)
+        # ⚠ overlay には `one_inplay_cost_le_N` 表記も存在する (OP02-062 等 4 箇所)。
+        # 未処理だと 0 対象で silent no-op (= 効果が丸ごと不発) だったので同 semantics で受ける
+        # (2026-08-02。 「コストN以下のキャラ1枚」 = 両陣営、 AI は相手優先)。
+        m = (
+            re.match(r"one_character_either(_except_self)?_cost_le_(\d+)(?:cost)?$", target_spec)
+            or re.match(r"one_inplay(_except_self)?_cost_le_(\d+)(?:cost)?$", target_spec)
+        )
         if m:
             except_self = bool(m.group(1))
             n = int(m.group(2))
