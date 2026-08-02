@@ -5226,13 +5226,8 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             // cost_le_dynamic を静的化してから使う (self_don_total 等)。
             let resolved = resolve_dynamic_filter(spec.and_then(|o| o.get("filter")), state, me_idx);
             let filt = resolved.as_ref();
-            if let Some(fo) = filt.and_then(|f| f.as_object()) {
-                if false
-                    || fo.get("category").and_then(|x| x.as_str()) == Some("STAGE")
-                {
-                    return false;
-                }
-            }
+            // ⚠ Python の play_from_hand は CHARACTER のみ登場させる (effects.py:5117) ので、
+            // filter.category が STAGE 等でも「該当なし = no-op」 が正しい (bail 不要)。
             let limit = spec.and_then(|o| o.get("limit")).and_then(|x| x.as_i64()).unwrap_or(1) as usize;
             let rested = spec.and_then(|o| o.get("rested")).and_then(|x| x.as_bool()).unwrap_or(false);
             let unique = spec.and_then(|o| o.get("unique_name")).and_then(|x| x.as_bool()).unwrap_or(false);
