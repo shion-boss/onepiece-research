@@ -1998,6 +1998,193 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
                 }
             }
         }
+        // --- 2026-08-02 追加: Python の evaluate_static_effects にあって Rust に無かった 15 種。
+        //     未実装だと **黙って効果が消える** (静的フラグは digest に載るので本来 MISMATCH)。
+        // 「相手はこのキャラを狙わなければならない」 (effects.py:10970)。
+        "set_attack_taunt" => {
+            let tspec = if spec.is_string() { spec.clone() } else { Value::String("self".into()) };
+            if let Some(ts) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) {
+                for (pi, sl) in ts {
+                    get_ip_mut(&mut state.players[pi], sl).attack_taunt = true;
+                }
+            }
+        }
+        // 「相手はキャラの『X』以外にアタックできない」 (effects.py:10979)。 自陣の name 一致に taunt。
+        "cannot_attack_target_except" => {
+            let name = if spec.is_object() {
+                spec.get("name").and_then(|x| x.as_str()).unwrap_or("").to_string()
+            } else {
+                spec.as_str().unwrap_or("").to_string()
+            };
+            for c in state.players[me_idx].characters.iter_mut() {
+                if c.card.name == name {
+                    c.attack_taunt = true;
+                }
+            }
+        }
+        // 速攻の静的付与 (effects.py:11099)。 static_granted_keywords へ (ドンが外れれば消える)。
+        "give_rush" => {
+            let tspec = if spec.is_string() { spec.clone() } else { Value::String("self".into()) };
+            if let Some(ts) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) {
+                for (pi, sl) in ts {
+                    get_ip_mut(&mut state.players[pi], sl)
+                        .static_granted_keywords
+                        .insert("速攻".to_string());
+                }
+            }
+        }
+        // 「バトルで KO されない」 静的 (effects.py:10931 / 11049)。
+        "set_battle_ko_immune" | "set_ko_immune_battle_only" => {
+            let tspec = if spec.is_object() {
+                spec.get("target").cloned().unwrap_or(Value::String("self".into()))
+            } else if spec.is_string() {
+                spec.clone()
+            } else {
+                Value::String("self".into())
+            };
+            if let Some(ts) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) {
+                for (pi, sl) in ts {
+                    get_ip_mut(&mut state.players[pi], sl).battle_ko_immune_static = true;
+                }
+            }
+        }
+        // 「リーダーとのバトルでは KO されない」 (effects.py:10920)。
+        "set_battle_ko_immune_vs_leader" => {
+            let tspec = if spec.is_object() {
+                spec.get("target").cloned().unwrap_or(Value::String("self".into()))
+            } else {
+                Value::String("self".into())
+            };
+            if let Some(ts) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) {
+                for (pi, sl) in ts {
+                    get_ip_mut(&mut state.players[pi], sl).battle_ko_immune_vs_leader = true;
+                }
+            }
+        }
+        // 「属性 X とのバトル中 +N」 (effects.py:10911)。
+        "set_battle_pump_vs_attribute" => {
+            let attr = spec.get("attribute").and_then(|x| x.as_str()).unwrap_or("").to_string();
+            let amount = spec.get("amount").and_then(|x| x.as_i64()).unwrap_or(0) as i32;
+            let tspec = spec.get("target").cloned().unwrap_or(Value::String("self".into()));
+            if attr.is_empty() {
+                return;
+            }
+            if let Some(ts) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) {
+                for (pi, sl) in ts {
+                    get_ip_mut(&mut state.players[pi], sl)
+                        .battle_pump_vs_attribute
+                        .insert(attr.clone(), amount);
+                }
+            }
+        }
+        // 「属性 X (を持たないカード) とのバトルで KO されない」 (effects.py:11061)。
+        "set_immune_attribute_in_battle" => {
+            let (tspec, attrs, negate) = if spec.is_object() {
+                let a = match spec.get("attributes") {
+                    Some(Value::Array(arr)) => {
+                        arr.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect()
+                    }
+                    Some(Value::String(s2)) => vec![s2.clone()],
+                    _ => vec![],
+                };
+                (
+                    spec.get("target").cloned().unwrap_or(Value::String("self".into())),
+                    a,
+                    spec.get("negate").and_then(|x| x.as_bool()).unwrap_or(false),
+                )
+            } else {
+                (
+                    Value::String("self".into()),
+                    vec![spec.as_str().unwrap_or("").to_string()],
+                    false,
+                )
+            };
+            if let Some(ts) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) {
+                for (pi, sl) in ts {
+                    let ip = get_ip_mut(&mut state.players[pi], sl);
+                    for a in &attrs {
+                        if negate {
+                            ip.ko_immune_battle_attributes_not_in.insert(a.clone());
+                        } else {
+                            ip.ko_immune_battle_attributes_in.insert(a.clone());
+                        }
+                    }
+                }
+            }
+        }
+        // 「属性 X を持たないカードの効果で KO されない」 (effects.py:10943)。
+        "set_ko_immune_from_non_attribute" => {
+            let attr = if spec.is_object() {
+                spec.get("attribute").and_then(|x| x.as_str()).unwrap_or("").to_string()
+            } else {
+                spec.as_str().unwrap_or("").to_string()
+            };
+            let tspec = if spec.is_object() {
+                spec.get("target").cloned().unwrap_or(Value::String("self".into()))
+            } else {
+                Value::String("self".into())
+            };
+            if let Some(ts) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) {
+                for (pi, sl) in ts {
+                    get_ip_mut(&mut state.players[pi], sl).static_ko_immune_from_non_attribute =
+                        attr.clone();
+                }
+            }
+        }
+        // 「元々のパワー N 以下のカードの効果で KO されない」 (effects.py:10950)。
+        "set_ko_immune_from_source_power_le" => {
+            let thr = spec.get("threshold").and_then(|x| x.as_i64()).unwrap_or(0) as i32;
+            let tspec = spec.get("target").cloned().unwrap_or(Value::String("self".into()));
+            if let Some(ts) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) {
+                for (pi, sl) in ts {
+                    get_ip_mut(&mut state.players[pi], sl).static_ko_immune_from_source_power_le = thr;
+                }
+            }
+        }
+        // 「(filter) キャラはアタックできない」 (effects.py:10996)。 scope = self|opp|both。
+        "set_cannot_attack_filtered_static" => {
+            let filt = spec.get("filter").cloned();
+            let scope = spec.get("scope").and_then(|x| x.as_str()).unwrap_or("both").to_string();
+            if scope == "self" || scope == "both" {
+                for c in state.players[me_idx].characters.iter_mut() {
+                    if matches_filter(&c.card, filt.as_ref()) {
+                        c.cannot_attack_static = true;
+                    }
+                }
+            }
+            if scope == "opp" || scope == "both" {
+                for c in state.players[opp_idx].characters.iter_mut() {
+                    if matches_filter(&c.card, filt.as_ref()) {
+                        c.cannot_attack_static = true;
+                    }
+                }
+            }
+        }
+        // 「(exclude_filter に該当しない) 自キャラは効果無効」 (effects.py:11009)。
+        "set_effect_negate_filtered_static" => {
+            let excl = spec.get("exclude_filter").cloned();
+            for c in state.players[me_idx].characters.iter_mut() {
+                if !matches_filter(&c.card, excl.as_ref()) {
+                    c.static_granted_keywords.insert("効果無効".to_string());
+                }
+            }
+        }
+        // 「(filter) カードの登場コストが N 少ない」 静的 (effects.py:11079)。
+        "reduce_play_cost_filtered_static" => {
+            let entry = json!({
+                "filter": spec.get("filter").cloned().unwrap_or(json!({})),
+                "amount": spec.get("amount").and_then(|x| x.as_i64()).unwrap_or(1),
+            });
+            state.players[me_idx].play_cost_reductions_filtered.push(entry);
+        }
+        // 「デッキ切れで勝つ」 (effects.py:10993)。
+        "set_deck_out_wins" => {
+            state.players[me_idx].deck_out_wins = true;
+        }
+        // 「手札の (filter) カードのカウンター +N」 静的 (effects.py:11138、 OP16-118)。
+        "set_hand_counter_boost" => {
+            state.players[me_idx].hand_counter_boost = Some(spec.clone());
+        }
         _ => {} // 未対応 primitive → skip (該当カードは diverge = 差分テストが示す)
     }
 }
