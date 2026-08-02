@@ -1195,6 +1195,9 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             if atk_power >= def_power && !immune {
                 do_battle_ko(state, opp, actual_idx, me, &atk_cid, false, None)?;
             }
+            // バトルした相手キャラを記録 (game.py:2009 `last_battled_opp_iid`、 条件
+            // opp_just_battled_* / target spec opp_just_battled 用)。
+            state.last_battled_opp = Some((opp, actual_idx));
             // バトル終了時: 【このキャラがバトルした時】(on_self_battled、 game.py:2006、 ST02-010)。
             // AttackCharacter は常に char vs char バトルなので成立時は必ず発火。 attacker が場に
             // 残っている場合のみ (Python の `attacker in [me.leader, *me.characters]`)。

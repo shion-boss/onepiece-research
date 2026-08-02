@@ -425,6 +425,28 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             "opp_chara_ko_this_turn" => {
                 (opp.chara_ko_taken_this_turn > 0) == v.as_bool().unwrap_or(true)
             }
+            // 相手の場のキャラ (leader 含まず) が N 枚以上 (effects.py:1196、 OP07-073)。
+            "opp_field_count_ge" => opp.characters.len() as i64 >= v.as_i64().unwrap_or(0),
+            // 直前にバトルした相手キャラがまだ場に居るか (effects.py:1147、 ST08-013)。
+            "opp_just_battled_present" => {
+                let present = match state.last_battled_opp {
+                    Some((pi, ci)) => pi == 1 - me_idx && ci < opp.characters.len(),
+                    None => false,
+                };
+                v.as_bool().unwrap_or(true) == present
+            }
+            // 直前にバトルした相手キャラのコストが N 以下か (effects.py:1154、 OP04-047)。
+            "opp_just_battled_cost_le" => match state.last_battled_opp {
+                Some((pi, ci)) if pi == 1 - me_idx && ci < opp.characters.len() => {
+                    (opp.characters[ci].card.cost as i64) <= v.as_i64().unwrap_or(0)
+                }
+                _ => false,
+            },
+            // このキャラ自身の現在コスト (base_cost) が N 以上 (effects.py:1836、 OP16-084)。
+            "self_inplay_cost_ge" => match src.and_then(|sl| src_ip(&state.players[me_idx], sl)) {
+                Some(ip) => (ip.base_cost() as i64) >= v.as_i64().unwrap_or(0),
+                None => false,
+            },
             // どちらかの場にコスト N 以上のキャラが居るか (effects.py:1208、 leader 除く、 現コスト)。
             "exists_chara_cost_ge" => {
                 let n = v.as_i64().unwrap_or(0) as i32;
@@ -2000,6 +2022,14 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
         }
         // --- 2026-08-02 追加: Python の evaluate_static_effects にあって Rust に無かった 15 種。
         //     未実装だと **黙って効果が消える** (静的フラグは digest に載るので本来 MISMATCH)。
+        // 「自分の特徴《SWORD》キャラは登場ターンにキャラへアタックできる」 (effects.py:6851、 OP11-001)。
+        "static_swords_attack_chara" => {
+            for ip in state.players[me_idx].characters.iter_mut() {
+                if ip.card.features.iter().any(|f| f == "SWORD") {
+                    ip.granted_keywords.insert("速攻：キャラ".to_string());
+                }
+            }
+        }
         // 「相手はこのキャラを狙わなければならない」 (effects.py:10970)。
         "set_attack_taunt" => {
             let tspec = if spec.is_string() { spec.clone() } else { Value::String("self".into()) };
@@ -4286,6 +4316,255 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 「デッキ上 N 枚を見て好きな順に並べ替え上に置く」 (effects.py:8033、 OP06-059)。
+        // AI = (トリガー有, カウンター, パワー) 降順で上に。
+        "scry_deck_reorder" => {
+            let depth = if v.is_object() {
+                v.get("depth").and_then(|x| x.as_i64()).unwrap_or(1) as usize
+            } else {
+                v.as_i64().unwrap_or(1) as usize
+            };
+            let me = &mut state.players[me_idx];
+            if me.deck.is_empty() {
+                return true; // Python は return False = 忠実な no-op
+            }
+            let d = depth.min(me.deck.len());
+            let mut seen: Vec<crate::state::CardDef> = me.deck.drain(..d).collect();
+            seen.sort_by(|a, b| {
+                let ka = (!a.trigger.is_empty() as i32, a.counter, a.power);
+                let kb = (!b.trigger.is_empty() as i32, b.counter, b.power);
+                kb.cmp(&ka)
+            });
+            for (i, c) in seen.into_iter().enumerate() {
+                me.deck.insert(i, c);
+            }
+            true
+        }
+        // 「自分か相手のライフ上 N 枚を見て上か下に置く」 (effects.py:8073、 ST20-003)。
+        // AI = 自ライフなら価値高を上、 相手ライフなら価値低を上。
+        "view_life_top_choose_position" => {
+            let (owner, depth) = if v.is_object() {
+                (
+                    v.get("owner").and_then(|x| x.as_str()).unwrap_or("self").to_string(),
+                    v.get("depth").and_then(|x| x.as_i64()).unwrap_or(1) as usize,
+                )
+            } else {
+                ("self".to_string(), v.as_i64().unwrap_or(1) as usize)
+            };
+            let is_self = owner == "self" || owner == "either";
+            let pi = if is_self { me_idx } else { opp_idx };
+            if state.players[pi].life.is_empty() {
+                return true;
+            }
+            let d = depth.min(state.players[pi].life.len());
+            let mut seen: Vec<crate::state::CardDef> =
+                state.players[pi].life.drain(..d).collect();
+            let key = |c: &crate::state::CardDef| (!c.trigger.is_empty() as i32, c.counter, c.power);
+            if is_self {
+                seen.sort_by(|a, b| key(b).cmp(&key(a)));
+            } else {
+                seen.sort_by(|a, b| key(a).cmp(&key(b)));
+            }
+            for (i, c) in seen.into_iter().enumerate() {
+                state.players[pi].life.insert(i, c);
+            }
+            true
+        }
+        // 「相手のレストのリーダー/キャラ N 枚は次の相手リフレッシュでアクティブにならない」
+        // (effects.py:6995、 OP07-059)。 AI = power 降順。
+        "keep_opp_rested_inplay_next_refresh" => {
+            let limit = v.get("limit").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+            let opp = &state.players[opp_idx];
+            // Python の cands 順 = [leader (rested なら), *rested characters]
+            let mut cands: Vec<(Slot, i32)> = vec![];
+            if opp.leader.rested {
+                cands.push((Slot::Leader, opp.leader.power()));
+            }
+            for i in 0..opp.characters.len() {
+                if opp.characters[i].rested {
+                    cands.push((Slot::Char(i), opp.characters[i].power()));
+                }
+            }
+            if cands.is_empty() {
+                return true; // Python は return False = 忠実な no-op
+            }
+            cands.sort_by(|a, b| b.1.cmp(&a.1)); // _threat_key = power 降順 (stable)
+            for (sl, _) in cands.into_iter().take(limit) {
+                get_ip_mut(&mut state.players[opp_idx], sl).stay_rested_next_refresh = true;
+            }
+            true
+        }
+        // 「次の相手のメインフェイズ開始時に〜」 の予約 (effects.py:5976、 PRB02-005)。
+        "schedule_at_opp_main_phase_start" => {
+            state.players[me_idx].delayed_at_opp_main_phase_start.push(v.clone());
+            true
+        }
+        // 「自分のキャラすべてはこのターン中、 バトルKO される場合代わりに手札1捨て」
+        // (effects.py:6784、 EB02-030)。
+        "grant_turn_battle_ko_save_discard" => {
+            state.players[me_idx].turn_battle_ko_save_discard = true;
+            true
+        }
+        // 「デッキ上 N 枚をトラッシュ。 (filter) だった場合 then」 (effects.py:6180、 OP08-096)。
+        "mill_top_then" => {
+            let n = v.get("count").and_then(|x| x.as_i64()).unwrap_or(1);
+            let filt = v.get("filter").cloned();
+            let mut matched = false;
+            for _ in 0..n {
+                let me = &mut state.players[me_idx];
+                if me.deck.is_empty() {
+                    break;
+                }
+                let c = me.deck.remove(0);
+                if matches_filter(&c, filt.as_ref()) {
+                    matched = true;
+                }
+                me.trash.push(c);
+            }
+            if matched {
+                if let Some(then) = v.get("then").and_then(|x| x.as_array()).cloned() {
+                    for es in &then {
+                        if !execute_effect(es, state, me_idx, src) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            true
+        }
+        // 「自分の特徴 X を持つステージ 1 枚をデッキから場に出す」 (effects.py:6372、 OP13-079)。
+        // 既存ステージは trash (付与ドンはレストへ)。 最後にデッキをシャッフル。
+        "summon_stage_from_deck_with_feature" => {
+            let feature = if v.is_object() {
+                v.get("feature").and_then(|x| x.as_str()).unwrap_or("").to_string()
+            } else {
+                v.as_str().unwrap_or("").to_string()
+            };
+            let found = (0..state.players[me_idx].deck.len()).find(|&i| {
+                let c = &state.players[me_idx].deck[i];
+                c.category == crate::state::Category::Stage && c.features.iter().any(|f| f == &feature)
+            });
+            if let Some(i) = found {
+                let card = state.players[me_idx].deck.remove(i);
+                while !state.players[me_idx].stages.is_empty() {
+                    let old = state.players[me_idx].stages.remove(0);
+                    let ad = old.attached_dons;
+                    state.players[me_idx].trash.push(old.card);
+                    state.players[me_idx].don_rested += ad;
+                }
+                state.players[me_idx].stages.push(InPlay::of(card, false));
+            }
+            let len = state.players[me_idx].deck.len();
+            let perm = state.rng_mut().shuffle_perm(len);
+            let old = std::mem::take(&mut state.players[me_idx].deck);
+            state.players[me_idx].deck = perm.iter().map(|&j| old[j].clone()).collect();
+            state.players[me_idx].known_bottom_card_ids.clear();
+            state.players[me_idx].known_top_card_ids.clear();
+            true
+        }
+        // 「相手はアクティブドン 1 枚をドンデッキに戻してもよい。 しなかった場合 (target) -N」
+        // (effects.py:6788、 OP15-059)。 opp モデル = ドンがあれば返して debuff を回避。
+        "opp_may_return_active_don_else_debuff" => {
+            let amount = v.get("amount").and_then(|x| x.as_i64()).unwrap_or(-2000);
+            let tspec = v.get("target").cloned()
+                .unwrap_or(Value::String("one_opponent_inplay_any".into()));
+            if state.players[opp_idx].don_active >= 1 {
+                state.players[opp_idx].don_active -= 1;
+                state.players[opp_idx].don_remaining_in_deck += 1;
+                true
+            } else {
+                let prim = json!({"power_pump": {
+                    "target": tspec, "amount": amount, "duration": "turn"
+                }});
+                execute_effect(&prim, state, me_idx, src)
+            }
+        }
+        // 「自分の場のキャラを任意の枚数手札に戻してよい。 (target) は戻した 1 枚につき +M」
+        // (effects.py:6750、 P-059)。 AI = pump 対象以外を全戻し。
+        "return_self_charas_then_pump_per" => {
+            let amount = v.get("amount").and_then(|x| x.as_i64()).unwrap_or(2000);
+            let duration = v.get("duration").and_then(|x| x.as_str()).unwrap_or("battle").to_string();
+            let tspec = v.get("target").cloned().unwrap_or(Value::String("self_inplay".into()));
+            let pump_slot = resolve_target(Some(&tspec), me_idx, opp_idx, src, state)
+                .and_then(|ts| ts.into_iter().next());
+            let keep = match pump_slot {
+                Some((pi, Slot::Char(i))) if pi == me_idx => Some(i),
+                _ => None,
+            };
+            let mut returned = 0i64;
+            let me = &mut state.players[me_idx];
+            let old = std::mem::take(&mut me.characters);
+            for (i, c) in old.into_iter().enumerate() {
+                if Some(i) == keep {
+                    me.characters.push(c);
+                    continue;
+                }
+                let don = c.attached_dons;
+                me.hand.push(c.card);
+                me.don_rested += don;
+                returned += 1;
+            }
+            if pump_slot.is_some() && returned > 0 {
+                let prim = json!({"power_pump": {
+                    "target": tspec, "amount": amount * returned, "duration": duration
+                }});
+                return execute_effect(&prim, state, me_idx, src);
+            }
+            true
+        }
+        // 「手札から (filter) キャラ N 枚までを任意で 0 コスト登場」 (effects.py:5206、 OP11-024)。
+        // AI = cost 降順 → power 降順 → name 昇順 で limit 枚。 hand は降順 pop。
+        "play_from_hand_choice" => {
+            let filt = v.get("filter").cloned();
+            let limit = v.get("limit").and_then(|x| x.as_i64()).unwrap_or(1).max(0) as usize;
+            let rested = v.get("rested").and_then(|x| x.as_bool()).unwrap_or(false);
+            let cat = match v.get("category").and_then(|x| x.as_str()).unwrap_or("CHARACTER") {
+                "STAGE" => crate::state::Category::Stage,
+                "EVENT" => crate::state::Category::Event,
+                _ => crate::state::Category::Character,
+            };
+            let me = &state.players[me_idx];
+            let mut cands: Vec<usize> = (0..me.hand.len())
+                .filter(|&i| {
+                    me.hand[i].category == cat
+                        && matches_filter(&me.hand[i], filt.as_ref())
+                        && !card_no_play_via_effect(&me.hand[i].card_id)
+                })
+                .collect();
+            cands.sort_by(|&a, &b| {
+                let (ca, cb) = (&me.hand[a], &me.hand[b]);
+                (-cb.cost, -cb.power, ca.name.clone()).cmp(&(-ca.cost, -ca.power, cb.name.clone()))
+            });
+            cands.truncate(limit);
+            cands.sort_unstable_by(|a, b| b.cmp(a)); // hand pop は降順
+            let cards: Vec<crate::state::CardDef> =
+                cands.iter().map(|&i| state.players[me_idx].hand.remove(i)).collect();
+            for card in cards {
+                if place_played_card(state, me_idx, card, rested, cat).is_err() {
+                    return false;
+                }
+            }
+            true
+        }
+        // 「自分のトラッシュの (filter) イベント 1 枚の【メイン】効果を発動」 (effects.py:6400、 EB03-031)。
+        // AI = trash 順で先頭 1 枚。 イベントはトラッシュに残る。 再帰は fire_self_depth で制限。
+        "fire_event_main_from_trash" => {
+            let filt = v.get("filter").cloned();
+            let chosen = state.players[me_idx]
+                .trash
+                .iter()
+                .find(|c| {
+                    c.category == crate::state::Category::Event && matches_filter(c, filt.as_ref())
+                })
+                .map(|c| c.card_id.clone());
+            let Some(cid) = chosen else { return true };
+            // main 効果を再発火 (fire_self_effect と同じ経路 = 条件/cost/cascade は共通ガード)。
+            let prim = json!({"fire_self_effect": {"when_kind": "main", "_card_id": cid}});
+            execute_effect(&prim, state, me_idx, src)
+        }
+        // setup_modifier 専用 (ゲーム開始時のドンデッキ枚数)。 do として実行される文脈は無いが、
+        // 万一走っても no-op が正しい (実際の反映は deck の don_deck_size で行う)。
+        "set_don_deck_size" => true,
         // このキャラをトラッシュに置く (effects.py:7761)。 付与ドンはレストへ。
         "return_self_to_trash" => {
             if let Slot::Char(i) = src {
@@ -5865,8 +6144,12 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             // Python (effects.py:play_self) は self_inplay → current_source_card_id の順で source を解決。
             // src が場に居る場合はそれを使う (以前は current_source_card_id のみ見て bail していた)。
-            let cid_opt = src_ip(&state.players[me_idx], src)
-                .map(|ip| ip.card.card_id.clone())
+            // _card_id 明示指定 (fire_event_main_from_trash が「トラッシュのイベント」を指すのに使う)。
+            let cid_opt = v
+                .get("_card_id")
+                .and_then(|x| x.as_str())
+                .map(|s2| s2.to_string())
+                .or_else(|| src_ip(&state.players[me_idx], src).map(|ip| ip.card.card_id.clone()))
                 .or_else(|| state.current_source_card_id.clone());
             let Some(cid) = cid_opt else {
                 return false; // source card 不明 → bail
@@ -7807,6 +8090,12 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "prevent_ko" | "draw_per_self_chara_then_discard"
             | "prevent_opp_blocker_for_cost_le" | "reveal_opp_hand_and_if_event_mill_life"
             | "don_minus_opp" | "set_base_power_timed" | "return_self_to_trash" | "rest_self_don"
+            | "scry_deck_reorder" | "view_life_top_choose_position"
+            | "keep_opp_rested_inplay_next_refresh" | "schedule_at_opp_main_phase_start"
+            | "grant_turn_battle_ko_save_discard" | "mill_top_then"
+            | "summon_stage_from_deck_with_feature" | "opp_may_return_active_don_else_debuff"
+            | "return_self_charas_then_pump_per" | "play_from_hand_choice"
+            | "fire_event_main_from_trash" | "set_don_deck_size"
     )
 }
 

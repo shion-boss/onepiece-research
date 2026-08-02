@@ -503,6 +503,10 @@ pub struct GameState {
     pub rust_event_queue: Vec<crate::effects::PendingTrigger>,
     #[serde(skip)]
     pub rust_resolving: bool,
+    /// 直前にバトルした相手キャラ (player_idx, char_idx)。 effects.py の動的属性
+    /// `last_battled_opp_iid` 相当。 条件 opp_just_battled_* / target spec opp_just_battled 用。
+    #[serde(skip)]
+    pub last_battled_opp: Option<(usize, usize)>,
     /// 直前に power_pump した対象 (player_idx, Slot 相当の char/leader 位置)。 effects.py:3616
     /// `last_pumped_iid` の代替。 target spec self_just_buffed の解決に使う。
     /// -1 = leader、 0.. = characters index。
