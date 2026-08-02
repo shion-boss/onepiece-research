@@ -8016,7 +8016,10 @@ pub fn try_replace_ko(
                 if !matches!(pk, "rest_self_cards" | "return_self_don_to_deck" | "return_to_deck_bottom"
                     | "draw" | "life_to_hand" | "mill_self_life_to_trash" | "trash_to_deck"
                     | "trash_self_hand_random" | "power_pump" | "flip_life_face_up_effect"
-                    | "rest" | "ko_self" | "rest_self_don" | "return_self_to_trash") {
+                    | "rest" | "ko_self" | "rest_self_don" | "return_self_to_trash"
+                    // return_self_to_hand = holder 自身を手札へ (prim 側は leave trigger を発火しない
+                    // = Python も同様) → replace を再誘発しない。
+                    | "return_self_to_hand") {
                     return Err(format!("replace do 未対応 ({pk})"));
                 }
                 if pk == "return_to_deck_bottom"
