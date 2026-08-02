@@ -969,10 +969,6 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     state.players[me].trash.push(c);
                 }
             }
-            // on_self_battled は char vs char バトル終了時に発火 (game.py:1994) → bail
-            if crate::effects::card_has_when(&atk_cid, "on_self_battled") {
-                return Err("on_self_battled 未対応".into());
-            }
             if ret_at_battle_end {
                 return Err("return_at_battle_end 未対応".into());
             }
@@ -1092,6 +1088,16 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             };
             if atk_power >= def_power && !immune {
                 do_battle_ko(state, opp, actual_idx, me, &atk_cid, false)?;
+            }
+            // バトル終了時: 【このキャラがバトルした時】(on_self_battled、 game.py:2006、 ST02-010)。
+            // AttackCharacter は常に char vs char バトルなので成立時は必ず発火。 attacker が場に
+            // 残っている場合のみ (Python の `attacker in [me.leader, *me.characters]`)。
+            if crate::effects::card_has_when(&atk_cid, "on_self_battled") {
+                let cur = crate::effects::peek_tagged(state, me, atk_tok);
+                let cur = if is_leader { crate::effects::Slot::Leader } else { cur };
+                if cur != crate::effects::Slot::Detached {
+                    crate::effects::fire_on_self_battled(state, me, &atk_cid, cur)?;
+                }
             }
             reset_battle_buffs(state);
             Ok(())

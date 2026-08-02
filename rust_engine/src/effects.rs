@@ -7853,6 +7853,46 @@ pub fn fire_on_life_zero(state: &mut GameState, owner_idx: usize) -> Result<(), 
     Ok(())
 }
 
+/// 【このキャラがバトルした時】(on_self_battled、 effects.py:12054、 ST02-010)。 attacker 所有者視点。
+/// ⚠ once_per_turn は `_self_battled_{iid}` の iid キーで once_per_turn_used に入る = canonical 外
+/// なので追跡不能 → 該当効果は明示 bail。
+pub fn fire_on_self_battled(
+    state: &mut GameState,
+    me_idx: usize,
+    card_id: &str,
+    src: Slot,
+) -> Result<(), String> {
+    let Some(ov) = overlay() else { return Ok(()) };
+    let Some(effs) = ov.get(card_id) else { return Ok(()) };
+    for eff in effs {
+        if eff.get("when").and_then(|v| v.as_str()) != Some("on_self_battled") {
+            continue;
+        }
+        crate::selfplay::note_fired(card_id);
+        match eval_effect_conditions(eff, state, me_idx, Some(src)) {
+            Some(true) => {}
+            Some(false) => continue,
+            None => return Err("on_self_battled 条件 unknown".into()),
+        }
+        if eff.get("cost").and_then(|c| c.get("once_per_turn")).is_some() {
+            return Err("on_self_battled once_per_turn 未対応 (iid-keyed)".into());
+        }
+        let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
+        for prim in dos {
+            if !on_trigger_prim_safe(prim.as_object().and_then(|o| o.keys().next()).map(|x| x.as_str()).unwrap_or("")) {
+                return Err(format!(
+                    "on_self_battled primitive 未対応: {}",
+                    prim.as_object().and_then(|o| o.keys().next()).map(|x| x.as_str()).unwrap_or("?")
+                ));
+            }
+            if !execute_effect(prim, state, me_idx, src) {
+                return Err("on_self_battled primitive 再現不能".into());
+            }
+        }
+    }
+    Ok(())
+}
+
 /// end_of_turn の cost が user-optional 支払いを伴うか (effects.py:11220 `_end_of_turn_cost_is_real`)。
 fn end_of_turn_cost_is_real(cost: &Value) -> bool {
     let Some(o) = cost.as_object() else { return false };
