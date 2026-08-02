@@ -1229,6 +1229,15 @@ fn resolve_target(
             }
             _ => vec![],
         },
+        // one_opponent_character_power_le_N = 現パワー N 以下の相手キャラ 1 体 (effects.py:2698、 power 降順)。
+        os if os.starts_with("one_opponent_character_power_le_") => {
+            let n = parse_after(os, "power_le_").unwrap_or(0);
+            let opp = &state.players[opp_idx];
+            let mut cands: Vec<usize> =
+                (0..opp.characters.len()).filter(|&i| opp.characters[i].power() <= n).collect();
+            cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
+            cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
+        }
         // 「相手のドン N 枚以上付与キャラ 1 体」 (effects.py:2717、 OP15-001)。 threat_key = power 降順。
         os if os.starts_with("one_opponent_character_attached_don_ge_") => {
             let n = parse_after(os, "don_ge_").unwrap_or(0);
