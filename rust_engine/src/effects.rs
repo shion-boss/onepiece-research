@@ -2237,9 +2237,9 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
         }
         "rest_self" => {
             if cv == Value::Bool(true) {
-                // effects.py:882 — self_inplay が居なければ rest しない (source-gone)。
-                let Some(ip) = src_ip_mut(&mut state.players[me_idx], src) else { return None };
-                if !ip.rested {
+                // effects.py:882 — self_inplay が居なければ何もしない (= 支払い成功扱い)。
+                // ⚠ 以前は None (= bail) を返していたが Python は skip するだけ。
+                if let Some(ip) = src_ip_mut(&mut state.players[me_idx], src) {
                     ip.rested = true;
                 }
             }
