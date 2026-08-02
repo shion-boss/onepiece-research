@@ -150,23 +150,46 @@ def test_op05_112_on_ko_play_human_pick():
 # --------------------------------------------------------------------------- #
 #  OP05-114 神の裁き (EVENT 黄 cost1 空島):
 #    【カウンター】自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。
+#      その後、相手のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。
 #    【トリガー】相手のキャラ1枚までを、KOする。
 # --------------------------------------------------------------------------- #
-def test_op05_114_counter_power_pump_ai():
-    """カウンター (AI): 自リーダー(既定)を このバトル中 パワー+2000。"""
-    repo = _repo()
-    overlay = _overlay()
-    st = _state(repo, _LEADER, overlay)
-    me, opp = st.players[0], st.players[1]
-    power_before = me.leader.power
-
-    for prim in _do(overlay, "OP05-114", "counter"):
+def _fire_op05_114_counter(st, me, opp):
+    for prim in _do(overlay_of := _overlay(), "OP05-114", "counter"):
         execute_effect(prim, st, me, opp, None)
         while st.pending_choice is not None:
             resolve_pending_choice(st, [0])
+    assert overlay_of is not None
+
+
+def test_op05_114_counter_power_pump_ai():
+    """カウンター (AI): 相手ライフ 3 枚 (= 後文の条件外) なら +2000 だけ。"""
+    repo = _repo()
+    st = _state(repo, _LEADER, _overlay())
+    me, opp = st.players[0], st.players[1]
+    opp.life = [repo.get(_RED_C2)] * 3  # 後文 (相手ライフ2枚以下) を満たさない
+    power_before = me.leader.power
+
+    _fire_op05_114_counter(st, me, opp)
 
     assert me.leader.power == power_before + 2000, \
         f"カウンターで +2000 が乗っていない: {me.leader.power} (before {power_before})"
+
+
+def test_op05_114_counter_bonus_when_opp_life_le2():
+    """カウンター後文: 相手のライフが 2 枚以下なら 「そのカード」 に さらに +2000 (合計 +4000)。
+
+    2026-08-02: overlay に後文が実装されておらず +2000 しか乗っていなかった (実装漏れ) の回帰テスト。
+    """
+    repo = _repo()
+    st = _state(repo, _LEADER, _overlay())
+    me, opp = st.players[0], st.players[1]
+    opp.life = [repo.get(_RED_C2)] * 2  # 後文の条件を満たす
+    power_before = me.leader.power
+
+    _fire_op05_114_counter(st, me, opp)
+
+    assert me.leader.power == power_before + 4000, \
+        f"相手ライフ2枚以下で +4000 になっていない: {me.leader.power} (before {power_before})"
 
 
 def test_op05_114_counter_power_pump_human_pick():
