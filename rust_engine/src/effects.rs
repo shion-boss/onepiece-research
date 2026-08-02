@@ -349,12 +349,13 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                 })
             }
             // アタックしてきた相手キャラの属性 (effects.py:opp_attacker_attribute、 OP11-088 シュウ)。
-            // ⚠ Python は `state.current_attacker_iid` から InPlay を引くが、 **engine のどこからも
-            //   set されておらず常に None** = `atk is None` で必ず条件 False (= OP11-088 等が
-            //   silent 不発)。 Rust だけ属性を見ると MISMATCH になるので Python の実挙動に合わせる。
-            //   Python 側の欠陥は要レビュー (db/_pending_review.md)。 current_attacker_attribute は
-            //   Python 修正後に繋ぐための配線として残す。
-            "opp_attacker_attribute" => false,
+            // 「アタックしてきた相手キャラの属性が v か」 (effects.py:1371、 OP11-088 シュウ)。
+            // Python は current_attacker_iid → InPlay の attribute。 Rust は宣言時に立てた
+            // current_attacker_attribute (transient) を見る。 文脈外 (None) は条件不成立。
+            "opp_attacker_attribute" => match &state.current_attacker_attribute {
+                Some(attr) => attr.contains(v.as_str().unwrap_or("")),
+                None => false,
+            },
             // --- 掃引 3 巡目の述語 (2026-07-31) ---
             "self_trash_has_named_all" => {
                 let names: Vec<&str> = v.as_array().map_or_else(
@@ -1313,12 +1314,13 @@ fn resolve_target(
             });
             cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
         }
-        // 「相手のアタックしているリーダーかキャラ」 (effects.py:2460)。
-        // ⚠ Python は `state.current_attacker_iid` を参照するが、 **engine のどこからも set されて
-        //   おらず常に None** = 常に 0 対象 (= 該当効果は silent 不発)。 Rust だけ実装すると
-        //   MISMATCH になるので Python の実挙動に合わせる。 Python 側の欠陥は要レビュー
-        //   (db/_pending_review.md)。 peek_tagged / current_attacker_tok は修正後に繋ぐ用の配線。
-        "opponent_attacker" => vec![],
+        // 「相手のアタックしているリーダーかキャラ」 (effects.py:2460、 OP04-069)。
+        // Python は state.current_attacker_iid → opp.leader/characters を走査。 Rust は
+        // current_attacker_tok (アタック宣言時に打つ一意トークン) で追う。 場外/文脈外は 0 対象。
+        "opponent_attacker" => match peek_tagged(state, opp_idx, state.current_attacker_tok) {
+            Slot::Detached => vec![],
+            sl => vec![(opp_idx, sl)],
+        },
         // 自リーダー or キャラ 1 体、 AI はリーダー優先 (effects.py:2948)
         "self_inplay_choice" => vec![(me_idx, Slot::Leader)],
         // 自キャラ 1 体、 AI は power 降順 (effects.py:2919)

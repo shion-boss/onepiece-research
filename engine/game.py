@@ -1481,6 +1481,11 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 me.trash.append(me.hand.pop(idx))
             state.push_log(f"  アタック前コスト: 手札{n_needed}枚捨て ({attacker.card.name})")
         attacker.rested = True
+        # 「アタックしている相手のリーダーかキャラ」 (target spec opponent_attacker) /
+        # 「アタックしてきた相手キャラの属性」 (条件 opp_attacker_attribute) の参照先。
+        # ⚠ 2026-08-02 まで **どこからも set されておらず** 両者が常に空振りしていた
+        # (= OP04-069 / OP11-088 等の効果が silent 不発) → アタック宣言時に設定する。
+        state.current_attacker_iid = attacker.instance_id
         if state.effects_overlay:
             # play_one_action で 既 pre-fire 済 なら skip (= 二重発火 防止)。
             # play_one_action 経由 でない 呼出 (= 直接 apply_action) では 通常通り 発火。
@@ -1848,6 +1853,11 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 me.trash.append(me.hand.pop(idx))
             state.push_log(f"  アタック前コスト: 手札{n_needed}枚捨て ({attacker.card.name})")
         attacker.rested = True
+        # 「アタックしている相手のリーダーかキャラ」 (target spec opponent_attacker) /
+        # 「アタックしてきた相手キャラの属性」 (条件 opp_attacker_attribute) の参照先。
+        # ⚠ 2026-08-02 まで **どこからも set されておらず** 両者が常に空振りしていた
+        # (= OP04-069 / OP11-088 等の効果が silent 不発) → アタック宣言時に設定する。
+        state.current_attacker_iid = attacker.instance_id
         if state.effects_overlay:
             opp_pre_fired = getattr(state, "_opp_attack_pre_fired_id", None) == id(attacker)
             if not opp_pre_fired:

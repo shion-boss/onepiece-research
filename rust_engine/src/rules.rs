@@ -685,6 +685,18 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             } else {
                 state.players[me].characters[atk_idx].card.card_id.clone()
             };
+            // target spec "opponent_attacker" / 条件 "opp_attacker_attribute" の参照先
+            // (Python は game.py でアタック宣言時に current_attacker_iid を set する。 同じ順)。
+            state.current_attacker_tok = crate::effects::tag_src(
+                state,
+                me,
+                if is_leader { crate::effects::Slot::Leader } else { crate::effects::Slot::Char(atk_idx) },
+            );
+            state.current_attacker_attribute = Some(if is_leader {
+                state.players[me].leader.card.attribute.clone()
+            } else {
+                state.players[me].characters[atk_idx].card.attribute.clone()
+            });
             crate::effects::fire_on_attack(state, me, is_leader, atk_idx)?;
             // ⭐ Python は attacker を object 参照で保持するので、 on_attack で自身が場を離れても
             //   そのオブジェクトを読み続けてバトルを解決する。 Rust は fire_gated_do / cost 支払いが
@@ -709,17 +721,7 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     },
                 }
             };
-            // target spec "opponent_attacker" (= 防御側から見たアタッカー) 解決用にタグを維持する。
-            // Python の state.current_attacker_iid 相当。 action 境界で transient がクリアされる。
-            state.current_attacker_tok = if atk_gone.is_some() {
-                None
-            } else {
-                crate::effects::tag_src(
-                    state,
-                    me,
-                    if is_leader { crate::effects::Slot::Leader } else { crate::effects::Slot::Char(atk_idx) },
-                )
-            };
+
             // 【相手のアタック時】(opp_attack + on_leader) 発火 (game.py:1476、 defended_target=leader)。
             // AI が発動しない (skip) なら一致、 cost effect fire は Err (防御 EV heuristic 移植済)。
             let atk_cost = match &atk_gone {
@@ -744,11 +746,6 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 .filter(|&bi| bi < state.players[opp].characters.len())
                 .and_then(|bi| crate::effects::tag_src(state, opp, crate::effects::Slot::Char(bi)));
             // opp_attack 条件 (opp_attacker_attribute) 用に attacker 属性を transient で公開
-            state.current_attacker_attribute = Some(match &atk_gone {
-                Some(g) => g.card.attribute.clone(),
-                None if is_leader => state.players[me].leader.card.attribute.clone(),
-                None => state.players[me].characters[atk_idx].card.attribute.clone(),
-            });
             crate::effects::fire_opp_attack(state, opp, "opp_attack", ap, atk_cost, dp)?;
             let dp2 = state.players[opp].leader.power();
             crate::effects::fire_opp_attack(state, opp, "opp_attack_on_leader", ap, atk_cost, dp2)?;
@@ -1045,6 +1042,18 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             } else {
                 state.players[me].characters[atk_idx].card.card_id.clone()
             };
+            // target spec "opponent_attacker" / 条件 "opp_attacker_attribute" の参照先
+            // (Python は game.py でアタック宣言時に current_attacker_iid を set する。 同じ順)。
+            state.current_attacker_tok = crate::effects::tag_src(
+                state,
+                me,
+                if is_leader { crate::effects::Slot::Leader } else { crate::effects::Slot::Char(atk_idx) },
+            );
+            state.current_attacker_attribute = Some(if is_leader {
+                state.players[me].leader.card.attribute.clone()
+            } else {
+                state.players[me].characters[atk_idx].card.attribute.clone()
+            });
             crate::effects::fire_on_attack(state, me, is_leader, atk_idx)?;
             // ⭐ Python は attacker を object 参照で保持するので、 on_attack で自身が場を離れても
             //   そのオブジェクトを読み続けてバトルを解決する。 Rust は fire_gated_do / cost 支払いが
@@ -1069,17 +1078,7 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     },
                 }
             };
-            // target spec "opponent_attacker" (= 防御側から見たアタッカー) 解決用にタグを維持する。
-            // Python の state.current_attacker_iid 相当。 action 境界で transient がクリアされる。
-            state.current_attacker_tok = if atk_gone.is_some() {
-                None
-            } else {
-                crate::effects::tag_src(
-                    state,
-                    me,
-                    if is_leader { crate::effects::Slot::Leader } else { crate::effects::Slot::Char(atk_idx) },
-                )
-            };
+
             // 【相手のアタック時】(opp_attack + on_chara) 発火 (game.py:1843、 defended_target=対象キャラ)。
             // target 消失時 (= 通常起きない、 fire は bail) は defended_power=0 で扱う。
             let atk_cost = match &atk_gone {
