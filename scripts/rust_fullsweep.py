@@ -199,6 +199,9 @@ def main() -> None:
     print(f"\nbail 理由 top20:")
     for k, v in sorted((cv.get("bail_reasons") or {}).items(), key=lambda kv: -kv[1])[:20]:
         print(f"  {v:6d}  {k}")
+    print(f"\n内側 (primitive/条件) 内訳 top25:")
+    for k, v in sorted((cv.get("unknown_conditions") or {}).items(), key=lambda kv: -kv[1])[:25]:
+        print(f"  {v:6d}  {k}")
     print(f"\nゲーム中断 top20:")
     for k, v in errors.most_common(20):
         print(f"  {v:6d}  {k}")

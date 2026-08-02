@@ -653,7 +653,23 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 state.players[me].characters[atk_idx].rested = true;
             }
             // 【アタック時】(on_attack) 発火 (game.py:1467、 costless slice のみ、 未対応は Err で bail)
+            // ⚠ on_attack でアタッカー自身が場を離れる (自 trash / 自 KO) ことがある。 Python は
+            //   attacker を object 参照で保持して以降も同じ実体を読むが、 Rust は位置 index なので
+            //   一意トークンで追跡し、 見失ったら明示 bail (以前はここから先の index 参照で panic)。
+            let atk_tok = if is_leader {
+                None
+            } else {
+                crate::effects::tag_src(state, me, crate::effects::Slot::Char(atk_idx))
+            };
             crate::effects::fire_on_attack(state, me, is_leader, atk_idx)?;
+            let atk_idx = if is_leader {
+                atk_idx
+            } else {
+                match crate::effects::find_tagged(state, me, atk_tok) {
+                    crate::effects::Slot::Char(i) => i,
+                    _ => return Err("attacker が on_attack 中に場を離れた (Rust は index 解決)".into()),
+                }
+            };
             // 【相手のアタック時】(opp_attack + on_leader) 発火 (game.py:1476、 defended_target=leader)。
             // AI が発動しない (skip) なら一致、 cost effect fire は Err (防御 EV heuristic 移植済)。
             let atk_cost = {
@@ -952,7 +968,23 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 state.players[me].characters[atk_idx].rested = true;
             }
             // 【アタック時】(on_attack) 発火 (costless slice のみ、 未対応は Err)
+            // ⚠ on_attack でアタッカー自身が場を離れる (自 trash / 自 KO) ことがある。 Python は
+            //   attacker を object 参照で保持して以降も同じ実体を読むが、 Rust は位置 index なので
+            //   一意トークンで追跡し、 見失ったら明示 bail (以前はここから先の index 参照で panic)。
+            let atk_tok = if is_leader {
+                None
+            } else {
+                crate::effects::tag_src(state, me, crate::effects::Slot::Char(atk_idx))
+            };
             crate::effects::fire_on_attack(state, me, is_leader, atk_idx)?;
+            let atk_idx = if is_leader {
+                atk_idx
+            } else {
+                match crate::effects::find_tagged(state, me, atk_tok) {
+                    crate::effects::Slot::Char(i) => i,
+                    _ => return Err("attacker が on_attack 中に場を離れた (Rust は index 解決)".into()),
+                }
+            };
             // 【相手のアタック時】(opp_attack + on_chara) 発火 (game.py:1843、 defended_target=対象キャラ)。
             // target 消失時 (= 通常起きない、 fire は bail) は defended_power=0 で扱う。
             let atk_cost = {

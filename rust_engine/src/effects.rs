@@ -2754,6 +2754,136 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 自分の (filter) キャラ 2 枚の元々パワーをこのターン中入れ替える (effects.py:6529、 OP14-001)。
+        // AI は元々パワー昇順で最小と最大のペアを選ぶ。 2 枚未満なら不発 (Python も return False = no-op)。
+        "swap_self_power" => {
+            let filt = v.get("filter").cloned();
+            let mut cands: Vec<usize> = (0..state.players[me_idx].characters.len())
+                .filter(|&i| matches_filter(&state.players[me_idx].characters[i].card, filt.as_ref()))
+                .collect();
+            if cands.len() < 2 {
+                return true;
+            }
+            // Python: cands.sort(key=card.power) は stable = 同 power は元順維持
+            cands.sort_by_key(|&i| state.players[me_idx].characters[i].card.power);
+            let (a, b) = (cands[0], cands[cands.len() - 1]);
+            let pa = state.players[me_idx].characters[a].card.power;
+            let pb = state.players[me_idx].characters[b].card.power;
+            state.players[me_idx].characters[a].turn_base_power_override = Some(pb);
+            state.players[me_idx].characters[b].turn_base_power_override = Some(pa);
+            true
+        }
+        // 「自分の (filter) キャラを任意の枚数 KO してよい。 KO 1 枚につきリーダー +M」
+        // (effects.py:3429、 OP06-095)。 AI は全該当を KO。 KO 時トリガーは prim 側で発火。
+        "ko_self_chara_then_pump_leader_per" => {
+            let filt = v.get("filter").cloned();
+            let amount = v.get("amount").and_then(|x| x.as_i64()).unwrap_or(1000) as i32;
+            let duration = v.get("duration").and_then(|x| x.as_str()).unwrap_or("turn").to_string();
+            let toks: Vec<Option<u64>> = (0..state.players[me_idx].characters.len())
+                .filter(|&i| matches_filter(&state.players[me_idx].characters[i].card, filt.as_ref()))
+                .collect::<Vec<_>>()
+                .into_iter()
+                .map(|i| tag_src(state, me_idx, Slot::Char(i)))
+                .collect();
+            let mut ko_count = 0i32;
+            for tok in toks {
+                let Slot::Char(idx) = find_tagged(state, me_idx, tok) else { continue };
+                let vcid = state.players[me_idx].characters[idx].card.card_id.clone();
+                let vdon = state.players[me_idx].characters[idx].attached_dons;
+                let removed = state.players[me_idx].characters.remove(idx);
+                state.players[me_idx].trash.push(removed.card);
+                state.players[me_idx].don_rested += vdon;
+                ko_count += 1;
+                // 自分の効果による自陣 KO = by_opp_effect=false。 chara_ko_taken_this_turn は
+                // Python が加算しない (opp 起因のみ) ので触らない。
+                state.last_chara_ko_victim_card = None;
+                if fire_on_ko(state, me_idx, &vcid).is_err() {
+                    return false;
+                }
+                if fire_field_when(state, me_idx, "on_self_chara_ko").is_err() {
+                    return false;
+                }
+                state.last_chara_ko_victim_card = None;
+            }
+            if ko_count > 0 {
+                let prim = json!({"power_pump": {
+                    "target": "self_leader", "amount": amount * ko_count, "duration": duration
+                }});
+                return execute_effect(&prim, state, me_idx, src);
+            }
+            true
+        }
+        // 自分のライフの表向きカードすべてをトラッシュ (effects.py:6800、 ST13-002)。 count-only モデルで
+        // 表向き札は top に居るので上から face_up_life_count 枚。
+        "trash_all_face_up_life" => {
+            let me = &mut state.players[me_idx];
+            let n = me.face_up_life_count.min(me.life.len() as i32);
+            for _ in 0..n {
+                if me.life.is_empty() {
+                    break;
+                }
+                let c = me.life.remove(0);
+                me.trash.push(c);
+            }
+            me.face_up_life_count = 0;
+            true
+        }
+        // 自分の手札が N 枚になるように捨てる (effects.py:5563)。 AI は worst_hand_idx から。
+        "self_hand_to_size" => {
+            let target = if v.is_object() {
+                v.get("size").and_then(|x| x.as_i64()).unwrap_or(5) as usize
+            } else {
+                v.as_i64().unwrap_or(5) as usize
+            };
+            while state.players[me_idx].hand.len() > target {
+                let me = &mut state.players[me_idx];
+                let Some(i) = worst_hand_idx(&me.hand, &me.known_hand_card_ids) else { break };
+                let c = me.hand.remove(i);
+                me.trash.push(c);
+            }
+            true
+        }
+        // 相手の場のドン枚数に合わせて自分の場のドンをドンデッキへ戻す (effects.py:6694、 OP08-074)。
+        // 超過分を rested 優先で返す (= active を残す)。
+        "return_self_don_to_match_opp" => {
+            let opp_total = state.players[opp_idx].don_active + state.players[opp_idx].don_rested;
+            let me = &mut state.players[me_idx];
+            let excess = (me.don_active + me.don_rested - opp_total).max(0);
+            let ret_rested = excess.min(me.don_rested);
+            me.don_rested -= ret_rested;
+            me.don_remaining_in_deck += ret_rested;
+            let ret_active = excess - ret_rested;
+            if ret_active > 0 {
+                me.don_active -= ret_active;
+                me.don_remaining_in_deck += ret_active;
+            }
+            true
+        }
+        // 「相手のドン N 枚以上付与のレストキャラ M 枚までは次の相手リフレッシュでアクティブにならない」
+        // (effects.py:6854、 OP15-025/OP14-035)。 AI は脅威度 (power 降順) 優先。
+        "keep_opp_rested_chara_with_don_ge_next_refresh" => {
+            let don_ge = v.get("don_ge").and_then(|x| x.as_i64()).unwrap_or(1) as i32;
+            let limit = v.get("limit").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+            let cle = v.get("cost_le").and_then(|x| x.as_i64()).map(|x| x as i32);
+            let cge = v.get("cost_ge").and_then(|x| x.as_i64()).map(|x| x as i32);
+            let opp = &state.players[opp_idx];
+            let mut cands: Vec<usize> = (0..opp.characters.len())
+                .filter(|&i| {
+                    let c = &opp.characters[i];
+                    let cc = c.card.cost;
+                    c.rested
+                        && c.attached_dons >= don_ge
+                        && cle.map_or(true, |x| cc <= x)
+                        && cge.map_or(true, |x| cc >= x)
+                })
+                .collect();
+            // _threat_key = power 降順 (effects.py:740、 stable なので同値は元順維持)
+            cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
+            for i in cands.into_iter().take(limit) {
+                state.players[opp_idx].characters[i].stay_rested_next_refresh = true;
+            }
+            true
+        }
         "other_self_charas_to_deck_bottom" => {
             if me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect") {
                 return false; // leave cascade 再現不能 → bail
