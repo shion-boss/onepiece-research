@@ -1035,6 +1035,12 @@ _FIELD_WHEN_ONCE_MIRROR = frozenset({
     # ライフ 0 トリガー (OP05-098 紫エネル)。 source はリーダー (= 永続 InPlay) なので mirror 可能。
     # これが無いと Rust 側で「ターン1回」を追跡できず、 該当効果が丸ごと bail する (2026-07-31)。
     "on_life_zero",
+    # 【登場時】/【ブロック時】 (2026-08-02)。 source が場の InPlay なので mirror できる。
+    # ⚠ Python の発動判定は従来通り once_per_turn_used (= 挙動不変)。 ここへの追加は
+    # InPlay.event_once_used への **記録** を増やすだけ = canonical digest に載せて Rust が
+    # 「ターン1回」を追跡できるようにするためのもの。
+    "on_play",
+    "on_block",
 })
 
 

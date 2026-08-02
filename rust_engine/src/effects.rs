@@ -416,6 +416,13 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                 let fd = me.don_active + me.don_rested;
                 fd == 0 || fd >= 3
             }
+            // どちらかの場にコスト N 以上のキャラが居るか (effects.py:1208、 leader 除く、 現コスト)。
+            "exists_chara_cost_ge" => {
+                let n = v.as_i64().unwrap_or(0) as i32;
+                me.characters.iter().chain(opp.characters.iter()).any(|c| c.base_cost() >= n)
+            }
+            // 自分のコストエリアのドン (active+rested) が N 枚以上 (effects.py:1401)。
+            "self_don_count_ge" => (me.don_active + me.don_rested) as i64 >= v.as_i64().unwrap_or(0),
             // 直近 KO が「相手の効果由来」か (effects.py:1452、 OP11-035/OP11-024)。
             "by_opp_effect" => v.as_bool().unwrap_or(true) == state.last_ko_by_opp_effect,
             // 直近 KO がバトル由来か (= 効果由来でない、 effects.py:1459)。
@@ -2971,6 +2978,127 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
             for i in cands.into_iter().take(limit) {
                 state.players[opp_idx].characters[i].stay_rested_next_refresh = true;
+            }
+            true
+        }
+        // 相手キャラを相手のライフ上へ表向きで置く (effects.py:7212、 EB01-053)。 KO ではない。
+        "chara_to_opp_life" => {
+            let tspec = if v.is_string() {
+                v.clone()
+            } else {
+                v.get("target").cloned().unwrap_or(Value::String("one_opponent_character_any".into()))
+            };
+            let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else {
+                return false;
+            };
+            if targets.is_empty() {
+                return true; // Python は return False = 後続を止めない no-op
+            }
+            // 除去で index がずれるので降順に処理する (Python は object 参照で逐次)。
+            let mut idxs: Vec<usize> = targets
+                .iter()
+                .filter(|&&(pi, _)| pi == opp_idx)
+                .filter_map(|&(_, sl)| if let Slot::Char(i) = sl { Some(i) } else { None })
+                .collect();
+            idxs.sort_by(|a, b| b.cmp(a));
+            for i in idxs {
+                if i >= state.players[opp_idx].characters.len() {
+                    continue;
+                }
+                let mut t = state.players[opp_idx].characters.remove(i);
+                if t.attached_dons > 0 {
+                    state.players[opp_idx].don_rested += t.attached_dons;
+                    t.attached_dons = 0;
+                }
+                state.players[opp_idx].life.insert(0, t.card);
+            }
+            true
+        }
+        // 「自分の付与ドン N 枚をコストエリアにレストで戻す」 (effects.py:6639、 ST28-004)。
+        // 発動元の付与ドンから優先消費 → 不足分は leader → characters の順。
+        "return_attached_don_to_cost_rested" => {
+            let n = if v.is_object() {
+                v.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as i32
+            } else {
+                v.as_i64().unwrap_or(1) as i32
+            };
+            let mut removed = 0i32;
+            if let Some(ip) = src_ip_mut(&mut state.players[me_idx], src) {
+                if ip.attached_dons > 0 {
+                    let take = ip.attached_dons.min(n);
+                    ip.attached_dons -= take;
+                    removed += take;
+                }
+            }
+            if removed < n {
+                // leader → characters の順 (Python の [me.leader, *me.characters])。 src はスキップ。
+                if src != Slot::Leader && state.players[me_idx].leader.attached_dons > 0 {
+                    let take = state.players[me_idx].leader.attached_dons.min(n - removed);
+                    state.players[me_idx].leader.attached_dons -= take;
+                    removed += take;
+                }
+                for i in 0..state.players[me_idx].characters.len() {
+                    if removed >= n {
+                        break;
+                    }
+                    if src == Slot::Char(i) {
+                        continue;
+                    }
+                    let take = state.players[me_idx].characters[i].attached_dons.min(n - removed);
+                    state.players[me_idx].characters[i].attached_dons -= take;
+                    removed += take;
+                }
+            }
+            state.players[me_idx].don_rested += removed;
+            true
+        }
+        // 「自分のリーダーとキャラ 1 枚の元々パワーを入れ替える」 (effects.py:6715、 OP14-009)。
+        // AI は最高 power の自キャラ (max = 同値なら先頭)。
+        "swap_base_power_self_leader_chara" => {
+            if state.players[me_idx].characters.is_empty() {
+                return true; // Python は return False = no-op
+            }
+            let me = &state.players[me_idx];
+            let mut best = 0usize;
+            for i in 1..me.characters.len() {
+                if me.characters[i].power() > me.characters[best].power() {
+                    best = i;
+                }
+            }
+            let ld_base = me.leader.turn_base_power_override.unwrap_or(me.leader.card.power);
+            let ch_base = me.characters[best].turn_base_power_override.unwrap_or(me.characters[best].card.power);
+            state.players[me_idx].leader.turn_base_power_override = Some(ch_base);
+            state.players[me_idx].characters[best].turn_base_power_override = Some(ld_base);
+            true
+        }
+        // 「任意のコストを宣言 → 相手デッキ上を公開、 一致なら効果」 (effects.py:4299、 OP11-066 等)。
+        // AI は相手デッキの最頻コストを宣言 (tie は低コスト優先)。
+        "declare_cost_reveal_then" => {
+            let opp = &state.players[opp_idx];
+            if opp.deck.is_empty() {
+                return true; // Python は return False = no-op
+            }
+            let mut counts: std::collections::HashMap<i32, usize> = std::collections::HashMap::new();
+            for c in &opp.deck {
+                *counts.entry(c.cost).or_insert(0) += 1;
+            }
+            // min(key=(-count, cost)) = 出現数降順 → コスト昇順
+            let mut best: Option<(i32, usize)> = None;
+            for (&cost, &cnt) in &counts {
+                best = match best {
+                    Some((bc, bn)) if (bn, std::cmp::Reverse(bc)) >= (cnt, std::cmp::Reverse(cost)) => Some((bc, bn)),
+                    _ => Some((cost, cnt)),
+                };
+            }
+            let declared = best.map(|(c, _)| c).unwrap_or(0);
+            let revealed_cost = opp.deck[0].cost;
+            if revealed_cost == declared {
+                let specs = v.get("effect").and_then(|x| x.as_array()).cloned().unwrap_or_default();
+                for es in &specs {
+                    if !execute_effect(es, state, me_idx, src) {
+                        return false;
+                    }
+                }
             }
             true
         }
@@ -5890,127 +6018,26 @@ fn pay_don_field(state: &mut GameState, me_idx: usize, n: i32) -> bool {
 }
 
 
-/// on_play の cost を AI 自動支払い (effects.py: AI は auto-pay)。
-/// Some(true)=支払い済で発動 / Some(false)=支払い不能で skip / None=未対応 cost 種別で skip。
-/// ⚠ pay_don のみ対応 (deterministic)。 discard_hand(random)/rest_self/once_per_turn 等は未対応 → skip。
+/// on_play / main / on_ko / on_block 等 when-effect の cost を支払う (effects.py:391 の AI 経路)。
+/// Python は `real_cost = cost - once_per_turn` を `_can_pay_counter_cost` → `_pay_counter_cost` に
+/// 通す = counter cost と同一機構。 Rust も同じ経路に委譲する (独自実装だと対応 cost 種別がズレる)。
+/// Some(true)=支払い済で発動 / Some(false)=支払い不能で skip / None=未対応 cost 種別で bail。
+/// ⚠ once_per_turn は呼出側 (execute_card_effects) の gate が扱う。
 fn pay_on_play_cost(cost: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> Option<bool> {
-    let mut pay_don = 0i32;
-    let mut rest_don = 0i32;
-    let mut rest_self = false;
-    let entries: Vec<(String, i64)> = if let Some(o) = cost.as_object() {
-        o.iter().map(|(k, v)| (k.clone(), v.as_i64().unwrap_or(0))).collect()
-    } else if let Some(arr) = cost.as_array() {
-        arr.iter()
-            .filter_map(|x| x.as_object())
-            .flat_map(|o| o.iter().map(|(k, v)| (k.clone(), v.as_i64().unwrap_or(0))))
-            .collect()
-    } else {
-        return None;
+    let real: Value = match cost {
+        Value::Object(o) => Value::Object(
+            o.iter().filter(|(k, _)| k.as_str() != "once_per_turn").map(|(k, v)| (k.clone(), v.clone())).collect(),
+        ),
+        Value::Array(_) => cost.clone(),
+        _ => return None,
     };
-    let mut discard_n = 0i32;
-    // discard_hand_with_filter (effects.py:_pay_counter_cost): filter 一致の手札を count 枚捨てる。
-    // 該当が足りなければ払えない (Some(false))。 捨てた後は on_self_hand_discarded を発火。
-    if let Some(dfs) = cost.get("discard_hand_with_filter").and_then(|v| v.as_object()) {
-        let d_filt = dfs.get("filter").cloned().unwrap_or(json!({}));
-        let d_count = dfs.get("count").and_then(|v| v.as_i64()).unwrap_or(1) as usize;
-        let idxs: Vec<usize> = (0..state.players[me_idx].hand.len())
-            .filter(|&i| matches_filter(&state.players[me_idx].hand[i], Some(&d_filt)))
-            .take(d_count)
-            .collect();
-        if idxs.len() < d_count {
-            return Some(false);
-        }
-        for &i in idxs.iter().rev() {
-            let c = state.players[me_idx].hand.remove(i);
-            state.players[me_idx].trash.push(c);
-        }
-        if !idxs.is_empty() {
-            state.players[me_idx].hand_discarded_by_effect_this_turn = true;
-            if fire_hand_discarded_n(state, me_idx, src, idxs.len() as i32).is_err() {
-                return None; // cascade 再現不能 → bail
-            }
-        }
+    if cost_is_empty(&real) {
+        return Some(true);
     }
-    // reveal_hand_with_filter (effects.py:563): 該当手札 count 枚以上あれば払える。 公開するだけで
-    // 消費しない (state 変化なし) = payability 判定のみ。
-    if let Some(rfs) = cost.get("reveal_hand_with_filter").and_then(|v| v.as_object()) {
-        let r_filt = rfs.get("filter");
-        let r_count = rfs.get("count").and_then(|v| v.as_i64()).unwrap_or(1) as usize;
-        if state.players[me_idx].hand.iter().filter(|c| matches_filter(c, r_filt)).count() < r_count {
-            return Some(false);
-        }
+    match try_pay_counter_cost(state, me_idx, src, &real) {
+        Ok(paid) => Some(paid),
+        Err(_) => None,
     }
-    for (k, v) in entries {
-        match k.as_str() {
-            "pay_don" => pay_don += v as i32,
-            "rest_self_don" => rest_don += v as i32,
-            "discard_hand" => discard_n += v as i32,
-            "rest_self" => rest_self = true,
-            "reveal_hand_with_filter" => {} // 上で判定済 (消費なし)
-            "discard_hand_with_filter" => {}  // 下で個別処理 (filter 一致を捨てる)
-            _ => {
-                note_unknown_key("on_play_cost", &k);
-                return None; // 未対応 cost 種別 → skip effect
-            }
-        }
-    }
-    // rest_self: source (= 登場カード自身) をレスト。 既レストなら払えない (payability)。
-    if rest_self {
-        // effects.py:544 — source-gone or 既レスト は払えない
-        match src_ip(&state.players[me_idx], src) {
-            Some(ip) if !ip.rested => {}
-            _ => return Some(false),
-        }
-        get_ip_mut(&mut state.players[me_idx], src).rested = true;
-    }
-    // rest_self_don: don_active >= n 必要 (payability)、 active→rested。
-    if rest_don > 0 {
-        let me = &state.players[me_idx];
-        if me.don_active < rest_don {
-            return Some(false); // 支払い不能
-        }
-        let me = &mut state.players[me_idx];
-        me.don_active -= rest_don;
-        me.don_rested += rest_don;
-    }
-    // discard_hand: 手札 N 枚以上必要 (_can_pay)、 _worst_hand_idx で捨て (effects.py:_pay_counter_cost)。
-    // 捨て後 hand_discarded_by_effect flag + on_self_hand_discarded cascade (last_discard は発火後 None リセット)。
-    if discard_n > 0 {
-        if (state.players[me_idx].hand.len() as i32) < discard_n {
-            return Some(false); // 支払い不能
-        }
-        let mut discarded = 0;
-        for _ in 0..discard_n {
-            let me = &mut state.players[me_idx];
-            if me.hand.is_empty() {
-                break;
-            }
-            let Some(i) = worst_hand_idx(&me.hand, &me.known_hand_card_ids) else { break };
-            let c = me.hand.remove(i);
-            me.trash.push(c);
-            discarded += 1;
-        }
-        if discarded > 0 {
-            state.players[me_idx].hand_discarded_by_effect_this_turn = true;
-            if fire_hand_discarded_n(state, me_idx, src, discarded).is_err() {
-                return None; // cascade 再現不能 → bail
-            }
-        }
-    }
-    if pay_don > 0 {
-        let me = &state.players[me_idx];
-        let capacity = me.don_active + me.don_rested + me.leader.attached_dons
-            + me.characters.iter().map(|c| c.attached_dons).sum::<i32>();
-        if capacity < pay_don {
-            return Some(false); // 支払い不能
-        }
-        // area (active→rested) → 付与ドン の順で払う (effects.py:_pay_don_from_field)。
-        // capacity 判定済なので通常は成功する。
-        if !pay_don_field(state, me_idx, pay_don) {
-            return Some(false);
-        }
-    }
-    Some(true)
 }
 
 /// card_id の指定 when 効果を実行 (条件チェック→cost 支払い→do 実行)。 on_play/main 共通。
@@ -6066,14 +6093,54 @@ pub fn execute_card_effects(
     if effs.iter().any(|e| e.get("when").and_then(|v| v.as_str()) == Some(when)) {
         crate::selfplay::note_fired(card_id);
     }
-    for eff in effs {
+    for (idx, eff) in effs.iter().enumerate() {
         if eff.get("when").and_then(|v| v.as_str()) != Some(when) {
             continue;
+        }
+        // 【ターン1回】 ガード (effects.py:352 `_check_and_set_once_per_turn`)。 Python は
+        // once_per_turn_used (iid キー、 canonical 外) で判定するが、 mirror 対象 when は
+        // InPlay.event_once_used / Player.once_shared_used に同じ内容が載るので Rust はそれを見る。
+        // mirror 外 when (= main/counter/trigger 等 source が場に無い) は追跡不能 → bail。
+        let once_opt = eff
+            .get("once_per_turn")
+            .or_else(|| eff.get("cost").and_then(|c| c.get("once_per_turn")));
+        if let Some(o) = once_opt {
+            if let Some(shared) = o.as_str() {
+                let key = format!("key:{shared}");
+                if state.players[me_idx].once_shared_used.contains(&key) {
+                    continue;
+                }
+            } else if o.as_bool() == Some(true) {
+                if !field_when_once_mirrored(when) || src == Slot::Detached {
+                    return Err(format!("{when} once_per_turn 未対応 ({card_id})"));
+                }
+                let key = format!("{when}:{idx}");
+                match src_ip(&state.players[me_idx], src) {
+                    Some(ip) if ip.event_once_used.contains(&key) => continue,
+                    Some(_) => {}
+                    None => return Err(format!("{when} once_per_turn: src 不在 ({card_id})")),
+                }
+            }
         }
         match eval_effect_conditions(eff, state, me_idx, Some(src)) {
             Some(true) => {}
             Some(false) => continue,       // 条件不成立 = Python も発動しない
             None => return Err(format!("{when} 条件 unknown ({card_id})")),
+        }
+        // once mark は条件成立後 = Python (_check_and_set は cost/条件より前だが、 条件不成立時は
+        // そもそも _check_and_set まで来ない: effects.py:340 で if 条件 → 352 で once) と同順。
+        if once_opt.and_then(|o| o.as_bool()) == Some(true) {
+            if let Some(ip) = src_ip_mut(&mut state.players[me_idx], src) {
+                ip.mark_event_once(when, idx as i64);
+            }
+        }
+        if let Some(shared) = once_opt.and_then(|o| o.as_str()) {
+            let key = format!("key:{shared}");
+            let used = &mut state.players[me_idx].once_shared_used;
+            if !used.contains(&key) {
+                used.push(key);
+                used.sort();
+            }
         }
         if let Some(cost) = eff.get("cost") {
             match pay_on_play_cost(cost, state, me_idx, src) {
@@ -7518,7 +7585,7 @@ fn field_when_once_mirrored(when: &str) -> bool {
             | "on_self_chara_played" | "on_opp_chara_played" | "on_self_chara_ko" | "on_opp_chara_ko"
             | "on_self_hand_discarded" | "on_self_don_returned_to_deck" | "on_self_event_played"
             | "on_opp_event_or_trigger_fired" | "on_self_chara_leave_by_self_effect" | "on_self_rested"
-            | "on_self_trigger_fired" | "on_life_zero"
+            | "on_self_trigger_fired" | "on_life_zero" | "on_play" | "on_block"
     )
 }
 
