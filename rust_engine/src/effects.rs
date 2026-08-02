@@ -6007,7 +6007,10 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             for es in &effect {
                 if !execute_effect(es, state, me_idx, src) {
                     let k = es.as_object().and_then(|o| o.keys().next()).map(|x| x.as_str()).unwrap_or("?");
-                    note_unknown_key("oct_effect", k);
+                    note_unknown_key(
+                        "oct_effect",
+                        &format!("{k} {}", es.to_string().chars().take(70).collect::<String>()),
+                    );
                     return false;
                 }
             }
