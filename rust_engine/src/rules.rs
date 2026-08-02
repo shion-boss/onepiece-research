@@ -443,7 +443,11 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
             let n = n_base.min(p.don_remaining_in_deck);
             p.don_active += n;
             p.don_remaining_in_deck -= n;
-            // don_phase_modifier / delayed_at_opp_main_phase_start 効果: R3 で追加
+            // ドンフェイズ修飾 (game.py:743): リーダー overlay の when:"don_phase_modifier" の
+            // auto_attach_to_leader = 配られたドンのうち N 枚を自リーダーに自動付与 (OP13-003)。
+            if n > 0 {
+                crate::effects::apply_don_phase_modifier(state, me)?;
+            }
             state.phase = Phase::Main;
         }
         Phase::Main => {
@@ -594,23 +598,36 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             Ok(())
         }
         "AttachDonToLeader" => {
-            let p = &mut state.players[me];
-            let n = (geti(action, "n", 0) as i32).min(p.don_active);
-            p.don_active -= n;
-            p.leader.attached_dons += n;
-            p.dons_used_count += n;
+            let n = {
+                let p = &mut state.players[me];
+                let n = (geti(action, "n", 0) as i32).min(p.don_active);
+                p.don_active -= n;
+                p.leader.attached_dons += n;
+                p.dons_used_count += n;
+                n
+            };
+            // 【このリーダーか自分のキャラにドンが付与された時】(game.py:1442、 OP02-002)。
+            if n > 0 {
+                crate::effects::fire_on_self_don_attached(state, me)?;
+            }
             Ok(())
         }
         "AttachDonToCharacter" => {
             let idx = geti(action, "target_idx", -1);
-            let p = &mut state.players[me];
-            if idx < 0 || idx as usize >= p.characters.len() {
-                return Err(format!("target_idx 範囲外: {idx}"));
+            let n = {
+                let p = &mut state.players[me];
+                if idx < 0 || idx as usize >= p.characters.len() {
+                    return Err(format!("target_idx 範囲外: {idx}"));
+                }
+                let n = (geti(action, "n", 0) as i32).min(p.don_active);
+                p.don_active -= n;
+                p.characters[idx as usize].attached_dons += n;
+                p.dons_used_count += n;
+                n
+            };
+            if n > 0 {
+                crate::effects::fire_on_self_don_attached(state, me)?;
             }
-            let n = (geti(action, "n", 0) as i32).min(p.don_active);
-            p.don_active -= n;
-            p.characters[idx as usize].attached_dons += n;
-            p.dons_used_count += n;
             Ok(())
         }
         // リーダーへのアタック (game.py:1441)。 counter card + blocker + 基本 KO/life まで対応。

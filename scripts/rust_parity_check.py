@@ -112,6 +112,20 @@ def deck_value(slug: str) -> str:
         except Exception:
             prior = []
     v["mulligan_prior_card_ids"] = prior
+    # setup_modifier / set_don_deck_size (OP15-058 紫エネル: ドンデッキ 6 枚)。 Python は
+    # game.py:419 で leader overlay を読んで反映するので、 Rust にも同じ値を渡す
+    # (渡さないと Rust は常に 10 枚で回り、 該当リーダーだけ silent に別ゲームになる)。
+    _, _ov = _load()
+    _b = _ov.get(d.leader.card_id) if _ov else None
+    _dds = 10
+    if _b is not None:
+        for _e in _b.effects:
+            if _e.get("when") != "setup_modifier":
+                continue
+            for _p in _e.get("do", []) or []:
+                if "set_don_deck_size" in _p:
+                    _dds = int(_p["set_don_deck_size"])
+    v["don_deck_size"] = _dds
     _dv_cache[slug] = json.dumps(v)
     return _dv_cache[slug]
 

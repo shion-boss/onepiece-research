@@ -9315,6 +9315,72 @@ pub fn fire_on_self_battle_ko(
     Ok(())
 }
 
+/// 【このリーダーか自分のキャラにドンが付与された時】(effects.py:12044、 OP02-002)。
+/// 走査対象は me.leader + me.characters (stage は対象外)。 cost 無し前提 (overlay 実績)。
+pub fn fire_on_self_don_attached(state: &mut GameState, me_idx: usize) -> Result<(), String> {
+    let Some(ov) = overlay() else { return Ok(()) };
+    let mut slots: Vec<Slot> = vec![Slot::Leader];
+    slots.extend((0..state.players[me_idx].characters.len()).map(Slot::Char));
+    let toks: Vec<(Option<u64>, String)> = slots
+        .iter()
+        .map(|&sl| {
+            let cid = get_ip(&state.players[me_idx], sl).card.card_id.clone();
+            (tag_src(state, me_idx, sl), cid)
+        })
+        .collect();
+    for (tok, cid) in toks {
+        let slot = find_tagged(state, me_idx, tok);
+        let Some(effs) = ov.get(&cid) else { continue };
+        for eff in effs {
+            if eff.get("when").and_then(|v| v.as_str()) != Some("on_self_don_attached") {
+                continue;
+            }
+            crate::selfplay::note_fired(&cid);
+            match eval_effect_conditions(eff, state, me_idx, Some(slot)) {
+                Some(true) => {}
+                Some(false) => continue,
+                None => return Err("on_self_don_attached 条件 unknown".into()),
+            }
+            if eff.get("cost").map_or(false, |c| !cost_is_empty(c)) {
+                return Err("on_self_don_attached cost 未対応".into());
+            }
+            let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
+            fire_gated_do(state, me_idx, slot, dos)?;
+        }
+    }
+    Ok(())
+}
+
+/// ドンフェイズ修飾 (game.py:743、 OP13-003 赤紫ロジャー)。 リーダー overlay の
+/// when:"don_phase_modifier" → auto_attach_to_leader N でアクティブドン N 枚を自リーダーへ付与。
+pub fn apply_don_phase_modifier(state: &mut GameState, me_idx: usize) -> Result<(), String> {
+    let Some(ov) = overlay() else { return Ok(()) };
+    let cid = state.players[me_idx].leader.card.card_id.clone();
+    let Some(effs) = ov.get(&cid) else { return Ok(()) };
+    for eff in effs {
+        if eff.get("when").and_then(|v| v.as_str()) != Some("don_phase_modifier") {
+            continue;
+        }
+        crate::selfplay::note_fired(&cid);
+        match eval_effect_conditions(eff, state, me_idx, Some(Slot::Leader)) {
+            Some(true) => {}
+            Some(false) => continue,
+            None => return Err("don_phase_modifier 条件 unknown".into()),
+        }
+        let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
+        for prim in dos {
+            let n = prim.get("auto_attach_to_leader").and_then(|x| x.as_i64()).unwrap_or(0) as i32;
+            if n > 0 {
+                let p = &mut state.players[me_idx];
+                let take = n.min(p.don_active);
+                p.don_active -= take;
+                p.leader.attached_dons += take;
+            }
+        }
+    }
+    Ok(())
+}
+
 /// end_of_turn の cost が user-optional 支払いを伴うか (effects.py:11220 `_end_of_turn_cost_is_real`)。
 fn end_of_turn_cost_is_real(cost: &Value) -> bool {
     let Some(o) = cost.as_object() else { return false };
