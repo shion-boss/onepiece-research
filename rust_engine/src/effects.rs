@@ -1256,6 +1256,13 @@ fn resolve_target(
             cands.sort_by(|&a, &b| me.characters[b].power().cmp(&me.characters[a].power()));
             cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect()
         }
+        // 「自分のキャラ 1 枚」 の別名 (effects.py:2398、 one_self_character_any と同 semantics、 power 降順)。
+        "any_self_chara" => {
+            let me = &state.players[me_idx];
+            let mut cands: Vec<usize> = (0..me.characters.len()).collect();
+            cands.sort_by(|&a, &b| me.characters[b].power().cmp(&me.characters[a].power()));
+            cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect()
+        }
         // 「自分のコスト N 以下で【登場時】効果を持たないキャラ 1 枚」 (effects.py:2745、 PRB01-001)。
         os if os.starts_with("one_self_chara_no_on_play_cost_le_") => {
             let n = parse_after(os, "cost_le_").unwrap_or(0);
