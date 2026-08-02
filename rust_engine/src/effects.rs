@@ -2343,6 +2343,24 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
         }
         // return_self_chara_to_hand: AI=power 昇順で count 枚を手札へ (元順で append + 付与ドン返却、
         // effects.py:8848)。 cv は count_and_filter に渡すため cs から取り出す。
+        // 「このカードを持ち主のデッキの下に置く」 cost (effects.py:8776)。 付与ドンはレストへ。
+        "return_self_to_deck_bottom" => {
+            match src {
+                Slot::Char(i) if i < state.players[me_idx].characters.len() => {
+                    let ip = state.players[me_idx].characters.remove(i);
+                    let don = ip.attached_dons;
+                    state.players[me_idx].deck.push(ip.card);
+                    state.players[me_idx].don_rested += don;
+                }
+                Slot::Stage(i) if i < state.players[me_idx].stages.len() => {
+                    let ip = state.players[me_idx].stages.remove(i);
+                    let don = ip.attached_dons;
+                    state.players[me_idx].deck.push(ip.card);
+                    state.players[me_idx].don_rested += don;
+                }
+                _ => {}
+            }
+        }
         // 「自分のキャラ N 枚を持ち主のデッキの下に置く」 cost (effects.py:8967)。
         // AI は power 昇順 (= 最も惜しくない) から。 deck append 順 = 元 character 順。
         "return_self_chara_to_deck_bottom" => {
@@ -3778,6 +3796,45 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 }
                 o.hand.push(c);
                 o.cards_drawn_count += 1;
+            }
+            true
+        }
+        // ターン終了時まで KO 耐性付与 (effects.py:5656)。 target は str / dict / 既定 self。
+        "prevent_ko" => {
+            let tspec: Value = if v.is_string() {
+                v.clone()
+            } else if v.is_object() {
+                v.get("target").cloned().unwrap_or_else(|| v.clone())
+            } else {
+                Value::String("self".into())
+            };
+            let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else {
+                return false;
+            };
+            for (pi, sl) in targets {
+                get_ip_mut(&mut state.players[pi], sl).ko_immune_until_turn_end = true;
+            }
+            true
+        }
+        // 「自分の (filter) キャラ 1 枚につき 1 引き、 その後同数捨てる」 (effects.py:6661、 EB04-011)。
+        "draw_per_self_chara_then_discard" => {
+            let filt = v.get("filter").cloned();
+            let cnt = state.players[me_idx]
+                .characters
+                .iter()
+                .filter(|c| matches_filter(&c.card, filt.as_ref()))
+                .count();
+            if cnt == 0 {
+                return true;
+            }
+            if !execute_effect(&json!({"draw": cnt}), state, me_idx, src) {
+                return false;
+            }
+            for _ in 0..cnt {
+                let me = &mut state.players[me_idx];
+                let Some(i) = worst_hand_idx(&me.hand, &me.known_hand_card_ids) else { break };
+                let c = me.hand.remove(i);
+                me.trash.push(c);
             }
             true
         }
@@ -7249,6 +7306,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "reveal_opp_hand" | "power_pump_per_target_attached_don" | "swap_opp_power"
             | "set_ko_per_turn_immune" | "bounce_self_chara_then_play_diff_color"
             | "pay_don" | "prevent_blocker_for_attacker_power_le" | "force_opp_draw"
+            | "prevent_ko" | "draw_per_self_chara_then_discard"
     )
 }
 
