@@ -845,6 +845,25 @@ fn resolve_target(
             }
             // 自キャラ全員 (filter 一致)。 rested / current_power_ge/le / limit を尊重
             // (effects.py:2187、 OP16-001 エース = current_power_ge 8000)。
+            // 自リーダー + キャラ全員 (filter 一致)。 limit 指定で power 降順 N 枚 (effects.py:2221)。
+            if t == "all_self_team_filtered" {
+                let filt = v.get("filter");
+                let p = &state.players[me_idx];
+                let mut cands: Vec<(Slot, i32)> = vec![];
+                if matches_filter(&p.leader.card, filt) {
+                    cands.push((Slot::Leader, p.leader.power()));
+                }
+                for i in 0..p.characters.len() {
+                    if matches_filter(&p.characters[i].card, filt) {
+                        cands.push((Slot::Char(i), p.characters[i].power()));
+                    }
+                }
+                if let Some(limit) = v.get("limit").and_then(|x| x.as_i64()) {
+                    cands.sort_by(|a, b| b.1.cmp(&a.1));
+                    cands.truncate(limit.max(0) as usize);
+                }
+                return Some(cands.into_iter().map(|(sl, _)| (me_idx, sl)).collect());
+            }
             if t == "all_self_chara_filtered" {
                 let filt = v.get("filter");
                 let rested_req = v.get("rested").and_then(|x| x.as_bool());
@@ -3336,6 +3355,47 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             state.players[me_idx].deck = perm.iter().map(|&j| old[j].clone()).collect();
             state.players[me_idx].known_bottom_card_ids.clear();
             state.players[me_idx].known_top_card_ids.clear();
+            true
+        }
+        // 「(target)は、 このターン中、 属性(X)を得る」 (effects.py:6768、 OP15-093)。
+        "give_attribute" => {
+            let attr = v.get("attribute").and_then(|x| x.as_str()).unwrap_or("").to_string();
+            let tspec = v.get("target").cloned().unwrap_or(Value::String("self".into()));
+            let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else {
+                return false;
+            };
+            if !attr.is_empty() {
+                for (pi, sl) in targets {
+                    get_ip_mut(&mut state.players[pi], sl).granted_attributes.insert(attr.clone());
+                }
+            }
+            true
+        }
+        // 「このターン中、 (filter) キャラの登場コストが N 少なくなる」 (effects.py:6686、 OP02-025)。
+        "reduce_play_cost_filtered_turn" => {
+            let entry = json!({
+                "filter": v.get("filter").cloned().unwrap_or(json!({})),
+                "amount": v.get("amount").and_then(|x| x.as_i64()).unwrap_or(1),
+            });
+            state.players[me_idx].play_cost_reductions_filtered_turn.push(entry);
+            true
+        }
+        // 「自分のライフすべてを見て好きな順番で置く」 (effects.py:8232)。 AI は
+        // (トリガー有, カウンター, パワー) 降順で並べ替える。
+        "scry_all_life_reorder" => {
+            // owner: "opp" 指定 (EB01-052) は相手ライフを覗くだけ = 並べ替えは相手が行うので
+            // Python も self ライフのみ扱う (spec の owner を無視) → 同じにする。
+            if state.players[me_idx].life.is_empty() {
+                return true; // Python は return False = 忠実な no-op
+            }
+            let mut life = std::mem::take(&mut state.players[me_idx].life);
+            // Python: sort(key=(trig, counter, power), reverse=True) = stable な降順
+            life.sort_by(|a, b| {
+                let ka = (!a.trigger.is_empty() as i32, a.counter, a.power);
+                let kb = (!b.trigger.is_empty() as i32, b.counter, b.power);
+                kb.cmp(&ka)
+            });
+            state.players[me_idx].life = life;
             true
         }
         // 「A するか B する」 (effects.py:9062)。 AI heuristic: life_count なら 自ライフ≤1 で option 1、
@@ -6797,7 +6857,8 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "power_pump_multi" | "trash_all_self_chara" | "choice"
             | "discard_self_to_deck_top" | "opp_don_to_deck" | "summon_from_deck"
             | "return_self_to_hand" | "give_rush" | "opp_trash_to_deck_bottom"
-            | "keep_opp_rested_don_next_refresh"
+            | "keep_opp_rested_don_next_refresh" | "give_attribute"
+            | "reduce_play_cost_filtered_turn"
     )
 }
 
