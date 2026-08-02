@@ -1136,6 +1136,17 @@ fn resolve_target(
         }
         // 相手リーダー (effects.py:2354、 one_opponent_leader は overlay 別名 OP06-023 等)。
         "opponent_leader" | "one_opponent_leader" => vec![(opp_idx, Slot::Leader)],
+        // all_self_chara(cters)_cost_le_N = 自分のコスト N 以下のキャラ全員 (effects.py:2577、 OP06-096)。
+        os if os.starts_with("all_self_chara_cost_le_")
+            || os.starts_with("all_self_characters_cost_le_")
+            || os.starts_with("all_self_character_cost_le_") =>
+        {
+            let n = parse_after(os, "cost_le_").unwrap_or(0);
+            (0..state.players[me_idx].characters.len())
+                .filter(|&i| state.players[me_idx].characters[i].card.cost <= n)
+                .map(|i| (me_idx, Slot::Char(i)))
+                .collect()
+        }
         // 「自分のコスト N 以下で【登場時】効果を持たないキャラ 1 枚」 (effects.py:2745、 PRB01-001)。
         os if os.starts_with("one_self_chara_no_on_play_cost_le_") => {
             let n = parse_after(os, "cost_le_").unwrap_or(0);
@@ -1323,7 +1334,12 @@ fn resolve_target(
             cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
             cands.into_iter().take(n).map(|i| (opp_idx, Slot::Char(i))).collect()
         }
-        _ => return None,
+        _ => {
+            // 未対応 target spec = bail (Python は [] を返すが、 実装済 spec との区別が付かないので
+            // 黙って no-op にはしない)。 診断のため spec 名を記録する。
+            note_unknown_key("target", &s);
+            return None;
+        }
     };
     Some(out)
 }
@@ -6523,6 +6539,14 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "ko"
             // search_top_n = デッキ上 N 枚を見て 1 枚手札へ + 残りをデッキ下 (rng 消費順も Python 準拠)。
             | "search_top_n"
+            // 2026-08-02 実装分。 いずれも player-level か prim 側で cascade を自前処理/明示 bail する。
+            | "trash_all_face_up_life" | "self_hand_to_size" | "return_self_don_to_match_opp"
+            | "keep_opp_rested_chara_with_don_ge_next_refresh" | "swap_self_power"
+            | "ko_self_chara_then_pump_leader_per" | "chara_to_opp_life"
+            | "return_attached_don_to_cost_rested" | "swap_base_power_self_leader_chara"
+            | "declare_cost_reveal_then" | "self_hand_to_deck_bottom" | "choice_effect"
+            | "play_from_hand_or_trash" | "play_from_hand_named_with_dynamic_cost"
+            | "power_pump_multi" | "trash_all_self_chara" | "untap_chara"
     )
 }
 
@@ -7509,7 +7533,18 @@ pub fn fire_field_when(state: &mut GameState, owner_idx: usize, when: &str) -> R
     let mut slots: Vec<Slot> = vec![Slot::Leader];
     slots.extend((0..n_char).map(Slot::Char));
     slots.extend((0..n_stage).map(Slot::Stage));
-    for slot in slots {
+    // ⚠ Python は走査対象を loop 開始前にリスト化する (= 途中で盤面が動いても元の集合を回す)。
+    //   Rust は位置 index なので、 効果/コストが盤面を動かすと後続 slot が別カードを指す or 範囲外
+    //   (= index out of bounds で panic していた、 EB01-021 の end_of_turn cost で検出)。
+    //   一意トークンで各 source を追跡し、 場を離れたものは明示 bail する。
+    let toks: Vec<Option<u64>> = slots.iter().map(|&sl| tag_src(state, owner_idx, sl)).collect();
+    for tok in toks {
+        let slot = find_tagged(state, owner_idx, tok);
+        if slot == Slot::Detached {
+            // 先行 source の効果/コストがこの source を場から除いた。 Python は場外オブジェクトで
+            // 処理を続けるので再現不能 → bail (稀)。
+            return Err(format!("{when}: 走査中に source が場を離れた"));
+        }
         let cid = get_ip(&state.players[owner_idx], slot).card.card_id.clone();
         let Some(effs) = ov.get(&cid) else { continue };
         for (idx, eff) in effs.iter().enumerate() {
