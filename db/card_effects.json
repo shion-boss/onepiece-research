@@ -1691,13 +1691,16 @@
    ]
   },
   {
-   "_text": "OP15-048 on_ko: 相手は自身の手札1枚をデッキの下に置く。",
+   "_text": "OP15-048 on_ko: 相手は自身の手札1枚をデッキの下に置く。 [相手のターン中 限定]",
    "when": "on_ko",
    "do": [
     {
      "opp_hand_to_deck_bottom": 1
     }
-   ]
+   ],
+   "if": {
+    "opp_turn": true
+   }
   }
  ],
  "P-033": [
@@ -21532,6 +21535,33 @@
  ],
  "EB04-048": [
   {
+   "_text": "EB04-048 常在: 自リーダーが『CP』含む特徴の場合、 自トラッシュ5枚につきパワー+1000 かつ コスト+2",
+   "when": "on_attached_don",
+   "n": 0,
+   "if": {
+    "leader_feature_contains": "CP"
+   },
+   "do": [
+    {
+     "power_pump": {
+      "target": "self",
+      "duration": "static",
+      "amount_per": {
+       "source": "self_trash_count",
+       "multiplier": 1000,
+       "divisor": 5
+      }
+     }
+    },
+    {
+     "set_base_cost": {
+      "target": "self",
+      "delta": 2
+     }
+    }
+   ]
+  },
+  {
    "_text": "EB04-048 登場時(自キャラ1トラッシュ):カード1枚を引く",
    "when": "on_play",
    "do": [
@@ -33809,6 +33839,33 @@
   }
  ],
  "EB04-048_p1": [
+  {
+   "_text": "EB04-048 常在: 自リーダーが『CP』含む特徴の場合、 自トラッシュ5枚につきパワー+1000 かつ コスト+2",
+   "when": "on_attached_don",
+   "n": 0,
+   "if": {
+    "leader_feature_contains": "CP"
+   },
+   "do": [
+    {
+     "power_pump": {
+      "target": "self",
+      "duration": "static",
+      "amount_per": {
+       "source": "self_trash_count",
+       "multiplier": 1000,
+       "divisor": 5
+      }
+     }
+    },
+    {
+     "set_base_cost": {
+      "target": "self",
+      "delta": 2
+     }
+    }
+   ]
+  },
   {
    "_text": "EB04-048 登場時(自キャラ1トラッシュ):カード1枚を引く",
    "when": "on_play",
@@ -53956,7 +54013,7 @@
  ],
  "OP05-114_p2": [
   {
-   "_text": "OP05-114_p2 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、相手のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。 [soshite]",
+   "_text": "OP05-114_p2 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、相手のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。 [soshite 実装]",
    "when": "counter",
    "do": [
     {
@@ -53964,6 +54021,22 @@
       "target": "self_inplay",
       "amount": 2000,
       "duration": "battle"
+     }
+    },
+    {
+     "conditional": {
+      "if": {
+       "opp_life_le": 2
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "self_just_buffed",
+         "amount": 2000,
+         "duration": "battle"
+        }
+       }
+      ]
      }
     }
    ]
@@ -53980,7 +54053,7 @@
  ],
  "OP05-114_p3": [
   {
-   "_text": "OP05-114_p3 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、相手のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。 [soshite]",
+   "_text": "OP05-114_p3 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、相手のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。 [soshite 実装]",
    "when": "counter",
    "do": [
     {
@@ -53988,6 +54061,22 @@
       "target": "self_inplay",
       "amount": 2000,
       "duration": "battle"
+     }
+    },
+    {
+     "conditional": {
+      "if": {
+       "opp_life_le": 2
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "self_just_buffed",
+         "amount": 2000,
+         "duration": "battle"
+        }
+       }
+      ]
      }
     }
    ]
@@ -54004,7 +54093,7 @@
  ],
  "OP05-114_r1": [
   {
-   "_text": "OP05-114_r1 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、相手のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。 [soshite]",
+   "_text": "OP05-114_r1 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、相手のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。 [soshite 実装]",
    "when": "counter",
    "do": [
     {
@@ -54012,6 +54101,22 @@
       "target": "self_inplay",
       "amount": 2000,
       "duration": "battle"
+     }
+    },
+    {
+     "conditional": {
+      "if": {
+       "opp_life_le": 2
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "self_just_buffed",
+         "amount": 2000,
+         "duration": "battle"
+        }
+       }
+      ]
      }
     }
    ]
@@ -59650,6 +59755,27 @@
  ],
  "EB01-027": [
   {
+   "_text": "EB01-027 常在: 自リーダーが『B・W』含む特徴の場合、 自トラッシュのイベント2枚につきパワー+1000",
+   "when": "on_attached_don",
+   "n": 0,
+   "if": {
+    "leader_feature_contains": "B・W"
+   },
+   "do": [
+    {
+     "power_pump": {
+      "target": "self",
+      "duration": "static",
+      "amount_per": {
+       "source": "self_trash_event_count",
+       "multiplier": 1000,
+       "divisor": 2
+      }
+     }
+    }
+   ]
+  },
+  {
    "_text": "EB01-027 登場時:カード2枚を引き、手札1枚を捨てる",
    "when": "on_play",
    "do": [
@@ -59663,6 +59789,27 @@
   }
  ],
  "EB01-027_p1": [
+  {
+   "_text": "EB01-027 常在: 自リーダーが『B・W』含む特徴の場合、 自トラッシュのイベント2枚につきパワー+1000",
+   "when": "on_attached_don",
+   "n": 0,
+   "if": {
+    "leader_feature_contains": "B・W"
+   },
+   "do": [
+    {
+     "power_pump": {
+      "target": "self",
+      "duration": "static",
+      "amount_per": {
+       "source": "self_trash_event_count",
+       "multiplier": 1000,
+       "divisor": 2
+      }
+     }
+    }
+   ]
+  },
   {
    "_text": "EB01-027 登場時:カード2枚を引き、手札1枚を捨てる",
    "when": "on_play",
@@ -75968,7 +76115,7 @@
  ],
  "OP05-114": [
   {
-   "_text": "OP05-114 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、相手のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。 [soshite]",
+   "_text": "OP05-114 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、相手のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。 [soshite 実装]",
    "when": "counter",
    "do": [
     {
@@ -75976,6 +76123,22 @@
       "target": "self_inplay",
       "amount": 2000,
       "duration": "battle"
+     }
+    },
+    {
+     "conditional": {
+      "if": {
+       "opp_life_le": 2
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "self_just_buffed",
+         "amount": 2000,
+         "duration": "battle"
+        }
+       }
+      ]
      }
     }
    ]
@@ -94848,7 +95011,7 @@
  ],
  "OP05-114_p1": [
   {
-   "_text": "OP05-114_p1 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、相手のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。 [soshite]",
+   "_text": "OP05-114_p1 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、相手のライフが2枚以下の場合、そのカードを、このバトル中、パワー+2000。 [soshite 実装]",
    "when": "counter",
    "do": [
     {
@@ -94856,6 +95019,22 @@
       "target": "self_inplay",
       "amount": 2000,
       "duration": "battle"
+     }
+    },
+    {
+     "conditional": {
+      "if": {
+       "opp_life_le": 2
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "self_just_buffed",
+         "amount": 2000,
+         "duration": "battle"
+        }
+       }
+      ]
      }
     }
    ]

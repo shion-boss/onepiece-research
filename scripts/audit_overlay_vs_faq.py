@@ -226,20 +226,38 @@ R4_KNOWN_PRIMITIVE_OPTIONS = {
 
 
 def overlay_if_keys(effects: list[dict]) -> set[str]:
-    """効果バンドル内の条件キーを集める。 単一辞書 `if` と複数条件配列 `conditions`
-    両形式に対応 (R44 で `conditions` 形式が普及したため拡張)。
+    """効果バンドル内の条件キーを集める。 単一辞書 `if` と複数条件配列 `conditions` 両形式に対応。
+
+    ⚠ 2026-08-02: **入れ子まで再帰**する。 条件は effect の top-level `if` だけでなく
+    `{"conditional": {"if": {...}, "do": [...]}}` や `optional_cost_then` の effect 側、
+    `choice_effect` の option 側にも書かれる (実 overlay の主流)。 top-level だけ見ていたため
+    「条件が modeled されていない」 誤検知が 400 件超出ていた (OP16-012 / OP04-075 等)。
     """
     keys: set[str] = set()
+
+    def walk(node) -> None:
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if k in ("if", "unless") and isinstance(v, dict):
+                    keys.update(v.keys())
+                elif k in ("or", "or_clauses") and isinstance(v, list):
+                    # {"conditions": [{"or": [{"leader_feature": ...}, ...]}]} のような
+                    # OR 節の中身も条件キーとして数える (P-082 等)。
+                    for c in v:
+                        if isinstance(c, dict):
+                            keys.update(c.keys())
+                elif k == "conditions" and isinstance(v, list):
+                    for c in v:
+                        if isinstance(c, dict):
+                            keys.update(c.keys())
+                walk(v)
+        elif isinstance(node, list):
+            for x in node:
+                walk(x)
+
     for e in effects:
-        if not isinstance(e, dict):
-            continue
-        cond = e.get("if") or {}
-        keys.update(cond.keys())
-        conditions = e.get("conditions") or []
-        if isinstance(conditions, list):
-            for c in conditions:
-                if isinstance(c, dict):
-                    keys.update(c.keys())
+        if isinstance(e, dict):
+            walk(e)
     return keys
 
 
@@ -309,27 +327,46 @@ def detect_issues(card: dict, effects: list[dict], qa_list: list[dict]) -> list[
         issues.append("missing_once_per_turn")
 
     # === if (条件) 不整合 ===
-    if "自分のターン中" in text and not any(
-        k in cond_keys for k in ("self_turn", "is_owners_turn")
+    # 「自分のターン中」: on_play / main / activate_main / on_attack は **構造上必ず自ターン**
+    # なので条件を書く必要がない。 それ以外の when (= 相手ターンにも起きうる) だけ flag する。
+    # on_attached_don (= 【ドン!!×N】 の常在) は engine が InPlay.is_owners_turn で
+    # 自ターン限定を担保する (公式 6-5-5、 DON+1000 と同機構) ので条件キーは不要。
+    _SELF_TURN_IMPLIED = {
+        "on_play", "main", "activate_main", "on_attack", "end_of_turn", "on_attached_don",
+    }
+    if (
+        "自分のターン中" in text
+        and not any(k in cond_keys for k in ("self_turn", "is_owners_turn"))
+        and not (when_set and when_set <= _SELF_TURN_IMPLIED)
     ):
-        # ただし overlay 全体に該当ロジックある可能性 (DON+1000 等は別系統) のため弱シグナル
         issues.append("self_turn_condition_unmodeled")
     if "相手のターン中" in text and "opp_turn" not in cond_keys:
         issues.append("opp_turn_condition_unmodeled")
-    if "ライフが" in text and not any(
+    # ⚠ 以下 3 つは「**条件節** として書かれている時だけ」 flag する (2026-08-02)。
+    #   旧実装は 「ライフが」「ドン!!」+「枚」 の出現だけで判定していたため、 **効果** 側の記述
+    #   (「自分のドン!!1枚までをアクティブにする」) や **コスト** 側 (「ドン!!-1」) まで拾って
+    #   400 件超の誤検知を出していた。 条件節 = 「〜の場合 / 〜なら / 〜あれば」 が近くにある形。
+    # ⚠ 「〜した時」 は **トリガー** (「ドン!!がドン!!デッキに戻された時」「ライフが離れた時」) であって
+    #   条件節ではない。 tail に 「時」 を入れると trigger 記述まで拾って誤検知するので外す。
+    _COND_TAIL = r"(?:場合|なら|ならば|あれば)"
+    if re.search(r"ライフが[^。]{0,16}" + _COND_TAIL, text) and not any(
         k in cond_keys for k in (
             "self_life_le", "self_life_ge", "opp_life_le", "opp_life_ge",
+            "self_life_lt_opp", "self_life_gt_opp", "life_zero_either",
+            "opp_life_lost_this_turn", "self_life_count_ge", "opp_life_ge",
+            "has_face_up_life", "self_face_up_life_ge", "self_life_eq", "opp_life_eq",
         )
     ):
         issues.append("life_condition_unmodeled")
-    if "リーダーが" in text and "特徴" in text and not any(
+    if re.search(r"リーダーが[^。]{0,24}特徴[^。]{0,16}" + _COND_TAIL, text) and not any(
         k in cond_keys for k in (
             "leader_feature", "leader_feature_contains", "leader_features_any",
-            "opp_leader_feature",
+            "opp_leader_feature", "leader_feature_in", "leader_name",
+            "leader_name_contains", "leader_color", "leader_multicolor",
         )
     ):
         issues.append("leader_feature_unmodeled")
-    if "ドン!!" in text and "枚" in text and not any(
+    if re.search(r"ドン(?:!!|‼)が[^。]{0,20}" + _COND_TAIL, text) and not any(
         k in cond_keys for k in (
             "self_don_ge", "self_don_active_ge", "self_attached_don_ge",
             "self_don_le", "don_count_ge", "don_count_le",
@@ -338,6 +375,11 @@ def detect_issues(card: dict, effects: list[dict], qa_list: list[dict]) -> list[
             # 正しくモデル化済のカード (EB04-038 = don_diff_le) を誤検知する。
             "don_diff_le", "don_diff_ge", "self_don_count_ge", "self_don_count_eq",
             "opp_don_total_ge", "either_player_don_total_eq_10", "self_don_active_le",
+            # 実 overlay で使われている残りの ドン枚数系 条件キー (2026-08-02 triage)。
+            "opp_attached_don_ge", "self_inplay_attached_dons_ge", "self_don_rested_ge",
+            "self_field_don_zero_or_ge_3", "self_field_don_zero_or_ge_8",
+            "returned_don_count_ge", "leader_color_multi", "leader_multicolor",
+            "self_attached_don_ge", "opp_don_count_le", "opp_don_count_ge",
         )
     ):
         # ドン!! 枚数条件の可能性
