@@ -843,16 +843,29 @@ fn resolve_target(
                 cands.sort_by(|a, b| b.1.cmp(&a.1));
                 return Some(cands.into_iter().take(1).map(|(sl, _)| (opp_idx, sl)).collect());
             }
+            // 自キャラ全員 (filter 一致)。 rested / current_power_ge/le / limit を尊重
+            // (effects.py:2187、 OP16-001 エース = current_power_ge 8000)。
             if t == "all_self_chara_filtered" {
                 let filt = v.get("filter");
+                let rested_req = v.get("rested").and_then(|x| x.as_bool());
+                let cpge = v.get("current_power_ge").and_then(|x| x.as_i64()).map(|x| x as i32);
+                let cple = v.get("current_power_le").and_then(|x| x.as_i64()).map(|x| x as i32);
                 let p = &state.players[me_idx];
-                let mut out = vec![];
-                for (i, c) in p.characters.iter().enumerate() {
-                    if matches_filter(&c.card, filt) {
-                        out.push((me_idx, Slot::Char(i)));
-                    }
+                let mut cands: Vec<usize> = (0..p.characters.len())
+                    .filter(|&i| {
+                        let c = &p.characters[i];
+                        matches_filter(&c.card, filt)
+                            && rested_req.map_or(true, |r| c.rested == r)
+                            && cpge.map_or(true, |n| c.power() >= n)
+                            && cple.map_or(true, |n| c.power() <= n)
+                    })
+                    .collect();
+                if let Some(limit) = v.get("limit").and_then(|x| x.as_i64()) {
+                    // _threat_key = power 降順 (stable)
+                    cands.sort_by(|&a, &b| p.characters[b].power().cmp(&p.characters[a].power()));
+                    cands.truncate(limit.max(0) as usize);
                 }
-                return Some(out);
+                return Some(cands.into_iter().map(|i| (me_idx, Slot::Char(i))).collect());
             }
             // 自キャラから名前一致 1 枚 (effects.py:2108)。 ⚠ overlay の name は未正規化の場合が
             // あるので norm_card_name で両側を揃える (全角Ｄ→D)。
@@ -1164,6 +1177,20 @@ fn resolve_target(
                 .filter(|&i| state.players[me_idx].characters[i].card.cost <= n)
                 .map(|i| (me_idx, Slot::Char(i)))
                 .collect()
+        }
+        // all_chara_either_cost_le_N = 両陣営の元コスト N 以下キャラ全員 (effects.py:2615、 相手→自分の順)。
+        os if os.starts_with("all_chara_either_cost_le_") => {
+            let n = parse_after(os, "cost_le_").unwrap_or(0);
+            let mut out: Vec<(usize, Slot)> = (0..state.players[opp_idx].characters.len())
+                .filter(|&i| state.players[opp_idx].characters[i].card.cost <= n)
+                .map(|i| (opp_idx, Slot::Char(i)))
+                .collect();
+            out.extend(
+                (0..state.players[me_idx].characters.len())
+                    .filter(|&i| state.players[me_idx].characters[i].card.cost <= n)
+                    .map(|i| (me_idx, Slot::Char(i))),
+            );
+            out
         }
         // 「相手のドン N 枚以上付与キャラ 1 体」 (effects.py:2717、 OP15-001)。 threat_key = power 降順。
         os if os.starts_with("one_opponent_character_attached_don_ge_") => {
@@ -3179,6 +3206,31 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             let prim = json!({"self_hand_to_deck_bottom": {"amount": n, "to": "top"}});
             return execute_effect(&prim, state, me_idx, src);
+        }
+        // 「相手のドン N 枚をドンデッキに戻す」 (effects.py:6340、 return_opp_don の alias、 OP02-085)。
+        // active 優先。 戻した枚数 > 0 なら相手視点の【自分のドンがドンデッキに戻った時】を発火。
+        "opp_don_to_deck" => {
+            let n = if v.is_object() {
+                v.get("amount").and_then(|x| x.as_i64()).unwrap_or(1) as i32
+            } else {
+                v.as_i64().unwrap_or(1) as i32
+            };
+            let opp = &mut state.players[opp_idx];
+            let from_active = opp.don_active.min(n);
+            opp.don_active -= from_active;
+            let from_rested = opp.don_rested.min(n - from_active);
+            opp.don_rested -= from_rested;
+            let removed = from_active + from_rested;
+            opp.don_remaining_in_deck += removed;
+            if removed > 0 {
+                state.last_returned_don_count = removed;
+                if me_board_has_when(state, opp_idx, "on_self_don_returned_to_deck")
+                    && fire_field_when(state, opp_idx, "on_self_don_returned_to_deck").is_err()
+                {
+                    return false;
+                }
+            }
+            true
         }
         // 「A するか B する」 (effects.py:9062)。 AI heuristic: life_count なら 自ライフ≤1 で option 1、
         // それ以外は option 0 (公式テキスト先頭)。
@@ -6637,7 +6689,8 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "declare_cost_reveal_then" | "self_hand_to_deck_bottom" | "choice_effect"
             | "play_from_hand_or_trash" | "play_from_hand_named_with_dynamic_cost"
             | "power_pump_multi" | "trash_all_self_chara" | "untap_chara" | "choice"
-            | "discard_self_to_deck_top"
+            | "discard_self_to_deck_top" | "opp_don_to_deck" | "summon_from_deck"
+            | "return_self_to_hand" | "give_rush"
     )
 }
 
