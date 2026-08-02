@@ -3710,6 +3710,77 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             state.players[me_idx].characters.push(InPlay::of(card, true));
             true
         }
+        // 「ドン!! -N」: 場のドン (コストエリア active→rested→付与ドン) を N 枚ドンデッキへ
+        // (effects.py:4655 / _pay_don_from_field:791)。 戻した枚数 > 0 なら don-returned trigger。
+        "pay_don" => {
+            let n = v.as_i64().unwrap_or(0) as i32;
+            let mut removed = 0i32;
+            {
+                let me = &mut state.players[me_idx];
+                let taken = n.min(me.don_active);
+                me.don_active -= taken;
+                me.don_remaining_in_deck += taken;
+                removed += taken;
+                if removed < n {
+                    let more = (n - removed).min(me.don_rested);
+                    me.don_rested -= more;
+                    me.don_remaining_in_deck += more;
+                    removed += more;
+                }
+            }
+            if removed < n {
+                // area 不足 → 付与ドンから (power 昇順で温存)。 Python は [*characters, leader] を
+                // power でソートするので同じ順を作る。
+                let me = &state.players[me_idx];
+                let mut order: Vec<i32> = (0..me.characters.len() as i32).collect();
+                order.push(-1); // leader
+                order.sort_by_key(|&i| {
+                    if i < 0 { me.leader.power() } else { me.characters[i as usize].power() }
+                });
+                for i in order {
+                    if removed >= n {
+                        break;
+                    }
+                    let me = &mut state.players[me_idx];
+                    let ip = if i < 0 { &mut me.leader } else { &mut me.characters[i as usize] };
+                    let take = (n - removed).min(ip.attached_dons);
+                    ip.attached_dons -= take;
+                    me.don_remaining_in_deck += take;
+                    removed += take;
+                }
+            }
+            if removed > 0 {
+                state.last_returned_don_count = removed;
+                if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck")
+                    && fire_field_when(state, me_idx, "on_self_don_returned_to_deck").is_err()
+                {
+                    return false;
+                }
+            }
+            true
+        }
+        // 「相手はカード N 枚を引く」 (effects.py:6799、 OP07-090)。
+        "force_opp_draw" => {
+            let n = if v.is_object() {
+                v.get("count").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            };
+            for _ in 0..n {
+                let o = &mut state.players[opp_idx];
+                if o.deck.is_empty() {
+                    break;
+                }
+                let c = o.deck.remove(0);
+                let cid = c.card_id.clone();
+                if let Some(p) = o.known_top_card_ids.iter().position(|x| *x == cid) {
+                    o.known_top_card_ids.remove(p);
+                }
+                o.hand.push(c);
+                o.cards_drawn_count += 1;
+            }
+            true
+        }
         // 「A するか B する」 (effects.py:9062)。 AI heuristic: life_count なら 自ライフ≤1 で option 1、
         // それ以外は option 0 (公式テキスト先頭)。
         "choice" => {
@@ -7177,6 +7248,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "block_self_attack_leader_turn" | "draw_per_hand_to_deck_bottom"
             | "reveal_opp_hand" | "power_pump_per_target_attached_don" | "swap_opp_power"
             | "set_ko_per_turn_immune" | "bounce_self_chara_then_play_diff_color"
+            | "pay_don" | "prevent_blocker_for_attacker_power_le" | "force_opp_draw"
     )
 }
 
@@ -7485,6 +7557,7 @@ pub fn try_replace_ko(
             let mut discard_filter: Option<Value> = None;
             let mut rest_ls: Option<Value> = None;
             let mut discard_plain: usize = 0;
+            let mut rest_cards: Option<Value> = None;
             if let Some(cost) = eff.get("cost") {
                 let entries: Vec<&Value> = match cost {
                     Value::Array(a) => a.iter().collect(),
@@ -7506,6 +7579,8 @@ pub fn try_replace_ko(
                                 "discard_hand" => {
                                     discard_plain = val.as_i64().unwrap_or(0) as usize
                                 }
+                                // 「代わりに自分のカード N 枚をレストにできる」 (OP16-033 モーリー)。
+                                "rest_self_cards" => rest_cards = Some(val.clone()),
                                 _ => return Err(format!("replace cost 未対応 ({hcid}:{k})")),
                             }
                         }
@@ -7531,6 +7606,22 @@ pub fn try_replace_ko(
             } else {
                 None
             };
+            // rest_self_cards の payability: 自リーダー+キャラのアクティブが N 枚以上 (effects.py:12584)。
+            if let Some(rc) = &rest_cards {
+                let n = if rc.is_object() {
+                    rc.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize
+                } else {
+                    rc.as_i64().unwrap_or(1) as usize
+                };
+                let pl = &state.players[victim_owner];
+                let avail = std::iter::once(&pl.leader)
+                    .chain(pl.characters.iter())
+                    .filter(|ip| !ip.rested)
+                    .count();
+                if avail < n {
+                    continue;
+                }
+            }
             // discard_hand (filter 無し) の payability: 手札が足りなければ置換不発 → 通常 KO。
             if discard_plain > 0 && state.players[victim_owner].hand.len() < discard_plain {
                 continue;
@@ -7575,6 +7666,36 @@ pub fn try_replace_ko(
                     && me_board_has_when(state, victim_owner, "on_self_chara_leave_by_self_effect")
                 {
                     return Err("replace do return_to_deck_bottom cascade 未対応".into());
+                }
+            }
+            // rest_self_cards 支払い (effects.py:12686、 AI は power 昇順で N 枚レスト)。
+            if let Some(rc) = &rest_cards {
+                let n = if rc.is_object() {
+                    rc.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize
+                } else {
+                    rc.as_i64().unwrap_or(1) as usize
+                };
+                let pl = &state.players[victim_owner];
+                // Python は [leader, *characters] を power 昇順 (stable) で並べる。 -1 = leader。
+                let mut order: Vec<i32> = vec![];
+                if !pl.leader.rested {
+                    order.push(-1);
+                }
+                for i in 0..pl.characters.len() {
+                    if !pl.characters[i].rested {
+                        order.push(i as i32);
+                    }
+                }
+                order.sort_by_key(|&i| {
+                    if i < 0 { pl.leader.power() } else { pl.characters[i as usize].power() }
+                });
+                for i in order.into_iter().take(n) {
+                    let pl = &mut state.players[victim_owner];
+                    if i < 0 {
+                        pl.leader.rested = true;
+                    } else {
+                        pl.characters[i as usize].rested = true;
+                    }
                 }
             }
             // discard_hand 支払い (AI は worst_hand_idx から。 on_self_hand_discarded cascade は
