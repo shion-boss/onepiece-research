@@ -2050,6 +2050,18 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
             let (count, filt) = count_and_filter(cv);
             Some(me.characters.iter().filter(|c| matches_filter(&c.card, filt)).count() >= count)
         }
+        // trash_self_named_hand_or_field cost: 手札か自ステージに該当名が必要 (effects.py:8464、 OP06-033)。
+        "trash_self_named_hand_or_field" => {
+            let name = if cv.is_object() {
+                cv.get("name").and_then(|x| x.as_str()).unwrap_or("").to_string()
+            } else {
+                cv.as_str().unwrap_or("").to_string()
+            };
+            Some(
+                me.stages.iter().any(|s| s.card.name == name)
+                    || me.hand.iter().any(|c| c.name == name),
+            )
+        }
         // discard_hand cost: 手札 ≥ n 必要。
         "discard_hand" => Some((me.hand.len() as i64) >= cv.as_i64().unwrap_or(0)),
         // return_to_hand: other_self_chara cost = このキャラ以外の自キャラが1体以上 (effects.py:8321)。
