@@ -503,6 +503,10 @@ pub struct GameState {
     pub rust_event_queue: Vec<crate::effects::PendingTrigger>,
     #[serde(skip)]
     pub rust_resolving: bool,
+    /// 直前の KO が「相手の効果由来」か (effects.py の動的属性 `last_ko_by_opp_effect` 相当)。
+    /// 条件 by_opp_effect / by_battle の判定に使う。 fire_on_ko の引数から設定する。
+    #[serde(skip)]
+    pub last_ko_by_opp_effect: bool,
     /// 直前に negate_effect した相手キャラ (player_idx, char_idx)。 effects.py:7666
     /// `state.last_negated_iid` の代替。 opp_just_negated_cost_le_N 解決に使う (OP09-098)。
     #[serde(skip)]

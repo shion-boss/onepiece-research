@@ -180,7 +180,7 @@ fn do_battle_ko(
     // Python trigger_on_ko が last_chara_ko_victim_card=victim を set (victim_* 条件用)、 cascade 完了後 None。
     state.last_chara_ko_victim_card = Some(vcard);
     let mut err: Option<String> = None;
-    if let Err(e) = crate::effects::fire_on_ko(state, victim_owner, &vcid) {
+    if let Err(e) = crate::effects::fire_on_ko(state, victim_owner, &vcid, false) {
         err = Some(e);
     }
     if err.is_none() {

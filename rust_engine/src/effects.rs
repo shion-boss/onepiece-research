@@ -416,6 +416,44 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                 let fd = me.don_active + me.don_rested;
                 fd == 0 || fd >= 3
             }
+            // 直近 KO が「相手の効果由来」か (effects.py:1452、 OP11-035/OP11-024)。
+            "by_opp_effect" => v.as_bool().unwrap_or(true) == state.last_ko_by_opp_effect,
+            // 直近 KO がバトル由来か (= 効果由来でない、 effects.py:1459)。
+            "by_battle" => v.as_bool().unwrap_or(true) == !state.last_ko_by_opp_effect,
+            // 「キャラの『name』がいる場合この効果は無効」 = 両陣営に該当名が居ないか
+            // (effects.py:1149、 OP05-100 エネル)。
+            "either_side_chara_named_absent" => {
+                let name = if v.is_object() {
+                    v.get("name").and_then(|x| x.as_str()).unwrap_or("").to_string()
+                } else {
+                    v.as_str().unwrap_or("").to_string()
+                };
+                !me.characters.iter().chain(opp.characters.iter()).any(|c| c.card.name == name)
+            }
+            // 自分の場に カード名 v のキャラが いない (effects.py:1214、 OP08-005 / OP03-027)。
+            "self_chara_named_absent" => {
+                let name = v.as_str().unwrap_or("");
+                !me.characters.iter().any(|c| c.card.name == name)
+            }
+            // リーダー名が文字列 v を含む (effects.py:1754、 OP16-015)。 表記揺れは norm_card_name で吸収。
+            "leader_name_contains" => {
+                norm_card_name(&me.leader.card.name).contains(&norm_card_name(v.as_str().unwrap_or("")))
+            }
+            // 自手札 - 相手手札 が N 以下 (effects.py:1309、 OP09-092)。
+            "self_hand_diff_le" => {
+                (me.hand.len() as i64 - opp.hand.len() as i64) <= v.as_i64().unwrap_or(0)
+            }
+            // 相手の元々パワー X 以上のキャラ (任意で leader 含む) が N 体以上 (effects.py:1410、 OP09-005)。
+            "opp_inplay_truly_original_power_ge_count" => {
+                let thr = v.get("power_ge").and_then(|x| x.as_i64()).unwrap_or(0) as i32;
+                let need = v.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+                let incl = v.get("include_leader").and_then(|x| x.as_bool()).unwrap_or(false);
+                let mut n = opp.characters.iter().filter(|ip| ip.card.power >= thr).count();
+                if incl && opp.leader.card.power >= thr {
+                    n += 1;
+                }
+                n >= need
+            }
             // 相手の元々パワー 6000 以上の リーダー/キャラ が N 体以上
             "opp_inplay_truly_original_power_ge_6000_count_ge" => {
                 let n = std::iter::once(&opp.leader)
@@ -2577,7 +2615,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 state.players[vpi].don_rested += don;
                 kom_any = true;
                 // Python 順: on_ko (victim 側 source-gone) → on_opp_chara_ko (me) → on_self_chara_ko (victim 側)
-                if fire_on_ko(state, vpi, &cid).is_err() {
+                if fire_on_ko(state, vpi, &cid, true).is_err() {
                     return false;
                 }
                 if fire_field_when(state, me_idx, "on_opp_chara_ko").is_err() {
@@ -2849,7 +2887,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 // 自分の効果による自陣 KO = by_opp_effect=false。 chara_ko_taken_this_turn は
                 // Python が加算しない (opp 起因のみ) ので触らない。
                 state.last_chara_ko_victim_card = None;
-                if fire_on_ko(state, me_idx, &vcid).is_err() {
+                if fire_on_ko(state, me_idx, &vcid, false).is_err() {
                     return false;
                 }
                 if fire_field_when(state, me_idx, "on_self_chara_ko").is_err() {
@@ -5244,7 +5282,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 // ⭐ 効果 ko は nested resolution = Python は trigger を enqueue し、 その末尾で
                 // last_chara_ko_victim_card=None に戻してから deferred drain する = victim None で発火。
                 state.last_chara_ko_victim_card = None;
-                if fire_on_ko(state, opp_idx, &vcid).is_err() {
+                if fire_on_ko(state, opp_idx, &vcid, true).is_err() {
                     note_unknown_key("ko", "on_ko");
                     return false;
                 }
@@ -6775,7 +6813,14 @@ pub fn try_replace_ko(
 ///   allow-list で丸ごと bail していたが、 Detached 化で不要になった (2026-07-31)。 再現できない prim は
 ///   execute_effect が false を返して bail する。 cost / 未知条件 / draw cascade は従来通り Err。
 ///   replace_ko/replace_leave は呼出側 (do_battle_ko) で先に bail。
-pub fn fire_on_ko(state: &mut GameState, owner_idx: usize, victim_cid: &str) -> Result<(), String> {
+pub fn fire_on_ko(
+    state: &mut GameState,
+    owner_idx: usize,
+    victim_cid: &str,
+    by_opp_effect: bool,
+) -> Result<(), String> {
+    // 条件 by_opp_effect / by_battle 用 (Python は trigger_on_ko の引数を state に伝搬)。
+    state.last_ko_by_opp_effect = by_opp_effect;
     let Some(ov) = overlay() else { return Ok(()) };
     let Some(effs) = ov.get(victim_cid) else { return Ok(()) };
     if !effs.iter().any(|e| e.get("when").and_then(|v| v.as_str()) == Some("on_ko")) {
@@ -7193,7 +7238,7 @@ fn try_pay_counter_cost(
                 let cid = state.players[me_idx].trash.last().map(|c| c.card_id.clone());
                 if let Some(cid) = cid {
                     if card_has_when(&cid, "on_ko") {
-                        fire_on_ko(state, me_idx, &cid)?;
+                        fire_on_ko(state, me_idx, &cid, false)?;
                     }
                 }
             }
@@ -7897,7 +7942,7 @@ pub fn fire_activate_main(
                 // last_chara_ko_victim_card set (victim_* 条件用)、 cascade 完了後 None (Python 準拠)。
                 state.last_chara_ko_victim_card = None; // 効果 cascade は nested=deferred で victim None
                 let mut err: Option<String> = None;
-                if let Err(e) = fire_on_ko(state, me_idx, &vcid) {
+                if let Err(e) = fire_on_ko(state, me_idx, &vcid, false) {
                     err = Some(e);
                 }
                 if err.is_none() {
