@@ -3101,6 +3101,65 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             me.cards_drawn_count += drawn;
             true
         }
+        // 複数対象の power 変更 (effects.py:power_pump_multi)。 count_source 指定時は対象数を
+        // 場の状況から算出し、 同一 target_spec をその数だけ並べる (ST31-004 ルフィ)。 dedup 付き。
+        "power_pump_multi" => {
+            let amount = v.get("amount").and_then(|x| x.as_i64()).unwrap_or(0) as i32;
+            let duration = v.get("duration").and_then(|x| x.as_str()).unwrap_or("turn").to_string();
+            let specs: Vec<Value> = match v.get("count_source").and_then(|x| x.as_str()) {
+                Some(csrc) => {
+                    let feat = v.get("feature").and_then(|x| x.as_str()).unwrap_or("");
+                    let me = &state.players[me_idx];
+                    let n = match csrc {
+                        "self_field_feature_count" => std::iter::once(&me.leader)
+                            .chain(me.characters.iter())
+                            .chain(me.stages.iter())
+                            .filter(|ip| ip.card.features.iter().any(|f| f == feat))
+                            .count(),
+                        "self_chara_feature_count" => me
+                            .characters
+                            .iter()
+                            .filter(|c| c.card.features.iter().any(|f| f == feat))
+                            .count(),
+                        _ => 0,
+                    };
+                    let ct = v
+                        .get("count_target")
+                        .cloned()
+                        .unwrap_or(Value::String("one_opponent_character_any".into()));
+                    vec![ct; n]
+                }
+                None => v.get("target_specs").and_then(|x| x.as_array()).cloned().unwrap_or_default(),
+            };
+            let turn = state.turn_number;
+            let mut already: Vec<(usize, Slot)> = vec![];
+            for spec in specs {
+                let tspec = if spec.is_string() {
+                    spec.clone()
+                } else {
+                    spec.get("target").cloned().unwrap_or(Value::String("self".into()))
+                };
+                let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else { return false };
+                for (pi, sl) in targets {
+                    if already.contains(&(pi, sl)) {
+                        continue;
+                    }
+                    already.push((pi, sl));
+                    let ip = get_ip_mut(&mut state.players[pi], sl);
+                    match duration.as_str() {
+                        "next_opp_turn_end" => {
+                            ip.next_opp_turn_end_buff += amount;
+                            ip.next_opp_turn_end_applier_idx = me_idx as i32;
+                            ip.next_opp_turn_end_applied_turn = turn;
+                        }
+                        "static" => ip.static_buff += amount,
+                        "battle" => ip.battle_buff += amount,
+                        _ => ip.turn_buff += amount,
+                    }
+                }
+            }
+            true
+        }
         // 自分のトラッシュから filter 一致 N 枚をデッキへ (effects.py:trash_to_deck)。
         // spec {filter, limit, to: top|bottom, shuffle}。 該当 0 枚は不発 (何も起きない = true)。
         "trash_to_deck" => {
