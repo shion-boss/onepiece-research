@@ -3947,6 +3947,17 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 「相手はこのバトル中、 コスト N 以下のキャラのブロッカーを発動できない」
+        // (effects.py:6618、 OP02-061)。 duration に関わらず "ブロック不可" キーワード付与。
+        "prevent_opp_blocker_for_cost_le" => {
+            let cost_le = v.get("cost_le").and_then(|x| x.as_i64()).unwrap_or(5) as i32;
+            for c in state.players[opp_idx].characters.iter_mut() {
+                if c.card.cost <= cost_le {
+                    c.granted_keywords.insert("ブロック不可".to_string());
+                }
+            }
+            true
+        }
         // 「A するか B する」 (effects.py:9062)。 AI heuristic: life_count なら 自ライフ≤1 で option 1、
         // それ以外は option 0 (公式テキスト先頭)。
         "choice" => {
@@ -6348,8 +6359,8 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 match try_replace_ko(state, opp_idx, idx, true, "ko") {
                     Ok(true) => continue,
                     Ok(false) => {}
-                    Err(_) => {
-                        note_unknown_key("ko", "replace 再現不能");
+                    Err(e) => {
+                        note_unknown_key("ko", &format!("replace: {e}"));
                         return false;
                     }
                 }
@@ -7465,6 +7476,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "set_ko_per_turn_immune" | "bounce_self_chara_then_play_diff_color"
             | "pay_don" | "prevent_blocker_for_attacker_power_le" | "force_opp_draw"
             | "prevent_ko" | "draw_per_self_chara_then_discard"
+            | "prevent_opp_blocker_for_cost_le"
     )
 }
 
