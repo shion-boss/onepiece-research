@@ -630,8 +630,11 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             // 「自身の手札 N 枚を捨てなければアタックできない」。 手札不足ならアタック不発 (Ok no-op)。
             // ⚠ Python は state.rng.randrange でランダムに捨てる → Rust も同じ MT 列を消費して再現。
             if cost_discard > 0 {
+                // ⚠ Python は「アタック不能」を state 不変の早期 return で表す (game.py:1471) が、
+                //   Rust の方策はそれを「何も起きない合法手」と見て選び続け **無限ループ** する。
+                //   選択肢から外すため明示 bail にする (state は変えないので誤りは作らない)。
                 if (state.players[me].hand.len() as i32) < cost_discard {
-                    return Ok(()); // アタック不能 = 空打ち (game.py:1471)
+                    return Err("attack cost 手札不足 (アタック不能)".into());
                 }
                 for _ in 0..cost_discard {
                     let n = state.players[me].hand.len() as u64;
@@ -923,8 +926,11 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             // 「自身の手札 N 枚を捨てなければアタックできない」。 手札不足ならアタック不発 (Ok no-op)。
             // ⚠ Python は state.rng.randrange でランダムに捨てる → Rust も同じ MT 列を消費して再現。
             if cost_discard > 0 {
+                // ⚠ Python は「アタック不能」を state 不変の早期 return で表す (game.py:1471) が、
+                //   Rust の方策はそれを「何も起きない合法手」と見て選び続け **無限ループ** する。
+                //   選択肢から外すため明示 bail にする (state は変えないので誤りは作らない)。
                 if (state.players[me].hand.len() as i32) < cost_discard {
-                    return Ok(()); // アタック不能 = 空打ち (game.py:1471)
+                    return Err("attack cost 手札不足 (アタック不能)".into());
                 }
                 for _ in 0..cost_discard {
                     let n = state.players[me].hand.len() as u64;

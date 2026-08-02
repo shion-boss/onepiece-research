@@ -7875,12 +7875,20 @@ pub fn legal_actions(state: &GameState) -> Vec<Value> {
 
     // 戦闘 (turn 1/2 はバトル不可)
     let can_battle = state.turn_number > 2;
+    // 「アタックする際 手札 N 枚を捨てなければアタックできない」(OP08-043) で手札不足の攻撃者は
+    // **そもそもアタックできない** ので候補に出さない。 出すと state 不変の手を方策が選び続けて
+    // 無限ループする (Python は no-op 早期 return なので候補に残る)。
+    let hand_n = me.hand.len() as i32;
+    let can_pay_attack_cost = |ip: &InPlay| -> bool {
+        ip.attack_cost_discard_hand_n <= 0 || hand_n >= ip.attack_cost_discard_hand_n
+    };
     if can_battle {
         // attacker 候補 (kind, idx) と、 速攻:キャラ 専用 (chara_only)
         let mut attackers: Vec<(String, usize)> = vec![];
         let mut chara_only: Vec<usize> = vec![];
         let l = &me.leader;
         if !l.rested
+            && can_pay_attack_cost(l)
             && !l.cannot_attack_until_turn_end
             && !l.cannot_attack_static
             && !l.cannot_attack_through_opp_turn
@@ -7891,6 +7899,7 @@ pub fn legal_actions(state: &GameState) -> Vec<Value> {
         }
         for (j, ch) in me.characters.iter().enumerate() {
             if ch.rested
+                || !can_pay_attack_cost(ch)
                 || ch.cannot_attack_until_turn_end
                 || ch.cannot_attack_static
                 || ch.cannot_attack_through_opp_turn
