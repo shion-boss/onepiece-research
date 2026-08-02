@@ -2366,6 +2366,39 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
         }
         // return_self_chara_to_hand: AI=power 昇順で count 枚を手札へ (元順で append + 付与ドン返却、
         // effects.py:8848)。 cv は count_and_filter に渡すため cs から取り出す。
+        // return_self_don_to_deck cost: 場のドン N 枚をドンデッキへ (rested 優先、 effects.py:889)。
+        "return_self_don_to_deck" => {
+            let n = if cv.is_object() {
+                cv.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as i32
+            } else {
+                cv.as_i64().unwrap_or(1) as i32
+            };
+            let me = &mut state.players[me_idx];
+            let from_rested = me.don_rested.min(n);
+            me.don_rested -= from_rested;
+            me.don_remaining_in_deck += from_rested;
+            let from_active = (n - from_rested).min(me.don_active);
+            me.don_active -= from_active;
+            me.don_remaining_in_deck += from_active;
+        }
+        // return_self_to_trash cost: 発動元自身をトラッシュへ (effects.py:8433)。 付与ドンはレストへ。
+        "return_self_to_trash" => {
+            match src {
+                Slot::Char(i) if i < state.players[me_idx].characters.len() => {
+                    let ip = state.players[me_idx].characters.remove(i);
+                    let don = ip.attached_dons;
+                    state.players[me_idx].trash.push(ip.card);
+                    state.players[me_idx].don_rested += don;
+                }
+                Slot::Stage(i) if i < state.players[me_idx].stages.len() => {
+                    let ip = state.players[me_idx].stages.remove(i);
+                    let don = ip.attached_dons;
+                    state.players[me_idx].trash.push(ip.card);
+                    state.players[me_idx].don_rested += don;
+                }
+                _ => {}
+            }
+        }
         // 「このカードを持ち主のデッキの下に置く」 cost (effects.py:8776)。 付与ドンはレストへ。
         "return_self_to_deck_bottom" => {
             match src {
@@ -4095,6 +4128,32 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             let Some(list) = v.as_array() else { return false };
             for spec in list {
+                // 「相手のキャラかドン」 特殊 spec (effects.py:3725、 OP06-035)。 resolve_target は
+                // ドンを表現できないので専用分岐: アクティブ相手キャラ (power 降順) 優先 → 無ければ
+                // アクティブドン 1 枚をレスト。
+                let is_chara_or_don = spec.as_str() == Some("one_opp_chara_or_don")
+                    || spec.get("type").and_then(|x| x.as_str()) == Some("one_opp_chara_or_don");
+                if is_chara_or_don {
+                    let cost_le = spec.get("cost_le").and_then(|x| x.as_i64()).map(|x| x as i32);
+                    let opp = &state.players[opp_idx];
+                    let mut cands: Vec<usize> = (0..opp.characters.len())
+                        .filter(|&i| {
+                            let c = &opp.characters[i];
+                            !c.rested
+                                && !c.cannot_be_rested_buff
+                                && !c.static_cannot_be_rested
+                                && cost_le.map_or(true, |n| c.card.cost <= n)
+                        })
+                        .collect();
+                    cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
+                    if let Some(&i) = cands.first() {
+                        state.players[opp_idx].characters[i].rested = true;
+                    } else if state.players[opp_idx].don_active > 0 {
+                        state.players[opp_idx].don_active -= 1;
+                        state.players[opp_idx].don_rested += 1;
+                    }
+                    continue;
+                }
                 let Some(targets) = resolve_target(Some(spec), me_idx, opp_idx, src, state) else { return false };
                 do_rest(state, targets, 1);
             }
