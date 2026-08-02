@@ -3317,8 +3317,14 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             true
         }
         // 「コスト N 以上かつ (動的閾値) 以下の 『XXX』 1 枚を手札から登場」 (effects.py:5266、 OP08-062)。
+        // 「コスト N 以上かつ (動的閾値) 以下の 『XXX』 1 枚を手札から登場」 (effects.py:5285、 OP08-062)。
+        // ⚠ 2026-08-01 の Python 修正で挙動が変わった (cloud の効果テスト backfill 由来):
+        //   ① name の代わりに name_filter (= _matches_filter 互換 dict) も取る (P-090 スムージー)
+        //   ② AI 選択が「手札順で最初」 → **cost 降順 → power 降順 → name 昇順** に変更
+        //   ③ 登場後に trigger_on_play を発火する
         "play_from_hand_named_with_dynamic_cost" => {
             let name = norm_card_name(v.get("name").and_then(|x| x.as_str()).unwrap_or(""));
+            let name_filter = v.get("name_filter").cloned();
             let cost_ge = v.get("cost_ge").and_then(|x| x.as_i64()).unwrap_or(0) as i32;
             let cl_src = v.get("cost_le_source").and_then(|x| x.as_str()).unwrap_or("opp_don_total");
             let don_total = |pl: &crate::state::Player| -> i32 {
@@ -3332,22 +3338,40 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 "self_don_total" => don_total(&state.players[me_idx]),
                 _ => v.get("cost_le").and_then(|x| x.as_i64()).unwrap_or(99) as i32,
             };
-            let pick = (0..state.players[me_idx].hand.len()).find(|&i| {
-                let c = &state.players[me_idx].hand[i];
-                c.category == crate::state::Category::Character
-                    && norm_card_name(&c.name) == name
-                    && c.cost >= cost_ge
-                    && c.cost <= cost_le
+            let me = &state.players[me_idx];
+            let mut cands: Vec<usize> = (0..me.hand.len())
+                .filter(|&i| {
+                    let c = &me.hand[i];
+                    if c.category != crate::state::Category::Character {
+                        return false;
+                    }
+                    let name_ok = match &name_filter {
+                        Some(f) => matches_filter(c, Some(f)),
+                        None => norm_card_name(&c.name) == name,
+                    };
+                    name_ok && c.cost >= cost_ge && c.cost <= cost_le
+                })
+                .collect();
+            if cands.is_empty() {
+                return true; // Python は return False = 忠実な no-op
+            }
+            // cost 降順 → power 降順 → name 昇順 (effects.py:5323)
+            cands.sort_by(|&a, &b| {
+                let (ca, cb) = (&me.hand[a], &me.hand[b]);
+                (-cb.cost, -cb.power, ca.name.clone()).cmp(&(-ca.cost, -ca.power, cb.name.clone()))
             });
-            if let Some(i) = pick {
-                // ⚠ Python は append→pop(i) の順 (= field-full trash が先、 hand pop は後)。 pop 前に
-                //   on_play は走らない (append 後 push_log のみ) ので pop-first でも観測差は出ない。
-                trash_weakest_for_field_full(state, me_idx);
-                let card = state.players[me_idx].hand.remove(i);
-                let ip = InPlay::of(card.clone(), true);
-                state.players[me_idx].characters.push(ip);
-                state.last_self_chara_played_card = Some(card);
-                state.last_self_chara_played_from_trash = false;
+            let idx = cands[0];
+            // ⚠ Python は append → pop(idx) の順 (field-full trash が先、 hand 除去は後)。
+            //   on_play は pop 後に発火するので pop-first でも観測差は出ない。
+            trash_weakest_for_field_full(state, me_idx);
+            let card = state.players[me_idx].hand.remove(idx);
+            let ip = InPlay::of(card.clone(), true);
+            state.players[me_idx].characters.push(ip);
+            let pidx = state.players[me_idx].characters.len() - 1;
+            state.last_self_chara_played_card = Some(card);
+            state.last_self_chara_played_from_trash = false;
+            if execute_on_play(state, me_idx, pidx).is_err() {
+                return false;
             }
             true
         }
