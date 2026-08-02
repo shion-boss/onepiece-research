@@ -3838,6 +3838,59 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // マルチターゲット bounce (effects.py:7530、 OP04-044)。 spec ごとに現盤面へ解決し逐次処理。
+        "return_to_hand_multi" => {
+            let Some(list) = v.as_array() else { return true };
+            let mut any = false;
+            for spec in list {
+                let tspec: Value = if spec.is_string() {
+                    spec.clone()
+                } else {
+                    spec.get("target").cloned()
+                        .unwrap_or(Value::String("one_opponent_character_any".into()))
+                };
+                let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else {
+                    return false;
+                };
+                let toks: Vec<(usize, Option<u64>)> = targets
+                    .iter()
+                    .filter(|&&(_, sl)| matches!(sl, Slot::Char(_)))
+                    .map(|&(pi, sl)| (pi, tag_src(state, pi, sl)))
+                    .collect();
+                for (pi, tok) in toks {
+                    let Slot::Char(idx) = find_tagged(state, pi, tok) else { continue };
+                    if pi != opp_idx {
+                        continue; // Python は `t in opp.characters` のみ処理
+                    }
+                    {
+                        let c = &state.players[pi].characters[idx];
+                        if c.protect_from_opp_effect || c.static_ko_immune {
+                            continue;
+                        }
+                    }
+                    match try_replace_ko(state, pi, idx, true, "return_to_hand") {
+                        Ok(true) => continue,
+                        Ok(false) => {}
+                        Err(_) => return false,
+                    }
+                    let ip = state.players[pi].characters.remove(idx);
+                    let don = ip.attached_dons;
+                    state.players[pi].known_hand_card_ids.push(ip.card.card_id.clone());
+                    state.players[pi].hand.push(ip.card);
+                    state.players[pi].don_rested += don;
+                    any = true;
+                }
+            }
+            if any {
+                if fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err()
+                    || fire_field_when(state, me_idx, "on_opp_chara_returned_to_hand_by_self_effect")
+                        .is_err()
+                {
+                    return false;
+                }
+            }
+            true
+        }
         // 「A するか B する」 (effects.py:9062)。 AI heuristic: life_count なら 自ライフ≤1 で option 1、
         // それ以外は option 0 (公式テキスト先頭)。
         "choice" => {
@@ -4027,29 +4080,39 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         // 「トラッシュに置く」= 非 KO の離場 (effects.py:chara_to_trash)。 KO 耐性は受けず【KO時】も
         // 発動しないが、 protect_from_opp_effect と replace_leave / leave トリガーは効く → cascade は bail。
         "chara_to_trash" => {
-            let Some(targets) = resolve_target(Some(v), me_idx, opp_idx, src, state) else { return false };
-            let mut victims: Vec<(usize, usize)> = vec![];
-            for &(pi, sl) in &targets {
-                if let Slot::Char(idx) = sl {
-                    if pi == opp_idx && state.players[pi].characters[idx].protect_from_opp_effect {
+            let Some(targets) = resolve_target(Some(v), me_idx, opp_idx, src, state) else {
+                return false;
+            };
+            // Python (effects.py:3500) は解決順に 1 体ずつ処理する (置換で盤面が動く)。 タグで追う。
+            let toks: Vec<(usize, Option<u64>)> = targets
+                .iter()
+                .filter(|&&(_, sl)| matches!(sl, Slot::Char(_)))
+                .map(|&(pi, sl)| (pi, tag_src(state, pi, sl)))
+                .collect();
+            let mut any = false;
+            for (pi, tok) in toks {
+                let Slot::Char(idx) = find_tagged(state, pi, tok) else { continue };
+                if pi == opp_idx {
+                    if state.players[pi].characters[idx].protect_from_opp_effect {
                         continue;
                     }
-                    victims.push((pi, idx));
+                    match try_replace_ko(state, pi, idx, true, "chara_to_trash") {
+                        Ok(true) => continue,
+                        Ok(false) => {}
+                        Err(_) => return false,
+                    }
                 }
+                let ip = state.players[pi].characters.remove(idx);
+                let don = ip.attached_dons;
+                state.players[pi].trash.push(ip.card);
+                state.players[pi].don_rested += don;
+                any = true;
             }
-            if victims.is_empty() {
-                return true;
-            }
-            let has_opp = victims.iter().any(|&(pi, _)| pi == opp_idx);
-            if me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect")
-                || (has_opp
-                    && (me_board_has_when(state, opp_idx, "on_self_chara_leave_by_opp_effect")
-                        || me_board_has_when(state, opp_idx, "replace_leave")
-                        || me_board_has_when(state, opp_idx, "replace_ko")))
+            if any
+                && fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err()
             {
                 return false;
             }
-            remove_victims(state, victims, RemoveDest::Trash);
             true
         }
         // 自ライフ全部を見て 1 枚をデッキへ + 残りを並べ替え (effects.py:scry_all_life_one_to_deck)。
@@ -4111,17 +4174,37 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             if best.is_empty() {
                 return true;
             }
-            if me_board_has_when(state, me_idx, "on_opp_chara_ko")
-                || me_board_has_when(state, opp_idx, "on_self_chara_ko")
-                || me_board_has_when(state, opp_idx, "on_ko")
-                || me_board_has_when(state, opp_idx, "replace_ko")
-                || me_board_has_when(state, opp_idx, "replace_leave")
-                || me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect")
-            {
-                return false; // KO cascade 再現不能 → bail
+            // ko と同じ逐次処理 (タグ追跡 + 置換 + KO cascade)。
+            let toks: Vec<Option<u64>> =
+                best.into_iter().map(|i| tag_src(state, opp_idx, Slot::Char(i))).collect();
+            let mut ko_any = false;
+            for tok in toks {
+                let Slot::Char(idx) = find_tagged(state, opp_idx, tok) else { continue };
+                match try_replace_ko(state, opp_idx, idx, true, "ko") {
+                    Ok(true) => continue,
+                    Ok(false) => {}
+                    Err(_) => return false,
+                }
+                let vcid = state.players[opp_idx].characters[idx].card.card_id.clone();
+                let ip = state.players[opp_idx].characters.remove(idx);
+                let don = ip.attached_dons;
+                state.players[opp_idx].trash.push(ip.card);
+                state.players[opp_idx].don_rested += don;
+                state.players[opp_idx].chara_ko_taken_this_turn += 1;
+                ko_any = true;
+                state.last_chara_ko_victim_card = None;
+                if fire_on_ko(state, opp_idx, &vcid, true).is_err()
+                    || fire_field_when(state, me_idx, "on_opp_chara_ko").is_err()
+                    || fire_field_when(state, opp_idx, "on_self_chara_ko").is_err()
+                {
+                    return false;
+                }
+                state.last_chara_ko_victim_card = None;
             }
-            let victims: Vec<(usize, usize)> = best.into_iter().map(|i| (opp_idx, i)).collect();
-            remove_victims(state, victims, RemoveDest::Trash);
+            if ko_any && fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err()
+            {
+                return false;
+            }
             true
         }
         // 相手は手札を全てデッキに戻しシャッフル → N 枚ドロー (effects.py:opp_hand_to_deck_then_draw)。
@@ -6858,9 +6941,7 @@ fn effect_cascade_blocked(dos: &[Value], state: &GameState, me_idx: usize) -> bo
             // return_to_hand/deck_bottom (single) は prim 側で cascade を自前処理 → ここでは block しない。
             // return_to_deck_bottom_multi も prim 側で actor 側 leave trigger を発火 + 相手 replace は
             // 明示 bail するので block 不要 (OP06-056)。
-            "return_to_hand_multi" => {
-                has(opp, "on_self_chara_leave_by_self_effect") || has(opp, "replace_leave")
-            }
+            // return_to_hand_multi は prim 側で leave trigger を発火 + 置換も処理する → block 不要。
             // rest (single-path) は prim 側で on_self_rested cascade を自前発火 → ここでは block しない。
             _ => false,
         };
