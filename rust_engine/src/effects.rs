@@ -8896,7 +8896,7 @@ pub fn fire_on_self_battled(
 ) -> Result<(), String> {
     let Some(ov) = overlay() else { return Ok(()) };
     let Some(effs) = ov.get(card_id) else { return Ok(()) };
-    for eff in effs {
+    for (idx, eff) in effs.iter().enumerate() {
         if eff.get("when").and_then(|v| v.as_str()) != Some("on_self_battled") {
             continue;
         }
@@ -8906,8 +8906,17 @@ pub fn fire_on_self_battled(
             Some(false) => continue,
             None => return Err("on_self_battled 条件 unknown".into()),
         }
+        // 【ターン1回】: Python は `_self_battled_{iid}` で判定しつつ event_once_used へ mirror する。
         if eff.get("cost").and_then(|c| c.get("once_per_turn")).is_some() {
-            return Err("on_self_battled once_per_turn 未対応 (iid-keyed)".into());
+            let key = format!("on_self_battled:{idx}");
+            match src_ip(&state.players[me_idx], src) {
+                Some(ip) if ip.event_once_used.contains(&key) => continue,
+                Some(_) => {}
+                None => return Err("on_self_battled: src 不在".into()),
+            }
+            if let Some(ip) = src_ip_mut(&mut state.players[me_idx], src) {
+                ip.mark_event_once("on_self_battled", idx as i64);
+            }
         }
         let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
         for prim in dos {
@@ -8940,7 +8949,7 @@ fn fire_on_self_draw_non_draw_phase(state: &mut GameState, me_idx: usize) -> Res
     for (tok, cid) in toks {
         let slot = find_tagged(state, me_idx, tok);
         let Some(effs) = ov.get(&cid) else { continue };
-        for eff in effs {
+        for (idx, eff) in effs.iter().enumerate() {
             if eff.get("when").and_then(|v| v.as_str()) != Some("on_self_draw_non_draw_phase") {
                 continue;
             }
@@ -8950,8 +8959,18 @@ fn fire_on_self_draw_non_draw_phase(state: &mut GameState, me_idx: usize) -> Res
                 Some(false) => continue,
                 None => return Err("on_self_draw_non_draw_phase 条件 unknown".into()),
             }
+            // 【ターン1回】: Python は `_self_draw_nondp_{iid}` (canonical 外) で判定するが、
+            // 同時に InPlay.event_once_used へ mirror している (effects.py:12036) のでそれを見る。
             if eff.get("cost").and_then(|c| c.get("once_per_turn")).is_some() {
-                return Err("on_self_draw_non_draw_phase once_per_turn 未対応 (iid-keyed)".into());
+                let key = format!("on_self_draw_non_draw_phase:{idx}");
+                match src_ip(&state.players[me_idx], slot) {
+                    Some(ip) if ip.event_once_used.contains(&key) => continue,
+                    Some(_) => {}
+                    None => return Err("on_self_draw_non_draw_phase: src 不在".into()),
+                }
+                if let Some(ip) = src_ip_mut(&mut state.players[me_idx], slot) {
+                    ip.mark_event_once("on_self_draw_non_draw_phase", idx as i64);
+                }
             }
             let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
             fire_gated_do(state, me_idx, slot, dos)?;

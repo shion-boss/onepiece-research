@@ -12022,7 +12022,7 @@ def trigger_on_self_draw_non_draw_phase(
         bundle = effects_overlay.get(ip.card.card_id)
         if bundle is None:
             continue
-        for eff in bundle.effects:
+        for idx, eff in enumerate(bundle.effects):
             if eff.get("when") != "on_self_draw_non_draw_phase":
                 continue
             if not eval_all_conditions(eff, state, me, ip):
@@ -12033,6 +12033,8 @@ def trigger_on_self_draw_non_draw_phase(
                 if key in me.once_per_turn_used:
                     continue
                 me.once_per_turn_used.add(key)
+                # canonical mirror (Rust 同期用、 判定は上の once_per_turn_used のまま = 挙動不変)。
+                ip.mark_event_once("on_self_draw_non_draw_phase", idx)
             for prim in eff.get("do", []):
                 execute_effect(prim, state, me, opp, ip)
 
@@ -12075,7 +12077,7 @@ def trigger_on_self_battled(
     bundle = effects_overlay.get(attacker.card.card_id)
     if bundle is None:
         return
-    for eff in bundle.effects:
+    for idx, eff in enumerate(bundle.effects):
         if eff.get("when") != "on_self_battled":
             continue
         if not eval_all_conditions(eff, state, me, attacker):
@@ -12086,6 +12088,8 @@ def trigger_on_self_battled(
             if key in me.once_per_turn_used:
                 continue
             me.once_per_turn_used.add(key)
+            # canonical mirror (Rust 同期用、 判定は once_per_turn_used のまま = 挙動不変)。
+            attacker.mark_event_once("on_self_battled", idx)
         for prim in eff.get("do", []):
             execute_effect(prim, state, me, opp, attacker)
 
