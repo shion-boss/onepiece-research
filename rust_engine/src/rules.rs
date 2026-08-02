@@ -1118,7 +1118,15 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             } else {
                 match state.players[me].characters.get(atk_idx) {
                     Some(a) => a.clone(),
-                    None => return Err("attacker が on_attack 中に場を離れた (Rust は index 解決)".into()),
+                    // opp_attack 中に離場 → 直前スナップショットで解決 (Python は object 参照で継続)。
+                    None => match state.rust_detached_src.take() {
+                        Some(ip) => ip,
+                        None => {
+                            return Err(
+                                "attacker が on_attack 中に場を離れた (スナップショット無し)".into(),
+                            )
+                        }
+                    },
                 }
             };
             // === ブロック (AttackCharacter は has_no_block を見ない、 on_opp_blocker_use も発火しない) ===
