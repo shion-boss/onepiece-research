@@ -416,6 +416,14 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                 let fd = me.don_active + me.don_rested;
                 fd == 0 || fd >= 3
             }
+            // 自キャラ数 - 相手キャラ数 が N 以下 (effects.py:1659、 OP10-098)。
+            "chara_diff_le" => {
+                (me.characters.len() as i64 - opp.characters.len() as i64) <= v.as_i64().unwrap_or(0)
+            }
+            // このターン中に相手のキャラが KO されたか (effects.py:1774、 OP16-100)。
+            "opp_chara_ko_this_turn" => {
+                (opp.chara_ko_taken_this_turn > 0) == v.as_bool().unwrap_or(true)
+            }
             // どちらかの場にコスト N 以上のキャラが居るか (effects.py:1208、 leader 除く、 現コスト)。
             "exists_chara_cost_ge" => {
                 let n = v.as_i64().unwrap_or(0) as i32;
@@ -3618,6 +3626,88 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     _ => ip.turn_buff += buff,
                 }
             }
+            true
+        }
+        // 「相手の (filter) キャラ 2 枚の元々パワーを入れ替える」 (effects.py:6512、 OP14-017)。
+        // AI は最弱と最強を入替 (= 弱体化最大化)。 既定 filter = power_le 9000。
+        "swap_opp_power" => {
+            let filt = v.get("filter").cloned().unwrap_or(json!({"power_le": 9000}));
+            let opp = &state.players[opp_idx];
+            let mut cands: Vec<usize> = (0..opp.characters.len())
+                .filter(|&i| matches_filter(&opp.characters[i].card, Some(&filt)))
+                .collect();
+            if cands.len() < 2 {
+                return true; // Python は return False = 忠実な no-op
+            }
+            cands.sort_by_key(|&i| opp.characters[i].card.power);
+            let (w, st) = (cands[0], cands[cands.len() - 1]);
+            let wp = opp.characters[w].card.power;
+            let sp = opp.characters[st].card.power;
+            state.players[opp_idx].characters[w].turn_base_power_override = Some(sp);
+            state.players[opp_idx].characters[st].turn_base_power_override = Some(wp);
+            true
+        }
+        // 「このキャラはターンに N 回、 相手の効果で KO されない」 (effects.py:7170、 OP10-118)。
+        "set_ko_per_turn_immune" => {
+            let (tspec, n) = if v.is_object() {
+                (
+                    v.get("target").cloned().unwrap_or(Value::String("self".into())),
+                    v.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as i32,
+                )
+            } else {
+                (Value::String("self".into()), v.as_i64().unwrap_or(1) as i32)
+            };
+            let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else {
+                return false;
+            };
+            for (pi, sl) in targets {
+                let ip = get_ip_mut(&mut state.players[pi], sl);
+                ip.ko_per_turn_immune_max = ip.ko_per_turn_immune_max.max(n);
+                if ip.ko_per_turn_immune_remaining < n {
+                    ip.ko_per_turn_immune_remaining = n;
+                }
+            }
+            true
+        }
+        // 「自分のキャラ 1 枚を手札に戻し、 戻したキャラと異なる色のコスト N 以下のキャラを登場」
+        // (effects.py:5027、 OP01-002 / EB01-020)。 AI は (power, cost) 最小を戻し、 手札の
+        // 異色候補から power 最大を登場。 ⚠ 登場は InPlay.of のみ (Python も on_play を発火しない)。
+        "bounce_self_chara_then_play_diff_color" => {
+            let cost_le = v.get("play_cost_le").and_then(|x| x.as_i64()).unwrap_or(2) as i32;
+            if state.players[me_idx].characters.is_empty() {
+                return true;
+            }
+            let me = &state.players[me_idx];
+            // Python: min(key=(power, cost)) = 先頭優先
+            let mut vi = 0usize;
+            for i in 1..me.characters.len() {
+                let k = (me.characters[i].power(), me.characters[i].card.cost);
+                let b = (me.characters[vi].power(), me.characters[vi].card.cost);
+                if k < b {
+                    vi = i;
+                }
+            }
+            let victim = state.players[me_idx].characters.remove(vi);
+            let colors = victim.card.color.clone();
+            let don = victim.attached_dons;
+            state.players[me_idx].hand.push(victim.card);
+            state.players[me_idx].don_rested += don;
+            let me = &state.players[me_idx];
+            let mut cands: Vec<usize> = (0..me.hand.len())
+                .filter(|&i| {
+                    let c = &me.hand[i];
+                    c.category == crate::state::Category::Character
+                        && c.cost <= cost_le
+                        && !c.color.iter().any(|x| colors.contains(x))
+                })
+                .collect();
+            if cands.is_empty() {
+                return true;
+            }
+            // power 降順 (stable = 元順 tie-break)
+            cands.sort_by(|&a, &b| me.hand[b].power.cmp(&me.hand[a].power));
+            let card = state.players[me_idx].hand.remove(cands[0]);
+            state.players[me_idx].characters.push(InPlay::of(card, true));
             true
         }
         // 「A するか B する」 (effects.py:9062)。 AI heuristic: life_count なら 自ライフ≤1 で option 1、
@@ -7085,7 +7175,8 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "schedule_self_trash_at_turn_end" | "set_ko_immune_timed"
             | "opp_hand_to_size" | "block_chara_play_cost_ge" | "draw_to_hand_size"
             | "block_self_attack_leader_turn" | "draw_per_hand_to_deck_bottom"
-            | "reveal_opp_hand" | "power_pump_per_target_attached_don"
+            | "reveal_opp_hand" | "power_pump_per_target_attached_don" | "swap_opp_power"
+            | "set_ko_per_turn_immune" | "bounce_self_chara_then_play_diff_color"
     )
 }
 
