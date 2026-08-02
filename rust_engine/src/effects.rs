@@ -6454,89 +6454,63 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             } else {
                 v.clone()
             };
-            let Some(targets) = resolve_target(Some(&tgt_spec), me_idx, opp_idx, src, state) else { return false };
-            let mut victims: Vec<(usize, usize)> = vec![];
-            for &(pi, sl) in &targets {
-                if let Slot::Char(idx) = sl {
-                    let c = &state.players[pi].characters[idx];
-                    if pi == opp_idx && (c.protect_from_opp_effect || c.static_ko_immune) {
-                        continue;
-                    }
-                    victims.push((pi, idx));
-                }
-            }
-            // OP13-119 「そうした場合」 gate 用 (effects.py:3970)。 対象 0 なら false のまま。
-            state.last_return_to_hand_success = !victims.is_empty();
-            if victims.is_empty() {
-                return true;
-            }
-            let has_opp_victim = victims.iter().any(|&(pi, _)| pi == opp_idx);
-            let cascade = me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect")
-                || me_board_has_when(state, me_idx, "on_opp_chara_returned_to_hand_by_self_effect")
-                || (has_opp_victim
-                    && (me_board_has_when(state, opp_idx, "on_self_chara_leave_by_opp_effect")
-                        || me_board_has_when(state, opp_idx, "replace_leave")));
-            if !cascade {
-                // 一括: opp=公開手札 (known)、 self=手札のみ。 remove は降順、 push は target 順 (昇順)。
-                let mut desc = victims.clone();
-                desc.sort_by(|a, b| b.1.cmp(&a.1));
-                let mut removed: Vec<(usize, usize, crate::state::CardDef, i32)> = vec![];
-                for (pi, idx) in desc {
-                    let r = state.players[pi].characters.remove(idx);
-                    let don = r.attached_dons;
-                    removed.push((pi, idx, r.card, don));
-                }
-                removed.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
-                for (pi, _idx, card, don) in removed {
-                    if pi == opp_idx {
-                        state.players[pi].known_hand_card_ids.push(card.card_id.clone());
-                    }
-                    state.players[pi].hand.push(card);
-                    state.players[pi].don_rested += don;
-                }
-                return true;
-            }
-            if victims.len() > 1 {
+            let Some(targets) = resolve_target(Some(&tgt_spec), me_idx, opp_idx, src, state) else {
                 return false;
+            };
+            // Python (effects.py:3941) は targets を順に 1 体ずつ処理する (置換で盤面が動く)。
+            // タグで追跡し、 相手キャラは protect/ko_immune/置換を尊重 + 離脱 trigger を都度発火。
+            let toks: Vec<(usize, Option<u64>)> = targets
+                .iter()
+                .filter(|&&(_, sl)| matches!(sl, Slot::Char(_)))
+                .map(|&(pi, sl)| (pi, tag_src(state, pi, sl)))
+                .collect();
+            let mut any = false;
+            for (pi, tok) in toks {
+                let Slot::Char(idx) = find_tagged(state, pi, tok) else { continue };
+                if pi == opp_idx {
+                    {
+                        let c = &state.players[pi].characters[idx];
+                        if c.protect_from_opp_effect || c.static_ko_immune {
+                            continue;
+                        }
+                    }
+                    match try_replace_ko(state, pi, idx, true, "return_to_hand") {
+                        Ok(true) => continue,
+                        Ok(false) => {}
+                        Err(_) => return false,
+                    }
+                    let ip = state.players[pi].characters.remove(idx);
+                    let don = ip.attached_dons;
+                    state.players[pi].known_hand_card_ids.push(ip.card.card_id.clone());
+                    state.players[pi].hand.push(ip.card);
+                    state.players[pi].don_rested += don;
+                    any = true;
+                    // 相手効果による離脱 → victim 側の【自分のキャラが相手の効果で場を離れた時】
+                    state.last_chara_ko_victim_card = None;
+                    if fire_field_when(state, pi, "on_self_chara_leave_by_opp_effect").is_err() {
+                        return false;
+                    }
+                    state.last_chara_ko_victim_card = None;
+                } else {
+                    // 両陣営 target の自キャラ bounce (持ち主 = me の手札へ、 known には載せない)。
+                    let ip = state.players[pi].characters.remove(idx);
+                    let don = ip.attached_dons;
+                    state.players[pi].hand.push(ip.card);
+                    state.players[pi].don_rested += don;
+                    any = true;
+                }
             }
-            let (vpi, vidx) = victims[0];
-            if vpi == opp_idx {
-                match try_replace_ko(state, vpi, vidx, true, "return_to_hand") {
-                    Ok(true) => return true,
-                    Ok(false) => {}
-                    Err(_) => return false,
-                }
-                let vdon = state.players[vpi].characters[vidx].attached_dons;
-                let removed = state.players[vpi].characters.remove(vidx);
-                state.players[vpi].known_hand_card_ids.push(removed.card.card_id.clone());
-                state.players[vpi].hand.push(removed.card);
-                state.players[vpi].don_rested += vdon;
-                state.last_chara_ko_victim_card = None; // 効果 cascade は nested=deferred で victim None
-                let mut err = fire_field_when(state, vpi, "on_self_chara_leave_by_opp_effect").is_err();
-                state.last_chara_ko_victim_card = None;
-                if !err {
-                    err = fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err();
-                }
-                if !err {
-                    err = fire_field_when(state, me_idx, "on_opp_chara_returned_to_hand_by_self_effect").is_err();
-                }
-                if err {
+            // OP13-119 「そうした場合」 gate 用 (effects.py:3970)。
+            state.last_return_to_hand_success = any;
+            if any {
+                if fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err()
+                    || fire_field_when(state, me_idx, "on_opp_chara_returned_to_hand_by_self_effect")
+                        .is_err()
+                {
                     return false;
                 }
-                true
-            } else {
-                let vdon = state.players[vpi].characters[vidx].attached_dons;
-                let removed = state.players[vpi].characters.remove(vidx);
-                state.players[vpi].hand.push(removed.card);
-                state.players[vpi].don_rested += vdon;
-                if fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err() {
-                    return false;
-                }
-                if fire_field_when(state, me_idx, "on_opp_chara_returned_to_hand_by_self_effect").is_err() {
-                    return false;
-                }
-                true
             }
+            true
         }
         // デッキ下に戻す (effects.py:5376)。 cascade (opp victim の replace_leave/on_self_chara_leave_by_opp_
         // effect、 me の on_self_chara_leave_by_self_effect) 要時は single-victim path で発火 (ko primitive と
