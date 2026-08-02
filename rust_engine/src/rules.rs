@@ -626,8 +626,22 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 let a = if is_leader { &state.players[me].leader } else { &state.players[me].characters[atk_idx] };
                 (a.card.card_id.clone(), a.attack_cost_discard_hand_n)
             };
+            // アタック時 手札捨てコスト (game.py:1467、 OP08-043 エドワード等)。
+            // 「自身の手札 N 枚を捨てなければアタックできない」。 手札不足ならアタック不発 (Ok no-op)。
+            // ⚠ Python は state.rng.randrange でランダムに捨てる → Rust も同じ MT 列を消費して再現。
             if cost_discard > 0 {
-                return Err("attack cost 未対応".into());
+                if (state.players[me].hand.len() as i32) < cost_discard {
+                    return Ok(()); // アタック不能 = 空打ち (game.py:1471)
+                }
+                for _ in 0..cost_discard {
+                    let n = state.players[me].hand.len() as u64;
+                    if n == 0 {
+                        break;
+                    }
+                    let idx = state.rng_mut().randrange(n) as usize;
+                    let c = state.players[me].hand.remove(idx);
+                    state.players[me].trash.push(c);
+                }
             }
             // attacker.rested = true (game.py:1466、 on_attack 発火前)
             if is_leader {
@@ -905,8 +919,22 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 let a = if is_leader { &state.players[me].leader } else { &state.players[me].characters[atk_idx] };
                 (a.card.card_id.clone(), a.attack_cost_discard_hand_n, a.return_to_deck_bottom_at_battle_end)
             };
+            // アタック時 手札捨てコスト (game.py:1467、 OP08-043 エドワード等)。
+            // 「自身の手札 N 枚を捨てなければアタックできない」。 手札不足ならアタック不発 (Ok no-op)。
+            // ⚠ Python は state.rng.randrange でランダムに捨てる → Rust も同じ MT 列を消費して再現。
             if cost_discard > 0 {
-                return Err("attack cost 未対応".into());
+                if (state.players[me].hand.len() as i32) < cost_discard {
+                    return Ok(()); // アタック不能 = 空打ち (game.py:1471)
+                }
+                for _ in 0..cost_discard {
+                    let n = state.players[me].hand.len() as u64;
+                    if n == 0 {
+                        break;
+                    }
+                    let idx = state.rng_mut().randrange(n) as usize;
+                    let c = state.players[me].hand.remove(idx);
+                    state.players[me].trash.push(c);
+                }
             }
             // on_self_battled は char vs char バトル終了時に発火 (game.py:1994) → bail
             if crate::effects::card_has_when(&atk_cid, "on_self_battled") {

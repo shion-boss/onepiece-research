@@ -3057,6 +3057,27 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             true
         }
+        // 「対象は、 次の相手ターン終了時まで、 アタックする際 自身の手札 N 枚を捨てなければ
+        // アタックできない」 (effects.py:set_attack_cost_discard_hand、 OP08-043)。
+        "set_attack_cost_discard_hand" => {
+            let tspec = v
+                .get("target")
+                .cloned()
+                .unwrap_or(Value::String("all_opponent_characters".into()));
+            let n = v.get("n").and_then(|x| x.as_i64()).unwrap_or(2) as i32;
+            let duration = v.get("duration").and_then(|x| x.as_str()).unwrap_or("next_opp_turn_end");
+            let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else { return false };
+            let turn = state.turn_number;
+            for (pi, sl) in targets {
+                let ip = get_ip_mut(&mut state.players[pi], sl);
+                ip.attack_cost_discard_hand_n = ip.attack_cost_discard_hand_n.max(n);
+                if duration == "next_opp_turn_end" {
+                    ip.attack_cost_discard_hand_applier_idx = me_idx as i32;
+                    ip.attack_cost_discard_hand_applied_turn = turn;
+                }
+            }
+            true
+        }
         // 自分のトラッシュから filter 一致 N 枚をデッキへ (effects.py:trash_to_deck)。
         // spec {filter, limit, to: top|bottom, shuffle}。 該当 0 枚は不発 (何も起きない = true)。
         "trash_to_deck" => {
@@ -5456,6 +5477,29 @@ fn pay_on_play_cost(cost: &Value, state: &mut GameState, me_idx: usize, src: Slo
         return None;
     };
     let mut discard_n = 0i32;
+    // discard_hand_with_filter (effects.py:_pay_counter_cost): filter 一致の手札を count 枚捨てる。
+    // 該当が足りなければ払えない (Some(false))。 捨てた後は on_self_hand_discarded を発火。
+    if let Some(dfs) = cost.get("discard_hand_with_filter").and_then(|v| v.as_object()) {
+        let d_filt = dfs.get("filter").cloned().unwrap_or(json!({}));
+        let d_count = dfs.get("count").and_then(|v| v.as_i64()).unwrap_or(1) as usize;
+        let idxs: Vec<usize> = (0..state.players[me_idx].hand.len())
+            .filter(|&i| matches_filter(&state.players[me_idx].hand[i], Some(&d_filt)))
+            .take(d_count)
+            .collect();
+        if idxs.len() < d_count {
+            return Some(false);
+        }
+        for &i in idxs.iter().rev() {
+            let c = state.players[me_idx].hand.remove(i);
+            state.players[me_idx].trash.push(c);
+        }
+        if !idxs.is_empty() {
+            state.players[me_idx].hand_discarded_by_effect_this_turn = true;
+            if fire_hand_discarded(state, me_idx, src).is_err() {
+                return None; // cascade 再現不能 → bail
+            }
+        }
+    }
     // reveal_hand_with_filter (effects.py:563): 該当手札 count 枚以上あれば払える。 公開するだけで
     // 消費しない (state 変化なし) = payability 判定のみ。
     if let Some(rfs) = cost.get("reveal_hand_with_filter").and_then(|v| v.as_object()) {
@@ -5472,6 +5516,7 @@ fn pay_on_play_cost(cost: &Value, state: &mut GameState, me_idx: usize, src: Slo
             "discard_hand" => discard_n += v as i32,
             "rest_self" => rest_self = true,
             "reveal_hand_with_filter" => {} // 上で判定済 (消費なし)
+            "discard_hand_with_filter" => {}  // 下で個別処理 (filter 一致を捨てる)
             _ => {
                 note_unknown_key("on_play_cost", &k);
                 return None; // 未対応 cost 種別 → skip effect
