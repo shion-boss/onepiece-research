@@ -503,6 +503,11 @@ pub struct GameState {
     pub rust_event_queue: Vec<crate::effects::PendingTrigger>,
     #[serde(skip)]
     pub rust_resolving: bool,
+    /// 直前に power_pump した対象 (player_idx, Slot 相当の char/leader 位置)。 effects.py:3616
+    /// `last_pumped_iid` の代替。 target spec self_just_buffed の解決に使う。
+    /// -1 = leader、 0.. = characters index。
+    #[serde(skip)]
+    pub last_pumped: Option<(usize, i32)>,
     /// 効果解決中に発動元が場を離れた時の直前スナップショット。 Python は self_inplay を
     /// object 参照で保持し場外でも読めるので、 その代替 (アタッカーの power/cost 参照等)。
     #[serde(skip)]

@@ -1211,6 +1211,15 @@ fn resolve_target(
             );
             out
         }
+        // 「その後、 そのカードを〜」 = 直前 power_pump 対象 (effects.py:2355、 OP07-095/OP11-059)。
+        // Python は last_pumped_iid で me.leader/characters を走査 = 場外なら 0 対象。
+        "self_just_buffed" => match state.last_pumped {
+            Some((pi, -1)) if pi == me_idx => vec![(me_idx, Slot::Leader)],
+            Some((pi, ci)) if pi == me_idx && ci >= 0 && (ci as usize) < state.players[me_idx].characters.len() => {
+                vec![(me_idx, Slot::Char(ci as usize))]
+            }
+            _ => vec![],
+        },
         // 「相手のドン N 枚以上付与キャラ 1 体」 (effects.py:2717、 OP15-001)。 threat_key = power 降順。
         os if os.starts_with("one_opponent_character_attached_don_ge_") => {
             let n = parse_after(os, "don_ge_").unwrap_or(0);
@@ -2326,6 +2335,34 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
         }
         // return_self_chara_to_hand: AI=power 昇順で count 枚を手札へ (元順で append + 付与ドン返却、
         // effects.py:8848)。 cv は count_and_filter に渡すため cs から取り出す。
+        // 「自分のキャラ N 枚を持ち主のデッキの下に置く」 cost (effects.py:8967)。
+        // AI は power 昇順 (= 最も惜しくない) から。 deck append 順 = 元 character 順。
+        "return_self_chara_to_deck_bottom" => {
+            let (count, filt) = count_and_filter(&cv);
+            let mut cands: Vec<(usize, i32)> = state.players[me_idx]
+                .characters
+                .iter()
+                .enumerate()
+                .filter(|(_, c)| matches_filter(&c.card, filt))
+                .map(|(i, c)| (i, c.power()))
+                .collect();
+            cands.sort_by(|a, b| a.1.cmp(&b.1));
+            let chosen: std::collections::HashSet<usize> =
+                cands.iter().take(count).map(|(i, _)| *i).collect();
+            let me = &mut state.players[me_idx];
+            let old = std::mem::take(&mut me.characters);
+            for (i, c) in old.into_iter().enumerate() {
+                if chosen.contains(&i) {
+                    let don = c.attached_dons;
+                    me.deck.push(c.card);
+                    if don > 0 {
+                        me.don_rested += don;
+                    }
+                } else {
+                    me.characters.push(c);
+                }
+            }
+        }
         "return_self_chara_to_hand" => {
             let (count, filt) = count_and_filter(&cv);
             // 候補 index を power 昇順 (stable=元順 ties) で count 枚選択
@@ -2490,6 +2527,18 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             let Some(amount) = pump_amount(v, state, me_idx, opp_idx) else { return false };
             let ff = v.get("feature_filter").and_then(|x| x.as_str()).map(|s| s.to_string());
             let Some(targets) = resolve_target(v.get("target"), me_idx, opp_idx, src, state) else { return false };
+            // soshite (= 「その後、 そのカードを〜」、 target spec self_just_buffed) 用に直近 pump
+            // 対象を記録する (effects.py:3616 `last_pumped_iid`)。 対象 0 なら更新しない。
+            if let Some(&(pi, sl)) = targets.first() {
+                state.last_pumped = Some((
+                    pi,
+                    match sl {
+                        Slot::Leader => -1,
+                        Slot::Char(ci) => ci as i32,
+                        _ => -2,
+                    },
+                ));
+            }
             let duration = v.get("duration").and_then(|x| x.as_str()).unwrap_or("turn").to_string();
             let turn_number = state.turn_number;
             for (pi, sl) in targets {
@@ -3493,6 +3542,30 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 v.as_i64().unwrap_or(7) as i32
             };
             state.players[me_idx].block_chara_play_cost_ge_threshold = n;
+            true
+        }
+        // 「自分の手札が N 枚になるように引く」 (effects.py:5572、 OP02-051)。 不足分のみ。
+        "draw_to_hand_size" => {
+            let target = if v.is_object() {
+                v.get("size").and_then(|x| x.as_i64()).unwrap_or(3) as usize
+            } else {
+                v.as_i64().unwrap_or(3) as usize
+            };
+            if state.players[me_idx].block_self_draw_until_turn_end {
+                return true; // このターン中ドロー禁止 → 不発
+            }
+            let need = target.saturating_sub(state.players[me_idx].hand.len());
+            if need > 0 {
+                // Python は me.draw(need) = 通常ドローと同じ経路 (known_top 追随 + カウンタ)。
+                // ⚠ do-primitive の draw と違い on_self_draw_non_draw_phase は発火しない
+                //   (effects.py:5580 は me.draw を直接呼ぶ)。
+                return execute_effect(&json!({"draw": need}), state, me_idx, src);
+            }
+            true
+        }
+        // 「自分はこのターン中、 リーダーにアタックできない」 (effects.py:6695、 OP06-026)。
+        "block_self_attack_leader_turn" => {
+            state.players[me_idx].cannot_attack_leader_until_turn_end = true;
             true
         }
         // 「A するか B する」 (effects.py:9062)。 AI heuristic: life_count なら 自ライフ≤1 で option 1、
@@ -6958,7 +7031,8 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "reduce_play_cost_filtered_turn" | "trash_opp_hand_random"
             | "set_all_life_face_down" | "hand_to_deck_bottom"
             | "schedule_self_trash_at_turn_end" | "set_ko_immune_timed"
-            | "opp_hand_to_size" | "block_chara_play_cost_ge"
+            | "opp_hand_to_size" | "block_chara_play_cost_ge" | "draw_to_hand_size"
+            | "block_self_attack_leader_turn"
     )
 }
 
