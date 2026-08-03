@@ -3189,7 +3189,13 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         // on_play power_pump (duration 別 buff)。 対象選択が要る target は resolve_target=None → skip。
         "power_pump" => {
             let Some(amount) = pump_amount(v, state, me_idx, opp_idx) else { return false };
-            let ff = v.get("feature_filter").and_then(|x| x.as_str()).map(|s| s.to_string());
+            // ⚠ 静的側と同じく Python は `feature` (target の兄弟キー) を読む。
+            //   "feature_filter" は overlay に 1 度も存在しない死にキー (2026-08-03)。
+            let ff = v
+                .get("feature")
+                .or_else(|| v.get("feature_filter"))
+                .and_then(|x| x.as_str())
+                .map(|s| s.to_string());
             let Some(targets) = resolve_target(v.get("target"), me_idx, opp_idx, src, state) else { return false };
             // soshite (= 「その後、 そのカードを〜」、 target spec self_just_buffed) 用に直近 pump
             // 対象を記録する (effects.py:3616 `last_pumped_iid`)。 対象 0 なら更新しない。
@@ -10726,13 +10732,14 @@ pub fn fire_activate_main(
         "stage" => Slot::Stage(source_idx),
         _ => return Err("bad source_kind".into()),
     };
-    let (cost, dos): (Option<Value>, Vec<Value>) = {
+    let (cost, dos, eff_owned): (Option<Value>, Vec<Value>, Value) = {
         let Some(ov) = overlay() else { return Ok(()) };
         let Some(effs) = ov.get(card_id) else { return Ok(()) };
         let Some(eff) = effs.get(effect_index) else { return Err("effect_index 範囲外".into()) };
         (
             eff.get("cost").cloned(),
             eff.get("do").and_then(|v| v.as_array()).cloned().unwrap_or_default(),
+            eff.clone(),
         )
     };
     // trash_self でこの起動源が場から除去されたか (= act_used マークを skip する為)。
@@ -10970,6 +10977,16 @@ pub fn fire_activate_main(
     //   Python は self_inplay を object 参照で保持するが、 場を離れた InPlay への変更は digest に現れない
     //   (trash には CardDef しか残らない) ので、 Slot::Detached (= target "self" は 0 対象) と等価。
     let mut do_src = if source_gone { Slot::Detached } else { src };
+    // ⚠ Python は cost 支払い **後** に if 句を再評価する (_execute_event:
+    //   「cost 既払いなので if 句のみ再評価 (条件変動の可能性に備える)」)。
+    //   コスト自体が条件を崩すカードがあるため必須。 例 P-081 クロスギルド:
+    //   cost=return_self_to_hand で自分が場を離れ 「青の《クロスギルド》キャラ3枚以上」 が
+    //   崩れる → Python は不発、 Rust は支払い前の判定のまま登場させていた (2026-08-03 発覚)。
+    match eval_effect_conditions(&eff_owned, state, me_idx, Some(do_src)) {
+        Some(true) => {}
+        Some(false) => return Ok(()), // 条件が崩れた = 効果は発動しない (コストは払い済み)
+        None => return Err("activate_main 条件 unknown (cost 後)".into()),
+    }
     // do の途中で盤面が動いても発動元を見失わないよう、 一意トークンで追跡する
     // (Python の self_inplay object 参照と等価。 場外に出たら Detached)。
     let mut tok = tag_src(state, me_idx, do_src);

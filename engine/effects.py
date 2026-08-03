@@ -3638,8 +3638,12 @@ def _execute_effect_body(
             # soshite (= 「その後、 そのカードを〜」) 用に直近 pump 対象を記録。
             # 「リーダーかキャラ1枚+N。 その後、 そのカードを+M」 (OP07-095/OP11-059 等) で
             # target=self_just_buffed が この iid を参照する。
-            if targets:
-                state.last_pumped_iid = targets[0].instance_id
+            # ⚠ 対象 0 のときは **None で clear** する。 clear しないと前の action で pump した
+            #   カードの iid が残り、 「その後、 選んだキャラは〜」 が **選んでいないカード**に
+            #   適用される (EB02-021 ゴムゴムの巨人の銃 が 対象 0 なのにリーダーを
+            #   stay_rested_next_refresh にしていた、 2026-08-03 全カード差分掃引で発覚)。
+            #   公式も 「選んだキャラ」 = この効果で選んだもの なので 0 なら不発が正。
+            state.last_pumped_iid = targets[0].instance_id if targets else None
             # 静的効果 (= on_attached_don) は evaluate_static_effects で
             # 毎回 リセット → 再加算されるためログ noise になる。 値は正常 (= +amount 一定)。
             if duration != "static":
