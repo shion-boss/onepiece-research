@@ -7469,6 +7469,13 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 taken
             };
             if per_target {
+                // max_targets = 「キャラ N 枚まで に 1 枚ずつ」 の N (OP08-001 チョッパー
+                // 「自分の《動物》か《ドラム王国》キャラ **3枚まで** に…1枚ずつまで」)。
+                // ⚠ Python/Rust とも未実装で **全対象** に配っていた (2026-08-03 発覚)。
+                let targets = match v.get("max_targets").and_then(|x| x.as_i64()) {
+                    Some(mt) => targets.into_iter().take(mt.max(0) as usize).collect::<Vec<_>>(),
+                    None => targets,
+                };
                 for (pi, sl) in targets {
                     let give = take_from_owner(state, count);
                     if give <= 0 {

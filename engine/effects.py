@@ -5866,6 +5866,10 @@ def _execute_effect_body(
                 continue
             if per_target:
                 # 各 target に min(n, 残り don_active) を付与。 1 体ずつ消費。
+                # max_targets (= 「N 枚まで」) があれば先頭 N 体に絞る (attach_rested_don と同じ)。
+                mt = spec.get("max_targets")
+                if mt is not None:
+                    targets = targets[: int(mt)]
                 attached_log: list[str] = []
                 for t in targets:
                     give = min(n, me.don_active)
@@ -5958,6 +5962,12 @@ def _execute_effect_body(
                     )
                     return True
             if per_target:
+                # max_targets: 「キャラ N 枚まで に 1 枚ずつ」 の N (公式 OP08-001 チョッパー
+                # 「自分の《動物》か《ドラム王国》キャラ **3枚まで** にレストのドン1枚ずつまで」)。
+                # ⚠ 未実装で **全対象** に配っていた (2026-08-03 キー非対称走査で発覚)。
+                mt = spec.get("max_targets")
+                if mt is not None:
+                    targets = targets[: int(mt)]
                 attached_log: list[str] = []
                 for t in targets:
                     give = _take_rested(n)
