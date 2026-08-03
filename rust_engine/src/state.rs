@@ -453,6 +453,9 @@ pub struct GameState {
     pub phase: Phase,
     pub winner: Option<usize>,
     pub game_over: bool,
+    /// ⚠ Python は instance_id、 Rust は位置 index を入れる = 表現が原理的に一致しない。
+    /// action 内 transient (消費即クリア) なので digest 対象外 (state_snapshot._EXCLUDE)。
+    #[serde(skip)]
     pub pending_attack_redirect: Option<i32>,
     pub event_queue: Vec<serde_json::Value>,
     pub resolving: bool,

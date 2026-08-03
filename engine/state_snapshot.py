@@ -40,6 +40,12 @@ _EXCLUDE = {
     "once_per_turn_used",          # 【ターン1回】発動済 key 集合。 key が `iid:{source_iid}:...` 形式で
                                    #   instance_id 依存 = Rust 再現不可。 gating の正しさは効果の副作用
                                    #   (2 回目発火なら状態が変わる) で間接検証される → 除外が正準
+    "pending_attack_redirect",     # 同上: アタック対象変更先を Python は instance_id、 Rust は位置 index で
+                                   #   保持する = 表現が原理的に一致しない。 action 境界では必ず None に
+                                   #   戻る (game.py:1504 が消費即クリア) 純粋な action 内 transient なので、
+                                   #   除外しても 「アタックがどこに向いたか」 は battle 結果 (ライフ/KO) で
+                                   #   検証される。 ⚠ 除外前は 効果を単体発火する差分検証 (直接発火 harness)
+                                   #   でのみ露見していた (OP14-060、 2026-08-03)
     # --- ルール状態でない meta (AI 評価 / UI / デッキ情報 / human 対話) = 差分対象外 ---
     "action_evals",        # AI 行動品質評価履歴
     "audit_violations",    # audit meta

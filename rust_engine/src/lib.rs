@@ -509,8 +509,10 @@ fn fire_effect_smoke(
     // (scripts/rust_effect_smoke_parity.py)。 self-play で踏めない counter イベント等の
     // 差分検証は この経路でしか作れない。
     let dg = digest_of(&st).unwrap_or_default();
+    // 診断用に発火後 state も返す (MISMATCH の blob-diff に使う)。
+    let after = serde_json::to_value(&st).unwrap_or(serde_json::Value::Null);
     let out = match r {
-        Ok(()) => serde_json::json!({"ok": true, "invariant_violations": inv, "digest": dg}),
+        Ok(()) => serde_json::json!({"ok": true, "invariant_violations": inv, "digest": dg, "after": after}),
         Err(e) => serde_json::json!({"ok": false, "err": e, "invariant_violations": inv}),
     };
     Ok(out.to_string())

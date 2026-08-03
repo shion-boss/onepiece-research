@@ -6669,7 +6669,12 @@ def _execute_effect_body(
             )
         elif k == "reveal_opp_hand":
             # 「相手の手札 N 枚を公開する」 OP01-105 等。 公開のみ (= 情報公開)、 効果なし。
-            n = int(v) if not isinstance(v, dict) else int(v.get("count", 2))
+            # ⚠ v が bool True の場合は 「手札を(全部)公開する」 (OP07-090 モルガンズ)。
+            #   int(True) == 1 になるため 以前は **1 枚しか公開していなかった** (2026-08-03 発覚)。
+            if v is True:
+                n = len(opp.hand)
+            else:
+                n = int(v) if not isinstance(v, dict) else int(v.get("count", 2))
             revealed = opp.hand[:n]
             # 公開したカードは known_hand_card_ids に記録 (= 中身バレを確定情報化)。
             # play/discard で normalize_known_hand が退場分を削除。 重複は normalize が hand 数で cap。

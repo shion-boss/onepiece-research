@@ -1516,7 +1516,21 @@ fn resolve_target(
             //   を戻していた (パワー7000 を戻す = MISMATCH、 2026-08-03 全カード差分掃引で発覚)。
             let power_eq = parse_after(os, "power_eq_");
             // cost_eq_N = 「コスト N ぴったり」 (effects.py:2810、 元コスト card.cost)。
-            let cost_eq = parse_after(os, "cost_eq_");
+            // ⚠ Python の正規表現は `one_opponent_character_cost_(?:eq_)?(\d+)$` なので
+            //   **裸の cost_N** (= one_opponent_character_cost_0) も 「ぴったり N」 として扱う。
+            //   Rust は _le_/_ge_/_eq_ しか見ておらず、 裸形は filter 無しで通って
+            //   **最大脅威を無条件 KO** していた (OP03-096、 2026-08-03 発覚)。
+            let cost_eq = parse_after(os, "cost_eq_").or_else(|| {
+                // 裸 cost_N: "..._cost_<digits>" (末尾 "cost" 付き表記も許容)。
+                // cost_le_N / cost_ge_N は num が数字だけにならないので誤爆しない。
+                let base = os.strip_suffix("cost").unwrap_or(os);
+                let idx = base.rfind("_cost_")?;
+                let num = &base[idx + "_cost_".len()..];
+                if num.is_empty() || !num.chars().all(|c| c.is_ascii_digit()) {
+                    return None;
+                }
+                num.parse().ok()
+            });
             // まだ認識できない filter token (_le_/_ge_/_eq_ 残) は誤選択回避で bail。
             if cost_le.is_none()
                 && power_le.is_none()
@@ -1982,19 +1996,34 @@ fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
             "cost_eq" | "cost" | "original_cost_eq" => (card.cost as i64) == v.as_i64().unwrap_or(-1),
             "power_le" => (card.power as i64) <= v.as_i64().unwrap_or(0),
             "power_ge" => (card.power as i64) >= v.as_i64().unwrap_or(0),
+            // power_eq (overlay 30 箇所)。 未実装だと `_ => return false` に落ち、 filter 付き
+            // コスト (discard_hand_with_filter 等) の対象が 0 枚 → **効果ごと不発** になる
+            // (ST30-008 / OP16-014、 2026-08-03 直接発火の差分検証で発覚)。
+            "power_eq" => (card.power as i64) == v.as_i64().unwrap_or(0),
             "category" => Some(cat_str(&card.category)) == v.as_str(),
             "category_in" => v
                 .as_array()
                 .map_or(false, |arr| arr.iter().any(|x| x.as_str() == Some(cat_str(&card.category)))),
+            // ⚠ 名前照合は **必ず name_matches** を通す (Python の _matches_filter と同じ)。
+            //   生文字列比較だと 全角Ｄ / 半角D の表記ゆれ と 別名ルール
+            //   (db/card_alt_names.json) を取りこぼす。 overlay 側は全角、 cards.json 由来の
+            //   card.name は半角、 という組み合わせが実在し、 exclude_name が効かず
+            //   **除外すべきカードを登場させていた** (OP12-056 ガープ、 2026-08-03 発覚)。
+            //   影響範囲: name 150 / exclude_name 256 / name_in 22 箇所。
             "exclude_name" => match v {
-                Value::String(s) => card.name != *s,
-                Value::Array(a) => !a.iter().any(|x| x.as_str() == Some(card.name.as_str())),
+                Value::String(s) => !name_matches(card, &norm_card_name(s)),
+                Value::Array(a) => !a
+                    .iter()
+                    .filter_map(|x| x.as_str())
+                    .any(|x| name_matches(card, &norm_card_name(x))),
                 _ => true,
             },
-            "name" => v.as_str() == Some(card.name.as_str()),
-            "name_in" => v
-                .as_array()
-                .map_or(false, |arr| arr.iter().any(|x| x.as_str() == Some(card.name.as_str()))),
+            "name" => v.as_str().map_or(false, |s| name_matches(card, &norm_card_name(s))),
+            "name_in" => v.as_array().map_or(false, |arr| {
+                arr.iter()
+                    .filter_map(|x| x.as_str())
+                    .any(|x| name_matches(card, &norm_card_name(x)))
+            }),
             "feature_contains" => card
                 .features
                 .iter()
@@ -2036,7 +2065,13 @@ fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
             "truly_original_power_eq" => card.power == v.as_i64().unwrap_or(0) as i32,
             // Python の _matches_filter が扱わない key は 制限なし (= pass) として素通りする。
             // no_effect / name_in_last_discarded(解決済) 等。 Rust だけ弾くと MISMATCH になる。
-            "no_effect" | "name_in_last_discarded" => true,
+            // no_effect = 「元々の効果のないキャラカード」 (overlay 10 箇所、 全て
+            // play_from_hand / play_from_trash)。 Python は _matches_filter でなく各
+            // 登場 primitive 側で _card_has_no_effect を適用する (effects.py:4898 他)。
+            // ⚠ Rust は素通ししており、 効果持ちカードまで登場対象になっていた
+            //   (EB02-022 ウソップ / OP02-045 三刀流 鬼斬り 等、 2026-08-03 発覚)。
+            "no_effect" => !v.as_bool().unwrap_or(true) || card_has_no_effect(&card.card_id),
+            "name_in_last_discarded" => true,
             // has_trigger = trigger が「【トリガー】」で始まる (effects.py:10603)。 trigger(bool)=非空 alias。
             "has_trigger" => !v.as_bool().unwrap_or(false) || card.trigger.starts_with("【トリガー】"),
             "trigger" if v.is_boolean() => !v.as_bool().unwrap_or(false) || !card.trigger.is_empty(),
@@ -2846,38 +2881,14 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
         }
         // return_self_chara_to_hand: AI=power 昇順で count 枚を手札へ (元順で append + 付与ドン返却、
         // effects.py:8848)。 cv は count_and_filter に渡すため cs から取り出す。
-        // return_self_don_to_deck cost: 場のドン N 枚をドンデッキへ (rested 優先、 effects.py:889)。
-        "return_self_don_to_deck" => {
-            // ⚠ payability 側 (cost_payable_one) は "amount" を読む。 ここだけ "count" を読んで
-            //   おり、 dict 表記の overlay で払える判定と実際の枚数が食い違いうる。 両方許容する。
-            let n = if cv.is_object() {
-                cv.get("amount")
-                    .or_else(|| cv.get("count"))
-                    .and_then(|x| x.as_i64())
-                    .unwrap_or(1) as i32
-            } else {
-                cv.as_i64().unwrap_or(1) as i32
-            };
-            let me = &mut state.players[me_idx];
-            let from_rested = me.don_rested.min(n);
-            me.don_rested -= from_rested;
-            me.don_remaining_in_deck += from_rested;
-            let from_active = (n - from_rested).min(me.don_active);
-            me.don_active -= from_active;
-            me.don_remaining_in_deck += from_active;
-            // Python (effects.py:899) は戻した枚数 > 0 なら on_self_don_returned_to_deck を発火する。
-            // ⚠ 未実装で、 場に該当カードがあると Rust だけカスケードが起きず MISMATCH
-            //   (OP09-076 ゾロ の 【登場時】ドン戻し で発覚、 2026-08-03)。
-            let moved = from_rested + from_active;
-            if moved > 0 {
-                state.last_returned_don_count = moved;
-                if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck")
-                    && fire_field_when(state, me_idx, "on_self_don_returned_to_deck").is_err()
-                {
-                    return None;
-                }
-            }
-        }
+        // ⚠ return_self_don_to_deck の専用アームは **置かない**。
+        //   Python は同じコストに 3 実装を持ち 順序が違う:
+        //     _pay_counter_cost (on_attack/counter)      … rested 優先 (2026-07-17 の意図的変更)
+        //     primitive (optional_cost_then から呼ばれる) … active 優先
+        //     置換効果コスト                              … active 優先
+        //   pay_cost_one は optional_cost_then 用なので、 Python 同様 **primitive に委譲**して
+        //   active 優先にする。 かつてここに rested 優先を置いており OP09-070 等で MISMATCH
+        //   (付与できるレストドン数が変わり attach_rested_don の結果がズレる、 2026-08-03 発覚)。
         // return_self_to_trash cost: 発動元自身をトラッシュへ (effects.py:8433)。 付与ドンはレストへ。
         "return_self_to_trash" => {
             match src {
@@ -4227,7 +4238,11 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         }
         // 「相手の手札 N 枚を公開する」 (effects.py:6627、 OP01-105)。 公開のみ = known_hand に記録。
         "reveal_opp_hand" => {
-            let n = if v.is_object() {
+            // ⚠ true = 「手札を(全部)公開する」 (OP07-090 モルガンズ)。 数値ならその枚数。
+            //   as_i64() は bool に対し None を返すので 既定 2 に落ちていた (2026-08-03 発覚)。
+            let n = if v.as_bool() == Some(true) {
+                state.players[opp_idx].hand.len()
+            } else if v.is_object() {
                 v.get("count").and_then(|x| x.as_i64()).unwrap_or(2) as usize
             } else {
                 v.as_i64().unwrap_or(2) as usize
@@ -4608,15 +4623,13 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             let more = (n - taken).min(opp.don_rested);
             opp.don_rested -= more;
             opp.don_remaining_in_deck += more;
-            let removed = taken + more;
-            if removed > 0 {
-                state.last_returned_don_count = removed;
-                if me_board_has_when(state, opp_idx, "on_self_don_returned_to_deck")
-                    && fire_field_when(state, opp_idx, "on_self_don_returned_to_deck").is_err()
-                {
-                    return false;
-                }
-            }
+            let _ = taken + more;
+            // ⚠ Python の don_minus_opp は last_returned_don_count を **設定せず**
+            //   on_self_don_returned_to_deck も発火しない (effects.py)。 Rust だけ発火すると
+            //   「黙って違う状態」 になるので Python に合わせる (OP16-074、 2026-08-03 発覚)。
+            //   ⚠ 公式解釈としては 「相手の効果で自分の場のドンがドンデッキに戻された」 も
+            //   トリガー条件を満たしそうで、 Python 側の実装漏れの可能性がある。
+            //   → db/_pending_review.md に上げて公式 Q&A で裁定する (推測で変えない)。
             true
         }
         // 「デッキ上 N 枚を見て好きな順に並べ替え上に置く」 (effects.py:8033、 OP06-059)。
