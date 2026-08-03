@@ -7610,6 +7610,16 @@ def _execute_effect_body(
                         state.push_log(f"  効果: {t.card.name} を持ち主の手札へ")
                         already_returned.add(id(t))
                         _rhm_any = True
+                    elif t in me.characters:
+                        # 自陣キャラの bounce (= 「自分の〜すべてを、持ち主の手札に戻す」 ST26-001 等)。
+                        # 単体 return_to_hand と同じく 持ち主 (= me) の手札へ (自手札は非公開経路)。
+                        me.characters.remove(t)
+                        me.hand.append(t.card)
+                        if t.attached_dons > 0:
+                            me.don_rested += t.attached_dons
+                        state.push_log(f"  効果: 自キャラを手札に戻す {t.card.name}")
+                        already_returned.add(id(t))
+                        _rhm_any = True
             if _rhm_any and state.effects_overlay:
                 trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
                 trigger_on_opp_chara_returned_to_hand_by_self_effect(state, me, opp, state.effects_overlay)
