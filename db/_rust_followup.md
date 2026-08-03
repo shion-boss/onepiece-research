@@ -21,3 +21,11 @@
     `pi != opp_idx` 分岐を実装 (自陣キャラは置換を通さず 付与ドンをレストへ戻して手札へ)。
     従来は 「Python は opp.characters のみ処理」 というコメント付きで skip していた。
     検証 = ST26-001 の直接発火差分 match / 16 デッキ差分 MISMATCH 0 / 効果スモーク 100%
+- [x] 2026-08-03T16:47:34Z `engine/` を変更したが `rust_engine/src/` は無変更
+  - 変更ファイル: engine/effects.py 
+  - commit: fix(engine): ST30-009 リトルオーズJr. replace_leave 条件漏れ 人間レビュー行きバグ修正 (auto)
+  - **追従済 (2026-08-04)**: try_replace_ko の extra_cond 除外リスト (EXCL) に
+    `target_cost_ge` / `target_truly_original_power_eq` を追加。 除外し忘れると victim を
+    知らない eval_condition に回って **常に false** = 置換が不発になる。
+    Python 側の除外リストと 15 種 1:1 で一致することを確認済。
+    検証 = 16 デッキ差分 MISMATCH 0 / 直接発火差分 MISMATCH 0 / 効果スモーク 100%

@@ -8904,8 +8904,14 @@ pub fn try_replace_ko(
         holders.push(Slot::Stage(i));
     }
     // extra_cond に回さない target/by_* キー (effects.py:12283 の除外リストと一致)
+    // ⚠ ここに載っていない target_* キーは 「extra_cond」 として eval_condition に回るが、
+    //   eval_condition は victim を知らないので **常に false** になり 置換が不発になる。
+    //   Python 側 (effects.py) の除外リストと 1:1 で揃える。
+    //   target_cost_ge / target_truly_original_power_eq は 2026-08-03 に Python へ追加された
+    //   (ST30-009 リトルオーズJr. の replace_leave 条件漏れ修正、 クラウド commit 3444423)。
     const EXCL: &[&str] = &[
-        "target", "target_attribute", "target_cost_le", "target_power_le", "target_power_ge",
+        "target", "target_attribute", "target_cost_le", "target_cost_ge",
+        "target_power_le", "target_power_ge", "target_truly_original_power_eq",
         "target_feature", "target_feature_contains", "target_color", "target_name_exclude",
         "target_name", "target_rested", "by_opp_effect", "by_battle",
     ];

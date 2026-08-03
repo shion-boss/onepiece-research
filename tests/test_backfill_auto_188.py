@@ -305,14 +305,6 @@ def test_st30_008_on_ko_no_revive_without_p6000():
 #  ST30-009 リトルオーズJr.: 自元パワー6000キャラが相手効果で離脱する場合、
 #            代わりに自身をトラッシュ + 1ドロー (replace_leave)
 # --------------------------------------------------------------------------- #
-@pytest.mark.skip(
-    reason="engine bug (要人間レビュー): try_replace_ko の extra_cond 除外リスト "
-    "(engine/effects.py:~12478) に target_truly_original_power_eq が無く、 "
-    "eval_condition に漏れて常に False を返すため、 truly_original_power_eq 条件付き "
-    "の replace_leave/replace_ko (ST30-009 等) が発火しない。 _replace_ko_match は "
-    "同キーを正しく判定しているので、 除外リストへの追加で修正できる (engine 編集は "
-    "このバックフィルタスクの範囲外)。 条件 gating 自体は下の negative テストで担保。"
-)
 def test_st30_009_replace_leave_trash_self_draw_ai():
     """自元パワー6000キャラが相手効果KO時、 代わりにリトルオーズをトラッシュ + 1ドロー。
     → 置換成立、 victim (power6000) は場に残り、 リトルオーズが消え、 手札が1枚増える。"""
