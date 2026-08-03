@@ -168,14 +168,38 @@ def test_st26_001_in_hand_no_reduction_without_big_sanji():
         f"条件 (元々P7000以上) 未成立で コスト軽減が乗ってはいけない: {reduction}"
 
 
-@pytest.mark.skip(reason="engine bug (人間レビュー要): return_to_hand_multi は "
-    "`if t in opp.characters:` のみを処理し 自分側 (me.characters) の bounce 分岐を "
-    "持たない。 ST26-001 の on_play 対象 (all_self_chara_filtered = 自分のサン五郎/サンジ) は "
-    "target 解決までは正しく 2 体返るが、 実際の 手札戻し が silent no-op になる。 "
-    "engine 修正は本タスク対象外のため skip (要 self-owned return_to_hand 分岐追加)。")
 def test_st26_001_on_play_return_self_sanji_sangoro():
-    """【登場時】自分のサン五郎・サンジ すべてを手札に戻す。 engine の self-bounce 未対応で未発火。"""
-    raise AssertionError("return_to_hand_multi が自分側キャラの手札戻しを実行しない")
+    """【登場時】自分の「サン五郎」と「サンジ」すべてを 持ち主の手札に戻す。
+
+    return_to_hand_multi に self-owned (me.characters) の bounce 分岐が入り、
+    対象の自キャラが実際に手札へ戻る (非対象キャラは残る)。
+    """
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, _LEADER_PLAIN, overlay)
+    me, opp = st.players[0], st.players[1]
+    sangoro = InPlay.of(repo.get(_SANGORO), sickness=False)  # サン五郎
+    sanji = InPlay.of(repo.get(_FILLER), sickness=False)     # サンジ
+    nami = InPlay.of(repo.get(_NAMI), sickness=False)        # ナミ (非対象)
+    me.characters = [sangoro, sanji, nami]
+    me.hand = []
+    hand_before = len(me.hand)
+
+    src = InPlay.of(repo.get("ST26-001"), sickness=True)
+    for prim in _eff(overlay, "ST26-001", "on_play")["do"]:
+        execute_effect(prim, st, me, opp, src)
+    _drain(st)
+
+    # サン五郎・サンジ は場から消え、 持ち主 (me) の手札へ戻る
+    remaining = [c.card.card_id for c in me.characters]
+    assert _SANGORO not in remaining, "サン五郎 が場から手札に戻っていない"
+    assert _FILLER not in remaining, "サンジ が場から手札に戻っていない"
+    assert _NAMI in remaining, "非対象の ナミ まで戻してはいけない"
+    hand_ids = [c.card_id for c in me.hand]
+    assert _SANGORO in hand_ids and _FILLER in hand_ids, \
+        f"戻したキャラが 持ち主の手札に入っていない: {hand_ids}"
+    assert len(me.hand) == hand_before + 2, \
+        f"手札が2枚増えていない: {len(me.hand)}"
 
 
 # --------------------------------------------------------------------------- #

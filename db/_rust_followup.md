@@ -14,3 +14,8 @@
 > ```
 
 現在追従待ちなし ✅
+- [ ] 2026-08-03T09:19:14Z `engine/` を変更したが `rust_engine/src/` は無変更
+  - 変更ファイル: engine/effects.py 
+  - commit 予定: fix(engine): return_to_hand_multi に自陣キャラbounce分岐追加 (ST26-001 おそばマスク) (auto)
+  - 対応: Rust を同じ挙動に追従させる (skill onepiece-rust-parity-fix)。
+    検証 = `pytest tests/test_rust_parity.py tests/test_rust_overlay_coverage.py -q`
