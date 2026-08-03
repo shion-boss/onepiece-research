@@ -12657,6 +12657,13 @@ def _can_pay_replace_cost(
             actives = [ip for ip in actives if ip is not None and not ip.rested]
             if len(actives) < n:
                 return False
+        elif "mill_self_life_to_trash" in cs:
+            # 「代わりに自分のライフの上か下から N 枚をトラッシュに置く」 (ST09-010 エース 等)。
+            # 置換の代償がライフ 1 枚のトラッシュ送りなので、 ライフが N 枚未満なら置換不能。
+            n_spec = cs["mill_self_life_to_trash"]
+            n = int(n_spec) if not isinstance(n_spec, dict) else int(n_spec.get("amount", 1))
+            if len(me.life) < n:
+                return False
         elif "once_per_turn" in cs:
             # 【ターン1回】 — 同一ターン内 同一 holder の 同一 replace 発動 を 1 回 に 制限。
             # holder_card_id があれば per-card per-turn フラグ で 管理。
@@ -12685,6 +12692,17 @@ def _pay_replace_cost(
                 if holder_card_id not in me.replace_opt_used_cards:
                     me.replace_opt_used_cards.append(holder_card_id)
                     me.replace_opt_used_cards.sort()
+            continue
+        if "mill_self_life_to_trash" in cs:
+            # 「代わりに自分のライフの上か下から N 枚をトラッシュに置く」 (ST09-010 エース 等)。
+            # ライフ移動なのでライフトリガーは発動しない (= 効果でのライフ移動 10-1-5)。
+            n_spec = cs["mill_self_life_to_trash"]
+            n = int(n_spec) if not isinstance(n_spec, dict) else int(n_spec.get("amount", 1))
+            for _ in range(n):
+                if not me.life:
+                    break
+                me.trash.append(me.life.pop(0))
+            state.push_log(f"  離脱置換コスト: 自ライフ {n} 枚をトラッシュへ")
             continue
         if "trash_self" in cs:
             # 「代わりにこのキャラをトラッシュに置き」 — holder を場からトラッシュへ移動。

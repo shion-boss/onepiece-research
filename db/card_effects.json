@@ -102956,7 +102956,7 @@
       "type": "one_opponent_character_filtered",
       "filter": {
        "cost_le": 3,
-       "rested_required": true
+       "rested": true
       }
      }
     }
@@ -103003,7 +103003,7 @@
  ],
  "ST09-010": [
   {
-   "_text": "this KO 代替 → ライフ上1トラッシュ (ターン1回、 上か下→上)",
+   "_text": "this KO 代替 → ライフ上1トラッシュ (ターン1回、 上か下→上)。ライフが無ければ置換不能",
    "when": "replace_ko",
    "if": {
     "target": "self"
@@ -103011,13 +103011,12 @@
    "cost": [
     {
      "once_per_turn": true
-    }
-   ],
-   "do": [
+    },
     {
      "mill_self_life_to_trash": 1
     }
    ],
+   "do": [],
    "optional": true
   }
  ],
