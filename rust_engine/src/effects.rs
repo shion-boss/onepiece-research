@@ -8616,6 +8616,7 @@ pub fn try_replace_ko(
             let mut trash_holder = false;
             let mut ret_don: i32 = 0;
             let mut rand_discard: usize = 0;
+            let mut mill_life: usize = 0;
             if let Some(cost) = eff.get("cost") {
                 let entries: Vec<&Value> = match cost {
                     Value::Array(a) => a.iter().collect(),
@@ -8650,6 +8651,16 @@ pub fn try_replace_ko(
                                 "trash_self_hand_random" => {
                                     rand_discard = val.as_i64().unwrap_or(1) as usize
                                 }
+                                // 「代わりに自分のライフの上か下から N 枚をトラッシュに置く」
+                                // (effects.py:12593/12629、 ST09-010 エース)。 ライフが N 枚未満なら
+                                // 置換不能 (= 通常 KO へ)。 効果でのライフ移動なのでトリガーは発動しない。
+                                "mill_self_life_to_trash" => {
+                                    mill_life = if val.is_object() {
+                                        val.get("amount").and_then(|x| x.as_i64()).unwrap_or(1) as usize
+                                    } else {
+                                        val.as_i64().unwrap_or(1) as usize
+                                    }
+                                }
                                 _ => return Err(format!("replace cost 未対応 ({hcid}:{k})")),
                             }
                         }
@@ -8681,6 +8692,10 @@ pub fn try_replace_ko(
                 if pl.don_active + pl.don_rested < ret_don {
                     continue;
                 }
+            }
+            // mill_self_life_to_trash の payability: ライフが N 枚以上 (effects.py:12593)。
+            if mill_life > 0 && state.players[victim_owner].life.len() < mill_life {
+                continue;
             }
             // trash_self_hand_random の payability: 手札が N 枚以上。
             if rand_discard > 0 && state.players[victim_owner].hand.len() < rand_discard {
@@ -8768,6 +8783,16 @@ pub fn try_replace_ko(
                 let more = (ret_don - taken).min(pl.don_rested);
                 pl.don_rested -= more;
                 pl.don_remaining_in_deck += more;
+            }
+            // mill_self_life_to_trash 支払い (effects.py:12629)。 ライフ上から N 枚をトラッシュへ。
+            // ⚠ 効果でのライフ移動なので【トリガー】は発動しない (公式 10-1-5)。
+            for _ in 0..mill_life {
+                let pl = &mut state.players[victim_owner];
+                if pl.life.is_empty() {
+                    break;
+                }
+                let c = pl.life.remove(0);
+                pl.trash.push(c);
             }
             // trash_self_hand_random 支払い (effects.py:12662)。 ⚠ 名前に反して AI は
             // worst_hand_idx (= 最悪札) を捨てる (rng は消費しない)。
