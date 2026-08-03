@@ -4420,7 +4420,11 @@
     },
     {
      "schedule_at_self_turn_end": {
-      "untap_don": 1
+      "do": [
+       {
+        "untap_don": 1
+       }
+      ]
      }
     }
    ],
@@ -8472,7 +8476,11 @@
     },
     {
      "schedule_at_self_turn_end": {
-      "untap_don": 1
+      "do": [
+       {
+        "untap_don": 1
+       }
+      ]
      }
     }
    ],
@@ -108151,7 +108159,11 @@
     },
     {
      "schedule_at_self_turn_end": {
-      "untap_don": 1
+      "do": [
+       {
+        "untap_don": 1
+       }
+      ]
      }
     }
    ],

@@ -55,6 +55,7 @@ from engine.effects import (
     list_activate_main_effects,
     load_effect_overlay,
     resolve_pending_choice,
+    trigger_end_of_turn,
     try_replace_ko,
 )
 
@@ -349,14 +350,42 @@ def test_st24_005_on_play_rest_human_pick():
     assert b.rested is True, "人間が選んだ相手キャラがレストにされていない"
 
 
-@pytest.mark.skip(reason="overlay bug (人間レビュー要): ST24-005 の "
-    "schedule_at_self_turn_end が {'untap_don':1} と do ラッパを欠く。 "
-    "flush 側は spec.get('do',[]) を実行するため 遅延 untap_don が発火しない。 "
-    "正しくは {'schedule_at_self_turn_end': {'do': [{'untap_don': 1}]}} (cf OP15-025)。 "
-    "engine/overlay 修正は本タスク対象外のため skip。")
 def test_st24_005_schedule_turn_end_untap_don_fires():
-    """このターン終了時 自ドン1枚アクティブ (= 遅延 untap_don)。 overlay bug で未発火。"""
-    raise AssertionError("overlay の schedule spec が do ラッパを欠くため遅延効果が死んでいる")
+    """このターン終了時 自ドン1枚アクティブ (= 遅延 untap_don)。
+
+    overlay の schedule spec が `{'do': [{'untap_don': 1}]}` に修正され、
+    trigger_end_of_turn の flush (spec.get('do',[])) で遅延 untap_don が発火する。
+    """
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, _LEADER_NOVA, overlay)  # 超新星 leader (= 条件成立)
+    me, opp = st.players[0], st.players[1]
+    # 相手のコスト5以下キャラ (レスト対象)
+    victim = InPlay.of(repo.get(_FILLER), sickness=False)  # cost2 <= 5
+    opp.characters = [victim]
+    # 自分のドンをレスト状態に (= untap_don の原資)
+    me.don_active = 0
+    me.don_rested = 3
+
+    eff = _eff(overlay, "ST24-005", "on_play")
+    assert eff.get("if", {}).get("leader_feature") == "超新星", \
+        "overlay の 超新星 leader 条件が無い"
+    src = InPlay.of(repo.get("ST24-005"), sickness=True)
+    for prim in eff["do"]:
+        execute_effect(prim, st, me, opp, src)
+    _drain(st)
+
+    # rest は即時、 untap_don は「このターン終了時」まで発火しない
+    assert victim.rested is True, "相手のコスト5以下キャラがレストにされていない"
+    assert me.don_active == 0, "untap_don が予約前に即時発火している (遅延でない)"
+    assert getattr(me, "scheduled_at_self_turn_end", None), \
+        "turn-end 効果が予約されていない"
+
+    # ターン終了 flush で 遅延 untap_don が発火 → ドン1枚アクティブ
+    trigger_end_of_turn(st, overlay)
+    assert me.don_active == 1, \
+        f"ターン終了時の遅延 untap_don が発火していない: don_active={me.don_active}"
+    assert me.don_rested == 2, f"レストドンが1枚減っていない: don_rested={me.don_rested}"
 
 
 # --------------------------------------------------------------------------- #
