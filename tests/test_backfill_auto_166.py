@@ -529,11 +529,14 @@ def test_st03_017_meromero_counter_draw_when_hand_le_3():
     me.deck = [repo.get(NAMI)] * 5
 
     hand_before = len(me.hand)
-    draw_eff = _eff(overlay, "ST03-017", "counter", needle="draw")
-    assert draw_eff.get("if", {}).get("self_hand_count_le") == 3, \
-        "overlay の ドロー条件 self_hand_count_le=3 が無い"
-    for prim in draw_eff["do"]:
-        execute_effect(prim, st, me, opp, None)
+    # 公式 「パワー+4000。 その後、 手札が3枚以下の場合、 1枚引く」 = 単一効果内の逐次。
+    # ⚠ overlay の構造 (counter entry 2 分割 / conditional) に依存させず 挙動で検証する
+    #    (= 実装をそのまま固定するテストにしない)。
+    counter_effs = [e for e in overlay.get("ST03-017").effects if e.get("when") == "counter"]
+    assert counter_effs, "ST03-017 に counter 効果がない"
+    for eff in counter_effs:
+        for prim in eff["do"]:
+            execute_effect(prim, st, me, opp, None)
 
     assert len(me.hand) == hand_before + 1, \
         f"手札3枚以下で 1 ドローされていない: {len(me.hand)} (before {hand_before})"

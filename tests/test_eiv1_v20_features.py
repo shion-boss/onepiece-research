@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import random
+import re
 from pathlib import Path
 
 from engine import card_magnitudes as CM
@@ -167,18 +168,27 @@ def test_counter_prefers_already_revealed_card():
 
 
 def test_public_search_records_known_hand_but_private_does_not():
-    """公式テキストが『公開し手札に加える』なら記録、 『見て』だけなら記録しない。"""
+    """公式テキストが『公開し手札に加える』なら記録、 『見て』だけなら記録しない。
+
+    ⚠ 判定は **cards.json の公式テキスト** で行う。 以前は overlay の `_text` (= 実装者が
+    書いた略記注記) と突き合わせていたが、 それは実装と同じ人が書いた注記なので循環参照で、
+    実際 46 枚の public=False 取り違え (公式は「公開し、手札に加える」) を素通しさせていた。
+    """
     import json as _json
-    from pathlib import Path as _P
     ov = _json.loads((_ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    cards = _json.loads((_ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+    by_id = {c["card_id"]: c for c in cards}
     pub = priv = 0
     for cid, blocks in ov.items():
         if cid.startswith("_") or not isinstance(blocks, list):
             continue
+        d = by_id.get(cid)
+        if d is None:
+            continue          # cards.json に無い entry (= 判定材料なし) は対象外
+        text = (d.get("text") or "") + (d.get("trigger") or "")
         for b in blocks:
             if not isinstance(b, dict):
                 continue
-            text = b.get("_text") or ""
 
             def _walk(node):
                 nonlocal pub, priv
@@ -186,18 +196,31 @@ def test_public_search_records_known_hand_but_private_does_not():
                     for k, v in node.items():
                         if k in ("search_top_n", "search") and isinstance(v, dict) \
                                 and v.get("public") is not None:
+                            # 「〜を公開し(、…)、手札に加え(る)」 = サーチしたカードを相手に見せる。
+                            # 単に 「公開」 の語が有るだけでは足りない (別節の 「公開」 もある) が、
+                            # 間に絞り込み節が挟まる語順もある (ST11-001 ウタ 「上から1枚を公開し、
+                            # 特徴《FILM》を持つカード1枚までを、手札に加える」) ので近接で判定。
+                            reveals = bool(re.search(r"公開.{0,60}?手札に加え", text))
                             if v["public"]:
                                 pub += 1
-                                assert "公開" in text, f"{cid}: 非公開テキストに public=True"
+                                assert reveals, f"{cid}: 公式テキストは非公開なのに public=True"
                             else:
                                 priv += 1
-                                assert "公開" not in text, f"{cid}: 公開テキストに public=False"
+                                assert not reveals, \
+                                    f"{cid}: 公式テキストは 「公開し、 手札に加える」 なのに public=False"
                         _walk(v)
                 elif isinstance(node, list):
                     for x in node:
                         _walk(x)
             _walk(b.get("do"))
-    assert pub > 100 and priv > 20, f"フラグ付与が不足 (公開 {pub} / 非公開 {priv})"
+    # フラグが 実際に 両方 使われている (= 片方が silent に消えていない) ことの sanity。
+    # ⚠ 閾値は magic number にしない: 以前 「非公開 > 20」 だったが、 それは public=False の
+    #    取り違え 85 件 を含んだ状態で較正された値で、 正しく直すと 12 件になり テストが落ちた。
+    assert pub > 100, f"public=True が少なすぎる ({pub})"
+    assert priv > 0, f"public=False が 1 件も無い ({priv})"
+    # 意味的アンカー: 公式が 「見て、 …手札に加える」 (公開の語なし) のカードは非公開のまま。
+    anchor = ov["OP07-111"][0]["do"][0]["search_top_n"]
+    assert anchor["public"] is False, "OP07-111 は 「公開」 の語が無いので非公開が正"
 
 
 def test_discard_prefers_already_revealed_card():

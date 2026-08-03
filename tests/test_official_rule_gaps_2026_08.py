@@ -86,6 +86,39 @@ def test_alt_name_rule_table_covers_all_official_text():
     )
 
 
+def test_alt_names_do_not_inflate_distinct_name_count():
+    """★別名は 「カード名の異なるキャラ」 の種類数え には 数えない (公式 Q&A、 op_16)。
+
+    公式 Q&A: 「自分の場に (OP16-034) 1枚 と EB04-038 ロシナンテ＆ロー 1枚 の 合計2枚 が
+    ある場合、 カード名は4種類あるためパワー+4000されますか？」 → 「いいえ、 +2000 です」。
+    EB04-038 は 別名を2つ持つ が 「カード名の異なるキャラ」 としては **1 種類**。
+
+    ⚠ 名前一致 (name/name_in/exclude_name/…) は別名を見る のに、 種類数え は見ない、 という
+    非対称な公式ルール。 別名対応を入れた際に 種類数え側まで 展開してしまうと この Q&A に
+    反するので、 回帰テストで固定する。
+    """
+    from engine.effects import execute_effect
+
+    repo = _repo()
+    st = _state(repo, _overlay())
+    me, opp = st.players[0], st.players[1]
+    hero = InPlay.of(repo.get("OP16-034"))
+    alt = InPlay.of(repo.get("EB04-038"))   # 別名 2 つ (ロー / ロシナンテ)
+    me.characters = [hero, alt]
+    before = hero.power
+    execute_effect(
+        {"power_pump": {"target": "self", "amount": 0,
+                        "amount_per": {"source": "self_distinct_chara_name_count",
+                                       "divisor": 1, "multiplier": 1000},
+                        "duration": "turn"}},
+        st, me, opp, hero,
+    )
+    assert hero.power - before == 2000, (
+        f"「カード名の異なるキャラ」 が {(hero.power - before) // 1000} 種類 と数えられた。 "
+        "公式は 2 種類 (別名は数えない)"
+    )
+
+
 def test_alt_name_filter_name_in():
     """filter の name_in も別名で一致する (= サーチ/登場の対象になる)。"""
     from engine.effects import _matches_filter
