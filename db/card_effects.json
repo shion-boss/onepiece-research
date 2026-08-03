@@ -18,7 +18,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -2085,7 +2085,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "top_or_bottom",
-      "public": false
+      "public": true
      }
     }
    ],
@@ -2709,7 +2709,6 @@
    "_text": "P-081 起動メイン: self手札戻し+ターン1回 + 青クロスギルド3+で 手札 cost5クロスギルドキャラ登場",
    "when": "activate_main",
    "cost": {
-    "once_per_turn": true,
     "return_self_to_hand": true
    },
    "if": {
@@ -2725,8 +2724,9 @@
     {
      "play_from_hand": {
       "filter": {
-       "feature": "クロスギルド",
-       "cost": 5
+       "category": "CHARACTER",
+       "cost_eq": 5,
+       "feature": "クロスギルド"
       },
       "limit": 1
      }
@@ -3643,7 +3643,6 @@
    "_text": "光月モモの助 起動メイン: ①+自レスト → ワノ国サーチ",
    "when": "activate_main",
    "cost": {
-    "once_per_turn": true,
     "rest_self": true,
     "rest_self_don": 1
    },
@@ -3657,7 +3656,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -4271,7 +4270,7 @@
          "limit": 1,
          "destination": "hand",
          "rest_remain": "bottom",
-         "public": false
+         "public": true
         }
        }
       ]
@@ -4642,7 +4641,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ],
@@ -5038,7 +5037,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -5074,7 +5073,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -5113,7 +5112,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -5274,7 +5273,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -5439,7 +5438,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -5701,7 +5700,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -5803,7 +5802,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -6379,7 +6378,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -6409,7 +6408,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -6436,7 +6435,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -6657,7 +6656,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -6935,7 +6934,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -6968,7 +6967,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -7124,7 +7123,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ],
@@ -7202,7 +7201,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -7223,7 +7222,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "trash",
-      "public": false
+      "public": true
      }
     },
     {
@@ -7310,7 +7309,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "trash",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -7329,7 +7328,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "trash",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -7569,17 +7568,13 @@
      }
     },
     {
-     "replace_ko_complex": {
-      "branches": [
+     "conditional": {
+      "if": {
+       "self_hand_count_le": 6
+      },
+      "do": [
        {
-        "if": {
-         "self_hand_count_le": 6
-        },
-        "do": [
-         {
-          "draw": 1
-         }
-        ]
+        "draw": 1
        }
       ]
      }
@@ -7761,7 +7756,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -7840,7 +7835,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     },
     {
@@ -8091,7 +8086,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "trash",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -8139,7 +8134,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "trash",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -8237,7 +8232,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -8689,7 +8684,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -8954,7 +8949,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -8973,7 +8968,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -12471,6 +12466,7 @@
     {
      "play_from_hand": {
       "filter": {
+       "category": "CHARACTER",
        "cost_le": 3
       },
       "limit": 1
@@ -12994,6 +12990,9 @@
   {
    "_text": "OP06-080 アタック時②(ドン2レスト,手札1捨て):デッキ上2トラッシュ+トラッシュからスリラーバークcost4以下1枚を登場 [don-gate]",
    "when": "on_attack",
+   "if": {
+    "self_attached_don_ge": 1
+   },
    "do": [
     {
      "optional_cost_then": {
@@ -13021,10 +13020,7 @@
       ]
      }
     }
-   ],
-   "if": {
-    "self_attached_don_ge": 1
-   }
+   ]
   }
  ],
  "OP07-001_p2": [
@@ -13048,6 +13044,9 @@
   {
    "_text": "OP07-019_p2 opp_attack: 【ターン1回】➀(コストエリアのドン‼を指定の数レストにできる)：相手の、リーダーかキャラ1枚までを、レストにする。",
    "when": "opp_attack",
+   "cost": {
+    "once_per_turn": true
+   },
    "do": [
     {
      "optional_cost_then": {
@@ -13063,10 +13062,7 @@
       ]
      }
     }
-   ],
-   "cost": {
-    "once_per_turn": true
-   }
+   ]
   }
  ],
  "OP07-059_p2": [
@@ -13700,7 +13696,8 @@
     {
      "attach_rested_don": {
       "target": "one_self_character_any",
-      "count": 4
+      "count": 4,
+      "up_to": true
      }
     }
    ]
@@ -13786,8 +13783,8 @@
     }
    },
    "cost": {
-    "rest_self": true,
-    "once_per_turn": true
+    "once_per_turn": true,
+    "rest_own_card": 1
    },
    "do": [
     {
@@ -14003,7 +14000,7 @@
     "self_attached_don_ge": 1
    },
    "cost": {
-    "once_per_turn": "OP13-002_p1_draw"
+    "once_per_turn": "OP13-002_draw"
    },
    "do": [
     {
@@ -14023,7 +14020,7 @@
     }
    ],
    "cost": {
-    "once_per_turn": "OP13-002_p1_draw"
+    "once_per_turn": "OP13-002_draw"
    },
    "do": [
     {
@@ -15486,6 +15483,9 @@
   {
    "_text": "OP07-019_p1 opp_attack: 【ターン1回】➀(コストエリアのドン‼を指定の数レストにできる)：相手の、リーダーかキャラ1枚までを、レストにする。",
    "when": "opp_attack",
+   "cost": {
+    "once_per_turn": true
+   },
    "do": [
     {
      "optional_cost_then": {
@@ -15501,10 +15501,7 @@
       ]
      }
     }
-   ],
-   "cost": {
-    "once_per_turn": true
-   }
+   ]
   }
  ],
  "OP07-059_p1": [
@@ -15837,6 +15834,9 @@
   {
    "_text": "OP06-080 アタック時②(ドン2レスト,手札1捨て):デッキ上2トラッシュ+トラッシュからスリラーバークcost4以下1枚を登場",
    "when": "on_attack",
+   "if": {
+    "self_attached_don_ge": 1
+   },
    "do": [
     {
      "optional_cost_then": {
@@ -15871,6 +15871,9 @@
   {
    "_text": "OP06-080 アタック時②(ドン2レスト,手札1捨て):デッキ上2トラッシュ+トラッシュからスリラーバークcost4以下1枚を登場",
    "when": "on_attack",
+   "if": {
+    "self_attached_don_ge": 1
+   },
    "do": [
     {
      "optional_cost_then": {
@@ -16320,7 +16323,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "trash",
-      "public": false
+      "public": true
      }
     }
    ],
@@ -16346,7 +16349,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "trash",
-      "public": false
+      "public": true
      }
     }
    ],
@@ -17393,15 +17396,25 @@
   {
    "_text": "OP07-019_p3: 緑ボニー 相手アタック時: 相手キャラ1枚レスト",
    "when": "opp_attack",
+   "cost": {
+    "once_per_turn": true
+   },
    "do": [
     {
-     "rest": "one_opponent_inplay_any"
+     "optional_cost_then": {
+      "cost": [
+       {
+        "rest_self_don": 1
+       }
+      ],
+      "effect": [
+       {
+        "rest": "one_opponent_inplay_any"
+       }
+      ]
+     }
     }
-   ],
-   "cost": {
-    "once_per_turn": true,
-    "rest_self_don": 1
-   }
+   ]
   }
  ],
  "ST22-001": [
@@ -18612,6 +18625,9 @@
   {
    "_text": "OP07-019_p4 opp_attack: 【ターン1回】➀(コストエリアのドン‼を指定の数レストにできる)：相手の、リーダーかキャラ1枚までを、レストにする。",
    "when": "opp_attack",
+   "cost": {
+    "once_per_turn": true
+   },
    "do": [
     {
      "optional_cost_then": {
@@ -18627,10 +18643,7 @@
       ]
      }
     }
-   ],
-   "cost": {
-    "once_per_turn": true
-   }
+   ]
   }
  ],
  "OP07-097_p3": [
@@ -19046,7 +19059,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "top_or_bottom",
-      "public": false
+      "public": true
      }
     }
    ],
@@ -21296,7 +21309,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -23725,7 +23738,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -24751,7 +24764,7 @@
          "limit": 2,
          "destination": "hand",
          "rest_remain": "bottom",
-         "public": false
+         "public": true
         }
        },
        {
@@ -26134,7 +26147,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ],
@@ -28015,7 +28028,7 @@
          "limit": 1,
          "destination": "hand",
          "rest_remain": "bottom",
-         "public": false
+         "public": true
         }
        }
       ]
@@ -30034,7 +30047,7 @@
      "draw": 1
     },
     {
-     "ko": "one_opponent_character_cost_le_2cost"
+     "ko": "one_opponent_character_cost_le_2"
     }
    ]
   }
@@ -30083,7 +30096,7 @@
    "when": "on_play",
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_2cost"
+     "rest": "one_opponent_character_cost_le_2"
     }
    ]
   }
@@ -30752,6 +30765,18 @@
   {
    "_text": "P-081_p2 activate_main: このキャラを持ち主の手札に戻すことができる：自分の青の特徴《クロスギルド》を持つキャラが3枚以上いる場合、自分の手札からコスト5の特徴《クロスギルド》を持つキャ",
    "when": "activate_main",
+   "cost": {
+    "return_self_to_hand": true
+   },
+   "if": {
+    "self_chara_filtered_count_ge": {
+     "filter": {
+      "feature": "クロスギルド",
+      "color": "青"
+     },
+     "count": 3
+    }
+   },
    "do": [
     {
      "play_from_hand": {
@@ -30763,16 +30788,7 @@
       "limit": 1
      }
     }
-   ],
-   "cost": {
-    "return_self_to_hand": true
-   },
-   "if": {
-    "self_chara_feature_count_ge": {
-     "feature": "クロスギルド",
-     "n": 3
-    }
-   }
+   ]
   }
  ],
  "P-083_p1": [
@@ -30818,23 +30834,24 @@
    "when": "on_attack",
    "do": [
     {
-     "draw": 1
-    },
-    {
      "ko": {
       "type": "one_opponent_character_filtered",
       "filter": {
        "truly_original_power_le": 3000
       }
      }
-    }
-   ],
-   "conditions": [
-    {
-     "self_hand_count_le": 6
     },
     {
-     "opp_turn": true
+     "conditional": {
+      "if": {
+       "self_hand_count_le": 6
+      },
+      "do": [
+       {
+        "draw": 1
+       }
+      ]
+     }
     }
    ]
   },
@@ -30989,7 +31006,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -31170,7 +31187,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -31403,7 +31420,7 @@
     {
      "prevent_blocker_for_attacker": {
       "target": {
-       "type": "one_self_chara_or_leader_filtered",
+       "type": "one_self_chara_filtered",
        "filter": {
         "category": "CHARACTER",
         "power_ge": 6000,
@@ -31693,6 +31710,10 @@
   {
    "_text": "OP01-041_p2 activate_main: ①(コストエリアのドン‼を指定の数レストにできる)，このキャラをレストにできる：自分のデッキの上から5枚を見て、特徴《ワノ国》を持つカード1枚までを公開し、手札",
    "when": "activate_main",
+   "cost": {
+    "rest_self": true,
+    "rest_self_don": 1
+   },
    "do": [
     {
      "search_top_n": {
@@ -31706,16 +31727,17 @@
       "public": true
      }
     }
-   ],
-   "cost": {
-    "rest_self": true
-   }
+   ]
   }
  ],
  "OP01-041_p3": [
   {
    "_text": "OP01-041_p3 activate_main: ①(コストエリアのドン‼を指定の数レストにできる)，このキャラをレストにできる：自分のデッキの上から5枚を見て、特徴《ワノ国》を持つカード1枚までを公開し、手札",
    "when": "activate_main",
+   "cost": {
+    "rest_self": true,
+    "rest_self_don": 1
+   },
    "do": [
     {
      "search_top_n": {
@@ -31729,16 +31751,17 @@
       "public": true
      }
     }
-   ],
-   "cost": {
-    "rest_self": true
-   }
+   ]
   }
  ],
  "OP01-041_p4": [
   {
    "_text": "OP01-041_p4 activate_main: ①(コストエリアのドン‼を指定の数レストにできる)，このキャラをレストにできる：自分のデッキの上から5枚を見て、特徴《ワノ国》を持つカード1枚までを公開し、手札",
    "when": "activate_main",
+   "cost": {
+    "rest_self": true,
+    "rest_self_don": 1
+   },
    "do": [
     {
      "search_top_n": {
@@ -31752,10 +31775,7 @@
       "public": true
      }
     }
-   ],
-   "cost": {
-    "rest_self": true
-   }
+   ]
   }
  ],
  "OP01-047_p3": [
@@ -31845,18 +31865,6 @@
  "OP02-004_p4": [
   {
    "_text": "don×2 on_attack: 相手のパワー3000以下のキャラ1枚までを、KOする",
-   "when": "on_attack",
-   "do": [
-    {
-     "ko": "one_opponent_character_power_le_3000"
-    }
-   ],
-   "if": {
-    "self_attached_don_ge": 2
-   }
-  },
-  {
-   "_text": "OP02-004_p4 on_play: 自分のリーダー1枚までを、次の自分のターン開始時まで、パワー+2000。その後、自分は、このターン中、自分の効果でライフを手札に加えられない。【ドン‼×2】",
    "when": "on_play",
    "do": [
     {
@@ -31868,6 +31876,18 @@
     },
     {
      "prevent_self_life_to_hand_turn": true
+    }
+   ]
+  },
+  {
+   "_text": "OP02-004_p4 on_play: 自分のリーダー1枚までを、次の自分のターン開始時まで、パワー+2000。その後、自分は、このターン中、自分の効果でライフを手札に加えられない。【ドン‼×2】",
+   "when": "on_attack",
+   "if": {
+    "self_attached_don_ge": 2
+   },
+   "do": [
+    {
+     "ko": "one_opponent_character_power_le_3000"
     }
    ]
   }
@@ -32546,10 +32566,7 @@
       ]
      }
     }
-   ],
-   "if": {
-    "self_life_le": 1
-   }
+   ]
   }
  ],
  "OP05-010_p1": [
@@ -32651,7 +32668,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ],
@@ -32674,7 +32691,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ],
@@ -32697,7 +32714,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ],
@@ -33479,7 +33496,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -33506,7 +33523,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -33649,7 +33666,7 @@
      "power_pump": {
       "target": "self_leader",
       "amount": 2000,
-      "duration": "next_opp_end_phase"
+      "duration": "next_opp_turn_end"
      }
     }
    ]
@@ -35177,7 +35194,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -36376,7 +36393,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -36454,7 +36471,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -36568,7 +36585,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -36758,7 +36775,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -36791,7 +36808,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -37519,7 +37536,19 @@
     },
     {
      "power_pump": {
-      "target": "all_self_team",
+      "target": {
+       "type": "all_self_chara_filtered",
+       "filter": {
+        "or": [
+         {
+          "name": "ドンキホーテ・ロシナンテ"
+         },
+         {
+          "feature": "ハートの海賊団"
+         }
+        ]
+       }
+      },
       "amount": 1000,
       "duration": "next_opp_turn_end"
      }
@@ -37787,7 +37816,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -38024,9 +38053,6 @@
    "when": "end_of_turn",
    "do": [
     {
-     "add_rested_don": 1
-    },
-    {
      "untap_chara": {
       "target": {
        "type": "all_self_chara_filtered",
@@ -38037,6 +38063,9 @@
       },
       "limit": 2
      }
+    },
+    {
+     "add_rested_don": 1
     }
    ]
   }
@@ -38790,15 +38819,11 @@
      "search_top_n": {
       "depth": 4,
       "filter": {
-       "cost_ge": 2,
-       "or_clauses": [
-        {
-         "feature": "麦わらの一味"
-        },
-        {
-         "feature": "ハートの海賊団"
-        }
-       ]
+       "feature_in": [
+        "麦わらの一味",
+        "ハートの海賊団"
+       ],
+       "cost_ge": 2
       },
       "limit": 1,
       "destination": "hand",
@@ -39296,7 +39321,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -39644,7 +39669,12 @@
    "when": "trigger",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_5cost"
+     "ko": {
+      "type": "one_opp_chara_filtered",
+      "filter": {
+       "cost_le": 5
+      }
+     }
     }
    ]
   }
@@ -39846,7 +39876,12 @@
    "when": "trigger",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_5cost"
+     "ko": {
+      "type": "one_opp_chara_filtered",
+      "filter": {
+       "cost_le": 5
+      }
+     }
     }
    ]
   }
@@ -40086,7 +40121,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ],
@@ -40505,10 +40540,7 @@
       ]
      }
     }
-   ],
-   "if": {
-    "self_life_le": 1
-   }
+   ]
   }
  ],
  "OP01-047_p2": [
@@ -40552,18 +40584,6 @@
  "OP02-004_p2": [
   {
    "_text": "don×2 on_attack: 相手のパワー3000以下のキャラ1枚までを、KOする",
-   "when": "on_attack",
-   "do": [
-    {
-     "ko": "one_opponent_character_power_le_3000"
-    }
-   ],
-   "if": {
-    "self_attached_don_ge": 2
-   }
-  },
-  {
-   "_text": "OP02-004_p2 on_play: 自分のリーダー1枚までを、次の自分のターン開始時まで、パワー+2000。その後、自分は、このターン中、自分の効果でライフを手札に加えられない。【ドン‼×2】",
    "when": "on_play",
    "do": [
     {
@@ -40575,6 +40595,18 @@
     },
     {
      "prevent_self_life_to_hand_turn": true
+    }
+   ]
+  },
+  {
+   "_text": "OP02-004_p2 on_play: 自分のリーダー1枚までを、次の自分のターン開始時まで、パワー+2000。その後、自分は、このターン中、自分の効果でライフを手札に加えられない。【ドン‼×2】",
+   "when": "on_attack",
+   "if": {
+    "self_attached_don_ge": 2
+   },
+   "do": [
+    {
+     "ko": "one_opponent_character_power_le_3000"
     }
    ]
   }
@@ -40605,14 +40637,12 @@
   {
    "_text": "OP03-013_p1 on_play: 相手のパワー3000以下のキャラ1枚までを、KOする。",
    "when": "on_play",
+   "if": {
+    "self_turn": true
+   },
    "do": [
     {
      "ko": "one_opponent_character_power_le_3000"
-    }
-   ],
-   "conditions": [
-    {
-     "self_turn": true
     }
    ]
   },
@@ -40991,18 +41021,6 @@
  "OP02-004_p1": [
   {
    "_text": "don×2 on_attack: 相手のパワー3000以下のキャラ1枚までを、KOする",
-   "when": "on_attack",
-   "do": [
-    {
-     "ko": "one_opponent_character_power_le_3000"
-    }
-   ],
-   "if": {
-    "self_attached_don_ge": 2
-   }
-  },
-  {
-   "_text": "OP02-004_p1 on_play: 自分のリーダー1枚までを、次の自分のターン開始時まで、パワー+2000。その後、自分は、このターン中、自分の効果でライフを手札に加えられない。【ドン‼×2】",
    "when": "on_play",
    "do": [
     {
@@ -41014,6 +41032,18 @@
     },
     {
      "prevent_self_life_to_hand_turn": true
+    }
+   ]
+  },
+  {
+   "_text": "OP02-004_p1 on_play: 自分のリーダー1枚までを、次の自分のターン開始時まで、パワー+2000。その後、自分は、このターン中、自分の効果でライフを手札に加えられない。【ドン‼×2】",
+   "when": "on_attack",
+   "if": {
+    "self_attached_don_ge": 2
+   },
+   "do": [
+    {
+     "ko": "one_opponent_character_power_le_3000"
     }
    ]
   }
@@ -41959,7 +41989,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -42010,7 +42040,7 @@
     {
      "prevent_blocker_for_attacker": {
       "target": {
-       "type": "one_self_chara_or_leader_filtered",
+       "type": "one_self_chara_filtered",
        "filter": {
         "category": "CHARACTER",
         "power_ge": 6000,
@@ -42068,7 +42098,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -42276,7 +42306,7 @@
    "when": "on_play",
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_2cost"
+     "rest": "one_opponent_character_cost_le_2"
     }
    ]
   }
@@ -42719,6 +42749,10 @@
   {
    "_text": "OP01-041_p1 activate_main: ①(コストエリアのドン‼を指定の数レストにできる)，このキャラをレストにできる：自分のデッキの上から5枚を見て、特徴《ワノ国》を持つカード1枚までを公開し、手札",
    "when": "activate_main",
+   "cost": {
+    "rest_self": true,
+    "rest_self_don": 1
+   },
    "do": [
     {
      "search_top_n": {
@@ -42732,10 +42766,7 @@
       "public": true
      }
     }
-   ],
-   "cost": {
-    "rest_self": true
-   }
+   ]
   }
  ],
  "OP01-070_p2": [
@@ -42808,18 +42839,6 @@
  "OP02-004_p3": [
   {
    "_text": "don×2 on_attack: 相手のパワー3000以下のキャラ1枚までを、KOする",
-   "when": "on_attack",
-   "do": [
-    {
-     "ko": "one_opponent_character_power_le_3000"
-    }
-   ],
-   "if": {
-    "self_attached_don_ge": 2
-   }
-  },
-  {
-   "_text": "OP02-004_p3 on_play: 自分のリーダー1枚までを、次の自分のターン開始時まで、パワー+2000。その後、自分は、このターン中、自分の効果でライフを手札に加えられない。【ドン‼×2】",
    "when": "on_play",
    "do": [
     {
@@ -42831,6 +42850,18 @@
     },
     {
      "prevent_self_life_to_hand_turn": true
+    }
+   ]
+  },
+  {
+   "_text": "OP02-004_p3 on_play: 自分のリーダー1枚までを、次の自分のターン開始時まで、パワー+2000。その後、自分は、このターン中、自分の効果でライフを手札に加えられない。【ドン‼×2】",
+   "when": "on_attack",
+   "if": {
+    "self_attached_don_ge": 2
+   },
+   "do": [
+    {
+     "ko": "one_opponent_character_power_le_3000"
     }
    ]
   }
@@ -43034,14 +43065,12 @@
   {
    "_text": "OP03-013_p2 on_play: 相手のパワー3000以下のキャラ1枚までを、KOする。",
    "when": "on_play",
+   "if": {
+    "self_turn": true
+   },
    "do": [
     {
      "ko": "one_opponent_character_power_le_3000"
-    }
-   ],
-   "conditions": [
-    {
-     "self_turn": true
     }
    ]
   },
@@ -43334,10 +43363,7 @@
       ]
      }
     }
-   ],
-   "if": {
-    "self_life_le": 1
-   }
+   ]
   }
  ],
  "OP05-037_p1": [
@@ -43455,7 +43481,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -43628,7 +43654,12 @@
    "when": "trigger",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_5cost"
+     "ko": {
+      "type": "one_opp_chara_filtered",
+      "filter": {
+       "cost_le": 5
+      }
+     }
     }
    ]
   }
@@ -44001,15 +44032,11 @@
      "search_top_n": {
       "depth": 4,
       "filter": {
-       "cost_ge": 2,
-       "or_clauses": [
-        {
-         "feature": "麦わらの一味"
-        },
-        {
-         "feature": "ハートの海賊団"
-        }
-       ]
+       "feature_in": [
+        "麦わらの一味",
+        "ハートの海賊団"
+       ],
+       "cost_ge": 2
       },
       "limit": 1,
       "destination": "hand",
@@ -44137,7 +44164,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ],
@@ -44172,7 +44199,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ],
@@ -44239,7 +44266,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -44555,7 +44582,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "trash",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -44581,7 +44608,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "trash",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -44752,6 +44779,18 @@
   {
    "_text": "P-081_p1 activate_main: このキャラを持ち主の手札に戻すことができる：自分の青の特徴《クロスギルド》を持つキャラが3枚以上いる場合、自分の手札からコスト5の特徴《クロスギルド》を持つキャ",
    "when": "activate_main",
+   "cost": {
+    "return_self_to_hand": true
+   },
+   "if": {
+    "self_chara_filtered_count_ge": {
+     "filter": {
+      "feature": "クロスギルド",
+      "color": "青"
+     },
+     "count": 3
+    }
+   },
    "do": [
     {
      "play_from_hand": {
@@ -44763,16 +44802,7 @@
       "limit": 1
      }
     }
-   ],
-   "cost": {
-    "return_self_to_hand": true
-   },
-   "if": {
-    "self_chara_feature_count_ge": {
-     "feature": "クロスギルド",
-     "n": 3
-    }
-   }
+   ]
   }
  ],
  "P-106_p1": [
@@ -44804,6 +44834,17 @@
      }
     }
    ]
+  },
+  {
+   "when": "trigger",
+   "do": [
+    {
+     "draw": 1
+    },
+    {
+     "ko": "one_opponent_character_cost_le_2"
+    }
+   ]
   }
  ],
  "P-106_p2": [
@@ -44833,6 +44874,17 @@
        }
       ]
      }
+    }
+   ]
+  },
+  {
+   "when": "trigger",
+   "do": [
+    {
+     "draw": 1
+    },
+    {
+     "ko": "one_opponent_character_cost_le_2"
     }
    ]
   }
@@ -44908,7 +44960,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -44934,7 +44986,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -45463,14 +45515,12 @@
   {
    "_text": "OP03-013_p3 on_play: 相手のパワー3000以下のキャラ1枚までを、KOする。",
    "when": "on_play",
+   "if": {
+    "self_turn": true
+   },
    "do": [
     {
      "ko": "one_opponent_character_power_le_3000"
-    }
-   ],
-   "conditions": [
-    {
-     "self_turn": true
     }
    ]
   },
@@ -46465,7 +46515,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "trash",
-      "public": false
+      "public": true
      }
     },
     {
@@ -46510,7 +46560,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "trash",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -46579,7 +46629,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -46816,7 +46866,7 @@
     {
      "prevent_blocker_for_attacker": {
       "target": {
-       "type": "one_self_chara_or_leader_filtered",
+       "type": "one_self_chara_filtered",
        "filter": {
         "category": "CHARACTER",
         "power_ge": 6000,
@@ -46904,7 +46954,7 @@
    "when": "on_play",
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_2cost"
+     "rest": "one_opponent_character_cost_le_2"
     }
    ]
   }
@@ -49080,15 +49130,11 @@
      "search_top_n": {
       "depth": 4,
       "filter": {
-       "cost_ge": 2,
-       "or_clauses": [
-        {
-         "feature": "麦わらの一味"
-        },
-        {
-         "feature": "ハートの海賊団"
-        }
-       ]
+       "feature_in": [
+        "麦わらの一味",
+        "ハートの海賊団"
+       ],
+       "cost_ge": 2
       },
       "limit": 1,
       "destination": "hand",
@@ -49261,10 +49307,10 @@
    "when": "main",
    "do": [
     {
-     "draw": 1
+     "rest": "one_opponent_character_cost_le_5cost"
     },
     {
-     "rest": "one_opponent_character_cost_le_5cost"
+     "draw": 1
     }
    ],
    "cost": {
@@ -49397,14 +49443,14 @@
    "when": "counter",
    "do": [
     {
-     "disable_effect": {
+     "negate_effect": {
       "target": "one_opponent_inplay_any",
       "duration": "turn"
      }
     },
     {
      "power_pump": {
-      "target": "one_opponent_inplay_any",
+      "target": "opp_just_negated_any",
       "amount": -4000,
       "duration": "turn"
      }
@@ -49416,7 +49462,10 @@
    "when": "trigger",
    "do": [
     {
-     "negate_effect": "one_opponent_inplay_any"
+     "negate_effect": {
+      "target": "one_opponent_inplay_any",
+      "duration": "turn"
+     }
     }
    ]
   }
@@ -49427,14 +49476,14 @@
    "when": "counter",
    "do": [
     {
-     "disable_effect": {
+     "negate_effect": {
       "target": "one_opponent_inplay_any",
       "duration": "turn"
      }
     },
     {
      "power_pump": {
-      "target": "one_opponent_inplay_any",
+      "target": "opp_just_negated_any",
       "amount": -4000,
       "duration": "turn"
      }
@@ -49446,7 +49495,10 @@
    "when": "trigger",
    "do": [
     {
-     "negate_effect": "one_opponent_inplay_any"
+     "negate_effect": {
+      "target": "one_opponent_inplay_any",
+      "duration": "turn"
+     }
     }
    ]
   }
@@ -50058,6 +50110,18 @@
   {
    "_text": "P-081_r1 activate_main: このキャラを持ち主の手札に戻すことができる：自分の青の特徴《クロスギルド》を持つキャラが3枚以上いる場合、自分の手札からコスト5の特徴《クロスギルド》を持つキャ",
    "when": "activate_main",
+   "cost": {
+    "return_self_to_hand": true
+   },
+   "if": {
+    "self_chara_filtered_count_ge": {
+     "filter": {
+      "feature": "クロスギルド",
+      "color": "青"
+     },
+     "count": 3
+    }
+   },
    "do": [
     {
      "play_from_hand": {
@@ -50069,16 +50133,7 @@
       "limit": 1
      }
     }
-   ],
-   "cost": {
-    "return_self_to_hand": true
-   },
-   "if": {
-    "self_chara_feature_count_ge": {
-     "feature": "クロスギルド",
-     "n": 3
-    }
-   }
+   ]
   }
  ],
  "P-082_p2": [
@@ -50480,7 +50535,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -50831,7 +50886,7 @@
        "name_in": [
         "サボ",
         "ポートガス・D・エース",
-        "モンキー・Ｄ・ルフィ"
+        "モンキー・D・ルフィ"
        ]
       },
       "limit": 1,
@@ -50867,7 +50922,7 @@
        "name_in": [
         "サボ",
         "ポートガス・D・エース",
-        "モンキー・Ｄ・ルフィ"
+        "モンキー・D・ルフィ"
        ]
       },
       "limit": 1,
@@ -51295,7 +51350,7 @@
     {
      "prevent_blocker_for_attacker": {
       "target": {
-       "type": "one_self_chara_or_leader_filtered",
+       "type": "one_self_chara_filtered",
        "filter": {
         "category": "CHARACTER",
         "power_ge": 6000,
@@ -51593,6 +51648,10 @@
   {
    "_text": "OP01-041_r1 activate_main: ①(コストエリアのドン‼を指定の数レストにできる)，このキャラをレストにできる：自分のデッキの上から5枚を見て、特徴《ワノ国》を持つカード1枚までを公開し、手札",
    "when": "activate_main",
+   "cost": {
+    "rest_self": true,
+    "rest_self_don": 1
+   },
    "do": [
     {
      "search_top_n": {
@@ -51606,10 +51665,7 @@
       "public": true
      }
     }
-   ],
-   "cost": {
-    "rest_self": true
-   }
+   ]
   }
  ],
  "OP01-047_r1": [
@@ -51750,24 +51806,32 @@
  "OP01-078_p3": [
   {
    "_text": "OP01-078_p3 on_block: 自分の手札が5枚以下の場合、カード1枚を引く。",
-   "when": "on_block",
+   "when": "on_attack",
+   "conditions": [
+    {
+     "self_attached_don_ge": 1
+    },
+    {
+     "self_hand_count_le": 5
+    }
+   ],
    "do": [
     {
      "draw": 1
     }
-   ],
-   "if": {
-    "self_hand_count_le": 5,
-    "self_attached_don_ge": 1
-   }
+   ]
   },
   {
    "_text": "【ドン‼×1】【アタック時】自分の手札が5枚以下の場合、 カード1枚を引く。",
-   "when": "on_attack",
-   "if": {
-    "self_attached_don_ge": 1,
-    "self_hand_count_le": 5
-   },
+   "when": "on_block",
+   "conditions": [
+    {
+     "self_attached_don_ge": 1
+    },
+    {
+     "self_hand_count_le": 5
+    }
+   ],
    "do": [
     {
      "draw": 1
@@ -51778,24 +51842,32 @@
  "OP01-078_r1": [
   {
    "_text": "OP01-078_r1 on_block: 自分の手札が5枚以下の場合、カード1枚を引く。",
-   "when": "on_block",
+   "when": "on_attack",
+   "conditions": [
+    {
+     "self_attached_don_ge": 1
+    },
+    {
+     "self_hand_count_le": 5
+    }
+   ],
    "do": [
     {
      "draw": 1
     }
-   ],
-   "if": {
-    "self_hand_count_le": 5,
-    "self_attached_don_ge": 1
-   }
+   ]
   },
   {
    "_text": "【ドン‼×1】【アタック時】自分の手札が5枚以下の場合、 カード1枚を引く。",
-   "when": "on_attack",
-   "if": {
-    "self_attached_don_ge": 1,
-    "self_hand_count_le": 5
-   },
+   "when": "on_block",
+   "conditions": [
+    {
+     "self_attached_don_ge": 1
+    },
+    {
+     "self_hand_count_le": 5
+    }
+   ],
    "do": [
     {
      "draw": 1
@@ -51845,18 +51917,6 @@
  "OP02-004_r1": [
   {
    "_text": "don×2 on_attack: 相手のパワー3000以下のキャラ1枚までを、KOする",
-   "when": "on_attack",
-   "do": [
-    {
-     "ko": "one_opponent_character_power_le_3000"
-    }
-   ],
-   "if": {
-    "self_attached_don_ge": 2
-   }
-  },
-  {
-   "_text": "OP02-004_r1 on_play: 自分のリーダー1枚までを、次の自分のターン開始時まで、パワー+2000。その後、自分は、このターン中、自分の効果でライフを手札に加えられない。【ドン‼×2】",
    "when": "on_play",
    "do": [
     {
@@ -51868,6 +51928,18 @@
     },
     {
      "prevent_self_life_to_hand_turn": true
+    }
+   ]
+  },
+  {
+   "_text": "OP02-004_r1 on_play: 自分のリーダー1枚までを、次の自分のターン開始時まで、パワー+2000。その後、自分は、このターン中、自分の効果でライフを手札に加えられない。【ドン‼×2】",
+   "when": "on_attack",
+   "if": {
+    "self_attached_don_ge": 2
+   },
+   "do": [
+    {
+     "ko": "one_opponent_character_power_le_3000"
     }
    ]
   }
@@ -53572,10 +53644,7 @@
       ]
      }
     }
-   ],
-   "if": {
-    "self_life_le": 1
-   }
+   ]
   }
  ],
  "OP05-006_p2": [
@@ -53688,7 +53757,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ],
@@ -54378,7 +54447,8 @@
     }
    ],
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": true,
+    "rest_self_don": 1
    }
   }
  ],
@@ -54407,7 +54477,8 @@
     }
    ],
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": true,
+    "rest_self_don": 1
    }
   }
  ],
@@ -54436,7 +54507,8 @@
     }
    ],
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": true,
+    "rest_self_don": 1
    }
   }
  ],
@@ -55147,7 +55219,7 @@
     }
    ],
    "if": {
-    "self_life_le": 3
+    "opp_life_le": 3
    }
   }
  ],
@@ -55181,7 +55253,7 @@
     }
    ],
    "if": {
-    "self_life_le": 3
+    "opp_life_le": 3
    }
   }
  ],
@@ -55215,7 +55287,7 @@
     }
    ],
    "if": {
-    "self_life_le": 3
+    "opp_life_le": 3
    }
   }
  ],
@@ -55262,7 +55334,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -57343,11 +57415,10 @@
      "ko": "one_opponent_rested_character_cost_le_5cost"
     },
     {
-     "play_from_hand": {
+     "play_stage_from_hand": {
       "filter": {
        "name": "ゾウ"
-      },
-      "limit": 1
+      }
      }
     }
    ],
@@ -59720,7 +59791,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -64330,7 +64401,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -66799,7 +66870,8 @@
     }
    ],
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": true,
+    "rest_self_don": 1
    }
   }
  ],
@@ -66828,7 +66900,8 @@
     }
    ],
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": true,
+    "rest_self_don": 1
    }
   }
  ],
@@ -69514,7 +69587,7 @@
     },
     {
      "power_pump": {
-      "target": "one_opponent_inplay_any",
+      "target": "opp_just_negated_any",
       "amount": -4000,
       "duration": "turn"
      }
@@ -72673,7 +72746,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ],
@@ -76282,7 +76355,8 @@
     }
    ],
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": true,
+    "rest_self_don": 1
    }
   }
  ],
@@ -76311,7 +76385,8 @@
     }
    ],
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": true,
+    "rest_self_don": 1
    }
   }
  ],
@@ -83521,7 +83596,7 @@
     }
    ],
    "if": {
-    "self_life_le": 3
+    "opp_life_le": 3
    }
   }
  ],
@@ -84544,7 +84619,7 @@
    "when": "on_play",
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_2cost"
+     "rest": "one_opponent_character_cost_le_2"
     }
    ]
   }
@@ -89256,12 +89331,11 @@
    "_text": "ST03-003 クロコ ブロック時: ドン1+ で 相手コスト2以下を持ち主デッキ下 [don-gate]",
    "when": "on_block",
    "if": {
-    "self_don_ge": 1,
     "self_attached_don_ge": 1
    },
    "do": [
     {
-     "return_to_deck_bottom": "one_opponent_character_cost_le_2"
+     "return_to_deck_bottom": "one_character_either_cost_le_2"
     }
    ]
   }
@@ -89392,18 +89466,18 @@
       "amount": 4000,
       "duration": "battle"
      }
-    }
-   ]
-  },
-  {
-   "_text": "メロメロ甘風 カウンター: 手札3以下なら 1ドロー",
-   "when": "counter",
-   "if": {
-    "self_hand_count_le": 3
-   },
-   "do": [
+    },
     {
-     "draw": 1
+     "conditional": {
+      "if": {
+       "self_hand_count_le": 3
+      },
+      "do": [
+       {
+        "draw": 1
+       }
+      ]
+     }
     }
    ]
   }
@@ -90086,7 +90160,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -90114,15 +90188,16 @@
     {
      "untap_chara": {
       "target": {
-       "type": "one_self_chara_filtered",
+       "type": "all_self_chara_filtered",
        "filter": {
-        "rested": true,
         "cost_le": 5,
         "feature_in": [
          "超新星",
          "ハートの海賊団"
         ]
-       }
+       },
+       "rested": true,
+       "limit": 1
       },
       "limit": 1
      }
@@ -90363,15 +90438,18 @@
    "when": "activate_main",
    "do": [
     {
-     "give_keyword": {
-      "target": "self",
-      "keyword": "ダブルアタック"
+     "rest": {
+      "type": "all_opponent_chara_filtered",
+      "filter": {
+       "cost_le": 6
+      },
+      "limit": 2
      }
     },
     {
-     "rest": {
-      "target": "one_opponent_character_cost_le_6",
-      "count": 2
+     "give_keyword": {
+      "target": "self",
+      "keyword": "ダブルアタック"
      }
     }
    ],
@@ -94081,14 +94159,14 @@
   {
    "_text": "ST03-003_p2 on_block: コスト2以下のキャラ1枚までを、持ち主のデッキの下に置く。 [don-gate]",
    "when": "on_block",
-   "do": [
-    {
-     "return_to_deck_bottom": "one_opponent_character_any_cost_le_2"
-    }
-   ],
    "if": {
     "self_attached_don_ge": 1
-   }
+   },
+   "do": [
+    {
+     "return_to_deck_bottom": "one_character_either_cost_le_2"
+    }
+   ]
   }
  ],
  "ST03-004_p1": [
@@ -95074,7 +95152,8 @@
     }
    ],
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": true,
+    "rest_self_don": 1
    }
   }
  ],
@@ -95633,7 +95712,7 @@
       "filter": {},
       "amount_per_discard": 1000,
       "target": "self",
-      "max": 5
+      "max": 3
      }
     }
    ]
@@ -102706,7 +102785,7 @@
       "type": "all_self_chara_filtered",
       "filter": {
        "cost_le": 3,
-       "exclude_name": "モンキー・Ｄ・ルフィ"
+       "exclude_name": "モンキー・D・ルフィ"
       }
      }
     }
@@ -104159,7 +104238,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     },
     {
@@ -104494,7 +104573,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -104514,7 +104593,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     },
     {
@@ -104537,7 +104616,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -104561,7 +104640,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "trash",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -106016,7 +106095,7 @@
       "limit": 2,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     },
     {
@@ -106039,7 +106118,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -106542,7 +106621,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -106629,7 +106708,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "trash",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -106857,7 +106936,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -106882,7 +106961,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]
@@ -108077,7 +108156,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ],
@@ -108332,7 +108411,7 @@
       "limit": 1,
       "destination": "hand",
       "rest_remain": "bottom",
-      "public": false
+      "public": true
      }
     }
    ]

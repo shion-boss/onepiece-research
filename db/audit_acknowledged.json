@@ -1,146 +1,151 @@
 {
-  "_comment": "audit_overlay_vs_faq.py が severity 計算から除外する issue リスト。 intrinsic に解決不能 / engine 内部で既に正しく動作している ものを登録する。",
-  "OP01-047": [
-    "faq_attention_10",
-    "faq_negation"
-  ],
-  "OP12-119": [
-    "missing_on_ko"
-  ],
-  "_acknowledge_note_op12_119": "2026-05-31 acknowledged: 公式 「【相手のターン中】【KO時】」 は engine 上 では on_self_chara_ko + opp_turn:true 条件 で 厳密 表現 する (= on_ko 無条件 entry は 自ターン KO で も 不当 発火 する ため 削除済)。 audit script の keyword 検出 は on_ko を 期待 する が、 これ は false positive。",
-  "OP01-094": [
-    "faq_attention_10",
-    "faq_negation"
-  ],
-  "OP07-021": [
-    "faq_negation",
-    "faq_attention_4"
-  ],
-  "OP01-026": [
-    "faq_negation"
-  ],
-  "OP01-026_p1": [
-    "faq_negation"
-  ],
-  "OP01-026_p2": [
-    "faq_negation"
-  ],
-  "OP01-026_r1": [
-    "faq_negation"
-  ],
-  "EB03-031": [
-    "faq_negation"
-  ],
-  "EB03-031_p1": [
-    "faq_negation"
-  ],
-  "EB03-031_p2": [
-    "faq_negation"
-  ],
-  "EB01-012": [
-    "faq_negation"
-  ],
-  "EB01-061": [
-    "faq_negation"
-  ],
-  "P-084": [
-    "faq_negation"
-  ],
-  "OP07-024": [
-    "missing_opp_attack"
-  ],
-  "OP05-030": [
-    "opp_turn_condition_unmodeled",
-    "vanilla_but_has_faq"
-  ],
-  "OP04-071": [
-    "missing_opp_attack"
-  ],
-  "OP03-013": [
-    "missing_on_ko"
-  ],
-  "OP02-004": [
-    "missing_on_attack"
-  ],
-  "ST22-002_p1": [
-    "missing_opp_attack"
-  ],
-  "P-040": [
-    "don_count_condition_unmodeled",
-    "vanilla_but_has_faq"
-  ],
-  "OP13-100": [
-    "missing_once_per_turn"
-  ],
-  "OP13-100_p1": [
-    "missing_once_per_turn"
-  ],
-  "OP12-043": [
-    "faq_attention_4",
-    "faq_negation"
-  ],
-  "OP11-024": [
-    "vanilla_but_has_faq"
-  ],
-  "OP10-030": [
-    "faq_attention_4",
-    "faq_negation"
-  ],
-  "OP10-104": [
-    "life_condition_unmodeled",
-    "leader_feature_unmodeled",
-    "don_count_condition_unmodeled"
-  ],
-  "OP05-075": [
-    "don_count_condition_unmodeled",
-    "faq_negation"
-  ],
-  "OP05-109": [
-    "missing_once_per_turn"
-  ],
-  "OP04-053": [
-    "faq_attention_4",
-    "faq_negation"
-  ],
-  "OP04-082": [
-    "faq_attention_4",
-    "faq_negation"
-  ],
-  "OP03-040": [
-    "don_count_condition_unmodeled",
-    "faq_attention_8"
-  ],
-  "OP01-006": [
-    "faq_attention_4",
-    "faq_negation"
-  ],
-  "OP01-051": [
-    "faq_attention_4",
-    "faq_negation"
-  ],
-  "OP01-060": [
-    "faq_attention_4",
-    "faq_negation"
-  ],
-  "ST12-001": [
-    "faq_attention_4",
-    "faq_negation"
-  ],
-  "ST01-007": [
-    "don_count_condition_unmodeled",
-    "faq_negation"
-  ],
-  "ST10-014": [
-    "don_count_condition_unmodeled"
-  ],
-  "OP09-097": [
-    "faq_attention_6",
-    "faq_negation"
-  ],
-  "_acknowledge_note_op09_097": "2026-07-21 acknowledged: 闇水 overlay (counter: negate_effect + power_pump -4000) は公式テキストに忠実。 faq_attention_6 は faq 6件の注目度のみ。 faq_negation の『いいえ』は (1) 別カードの【メイン】効果でトラッシュの闇水を回収できるか=No (= OP09-097 自身の効果と無関係) (2) リーダー『ブルック』の deck-out 回避効果を闇水で無効化した際の敗北判定 (= engine ruling、 overlay の誤許可でない)。 いずれも overlay バグでない false positive。",
-  "ST34-001": [
-    "don_count_condition_unmodeled",
-    "faq_negation"
-  ],
-  "_acknowledge_note_st34_001": "2026-07-21 acknowledged: カタクリ overlay (on_self_don_returned_to_deck + self_turn/leader_feature 条件 + once_per_turn + add_rested_don 2) は公式テキストに忠実。 don_count_condition_unmodeled は false positive (『ドン!!2枚まで』は追加枚数であり、 モデル化すべきドン枚数『条件』ではない)。 faq_negation の『いいえ』は 2枚コピー時の once-per-turn 多重発動不可という intrinsic な多コピー timing ruling (= overlay の誤許可でない)。"
+ "_comment": "audit_overlay_vs_faq.py が severity 計算から除外する issue リスト。 intrinsic に解決不能 / engine 内部で既に正しく動作している ものを登録する。",
+ "OP01-047": [
+  "faq_attention_10",
+  "faq_negation"
+ ],
+ "OP12-119": [
+  "missing_on_ko"
+ ],
+ "_acknowledge_note_op12_119": "2026-05-31 acknowledged: 公式 「【相手のターン中】【KO時】」 は engine 上 では on_self_chara_ko + opp_turn:true 条件 で 厳密 表現 する (= on_ko 無条件 entry は 自ターン KO で も 不当 発火 する ため 削除済)。 audit script の keyword 検出 は on_ko を 期待 する が、 これ は false positive。",
+ "OP01-094": [
+  "faq_attention_10",
+  "faq_negation"
+ ],
+ "OP07-021": [
+  "faq_negation",
+  "faq_attention_4"
+ ],
+ "OP01-026": [
+  "faq_negation"
+ ],
+ "OP01-026_p1": [
+  "faq_negation"
+ ],
+ "OP01-026_p2": [
+  "faq_negation"
+ ],
+ "OP01-026_r1": [
+  "faq_negation"
+ ],
+ "EB03-031": [
+  "faq_negation"
+ ],
+ "EB03-031_p1": [
+  "faq_negation"
+ ],
+ "EB03-031_p2": [
+  "faq_negation"
+ ],
+ "EB01-012": [
+  "faq_negation"
+ ],
+ "EB01-061": [
+  "faq_negation"
+ ],
+ "P-084": [
+  "faq_negation"
+ ],
+ "OP07-024": [
+  "missing_opp_attack"
+ ],
+ "OP05-030": [
+  "opp_turn_condition_unmodeled",
+  "vanilla_but_has_faq"
+ ],
+ "OP04-071": [
+  "missing_opp_attack"
+ ],
+ "OP03-013": [
+  "missing_on_ko"
+ ],
+ "OP02-004": [
+  "missing_on_attack"
+ ],
+ "ST22-002_p1": [
+  "missing_opp_attack"
+ ],
+ "P-040": [
+  "don_count_condition_unmodeled",
+  "vanilla_but_has_faq"
+ ],
+ "OP13-100": [
+  "missing_once_per_turn"
+ ],
+ "OP13-100_p1": [
+  "missing_once_per_turn"
+ ],
+ "OP12-043": [
+  "faq_attention_4",
+  "faq_negation"
+ ],
+ "OP11-024": [
+  "vanilla_but_has_faq"
+ ],
+ "OP10-030": [
+  "faq_attention_4",
+  "faq_negation"
+ ],
+ "OP10-104": [
+  "life_condition_unmodeled",
+  "leader_feature_unmodeled",
+  "don_count_condition_unmodeled"
+ ],
+ "OP05-075": [
+  "don_count_condition_unmodeled",
+  "faq_negation"
+ ],
+ "OP05-109": [
+  "missing_once_per_turn"
+ ],
+ "OP04-053": [
+  "faq_attention_4",
+  "faq_negation"
+ ],
+ "OP04-082": [
+  "faq_attention_4",
+  "faq_negation"
+ ],
+ "OP03-040": [
+  "don_count_condition_unmodeled",
+  "faq_attention_8"
+ ],
+ "OP01-006": [
+  "faq_attention_4",
+  "faq_negation"
+ ],
+ "OP01-051": [
+  "faq_attention_4",
+  "faq_negation"
+ ],
+ "OP01-060": [
+  "faq_attention_4",
+  "faq_negation"
+ ],
+ "ST12-001": [
+  "faq_attention_4",
+  "faq_negation"
+ ],
+ "ST01-007": [
+  "don_count_condition_unmodeled",
+  "faq_negation"
+ ],
+ "ST10-014": [
+  "don_count_condition_unmodeled"
+ ],
+ "OP09-097": [
+  "faq_attention_6",
+  "faq_negation"
+ ],
+ "_acknowledge_note_op09_097": "2026-07-21 acknowledged: 闇水 overlay (counter: negate_effect + power_pump -4000) は公式テキストに忠実。 faq_attention_6 は faq 6件の注目度のみ。 faq_negation の『いいえ』は (1) 別カードの【メイン】効果でトラッシュの闇水を回収できるか=No (= OP09-097 自身の効果と無関係) (2) リーダー『ブルック』の deck-out 回避効果を闇水で無効化した際の敗北判定 (= engine ruling、 overlay の誤許可でない)。 いずれも overlay バグでない false positive。",
+ "ST34-001": [
+  "don_count_condition_unmodeled",
+  "faq_negation"
+ ],
+ "_acknowledge_note_st34_001": "2026-07-21 acknowledged: カタクリ overlay (on_self_don_returned_to_deck + self_turn/leader_feature 条件 + once_per_turn + add_rested_don 2) は公式テキストに忠実。 don_count_condition_unmodeled は false positive (『ドン!!2枚まで』は追加枚数であり、 モデル化すべきドン枚数『条件』ではない)。 faq_negation の『いいえ』は 2枚コピー時の once-per-turn 多重発動不可という intrinsic な多コピー timing ruling (= overlay の誤許可でない)。",
+ "EB04-038": [
+  "faq_attention_6",
+  "faq_negation"
+ ],
+ "_acknowledge_note_eb04_038": "2026-08-03 acknowledged: FAQ は 「カード名の異なるキャラ」 の種類数え (別名を数えない) に 関するもの。 engine は printed name のみで数えており (self_distinct_chara_name_count / self_distinct_name_count_filtered_ge)、 公式 Q&A どおり EB04-038 は 1 種類。 別名テーブル 自体は db/card_alt_names.json (overlay とは別ファイル) にあり audit script からは見えない ため faq_attention/faq_negation が立つ = false positive。 回帰テストは tests/test_official_rule_gaps_2026_08.py::test_alt_names_do_not_inflate_distinct_name_count。"
 }
