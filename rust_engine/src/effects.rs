@@ -896,8 +896,18 @@ fn resolve_target(
                 return Some(cands.into_iter().map(|(sl, _)| (me_idx, sl)).collect());
             }
             if t == "all_self_chara_filtered" {
-                let filt = v.get("filter");
-                let rested_req = v.get("rested").and_then(|x| x.as_bool());
+                // rested は target 直下が優先、 無ければ filter 直書きを honor (Python 同様)。
+                // filter 側は matches_filter が未知キーを不一致扱いにするので strip して渡す。
+                let rested_req = v
+                    .get("rested")
+                    .and_then(|x| x.as_bool())
+                    .or_else(|| v.get("filter").and_then(|f| f.get("rested")).and_then(|x| x.as_bool()));
+                let filt: Option<Value> = v.get("filter").map(|f| {
+                    let mut o = f.as_object().cloned().unwrap_or_default();
+                    o.remove("rested");
+                    Value::Object(o)
+                });
+                let filt = filt.as_ref();
                 let cpge = v.get("current_power_ge").and_then(|x| x.as_i64()).map(|x| x as i32);
                 let cple = v.get("current_power_le").and_then(|x| x.as_i64()).map(|x| x as i32);
                 let p = &state.players[me_idx];
@@ -975,11 +985,23 @@ fn resolve_target(
             if t == "one_self_chara_filtered" || t == "one_self_character_filtered" {
                 let cpge = v.get("filter").and_then(|f| f.get("current_power_ge")).and_then(|x| x.as_i64());
                 let cple = v.get("filter").and_then(|f| f.get("current_power_le")).and_then(|x| x.as_i64());
-                let rested_req = v.get("rested_required").and_then(|x| x.as_bool()).unwrap_or(false);
+                // rested は target 直下の rested_required と filter 直書き の両方を honor する
+                // (Python も同様。 記法が割れており、 honor しないと 「レスト限定」 が silent に
+                // 消える = ST02-009_r1 で実害があった)。 filter 側は matches_filter が
+                // 未知キーを不一致扱いにするので 必ず strip してから渡す。
+                let rested_req = v.get("rested_required").and_then(|x| x.as_bool()).unwrap_or(false)
+                    || v.get("filter").and_then(|f| f.get("rested")).and_then(|x| x.as_bool()).unwrap_or(false);
+                let active_req = v
+                    .get("filter")
+                    .and_then(|f| f.get("active"))
+                    .and_then(|x| x.as_bool())
+                    .unwrap_or(false);
                 let base_filt: Option<Value> = v.get("filter").map(|f| {
                     let mut o = f.as_object().cloned().unwrap_or_default();
                     o.remove("current_power_ge");
                     o.remove("current_power_le");
+                    o.remove("rested");
+                    o.remove("active");
                     Value::Object(o)
                 });
                 let p = &state.players[me_idx];
@@ -988,6 +1010,7 @@ fn resolve_target(
                         let c = &p.characters[i];
                         matches_filter(&c.card, base_filt.as_ref())
                             && (!rested_req || c.rested)
+                            && (!active_req || !c.rested)
                             && cpge.map_or(true, |t| c.power() as i64 >= t)
                             && cple.map_or(true, |t| (c.power() as i64) <= t)
                     })
@@ -1145,8 +1168,11 @@ fn resolve_target(
             let is_power = os.starts_with("opp_just_negated_power_le_");
             let thr = parse_after(os, "_le_").unwrap_or(0);
             // Python は iid で opp.characters を走査 = 場を離れていれば [] (index 越境も同義)。
+            // リーダーは Python 側も opp.characters しか見ない = 対象外。
             match state.last_negated {
-                Some((pi, ci)) if pi == opp_idx && ci < state.players[pi].characters.len() => {
+                Some((pi, Slot::Char(ci)))
+                    if pi == opp_idx && ci < state.players[pi].characters.len() =>
+                {
                     let ip = &state.players[pi].characters[ci];
                     let val = if is_power { ip.power() } else { ip.base_cost() };
                     if val <= thr { vec![(pi, Slot::Char(ci))] } else { vec![] }
@@ -1154,6 +1180,18 @@ fn resolve_target(
                 _ => vec![],
             }
         }
+        // opp_just_negated_any = 直前に negate した相手のリーダー or キャラ (effects.py の
+        // 同名 spec)。 「1 枚までを、 効果を無効にし、 パワー-N」 の後半を 同一の 1 枚 に当てる
+        // (OP09-097 闇水)。 場を離れていれば [] (= Python の iid 照合と等価)。
+        "opp_just_negated_any" => match state.last_negated {
+            Some((pi, Slot::Char(ci)))
+                if pi == opp_idx && ci < state.players[pi].characters.len() =>
+            {
+                vec![(pi, Slot::Char(ci))]
+            }
+            Some((pi, Slot::Leader)) if pi == opp_idx => vec![(pi, Slot::Leader)],
+            _ => vec![],
+        },
         // one_character_either_cost_le_N = 両陣営のキャラから 元コスト N 以下 1 枚 (相手優先 power 降順)
         // ⚠ overlay の `one_inplay_cost_le_N` 表記も同 semantics (effects.py:2626、 OP02-062 等)。
         os if os.starts_with("one_character_either_cost_le_") || os.starts_with("one_inplay_cost_le_") => {
@@ -5819,10 +5857,10 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 get_ip_mut(&mut state.players[pi], sl).granted_keywords.insert("効果無効".to_string());
             }
             // 「その後、 そのキャラの〜」 (opp_just_negated_*) 用に直近 negate 対象を記録
-            // (effects.py:7666)。 キャラ以外 (リーダー等) は記録しない = Python の iid 照合が
-            // opp.characters のみを走査するのと等価。
+            // (effects.py:7666)。 リーダーも記録する (opp_just_negated_any が対象にする)。
+            // 0 対象なら None で clear (= 前回の対象が残ると別カードに当たる)。
             state.last_negated = match first {
-                Some((pi, Slot::Char(i))) => Some((pi, i)),
+                Some((pi, sl @ (Slot::Char(_) | Slot::Leader))) => Some((pi, sl)),
                 _ => None,
             };
             true

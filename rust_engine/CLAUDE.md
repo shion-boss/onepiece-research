@@ -85,6 +85,13 @@ RNG 依存効果は `rng.rs` (MT19937、 CPython `random` の bit 再現) を使
 - **once_per_turn の canonical 化**: top-level `once_per_turn` の発動済みは `once_per_turn_used` (set、
   `iid:` 依存で _EXCLUDE) では Rust から見えない。 field-when 系は InPlay の `event_once_used` field に昇格
   (`_FIELD_WHEN_ONCE_MIRROR`、 refresh で clear) して digest に載せる。
+- **`matches_filter` の未知キー方針が Python と逆**: Python の `_matches_filter` は未知キーを
+  **黙って無視 (= 制限なし)**、 Rust は `_ => return false` で **不一致扱い (安全側)**。 そのため
+  Python 側で 「filter に書いたが _matches_filter が読まないキー」 (= `rested` / `active` /
+  `no_effect` / `truly_original_power_*` 等) を target spec 側で honor する実装を足したら、
+  **Rust は同じキーを filter から strip してから `matches_filter` に渡す**。 strip し忘れると
+  Rust だけ 0 対象になり MISMATCH。 逆に allow-list に足すだけだと 「Python は無視・Rust も無視」
+  で 制限が両方消える。 どちらが正かは 公式テキスト で決める。
 
 ## ツール
 

@@ -2170,8 +2170,14 @@ def _resolve_target(
             # 「自分のレストの…」 (= OP10-029) は target-spec 直下の rested_required で
             # レスト限定を honor する (公式テキスト「自分のレストの…をアクティブにする」)。
             # 未指定 (= false) なら active/rested 問わず。
-            if bool(target_spec.get("rested_required", False)):
+            # ⚠ filter 側に rested/active を書いた overlay も許容する: _matches_filter は
+            # CardDef ベースで rested を知らない (= 未知キーは黙って無視) ため、 filter 直書きを
+            # honor しないと 「レスト限定」 が silent に消える (= ST02-009_r1 で実害)。
+            # one_opponent_character_filtered は filter 側で honor しており 記法が割れている。
+            if bool(target_spec.get("rested_required", False)) or bool(filt.get("rested", False)):
                 cands = [ip for ip in cands if ip.rested]
+            if bool(filt.get("active", False)):
+                cands = [ip for ip in cands if not ip.rested]
             if iid_picks is not None:
                 return [ip for ip in cands if ip.instance_id in iid_picks][:1]
             if outer_kind and _maybe_request_target_pick(
@@ -2196,6 +2202,10 @@ def _resolve_target(
             if "rested" in target_spec:
                 rested_required = bool(target_spec["rested"])
                 cands = [ip for ip in cands if ip.rested == rested_required]
+            elif "rested" in filt:
+                # filter 直書きも honor (= 記法揺れによる silent no-op 防止、 上の
+                # one_self_chara_filtered と同じ理由)。
+                cands = [ip for ip in cands if ip.rested == bool(filt["rested"])]
             # 現在パワー (= DON 付与等の修正込み) での絞り込み。 ⚠ filter の power_ge は _matches_filter
             # 経由で「元々パワー (CardDef 印刷値)」 を見るので、 「(元々でない) パワーN以上」 は別キー
             # current_power_ge/le で InPlay.power を見る (= OP16-001 エース「自分のパワー8000以上の…」)。
@@ -2322,6 +2332,16 @@ def _resolve_target(
         # state.last_replace_victim を 参照 (= try_replace_ko 等 が セット)。
         vic = getattr(state, "last_replace_victim", None)
         return [vic] if vic is not None else []
+    if target_spec == "opp_just_negated_any":
+        # 直前に negate した相手のリーダー or キャラ (= 「1 枚までを、 効果を無効にし、 パワー-N」 の
+        # 後半。 公式は 同一の 1 枚 に 両方 適用する ので、 target を 2 回 解決すると 別カードに
+        # 当たりうる (human なら modal が 2 回 出て 実際に 割れる)。 OP09-097 闇水 等)。
+        iid = getattr(state, "last_negated_iid", None)
+        if iid is not None:
+            for ip in [opp.leader, *opp.characters]:
+                if ip is not None and ip.instance_id == iid:
+                    return [ip]
+        return []
     if isinstance(target_spec, str):
         # opp_just_negated_power_le_N / _cost_le_N: 直前に negate した相手キャラを、
         # power/cost 閾値を満たす場合のみ返す (= 「その後、 そのキャラのパワー/コストがX以下ならKO」、
@@ -7698,8 +7718,9 @@ def _execute_effect_body(
             for t in targets:
                 t.granted_keywords.add("効果無効")
             # soshite (= 「その後、 そのキャラの〜」) 用に直近 negate 対象を記録。
-            if targets:
-                state.last_negated_iid = targets[0].instance_id
+            # 0 対象なら None で clear する (= 前回の対象が残ると opp_just_negated_* が
+            # 別カードに当たる)。
+            state.last_negated_iid = targets[0].instance_id if targets else None
             state.push_log(f"  効果: 効果無効付与 → {[t.card.name for t in targets]} (近似)")
         elif k == "other_self_charas_to_deck_bottom":
             # このキャラ以外の自分のキャラすべてをデッキ下へ。

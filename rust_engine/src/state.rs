@@ -524,10 +524,11 @@ pub struct GameState {
     /// 条件 by_opp_effect / by_battle の判定に使う。 fire_on_ko の引数から設定する。
     #[serde(skip)]
     pub last_ko_by_opp_effect: bool,
-    /// 直前に negate_effect した相手キャラ (player_idx, char_idx)。 effects.py:7666
-    /// `state.last_negated_iid` の代替。 opp_just_negated_cost_le_N 解決に使う (OP09-098)。
+    /// 直前に negate_effect した相手のリーダー or キャラ (player_idx, Slot)。 effects.py:7666
+    /// `state.last_negated_iid` の代替。 opp_just_negated_cost_le_N (OP09-098) と
+    /// opp_just_negated_any (OP09-097 闇水、 リーダーも対象) の解決に使う。
     #[serde(skip)]
-    pub last_negated: Option<(usize, usize)>,
+    pub last_negated: Option<(usize, crate::effects::Slot)>,
     /// 直前に cost の discard_hand_with_filter で捨てたカード名 (effects.py:8877
     /// `state.last_discarded_names`)。 filter の name_in_last_discarded 解決に使う (EB02-039)。
     #[serde(skip)]
