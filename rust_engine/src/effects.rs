@@ -847,6 +847,26 @@ fn resolve_target(
         Some(v) if v.is_string() => v.as_str().unwrap().to_string(),
         None => "self".to_string(),
         Some(v) => {
+            // 動的 filter (cost_le_dynamic / name_in_last_discarded / or) を **入口で** 静的化する。
+            // Python の _resolve_target は dict spec 全てに _resolve_dynamic_filter を掛ける
+            // (effects.py:2109)。 ⚠ Rust は個別 primitive でしか解決しておらず、 ko/return_to_hand
+            //   等 の one_opponent_character_filtered が cost_le_dynamic を未解決のまま
+            //   matches_filter に渡していた = 未知キーで 0 対象 = 効果不発
+            //   (OP05-102 ゲダツ 「相手のライフの枚数以下のコスト」 等、 overlay で 24 箇所)。
+            let _dyn_owned: Value;
+            let v: &Value = if v.get("filter").is_some() {
+                match resolve_dynamic_filter(v.get("filter"), state, me_idx) {
+                    Some(rf) if Some(&rf) != v.get("filter") => {
+                        let mut o = v.as_object().cloned().unwrap_or_default();
+                        o.insert("filter".to_string(), rf);
+                        _dyn_owned = Value::Object(o);
+                        &_dyn_owned
+                    }
+                    _ => v,
+                }
+            } else {
+                v
+            };
             // {"type": "all_self_chara_filtered", "filter": {...}}
             // chara/character 表記揺れ alias (effects.py:_TYPE_ALIASES)。 これが無いと該当 overlay が
             // 未知 type 扱いで bail (Python 側は 2026-06-05 に同じ理由で silent no-op bug を修正済)。
@@ -2828,8 +2848,13 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
         // effects.py:8848)。 cv は count_and_filter に渡すため cs から取り出す。
         // return_self_don_to_deck cost: 場のドン N 枚をドンデッキへ (rested 優先、 effects.py:889)。
         "return_self_don_to_deck" => {
+            // ⚠ payability 側 (cost_payable_one) は "amount" を読む。 ここだけ "count" を読んで
+            //   おり、 dict 表記の overlay で払える判定と実際の枚数が食い違いうる。 両方許容する。
             let n = if cv.is_object() {
-                cv.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as i32
+                cv.get("amount")
+                    .or_else(|| cv.get("count"))
+                    .and_then(|x| x.as_i64())
+                    .unwrap_or(1) as i32
             } else {
                 cv.as_i64().unwrap_or(1) as i32
             };
@@ -2840,6 +2865,18 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
             let from_active = (n - from_rested).min(me.don_active);
             me.don_active -= from_active;
             me.don_remaining_in_deck += from_active;
+            // Python (effects.py:899) は戻した枚数 > 0 なら on_self_don_returned_to_deck を発火する。
+            // ⚠ 未実装で、 場に該当カードがあると Rust だけカスケードが起きず MISMATCH
+            //   (OP09-076 ゾロ の 【登場時】ドン戻し で発覚、 2026-08-03)。
+            let moved = from_rested + from_active;
+            if moved > 0 {
+                state.last_returned_don_count = moved;
+                if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck")
+                    && fire_field_when(state, me_idx, "on_self_don_returned_to_deck").is_err()
+                {
+                    return None;
+                }
+            }
         }
         // return_self_to_trash cost: 発動元自身をトラッシュへ (effects.py:8433)。 付与ドンはレストへ。
         "return_self_to_trash" => {
@@ -2967,6 +3004,39 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
             }});
             if !execute_effect(&prim, state, me_idx, src) {
                 return None;
+            }
+        }
+        // ko_self_chara **cost 版**: Python (effects.py の cost ループ) は トラッシュ送りと
+        // 付与ドンのレスト戻しだけ を行い、 【KO時】/on_self_chara_ko/leave_by_self_effect を
+        // **一切発火しない** (do-effect 版と非対称)。 chara_ko_taken_this_turn も増えない。
+        // ⚠ execute_effect に委譲すると do-effect 版が走ってトリガーが発火し MISMATCH になる
+        //   (EB04-048 ルッチ / OP06-083 等、 2026-08-03 全カード差分掃引で発覚)。
+        // 犠牲順は Python と同じ power 昇順。
+        "ko_self_chara" => {
+            let (n, filt, excl) = if cv.is_object() {
+                (
+                    cv.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize,
+                    cv.get("filter").cloned(),
+                    cv.get("exclude_self").and_then(|x| x.as_bool()).unwrap_or(false),
+                )
+            } else {
+                (cv.as_i64().unwrap_or(1) as usize, None, false)
+            };
+            let src_idx = if let Slot::Char(i) = src { Some(i) } else { None };
+            let mut cands: Vec<usize> = (0..state.players[me_idx].characters.len())
+                .filter(|&i| {
+                    matches_filter(&state.players[me_idx].characters[i].card, filt.as_ref())
+                        && !(excl && Some(i) == src_idx)
+                })
+                .collect();
+            cands.sort_by_key(|&i| state.players[me_idx].characters[i].power());
+            cands.truncate(n);
+            cands.sort_unstable_by(|a, b| b.cmp(a)); // 後ろから除去して index を保つ
+            for i in cands {
+                let ip = state.players[me_idx].characters.remove(i);
+                let don = ip.attached_dons;
+                state.players[me_idx].trash.push(ip.card);
+                state.players[me_idx].don_rested += don;
             }
         }
         // 上記以外の cost は対応する primitive にそのまま委譲する (Python effects.py:8659 の汎用パス)。
@@ -5860,13 +5930,35 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 let pidx = state.players[me_idx].characters.len() - 1;
                 state.last_self_chara_played_card = Some(revealed);
                 state.last_self_chara_played_from_trash = false;
-                return execute_on_play(state, me_idx, pidx).is_ok();
+                if execute_on_play(state, me_idx, pidx).is_err() {
+                    return false;
+                }
+                // 「登場させた場合、 <then>」 (effects.py の then ループ)。
+                // ⚠ 未実装で、 ST13-007 サボ / ST13-010 エース の 「リーダー+2000」 が
+                //   Rust だけ乗っていなかった (2026-08-03 全カード差分掃引で発覚)。
+                if let Some(then) = v.get("then").and_then(|x| x.as_array()) {
+                    let then = then.clone();
+                    for prim in &then {
+                        if !execute_effect(prim, state, me_idx, src) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
             }
+            // 非マッチ。
+            // ⚠ ライフ由来は **公開しただけ** なので ライフの元の位置に戻す (公式: ライフ枚数不変)。
+            //   デッキへ送っていたため ライフが減り デッキが増えていた (Python は matched の時だけ
+            //   life.pop(0) する = 非マッチではそもそも取り出さない)。
             let me = &mut state.players[me_idx];
-            match rest_remain.as_str() {
-                "top" => me.deck.insert(0, revealed),
-                "trash" => me.trash.push(revealed),
-                _ => me.deck.push(revealed),
+            if from_life {
+                me.life.insert(0, revealed);
+            } else {
+                match rest_remain.as_str() {
+                    "top" => me.deck.insert(0, revealed),
+                    "trash" => me.trash.push(revealed),
+                    _ => me.deck.push(revealed),
+                }
             }
             true
         }

@@ -195,8 +195,12 @@ def run_one_game(deck_a: dict, deck_b: dict, seed: int, max_turns: int, stats: d
                             stats["mismatch"][f"{e['t']}:{cid}"] += 1
                             if cid not in ("?",) and "#" not in cid and not cid.startswith("EOT:"):
                                 stats["cards_bad"].add(cid)
-                            # 再現材料を残す (診断は blob-diff で行う)。 先頭 N 件のみ。
-                            if len(stats["dumps"]) < stats["dump_limit"]:
+                            # 再現材料を残す (診断は blob-diff で行う)。
+                            # ⚠ 単純な先頭 N 件だと card_id 順の先頭側に偏り、 頻度上位クラスの
+                            #   dump が 1 件も残らない。 1 カードあたり 2 件までに制限して散らす。
+                            stats["dump_seen"][cid] = stats["dump_seen"].get(cid, 0) + 1
+                            if (len(stats["dumps"]) < stats["dump_limit"]
+                                    and stats["dump_seen"][cid] <= 2):
                                 stats["dumps"].append({
                                     "action": e,
                                     "card_id": cid,
@@ -244,7 +248,7 @@ def main() -> None:
 
     stats = {"tot": Counter(), "bail": Counter(), "mismatch": Counter(),
              "panic": Counter(), "cards_ok": set(), "cards_bad": set(),
-             "dumps": [], "dump_limit": args.dump_limit}
+             "dumps": [], "dump_limit": args.dump_limit, "dump_seen": {}}
     done: list[str] = []
 
     if args.resume and OUT.exists():

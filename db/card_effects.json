@@ -5023,7 +5023,6 @@
    "when": "activate_main",
    "cost": {
     "rest_self": true,
-    "once_per_turn": true,
     "rest_self_don": 1
    },
    "do": [
@@ -5686,7 +5685,6 @@
    "_text": "OP10-065 シュガー 起動メイン: ドン1レスト+self レストで デッキ上5見てドフラ海賊団1手札 残デッキ底",
    "when": "activate_main",
    "cost": {
-    "once_per_turn": true,
     "rest_self": true,
     "rest_self_don": 1
    },
@@ -6337,9 +6335,6 @@
      "draw": 1
     }
    ],
-   "cost": {
-    "once_per_turn": true
-   },
    "conditions": [
     {
      "self_turn": true
@@ -10857,7 +10852,6 @@
    "when": "activate_main",
    "cost": {
     "rest_self": true,
-    "once_per_turn": true,
     "discard_hand": 1
    },
    "do": [
@@ -11864,7 +11858,6 @@
    "when": "activate_main",
    "cost": {
     "rest_self": true,
-    "once_per_turn": true,
     "rest_self_don": 3
    },
    "do": [
@@ -12915,7 +12908,6 @@
    "_text": "OP06-020_p2 【起動メイン】このリーダーをレストにできる：相手の、コスト3以下のキャラかドン !!1枚までを、レストにする。その後、自分は、このターン中、自分の効果でライフを手札に加えられない。",
    "when": "activate_main",
    "cost": {
-    "once_per_turn": true,
     "rest_self": true
    },
    "do": [
@@ -13614,7 +13606,6 @@
    "_text": "OP15-039 起動メイン(自レスト):ドレスローザ1枚を手札へ戻し、手札からcost3ドレスローザ1枚を登場 (旧draw誤実装)",
    "when": "activate_main",
    "cost": {
-    "once_per_turn": true,
     "rest_self": true
    },
    "do": [
@@ -13643,7 +13634,6 @@
    "_text": "OP15-039 起動メイン(自レスト):ドレスローザ1枚を手札へ戻し、手札からcost3ドレスローザ1枚を登場 (旧draw誤実装)",
    "when": "activate_main",
    "cost": {
-    "once_per_turn": true,
     "rest_self": true
    },
    "do": [
@@ -14479,7 +14469,7 @@
     }
    ],
    "cost": {
-    "once_per_turn": true,
+    "once_per_turn": "OP11-062_shared",
     "pay_don": 1
    }
   },
@@ -14499,7 +14489,7 @@
     }
    ],
    "cost": {
-    "once_per_turn": true,
+    "once_per_turn": "OP11-062_shared",
     "pay_don": 1
    }
   }
@@ -14521,7 +14511,7 @@
     }
    ],
    "cost": {
-    "once_per_turn": true,
+    "once_per_turn": "OP11-062_shared",
     "pay_don": 1
    }
   },
@@ -14541,7 +14531,7 @@
     }
    ],
    "cost": {
-    "once_per_turn": true,
+    "once_per_turn": "OP11-062_shared",
     "pay_don": 1
    }
   }
@@ -14721,9 +14711,6 @@
      "untap_don": 1
     }
    ],
-   "cost": {
-    "once_per_turn": true
-   },
    "conditions": [
     {
      "opp_turn": true
@@ -14758,9 +14745,6 @@
      "untap_don": 1
     }
    ],
-   "cost": {
-    "once_per_turn": true
-   },
    "conditions": [
     {
      "opp_turn": true
@@ -14993,7 +14977,6 @@
    "_text": "OP09-042 起動メイン(自ドン5レスト,手札1捨て):手札からクロスギルド1枚を登場 (旧draw誤実装)",
    "when": "activate_main",
    "cost": {
-    "once_per_turn": true,
     "rest_self_don": 5,
     "discard_hand": 1
    },
@@ -15014,7 +14997,6 @@
    "_text": "OP09-042 起動メイン(自ドン5レスト,手札1捨て):手札からクロスギルド1枚を登場 (旧draw誤実装)",
    "when": "activate_main",
    "cost": {
-    "once_per_turn": true,
     "rest_self_don": 5,
     "discard_hand": 1
    },
@@ -15153,7 +15135,6 @@
    "_text": "OP09-081 【起動メイン】自分の手札1枚を捨てることができる：次の相手のターン終了時まで、相手の",
    "when": "activate_main",
    "cost": {
-    "once_per_turn": true,
     "discard_hand": 1
    },
    "do": [
@@ -15168,7 +15149,6 @@
    "_text": "OP09-081_p1 【起動メイン】自分の手札1枚を捨てることができる：次の相手のターン終了時まで、相手の",
    "when": "activate_main",
    "cost": {
-    "once_per_turn": true,
     "discard_hand": 1
    },
    "do": [
@@ -15703,7 +15683,6 @@
    "_text": "OP06-020 【起動メイン】このリーダーをレストにできる：相手の、コスト3以下のキャラかドン !!1枚までを、レストにする。その後、自分は、このターン中、自分の効果でライフを手札に加えられない。",
    "when": "activate_main",
    "cost": {
-    "once_per_turn": true,
     "rest_self": true
    },
    "do": [
@@ -15721,7 +15700,6 @@
    "_text": "OP06-020_p1 【起動メイン】このリーダーをレストにできる：相手の、コスト3以下のキャラかドン !!1枚までを、レストにする。その後、自分は、このターン中、自分の効果でライフを手札に加えられない。",
    "when": "activate_main",
    "cost": {
-    "once_per_turn": true,
     "rest_self": true
    },
    "do": [
@@ -16448,9 +16426,6 @@
   {
    "_text": "OP03-021 【起動メイン】③(コストエリアのドン!!を指定の数レストにできる),自分の特徴《東の海》を持つキャラ2枚をレストにできる　：このリーダーをアクティブにし、相手のコスト5以下のキャラ1枚までを、レストにする。",
    "when": "activate_main",
-   "cost": {
-    "once_per_turn": true
-   },
    "do": [
     {
      "optional_cost_then": {
@@ -16487,9 +16462,6 @@
   {
    "_text": "OP03-021 【起動メイン】③(コストエリアのドン!!を指定の数レストにできる),自分の特徴《東の海》を持つキャラ2枚をレストにできる　：このリーダーをアクティブにし、相手のコスト5以下のキャラ1枚までを、レストにする。",
    "when": "activate_main",
-   "cost": {
-    "once_per_turn": true
-   },
    "do": [
     {
      "optional_cost_then": {
@@ -16637,7 +16609,6 @@
    "_text": "OP03-058 起動メイン(ドン-1,自レスト):手札からGC cost5以下1枚を登場 (旧draw誤実装)",
    "when": "activate_main",
    "cost": {
-    "once_per_turn": true,
     "rest_self": true,
     "pay_don": 1
    },
@@ -16659,7 +16630,6 @@
    "_text": "OP03-058 起動メイン(ドン-1,自レスト):手札からGC cost5以下1枚を登場 (旧draw誤実装)",
    "when": "activate_main",
    "cost": {
-    "once_per_turn": true,
     "rest_self": true,
     "pay_don": 1
    },
@@ -17329,7 +17299,6 @@
    "_text": "OP09-081_p2 【起動メイン】自分の手札1枚を捨てることができる：次の相手のターン終了時まで、相手の",
    "when": "activate_main",
    "cost": {
-    "once_per_turn": true,
     "discard_hand": 1
    },
    "do": [
@@ -17376,7 +17345,6 @@
    "_text": "OP09-042 起動メイン(自ドン5レスト,手札1捨て):手札からクロスギルド1枚を登場 (旧draw誤実装)",
    "when": "activate_main",
    "cost": {
-    "once_per_turn": true,
     "rest_self_don": 5,
     "discard_hand": 1
    },
@@ -18749,7 +18717,6 @@
    "_text": "OP09-042 起動メイン(自ドン5レスト,手札1捨て):手札からクロスギルド1枚を登場 (旧draw誤実装)",
    "when": "activate_main",
    "cost": {
-    "once_per_turn": true,
     "rest_self_don": 5,
     "discard_hand": 1
    },
@@ -18802,7 +18769,6 @@
    "_text": "OP09-081_p3 【起動メイン】自分の手札1枚を捨てることができる：次の相手のターン終了時まで、相手の",
    "when": "activate_main",
    "cost": {
-    "once_per_turn": true,
     "discard_hand": 1
    },
    "do": [
@@ -18821,9 +18787,6 @@
      "untap_don": 1
     }
    ],
-   "cost": {
-    "once_per_turn": true
-   },
    "conditions": [
     {
      "opp_turn": true
@@ -23721,7 +23684,6 @@
    "_text": "OP11-030 しらほし 起動メイン: ドン1+自レスト → 海王類/魚人島サーチ",
    "when": "activate_main",
    "cost": {
-    "once_per_turn": true,
     "rest_self": true,
     "rest_self_don": 1
    },
@@ -31173,7 +31135,6 @@
    "when": "activate_main",
    "cost": {
     "rest_self": true,
-    "once_per_turn": true,
     "rest_self_don": 1
    },
    "do": [
@@ -34572,9 +34533,6 @@
      "draw": 1
     }
    ],
-   "cost": {
-    "once_per_turn": true
-   },
    "conditions": [
     {
      "self_turn": true
@@ -36379,7 +36337,6 @@
    "_text": "OP10-065 シュガー 起動メイン: ドン1レスト+self レストで デッキ上5見てドフラ海賊団1手札 残デッキ底",
    "when": "activate_main",
    "cost": {
-    "once_per_turn": true,
     "rest_self": true,
     "rest_self_don": 1
    },
@@ -39307,7 +39264,6 @@
    "when": "activate_main",
    "cost": {
     "rest_self": true,
-    "once_per_turn": true,
     "rest_self_don": 1
    },
    "do": [
@@ -42447,9 +42403,6 @@
      "draw": 1
     }
    ],
-   "cost": {
-    "once_per_turn": true
-   },
    "conditions": [
     {
      "self_turn": true
@@ -44946,7 +44899,6 @@
    "when": "activate_main",
    "cost": {
     "rest_self": true,
-    "once_per_turn": true,
     "rest_self_don": 1
    },
    "do": [
@@ -44972,7 +44924,6 @@
    "when": "activate_main",
    "cost": {
     "rest_self": true,
-    "once_per_turn": true,
     "rest_self_don": 1
    },
    "do": [
@@ -50521,7 +50472,6 @@
    "when": "activate_main",
    "cost": {
     "rest_self": true,
-    "once_per_turn": true,
     "rest_self_don": 1
    },
    "do": [
@@ -57443,8 +57393,7 @@
     }
    ],
    "cost": {
-    "rest_self": true,
-    "once_per_turn": true
+    "rest_self": true
    },
    "if": {
     "leader_attribute": "斬"
@@ -58591,8 +58540,7 @@
     }
    ],
    "cost": {
-    "rest_self": true,
-    "once_per_turn": true
+    "rest_self": true
    }
   }
  ],
@@ -60205,8 +60153,7 @@
     }
    ],
    "cost": {
-    "rest_self": true,
-    "once_per_turn": true
+    "rest_self": true
    }
   }
  ],
@@ -62652,8 +62599,7 @@
     }
    ],
    "cost": {
-    "rest_self": true,
-    "once_per_turn": true
+    "rest_self": true
    }
   }
  ],
@@ -63981,9 +63927,6 @@
   {
    "_text": "スモーカー 起動メイン: ドン1アクティブ化",
    "when": "activate_main",
-   "cost": {
-    "once_per_turn": true
-   },
    "do": [
     {
      "untap_don": 1
@@ -65687,8 +65630,7 @@
     "leader_feature": "海軍"
    },
    "cost": {
-    "rest_self": true,
-    "once_per_turn": true
+    "rest_self": true
    }
   }
  ],
@@ -65812,8 +65754,7 @@
     }
    ],
    "cost": {
-    "rest_self": true,
-    "once_per_turn": true
+    "rest_self": true
    }
   }
  ],
@@ -67363,9 +67304,6 @@
   {
    "_text": "スモーカー 起動メイン: ドン1アクティブ化",
    "when": "activate_main",
-   "cost": {
-    "once_per_turn": true
-   },
    "do": [
     {
      "untap_don": 1
@@ -67377,9 +67315,6 @@
   {
    "_text": "スモーカー 起動メイン: ドン1アクティブ化",
    "when": "activate_main",
-   "cost": {
-    "once_per_turn": true
-   },
    "do": [
     {
      "untap_don": 1
@@ -67447,10 +67382,7 @@
       "limit": 1
      }
     }
-   ],
-   "cost": {
-    "once_per_turn": true
-   }
+   ]
   }
  ],
  "OP10-037_p1": [
@@ -67493,10 +67425,7 @@
       "limit": 1
      }
     }
-   ],
-   "cost": {
-    "once_per_turn": true
-   }
+   ]
   }
  ],
  "OP10-040": [
@@ -70185,8 +70114,7 @@
     "leader_name": "トニートニー・チョッパー"
    },
    "cost": {
-    "rest_self": true,
-    "once_per_turn": true
+    "rest_self": true
    }
   }
  ],
@@ -71577,8 +71505,7 @@
     }
    ],
    "cost": {
-    "rest_self": true,
-    "once_per_turn": true
+    "rest_self": true
    }
   }
  ],
@@ -79680,8 +79607,7 @@
     }
    ],
    "cost": {
-    "rest_self": true,
-    "once_per_turn": true
+    "rest_self": true
    }
   },
   {
@@ -79925,8 +79851,7 @@
     }
    ],
    "cost": {
-    "rest_self": true,
-    "once_per_turn": true
+    "rest_self": true
    }
   }
  ],
@@ -88639,8 +88564,7 @@
     }
    ],
    "cost": {
-    "rest_self": true,
-    "once_per_turn": true
+    "rest_self": true
    }
   },
   {
@@ -88669,8 +88593,7 @@
     }
    ],
    "cost": {
-    "rest_self": true,
-    "once_per_turn": true
+    "rest_self": true
    }
   },
   {
@@ -90146,7 +90069,6 @@
    "when": "activate_main",
    "cost": {
     "rest_self": true,
-    "once_per_turn": true,
     "rest_self_don": 1
    },
    "do": [
@@ -100501,11 +100423,6 @@
     "by_opp_effect": true,
     "target_cost_le": 7
    },
-   "cost": [
-    {
-     "once_per_turn": true
-    }
-   ],
    "do": [
     {
      "return_self_to_hand": true
@@ -103309,11 +103226,6 @@
     "by_opp_effect": true,
     "target_cost_le": 7
    },
-   "cost": [
-    {
-     "once_per_turn": true
-    }
-   ],
    "do": [
     {
      "return_self_to_hand": true
@@ -103726,11 +103638,6 @@
     "by_opp_effect": true,
     "target_cost_le": 7
    },
-   "cost": [
-    {
-     "once_per_turn": true
-    }
-   ],
    "do": [
     {
      "return_self_to_hand": true
@@ -108913,7 +108820,7 @@
     }
    ],
    "cost": {
-    "once_per_turn": true,
+    "once_per_turn": "OP11-062_shared",
     "pay_don": 1
    }
   },
@@ -108933,7 +108840,7 @@
     }
    ],
    "cost": {
-    "once_per_turn": true,
+    "once_per_turn": "OP11-062_shared",
     "pay_don": 1
    }
   }
