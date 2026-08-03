@@ -10662,10 +10662,38 @@ def card_names(card: CardDef) -> list[str]:
     return [card.name, *alt] if alt else [card.name]
 
 
+_NORM_NAME_CACHE: dict[str, str] = {}
+
+
+def _norm_name(s: str) -> str:
+    """normalize_card_name のメモ化。 名前一致は AI 探索の最内周で数百万回呼ばれる。"""
+    v = _NORM_NAME_CACHE.get(s)
+    if v is None:
+        v = normalize_card_name(s)
+        _NORM_NAME_CACHE[s] = v
+    return v
+
+
 def name_matches(card: CardDef, target: str) -> bool:
-    """カード名一致 (別名ルール込み、 表記ゆれは normalize_card_name で吸収)。"""
-    t = normalize_card_name(str(target))
-    return any(normalize_card_name(n) == t for n in card_names(card))
+    """カード名一致 (別名ルール込み、 表記ゆれは normalize_card_name で吸収)。
+
+    ⚠ **ホットパス** (`_matches_filter` / target 解決 → AI 探索の最内周)。 素朴に card_names()
+    のリストを作って毎回 normalize すると 20x 遅くなり、 テスト全体が分単位で悪化する
+    (2026-08-03 実測)。 完全一致の高速パス + 正規化メモ化で回避する。
+    """
+    name = card.name
+    if name == target:  # 最頻ケース: そのまま一致
+        return True
+    t = _norm_name(target)
+    if _norm_name(name) == t:  # 表記ゆれ (全角Ｄ 等)
+        return True
+    alt = _alt_names_map().get(card.card_id)
+    if not alt:
+        return False
+    for a in alt:
+        if _norm_name(a) == t:
+            return True
+    return False
 
 
 def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
