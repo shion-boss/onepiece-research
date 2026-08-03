@@ -3027,13 +3027,28 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
                 cv.as_i64().unwrap_or(1)
             };
             let from_cost = cv.get("from_cost_area").and_then(|x| x.as_bool()).unwrap_or(false);
-            let prim = json!({"attach_rested_don": {
-                "target": "one_opponent_character_any", "count": n,
-                "to_opp": true, "from_cost_area": from_cost
-            }});
-            if !execute_effect(&prim, state, me_idx, src) {
-                return None;
+            // ⚠ Python は `max(opp.characters, key=lambda c: c.power)` = **現パワー最大**
+            //   (同点なら先頭)。 one_opponent_character_any へ委譲すると _threat_key/opp_value
+            //   の脅威度順になり 同点時に別のキャラを選ぶ (OP15-003 アルビダ / OP15-023 アーロン、
+            //   2026-08-03 発覚)。 Python と同じ選び方を直接書く。
+            let opp_idx2 = 1 - me_idx;
+            let Some(ti) = (0..state.players[opp_idx2].characters.len()).max_by_key(|&i| {
+                // max_by_key は tie で **最後** を返すので、 Python の max (最初) に合わせ
+                // index を負符号で第 2 キーにする。
+                (state.players[opp_idx2].characters[i].power(), -(i as i32))
+            }) else {
+                return Some(()); // 相手キャラ 0 = 何もしない (payability で弾かれる想定)
+            };
+            let n = n as i32;
+            let opp_p = &mut state.players[opp_idx2];
+            let mut take = n.min(opp_p.don_rested);
+            opp_p.don_rested -= take;
+            if from_cost && take < n {
+                let more = (n - take).min(opp_p.don_active);
+                opp_p.don_active -= more;
+                take += more;
             }
+            opp_p.characters[ti].attached_dons += take;
         }
         // ko_self_chara **cost 版**: Python (effects.py の cost ループ) は トラッシュ送りと
         // 付与ドンのレスト戻しだけ を行い、 【KO時】/on_self_chara_ko/leave_by_self_effect を
@@ -4519,7 +4534,16 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 for (pi, tok) in toks {
                     let Slot::Char(idx) = find_tagged(state, pi, tok) else { continue };
                     if pi != opp_idx {
-                        continue; // Python は `t in opp.characters` のみ処理
+                        // 自陣キャラの bounce (「自分の〜すべてを、 持ち主の手札に戻す」 ST26-001
+                        // おそばマスク 等)。 Python は 2026-08-03 に分岐を追加 (effects.py の
+                        // `elif t in me.characters`)。 置換 (replace_ko/leave) は通さず、
+                        // 付与ドンはレストへ戻して手札に加えるだけ。
+                        let ip = state.players[pi].characters.remove(idx);
+                        let don = ip.attached_dons;
+                        state.players[pi].hand.push(ip.card);
+                        state.players[pi].don_rested += don;
+                        any = true;
+                        continue;
                     }
                     {
                         let c = &state.players[pi].characters[idx];
@@ -6997,11 +7021,20 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             // 発動元に一時タグを打つ = cost 後に位置 index が動いても一意に再取得できる
             // (Python の self_inplay object 参照の代替)。 同名複数でも取り違えない。
             let src_tok = tag_src(state, me_idx, src);
+            // ⚠ cost は複数あり **各コストの間** でも盤面が動く。 例 OP04-111 ヘラ:
+            //   [ko_self_chara(他のホーミーズ1枚), rest_self] の順で、 1 つ目の KO により
+            //   発動元の位置 index が 1 つ手前にズレる → そのままだと 2 つ目の rest_self が
+            //   **別のキャラをレスト** する (Python は self_inplay を object 参照で持つので無影響)。
+            //   効果ループ側と同じく 段ごとにタグで引き直す。
+            let mut pay_src = src;
             for cs in &cost {
-                if pay_cost_one(cs, state, me_idx, src).is_none() {
+                if pay_cost_one(cs, state, me_idx, pay_src).is_none() {
                     let k = cs.as_object().and_then(|o| o.keys().next()).map(|x| x.as_str()).unwrap_or("?");
                     note_unknown_key("oct_pay", k);
                     return false;
+                }
+                if !matches!(pay_src, Slot::Detached) {
+                    pay_src = peek_tagged(state, me_idx, src_tok);
                 }
             }
             // cost が **別の** キャラを除去した場合、 src の index は 1 つ手前にズレるだけで

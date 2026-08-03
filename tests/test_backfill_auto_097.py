@@ -443,8 +443,12 @@ def test_op09_081_activate_main_disable_opp_on_play_ai():
     me.hand = [repo.get(_FILLER)]
 
     eff = _eff(overlay, "OP09-081", "activate_main")
-    assert eff.get("cost", {}).get("once_per_turn") is True, \
-        "overlay の 【ターン1回】制限が無い"
+    # ⚠ 公式テキストに 【ターン1回】 は無い (「【起動メイン】自分の手札1枚を捨てることが
+    #   できる：…」)。 以前この test は once_per_turn is True を assert しており、
+    #   **overlay の誤り (公式に無い制限) を固定していた** (2026-08-03 に overlay を
+    #   公式準拠へ修正した際に発覚)。 コストは手札1捨てのみ。
+    assert "once_per_turn" not in (eff.get("cost") or {}), \
+        "公式テキストに 【ターン1回】 は無い"
     assert eff.get("cost", {}).get("discard_hand") == 1, \
         "overlay の 手札1捨てコストが無い"
     options = list_activate_main_effects(st, me, overlay)
@@ -459,8 +463,16 @@ def test_op09_081_activate_main_disable_opp_on_play_ai():
     assert len(me.hand) == hand_before - 1, "手札1捨てコストが消費されていない"
 
 
-def test_op09_081_activate_main_once_per_turn():
-    """【起動メイン】は【ターン1回】。 一度発動したら legal から消える。"""
+def test_op09_081_activate_main_capped_once_by_engine_default():
+    """【起動メイン】は engine 既定 (once_per_turn 未指定 = True) で 1 ターン 1 回に制限される。
+
+    ⚠ 公式テキストに 【ターン1回】 は **無い** (「【起動メイン】自分の手札1枚を捨てることが
+    できる：…」)。 本来は手札がある限り再発動できる。 engine は
+    list_activate_main_effects が 「起動メインはターン1回が一般的」 という **意図的な近似**
+    (無限ループ回避) で `cost.get("once_per_turn", True)` を既定 True にしているため 1 回で
+    止まる。 この test はその **近似の現状** を固定するものであり、 公式準拠ではない。
+    近似を外す場合はここも一緒に直す。
+    """
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, _LEADER_KUROHIGE, overlay)
@@ -473,7 +485,8 @@ def test_op09_081_activate_main_once_per_turn():
     fire_activate_main(st, me, opp, *opts1[0])
     opts2 = [o for o in list_activate_main_effects(st, me, overlay)
              if o[0].card.card_id == "OP09-081"]
-    assert len(opts2) == 0, "【ターン1回】の起動メインが再び legal に出てはいけない"
+    assert len(opts2) == 0, \
+        "engine 既定 (once_per_turn 未指定=True) で 2 回目は legal から消える"
 
 
 # --------------------------------------------------------------------------- #

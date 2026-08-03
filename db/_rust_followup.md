@@ -14,8 +14,10 @@
 > ```
 
 現在追従待ちなし ✅
-- [ ] 2026-08-03T09:19:14Z `engine/` を変更したが `rust_engine/src/` は無変更
+- [x] 2026-08-03T09:19:14Z `engine/` を変更したが `rust_engine/src/` は無変更
   - 変更ファイル: engine/effects.py 
-  - commit 予定: fix(engine): return_to_hand_multi に自陣キャラbounce分岐追加 (ST26-001 おそばマスク) (auto)
-  - 対応: Rust を同じ挙動に追従させる (skill onepiece-rust-parity-fix)。
-    検証 = `pytest tests/test_rust_parity.py tests/test_rust_overlay_coverage.py -q`
+  - commit: fix(engine): return_to_hand_multi に自陣キャラbounce分岐追加 (ST26-001 おそばマスク) (auto)
+  - **追従済 (2026-08-03)**: rust_engine/src/effects.rs の return_to_hand_multi に
+    `pi != opp_idx` 分岐を実装 (自陣キャラは置換を通さず 付与ドンをレストへ戻して手札へ)。
+    従来は 「Python は opp.characters のみ処理」 というコメント付きで skip していた。
+    検証 = ST26-001 の直接発火差分 match / 16 デッキ差分 MISMATCH 0 / 効果スモーク 100%
