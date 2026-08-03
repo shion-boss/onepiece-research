@@ -8748,7 +8748,7 @@
      "ko": {
       "type": "one_opponent_character_filtered",
       "filter": {
-       "cost_le_self_plus_opp_life": true
+       "cost_le_dynamic": "sum_both_life_count"
       }
      }
     },
@@ -32550,7 +32550,7 @@
      "ko": {
       "type": "one_opponent_character_filtered",
       "filter": {
-       "cost_le_self_plus_opp_life": true
+       "cost_le_dynamic": "sum_both_life_count"
       }
      }
     },
@@ -40524,7 +40524,7 @@
      "ko": {
       "type": "one_opponent_character_filtered",
       "filter": {
-       "cost_le_self_plus_opp_life": true
+       "cost_le_dynamic": "sum_both_life_count"
       }
      }
     },
@@ -43347,7 +43347,7 @@
      "ko": {
       "type": "one_opponent_character_filtered",
       "filter": {
-       "cost_le_self_plus_opp_life": true
+       "cost_le_dynamic": "sum_both_life_count"
       }
      }
     },
@@ -53628,7 +53628,7 @@
      "ko": {
       "type": "one_opponent_character_filtered",
       "filter": {
-       "cost_le_self_plus_opp_life": true
+       "cost_le_dynamic": "sum_both_life_count"
       }
      }
     },
@@ -75315,7 +75315,7 @@
     }
    ],
    "cost": {
-    "once_per_turn": true
+    "rest_self_don": 1
    }
   }
  ],
@@ -75353,7 +75353,7 @@
     }
    ],
    "cost": {
-    "once_per_turn": true
+    "rest_self_don": 1
    }
   }
  ],

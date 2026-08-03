@@ -1183,6 +1183,24 @@ fn resolve_target(
         // opp_just_negated_any = 直前に negate した相手のリーダー or キャラ (effects.py の
         // 同名 spec)。 「1 枚までを、 効果を無効にし、 パワー-N」 の後半を 同一の 1 枚 に当てる
         // (OP09-097 闇水)。 場を離れていれば [] (= Python の iid 照合と等価)。
+        // 「相手のレストのキャラ1枚までを選ぶ。 選んだキャラのコストが付与ドン枚数と同じ場合、 KO」
+        // (OP15-031 プリンプリン、 effects.py:2580)。 Python と同じ簡略: KO が成立する選択のみ候補化
+        // (= base_cost == attached_dons の レストキャラ)。 sort は _opp_value 降順。
+        "one_opponent_rested_character_don_eq_cost" => {
+            let opp = &state.players[opp_idx];
+            let mut cands: Vec<usize> = (0..opp.characters.len())
+                .filter(|&i| {
+                    let c = &opp.characters[i];
+                    c.rested && c.base_cost() == c.attached_dons
+                })
+                .collect();
+            cands.sort_by(|&a, &b| {
+                opp_value(&opp.characters[b])
+                    .partial_cmp(&opp_value(&opp.characters[a]))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
+        }
         "opp_just_negated_any" => match state.last_negated {
             Some((pi, Slot::Char(ci)))
                 if pi == opp_idx && ci < state.players[pi].characters.len() =>
@@ -1472,8 +1490,20 @@ fn resolve_target(
                     power_le = Some(n);
                 }
             }
-            // まだ認識できない filter token (_le_/_ge_ 残) は誤選択回避で bail。
-            if cost_le.is_none() && power_le.is_none() && (os.contains("_le_") || os.contains("_ge_")) {
+            // power_eq_N = 「元々のパワー N ぴったり」 (effects.py:2730、 CardDef.power で判定)。
+            // ⚠ 下の未知トークン guard は _le_/_ge_ しか見ておらず _eq_ を素通ししていたため、
+            //   EB03-025 ヒナ 「元々のパワー6000のキャラ1枚を手札に戻す」 が **無条件で最大脅威**
+            //   を戻していた (パワー7000 を戻す = MISMATCH、 2026-08-03 全カード差分掃引で発覚)。
+            let power_eq = parse_after(os, "power_eq_");
+            // cost_eq_N = 「コスト N ぴったり」 (effects.py:2810、 元コスト card.cost)。
+            let cost_eq = parse_after(os, "cost_eq_");
+            // まだ認識できない filter token (_le_/_ge_/_eq_ 残) は誤選択回避で bail。
+            if cost_le.is_none()
+                && power_le.is_none()
+                && power_eq.is_none()
+                && cost_eq.is_none()
+                && (os.contains("_le_") || os.contains("_ge_") || os.contains("_eq_"))
+            {
                 return None;
             }
             let opp = &state.players[opp_idx];
@@ -1494,13 +1524,26 @@ fn resolve_target(
                             return false;
                         }
                     }
+                    // power_eq は 現パワーでなく **印字値** (Python: c.card.power == n)。
+                    if let Some(n) = power_eq {
+                        if c.card.power != n {
+                            return false;
+                        }
+                    }
+                    // cost_eq も元コスト (Python: c.card.cost == n)。
+                    if let Some(n) = cost_eq {
+                        if c.card.cost != n {
+                            return false;
+                        }
+                    }
                     true
                 })
                 .collect();
             // ⚠ Python は spec 毎に sort key が異なる: **明示 "power_le" を含む spec** (one_opponent_
             // character_power_le_N=effects.py:2647 / rested_character_power_le=2716) は _threat_key
             // (= power 降順)、 bare "character_le"/cost_le は _opp_value。 安定ソートで tie は index 順。
-            if os.contains("power_le_") {
+            // power_eq_N も Python は _threat_key (effects.py:2742 `cands.sort(key=_threat_key)`)。
+            if os.contains("power_le_") || os.contains("power_eq_") || os.contains("cost_eq_") {
                 cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
             } else {
                 cands.sort_by(|&a, &b| {
@@ -1944,10 +1987,33 @@ fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
                 Value::Array(a) => !a.iter().any(|x| x.as_str() == Some(card.card_id.as_str())),
                 _ => true,
             },
-            // ⚠ Python の _matches_filter は truly_original_power_* を扱わない = 無視 (pass)。
-            //   Rust の blanket `_ => false` だと Rust だけ弾いて MISMATCH (ST36-005 キッド redirect で発覚)。
-            //   Python 準拠で pass (= 制限なし)。 card.power ベースの厳密判定は Python が未実装なので入れない。
-            "truly_original_power_ge" | "truly_original_power_le" | "truly_original_power_eq" => true,
+            // card_id: 特定 card_id のみに限定 (OP09-052)。 未実装だと Rust 側で
+            // `_ => return false` に落ちて 0 対象 = 効果が不発になる。
+            "card_id" => v.as_str().map_or(true, |s| card.card_id == s),
+            // name_exclude: exclude_name の表記ゆれ (OP10-058)。 Python は両方を honor する。
+            "name_exclude" => v
+                .as_str()
+                .map_or(true, |s| !name_matches(card, &norm_card_name(s))),
+            // feature_or_name: 特徴 か カード名 の いずれか に マッチ (OP08-053/OP12-116)。
+            "feature_or_name" => {
+                let feat_ok = v
+                    .get("feature")
+                    .and_then(|x| x.as_str())
+                    .map_or(false, |f| card.features.iter().any(|cf| cf == f));
+                let name_ok = v
+                    .get("name")
+                    .and_then(|x| x.as_str())
+                    .map_or(false, |n| name_matches(card, &norm_card_name(n)));
+                feat_ok || name_ok
+            }
+            // 「元々のパワー」 = CardDef の印字値 (効果によるバフ / set_base_power を含まない)。
+            // Python の _matches_filter も card.power で判定する (effects.py)。
+            // ⚠ かつて 「Python は扱わない = pass」 というコメント付きで素通ししていたが 誤り。
+            //   素通しすると 「元々のパワー5000以下のキャラをKO」 (EB01-010) が パワー7000 の
+            //   キャラも KO できてしまい MISMATCH になる (2026-08-03 全カード差分掃引で発覚)。
+            "truly_original_power_ge" => card.power >= v.as_i64().unwrap_or(0) as i32,
+            "truly_original_power_le" => card.power <= v.as_i64().unwrap_or(0) as i32,
+            "truly_original_power_eq" => card.power == v.as_i64().unwrap_or(0) as i32,
             // Python の _matches_filter が扱わない key は 制限なし (= pass) として素通りする。
             // no_effect / name_in_last_discarded(解決済) 等。 Rust だけ弾くと MISMATCH になる。
             "no_effect" | "name_in_last_discarded" => true,
@@ -2151,6 +2217,21 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
             if let Some(ts) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) {
                 for (pi, sl) in ts {
                     get_ip_mut(&mut state.players[pi], sl).attack_taunt = true;
+                }
+            }
+        }
+        // 「このキャラは、 相手のアクティブのキャラにもアタックできる」 (effects.py:7367)。
+        // = "アクティブアタック可" キーワード付与。 【ドン‼×N】 の静的効果なので
+        // evaluate_static_effects 経由で毎回付け直す。
+        // ⚠ 非静的側 (execute_effect) には実装済みだったが apply_static_primitive に無く、
+        //   OP01-021 フランキー 等の 【ドン‼×1】 版が Rust だけ無効だった (2026-08-03 発覚)。
+        "give_attack_active_chara" => {
+            let tspec = if spec.is_string() { spec.clone() } else { Value::String("self".into()) };
+            if let Some(ts) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) {
+                for (pi, sl) in ts {
+                    get_ip_mut(&mut state.players[pi], sl)
+                        .granted_keywords
+                        .insert("アクティブアタック可".to_string());
                 }
             }
         }
@@ -2387,7 +2468,18 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
                 || me.stages.iter().any(|s| !s.rested && matches_filter(&s.card, filt)))
         }
         // Python は can_pay 未チェック (= 常に払える扱い、 実体無ければ payment で no-op)。
-        "rest_self_leader_filtered_or_don" | "attach_active_don_to_named_chara" => Some(true),
+        "rest_self_leader_filtered_or_don" => Some(true),
+        // 「自分の『X』1枚にアクティブのドンN枚を付与できる：」 (EB04-009/OP12-016/019 レイリー等)。
+        // Python (effects.py:8688) は **該当名のキャラが場に居て かつ アクティブドンが N 枚以上**
+        // でなければ払えない。 ⚠ かつて無条件 Some(true) としていたため、 払えない盤面でも
+        // Rust だけ効果が発動していた (EB04-009 で -2000 が乗る MISMATCH、 2026-08-03 発覚)。
+        // ⚠ Python は card.name の完全一致で見る (name_matches の別名展開は使わない)。
+        "attach_active_don_to_named_chara" => {
+            let name = cv.get("name").and_then(|x| x.as_str()).unwrap_or("");
+            let n = cv.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as i32;
+            let me = &state.players[me_idx];
+            Some(me.don_active >= n && me.characters.iter().any(|c| c.card.name == name))
+        }
         // flip_life は payability あり (effects.py:8515)。 face_up: 裏向きライフ≥1、 face_down: 表向き≥1。
         "flip_life_face_up" => {
             let fu = me.face_up_life_count.min(me.life.len() as i32);
@@ -2683,8 +2775,10 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
             let name = cv.get("name").and_then(|x| x.as_str()).unwrap_or("").to_string();
             let n = cv.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as i32;
             let me = &mut state.players[me_idx];
+            // ⚠ Python (effects.py:8804) は card.name の **完全一致**。 name_matches で別名を
+            //   展開すると payability (完全一致) と支払いで対象が食い違う。
             for i in 0..me.characters.len() {
-                if name_matches(&me.characters[i].card, &name) {
+                if me.characters[i].card.name == name {
                     let give = n.min(me.don_active);
                     me.don_active -= give;
                     me.characters[i].attached_dons += give;
@@ -5627,6 +5721,12 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 state.players[me_idx].trash.push(ip.card);
                 state.players[me_idx].don_rested += don;
                 ko_any = true;
+                // Python は trigger_on_ko (= 全 KO 経路の共通フック、 effects.py:12942) の
+                // 冒頭で owner.chara_ko_taken_this_turn を加算する。 overlay 有無・on_ko 有無に
+                // 依らず加算されるので、 自分の効果による自陣 KO でも増える。
+                // ⚠ かつて 「chara_ko_taken_this_turn も加算しない」 とコメントして省いていたが
+                //   誤り (OP04-079 オオロンブス で MISMATCH、 2026-08-03 全カード差分掃引で発覚)。
+                state.players[me_idx].chara_ko_taken_this_turn += 1;
                 state.last_chara_ko_victim_card = None;
                 if fire_on_ko(state, me_idx, &vcid, false).is_err() {
                     return false;
@@ -6790,7 +6890,14 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 }
             };
             let _ = &src_cid_before;
-            // effect 発火 (未対応 prim は false → 呼出側で bail)
+            // effect 発火 (未対応 prim は false → 呼出側で bail)。
+            // ⚠ effect の **各段の間** でも盤面は動く (例 OP02-062: return_to_hand で自陣の
+            //   別キャラが手札に戻る → 発動元の位置 index が 1 つ手前にズレる)。 cost 後に
+            //   1 度だけ解決した src を使い回すと 次段の "self" が別キャラを指すか
+            //   get_ip_mut で範囲外 panic する (= 不変条件違反)。 Python は self_inplay を
+            //   object 参照で持つので影響を受けない。 → 段ごとにタグで引き直す。
+            let step_tok = tag_src(state, me_idx, src);
+            let mut src = src;
             for es in &effect {
                 if !execute_effect(es, state, me_idx, src) {
                     let k = es.as_object().and_then(|o| o.keys().next()).map(|x| x.as_str()).unwrap_or("?");
@@ -6798,9 +6905,21 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                         "oct_effect",
                         &format!("{k} {}", es.to_string().chars().take(70).collect::<String>()),
                     );
+                    find_tagged(state, me_idx, step_tok); // タグ回収
                     return false;
                 }
+                // 次段のために現在位置を引き直す (場を離れていれば Detached = "self" 0 件)。
+                if !matches!(src, Slot::Detached) {
+                    let next = peek_tagged(state, me_idx, step_tok);
+                    if matches!(next, Slot::Detached) {
+                        if let Some(snap) = src_ip(&state.players[me_idx], src).cloned() {
+                            state.rust_detached_src = Some(snap);
+                        }
+                    }
+                    src = next;
+                }
             }
+            find_tagged(state, me_idx, step_tok); // タグ回収
             true
         }
         // ドンデッキから N 枚をアクティブで追加 (effects.py:4526)。
