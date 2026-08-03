@@ -14469,7 +14469,7 @@
     }
    ],
    "cost": {
-    "once_per_turn": "OP11-062_shared",
+    "once_per_turn": true,
     "pay_don": 1
    }
   },
@@ -14489,7 +14489,7 @@
     }
    ],
    "cost": {
-    "once_per_turn": "OP11-062_shared",
+    "once_per_turn": true,
     "pay_don": 1
    }
   }
@@ -14511,7 +14511,7 @@
     }
    ],
    "cost": {
-    "once_per_turn": "OP11-062_shared",
+    "once_per_turn": true,
     "pay_don": 1
    }
   },
@@ -14531,7 +14531,7 @@
     }
    ],
    "cost": {
-    "once_per_turn": "OP11-062_shared",
+    "once_per_turn": true,
     "pay_don": 1
    }
   }
@@ -108820,7 +108820,7 @@
     }
    ],
    "cost": {
-    "once_per_turn": "OP11-062_shared",
+    "once_per_turn": true,
     "pay_don": 1
    }
   },
@@ -108840,7 +108840,7 @@
     }
    ],
    "cost": {
-    "once_per_turn": "OP11-062_shared",
+    "once_per_turn": true,
     "pay_don": 1
    }
   }

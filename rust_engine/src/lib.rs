@@ -505,8 +505,12 @@ fn fire_effect_smoke(
     let r = effects::execute_one_effect(&mut st, 0, card_id, when, effect_index, src);
     st.current_source_card_id = None;
     let inv = selfplay::check_invariants(&st, &base, "smoke");
+    // digest も返す: Python 側で同じ最小 state に同じ effect を発火させ bit 比較するため
+    // (scripts/rust_effect_smoke_parity.py)。 self-play で踏めない counter イベント等の
+    // 差分検証は この経路でしか作れない。
+    let dg = digest_of(&st).unwrap_or_default();
     let out = match r {
-        Ok(()) => serde_json::json!({"ok": true, "invariant_violations": inv}),
+        Ok(()) => serde_json::json!({"ok": true, "invariant_violations": inv, "digest": dg}),
         Err(e) => serde_json::json!({"ok": false, "err": e, "invariant_violations": inv}),
     };
     Ok(out.to_string())

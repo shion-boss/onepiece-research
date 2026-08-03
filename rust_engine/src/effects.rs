@@ -8600,10 +8600,11 @@ pub fn fire_on_attack(
         let cost = eff.get("cost").unwrap();
         let once = cost.get("once_per_turn");
         if let Some(o) = once {
-            if o.is_string() {
-                return Err("on_attack cost string once 未対応".into()); // 共有キー = once_per_turn_used 依存
-            }
-            if o.as_bool() == Some(true)
+            // ⚠ Python (trigger_on_attack) は cost.once_per_turn の **値を見ず** entry index
+            //   (attacker.attack_once_used) で gate する = 文字列キーでも共有されず bool と同じ。
+            //   Rust だけ文字列で bail していたため、 overlay に共有キーを入れた途端 134 件の
+            //   bail が出た (2026-08-03)。 Python 準拠で値によらず index gate にする。
+            if !o.is_null()
                 && get_ip(&state.players[me_idx], src).attack_once_used.contains(&(idx as i64))
             {
                 continue; // ターン既発動
@@ -10484,10 +10485,8 @@ pub fn fire_opp_attack(
             let cost = eff.get("cost").unwrap();
             let once = cost.get("once_per_turn");
             if let Some(o) = once {
-                if o.is_string() {
-                    return Err("opp_attack cost string once 未対応".into());
-                }
-                if o.as_bool() == Some(true)
+                // Python (opp_attack 経路) も同様に entry index で gate する (値は見ない)。
+                if !o.is_null()
                     && get_ip(&state.players[defender_idx], slot)
                         .attack_once_used
                         .contains(&(idx as i64))
