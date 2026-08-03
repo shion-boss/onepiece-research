@@ -1234,16 +1234,26 @@ fn resolve_target(
         // ⚠ overlay の `one_inplay_cost_le_N` 表記も同 semantics (effects.py:2626、 OP02-062 等)。
         os if os.starts_with("one_character_either_cost_le_") || os.starts_with("one_inplay_cost_le_") => {
             let n = parse_after(os, "cost_le_").unwrap_or(0);
-            let mut cands: Vec<(usize, usize, i32)> = vec![];
-            for (pi, pl) in [(opp_idx, &state.players[opp_idx]), (me_idx, &state.players[me_idx])] {
-                for (i, c) in pl.characters.iter().enumerate() {
-                    if c.card.cost <= n {
-                        cands.push((pi, i, c.power()));
-                    }
-                }
+            // ⚠ Python は **相手キャラを優先** する (effects.py: opp_cands を _opp_value 降順で
+            //   ソートし、 居れば必ずそこから 1 体。 居ない時だけ自陣の先頭)。 両陣営を混ぜて
+            //   power 降順にすると 高パワーの自キャラが選ばれ、 **自分自身を手札に戻す** 等の
+            //   誤動作になる (OP10-046 キュロスが自分を戻して場に出ない、 2026-08-03 発覚)。
+            let opp = &state.players[opp_idx];
+            let mut opp_cands: Vec<usize> =
+                (0..opp.characters.len()).filter(|&i| opp.characters[i].card.cost <= n).collect();
+            if !opp_cands.is_empty() {
+                opp_cands.sort_by(|&a, &b| {
+                    opp_value(&opp.characters[b])
+                        .partial_cmp(&opp_value(&opp.characters[a]))
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+                return Some(vec![(opp_idx, Slot::Char(opp_cands[0]))]);
             }
-            cands.sort_by(|a, b| b.2.cmp(&a.2));
-            cands.into_iter().take(1).map(|(pi, i, _)| (pi, Slot::Char(i))).collect()
+            let me = &state.players[me_idx];
+            (0..me.characters.len())
+                .find(|&i| me.characters[i].card.cost <= n)
+                .map(|i| vec![(me_idx, Slot::Char(i))])
+                .unwrap_or_default()
         }
         // 「このキャラ以外の自分のリーダーかキャラ 1 枚」 (effects.py:2334、 ST01-005)。
         // 発動元を除外して power 降順 1 枚 (tie は leader→char の board 順 = 安定ソート)。
@@ -2126,7 +2136,15 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
         "power_pump" => {
             // 静的 context では duration は static 強制 (effects.py:10783) → static_buff += amount。
             let Some(amount) = pump_amount(spec, state, me_idx, opp_idx) else { return };
-            let ff = spec.get("feature_filter").and_then(|v| v.as_str()).map(|s| s.to_string());
+            // ⚠ Python は `feature` (target の兄弟キー) を読む (effects.py の feature_filter 変数)。
+            //   Rust は overlay に 1 度も存在しない "feature_filter" を読んでおり **死にキー**
+            //   だった = 特徴フィルタが効かず全キャラに buff していた (OP02-019 ラクヨウ
+            //   「『白ひげ海賊団』を含む特徴を持つキャラすべてを +1000」、 2026-08-03 発覚)。
+            let ff = spec
+                .get("feature")
+                .or_else(|| spec.get("feature_filter"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
             let Some(targets) = resolve_target(spec.get("target"), me_idx, opp_idx, src, state) else { return };
             for (pi, sl) in targets {
                 if let Some(f) = &ff {
@@ -3411,6 +3429,10 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 state.players[vpi].trash.push(removed.card);
                 state.players[vpi].don_rested += don;
                 kom_any = true;
+                // Python の trigger_on_ko (= 全 KO 経路の共通フック、 effects.py:12942) は
+                // 冒頭で owner.chara_ko_taken_this_turn を加算する。 overlay/on_ko の有無に
+                // 依らないので ko_multi でも増える (EB04-059、 2026-08-03 発覚)。
+                state.players[vpi].chara_ko_taken_this_turn += 1;
                 // Python 順: on_ko (victim 側 source-gone) → on_opp_chara_ko (me) → on_self_chara_ko (victim 側)
                 if fire_on_ko(state, vpi, &cid, true).is_err() {
                     return false;
@@ -3705,8 +3727,12 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 state.players[me_idx].trash.push(removed.card);
                 state.players[me_idx].don_rested += vdon;
                 ko_count += 1;
-                // 自分の効果による自陣 KO = by_opp_effect=false。 chara_ko_taken_this_turn は
-                // Python が加算しない (opp 起因のみ) ので触らない。
+                // 自分の効果による自陣 KO = by_opp_effect=false。
+                // ⚠ 「Python が加算しない (opp 起因のみ)」 というコメントが付いていたが **誤り**。
+                //   trigger_on_ko (= 全 KO 経路の共通フック、 effects.py:12942) が冒頭で
+                //   owner.chara_ko_taken_this_turn を無条件加算する (OP06-095、 2026-08-03 発覚)。
+                //   同種の誤解が ko_self_chara / ko_multi / ko_self_with_filter にもあった。
+                state.players[me_idx].chara_ko_taken_this_turn += 1;
                 state.last_chara_ko_victim_card = None;
                 if fire_on_ko(state, me_idx, &vcid, false).is_err() {
                     return false;
@@ -10394,6 +10420,9 @@ fn pay_end_of_turn_cost(
             let don = ip.attached_dons;
             state.players[owner].trash.push(ip.card);
             state.players[owner].don_rested += don;
+            // Python (_pay_end_of_turn_cost) は trigger_on_ko を呼ぶので
+            // chara_ko_taken_this_turn が増える (= 全 KO 経路の共通フック)。
+            state.players[owner].chara_ko_taken_this_turn += 1;
             state.last_chara_ko_victim_card = None;
             fire_on_ko(state, owner, &vcid, false)?;
             fire_field_when(state, owner, "on_self_chara_ko")?;
