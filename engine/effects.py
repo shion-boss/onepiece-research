@@ -12477,7 +12477,9 @@ def try_replace_ko(
             extra_cond = {
                 k: v for k, v in eff.get("if", {}).items()
                 if k not in ("target", "target_attribute", "target_cost_le",
+                             "target_cost_ge",
                              "target_power_le", "target_power_ge",
+                             "target_truly_original_power_eq",
                              "target_feature", "target_feature_contains",
                              "target_color", "target_name_exclude",
                              "target_name", "target_rested",
