@@ -701,3 +701,37 @@ def test_put_top_to_life_works_at_zero_life():
     execute_effect({"put_top_to_life": 1}, st, me, opp, None)
     assert len(me.life) == 1 and len(me.deck) == deck_before - 1, \
         "ライフ 0 でも デッキ上→ライフ は行える (公式)"
+
+
+def test_cannot_be_rested_blocks_rest_self_cost():
+    """「レストにできない」 は **レストを要するコストの支払い** もできなくする。
+
+    公式 (3 弾で繰り返し): 「「レストにできない」と書かれた効果は、 そのキャラが
+    「このキャラをレストにする」 などと書かれた効果を発動することができなくなる効果ですか？」
+    →「はい、発動できません。 この効果は、 アタックや【ブロッカー】の発動などの、
+       **レストにすることが必要な行動**をできない状態にする効果です。」
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    c = InPlay.of(repo.get(_FILLER), sickness=False)   # rest_self コストの起動メインを持つ
+    me.characters = [c]
+
+    def opts():
+        return [o for o in list_activate_main_effects(st, me, overlay) if o[0] is c]
+
+    assert len(opts()) == 1, "前提が崩れている: 通常は起動メインが出るはず"
+    c.cannot_be_rested_buff = True
+    assert opts() == [], "「レストにできない」 のに レストを要するコストが払えてしまう"
+
+
+def test_cannot_be_rested_blocks_rest_by_other_effect():
+    """「レストにできない」 は 他のカードの効果によるレストも防ぐ (公式、 既に実装済の確認)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    victim = InPlay.of(repo.get(_FILLER), sickness=False)
+    opp.characters = [victim]
+    victim.cannot_be_rested_buff = True
+    execute_effect({"rest": "one_opponent_character_any"}, st, me, opp, None)
+    assert victim.rested is False, "「レストにできない」 のに他効果でレストされている"

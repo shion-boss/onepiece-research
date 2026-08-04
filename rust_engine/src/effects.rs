@@ -2530,7 +2530,10 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
         }
         "rest_self_don" => Some(me.don_active >= cv.as_i64().unwrap_or(0) as i32),
         // effects.py:544 — self_inplay が居ない (source-gone) or 既レスト なら払えない。
-        "rest_self" => Some(src_ip(me, src).map_or(false, |ip| !ip.rested)),
+        // 公式: 「レストにできない」 状態では レストを要するコストを払えない。
+        "rest_self" => Some(src_ip(me, src).map_or(false, |ip| {
+            !ip.rested && !ip.cannot_be_rested_buff && !ip.static_cannot_be_rested
+        })),
         "rest_self_target_name" | "rest_self_target" => {
             let name = cv.get("name").and_then(|x| x.as_str()).unwrap_or_else(|| cv.as_str().unwrap_or(""));
             Some(me.characters.iter().chain(me.stages.iter()).any(|ip| name_matches(&ip.card, name) && !ip.rested))
@@ -10061,8 +10064,14 @@ fn can_pay_counter_cost_full(
             return false;
         }
     }
-    if obj.get("rest_self").map_or(false, json_truthy) && get_ip(me, self_src).rested {
-        return false;
+    // 公式 (3 弾で繰り返し): 「レストにできない」 は **レストにすることが必要な行動**
+    //   (アタック /【ブロッカー】発動 / レストを要するコストの支払い) をできなくする。
+    //   レスト済 だけでなく 「レストにできない」 状態でも払えない (2026-08-04 是正)。
+    if obj.get("rest_self").map_or(false, json_truthy) {
+        let ip = get_ip(me, self_src);
+        if ip.rested || ip.cannot_be_rested_buff || ip.static_cannot_be_rested {
+            return false;
+        }
     }
     let rdon = gi("return_self_don_to_deck");
     if rdon > 0 && (me.don_active + me.don_rested) < rdon {
@@ -11685,7 +11694,9 @@ fn can_pay_activate_cost(state: &GameState, me_idx: usize, ip: &InPlay, on_field
     let Some(o) = cost.as_object() else { return true };
     let gi = |k: &str| o.get(k).and_then(|v| v.as_i64()).unwrap_or(0) as i32;
     let gb = |k: &str| o.get(k).and_then(|v| v.as_bool()).unwrap_or(false);
-    if gb("rest_self") && ip.rested {
+    // 公式: 「レストにできない」 は レストを要するコストの支払いもできなくする
+    // (effects.py:_can_pay_activate_cost と対、 2026-08-04 是正)。
+    if gb("rest_self") && (ip.rested || ip.cannot_be_rested_buff || ip.static_cannot_be_rested) {
         return false;
     }
     if gb("trash_self") && !on_field {

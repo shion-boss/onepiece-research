@@ -13367,8 +13367,12 @@ def _can_pay_activate_cost(
     - ko_self_with_filter: dict 自場に該当キャラ 1 枚以上必要 (例: {feature: "B・W"})
     - once_per_turn: bool      _act_used が False
     """
-    if cost.get("rest_self") and inplay.rested:
-        return False
+    if cost.get("rest_self"):
+        # 公式 (3 弾で繰り返し): 「レストにできない」 は **レストにすることが必要な行動**
+        # (アタック /【ブロッカー】発動 / レストを要するコストの支払い) をできなくする。
+        # レスト済 だけでなく 「レストにできない」 状態でも払えない (2026-08-04 是正)。
+        if inplay.rested or inplay.cannot_be_rested_buff or inplay.static_cannot_be_rested:
+            return False
     if cost.get("trash_self"):
         # 自身が場 (chara or stage) にいる必要
         if inplay not in me.characters and inplay not in me.stages:
