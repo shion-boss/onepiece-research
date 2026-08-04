@@ -1564,8 +1564,17 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 )
                 # === Counter フェイズ ===
                 # 発火 後 は battle_buff (= 神避 等) が redirect_target に 載るので 再読。
+                # 公式 (cardqa_st_02): 当事者が場を離れていたら
+                # **カウンターステップもスキップ** される (= カウンター札を無駄に消費しない)
+                if _battle_aborted(state, me, opp, attacker, redirect_target, "character"):
+                    _reset_battle_buffs(state)
+                    return
                 _fire_counter_events(state, opp, me, action.counter_event_idxs)
                 counter_added = _spend_counters(opp, action.counter_card_idxs)
+                # 公式: カウンターステップ終了時に当事者が場を離れていたらバトル中断
+                if _battle_aborted(state, me, opp, attacker, redirect_target, "character"):
+                    _reset_battle_buffs(state)
+                    return
                 defender_power = redirect_target.power + counter_added
                 if defender_power != base_defender_power:
                     state.pending_event = {
@@ -1636,6 +1645,11 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 blocker.rested
                 or not blocker.is_blocker_now
                 or blocker.blocker_disabled_until_turn_end
+                # 公式裁定: 「レストにできない」 は **アタックや【ブロッカー】の発動などの、
+                # レストにすることが必要な行動をできない状態にする** 効果 (cardqa 複数弾)。
+                # アタック側は列挙で止めていたが ブロッカー発動は素通りしていた (2026-08-04)。
+                or blocker.cannot_be_rested_buff
+                or blocker.static_cannot_be_rested
             ):
                 # 公式 10-1-4: ブロッカー は アクティブ で あれば 発動 可。
                 # 召喚酔い (= 登場ターン) は アタック のみ 制限 し、 ブロック は 妨げ ない
@@ -1700,9 +1714,19 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         # カウンターイベント発動 (7-1-3-1-2): 各イベント毎に push_log → snapshot
         # counter event (= 神避 等) は play_one_action で 事前 発火 済 の 場合 idxs 空。
         # 直接 apply_action 経由 (= テスト等) の 未発火 case も 残す。
+        # 公式 (cardqa_st_02): 当事者が場を離れていたら **カウンターステップもスキップ**
+        if _battle_aborted(state, me, opp, attacker, actual_target,
+                           "character" if is_blocked else "leader"):
+            _reset_battle_buffs(state)
+            return
         _fire_counter_events(state, opp, me, action.counter_event_idxs)
         # カウンターカード消費 (キャラ counter 値、_spend_counters は log なし)
         counter_added = _spend_counters(opp, action.counter_card_idxs)
+        # 公式: カウンターステップ終了時に当事者が場を離れていたらバトル中断
+        if _battle_aborted(state, me, opp, attacker, actual_target,
+                           "character" if is_blocked else "leader"):
+            _reset_battle_buffs(state)
+            return
         # 発火 後 は battle_buff が actual_target に 載るので 再読 (= 神避 +3000 等)。
         defender_power = actual_target.power + counter_added
         # === Post-counter snapshot: counter 加算後の defender_power ===
@@ -1917,6 +1941,11 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 blocker.rested
                 or not blocker.is_blocker_now
                 or blocker.blocker_disabled_until_turn_end
+                # 公式裁定: 「レストにできない」 は **アタックや【ブロッカー】の発動などの、
+                # レストにすることが必要な行動をできない状態にする** 効果 (cardqa 複数弾)。
+                # アタック側は列挙で止めていたが ブロッカー発動は素通りしていた (2026-08-04)。
+                or blocker.cannot_be_rested_buff
+                or blocker.static_cannot_be_rested
             ):
                 # 不正ブロッカーは無視 (KO してきた可能性等)。
                 # 召喚酔い は ブロック を 妨げ ない (公式 10-1-4、 アクティブ のみ が 条件)。
@@ -1968,8 +1997,16 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         # counter event (= 神避 等) は play_one_action で 事前 発火 済 だが、 AI sim や
         # 直接 apply_action 経由 で 未発火 の case も 残す。 発火 後 は battle_buff が
         # actual_target に 載るので、 defender_power は actual_target.power を 再読 する。
+        # 公式 (cardqa_st_02): 当事者が場を離れていたら **カウンターステップもスキップ**
+        if _battle_aborted(state, me, opp, attacker, actual_target, "character"):
+            _reset_battle_buffs(state)
+            return
         _fire_counter_events(state, opp, me, action.counter_event_idxs)
         counter_added = _spend_counters(opp, action.counter_card_idxs)
+        # 公式: カウンターステップ **終了時** にも再判定 (カウンター効果で消えた場合)
+        if _battle_aborted(state, me, opp, attacker, actual_target, "character"):
+            _reset_battle_buffs(state)
+            return
         defender_power = actual_target.power + counter_added
         # === Post-counter snapshot ===
         if defender_power != base_defender_power:
@@ -2084,6 +2121,37 @@ def _find_attacker_or_none(p: Player, iid: int):
     if p.leader.instance_id == iid:
         return p.leader
     return next((c for c in p.characters if c.instance_id == iid), None)
+
+
+def _battle_aborted(state: GameState, me: Player, opp: Player,
+                    attacker, actual_target, target_kind: str) -> bool:
+    """バトルを続行してよいか (公式: バトル中に当事者が場を離れたらバトルは中断)。
+
+    公式裁定 (cardqa_op_01 / op_05 / op_12 / st_02 / st_03 で繰り返し明示):
+      「カウンターステップの終了時に、 アタックしているキャラやアタックされているキャラが
+        場に存在しない場合、 **ダメージステップには移行せず、 バトルは終了します**」
+      「バトルの途中 (アタックステップ/ブロックステップ/カウンターステップのいずれか) で、
+        バトルをしているキャラが場を離れた場合、 その時点でバトルは中断されます」
+      「その場合、 このキャラの "バトルした場合" は解決されず」
+
+    ⚠ 2026-08-04 まで engine は **アタッカーを object 参照で保持してバトルを続行** していた
+      (= カウンターで KO されたアタッカーがそのままダメージを与えていた)。 Rust も同じ挙動を
+      忠実にミラーしていたため **差分検証では原理的に検出できず**、 公式 Q&A との突合で発覚した。
+
+    リーダーは場を離れないので attacker がリーダーなら常に True (継続)。
+    """
+    if attacker is not me.leader and attacker not in me.characters:
+        state.push_log(
+            "  バトル中断: アタックしているキャラが場に存在しない (ダメージステップに移行せず)"
+        )
+        return True
+    if target_kind == "character" and actual_target is not None:
+        if actual_target not in opp.characters:
+            state.push_log(
+                "  バトル中断: アタックされているキャラが場に存在しない (ダメージステップに移行せず)"
+            )
+            return True
+    return False
 
 
 def _spend_counters(p: Player, idxs: tuple[int, ...]) -> int:

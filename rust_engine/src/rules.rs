@@ -846,8 +846,32 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     return Ok(());
                 }
                 // カウンターフェイズ: counter events (defender=opp) → counter cards。
+                // 公式 (cardqa_st_02): 当事者が場を離れていたら **カウンターステップもスキップ**
+                // される (= カウンター札を無駄に消費しない)。 game.py と対。
+                if !is_leader
+                    && crate::effects::peek_tagged(state, me, state.current_attacker_tok)
+                        == crate::effects::Slot::Detached
+                {
+                    reset_battle_buffs(state);
+                    return Ok(());
+                }
                 crate::effects::fire_counter_events(state, opp, me, &counter_events)?;
                 let counter_added = spend_counters(&mut state.players[opp], &counter_cards);
+                // 公式 (cardqa_op_01/op_05/op_12/st_02/st_03): カウンターステップ終了時に
+                // **アタックしているキャラが場に存在しない場合、 ダメージステップには移行せず
+                // バトルは終了する**。 2026-08-04 まで両エンジンとも object 参照 / スナップショットで
+                // バトルを続行していた (= 差分では見えない共有バグ)。 Python game.py:_battle_aborted と対。
+                if !is_leader
+                    && crate::effects::peek_tagged(state, me, state.current_attacker_tok)
+                        == crate::effects::Slot::Detached
+                {
+                    reset_battle_buffs(state);
+                    return Ok(());
+                }
+                if ri >= state.players[opp].characters.len() {
+                    reset_battle_buffs(state);
+                    return Ok(());
+                }
                 // battle: Python redirect は attr bonus 無し (game.py:1502/1520)。 免疫 = ko_immune/属性のみ。
                 let atk_power = attacker.power();
                 let (def_power, immune) = {
@@ -871,6 +895,9 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 let valid = bi < state.players[opp].characters.len() && {
                     let b = &state.players[opp].characters[bi];
                     !b.rested && b.is_blocker_now() && !b.blocker_disabled_until_turn_end
+                        // 公式: 「レストにできない」 は【ブロッカー】の発動も止める
+                        // (レストにすることが必要な行動だから)。 game.py と対。
+                        && !b.cannot_be_rested_buff && !b.static_cannot_be_rested
                 };
                 if valid {
                     let bcid = state.players[opp].characters[bi].card.card_id.clone();
@@ -898,8 +925,31 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 // 不正ブロッカーは無視 = リーダーへ続行 (game.py:1591-1605)
             }
             // === カウンターフェイズ (7-1-3): counter events → counter cards ===
+            // 公式 (cardqa_st_02): 当事者が場を離れていたら **カウンターステップもスキップ**
+            // される (= カウンター札を無駄に消費しない)。 game.py と対。
+            if !is_leader
+                && crate::effects::peek_tagged(state, me, state.current_attacker_tok)
+                    == crate::effects::Slot::Detached
+            {
+                reset_battle_buffs(state);
+                return Ok(());
+            }
             crate::effects::fire_counter_events(state, opp, me, &counter_events)?;
             let counter_added = spend_counters(&mut state.players[opp], &counter_cards);
+            // 公式 (cardqa_op_01/op_05/op_12/st_02/st_03): カウンターステップ終了時に
+            // **アタックしているキャラが場に存在しない場合、 ダメージステップには移行せず
+            // バトルは終了する**。 2026-08-04 まで両エンジンとも object 参照 / スナップショットで
+            // バトルを続行していた (= 差分では見えない共有バグ)。 Python game.py:_battle_aborted と対。
+            if !is_leader
+                && crate::effects::peek_tagged(state, me, state.current_attacker_tok) == crate::effects::Slot::Detached
+            {
+                reset_battle_buffs(state);
+                return Ok(());
+            }
+            if is_blocked && blk_idx >= state.players[opp].characters.len() {
+                reset_battle_buffs(state);
+                return Ok(());
+            }
 
             if is_blocked {
                 // ブロッカー vs アタッカー (勝てば blocker KO、 負ければ生存、 リーダーへの damage 無)
@@ -1209,6 +1259,9 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 let valid = bi < state.players[opp].characters.len() && {
                     let b = &state.players[opp].characters[bi];
                     !b.rested && b.is_blocker_now() && !b.blocker_disabled_until_turn_end
+                        // 公式: 「レストにできない」 は【ブロッカー】の発動も止める
+                        // (レストにすることが必要な行動だから)。 game.py と対。
+                        && !b.cannot_be_rested_buff && !b.static_cannot_be_rested
                 };
                 if valid {
                     let bcid = state.players[opp].characters[bi].card.card_id.clone();
@@ -1239,12 +1292,36 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             // ⚠ 【カウンター】イベントが盤面を動かす (KO / バウンス) と actual_idx が stale になる。
             //   タグで追い、 消えていたら bail (Python は object-ref でバトルを続けるが index では不能)。
             let act_tok = crate::effects::tag_src(state, opp, crate::effects::Slot::Char(actual_idx));
+            // 公式 (cardqa_st_02): 当事者が場を離れていたら **カウンターステップもスキップ**
+            // される (= カウンター札を無駄に消費しない)。 game.py と対。
+            if !is_leader
+                && crate::effects::peek_tagged(state, me, state.current_attacker_tok)
+                    == crate::effects::Slot::Detached
+            {
+                reset_battle_buffs(state);
+                return Ok(());
+            }
             crate::effects::fire_counter_events(state, opp, me, &counter_events)?;
+            // 公式: カウンターで対象が場を離れたら **バトル中断** (ダメージステップに移行しない)。
+            // 以前は 「object-ref 再現不能」 として bail していたが、 公式どおり中断が正しい。
             actual_idx = match crate::effects::find_tagged(state, opp, act_tok) {
                 crate::effects::Slot::Char(i) => i,
-                _ => return Err("counter event でバトル対象が消失 (object-ref 再現不能)".into()),
+                _ => {
+                    reset_battle_buffs(state);
+                    return Ok(());
+                }
             };
             let counter_added = spend_counters(&mut state.players[opp], &counter_cards);
+            // 公式 (cardqa_op_01/op_05/op_12/st_02/st_03): カウンターステップ終了時に
+            // **アタックしているキャラが場に存在しない場合、 ダメージステップには移行せず
+            // バトルは終了する**。 2026-08-04 まで両エンジンとも object 参照 / スナップショットで
+            // バトルを続行していた (= 差分では見えない共有バグ)。 Python game.py:_battle_aborted と対。
+            if !is_leader
+                && crate::effects::peek_tagged(state, me, state.current_attacker_tok) == crate::effects::Slot::Detached
+            {
+                reset_battle_buffs(state);
+                return Ok(());
+            }
             // === バトル解決 (attr bonus 両方向) ===
             let (atk_power, def_power, immune) = {
                 let target = &state.players[opp].characters[actual_idx];
@@ -1263,7 +1340,7 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             // AttackCharacter は常に char vs char バトルなので成立時は必ず発火。 attacker が場に
             // 残っている場合のみ (Python の `attacker in [me.leader, *me.characters]`)。
             if crate::effects::card_has_when(&atk_cid, "on_self_battled") {
-                let cur = crate::effects::peek_tagged(state, me, atk_tok);
+                let cur = crate::effects::peek_tagged(state, me, state.current_attacker_tok);
                 let cur = if is_leader { crate::effects::Slot::Leader } else { cur };
                 if cur != crate::effects::Slot::Detached {
                     crate::effects::fire_on_self_battled(state, me, &atk_cid, cur)?;

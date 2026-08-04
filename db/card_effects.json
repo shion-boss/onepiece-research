@@ -12209,10 +12209,10 @@
    "when": "on_attack",
    "do": [
     {
-     "life_to_hand": 1
+     "untap": "self"
     },
     {
-     "untap": "self"
+     "life_to_hand": 1
     }
    ],
    "cost": {
@@ -20268,10 +20268,10 @@
    "when": "activate_main",
    "do": [
     {
-     "draw": 1
+     "ko": "one_opponent_character_cost_le_4cost"
     },
     {
-     "ko": "one_opponent_character_cost_le_4cost"
+     "draw": 1
     }
    ],
    "cost": {
@@ -22281,10 +22281,10 @@
    "when": "main",
    "do": [
     {
-     "life_to_hand": 1
+     "ko": "one_opponent_character_cost_le_4cost"
     },
     {
-     "ko": "one_opponent_character_cost_le_4cost"
+     "life_to_hand": 1
     }
    ]
   },
@@ -29795,14 +29795,14 @@
    "when": "counter",
    "do": [
     {
-     "untap_don": 1
-    },
-    {
      "power_pump": {
       "target": "self_inplay",
       "amount": 2000,
       "duration": "battle"
      }
+    },
+    {
+     "untap_don": 1
     }
    ]
   },
@@ -31421,10 +31421,10 @@
    "when": "on_attack",
    "do": [
     {
-     "life_to_hand": 1
+     "untap": "self"
     },
     {
-     "untap": "self"
+     "life_to_hand": 1
     }
    ],
    "cost": {
@@ -34730,10 +34730,10 @@
    "when": "on_attack",
    "do": [
     {
-     "life_to_hand": 1
+     "untap": "self"
     },
     {
-     "untap": "self"
+     "life_to_hand": 1
     }
    ],
    "cost": {
@@ -34763,10 +34763,10 @@
    "when": "on_attack",
    "do": [
     {
-     "life_to_hand": 1
+     "untap": "self"
     },
     {
-     "untap": "self"
+     "life_to_hand": 1
     }
    ],
    "cost": {
@@ -39511,10 +39511,10 @@
    "when": "activate_main",
    "do": [
     {
-     "draw": 1
+     "ko": "one_opponent_character_cost_le_4cost"
     },
     {
-     "ko": "one_opponent_character_cost_le_4cost"
+     "draw": 1
     }
    ],
    "cost": {
@@ -43742,10 +43742,10 @@
    "when": "activate_main",
    "do": [
     {
-     "draw": 1
+     "ko": "one_opponent_character_cost_le_4cost"
     },
     {
-     "ko": "one_opponent_character_cost_le_4cost"
+     "draw": 1
     }
    ],
    "cost": {
@@ -43771,10 +43771,10 @@
    "when": "activate_main",
    "do": [
     {
-     "draw": 1
+     "ko": "one_opponent_character_cost_le_4cost"
     },
     {
-     "ko": "one_opponent_character_cost_le_4cost"
+     "draw": 1
     }
    ],
    "cost": {
@@ -46038,10 +46038,10 @@
    "when": "activate_main",
    "do": [
     {
-     "draw": 1
+     "ko": "one_opponent_character_cost_le_4cost"
     },
     {
-     "ko": "one_opponent_character_cost_le_4cost"
+     "draw": 1
     }
    ],
    "cost": {
@@ -47172,10 +47172,10 @@
    "when": "on_attack",
    "do": [
     {
-     "life_to_hand": 1
+     "untap": "self"
     },
     {
-     "untap": "self"
+     "life_to_hand": 1
     }
    ],
    "cost": {
@@ -48490,10 +48490,10 @@
    "when": "activate_main",
    "do": [
     {
-     "draw": 1
+     "ko": "one_opponent_character_cost_le_4cost"
     },
     {
-     "ko": "one_opponent_character_cost_le_4cost"
+     "draw": 1
     }
    ],
    "cost": {
@@ -68102,9 +68102,6 @@
    "when": "activate_main",
    "do": [
     {
-     "life_to_hand": 1
-    },
-    {
      "power_pump": {
       "target": {
        "type": "all_self_chara_filtered",
@@ -68116,6 +68113,9 @@
       "amount": 1000,
       "duration": "turn"
      }
+    },
+    {
+     "life_to_hand": 1
     }
    ],
    "cost": {
@@ -82666,14 +82666,14 @@
    "when": "counter",
    "do": [
     {
-     "draw": 1
-    },
-    {
      "power_pump": {
       "target": "self_inplay",
       "amount": 2000,
       "duration": "battle"
      }
+    },
+    {
+     "draw": 1
     }
    ],
    "cost": {
@@ -86805,14 +86805,14 @@
    "when": "on_play",
    "do": [
     {
-     "life_to_hand": 1
-    },
-    {
      "power_pump": {
       "target": "one_opponent_character_any",
       "amount": -2000,
       "duration": "turn"
      }
+    },
+    {
+     "life_to_hand": 1
     }
    ],
    "if": {
@@ -89581,14 +89581,14 @@
    "when": "counter",
    "do": [
     {
-     "untap_don": 1
-    },
-    {
      "power_pump": {
       "target": "self_inplay",
       "amount": 4000,
       "duration": "battle"
      }
+    },
+    {
+     "untap_don": 1
     }
    ]
   }
@@ -90245,14 +90245,14 @@
    "when": "counter",
    "do": [
     {
-     "untap_don": 1
-    },
-    {
      "power_pump": {
       "target": "self_inplay",
       "amount": 2000,
       "duration": "battle"
      }
+    },
+    {
+     "untap_don": 1
     }
    ]
   },
@@ -90272,14 +90272,14 @@
    "when": "counter",
    "do": [
     {
-     "untap_don": 1
-    },
-    {
      "power_pump": {
       "target": "self_inplay",
       "amount": 4000,
       "duration": "battle"
      }
+    },
+    {
+     "untap_don": 1
     }
    ]
   }

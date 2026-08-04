@@ -554,3 +554,96 @@ def test_negated_source_does_not_fire_activate_main():
     total_attached = ip.attached_dons + me.leader.attached_dons
     assert total_attached == 0, \
         f"効果無効なのに起動メインでドンが付与された: {total_attached}"
+
+
+# --------------------------------------------------------------------------- #
+#  J. バトル中に当事者が場を離れたら **バトルは中断** される (公式裁定)
+#     cardqa_op_01 / op_05 / op_12 / st_02 / st_03 で繰り返し明示:
+#       「カウンターステップの終了時に、 アタックしているキャラやアタックされているキャラが
+#         場に存在しない場合、 ダメージステップには移行せず、 バトルは終了します」
+#     ⚠ 2026-08-04 まで engine は アタッカーを object 参照で保持して **バトルを続行** して
+#       いた (= カウンターで KO されたアタッカーがダメージを与えていた)。 Rust も忠実に
+#       ミラーしていたので **差分検証では原理的に検出できず**、 公式 Q&A 突合で発覚した。
+# --------------------------------------------------------------------------- #
+def test_battle_aborts_when_counter_kos_the_attacker():
+    """【カウンター】でアタッカーが KO されたら ダメージステップに移行しない。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP01-001", leader1="OP01-001")
+    me, opp = st.players[0], st.players[1]
+    atk = InPlay.of(repo.get(_FILLER), sickness=False)   # 元々パワー3000 (≤6000 = KO 対象)
+    atk.attached_dons = 2                                # → 現在 5000 = リーダーと互角 (通れば 1 ダメージ)
+    me.characters = [atk]
+    opp.hand = [repo.get("EB01-010")]                    # 【カウンター】元々パワー6000以下を KO
+    opp.don_active = 5
+    life_before = len(opp.life)
+
+    apply_action(st, AttackLeader(attacker_iid=atk.instance_id, counter_event_idxs=(0,)))
+
+    assert atk not in me.characters, "前提が崩れている: カウンターでアタッカーが KO されていない"
+    assert len(opp.life) == life_before, (
+        "アタッカーが場を離れたのにダメージが通っている"
+        f" (ライフ {life_before} → {len(opp.life)})。 公式はバトル中断"
+    )
+
+
+def test_battle_resolves_normally_when_attacker_survives():
+    """対照: アタッカーが生き残れば通常どおりダメージが通る (テストの妥当性確認)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP01-001", leader1="OP01-001")
+    me, opp = st.players[0], st.players[1]
+    atk = InPlay.of(repo.get(_FILLER), sickness=False)
+    atk.attached_dons = 2
+    me.characters = [atk]
+    opp.hand = []                                        # カウンターしない
+    life_before = len(opp.life)
+
+    apply_action(st, AttackLeader(attacker_iid=atk.instance_id))
+
+    assert atk in me.characters
+    assert len(opp.life) == life_before - 1, "通常のバトルでダメージが通っていない"
+
+
+# --------------------------------------------------------------------------- #
+#  K. 「レストにできない」 は **アタックも【ブロッカー】発動も** できなくする
+#     公式 Q&A: 「「レストにできない」と書かれた効果は、そのキャラが【ブロッカー】を発動する
+#     ことができなくなる効果ですか？」 →「はい、発動できません。この効果は、**アタックや
+#     【ブロッカー】の発動などの、レストにすることが必要な行動をできない状態にする**効果です。」
+#     ⚠ アタック側は列挙で止めていたが、 **ブロッカー発動は素通り** していた (2026-08-04)。
+# --------------------------------------------------------------------------- #
+def test_cannot_be_rested_blocks_attacking():
+    """「レストにできない」 キャラは自分からアタックできない。"""
+    from engine.game import legal_actions
+
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    c = InPlay.of(repo.get(_FILLER), sickness=False)
+    me.characters = [c]
+
+    def own_attacks():
+        return [a for a in legal_actions(st)
+                if isinstance(a, (AttackLeader, AttackCharacter)) and a.attacker_iid == c.instance_id]
+
+    assert len(own_attacks()) == 1, "前提が崩れている: 通常はアタックできるはず"
+    c.cannot_be_rested_buff = True
+    assert own_attacks() == [], "「レストにできない」 のにアタックできてしまう"
+
+
+def test_cannot_be_rested_blocks_blocker_activation():
+    """「レストにできない」 キャラは【ブロッカー】を発動できない。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    atk = InPlay.of(repo.get(_FILLER), sickness=False)
+    me.characters = [atk]
+    blk = InPlay.of(repo.get("OP01-014"), sickness=False)   # ジンベエ = ブロッカー
+    opp.characters = [blk]
+    assert blk.is_blocker_now and not blk.rested, "前提が崩れている"
+
+    blk.cannot_be_rested_buff = True
+    apply_action(st, AttackLeader(attacker_iid=atk.instance_id, blocker_iid=blk.instance_id))
+
+    assert blk.rested is False, (
+        "「レストにできない」 のに【ブロッカー】が発動している"
+        " (ブロックはレストにすることが必要な行動)"
+    )
