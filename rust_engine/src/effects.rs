@@ -2135,6 +2135,26 @@ fn worst_hand_idx(hand: &[crate::state::CardDef], known: &[String]) -> Option<us
 /// 「元々のコスト」 は `truly_original_cost_*` (印刷値) なので委譲側でそのまま正しい。
 fn matches_filter_ip(ip: &InPlay, filt: Option<&Value>) -> bool {
     let Some(f) = filt.and_then(|x| x.as_object()) else { return true };
+    // OR 結合 (or / or_clauses) の各サブ filter も **InPlay = 現在値** で判定する。
+    // CardDef 版に丸投げすると OR の中の cost/power だけ印刷値になり、 素の「コストN」裁定が
+    // 経路依存で食い違う (P-084「コスト3と4はアタックできない」= 現在コスト、 cardqa)。
+    // Python `_matches_filter_ip` と対。
+    if f.contains_key("or") || f.contains_key("or_clauses") {
+        for or_key in ["or", "or_clauses"] {
+            if let Some(subs) = f.get(or_key).and_then(|x| x.as_array()) {
+                if !subs.iter().any(|sub| matches_filter_ip(ip, Some(sub))) {
+                    return false;
+                }
+            }
+        }
+        let mut rest = f.clone();
+        rest.remove("or");
+        rest.remove("or_clauses");
+        if rest.is_empty() {
+            return true;
+        }
+        return matches_filter_ip(ip, Some(&Value::Object(rest)));
+    }
     const PLAIN: [&str; 7] = ["cost_le", "cost_ge", "cost_eq", "cost",
                               "power_le", "power_ge", "power_eq"];
     if !PLAIN.iter().any(|k| f.contains_key(*k)) {

@@ -274,90 +274,90 @@
   "files": [
    "cardqa_.json"
   ],
-  "note": "",
+  "note": "P-084 バギー「コスト3と4のキャラはアタックできない」= 現在コスト判定。overlay の or_clauses 内 cost_eq が _matches_filter(CardDef=印刷値) に丸投げされ印刷コストで判定されていた。_matches_filter_ip / matches_filter_ip(Rust) に or/or_clauses を現在値で再帰評価する分岐を追加。回帰test test_p084_*。cardqa: 元々コスト3/4で現在2以下/5以上はアタック可",
   "q": "自分の場にこの「P-084 バギー」があり、自分のリーダーが「バギー」の場合に、元々のコストが3か4で、他の効果によって現在のコストが2以下や5以上になっているキャラは、アタックすることはできますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "09088de1c80b": {
   "a": "はい、戻せます。",
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-086 超過鞭糸 【カウンター】/【トリガー】の手札戻しは one_character_either_* (両陣営) spec。自キャラも候補=公式はい。実測: return_to_hand one_character_either_cost_le_4 で自キャラが手札へ",
   "q": "この【カウンター】効果や【トリガー】効果で自分のキャラを手札に戻せますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "090b43aacbb5": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-079 オオロンブス 起動メイン ko_self_chara{count:1,filter:ドレスローザ} は必須KO(1枚まで でない)。自身が唯一のドレスローザなら自身をKO=公式いいえ(KOしない不可)。実測: 唯一のドレスローザ=自身→自身KO",
   "q": "自分のキャラがこのキャラのみの場合、この【起動メイン】効果で自分のキャラをKOしないことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "092c8e5c2b01": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_st_33.json"
   ],
-  "note": "",
+  "note": "ST33-003 スモーカー 【登場時】手札1枚捨てる=optional_cost_then のコスト。手札0(このカードのみ)では払えず効果(相手2枚デッキ下)不発=公式いいえ。実測: hand空→place無/hand1→discard+place",
   "q": "自分の手札がこのカード1枚のみの状態で、手札のこのカードを登場し【登場時】効果を発動した場合、自分の手札1枚を捨てずに相手のコスト2以下のキャラ2枚までを持ち主のデッキの下に置くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "09b1ff03bc1c": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_st_05.json"
   ],
-  "note": "",
+  "note": "ST05-001 シャンクス 起動メイン pump target=all_self_chara_filtered(FILM)。リーダーは me.characters に含まれず=キャラのみ対象。リーダーがFILM持ちでも+2000不可=公式いいえ。実測: leader power delta 0",
   "q": "この【起動メイン】効果でこのリーダーのパワーは+2000できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "0a4ac51b1f52": {
   "a": "はい、数えます。",
   "files": [
    "cardqa_st_31.json"
   ],
-  "note": "",
+  "note": "自分の付与ドン合計3枚以上 = self_attached_don_ge。実装は me.leader.attached_dons + sum(c.attached_dons for c in me.characters)=リーダー+全キャラ合算=公式はい。実測: leader2+char1=3で True、 leader1+char1=2で False",
   "q": "「自分の付与されているドン!!が合計3枚以上ある場合」とは、このキャラ自身に付与されたドン!!や、自分の他のキャラやリーダーに付与されたドン!!をすべて数えますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "0aa59b3ee868": {
   "a": "いいえ、できません。キャラに付与されているドン!!カードは「レストのドン!!」ではありません。",
   "files": [
    "cardqa_st_01.json"
   ],
-  "note": "",
+  "note": "ST01-001/007 起動メイン attach_rested_don はソース=me.don_rested(コストエリアのレストドン)のみ。キャラの attached_dons を source にする経路が構造的に無い=付与済ドンを他キャラへ移せない=公式いいえ。実測: pool0/attached2→付与0、attached不変",
   "q": "キャラについているドン!!をこの【起動メイン】効果で他のキャラに付与できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "0ae8b8f7df84": {
   "a": "はい、できます。",
   "files": [
    "cardqa_st_34.json"
   ],
-  "note": "",
+  "note": "ST34-002 クラッカー 【登場時】do=[add_rested_don:1, ko(1枚まで)]。ドン追加が先で相手コスト2以下不在でも独立実行=公式はい。実測: 相手キャラ0でも don_rested +1",
   "q": "相手のコスト2以下のキャラがいない場合、この【登場時】効果でドン!!デッキからドン!!1枚をレストで追加できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "0b0ad58baa03": {
   "a": "はい、起動できます。",
   "files": [
    "cardqa_st_02.json"
   ],
-  "note": "",
+  "note": "ST02-007 ボニー 起動メイン(rest_self+rest_self_don)は登場ターンでも起動可(召喚酔いはアタック宣言のみ制限、起動効果は非制限)=公式はい。実測: sickness=True でも list_activate_main_effects に出現",
   "q": "このキャラが登場したターンに、「このキャラをレストにできる：」効果を起動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "0b35a2d4fd95": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_st_30.json"
   ],
-  "note": "",
+  "note": "ST30-007 エース 【登場時】ドン1枚レスト=optional_cost_then のコスト(rest_self_don)。登場でドン全消費しアクティブ0なら払えず速攻得ず=公式いいえ。実測: don_active0→速攻無/don_active2→速攻有",
   "q": "自分のアクティブのドン!!が4枚の時にこのキャラを登場し、自分のアクティブのドン!!が0枚になった場合、このキャラの【登場時】効果で【速攻】を得ることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "0b401b1bca6d": {
   "a": "はい、できます。",

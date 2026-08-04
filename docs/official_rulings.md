@@ -564,3 +564,80 @@ OP06-098 / OP10-113 (+ 各 parallel)。 = **総 30 keys / 22 base のうち opp_
   choice「相手コスト4以下をトラッシュに置く」 で、 相手ターン中 効果でKOされないボルサリーノ(cost4)を
   置けるか→「はい」。 chara_to_trash は非KO なので「効果でKOされず」を貫通、 cost4≤4 で適格。
   実測: ボルサリーノがトラッシュへ = 公式どおり (既存裁定「トラッシュに置く≠KO」と整合)。
+
+---
+
+## 素の 「コストN」 は **OR (or_clauses) の中でも現在コスト** (2026-08-04 是正)
+
+**一次情報** (`db/faq/cardqa_`、 P-084 バギー):
+
+> 「自分の場にこの『P-084 バギー』があり、 自分のリーダーが『バギー』の場合に、 元々のコストが
+>   3か4で、 他の効果によって現在のコストが2以下や5以上になっているキャラは、 アタックすることは
+>   できますか？」
+> → **「はい、できます。 …現在のコストが3か4であるキャラによるアタックが宣言できなくなる効果です。」**
+
+P-084 バギー = 「自分のリーダーが『バギー』の場合、 **コスト3と4のキャラすべては、 アタックできない**」。
+公式テキストは素の 「コスト3と4」 = **現在コスト**。 印刷コスト3/4でも現在2以下/5以上ならアタック可。
+
+**是正前の挙動**: P-084 の overlay は
+`{"set_cannot_attack_filtered_static": {"filter": {"or_clauses": [{"cost_eq": 3}, {"cost_eq": 4}]}, "scope": "both"}}`。
+盤面 filter は `_matches_filter_ip` を通るが、 同関数は **top-level の plain な cost/power キー** しか
+現在値で判定せず、 `or` / `or_clauses` を持つ filter は丸ごと `_matches_filter(ip.card, ...)`
+(= **印刷コスト固定**) に委譲していた。 その結果 OR の中の `cost_eq` が印刷値で判定され、 現在コストを
+2に下げたキャラも 「印刷4」 のままアタック不可になっていた。 実測: 印刷コスト4 / 現在コスト2 の
+キャラに `cannot_attack_static=True` が付いた (公式は 「アタックできる」)。 Python/Rust とも同じ
+overlay を読むので **差分検証では原理的に沈黙**。
+
+= 「コスト是正の続き」。 素の 「コスト」 は現在値で見る裁定は target spec 文字列・filter dict の
+top-level では効いていたが、 **OR の入れ子だけ経路が抜けていた** (= 「一部だけ実装」、 最も
+見つけにくい形)。
+
+**実装**: `_matches_filter_ip` (Python `engine/effects.py`) / `matches_filter_ip` (Rust
+`rust_engine/src/effects.rs`) の入口で `or` / `or_clauses` を検出したら、 各サブ filter を
+**ip 版に再帰** して現在値で判定し、 OR キーを除いた残りで従来ロジックへ進む。 これで OR の中の
+cost/power も現在値、 「元々の〜」 (`truly_original_*`) は従来どおり印刷値のまま (= 委譲側で正しい)。
+影響 overlay は or/or_clauses に cost/power を入れ子にする **5 枚のみ** (P-084(+_r1) / EB03-010 /
+EB02-059 / OP14-018) で、 他は hand/条件経路のため挙動不変。 rust_parity MISMATCH=0 維持。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+`test_p084_cannot_attack_filter_uses_current_cost_inside_or_clauses` (印刷4/現在2→アタック可) +
+`test_p084_cannot_attack_filter_restricts_current_cost_match` (対照: 現在4→アタック不可)。
+
+⭐ **教訓**: 同じ裁定を直す時は 「target spec 文字列」 「filter dict の top-level」 だけでなく
+**OR/AND の入れ子** まで数える。 filter は木構造なので、 現在値ルールは **木の全ノード** に
+効かせないと経路依存で沈黙する。
+
+---
+
+## 公式どおりで **問題なかった** もの (2026-08-04 追加分 その4、 FAQ 全件保証 台帳より)
+
+- **【カウンター】/【トリガー】の 「持ち主の手札に戻す」 は自キャラも対象** (OP01-086 超過鞭糸) —
+  overlay は `one_character_either_*` (両陣営) spec。 「相手の」 が無い = 両陣営 の一般則どおり。
+  実測: `return_to_hand one_character_either_cost_le_4` で場に自キャラのみ→自キャラが手札へ = 公式はい。
+- **起動メインの必須自己KOは 「KOしない」 を選べない** (OP04-079 オオロンブス) — 「その後、 自分の
+  特徴《ドレスローザ》を持つキャラ1枚を、 KOする」 は 「1枚まで」 でない = 必須。 自身が唯一の
+  ドレスローザなら自身をKO。 実測: 唯一のドレスローザ=オオロンブス自身→自身がKOされる = 公式いいえ。
+- **【登場時】の任意コスト discard は 手札0 で払えず効果不発** (ST33-003 スモーカー) — 「手札1枚を
+  捨てることができる：相手コスト2以下2枚までデッキ下」 の discard は optional_cost_then のコスト。
+  手札がこのカードのみ→登場後 手札0→払えず→ 相手をデッキ下に置けない = 公式いいえ。 実測: hand空で
+  place 起きず、 hand1 の対照では discard+place 両方起きる。
+- **「自分のキャラすべて」 pump にリーダーは含まれない** (ST05-001 シャンクス) — 起動メイン
+  「自分の特徴《FILM》を持つキャラすべてを+2000」 の target=`all_self_chara_filtered` は
+  `me.characters` のみ走査 (リーダー除外)。 リーダーが《FILM》持ちでも+2000不可 = 公式いいえ。
+  実測: leader power delta 0。
+- **「付与されているドン合計N枚以上」 はリーダー+全キャラの合算** (ST31-003/004 / OP12-024) —
+  条件 `self_attached_don_ge` = `me.leader.attached_dons + sum(c.attached_dons for c in
+  me.characters)`。 実測: leader2+char1=3 で成立、 leader1+char1=2 で不成立 = 公式はい。
+- **付与済ドンを他キャラへ移せない** (ST01-001/007 起動メイン) — `attach_rested_don` のソースは
+  `me.don_rested` (コストエリアのレストドン) のみで、 キャラの `attached_dons` を source にする経路が
+  構造的に存在しない。 実測: レストドンpool=0 / 別キャラのattached=2 の状態で付与 0 (attached は不変)
+  = 「キャラに付与されたドンはレストのドンではない」 公式いいえ。
+- **「ドン追加。 その後 KO」 のドン追加は相手対象不在でも実行** (ST34-002 クラッカー) — do=
+  [add_rested_don:1, ko(相手コスト2以下 1枚まで)]。 ドン追加が先で独立。 実測: 相手キャラ0でも
+  `don_rested +1` = 公式はい (settled その後 tail 原則)。
+- **「このキャラをレストにできる：」 起動効果は登場ターンに起動可** (ST02-007 ボニー) — 召喚酔い
+  (sickness) はアタック宣言のみを制限し、 起動メイン効果は制限しない。 実測: sickness=True でも
+  `list_activate_main_effects` に出現 = 公式はい。
+- **【登場時】ドン1枚レストのコストは アクティブドン0 で払えず効果不発** (ST30-007 エース) — 「自分の
+  ドン1枚をレストにできる：速攻」 は optional_cost_then のコスト (rest_self_don)。 登場でドンを全消費し
+  アクティブ0→レストにできず→速攻を得ない = 公式いいえ。 実測: don_active0→速攻無、 don_active2→速攻有。

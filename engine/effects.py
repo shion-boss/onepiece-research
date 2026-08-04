@@ -10931,6 +10931,25 @@ def _matches_filter_ip(ip: Any, filt: dict[str, Any]) -> bool:
     """
     if not filt:
         return True
+    # OR 結合 (or / or_clauses) の各サブ filter も **InPlay = 現在値** で判定する。
+    # ⚠ ここを CardDef 版 (`_matches_filter`) に丸投げすると、 OR の中に入れ子になった
+    #   cost/power だけ印刷値で判定され、 素の 「コストN」 裁定が 「OR の外なら現在値・
+    #   中なら印刷値」 と経路依存で食い違う (= 一部だけ実装、 最も見つけにくい形)。
+    #   実例: P-084 バギー 「コスト3と4のキャラすべてはアタックできない」 の overlay は
+    #   `{"or_clauses": [{"cost_eq": 3}, {"cost_eq": 4}]}`。 公式 (cardqa) は
+    #   「元々のコスト3か4で、 他の効果で現在のコストが2以下や5以上になっているキャラは
+    #    アタックできますか？」→ 「はい。 現在のコストが3か4であるキャラのアタックが
+    #    宣言できなくなる効果です」 = **現在コスト** 判定。 印刷値で見ると違反する。
+    #   Python/Rust とも同じ overlay を読むので差分検証では原理的に沈黙するクラス。
+    if "or" in filt or "or_clauses" in filt:
+        for or_key in ("or", "or_clauses"):
+            subs = filt.get(or_key)
+            if subs is not None and not any(_matches_filter_ip(ip, sub) for sub in subs):
+                return False
+        rest_or = {k: v for k, v in filt.items() if k not in ("or", "or_clauses")}
+        if not rest_or:
+            return True
+        return _matches_filter_ip(ip, rest_or)
     plain = ("cost_le", "cost_ge", "cost_eq", "cost",
              "power_le", "power_ge", "power_eq")
     if not any(k in filt for k in plain):

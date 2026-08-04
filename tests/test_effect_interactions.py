@@ -1251,3 +1251,52 @@ def test_op10_118_on_attack_optional_cost_payable_when_condition_false():
     opp2_before = len(opp2.hand)
     trigger_on_attack(st2, me2, opp2, atk2, overlay)
     assert len(opp2.hand) == opp2_before - 1, "相手手札>=5 なのに手札破棄が起きていない"
+
+
+# --------------------------------------------------------------------------- #
+#  素の 「コストN」 は OR (or_clauses) の中でも **現在コスト** で判定する。
+#  一次情報 (cardqa、 P-084 バギー):
+#    「自分のリーダーが『バギー』の場合に、 元々のコストが3か4で、 他の効果によって
+#     現在のコストが2以下や5以上になっているキャラは、 アタックすることはできますか？」
+#    → 「はい、できます。 …現在のコストが3か4であるキャラによるアタックが宣言できなく
+#       なる効果です。」
+#  P-084 の overlay は `{"or_clauses": [{"cost_eq": 3}, {"cost_eq": 4}]}`。 OR の中の
+#  cost_eq が印刷コストで判定されると、 現在コスト2に下げたキャラも 「印刷4」 のまま
+#  アタック不可になり公式に反する (Python/Rust とも同じ overlay を読むので差分検証では沈黙)。
+# --------------------------------------------------------------------------- #
+def _p084_board(repo, overlay, cost_minus):
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP09-042"), sickness=False))  # バギー
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    baggy = InPlay.of(repo.get("P-084"), sickness=False)
+    victim = InPlay.of(repo.get("PRB02-003"), sickness=False)  # 印刷コスト 4
+    if cost_minus:
+        victim.cost_minus_until_turn_end = cost_minus
+    p0.characters = [baggy, victim]
+    for p in (p0, p1):
+        p.deck = [repo.get(_FILLER)] * 10
+        p.life = [repo.get(_FILLER)] * 3
+    st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                   rng=random.Random(1), effects_overlay=overlay)
+    st.turn_player_idx, st.turn_number = 0, 5
+    evaluate_static_effects(st, overlay)
+    return victim
+
+
+def test_p084_cannot_attack_filter_uses_current_cost_inside_or_clauses():
+    """P-084 「コスト3と4のキャラはアタック不可」 は OR の中でも現在コストで判定する。"""
+    repo, overlay = _repo(), _overlay()
+    # 印刷コスト4 → 現在コスト2: 公式は 「アタックできる」 = アタック不可にしてはいけない。
+    v_reduced = _p084_board(repo, overlay, cost_minus=2)
+    assert v_reduced.card.cost == 4 and v_reduced.base_cost == 2
+    assert not v_reduced.cannot_attack_static, (
+        "現在コスト2のキャラが 印刷コスト4 のままアタック不可にされている。 "
+        "or_clauses 内の cost_eq が印刷値で判定されている (公式 cardqa: 現在コストで判定)"
+    )
+
+
+def test_p084_cannot_attack_filter_restricts_current_cost_match():
+    """対照: 現在コストが実際に4なら アタック不可 (静的効果が効いていることの確認)。"""
+    repo, overlay = _repo(), _overlay()
+    v = _p084_board(repo, overlay, cost_minus=0)  # 印刷=現在=4
+    assert v.base_cost == 4
+    assert v.cannot_attack_static, "現在コスト4のキャラは P-084 でアタック不可のはず"
