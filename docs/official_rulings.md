@@ -1084,3 +1084,17 @@ top-level `if` → `conditional` で効果側のみを包む。 `cost` ブロッ
   (=ロシナンテ) がトラッシュに置いた」 と整合するか、 = 自身のKOを replace 対象に含むかで解釈が割れる。
   一次ソース `cardqa_op_05.json` がリポジトリ不在 (snapshot fallback) で原文の 「このキャラ」 の指示対象を
   確定できない。 rule 11 (アーキ/多カード/解釈割れ) に従い人間レビューへ。
+  - **補足検証 (別ラン、 2026-08-05)**: escalated 理由 (1) の 「untap が発火するか」 部分だけは
+    full-battle を実測した。 opp ターンで ホーキンス (attached_don=1) が自陣レストの ロシナンテ (power1000)
+    にアタック → ロシナンテはトラッシュへ、 **ホーキンスは active化 (rested=False)**。 対照 (don=0 で
+    `on_self_battled` 条件不成立) では ホーキンスは rested のまま = untap は確かに効果由来で発火する
+    (`_recompute_static` + apply_action(AttackCharacter))。 = 理由(1)は 「発火する」 で決着。
+    ⚠ ただし **この実測は replace を経由していない**: ロシナンテ単騎の KO は overlay の
+    `if.target: other_self_chara` (自身除外) により replace が起動せず **通常 KO でトラッシュへ落ちた**
+    だけ。 よって理由(2) は未解決のまま。 むしろ懸念が鮮明化: 公式文 「自分のレストのキャラがKOされる
+    場合」 は ロシナンテ自身を除外しないのに overlay が `other_self_chara` で自身を弾いている。
+    Q の 「このキャラ (=ロシナンテ) がバトルしトラッシュに置いた」 が **自身のKOを replace 対象に含む**
+    読みなら overlay は過剰制限 (= 実際の overlay バグの可能性)。 逆に含まない読みなら overlay は正しい。
+    一次ソース (原文 「このキャラ」 の係り先) が無いと確定不能。 **人間レビューでは
+    `other_self_chara` → 自身を含める target への是正要否を判断してほしい** (含めるなら engine に
+    self-inclusion の replace target token 追加が要る = アーキ寄りの変更)。
