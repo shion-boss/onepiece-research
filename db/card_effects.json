@@ -1057,18 +1057,24 @@
  ],
  "OP07-047": [
   {
-   "_text": "OP07-047 activate_main: このキャラを持ち主の手札に戻すことができる：相手の手札が6枚以上ある場合、相手は自身の手札1枚をデッキの下に置く。",
+   "_text": "OP07-047 activate_main: このキャラを持ち主の手札に戻すことができる：相手の手札が6枚以上ある場合、相手は自身の手札1枚をデッキの下に置く。 [cost-not-gated] コロン後の「相手の手札がN枚以上ある場合」は効果のみを gate。任意コストは条件不成立でも支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "opp_hand_to_deck_bottom": 1
+     "conditional": {
+      "if": {
+       "opp_hand_count_ge": 6
+      },
+      "do": [
+       {
+        "opp_hand_to_deck_bottom": 1
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "return_self_to_hand": true
-   },
-   "if": {
-    "opp_hand_count_ge": 6
    }
   }
  ],
@@ -39363,18 +39369,24 @@
  ],
  "OP07-047_p1": [
   {
-   "_text": "OP07-047_p1 activate_main: このキャラを持ち主の手札に戻すことができる：相手の手札が6枚以上ある場合、相手は自身の手札1枚をデッキの下に置く。",
+   "_text": "OP07-047_p1 activate_main: このキャラを持ち主の手札に戻すことができる：相手の手札が6枚以上ある場合、相手は自身の手札1枚をデッキの下に置く。 [cost-not-gated] コロン後の「相手の手札がN枚以上ある場合」は効果のみを gate。任意コストは条件不成立でも支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "opp_hand_to_deck_bottom": 1
+     "conditional": {
+      "if": {
+       "opp_hand_count_ge": 6
+      },
+      "do": [
+       {
+        "opp_hand_to_deck_bottom": 1
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "return_self_to_hand": true
-   },
-   "if": {
-    "opp_hand_count_ge": 6
    }
   }
  ],
@@ -43655,18 +43667,24 @@
  ],
  "OP07-047_p2": [
   {
-   "_text": "OP07-047_p2 activate_main: このキャラを持ち主の手札に戻すことができる：相手の手札が6枚以上ある場合、相手は自身の手札1枚をデッキの下に置く。",
+   "_text": "OP07-047_p2 activate_main: このキャラを持ち主の手札に戻すことができる：相手の手札が6枚以上ある場合、相手は自身の手札1枚をデッキの下に置く。 [cost-not-gated] コロン後の「相手の手札がN枚以上ある場合」は効果のみを gate。任意コストは条件不成立でも支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "opp_hand_to_deck_bottom": 1
+     "conditional": {
+      "if": {
+       "opp_hand_count_ge": 6
+      },
+      "do": [
+       {
+        "opp_hand_to_deck_bottom": 1
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "return_self_to_hand": true
-   },
-   "if": {
-    "opp_hand_count_ge": 6
    }
   }
  ],
@@ -45930,18 +45948,24 @@
  ],
  "OP07-047_p3": [
   {
-   "_text": "OP07-047_p3 activate_main: このキャラを持ち主の手札に戻すことができる：相手の手札が6枚以上ある場合、相手は自身の手札1枚をデッキの下に置く。",
+   "_text": "OP07-047_p3 activate_main: このキャラを持ち主の手札に戻すことができる：相手の手札が6枚以上ある場合、相手は自身の手札1枚をデッキの下に置く。 [cost-not-gated] コロン後の「相手の手札がN枚以上ある場合」は効果のみを gate。任意コストは条件不成立でも支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "opp_hand_to_deck_bottom": 1
+     "conditional": {
+      "if": {
+       "opp_hand_count_ge": 6
+      },
+      "do": [
+       {
+        "opp_hand_to_deck_bottom": 1
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "return_self_to_hand": true
-   },
-   "if": {
-    "opp_hand_count_ge": 6
    }
   }
  ],
@@ -53982,16 +54006,22 @@
  ],
  "OP05-082_p1": [
   {
-   "_text": "OP05-082 しらほし 起動メイン: self rest + 自trash2をデッキ底 → 相手手札6+で 相手手札1捨て (公式: trash_selfではない/1捨て)",
+   "_text": "OP05-082 しらほし 起動メイン: self rest + 自trash2をデッキ底 → 相手手札6+で 相手手札1捨て (公式: trash_selfではない/1捨て) [cost-not-gated] コロン後の「相手の手札がN枚以上ある場合」は効果のみを gate。任意コストは条件不成立でも支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "trash_opp_hand_random": 1
+     "conditional": {
+      "if": {
+       "opp_hand_count_ge": 6
+      },
+      "do": [
+       {
+        "trash_opp_hand_random": 1
+       }
+      ]
+     }
     }
    ],
-   "if": {
-    "opp_hand_count_ge": 6
-   },
    "cost": {
     "rest_self": true,
     "trash_to_deck": 2
@@ -54000,16 +54030,22 @@
  ],
  "OP05-082_p2": [
   {
-   "_text": "OP05-082 しらほし 起動メイン: self rest + 自trash2をデッキ底 → 相手手札6+で 相手手札1捨て (公式: trash_selfではない/1捨て)",
+   "_text": "OP05-082 しらほし 起動メイン: self rest + 自trash2をデッキ底 → 相手手札6+で 相手手札1捨て (公式: trash_selfではない/1捨て) [cost-not-gated] コロン後の「相手の手札がN枚以上ある場合」は効果のみを gate。任意コストは条件不成立でも支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "trash_opp_hand_random": 1
+     "conditional": {
+      "if": {
+       "opp_hand_count_ge": 6
+      },
+      "do": [
+       {
+        "trash_opp_hand_random": 1
+       }
+      ]
+     }
     }
    ],
-   "if": {
-    "opp_hand_count_ge": 6
-   },
    "cost": {
     "rest_self": true,
     "trash_to_deck": 2
@@ -54018,16 +54054,22 @@
  ],
  "OP05-082_p3": [
   {
-   "_text": "OP05-082 しらほし 起動メイン: self rest + 自trash2をデッキ底 → 相手手札6+で 相手手札1捨て (公式: trash_selfではない/1捨て)",
+   "_text": "OP05-082 しらほし 起動メイン: self rest + 自trash2をデッキ底 → 相手手札6+で 相手手札1捨て (公式: trash_selfではない/1捨て) [cost-not-gated] コロン後の「相手の手札がN枚以上ある場合」は効果のみを gate。任意コストは条件不成立でも支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "trash_opp_hand_random": 1
+     "conditional": {
+      "if": {
+       "opp_hand_count_ge": 6
+      },
+      "do": [
+       {
+        "trash_opp_hand_random": 1
+       }
+      ]
+     }
     }
    ],
-   "if": {
-    "opp_hand_count_ge": 6
-   },
    "cost": {
     "rest_self": true,
     "trash_to_deck": 2
@@ -54036,16 +54078,22 @@
  ],
  "OP05-082_r1": [
   {
-   "_text": "OP05-082 しらほし 起動メイン: self rest + 自trash2をデッキ底 → 相手手札6+で 相手手札1捨て (公式: trash_selfではない/1捨て)",
+   "_text": "OP05-082 しらほし 起動メイン: self rest + 自trash2をデッキ底 → 相手手札6+で 相手手札1捨て (公式: trash_selfではない/1捨て) [cost-not-gated] コロン後の「相手の手札がN枚以上ある場合」は効果のみを gate。任意コストは条件不成立でも支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "trash_opp_hand_random": 1
+     "conditional": {
+      "if": {
+       "opp_hand_count_ge": 6
+      },
+      "do": [
+       {
+        "trash_opp_hand_random": 1
+       }
+      ]
+     }
     }
    ],
-   "if": {
-    "opp_hand_count_ge": 6
-   },
    "cost": {
     "rest_self": true,
     "trash_to_deck": 2
@@ -75786,16 +75834,22 @@
  ],
  "OP05-082": [
   {
-   "_text": "OP05-082 しらほし 起動メイン: self rest + 自trash2をデッキ底 → 相手手札6+で 相手手札1捨て (公式: trash_selfではない/1捨て)",
+   "_text": "OP05-082 しらほし 起動メイン: self rest + 自trash2をデッキ底 → 相手手札6+で 相手手札1捨て (公式: trash_selfではない/1捨て) [cost-not-gated] コロン後の「相手の手札がN枚以上ある場合」は効果のみを gate。任意コストは条件不成立でも支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "trash_opp_hand_random": 1
+     "conditional": {
+      "if": {
+       "opp_hand_count_ge": 6
+      },
+      "do": [
+       {
+        "trash_opp_hand_random": 1
+       }
+      ]
+     }
     }
    ],
-   "if": {
-    "opp_hand_count_ge": 6
-   },
    "cost": {
     "rest_self": true,
     "trash_to_deck": 2
@@ -87241,29 +87295,47 @@
  ],
  "ST13-009": [
   {
-   "_text": "ST13-009 on_play: 自分の表向きのライフ1枚を裏向きにできる：相手の手札が7枚以上ある場合、相手のライフの上から1枚までをトラッシュに置く。",
+   "_text": "ST13-009 on_play: 自分の表向きのライフ1枚を裏向きにできる：相手の手札が7枚以上ある場合、相手のライフの上から1枚までをトラッシュに置く。 [cost-not-gated] 表向きライフ1枚を裏向きにする任意コストを実装 (未実装でタダ撃ちだった)。 コロン後の「相手の手札が7枚以上ある場合」は 効果のみを gate (cardqa_eb_04 の一般則)。",
    "when": "on_play",
    "do": [
     {
-     "mill_opp_life_to_trash": 1
+     "conditional": {
+      "if": {
+       "opp_hand_count_ge": 7
+      },
+      "do": [
+       {
+        "mill_opp_life_to_trash": 1
+       }
+      ]
+     }
     }
    ],
-   "if": {
-    "opp_hand_count_ge": 7
+   "cost": {
+    "flip_life_face_down": true
    }
   }
  ],
  "ST13-009_p1": [
   {
-   "_text": "ST13-009_p1 on_play: 自分の表向きのライフ1枚を裏向きにできる：相手の手札が7枚以上ある場合、相手のライフの上から1枚までをトラッシュに置く。",
+   "_text": "ST13-009_p1 on_play: 自分の表向きのライフ1枚を裏向きにできる：相手の手札が7枚以上ある場合、相手のライフの上から1枚までをトラッシュに置く。 [cost-not-gated] 表向きライフ1枚を裏向きにする任意コストを実装 (未実装でタダ撃ちだった)。 コロン後の「相手の手札が7枚以上ある場合」は 効果のみを gate (cardqa_eb_04 の一般則)。",
    "when": "on_play",
    "do": [
     {
-     "mill_opp_life_to_trash": 1
+     "conditional": {
+      "if": {
+       "opp_hand_count_ge": 7
+      },
+      "do": [
+       {
+        "mill_opp_life_to_trash": 1
+       }
+      ]
+     }
     }
    ],
-   "if": {
-    "opp_hand_count_ge": 7
+   "cost": {
+    "flip_life_face_down": true
    }
   }
  ],
@@ -105079,17 +105151,23 @@
  ],
  "OP16-047": [
   {
-   "_text": "OP16-047 【起動メイン】このキャラをレストにできる：相手の手札が8枚以上ある場合、相手は手札2枚をデッキの下に置く。",
+   "_text": "OP16-047 【起動メイン】このキャラをレストにできる：相手の手札が8枚以上ある場合、相手は手札2枚をデッキの下に置く。 [cost-not-gated] コロン後の「相手の手札がN枚以上ある場合」は効果のみを gate。任意コストは条件不成立でも支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "cost": {
     "rest_self": true
    },
-   "if": {
-    "opp_hand_count_ge": 8
-   },
    "do": [
     {
-     "opp_hand_to_deck_bottom": 2
+     "conditional": {
+      "if": {
+       "opp_hand_count_ge": 8
+      },
+      "do": [
+       {
+        "opp_hand_to_deck_bottom": 2
+       }
+      ]
+     }
     }
    ]
   }

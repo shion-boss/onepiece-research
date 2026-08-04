@@ -1300,3 +1300,134 @@ def test_p084_cannot_attack_filter_restricts_current_cost_match():
     v = _p084_board(repo, overlay, cost_minus=0)  # 印刷=現在=4
     assert v.base_cost == 4
     assert v.cannot_attack_static, "現在コスト4のキャラは P-084 でアタック不可のはず"
+# ---------------------------------------------------------------------------
+# 任意コスト 「〜できる：<条件>の場合、<効果>」 (2026-08-04、 cron 是正の残り分)
+#   cardqa_eb_04 の一般則: コロン後の条件は **効果のみ** を gate する。
+#   任意コストは条件不成立でも支払える (支払って何も起きない、 が公式)。
+#   cron は EB04-022 系 4 枚を是正したが、 **同じ opp_hand 系が 4 枚残っていた**。
+# ---------------------------------------------------------------------------
+
+def _opt_cost_board(repo, ov, card_id: str, opp_hand: int, *, face_up_life: int = 0):
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    src = InPlay.of(repo.get(card_id), sickness=False)
+    p0.characters = [src]
+    p0.hand = [repo.get("OP01-013")] * 3
+    p1.hand = [repo.get("OP01-013")] * opp_hand
+    for p in (p0, p1):
+        p.deck = [repo.get("OP01-013")] * 20
+        p.life = [repo.get("OP01-013")] * 3
+    p0.trash = [repo.get("OP01-013")] * 4
+    p0.don_active = 8
+    p0.face_up_life_count = face_up_life
+    st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                   rng=random.Random(1), effects_overlay=ov)
+    st.turn_player_idx, st.turn_number = 0, 5
+    return st, p0, p1, src
+
+
+def test_activate_main_optional_cost_not_gated_by_post_colon_condition():
+    """【起動メイン】「コスト：相手の手札がN枚以上ある場合、効果」 は条件不成立でも起動できる。
+
+    是正前は top-level `if` が **legal_actions の段階で** 起動メインを消しており、
+    「相手の手札が少ないとローを手札に戻せない」 等、 実在ラインが engine から消えていた。
+    """
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay
+    from engine.game import legal_actions
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    for card_id, threshold in (("OP05-082", 6), ("OP07-047", 6), ("OP16-047", 8)):
+        for opp_hand in (threshold - 1, threshold):
+            st, p0, p1, src = _opt_cost_board(repo, ov, card_id, opp_hand)
+            acts = [a for a in legal_actions(st) if type(a).__name__ == "ActivateMain"]
+            assert acts, (
+                f"{card_id}: 相手手札 {opp_hand} で起動メインが legal に出ない "
+                "(コロン後の条件がコスト支払いを妨げている)"
+            )
+
+
+def test_activate_main_effect_still_gated_when_condition_false():
+    """対照: コストは払えるが、 条件不成立なら **効果は起きない**。"""
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay
+    from engine.game import legal_actions, apply_action
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    st, p0, p1, src = _opt_cost_board(repo, ov, "OP16-047", 7)   # 閾値 8 未満
+    before = len(p1.hand)
+    acts = [a for a in legal_actions(st) if type(a).__name__ == "ActivateMain"]
+    assert acts
+    apply_action(st, acts[0])
+    assert len(p1.hand) == before, "条件不成立なのに相手の手札が減っている"
+    assert src.rested, "コスト (このキャラをレスト) が支払われていない"
+
+
+def test_st13_009_optional_cost_is_implemented_not_free():
+    """ST13-009: 「自分の表向きのライフ1枚を裏向きにできる：」 が **未実装でタダ撃ち** だった。
+
+    公式は任意コスト。 表向きライフが 0 枚なら払えない = 効果も起きない。
+    """
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, trigger_on_play
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    # 表向きライフ 0 = コストを払えない → 相手ライフは減らない
+    st, p0, p1, src = _opt_cost_board(repo, ov, "ST13-009", 8, face_up_life=0)
+    before = len(p1.life)
+    trigger_on_play(st, p0, p1, src, ov)
+    assert len(p1.life) == before, "表向きライフ 0 でコストを払えないのに効果が起きている (タダ撃ち)"
+
+    # 表向きライフ 1 + 条件成立 = コストを払って効果が起きる
+    st, p0, p1, src = _opt_cost_board(repo, ov, "ST13-009", 8, face_up_life=1)
+    before = len(p1.life)
+    trigger_on_play(st, p0, p1, src, ov)
+    assert len(p1.life) == before - 1, "条件成立なのに相手ライフが減っていない"
+    assert p0.face_up_life_count == 0, "コスト (表向きライフ 1 枚を裏向き) が支払われていない"
+
+    # 表向きライフ 1 + 条件不成立 = コストは払えるが効果は起きない
+    st, p0, p1, src = _opt_cost_board(repo, ov, "ST13-009", 6, face_up_life=1)
+    before = len(p1.life)
+    trigger_on_play(st, p0, p1, src, ov)
+    assert len(p1.life) == before, "条件不成立なのに相手ライフが減っている"
+
+
+def test_no_opp_hand_optional_cost_remains_gated_by_top_level_if():
+    """opp_hand 系の 「〜できる：相手の手札がN枚以上ある場合」 に top-level `if` が残っていない。
+
+    cron は 4 枚を是正したが同型が 4 枚残っていた (OP05-082 / OP07-047 / OP16-047 / ST13-009)。
+    同じ形の取りこぼしを機械で止める。
+    """
+    import re
+    cards = {c["card_id"]: c for c in
+             json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    bad = []
+    for cid, effs in sorted(ov.items()):
+        if not isinstance(effs, list):
+            continue
+        card = cards.get(cid) or {}
+        for eff in effs:
+            if not isinstance(eff, dict):
+                continue
+            cond = eff.get("if")
+            if not (isinstance(cond, dict) and "opp_hand_count_ge" in cond):
+                continue
+            src = "trigger" if eff.get("when") == "trigger" else "text"
+            text = re.sub(r"[(（][^)）]*[)）]", "",
+                          re.sub(r"\s+", "", card.get(src) or ""))
+            m = re.search(r"できる[：:]", text)
+            if m and "場合" in text[m.end():]:
+                bad.append(f"{cid}: {text[:80]}")
+    assert not bad, (
+        "コロン後の条件が top-level `if` のままで、 任意コストの支払いを妨げている:\n  "
+        + "\n  ".join(bad)
+    )

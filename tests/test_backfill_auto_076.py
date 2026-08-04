@@ -415,13 +415,26 @@ def test_op07_047_activate_opp_hand_to_deck_bottom_ai():
 
 
 def test_op07_047_opp_hand_count_condition():
-    """条件: 相手手札6枚以上で成立、 5枚では不成立 (opp_hand_count_ge)。"""
+    """条件: 相手手札6枚以上で成立、 5枚では不成立 (opp_hand_count_ge)。
+
+    ⚠ 2026-08-04: 公式テキストは 「このキャラを持ち主の手札に戻すことができる：**相手の手札が
+    6枚以上ある場合**、…」 で、 コロン後の条件は **効果のみ** を gate する (cardqa_eb_04 の一般則)。
+    以前は overlay の **top-level `if`** に置いており、 条件不成立だと起動メインが legal にすら
+    出ず 任意コストを払えなかった。 現在は `conditional` で効果側だけを包んでいるので、
+    条件はそこから取り出して検証する。
+    """
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, _LEADER, overlay)
     me, opp = st.players[0], st.players[1]
-    cond = _eff(overlay, "OP07-047", "activate_main").get("if")
-    assert cond is not None, "OP07-047 に手札枚数条件がない"
+    eff = _eff(overlay, "OP07-047", "activate_main")
+    assert eff.get("if") is None, (
+        "コロン後の条件が top-level `if` に戻っている "
+        "(= 任意コストの支払いを妨げる。 公式は条件不成立でも払える)"
+    )
+    conds = [p["conditional"]["if"] for p in eff["do"] if "conditional" in p]
+    assert conds, "OP07-047 の効果が conditional で包まれていない"
+    cond = conds[0]
     opp.hand = [repo.get(_FILLER)] * 5
     assert eval_condition(cond, st, me, opp) is False, "相手手札5枚で条件が成立してはいけない"
     opp.hand = [repo.get(_FILLER)] * 6

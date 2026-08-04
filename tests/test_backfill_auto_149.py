@@ -444,19 +444,25 @@ def test_op16_047_activate_main_hand_to_deck_when_ge8_ai():
         f"相手デッキが2枚増えていない: {len(opp.deck)}"
 
 
-def test_op16_047_activate_main_absent_when_hand_lt8():
-    """相手手札8枚未満 → 条件不成立で起動メインが legal に出ない。"""
+def test_op16_047_activate_main_available_even_when_hand_lt8():
+    """相手手札8枚未満でも **起動メインは使える** (効果だけが起きない)。
+
+    ⚠ 2026-08-04 是正: 公式テキストは 「このキャラをレストにできる：**相手の手札が8枚以上ある
+    場合**、…」。 コロン後の条件は **効果のみ** を gate し、 任意コスト (このキャラをレスト) は
+    条件不成立でも支払える (cardqa_eb_04 の一般則)。
+    このテストは以前 「条件不成立なら legal に出ない」 = **違反そのものを期待値に固定** していた。
+    """
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, "OP01-001", overlay)
     me, opp = st.players[0], st.players[1]
     me.characters = [InPlay.of(repo.get("OP16-047"), sickness=False)]
-    opp.hand = [repo.get(RED1)] * 5  # 5 枚 (< 8)
+    opp.hand = [repo.get(RED1)] * 5  # 5 枚 (< 8 = 条件不成立)
     options = list_activate_main_effects(st, me, overlay)
     doffy_opts = [(src, e) for (src, e) in options
                   if src.card.card_id == "OP16-047"]
-    assert len(doffy_opts) == 0, \
-        "相手手札8枚未満で起動メインが legal に出てはいけない"
+    assert len(doffy_opts) == 1, \
+        "条件不成立でも起動メイン (任意コスト) は選べるべき"
 
 
 # --------------------------------------------------------------------------- #

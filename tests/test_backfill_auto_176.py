@@ -560,9 +560,17 @@ def test_st13_009_on_play_mill_opp_life_ai():
     opp.trash = []
     life_before = len(opp.life)
 
+    # ⚠ 2026-08-04 是正: 公式は 「自分の表向きのライフ1枚を裏向きにできる：**相手の手札が7枚
+    # 以上ある場合**、…」。 コロン後の条件は効果のみを gate するので overlay では `conditional`
+    # の中にある (top-level `if` だと任意コストを払えなくなる)。 加えて 任意コスト自体が
+    # 未実装で **タダ撃ち** だったので `flip_life_face_down` で実装した。
     eff = _eff(overlay, "ST13-009", "on_play")
-    assert eff.get("if", {}).get("opp_hand_count_ge") == 7, \
-        "overlay の 条件 opp_hand_count_ge=7 が無い"
+    assert eff.get("if") is None, "条件が top-level `if` に戻っている (任意コストを妨げる)"
+    assert eff.get("cost", {}).get("flip_life_face_down"), \
+        "任意コスト 「表向きライフ1枚を裏向き」 が overlay に無い (= タダ撃ちに退行)"
+    conds = [p["conditional"]["if"] for p in eff["do"] if "conditional" in p]
+    assert conds and conds[0].get("opp_hand_count_ge") == 7, \
+        "overlay の 条件 opp_hand_count_ge=7 が conditional 内に無い"
     for prim in eff["do"]:
         execute_effect(prim, st, me, opp,
                        InPlay.of(repo.get("ST13-009"), sickness=True))
