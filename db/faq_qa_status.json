@@ -454,90 +454,90 @@
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-090 ペローナ replace_leave if{any_self_chara, by_opp_effect, target_truly_original_power_le:7000}。自身(印刷power2000≤7000)も対象。実測: try_replace_ko(victim=ペローナ,by_opp_effect)→fired=True, hand-1(trash_self_hand_random), ペローナ場に残存。公式「はい」",
   "q": "このキャラ自身が相手の効果で場を離れる場合、代わりに自分の手札1枚を捨てることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "0c67fb405b6a": {
   "a": "この場合、カード1枚を引き、手札1枚を捨てます。",
   "files": [
    "cardqa_eb_04.json"
   ],
-  "note": "",
+  "note": "EB04-011 ウロコ on_play draw_per_self_chara_then_discard(海王類)。ウロコ自身が海王類=1枚→draw1その後discard1。実測: 海王類がウロコのみで hand net同数/deck-1(draw1 discard1)。公式「カード1枚引き手札1枚捨て」",
   "q": "自分の特徴《海王類》を持つキャラがこのキャラのみの場合、この【登場時】効果はどうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "0c731c25315b": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_09.json"
   ],
-  "note": "",
+  "note": "OP09-018 失せろ main ko_total_power_le{max_count2,total4000}。現在パワー合算(負値含む)で判定。実測: power-2000 と power6000 の2体(合計4000)→両KO(opp chars 0)。公式「はい」(-2000+6000=4000≤4000)",
   "q": "この【メイン】効果で、パワー-2000のキャラとパワー6000のキャラをKOできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "0c8a807e1dac": {
   "a": "自分の手札から、『白ひげ海賊団』を含む特徴を持つカード2枚を相手に公開し、その後それらのカードを元の状態に戻します。",
   "files": [
    "cardqa_op_08.json"
   ],
-  "note": "",
+  "note": "「手札から『白ひげ海賊団』特徴カード2枚を公開することができる：」の意味を問う定義質問。公開は相手に見せて元に戻すだけ(状態変化なし)=engine の盤面差分に落ちない=n/a。公式回答も「2枚を公開しその後元の状態に戻す」",
   "q": "「自分の手札から『白ひげ海賊団』を含む特徴を持つカード2枚を公開することができる：」とはどういった効果ですか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "0c9616832087": {
   "a": "この場合、「ST03-017 メロメロ甘風」の効果によってカード1枚を引き、すべての処理を終えた後、このキャラの【自分のターン中】効果が発動します。",
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "",
+  "note": "OP06-044 ギオン: 相手がイベント(ST03-017 メロメロ甘風=カウンター)を発動時、その効果(draw1)を全処理した後にギオンの opp_hand_to_deck_bottom が発動。本日 sibling が是正した reactive 順序(trigger_counter_event が event を先に drain)と同一機構=fix 後 conform。0c2839493616(fixed)と同カード同機構",
   "q": "このキャラが登場している状況で、自分が相手のリーダーに対してアタックを行いました。この時、相手の手札は1枚のみで、手札から「ST03-017 メロメロ甘風」を発動しました。この場合、このキャラの効果はどうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "0c9c38fe40c0": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_08.json"
   ],
-  "note": "",
+  "note": "OP08-105 ボニー on_opp_life_taken(相手ライフ離脱時 draw2 discard1)。公式: 相手の効果で相手ライフが手札/トラッシュへ移動した時も発動する(はい)。だが engine は trigger_on_opp_life_taken を **アタックダメージ経路(game.py:2272)のみ** に配線しており、効果経由の相手ライフ除去(effects.py の life_to_hand/mill_opp_life 等 5556/5575/5614/7196)では発火しない=gap。修正は両engineの複数除去経路への配線(13カード影響/二重発火・went_to_hand の慎重扱い要)=アーキ寄り→escalated",
   "q": "相手のライフが相手の効果によって手札やトラッシュに移動した時、この【自分のターン中】効果でカード2枚を引き手札1枚を捨てることはできますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "0cbfaa2acbef": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_eb_02.json"
   ],
-  "note": "",
+  "note": "EB02-061 ルフィ 条件付き【速攻】: overlay の if が leader_color_multi のみで カードテキスト『相手の場のドン5枚以上』(opp_don_count_ge:5)を欠落。相手ドン4枚でも速攻付与→召喚酔いキャラがアタック可=公式違反。全5 variant に opp_don_count_ge:5 追加(overlay-only、 両engine が opp_don_count_ge 実装済)。実測: don5→速攻/don4→速攻なし。回帰test + mutation確認済",
   "q": "自分のターン中、相手のドン!!が5枚あるときにこのキャラを登場し、その後他の効果で相手のドン!!が4枚になりました。この場合、このキャラはアタックできますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "0cf10acffe0e": {
   "a": "はい、できます。一方の【相手のアタック時】効果を発動しドン!!を追加した後、そのドン!!をレストにしてもう一方の【相手のアタック時】効果を発動できます。",
   "files": [
    "cardqa_op_10.json"
   ],
-  "note": "",
+  "note": "OP10-071 ドフラ 相手のアタック時【ターン1回】ドン1レスト→ドンデッキからドン1追加。【ターン1回】は per-instance(source_inplay.attack_once_used、_enqueue_opp_attack_with_cost)なので2枚は独立発動。add_don は don_remaining_in_deck から供給(検証)。一方が追加したドンをレストして他方を発動可。公式「はい、合計2枚追加」",
   "q": "このキャラ2枚が自分の場にあり、自分の場にアクティブのドン!!が1枚あり、自分のドン!!デッキが2枚ある場合、相手がアタックしました。この時、この【相手のアタック時】効果を合計2回発動し、ドン!!デッキからドン!!2枚を追加できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "0d1f8cfef398": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_eb_01.json"
   ],
-  "note": "",
+  "note": "EB01-012 キャベンディッシュ on_play untap_don2 if{leader_feature超新星, self_chara_unique_name:キャベンディッシュ}。self_chara_unique_name は自身以外の同名キャラ存在で False。OP01-008(名『キャベンディッシュ』)が場に→条件不成立→アクティブ化なし。実測: don_active=0(他キャベ有)/=2(control)。公式「いいえ」",
   "q": "自分の場に「EB01-012 キャベンディッシュ」がなく、「OP01-008 キャベンディッシュ」が1枚ある時、「EB01-012 キャベンディッシュ」を登場させ【登場時】効果でドン!!2枚をアクティブにできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "0d29b5215ef3": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_09.json"
   ],
-  "note": "",
+  "note": "OP09-014 ライムジュース on_play disable_blocker(相手power4000以下)。選択時に blocker_disabled_until_turn_end flag を対象に立てる=そのターン持続。後でpower5000以上になっても再評価しない。実測: 選択後True→power5000化後もTrue。公式「いいえ、発動できない」",
   "q": "この【登場時】効果で選んだ相手のパワー4000以下のキャラが、そのターン中に他の効果でパワー5000以上になった場合、そのキャラの【ブロッカー】は発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "0d2c4debdbe3": {
   "a": "いいえ、できません。",

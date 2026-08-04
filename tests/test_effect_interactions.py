@@ -1571,3 +1571,41 @@ def test_all_either_target_cards_are_optional_up_to_n():
         "この形ではルール違反になるので、 必須なら自陣から選ぶ分岐が要る:\n  "
         + "\n  ".join(mandatory)
     )
+
+
+# --------------------------------------------------------------------------- #
+#  条件付き【速攻】は 相手の場のドン枚数を毎回再評価する
+#     公式 Q&A (cardqa_eb_02、 EB02-061 モンキー・D・ルフィ):
+#       「自分のターン中、相手のドン!!が5枚あるときにこのキャラを登場し、その後他の効果で
+#         相手のドン!!が4枚になりました。この場合、このキャラはアタックできますか？」
+#       → 「いいえ、できません。」
+#     カードテキスト = 「自分のリーダーが多色で、相手の場のドン!!が5枚以上ある場合、
+#                       このキャラは【速攻】を得る。」 (= 2 条件の AND)
+#     是正前の overlay は if に leader_color_multi しか持たず opp_don_count_ge:5 が欠落 →
+#     相手ドン4枚でも【速攻】を得て、 召喚酔いキャラがアタックできてしまっていた (公式違反)。
+#     Python/Rust とも同じ overlay を読むので差分検証では沈黙する class。
+# --------------------------------------------------------------------------- #
+def test_eb02_061_conditional_rush_requires_opp_don_ge_5():
+    """EB02-061 の条件付き【速攻】は 相手の場のドンが5枚未満なら付与されない。"""
+    repo, overlay = _repo(), _overlay()
+
+    def _rush_when_opp_don(opp_don: int) -> bool:
+        # 多色リーダー (EB04-001 赤/黄) の下に EB02-061 を召喚酔いで置く。
+        st = _state(repo, overlay, leader0="EB04-001")
+        me, opp = st.players[0], st.players[1]
+        ruffy = InPlay.of(repo.get("EB02-061"), sickness=True)
+        me.characters = [ruffy]
+        opp.don_active = opp_don
+        evaluate_static_effects(st, overlay)
+        granted = set(ruffy.granted_keywords) | set(
+            getattr(ruffy, "static_granted_keywords", set())
+        )
+        return "速攻" in granted
+
+    # 相手ドン5枚 → 【速攻】あり (登場ターンにアタック可)
+    assert _rush_when_opp_don(5), "相手ドン5枚で【速攻】が付与されていない (前提崩れ)"
+    # 相手ドン4枚 → 【速攻】なし = 召喚酔いでアタック不可 (公式「いいえ」)
+    # 是正前 (opp_don_count_ge 欠落) はここが True になり落ちる。
+    assert not _rush_when_opp_don(4), (
+        "相手ドン4枚でも【速攻】が付与されている (公式違反: opp_don_count_ge:5 欠落)"
+    )
