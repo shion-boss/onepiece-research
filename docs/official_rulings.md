@@ -1098,3 +1098,167 @@ top-level `if` → `conditional` で効果側のみを包む。 `cost` ブロッ
     一次ソース (原文 「このキャラ」 の係り先) が無いと確定不能。 **人間レビューでは
     `other_self_chara` → 自身を含める target への是正要否を判断してほしい** (含めるなら engine に
     self-inclusion の replace target token 追加が要る = アーキ寄りの変更)。
+
+---
+
+## 「代わりに自分のドン‼をレストにできる」 置換は アクティブドンが無ければ行えない (2026-08-05 是正)
+
+**一次情報** (`db/faq/cardqa_`、 P-111 ニコ・ロビン):
+
+> 「自分の場にアクティブのドン!!がない場合、この【ターン1回】効果で自分の特徴《麦わらの一味》を
+>   持つキャラが相手の効果で場を離れる代わりに自分のドン‼1枚をレストにできますか？」
+> → **「いいえ、できません。」**
+
+P-111【ターン1回】= 「自分の特徴《麦わらの一味》を持つキャラが相手の効果で場を離れる場合、
+代わりに自分のドン‼1枚をレストにできる。」 レストにできるのは **アクティブのドン** なので、
+アクティブが無ければ この置換 (= 場離れの肩代わり) は成立せず、 キャラは通常どおり場を離れる。
+
+**是正前の挙動**: overlay が `rest_self_don` を **`do` 側** に持ち、 `cost` は `[{once_per_turn}]`
+だけだった。 `_can_pay_replace_cost` は once_per_turn しか見ないので **常に払える扱い**、
+置換が成立して キャラを保護し、 `rest_self_don` は アクティブドン0で no-op になっていた。 実測:
+アクティブドン0で `try_replace_ko` が True (= キャラ保護) を返す = 公式違反。 Python/Rust とも
+同じ overlay を読むので **差分検証では原理的に沈黙** (ST09-010 のライフ置換と同型だが、 あちらは
+最初から cost 側で正しかった)。
+
+**実装**: `rest_self_don` を **cost に移す** (`do: []`)。 `_can_pay_replace_cost` /
+`_pay_replace_cost` (Python `engine/effects.py`) と replace cost 解析 (Rust
+`rust_engine/src/effects.rs`) に `rest_self_don` の payability (`don_active >= N`) と支払い
+(アクティブ N 枚→レスト) を追加。 影響カード = **P-111** (1枚) / **OP10-074 ピーカ**
+(「代わりに自分のアクティブのドン‼2枚をレストにできる」、 replace_ko、 同型) の 2 枚のみ
+(overlay 全走査で `do` に `rest_self_don` を持つ replace はこの 2 枚)。 rust_parity MISMATCH=0 維持。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+`test_p111_replace_leave_requires_active_don` (アクティブドン0→置換不成立) +
+`test_p111_replace_leave_rests_don_when_active_don_present` (対照: ドン有→成立+ドン1レスト)。
+
+---
+
+## 「自分の『<name>』」 は リーダーの同名も キャラの同名も 指す (2026-08-05 是正、 OP03-036)
+
+**一次情報** (`db/faq/cardqa_op_03`):
+
+> 「自分の『クロ』とは、自分のリーダーの『クロ』と自分のキャラの『クロ』のどちらを指しますか？」
+> → **「自分のリーダーと自分のキャラの『クロ』のどちらも指します。」**
+
+OP03-036 杓死【メイン】= 「自分の特徴《東の海》を持つキャラ1枚をレストにできる：自分の『クロ』
+1枚までを、アクティブにする。」 リーダー『クロ』(OP03-021) が レスト状態 (= アタック後等) の時、
+この効果で リーダーをアクティブにできるべき。
+
+**是正前の挙動**: `untap_chara` の target が `one_self_chara_filtered` (= **キャラ限定**) で、
+リーダーを対象に取れなかった。 実測: リーダー『クロ』のみが場に居る局面で
+`one_self_chara_filtered(name=クロ)` は空、 リーダーを untap できない = 公式違反。 overlay を
+`one_self_chara_or_leader_filtered` (OP16-094 等が使う既存 target、 両 engine 実装済) に是正
+(engine コード無変更の overlay-only)。 `untap_chara` は resolve した対象に `rested=False` を
+立てるだけなのでリーダーにもそのまま効く。 rust_parity MISMATCH=0 維持。
+
+**恒久ガード**: `tests/test_effect_interactions.py::test_op03_036_untap_can_target_leader_kuro`
+(リーダーのみ『クロ』の局面で リーダーが untap 対象になる)。
+
+⭐ **教訓**: 「相手の」 の有無 (両陣営スコープ) と同型で、 「自分の『<name>』」 は **リーダーも
+キャラも** 指す。 name フィルタの target が キャラ限定型 になっていないか確認する。
+
+---
+
+## 「(条件)の場合、…。その後、公開カードをデッキの下に置く」 の後段は 条件節の中 (2026-08-05 是正、 EB01-029)
+
+**一次情報** (`db/faq/cardqa_eb_01`、 EB01-029 わりいおれ死んだ):
+
+> 「この【カウンター】効果で公開したカードのコストが3以下だった場合、公開したカードはどうなりますか？」
+> → **「この場合、公開したカードはデッキの上に裏向きで戻します。」**
+
+EB01-029【カウンター】= 「自分のデッキの上から1枚を公開し、公開したカードがコスト4以上だった
+場合、自分のキャラ1枚までを、持ち主の手札に戻す。**その後、公開したカードをデッキの下に置く。**」
+公式 Q&A により 「その後デッキの下に置く」 は **「コスト4以上だった場合」 の条件節の中** =
+コスト3以下なら公開カードは デッキの **上** に (裏向きで) 戻る。
+
+**是正前の挙動**: overlay の `reveal_top_then` が `rest_remain: "bottom"` **固定** で、 filter
+(`cost_ge:4`) に **マッチしない (=コスト3以下)** 場合でも 公開カードをデッキの **下** に送っていた。
+実測: コスト2のカードを公開→デッキの下へ = 公式違反。 Python/Rust とも同じ overlay を読むので
+**差分検証では原理的に沈黙**。
+
+**実装**: `reveal_top_then` に `rest_remain_unmatched` を追加 (Python `engine/effects.py` /
+Rust `rust_engine/src/effects.rs`)。 filter 非マッチ時は `rest_remain_unmatched` (未指定なら
+`rest_remain` = 後方互換) を使う。 EB01-029 overlay に `rest_remain_unmatched: "top"` を設定。
+影響は EB01-029 のみ (他の reveal_top_then は 「その後デッキへ」 が無条件なので `rest_remain`
+片方で正しい)。 rust_parity MISMATCH=0 維持。
+
+**恒久ガード**: `tests/test_effect_interactions.py::test_eb01_029_reveal_returns_to_top_when_cost_le_3`
+(コスト3以下→上 / 対照: コスト4以上→then発火+下)。
+
+---
+
+## escalated: OP04-055 疫災弾 の 複合コストが atomic でない (部分支払い、 2026-08-05)
+
+**一次情報** (`db/faq/cardqa_op_04`、 OP04-055 疫災弾):
+
+> 「この【メイン】効果を発動し、コスト4以下のキャラをデッキの下に置かずに、自分の手札から
+>   『氷鬼』1枚を捨てることや、自分のトラッシュから『氷鬼』1枚を登場させることはできますか？」
+> → **「いいえ、できません。」**
+
+OP04-055【メイン】= 「自分の手札から『氷鬼』1枚を捨て、コスト4以下のキャラ1枚を、持ち主の
+デッキの下に置くことができる：自分のトラッシュから『氷鬼』1枚を登場させる。」 コロン前 (=コスト)
+は 「氷鬼を捨てる」 **かつ** 「コスト4以下のキャラをデッキ下に置く」 の複合で、 **一部だけ支払う
+ことはできない** (公式 cardqa_st_06 の発動コスト定義)。
+
+**確認した違反** (是正前・現状): overlay は
+`optional_cost_then{cost:[discard_hand_with_filter(氷鬼), return_to_deck_bottom(one_opponent_character_any_cost_le_4)], effect:[play_from_trash(氷鬼)]}`。
+`optional_cost_then` の payability チェックは `return_to_deck_bottom` を **見ていない** (payability
+loop に未対応の唯一の targeted-removal cost)。 実測: コスト4以下のキャラが盤面に **0 体** でも
+氷鬼が手札から捨てられ、 トラッシュから登場してしまう (= 部分支払い) = 公式違反。 Python/Rust とも
+同じ overlay を読むので **差分検証では原理的に沈黙**。
+
+**escalated の理由 (rule 11)**: 是正には `optional_cost_then` の payability に **targeted-removal
+(`return_to_deck_bottom`) の候補存在チェック** を両 engine に足す必要がある。 これは cost 判定の
+中で **target 解決 (候補列挙)** を行う新機構で、 Rust 側は `resolve_target` を cost payability に
+持ち込む bit 一致ミラーが要る (parity リスク)。 加えて 「コスト4以下のキャラ…持ち主のデッキの下」
+は **「相手の」 が無い = 両陣営スコープ** の疑いがある (overlay は `one_opponent`、 直接 Q&A 無し)
+が、 これを直すと payability 判定のスコープも変わる。 単一カードの局所 patch を超える (新機構 +
+スコープ確定) ため人間レビューへ。 ⚠ **`conform` にしてはいけない (違反が確定している)**。
+
+---
+
+## escalated: OP01 「相手イベントでバトルエリアを離れたキャラの効果ドロー」 対象カード特定不能 (2026-08-05)
+
+**一次情報** (`db/faq/cardqa_op_01`):
+
+> 「相手が使用したイベントによってこのキャラがバトルエリアを離れた場合、このキャラの効果で
+>   カードを引けますか？」 → **「いいえ、できません。」**
+
+答えは既是正の **battle-abort 裁定** (バトル中に当事者が場を離れたらバトル中断) と整合するが、
+Q が 「このキャラ」 総称で **対象カードを一意特定できない**。 一次 `cardqa_op_01.json` は遮断環境で
+不在 (committed snapshot fallback = card_number 無し)。 OP01 の候補 (OP01-078 ハンコック /
+OP01-052 雷ぞう) は **【アタック時】/【ブロック時】= 宣言時発火のドロー** で、 宣言時には既に引いて
+いるため 「バトルエリアを離れたら引けない」 (= 答え いいえ) と機構が噛み合わない。 = ドローが
+バトル **完了** を条件とする別カードの可能性が高いが、 その OP01 カードを本バッチでは同定できず。
+**人間レビューで対象カード特定を要す** (答え自体は既裁定と整合)。
+
+---
+
+## 公式どおりで **問題なかった** もの (2026-08-05 バッチ、 FAQ 全件保証 台帳より)
+
+いずれも engine を実際に動かして盤面差分を実測し conform と確認。 テストは
+`tests/test_effect_interactions.py` に追加。
+
+- **レストのドン付与は特徴フィルタで対象限定** (OP16-094 エース、 cardqa_op_16) — 「自分の特徴
+  《ワノ国》を持たないキャラにレストのドン1枚を付与できるか」→「いいえ」。 overlay の
+  attach_rested_don target = `one_self_chara_or_leader_filtered{feature:ワノ国}` で 非ワノ国は
+  候補に入らない = 公式どおり。 `test_op16_094_attach_rested_don_restricted_to_wano`。
+- **【登場時】の条件付き【速攻】は一度得たらターン中保持** (ST10-004 サンジ、 cardqa_st_10) —
+  「登場時に相手パワー5000以上が居て【速攻】を得た後、相手キャラが居なくなってもアタックできるか」
+  →「はい」。 overlay = `on_play give_keyword{速攻} if:exists_opp_chara_power_ge:5000`。 登場時に
+  一度だけ if を評価する **一回きりの付与** で、 `granted_keywords` はターン中保持され条件消失で
+  再評価しない = 公式どおり。 ⚠ 対照 EB02-061 は `on_attached_don` の **静的**条件付き速攻で毎回
+  再評価 (別機構、 docs 別項)。 `test_st10_004_rush_once_granted_persists`。
+- **KO 置換のライフコストは ライフ0で払えず 通常KO** (ST09-010 エース、 cardqa_st_09) — 「ライフが
+  無い時、KOされる代わりにライフ1枚をトラッシュにできるか」→「いいえ」。 replace_ko cost=
+  `[once_per_turn, mill_self_life_to_trash:1]`、 ライフ0で `_can_pay_replace_cost` False→置換不成立=
+  公式どおり。 `test_st09_010_replace_ko_requires_life`。
+- **「付与ドン合計N枚以上」 はリーダー+全キャラ合算 (分散配分でも可)** (OP12-024 牛鬼丸、 cardqa_op_12)
+  — 「異なるキャラ/リーダーに1〜2枚ずつ合計3枚でも条件を満たすか」→「はい」。 条件
+  `self_attached_don_ge:3` = `leader.attached_dons + sum(char.attached_dons)` (leader1+char2=3で成立)。
+  ST31-003/004 既存裁定と同機構。 `test_op12_024_attached_don_condition_counts_leader_and_all_chars`。
+- **【アタック時】任意コスト(手札捨て)は相手手札5枚以下でも払える** (ST33-002 サカズキ、 cardqa_st_33)
+  — 「相手手札5枚以下でも自分の手札1枚を捨てられるか」→「はい。相手は6枚以上でないので捨てない」。
+  overlay = `optional_cost_then{cost:[discard1], effect:[conditional{if:opp_hand_count_ge:6,
+  do:force_opp_discard}]}`。 コロン後の条件は効果のみ gate、 任意コストは条件不成立でも払える
+  (EB04-022 と同型、 既是正パターン)。 `test_st33_002_optional_cost_payable_when_opp_hand_le_5`。

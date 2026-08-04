@@ -4508,6 +4508,11 @@ def _execute_effect_body(
             then_specs = spec_val.get("then", [])
             else_specs = spec_val.get("else", [])
             rest_remain = spec_val.get("rest_remain", "bottom")
+            # 「(条件)の場合、…。その後、公開したカードをデッキの下に置く」= 「デッキの下に置く」が
+            # 条件節の中に入っているカード用。 条件不成立時は公開カードを別の場所 (通常はデッキの上へ
+            # 裏向きで戻す = 動かさない) に戻す。 EB01-029 わりいおれ死んだ: cardqa_eb_01 「公開した
+            # カードのコストが3以下だった場合、…デッキの上に裏向きで戻します」。 未指定なら rest_remain。
+            rest_remain_unmatched = spec_val.get("rest_remain_unmatched", rest_remain)
             if not me.deck:
                 state.push_log(f"  効果: reveal_top_then デッキ空 (不発)")
                 return False
@@ -4524,7 +4529,8 @@ def _execute_effect_body(
             else:
                 for spec in else_specs:
                     execute_effect(spec, state, me, opp, self_inplay)
-            # 公開済カードを rest_remain へ
+            # 公開済カードを rest_remain (マッチ時) / rest_remain_unmatched (非マッチ時) へ
+            rest_remain = rest_remain if matched else rest_remain_unmatched
             if rest_remain == "top":
                 # 公開順を保持して 上へ戻す (公式: 「~好きな順」 は AI 簡易で revealed 順)
                 me.deck = list(revealed_cards) + me.deck
@@ -13010,6 +13016,16 @@ def _can_pay_replace_cost(
             n = int(n_spec) if not isinstance(n_spec, dict) else int(n_spec.get("amount", 1))
             if len(me.life) < n:
                 return False
+        elif "rest_self_don" in cs:
+            # 「代わりに自分の(アクティブの)ドン‼ N 枚をレストにできる」 (P-111 ロビン /
+            # OP10-074 ピーカ)。 公式: 場にアクティブのドンが無い/足りない場合は この置換を
+            # 行えない (= 通常どおり場を離れる)。 cardqa_ (P-111): 「自分の場にアクティブの
+            # ドン!!がない場合、…ドン1枚をレストにできますか？」→「いいえ、できません。」
+            # レストにできるのはアクティブのドンなので、 アクティブが N 枚未満なら置換不能。
+            n_spec = cs["rest_self_don"]
+            n = int(n_spec) if not isinstance(n_spec, dict) else int(n_spec.get("amount", 1))
+            if me.don_active < n:
+                return False
         elif "once_per_turn" in cs:
             # 【ターン1回】 — 同一ターン内 同一 holder の 同一 replace 発動 を 1 回 に 制限。
             # holder_card_id があれば per-card per-turn フラグ で 管理。
@@ -13049,6 +13065,16 @@ def _pay_replace_cost(
                     break
                 me.trash.append(me.life.pop(0))
             state.push_log(f"  離脱置換コスト: 自ライフ {n} 枚をトラッシュへ")
+            continue
+        if "rest_self_don" in cs:
+            # 「代わりに自分の(アクティブの)ドン‼ N 枚をレストにできる」 (P-111 / OP10-074)。
+            # アクティブドン N 枚をレストへ (= execute_effect の rest_self_don と同 semantics)。
+            n_spec = cs["rest_self_don"]
+            n = int(n_spec) if not isinstance(n_spec, dict) else int(n_spec.get("amount", 1))
+            actual = min(me.don_active, n)
+            me.don_active -= actual
+            me.don_rested += actual
+            state.push_log(f"  離脱置換コスト: 自アクティブドン {actual} 枚をレストへ")
             continue
         if "trash_self" in cs:
             # 「代わりにこのキャラをトラッシュに置き」 — holder を場からトラッシュへ移動。

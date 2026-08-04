@@ -22175,7 +22175,8 @@
         "return_to_hand": "one_self_character_any"
        }
       ],
-      "rest_remain": "bottom"
+      "rest_remain": "bottom",
+      "rest_remain_unmatched": "top"
      }
     }
    ]
@@ -28315,7 +28316,7 @@
        {
         "untap_chara": {
          "target": {
-          "type": "one_self_chara_filtered",
+          "type": "one_self_chara_or_leader_filtered",
           "filter": {
            "name": "クロ"
           }
@@ -101437,13 +101438,12 @@
    "cost": [
     {
      "once_per_turn": true
-    }
-   ],
-   "do": [
+    },
     {
      "rest_self_don": 2
     }
-   ]
+   ],
+   "do": []
   }
  ],
  "OP10-108": [
@@ -104497,6 +104497,9 @@
    "cost": [
     {
      "once_per_turn": true
+    },
+    {
+     "rest_self_don": 1
     }
    ],
    "if": {
@@ -104504,11 +104507,7 @@
     "target_feature": "麦わらの一味",
     "by_opp_effect": true
    },
-   "do": [
-    {
-     "rest_self_don": 1
-    }
-   ]
+   "do": []
   }
  ],
  "P-120": [

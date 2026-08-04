@@ -1978,3 +1978,228 @@ def test_st06_004_double_attack_reevaluated_when_cost0_char_leaves():
     assert not smoker.is_double_attack_now, (
         "コスト0キャラが離れたら【ダブルアタック】を失うべき (公式 cardqa_st_06)"
     )
+
+
+# =========================================================================== #
+#  FAQ 全件保証 バッチ (2026-08-05): cardqa_op_16 / st_10 / op_12 / st_09 /
+#  eb_01 / st_33 ほか。 外部オラクル (公式 Q&A) と engine 挙動を突き合わせる。
+# =========================================================================== #
+def test_op16_094_attach_rested_don_restricted_to_wano():
+    """OP16-094 エース【起動メイン】: レストのドン付与は《ワノ国》キャラ/リーダー限定。
+
+    一次情報 (cardqa_op_16): 「この【起動メイン】効果で、自分の特徴《ワノ国》を持たない
+    キャラ1枚にレストのドン!!1枚を付与することはできますか？」→「いいえ、できません。」
+    """
+    from engine.effects import _resolve_target
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    src = InPlay.of(repo.get("OP16-094"), sickness=False)   # 《ワノ国》
+    nonwano = InPlay.of(repo.get("OP01-013"), sickness=False)  # 麦わらの一味 (非ワノ国)
+    me.characters = [src, nonwano]
+    tgt = _resolve_target({"type": "one_self_chara_or_leader_filtered",
+                           "filter": {"feature": "ワノ国"}}, st, me, opp, src)
+    assert nonwano not in tgt, "非《ワノ国》キャラが付与対象になってはいけない"
+    assert all("ワノ国" in t.card.features for t in tgt), "対象は《ワノ国》のみ"
+
+
+def test_st10_004_rush_once_granted_persists_when_condition_lost():
+    """ST10-004 サンジ【登場時】: 相手パワー5000以上がいる時に得た【速攻】は、
+    その後相手キャラが居なくなっても そのターン中 保持される。
+
+    一次情報 (cardqa_st_10): 「このキャラを登場させ、この【登場時】効果で【速攻】を得た後、
+    そのターン中に相手の場にパワー5000以上のキャラがいない状態になりました。このとき、
+    そのターンにこのキャラはアタックできますか？」→「はい、できます。」
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    opp.characters = [InPlay.of(repo.get("EB01-012"), sickness=False)]  # power 6000
+    sanji = InPlay.of(repo.get("ST10-004"), sickness=True)
+    me.characters = [sanji]
+    trigger_on_play(st, me, opp, sanji, overlay)
+    assert "速攻" in sanji.granted_keywords, "相手 5000+ が居れば【速攻】付与 (前提)"
+    opp.characters = []  # 相手キャラが場を離れる
+    assert "速攻" in sanji.granted_keywords, (
+        "一度得た【速攻】は条件消失後も そのターン保持される (cardqa_st_10)"
+    )
+
+
+def test_st10_004_rush_not_granted_when_no_opp_5000():
+    """対照: 登場時に相手パワー5000以上が居なければ【速攻】は付かない。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    sanji = InPlay.of(repo.get("ST10-004"), sickness=True)
+    me.characters = [sanji]
+    trigger_on_play(st, me, opp, sanji, overlay)
+    assert "速攻" not in sanji.granted_keywords
+
+
+def test_p111_replace_leave_requires_active_don():
+    """P-111 ロビン: アクティブのドンが無ければ 場離れ置換 (ドンをレスト) は行えない。
+
+    一次情報 (cardqa_): 「自分の場にアクティブのドン!!がない場合、この【ターン1回】効果で
+    自分の特徴《麦わらの一味》を持つキャラが相手の効果で場を離れる代わりに自分のドン‼1枚を
+    レストにできますか？」→「いいえ、できません。」
+
+    是正前は rest_self_don が do 側にあり、 アクティブドン 0 でも置換が成立 (キャラを保護) して
+    しまっていた。 rest_self_don を cost に移し、 アクティブドン払えない時は置換不成立にした。
+    """
+    from engine.effects import try_replace_ko
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="P-111")
+    me, opp = st.players[0], st.players[1]
+    straw = InPlay.of(repo.get("OP01-013"), sickness=False)  # 麦わらの一味
+    me.characters = [straw]
+    me.don_active = 0
+    replaced = try_replace_ko(st, me, opp, straw, overlay, by_opp_effect=True, leave_kind="ko")
+    assert replaced is False, "アクティブドン 0 で置換が成立してはいけない (cardqa_)"
+
+
+def test_p111_replace_leave_rests_don_when_active_don_present():
+    """対照: アクティブドンが有れば置換が成立し、 ドン1枚がレストになる。"""
+    from engine.effects import try_replace_ko
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="P-111")
+    me, opp = st.players[0], st.players[1]
+    straw = InPlay.of(repo.get("OP01-013"), sickness=False)
+    me.characters = [straw]
+    me.don_active = 1
+    me.don_rested = 0
+    replaced = try_replace_ko(st, me, opp, straw, overlay, by_opp_effect=True, leave_kind="ko")
+    assert replaced is True, "アクティブドンが有れば置換成立"
+    assert me.don_active == 0 and me.don_rested == 1, "コストでアクティブドン1枚がレストへ"
+    assert straw in me.characters, "置換成立でキャラは場に残る"
+
+
+def test_st09_010_replace_ko_requires_life():
+    """ST09-010 エース: ライフが無ければ KO 置換 (ライフをトラッシュ) は行えない。
+
+    一次情報 (cardqa_st_09): 「自分のライフが無い時、このキャラがKOされる場合、代わりに
+    自分のライフの上か下から1枚をトラッシュに置くことができますか？」→「いいえ、できません。」
+    """
+    from engine.effects import try_replace_ko
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    ace = InPlay.of(repo.get("ST09-010"), sickness=False)
+    me.characters = [ace]
+    me.life = []  # ライフ 0
+    replaced = try_replace_ko(st, me, opp, ace, overlay, by_opp_effect=True, leave_kind="ko")
+    assert replaced is False, "ライフ 0 で KO 置換が成立してはいけない (cardqa_st_09)"
+    # 対照: ライフ有りなら置換成立 (ライフ1枚がトラッシュへ)
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    ace = InPlay.of(repo.get("ST09-010"), sickness=False)
+    me.characters = [ace]
+    me.life = [repo.get(_FILLER)] * 2
+    trash_before = len(me.trash)
+    replaced = try_replace_ko(st, me, opp, ace, overlay, by_opp_effect=True, leave_kind="ko")
+    assert replaced is True and len(me.life) == 1 and len(me.trash) == trash_before + 1
+
+
+def test_op12_024_attached_don_condition_counts_leader_and_all_chars():
+    """OP12-024 牛鬼丸: 「付与ドン合計3枚以上」 はリーダー+全キャラの合算。
+
+    一次情報 (cardqa_op_12): 「この【アタック時】効果の『自分の付与されているドン!!が合計3枚
+    以上ある場合』の条件は、異なるキャラやリーダーに1～2枚ずつ、合計3枚のドン!!が付与されて
+    いる状態でも満たせますか？」→「はい、満たせます。」
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    src = InPlay.of(repo.get("OP12-024"), sickness=False)
+    me.characters = [src]
+    me.leader.attached_dons = 1
+    src.attached_dons = 2
+    assert eval_condition({"self_attached_don_ge": 3}, st, me, src), \
+        "リーダー1+キャラ2=合計3 で条件成立 (cardqa_op_12)"
+    me.leader.attached_dons = 1
+    src.attached_dons = 1
+    assert not eval_condition({"self_attached_don_ge": 3}, st, me, src), "合計2 では不成立"
+
+
+def test_op03_036_untap_can_target_leader_kuro():
+    """OP03-036 杓死【メイン】: 「自分の『クロ』」 はリーダーの『クロ』も対象。
+
+    一次情報 (cardqa_op_03): 「自分の『クロ』とは、自分のリーダーの『クロ』と自分のキャラの
+    『クロ』のどちらを指しますか？」→「自分のリーダーと自分のキャラの『クロ』のどちらも指します。」
+
+    是正前は target が one_self_chara_filtered (キャラ限定) でリーダーを対象に取れなかった。
+    one_self_chara_or_leader_filtered に是正。
+    """
+    from engine.effects import _resolve_target
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP03-021")  # リーダー『クロ』
+    me, opp = st.players[0], st.players[1]
+    me.leader.rested = True
+    me.characters = []  # リーダーのみが『クロ』
+    eff = next(e for e in overlay.get("OP03-036").effects if e.get("when") == "main")
+    tgt_spec = eff["do"][0]["optional_cost_then"]["effect"][0]["untap_chara"]["target"]
+    assert tgt_spec["type"] == "one_self_chara_or_leader_filtered", \
+        "target がリーダーを含む型でなければならない"
+    tgt = _resolve_target(tgt_spec, st, me, opp, None)
+    assert me.leader in tgt, "リーダー『クロ』が untap 対象になるべき (cardqa_op_03)"
+
+
+def test_eb01_029_reveal_returns_to_top_when_cost_le_3():
+    """EB01-029 わりいおれ死んだ【カウンター】: 公開カードがコスト3以下なら デッキの上へ戻す。
+
+    一次情報 (cardqa_eb_01): 「この【カウンター】効果で公開したカードのコストが3以下だった
+    場合、公開したカードはどうなりますか？」→「この場合、公開したカードはデッキの上に裏向きで
+    戻します。」
+
+    是正前は rest_remain="bottom" 固定で コスト3以下でもデッキの下へ送っていた。
+    rest_remain_unmatched="top" を追加し、 「その後デッキの下に置く」 が コスト4以上の条件節内で
+    あることを反映した。
+    """
+    repo, overlay = _repo(), _overlay()
+    rt = next(e for e in overlay.get("EB01-029").effects
+              if e.get("when") == "counter")["do"][0]
+    # コスト3以下を上に積む → 公開後 デッキの上へ戻る
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    low = repo.get(_FILLER)  # cost2
+    assert low.cost <= 3
+    me.deck = [low] + [repo.get("OP15-025")] * 20
+    top_id = me.deck[0].card_id
+    execute_effect(rt, st, me, opp, None)
+    assert me.deck[0].card_id == top_id, "コスト3以下は デッキの上に戻す (cardqa_eb_01)"
+
+    # 対照: コスト4以上なら then (自キャラ手札戻し) + 公開カードはデッキの下へ
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    high = repo.get("ST10-004")  # cost6
+    assert high.cost >= 4
+    me.deck = [high] + [repo.get("OP15-025")] * 20
+    top_id = me.deck[0].card_id
+    me.characters = [InPlay.of(repo.get(_FILLER), sickness=False)]
+    hand_before = len(me.hand)
+    execute_effect(rt, st, me, opp, None)
+    assert me.deck[-1].card_id == top_id, "コスト4以上は デッキの下へ"
+    assert len(me.hand) == hand_before + 1 and not me.characters, "自キャラが手札へ戻る"
+
+
+def test_st33_002_optional_cost_payable_when_opp_hand_le_5():
+    """ST33-002 サカズキ【アタック時】: 相手手札5枚以下でも 自分の手札1枚は捨てられる
+    (相手は6枚以上でないので捨てない)。
+
+    一次情報 (cardqa_st_33): 「相手の手札が5枚以下のときに、この【アタック時】効果で自分の
+    手札1枚を捨てることはできますか？」→「はい、できます。この場合、相手の手札が6枚以上では
+    ないので、相手は自身の手札を捨てません。」
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, human_idx=0)  # 人間 = 任意コストが提示される
+    me, opp = st.players[0], st.players[1]
+    sakazuki = InPlay.of(repo.get("ST33-002"), sickness=False)
+    me.characters = [sakazuki]
+    me.hand = [repo.get(_FILLER)]
+    opp.hand = [repo.get(_FILLER)] * 5  # 相手手札 5 (<6)
+    trigger_on_attack(st, me, opp, sakazuki, overlay)
+    assert st.pending_choice is not None and \
+        st.pending_choice.get("kind") == "optional_cost_confirm", \
+        "相手手札<6 でも任意コストが人間に提示される (cardqa_st_33)"
+    resolve_pending_choice(st, [1])  # 任意コストを払う
+    assert len(me.hand) == 0, "自分の手札1枚を捨てられる"
+    assert len(opp.hand) == 5, "相手手札は6枚以上でないので減らない"

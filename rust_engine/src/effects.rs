@@ -6212,6 +6212,11 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             let depth = v.get("depth").and_then(|x| x.as_i64()).unwrap_or(1).max(0) as usize;
             let filt = v.get("filter");
             let rest_remain = v.get("rest_remain").and_then(|x| x.as_str()).unwrap_or("bottom").to_string();
+            // 「(条件)の場合、…。その後、公開カードをデッキの下に置く」= 「デッキの下」が条件節内の
+            // カード用。 条件不成立時は rest_remain_unmatched へ (未指定なら rest_remain)。
+            // EB01-029 わりいおれ死んだ: cardqa_eb_01 「コスト3以下 → デッキの上に裏向きで戻す」。
+            let rest_remain_unmatched = v.get("rest_remain_unmatched").and_then(|x| x.as_str())
+                .unwrap_or(rest_remain.as_str()).to_string();
             if state.players[me_idx].deck.is_empty() {
                 return true; // デッキ空 = 不発 (再現できている)
             }
@@ -6227,8 +6232,9 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     }
                 }
             }
+            let effective_rest = if matched { rest_remain.as_str() } else { rest_remain_unmatched.as_str() };
             let me = &mut state.players[me_idx];
-            match rest_remain.as_str() {
+            match effective_rest {
                 "top" => {
                     let mut d = revealed;
                     d.extend(std::mem::take(&mut me.deck));
@@ -9430,6 +9436,7 @@ pub fn try_replace_ko(
             let mut ret_don: i32 = 0;
             let mut rand_discard: usize = 0;
             let mut mill_life: usize = 0;
+            let mut rest_don_cost: i32 = 0;
             if let Some(cost) = eff.get("cost") {
                 let entries: Vec<&Value> = match cost {
                     Value::Array(a) => a.iter().collect(),
@@ -9474,6 +9481,16 @@ pub fn try_replace_ko(
                                         val.as_i64().unwrap_or(1) as usize
                                     }
                                 }
+                                // 「代わりに自分の(アクティブの)ドン‼ N 枚をレストにできる」
+                                // (effects.py:_can_pay_replace_cost/_pay_replace_cost、 P-111 ロビン /
+                                // OP10-074 ピーカ)。 アクティブが N 枚未満なら置換不能 (= 通常離脱)。
+                                "rest_self_don" => {
+                                    rest_don_cost = if val.is_object() {
+                                        val.get("amount").and_then(|x| x.as_i64()).unwrap_or(1) as i32
+                                    } else {
+                                        val.as_i64().unwrap_or(1) as i32
+                                    }
+                                }
                                 _ => return Err(format!("replace cost 未対応 ({hcid}:{k})")),
                             }
                         }
@@ -9508,6 +9525,10 @@ pub fn try_replace_ko(
             }
             // mill_self_life_to_trash の payability: ライフが N 枚以上 (effects.py:12593)。
             if mill_life > 0 && state.players[victim_owner].life.len() < mill_life {
+                continue;
+            }
+            // rest_self_don の payability: アクティブドンが N 枚以上 (effects.py:_can_pay_replace_cost)。
+            if rest_don_cost > 0 && state.players[victim_owner].don_active < rest_don_cost {
                 continue;
             }
             // trash_self_hand_random の payability: 手札が N 枚以上。
@@ -9606,6 +9627,13 @@ pub fn try_replace_ko(
                 }
                 let c = pl.life.remove(0);
                 pl.trash.push(c);
+            }
+            // rest_self_don 支払い (effects.py:_pay_replace_cost)。 アクティブドン N 枚をレストへ。
+            if rest_don_cost > 0 {
+                let pl = &mut state.players[victim_owner];
+                let actual = rest_don_cost.min(pl.don_active);
+                pl.don_active -= actual;
+                pl.don_rested += actual;
             }
             // trash_self_hand_random 支払い (effects.py:12662)。 ⚠ 名前に反して AI は
             // worst_hand_idx (= 最悪札) を捨てる (rng は消費しない)。

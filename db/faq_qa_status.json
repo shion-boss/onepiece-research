@@ -724,90 +724,90 @@
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "",
+  "note": "OP16-094 エース【起動メイン】: attach_rested_don の target=one_self_chara_or_leader_filtered filter{feature:ワノ国}。非ワノ国キャラは対象に取れない=公式どおり。test_op16_094_attach_rested_don_restricted_to_wano",
   "q": "この【起動メイン】効果で、自分の特徴《ワノ国》を持たないキャラ1枚にレストのドン!!1枚を付与することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "11657d396676": {
   "a": "はい、できます。",
   "files": [
    "cardqa_st_10.json"
   ],
-  "note": "",
+  "note": "ST10-004 サンジ: on_play give_keyword 速攻 は if:exists_opp_chara_power_ge:5000 を登場時に一度だけ評価する一回きりの付与。granted_keywords はターン中保持され条件消失で再評価しない=公式どおり(EB02-061 の静的条件付き速攻とは別機構)。test_st10_004_rush_once_granted_persists",
   "q": "このキャラを登場させ、この【登場時】効果で【速攻】を得た後、そのターン中に相手の場にパワー5000以上のキャラがいない状態になりました。このとき、そのターンにこのキャラはアタックできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "116c06e80d9a": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_.json"
   ],
-  "note": "",
+  "note": "P-111 ロビン/OP10-074 ピーカ: 場離れ/KO 置換の rest_self_don が do 側にあり、アクティブドン0でも置換成立(キャラ保護)していた。rest_self_don を cost に移し _can_pay_replace_cost/_pay_replace_cost(Python)と replace cost 解析(Rust)に rest_self_don payability を追加。アクティブドン不足で置換不成立=公式いいえ。test_p111_replace_leave_requires_active_don",
   "q": "自分の場にアクティブのドン!!がない場合、この【ターン1回】効果で自分の特徴《麦わらの一味》を持つキャラが相手の効果で場を離れる代わりに自分のドン‼1枚をレストにできますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "11705907e267": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_st_09.json"
   ],
-  "note": "",
+  "note": "ST09-010 エース: replace_ko cost=[once_per_turn, mill_self_life_to_trash:1]。ライフ0では _can_pay_replace_cost が False→置換不成立→通常KO=公式いいえ。test_st09_010_replace_ko_requires_life",
   "q": "自分のライフが無い時、このキャラがKOされる場合、代わりに自分のライフの上か下から1枚をトラッシュに置くことができますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "11aea2cf5ca7": {
   "a": "はい、満たせます。",
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "",
+  "note": "OP12-024 牛鬼丸: 条件 self_attached_don_ge:3 はリーダー+全キャラの付与ドン合算(leader1+char2=3で成立)=公式はい。ST31-003/004 既存裁定と同機構。test_op12_024_attached_don_condition_counts_leader_and_all_chars",
   "q": "この【アタック時】効果の「自分の付与されているドン!!が合計3枚以上ある場合」の条件は、異なるキャラやリーダーに1～2枚ずつ、合計3枚のドン!!が付与されている状態でも満たせますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "12213d1e9f08": {
   "a": "自分のリーダーと自分のキャラの「クロ」のどちらも指します。",
   "files": [
    "cardqa_op_03.json"
   ],
-  "note": "",
+  "note": "OP03-036 杓死【メイン】: untap_chara target が one_self_chara_filtered(キャラ限定)でリーダーの『クロ』を対象に取れなかった。自分の『クロ』=リーダーもキャラも指す(公式)ので one_self_chara_or_leader_filtered に是正(overlay-only、両engine同overlay)。test_op03_036_untap_can_target_leader_kuro",
   "q": "自分の「クロ」とは、自分のリーダーの「クロ」と自分のキャラの「クロ」のどちらを指しますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "125588aa9595": {
   "a": "この場合、公開したカードはデッキの上に裏向きで戻します。",
   "files": [
    "cardqa_eb_01.json"
   ],
-  "note": "",
+  "note": "EB01-029 わりいおれ死んだ【カウンター】: reveal_top_then rest_remain=bottom 固定で、公開カードがコスト3以下でもデッキ下に送っていた。公式は『その後デッキの下に置く』がコスト4以上の条件節内=コスト3以下は上に裏向きで戻す。rest_remain_unmatched='top' を primitive(Python+Rust)に追加し overlay に設定。test_eb01_029_reveal_returns_to_top_when_cost_le_3",
   "q": "この【カウンター】効果で公開したカードのコストが3以下だった場合、公開したカードはどうなりますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "128e1ff09058": {
   "a": "はい、できます。この場合、相手の手札が6枚以上ではないので、相手は自身の手札を捨てません。",
   "files": [
    "cardqa_st_33.json"
   ],
-  "note": "",
+  "note": "ST33-002 サカズキ【アタック時】: optional_cost_then cost=discard1 / effect=conditional(opp_hand_count_ge:6→force_opp_discard)。相手手札5でも自手札は捨てられ相手は捨てない=公式はい(既存の任意コスト+条件パターン、EB04-022 と同型で是正済)。test_st33_002_optional_cost_payable_when_opp_hand_le_5",
   "q": "相手の手札が5枚以下のときに、この【アタック時】効果で自分の手札1枚を捨てることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "12a49621bce9": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01 相手イベントでバトルエリアを離れたキャラの効果ドロー不発(公式いいえ)。card_number 不在(一次 cardqa_*.json 遮断で snapshot fallback、Q は『このキャラ』総称)で対象カードを一意特定できず。候補 OP01-078/OP01-052 は【アタック時】/【ブロック時】=宣言時発火のドローで『バトル離場でドロー不可』の答え(いいえ)と整合しない=別カード(バトル完了条件のドロー)の可能性。答え自体は既是正の battle-abort 裁定と整合。人間レビューで対象カード特定を要す。",
   "q": "相手が使用したイベントによってこのキャラがバトルエリアを離れた場合、このキャラの効果でカードを引けますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "12b008cd3609": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-055 疫災弾【メイン】: 確定違反だが要 focused 実装。cost=optional_cost_then[discard_hand_with_filter(氷鬼), return_to_deck_bottom(コスト4以下キャラ)]。実測: コスト4以下キャラが不在でも 氷鬼 を捨て トラッシュから登場してしまう(部分支払い)。公式(cardqa_op_04)『コスト4以下のキャラをデッキの下に置かずに氷鬼を捨てる/登場できるか』→いいえ(コストは一部だけ払えない)。是正には optional_cost_then の payability に targeted-removal(return_to_deck_bottom)の候補存在チェックを両engineで追加要(現状 payability loop に未対応=唯一の unhandled targeted-removal cost)。加えて『持ち主のデッキの下』=両陣営スコープ疑い(overlay は one_opponent、直接 Q&A 無し)。target 解決を cost-check に持ち込む新機構+スコープ確定=単一カードの局所 patch を超える。docs/official_rulings.md に失敗シナリオ記録済。",
   "q": "この【メイン】効果を発動し、コスト4以下のキャラをデッキの下に置かずに、自分の手札から「氷鬼」1枚を捨てることや、自分のトラッシュから「氷鬼」1枚を登場させることはできますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "12b45617c5f6": {
   "a": "はい、登場できます。【登場時】効果のコストは支払うことも支払わないこともできますが、効果は何も起きません。",
