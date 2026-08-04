@@ -2409,26 +2409,32 @@
    ]
   },
   {
-   "_text": "緑ミホーク 起動メイン: 自分のカード1枚レスト(選択) + コスト5+キャラいる時のみ → ドン3活性化 + 登場禁止",
+   "_text": "緑ミホーク 起動メイン: 自分のカード1枚レスト(選択) + コスト5+キャラいる時のみ → ドン3活性化 + 登場禁止 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_op_02 / cardqa_st_04 / cardqa_eb_04)。",
    "when": "activate_main",
-   "if": {
-    "self_chara_filtered_count_ge": {
-     "filter": {
-      "cost_ge": 5
-     },
-     "count": 1
-    }
-   },
    "cost": {
     "once_per_turn": true,
     "rest_own_card": 1
    },
    "do": [
     {
-     "untap_don": 3
-    },
-    {
-     "block_chara_play": true
+     "conditional": {
+      "if": {
+       "self_chara_filtered_count_ge": {
+        "filter": {
+         "cost_ge": 5
+        },
+        "count": 1
+       }
+      },
+      "do": [
+       {
+        "untap_don": 3
+       },
+       {
+        "block_chara_play": true
+       }
+      ]
+     }
     }
    ]
   }
@@ -3320,29 +3326,23 @@
    ]
   },
   {
-   "_text": "【起動メイン】【ターン1回】自分のリーダーが特徴《アラバスタ王国》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-1000。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
+   "_text": "【起動メイン】【ターン1回】自分のリーダーが特徴《アラバスタ王国》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-1000。",
    "when": "activate_main",
    "cost": {
     "once_per_turn": true
    },
    "do": [
     {
-     "conditional": {
-      "if": {
-       "leader_feature": "アラバスタ王国"
-      },
-      "do": [
-       {
-        "power_pump": {
-         "target": "one_opponent_character_any",
-         "amount": -1000,
-         "duration": "turn"
-        }
-       }
-      ]
+     "power_pump": {
+      "target": "one_opponent_character_any",
+      "amount": -1000,
+      "duration": "turn"
      }
     }
-   ]
+   ],
+   "if": {
+    "leader_feature": "アラバスタ王国"
+   }
   }
  ],
  "EB03-015": [
@@ -5206,23 +5206,29 @@
    ]
   },
   {
-   "_text": "EB02-052 エネル アタック時: 1捨てで 自ライフ1以下なら デッキ上1をライフ追加 + self +1000 turn",
+   "_text": "EB02-052 エネル アタック時: 1捨てで 自ライフ1以下なら デッキ上1をライフ追加 + self +1000 turn [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_op_02 / cardqa_st_04 / cardqa_eb_04)。",
    "when": "on_attack",
    "cost": {
     "discard_hand": 1
    },
-   "if": {
-    "self_life_le": 1
-   },
    "do": [
     {
-     "put_top_to_life": 1
-    },
-    {
-     "power_pump": {
-      "target": "self",
-      "amount": 1000,
-      "duration": "turn"
+     "conditional": {
+      "if": {
+       "self_life_le": 1
+      },
+      "do": [
+       {
+        "put_top_to_life": 1
+       },
+       {
+        "power_pump": {
+         "target": "self",
+         "amount": 1000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ]
@@ -6740,27 +6746,36 @@
  ],
  "OP15-109": [
   {
-   "_text": "OP15-109 on_play: 自分のライフの上から1枚を手札に加えることができる：自分のリーダーが特徴《麦わらの一味》を持つ場合、自分のデッキの上から1枚までを、ライフの上に加える。その後、",
+   "_text": "OP15-109 on_play: 自分のライフの上から1枚を手札に加えることができる：自分のリーダーが特徴《麦わらの一味》を持つ場合、自分のデッキの上から1枚までを、ライフの上に加える。その後、 [cost-implemented] 公式の任意コスト 「ライフの上から1枚を手札に加える」 を実装 (未実装で効果がタダ撃ちできた)。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_op_02 / cardqa_st_04 / cardqa_eb_04)。",
    "when": "on_play",
    "do": [
     {
-     "life_to_hand": 1
-    },
-    {
-     "put_top_to_life": 1
-    },
-    {
-     "play_from_hand": {
-      "filter": {
-       "cost_le": 5,
-       "feature": "空島"
+     "conditional": {
+      "if": {
+       "leader_feature": "麦わらの一味"
       },
-      "limit": 1
+      "do": [
+       {
+        "life_to_hand": 1
+       },
+       {
+        "put_top_to_life": 1
+       },
+       {
+        "play_from_hand": {
+         "filter": {
+          "cost_le": 5,
+          "feature": "空島"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
-   "if": {
-    "leader_feature": "麦わらの一味"
+   "cost": {
+    "life_to_hand": 1
    }
   }
  ],
@@ -13887,26 +13902,32 @@
    ]
   },
   {
-   "_text": "緑ミホーク 起動メイン: 自レスト + コスト5+キャラいる時のみ → ドン3活性化 + 登場禁止",
+   "_text": "緑ミホーク 起動メイン: 自レスト + コスト5+キャラいる時のみ → ドン3活性化 + 登場禁止 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_op_02 / cardqa_st_04 / cardqa_eb_04)。",
    "when": "activate_main",
-   "if": {
-    "self_chara_filtered_count_ge": {
-     "filter": {
-      "cost_ge": 5
-     },
-     "count": 1
-    }
-   },
    "cost": {
     "once_per_turn": true,
     "rest_own_card": 1
    },
    "do": [
     {
-     "untap_don": 3
-    },
-    {
-     "block_chara_play": true
+     "conditional": {
+      "if": {
+       "self_chara_filtered_count_ge": {
+        "filter": {
+         "cost_ge": 5
+        },
+        "count": 1
+       }
+      },
+      "do": [
+       {
+        "untap_don": 3
+       },
+       {
+        "block_chara_play": true
+       }
+      ]
+     }
     }
    ]
   }
@@ -22029,25 +22050,31 @@
    }
   },
   {
-   "_text": "このステージをレストにできる：自分の場のドン‼が相手の場のドン‼の枚数以下の場合、自分の特徴《麦わらの一味》を持つキャラ1枚までを、次の相手のターン終了時まで、コスト+2。",
+   "_text": "このステージをレストにできる：自分の場のドン‼が相手の場のドン‼の枚数以下の場合、自分の特徴《麦わらの一味》を持つキャラ1枚までを、次の相手のターン終了時まで、コスト+2。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_op_02 / cardqa_st_04 / cardqa_eb_04)。",
    "when": "activate_main",
    "cost": {
     "rest_self": true
    },
-   "if": {
-    "don_diff_le": 0
-   },
    "do": [
     {
-     "set_base_cost_timed": {
-      "target": {
-       "type": "one_self_chara_filtered",
-       "filter": {
-        "feature": "麦わらの一味"
-       }
+     "conditional": {
+      "if": {
+       "don_diff_le": 0
       },
-      "delta": 2,
-      "duration": "next_opp_turn_end"
+      "do": [
+       {
+        "set_base_cost_timed": {
+         "target": {
+          "type": "one_self_chara_filtered",
+          "filter": {
+           "feature": "麦わらの一味"
+          }
+         },
+         "delta": 2,
+         "duration": "next_opp_turn_end"
+        }
+       }
+      ]
      }
     }
    ]
@@ -34886,23 +34913,29 @@
    ]
   },
   {
-   "_text": "EB02-052 エネル アタック時: 1捨てで 自ライフ1以下なら デッキ上1をライフ追加 + self +1000 turn",
+   "_text": "EB02-052 エネル アタック時: 1捨てで 自ライフ1以下なら デッキ上1をライフ追加 + self +1000 turn [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_op_02 / cardqa_st_04 / cardqa_eb_04)。",
    "when": "on_attack",
    "cost": {
     "discard_hand": 1
    },
-   "if": {
-    "self_life_le": 1
-   },
    "do": [
     {
-     "put_top_to_life": 1
-    },
-    {
-     "power_pump": {
-      "target": "self",
-      "amount": 1000,
-      "duration": "turn"
+     "conditional": {
+      "if": {
+       "self_life_le": 1
+      },
+      "do": [
+       {
+        "put_top_to_life": 1
+       },
+       {
+        "power_pump": {
+         "target": "self",
+         "amount": 1000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ]
@@ -35611,27 +35644,36 @@
  ],
  "OP15-109_p1": [
   {
-   "_text": "OP15-109_p1 on_play: 自分のライフの上から1枚を手札に加えることができる：自分のリーダーが特徴《麦わらの一味》を持つ場合、自分のデッキの上から1枚までを、ライフの上に加える。その後、",
+   "_text": "OP15-109_p1 on_play: 自分のライフの上から1枚を手札に加えることができる：自分のリーダーが特徴《麦わらの一味》を持つ場合、自分のデッキの上から1枚までを、ライフの上に加える。その後、 [cost-implemented] 公式の任意コスト 「ライフの上から1枚を手札に加える」 を実装 (未実装で効果がタダ撃ちできた)。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_op_02 / cardqa_st_04 / cardqa_eb_04)。",
    "when": "on_play",
    "do": [
     {
-     "life_to_hand": 1
-    },
-    {
-     "put_top_to_life": 1
-    },
-    {
-     "play_from_hand": {
-      "filter": {
-       "cost_le": 5,
-       "feature": "空島"
+     "conditional": {
+      "if": {
+       "leader_feature": "麦わらの一味"
       },
-      "limit": 1
+      "do": [
+       {
+        "life_to_hand": 1
+       },
+       {
+        "put_top_to_life": 1
+       },
+       {
+        "play_from_hand": {
+         "filter": {
+          "cost_le": 5,
+          "feature": "空島"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
-   "if": {
-    "leader_feature": "麦わらの一味"
+   "cost": {
+    "life_to_hand": 1
    }
   }
  ],
@@ -35874,23 +35916,29 @@
    ]
   },
   {
-   "_text": "EB02-052 エネル アタック時: 1捨てで 自ライフ1以下なら デッキ上1をライフ追加 + self +1000 turn",
+   "_text": "EB02-052 エネル アタック時: 1捨てで 自ライフ1以下なら デッキ上1をライフ追加 + self +1000 turn [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_op_02 / cardqa_st_04 / cardqa_eb_04)。",
    "when": "on_attack",
    "cost": {
     "discard_hand": 1
    },
-   "if": {
-    "self_life_le": 1
-   },
    "do": [
     {
-     "put_top_to_life": 1
-    },
-    {
-     "power_pump": {
-      "target": "self",
-      "amount": 1000,
-      "duration": "turn"
+     "conditional": {
+      "if": {
+       "self_life_le": 1
+      },
+      "do": [
+       {
+        "put_top_to_life": 1
+       },
+       {
+        "power_pump": {
+         "target": "self",
+         "amount": 1000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ]
@@ -42748,29 +42796,23 @@
    ]
   },
   {
-   "_text": "【起動メイン】【ターン1回】自分のリーダーが特徴《アラバスタ王国》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-1000。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
+   "_text": "【起動メイン】【ターン1回】自分のリーダーが特徴《アラバスタ王国》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-1000。",
    "when": "activate_main",
    "cost": {
     "once_per_turn": true
    },
    "do": [
     {
-     "conditional": {
-      "if": {
-       "leader_feature": "アラバスタ王国"
-      },
-      "do": [
-       {
-        "power_pump": {
-         "target": "one_opponent_character_any",
-         "amount": -1000,
-         "duration": "turn"
-        }
-       }
-      ]
+     "power_pump": {
+      "target": "one_opponent_character_any",
+      "amount": -1000,
+      "duration": "turn"
      }
     }
-   ]
+   ],
+   "if": {
+    "leader_feature": "アラバスタ王国"
+   }
   }
  ],
  "EB03-027_p1": [
@@ -45472,25 +45514,31 @@
    }
   },
   {
-   "_text": "このステージをレストにできる：自分の場のドン‼が相手の場のドン‼の枚数以下の場合、自分の特徴《麦わらの一味》を持つキャラ1枚までを、次の相手のターン終了時まで、コスト+2。",
+   "_text": "このステージをレストにできる：自分の場のドン‼が相手の場のドン‼の枚数以下の場合、自分の特徴《麦わらの一味》を持つキャラ1枚までを、次の相手のターン終了時まで、コスト+2。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_op_02 / cardqa_st_04 / cardqa_eb_04)。",
    "when": "activate_main",
    "cost": {
     "rest_self": true
    },
-   "if": {
-    "don_diff_le": 0
-   },
    "do": [
     {
-     "set_base_cost_timed": {
-      "target": {
-       "type": "one_self_chara_filtered",
-       "filter": {
-        "feature": "麦わらの一味"
-       }
+     "conditional": {
+      "if": {
+       "don_diff_le": 0
       },
-      "delta": 2,
-      "duration": "next_opp_turn_end"
+      "do": [
+       {
+        "set_base_cost_timed": {
+         "target": {
+          "type": "one_self_chara_filtered",
+          "filter": {
+           "feature": "麦わらの一味"
+          }
+         },
+         "delta": 2,
+         "duration": "next_opp_turn_end"
+        }
+       }
+      ]
      }
     }
    ]

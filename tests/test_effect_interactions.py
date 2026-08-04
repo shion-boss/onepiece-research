@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import random
+import re
 from pathlib import Path
 
 from engine.core import GameState, InPlay, Phase, Player
@@ -1427,6 +1428,42 @@ def test_st13_009_optional_cost_is_implemented_not_free():
     assert len(p1.life) == before, "条件不成立なのに相手ライフが減っている"
 
 
+_WHEN_MARK = {
+    "on_play": "登場時", "activate_main": "起動メイン", "main": "メイン",
+    "counter": "カウンター", "on_attack": "アタック時", "on_ko": "KO時",
+    "end_of_turn": "自分のターン終了時", "opp_attack": "相手のアタック時",
+    "on_block": "ブロック時",
+}
+
+
+def _clause_for(text: str, when: str):
+    """公式テキストから **その効果の節だけ** を切り出す。
+
+    ⚠ 1 枚のカードは複数の節を持ち、 節ごとに 「〜できる：」 の有無が違う。
+    カード全体の text で判定すると **別の節の 「できる：」 を拾って誤変換する**
+    (2026-08-05 に EB03-006 で実際に起きた: 【登場時】に 「できる：」 があり、
+     【起動メイン】の発動条件を誤って効果側へ移してしまった)。
+    """
+    import re as _re
+    t = _re.sub(r"[(（][^)）]*[)）]", "", _re.sub(r"\s+", "", text or ""))
+    mk = _WHEN_MARK.get(when)
+    if not mk:
+        return t
+    m = _re.search(r"【" + _re.escape(mk) + r"】", t)
+    if not m:
+        return None
+    rest = t[m.end():]
+    # 直後に続く 【ターン1回】【ドン‼×N】 等の修飾マーカーは読み飛ばす
+    while True:
+        mm = _re.match(r"【[^】]{1,10}】", rest)
+        if mm and ("ターン" in mm.group(0) or "ドン" in mm.group(0)):
+            rest = rest[mm.end():]
+            continue
+        break
+    nxt = _re.search(r"【", rest)
+    return rest[:nxt.start()] if nxt else rest
+
+
 def test_no_optional_cost_remains_gated_by_post_colon_condition():
     """「〜できる：<条件>の場合、効果」 に top-level `if` が残っていない (全語彙・全カード)。
 
@@ -1453,14 +1490,17 @@ def test_no_optional_cost_remains_gated_by_post_colon_condition():
             if not eff.get("cost"):
                 continue          # 任意コスト未実装 = 別 issue (下のテストで数を固定)
             src = "trigger" if eff.get("when") == "trigger" else "text"
-            text = re.sub(r"[(（][^)）]*[)）]", "",
-                          re.sub(r"\s+", "", card.get(src) or ""))
-            m = re.search(r"できる[：:]", text)
-            if not m or "場合" not in text[m.end():]:
+            # ⚠ **その効果の節だけ** で判定する。 カード全体の text を見ると別の節の
+            #   「できる：」 を拾う (EB03-006 で実際に誤変換した)。
+            clause = _clause_for(card.get(src) or "", eff.get("when"))
+            if not clause:
                 continue
-            if "場合" in text[:m.start()]:
+            m = re.search(r"できる[：:]", clause)
+            if not m or "場合" not in clause[m.end():]:
+                continue
+            if "場合" in clause[:m.start()]:
                 continue          # コロン前にも条件 = top-level if が妥当
-            bad.append(f"{cid}[{src}]: {text[:80]}")
+            bad.append(f"{cid}[{src}]: {clause[:80]}")
     assert not bad, (
         "コロン後の条件が top-level `if` のままで、 任意コストの支払いを妨げている:\n  "
         + "\n  ".join(bad[:40])
@@ -1489,13 +1529,20 @@ def test_optional_cost_missing_backlog_is_tracked():
             if eff.get("cost"):
                 continue
             src = "trigger" if eff.get("when") == "trigger" else "text"
-            text = re.sub(r"[(（][^)）]*[)）]", "",
-                          re.sub(r"\s+", "", card.get(src) or ""))
-            m = re.search(r"できる[：:]", text)
-            if m and "場合" in text[m.end():] and "場合" not in text[:m.start()]:
+            clause = _clause_for(card.get(src) or "", eff.get("when"))
+            if not clause:
+                continue
+            # ⚠ `optional_cost_then` の中にコストを持つ形も 「実装済」 (cost ブロックが無いだけ)
+            if "optional_cost_then" in json.dumps(eff, ensure_ascii=False):
+                continue
+            m = re.search(r"できる[：:]", clause)
+            if m and "場合" in clause[m.end():] and "場合" not in clause[:m.start()]:
                 missing.add(cid.split("_")[0])
-    # 2026-08-05 時点の実測。 減らすのは歓迎、 増えたら退行。
-    assert len(missing) <= 26, (
+    # 2026-08-05: 節単位 + optional_cost_then を数えると **実測 0 枚**。
+    #   当初 26 枚と見えたのは (a) カード全体の text で別の節の 「できる：」 を拾った
+    #   (b) `optional_cost_then` 内のコストを見落とした、 の 2 つの誤検出だった。
+    # 増えたら退行。
+    assert len(missing) == 0, (
         f"任意コスト未実装 (タダ撃ち) が {len(missing)} 枚に増えた:\n  "
         + "\n  ".join(sorted(missing))
     )
@@ -1668,4 +1715,46 @@ def test_eb02_061_conditional_rush_requires_opp_don_ge_5():
     # 是正前 (opp_don_count_ge 欠落) はここが True になり落ちる。
     assert not _rush_when_opp_don(4), (
         "相手ドン4枚でも【速攻】が付与されている (公式違反: opp_don_count_ge:5 欠落)"
+    )
+
+def test_converted_cost_not_gated_entries_really_have_optional_cost():
+    """`[cost-not-gated]` と印を付けた効果が、 **自分の節に** 「〜できる：<条件>」 を持つ。
+
+    ⚠ カード全体の text で判定すると **別の節の 「できる：」 を拾って誤変換する**。
+    2026-08-05 に EB03-006 で実際に起きた (【登場時】の 「できる：」 を見て、
+    【起動メイン】の発動条件を効果側へ移してしまい、 条件不成立でも起動可能になっていた)。
+    """
+    cards = {c["card_id"]: c for c in
+             json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    bad = []
+    for cid, effs in sorted(ov.items()):
+        if not isinstance(effs, list):
+            continue
+        card = cards.get(cid) or {}
+        for eff in effs:
+            if not isinstance(eff, dict):
+                continue
+            if "[cost-not-gated]" not in (eff.get("_text") or ""):
+                continue
+            when = eff.get("when")
+            src = "trigger" if when == "trigger" else "text"
+            text = card.get(src) or ""
+            if not text:
+                # ⚠ overlay にあるが cards.json に無い card_id がある (P-081)。
+                #   同 base の パラレルの本文で補う。
+                base = cid.split("_")[0]
+                sib = next((c for c in cards
+                            if c.split("_")[0] == base and (cards[c].get(src) or "")), None)
+                text = (cards.get(sib) or {}).get(src, "") if sib else ""
+            clause = _clause_for(text, when)
+            if clause is None:
+                bad.append(f"{cid}[{when}]: 該当節が見つからない")
+                continue
+            m = re.search(r"できる[：:]", clause)
+            if not m or "場合" not in clause[m.end():]:
+                bad.append(f"{cid}[{when}]: 自分の節に 「できる：<条件>」 が無い — {clause[:70]}")
+    assert not bad, (
+        "別の節の 「できる：」 を拾って誤変換している (発動条件を効果側へ移すと "
+        "条件不成立でも発動できてしまう):\n  " + "\n  ".join(bad[:30])
     )
