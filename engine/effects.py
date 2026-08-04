@@ -2165,8 +2165,17 @@ def _resolve_target(
         キャラ** を手札に戻す/デッキの下に置く/ライフに置く ことはできますか？」 →
         「はい、できます」。 「このキャラ自身」 も選べる。
 
-        human は modal で両陣営から選ぶ (= 選択肢の平等)。 AI は相手キャラ優先 (= 除去価値)、
-        居なければ自キャラ。 **None を返したら 呼び出し側は [] を返して halt** (= modal 待ち)。
+        human は modal で **両陣営** から選ぶ (= 選択肢の平等)。
+
+        ⚠ **AI は自陣を auto-pick しない**。 この spec 群を使う効果は全て 公式が
+        「キャラN枚**まで**」 = **0 枚を選べる** (2026-08-04 に overlay 全 64 件を確認済、
+        「N枚を」 の必須形は 1 件も無い)。 相手が居ない局面で自分のキャラを
+        デッキの下/手札/ライフへ送るのは ほぼ常に悪手なので、 相手候補が無ければ
+        **何も選ばない** (= 0 枚) のが正しい auto-pick。
+        (自キャラを戻して【登場時】を撃ち直す等の意図的な自陣選択は 人間の判断に委ねる。
+         AI にやらせるには 「戻す価値」 の評価が要る = 現状の 1-ply auto-pick では測れない)
+
+        **None を返したら 呼び出し側は [] を返して halt** (= modal 待ち)。
         """
         cands = list(opp_cands) + list(self_cands)
         if outer_kind and _maybe_request_target_pick(
@@ -2175,7 +2184,7 @@ def _resolve_target(
         ):
             return None
         ranked = sorted(opp_cands, key=lambda c: -_opp_value(c))
-        return ranked[:1] if ranked else list(self_cands)[:1]
+        return ranked[:1]
 
     # _iid_picks bypass (= resolve_pending_choice 経由 の 再実行)
     # ユーザ の 選択した iid から 該当 InPlay を 全 場 から 直接 解決 する。

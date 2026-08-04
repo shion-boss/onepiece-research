@@ -916,10 +916,8 @@ fn resolve_target(
                     });
                     return Some(vec![(opp_idx, opp_cands[0])]);
                 }
-                let self_cands = collect_side(me_idx, state);
-                return Some(
-                    self_cands.into_iter().take(1).map(|sl| (me_idx, sl)).collect(),
-                );
+                // ⚠ AI は自陣を auto-pick しない (Python `_either_pick_one` と対)。
+                return Some(vec![]);
             }
             if t == "one_opponent_inplay_filtered" {
                 let filt = v.get("filter");
@@ -1140,13 +1138,10 @@ fn resolve_target(
                         });
                         return Some(vec![(opp_idx, Slot::Char(cands[0]))]);
                     }
-                    let me = &state.players[me_idx];
-                    return Some(
-                        (0..me.characters.len())
-                            .find(|&i| ok(&me.characters[i]))
-                            .map(|i| vec![(me_idx, Slot::Char(i))])
-                            .unwrap_or_default(),
-                    );
+                    // ⚠ AI は自陣を auto-pick しない。 この spec 群は公式が全て
+                    // 「キャラN枚**まで**」 = 0 枚可 (overlay 64 件確認済、 必須形は無い)。
+                    // 相手が居ないのに自分のキャラを送るのはほぼ常に悪手 (Python `_either_pick_one` と対)。
+                    return Some(vec![]);
                 }
                 cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
                 return Some(cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect());
@@ -1321,8 +1316,8 @@ fn resolve_target(
                 });
                 return Some(vec![(opp_idx, Slot::Char(cands[0]))]);
             }
-            let me = &state.players[me_idx];
-            if me.characters.is_empty() { vec![] } else { vec![(me_idx, Slot::Char(0))] }
+            // ⚠ AI は自陣を auto-pick しない (Python `_either_pick_one` と対)。
+            vec![]
         }
         // 両陣営、 元々のパワー N ぴったり 1 枚 (EB03-027 マーガレット等)。
         os if os.starts_with("one_character_either_power_eq_") => {
@@ -1338,11 +1333,8 @@ fn resolve_target(
                 });
                 return Some(vec![(opp_idx, Slot::Char(cands[0]))]);
             }
-            let me = &state.players[me_idx];
-            (0..me.characters.len())
-                .find(|&i| power_of(&me.characters[i]) == n)
-                .map(|i| vec![(me_idx, Slot::Char(i))])
-                .unwrap_or_default()
+            // ⚠ AI は自陣を auto-pick しない (Python `_either_pick_one` と対)。
+            vec![]
         }
         // 両陣営、 コスト N ぴったり 1 枚。 素の 「コストN の」 は現在コスト、
         // 「元々のコストN の」 は入口正規化で cost_of が印刷コストを返す。
@@ -1359,11 +1351,8 @@ fn resolve_target(
                 });
                 return Some(vec![(opp_idx, Slot::Char(cands[0]))]);
             }
-            let me = &state.players[me_idx];
-            (0..me.characters.len())
-                .find(|&i| cost_of(&me.characters[i]) == n)
-                .map(|i| vec![(me_idx, Slot::Char(i))])
-                .unwrap_or_default()
+            // ⚠ AI は自陣を auto-pick しない (Python `_either_pick_one` と対)。
+            vec![]
         }
         // one_character_either_cost_le_N = 両陣営のキャラから 元コスト N 以下 1 枚 (相手優先 power 降順)
         // ⚠ overlay の `one_inplay_cost_le_N` 表記も同 semantics (effects.py:2626、 OP02-062 等)。
@@ -1384,11 +1373,8 @@ fn resolve_target(
                 });
                 return Some(vec![(opp_idx, Slot::Char(opp_cands[0]))]);
             }
-            let me = &state.players[me_idx];
-            (0..me.characters.len())
-                .find(|&i| cost_of(&me.characters[i]) <= n)
-                .map(|i| vec![(me_idx, Slot::Char(i))])
-                .unwrap_or_default()
+            // ⚠ AI は自陣を auto-pick しない (Python `_either_pick_one` と対)。
+            vec![]
         }
         // 「このキャラ以外の自分のリーダーかキャラ 1 枚」 (effects.py:2334、 ST01-005)。
         // 発動元を除外して power 降順 1 枚 (tie は leader→char の board 順 = 安定ソート)。

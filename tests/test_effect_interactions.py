@@ -957,11 +957,19 @@ def test_unqualified_character_target_can_hit_own_board():
         ("filtered", {"return_to_deck_bottom": {
             "type": "one_character_either_filtered", "filter": {"cost_le": 5}}}),
     ]
+    # ⚠ 「自陣も対象になりうる」 の検証は **人間経路** で行う。
+    #   AI の auto-pick は 「相手が居なければ 0 枚」 が正しい (公式 「N枚まで」 = 0 枚可、
+    #   自陣を送るのはほぼ常に悪手)。 AI が自陣を選ぶことを期待値にすると自滅を固定してしまう。
     for label, eff in specs:
         st, p0, p1 = _either_board(repo, ov, [cheap], [])
+        st.human_player_idx = 0
         execute_effect(eff, st, p0, p1, None)
-        assert not p0.characters, (
-            f"{label}: 相手の場が空なのに自分のキャラを対象にできていない "
+        pc = st.pending_choice
+        assert pc is not None, f"{label}: 相手の場が空でも自陣が候補になるはず (modal が立たない)"
+        raw = pc.get("cards") or pc.get("candidates") or []
+        iids = {c.get("iid") if isinstance(c, dict) else c for c in raw}
+        assert p0.characters[0].instance_id in iids, (
+            f"{label}: 自分のキャラが候補に入っていない "
             "(公式: 修飾なし 「キャラ1枚まで」 は両陣営)"
         )
 
@@ -1475,4 +1483,91 @@ def test_gion_reactive_resolves_after_counter_event_effect():
     )
     assert "デッキ下" in order[1], (
         f"ギオンの reactive がカウンター効果より先に発火している (公式違反): {order}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 両陣営 target の AI auto-pick (2026-08-04)
+#   公式は 「キャラN枚**まで**」 = 0 枚を選べる (overlay 64 件すべてこの形、 必須形は無い)。
+#   → **AI は相手が居なければ何も選ばない**。 自陣を送るのはほぼ常に悪手。
+#   → **人間は両陣営から選べる** (option parity は維持する)。
+# ---------------------------------------------------------------------------
+
+def test_ai_does_not_auto_target_own_board_when_opponent_is_empty():
+    """相手の場が空の時、 AI が自分のキャラを巻き込まない。
+
+    両陣営 target 化 (2026-08-04) の副作用で、 相手候補が無いと自陣を auto-pick して
+    自分のキャラをデッキの下/手札へ送る自滅が 46 枚に広がっていた。
+    """
+    from engine.core import InPlay
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, trigger_on_play
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    for cid in ("OP01-070", "ST03-009", "OP06-046"):
+        st, p0, p1 = _either_board(repo, ov, ["OP01-013", "OP01-016"], [])
+        src = InPlay.of(repo.get(cid), sickness=True)
+        p0.characters.append(src)
+        before = len(p0.characters)
+        trigger_on_play(st, p0, p1, src, ov)
+        assert len(p0.characters) == before, (
+            f"{cid}: 相手の場が空なのに自分のキャラを巻き込んだ "
+            "(公式は 「N枚まで」 = 0 枚可なので、 AI は何も選ばないのが正しい)"
+        )
+
+
+def test_human_can_still_pick_either_side():
+    """AI の skip は **人間の選択肢を削らない** (両陣営が modal に出る)。"""
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    st, p0, p1 = _either_board(repo, ov, ["OP01-013"], ["OP01-016"])
+    st.human_player_idx = 0
+
+    execute_effect({"return_to_deck_bottom": "one_character_either_cost_le_5"},
+                   st, p0, p1, None)
+    pc = st.pending_choice
+    assert pc is not None, "人間なのに選択 modal が立っていない"
+    raw = pc.get("cards") or pc.get("candidates") or []
+    iids = {c.get("iid") if isinstance(c, dict) else c for c in raw}
+    assert p0.characters[0].instance_id in iids, "自陣のキャラが modal に出ていない"
+    assert p1.characters[0].instance_id in iids, "相手のキャラが modal に出ていない"
+
+
+def test_all_either_target_cards_are_optional_up_to_n():
+    """両陣営 spec を使う効果が全て 公式 「N枚**まで**」 (= 0 枚可) であることを固定。
+
+    もし 「N枚を」 の必須形カードがこの spec 群を使い始めたら、 「相手が居なければ
+    何も選ばない」 という AI の auto-pick は **ルール違反** になる (可能な限り解決する義務)。
+    その時は 「必須なら自陣から選ぶ」 分岐が要る。
+    """
+    import re
+    cards = {c["card_id"]: c for c in
+             json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    either = re.compile(r"one_character_either|one_inplay_either|one_inplay(_except_self)?_cost_le")
+    mandatory = []
+    for cid, effs in sorted(ov.items()):
+        if not isinstance(effs, list):
+            continue
+        card = cards.get(cid) or {}
+        for eff in effs:
+            if not isinstance(eff, dict):
+                continue
+            if not either.search(json.dumps(eff, ensure_ascii=False)):
+                continue
+            src = "trigger" if eff.get("when") == "trigger" else "text"
+            text = re.sub(r"[(（][^)）]*[)）]", "",
+                          re.sub(r"\s+", "", card.get(src) or ""))
+            m = re.search(r"キャラ\d*枚(まで)?", text)
+            if m and not m.group(1):
+                mandatory.append(f"{cid}: {text[:70]}")
+    assert not mandatory, (
+        "必須形 「キャラN枚を」 が両陣営 spec を使っている。 AI の 「相手が居なければ 0 枚」 は "
+        "この形ではルール違反になるので、 必須なら自陣から選ぶ分岐が要る:\n  "
+        + "\n  ".join(mandatory)
     )
