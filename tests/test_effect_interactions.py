@@ -259,6 +259,45 @@ def test_optional_cost_is_declinable_by_human():
 
 
 # --------------------------------------------------------------------------- #
+#  F2. 払えない任意コストは **効果ごと不発** (タダ撃ちさせない)
+#      ⚠ 「A か B をレストにできる：」 型は 「A も B も出せない」 局面がある。
+#        ST32-001 錦えもんで、 リーダーがレスト済 + ドンを登場コストで使い切った状態だと
+#        どちらも払えない。 Rust がこの判定を持たず draw2+手札1捨てをタダで撃っていた
+#        (2026-08-04 の全カード掃引で発覚)。
+# --------------------------------------------------------------------------- #
+def test_unpayable_optional_cost_does_not_fire_effect():
+    """リーダーがレスト済 + アクティブドン 0 なら 「リーダーかドン1枚をレスト」 は払えず不発。"""
+    repo, overlay = _repo(), _overlay()
+    eff = next(e for e in overlay.get("ST32-001").effects if e.get("when") == "on_play")
+
+    # (a) 払えない: リーダー rested + don_active 0
+    st = _state(repo, overlay, leader0="EB01-001_p2")
+    me, opp = st.players[0], st.players[1]
+    me.leader.rested = True
+    me.don_active = 0
+    me.hand = []
+    deck_before = len(me.deck)
+    for prim in eff["do"]:
+        execute_effect(prim, st, me, opp, None)
+    assert len(me.hand) == 0 and len(me.deck) == deck_before, (
+        "コストを払えないのに draw が起きている (タダ撃ち)"
+    )
+
+    # (b) 払える: アクティブドンが 1 枚あればレストして発動する
+    st2 = _state(repo, overlay, leader0="EB01-001_p2")
+    me2, opp2 = st2.players[0], st2.players[1]
+    me2.leader.rested = True
+    me2.don_active = 1
+    me2.hand = []
+    src2 = InPlay.of(repo.get("ST32-001"), sickness=True)
+    me2.characters.append(src2)
+    for prim in eff["do"]:
+        execute_effect(prim, st2, me2, opp2, src2)
+    assert me2.don_active == 0 and me2.don_rested >= 1, "ドン1枚をレストして払っていない"
+    assert len(me2.hand) == 1, f"draw2 → 手札1捨て で手札 1 枚のはず: {len(me2.hand)}"
+
+
+# --------------------------------------------------------------------------- #
 #  G. 【相手のアタック時】が複数枚同時に自身をトラッシュする時の順序
 #     公式上は 場の並び順に処理される = トラッシュへの到着順も場の並び順。
 # --------------------------------------------------------------------------- #

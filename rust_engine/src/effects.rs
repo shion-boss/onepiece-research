@@ -2541,7 +2541,16 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
                 || me.stages.iter().any(|s| !s.rested && matches_filter(&s.card, filt)))
         }
         // Python は can_pay 未チェック (= 常に払える扱い、 実体無ければ payment で no-op)。
-        "rest_self_leader_filtered_or_don" => Some(true),
+        // 「自分の、属性X を持つリーダー **か** ドン‼1枚をレストにできる：」 (ST32-001 錦えもん)。
+        // ⚠ Python (effects.py:8722) は **アクティブな filter 一致リーダー OR アクティブドン≥1**
+        //   でなければ払えない。 無条件 Some(true) にしていたため、 リーダーがレスト済 かつ
+        //   ドン 0 (= 登場コストで使い切った) の局面で **Rust だけ効果をタダ撃ちしていた**
+        //   (draw 2 + 手札1捨てが発動、 2026-08-04 の全カード掃引で発覚)。
+        "rest_self_leader_filtered_or_don" => {
+            let filt = cv.get("filter");
+            let leader_ok = !me.leader.rested && matches_filter(&me.leader.card, filt);
+            Some(leader_ok || me.don_active >= 1)
+        }
         // 「自分の『X』1枚にアクティブのドンN枚を付与できる：」 (EB04-009/OP12-016/019 レイリー等)。
         // Python (effects.py:8688) は **該当名のキャラが場に居て かつ アクティブドンが N 枚以上**
         // でなければ払えない。 ⚠ かつて無条件 Some(true) としていたため、 払えない盤面でも
