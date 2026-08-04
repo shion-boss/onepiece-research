@@ -32,6 +32,22 @@ from engine.effects import (
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` の両対応)。
+
+    ⚠ 2026-08-05: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の
+    gate とする (cardqa_op_02 / cardqa_st_04)。 top-level `if` に置くと **任意コストの支払いごと
+    消える** ので、 overlay ではこの形の条件を `conditional` の中に移した。
+    条件そのものは変わっていないので、 テストはどちらの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    for _prim in eff.get("do") or []:
+        if isinstance(_prim, dict) and "conditional" in _prim:
+            return (_prim.get("conditional") or {}).get("if") or {}
+    return {}
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -117,7 +133,7 @@ def test_op02_061_morley_on_attack_prevent_blocker_cost_le5():
     opp.characters = [small, big]
 
     do, eff = _do(overlay, "OP02-061", "on_attack")
-    assert eff.get("if", {}).get("self_hand_count_le") == 1, \
+    assert _cond_of(eff).get("self_hand_count_le") == 1, \
         "overlay の トリガー条件 self_hand_count_le=1 が無い"
     for prim in do:
         execute_effect(prim, st, me, opp,
@@ -242,7 +258,7 @@ def test_op02_064_bentham_on_attack_bounce_and_schedule_ai():
     opp.characters = [victim]
 
     do, eff = _do(overlay, "OP02-064", "on_attack")
-    assert eff.get("if", {}).get("self_attached_don_ge") == 1, \
+    assert _cond_of(eff).get("self_attached_don_ge") == 1, \
         "overlay の ドンゲート self_attached_don_ge=1 が無い"
     deck_before = len(opp.deck)
     for prim in do:
@@ -427,6 +443,10 @@ def test_op02_070_newkama_land_activate_main_with_ivankov_ai():
 
 def test_op02_070_newkama_land_activate_main_no_ivankov():
     """起動メイン: リーダーがイワンコフでなければ 条件不成立 → legal に出ない。"""
+    # ⚠ 2026-08-05 是正: コロン後の条件は **効果のみ** を gate する (cardqa_op_02:
+    #   「リーダーが「イワンコフ」ではない場合、この【起動メイン】効果を発動できますか？」
+    #   → 「はい。 このカードをレストにしますが、 その後の効果では何も起きません」)。
+    #   「条件不成立なら legal に出ない」 は行動の合法性ごと消す旧バグの固定だった。
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, overlay, leader_id=BLUE_LEADER)  # イワンコフでない
@@ -438,8 +458,8 @@ def test_op02_070_newkama_land_activate_main_no_ivankov():
 
     opts = [o for o in list_activate_main_effects(st, me, overlay)
             if o[0].card.card_id == "OP02-070"]
-    assert len(opts) == 0, \
-        "リーダーがイワンコフでないのに OP02-070 の起動メインが legal に出ている"
+    assert len(opts) == 1, \
+        "任意コストは条件不成立でも払えるので legal に残るべき (cardqa_op_02)"
 
 
 # --------------------------------------------------------------------------- #

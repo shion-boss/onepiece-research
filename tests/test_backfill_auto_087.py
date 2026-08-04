@@ -34,6 +34,22 @@ ROOT = Path(__file__).resolve().parent.parent
 _BIGMOM_LEADER = "OP08-058"  # シャーロット・プリン (ビッグ・マム海賊団 leader)
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` の両対応)。
+
+    ⚠ 2026-08-05: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の
+    gate とする (cardqa_op_02 / cardqa_st_04)。 top-level `if` に置くと **任意コストの支払いごと
+    消える** ので、 overlay ではこの形の条件を `conditional` の中に移した。
+    条件そのものは変わっていないので、 テストはどちらの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    for _prim in eff.get("do") or []:
+        if isinstance(_prim, dict) and "conditional" in _prim:
+            return (_prim.get("conditional") or {}).get("if") or {}
+    return {}
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -123,6 +139,12 @@ def test_op08_062_activate_main_play_katakuri_ai():
 
 def test_op08_062_wrong_leader_not_legal():
     """negative: リーダーが《ビッグ・マム海賊団》でなければ 起動メインは legal に出ない。"""
+    # ⚠ 2026-08-05 是正: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を
+    #   **効果のみ** の gate とする。 任意コストは条件不成立でも支払える。
+    #   一次情報 (cardqa_op_02): 「自分のリーダーが「エンポリオ・イワンコフ」ではない場合、
+    #   この【起動メイン】効果を発動できますか？」 → 「はい、できます。 その場合、このカードを
+    #   レストにしますが、 **その後の効果では何も起きません**」。
+    #   → 「条件不成立なら legal に出ない」 は **行動の合法性ごと消す旧バグ** を固定していた。
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, leader_id="OP01-001", overlay=overlay)  # 麦わら (非ビッグ・マム)
@@ -133,7 +155,9 @@ def test_op08_062_wrong_leader_not_legal():
 
     opts = [o for o in list_activate_main_effects(st, me, overlay)
             if o[0].card.card_id == "OP08-062"]
-    assert len(opts) == 0, "非ビッグ・マム leader で起動メインが legal に出てはいけない"
+    assert len(opts) == 1, (
+        "任意コストは条件不成立でも払えるので legal に残るべき (公式: cardqa_op_02)"
+    )
 
 
 def test_op08_062_leader_feature_gate_in_overlay():
@@ -141,7 +165,7 @@ def test_op08_062_leader_feature_gate_in_overlay():
     overlay = _overlay()
     eff = next(e for e in overlay.get("OP08-062").effects
                if e["when"] == "activate_main")
-    assert eff.get("if", {}).get("leader_feature") == "ビッグ・マム海賊団", \
+    assert _cond_of(eff).get("leader_feature") == "ビッグ・マム海賊団", \
         "OP08-062 に 自リーダー ビッグ・マム海賊団 条件が無い"
 
 

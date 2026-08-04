@@ -32,6 +32,22 @@ from engine.effects import (
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` の両対応)。
+
+    ⚠ 2026-08-05: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の
+    gate とする (cardqa_op_02 / cardqa_st_04)。 top-level `if` に置くと **任意コストの支払いごと
+    消える** ので、 overlay ではこの形の条件を `conditional` の中に移した。
+    条件そのものは変わっていないので、 テストはどちらの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    for _prim in eff.get("do") or []:
+        if isinstance(_prim, dict) and "conditional" in _prim:
+            return (_prim.get("conditional") or {}).get("if") or {}
+    return {}
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -215,7 +231,7 @@ def test_op08_022_on_play_stay_rested_two_targets_ai():
 
     on_play = next(e for e in overlay.get("OP08-022").effects
                    if e["when"] == "on_play")
-    assert on_play.get("if", {}).get("leader_feature") == "ミンク族", \
+    assert _cond_of(on_play).get("leader_feature") == "ミンク族", \
         "overlay に leader_feature=ミンク族 gate が無い"
     for prim in on_play["do"]:
         execute_effect(prim, st, me, opp,
@@ -267,7 +283,7 @@ def test_op08_026_giovanni_attack_stay_rested_ai():
 
     on_attack = next(e for e in overlay.get("OP08-026").effects
                      if e["when"] == "on_attack")
-    assert on_attack.get("if", {}).get("self_attached_don_ge") == 1, \
+    assert _cond_of(on_attack).get("self_attached_don_ge") == 1, \
         "overlay の ドンゲート self_attached_don_ge=1 が無い"
     for prim in on_attack["do"]:
         execute_effect(prim, st, me, opp, giovanni)
@@ -293,7 +309,7 @@ def test_op08_028_nekomamushi_on_play_grant_rush_ai():
 
     on_play = next(e for e in overlay.get("OP08-028").effects
                    if e["when"] == "on_play")
-    assert on_play.get("if", {}).get("opp_rested_cards_count_ge") == 7, \
+    assert _cond_of(on_play).get("opp_rested_cards_count_ge") == 7, \
         "overlay に opp_rested_cards_count_ge=7 gate が無い"
     for prim in on_play["do"]:
         execute_effect(prim, st, me, opp, neko)
@@ -470,6 +486,10 @@ def test_op08_032_milky_activate_main_untap_don_ai():
 
 def test_op08_032_milky_gate_wrong_leader():
     """自リーダーが《ミンク族》でない場合 起動メインが legal に出ない。"""
+    # ⚠ 2026-08-05 是正: コロン後の条件は **効果のみ** を gate する (cardqa_op_02:
+    #   「リーダーが「イワンコフ」ではない場合、この【起動メイン】効果を発動できますか？」
+    #   → 「はい。 このカードをレストにしますが、 その後の効果では何も起きません」)。
+    #   「条件不成立なら legal に出ない」 は行動の合法性ごと消す旧バグの固定だった。
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, "OP01-001", overlay)  # シャンクス (非ミンク族)
@@ -480,5 +500,5 @@ def test_op08_032_milky_gate_wrong_leader():
 
     opts = [o for o in list_activate_main_effects(st, me, overlay)
             if o[0].card.card_id == "OP08-032"]
-    assert len(opts) == 0, \
-        "リーダーが ミンク族 でないのに起動メインが legal に出てはいけない"
+    assert len(opts) == 1, \
+        "任意コストは条件不成立でも払えるので legal に残るべき (cardqa_op_02)"

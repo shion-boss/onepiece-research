@@ -204,6 +204,30 @@ def _can_pay_effect_cost(me: Player, cost: dict, event_play_cost: int = 0) -> bo
     return True
 
 
+def _all_do_conditionals_are_off(eff: dict, state: GameState, me: Player) -> bool:
+    """効果の `do` が **全部 conditional で、 今どれも条件不成立** か (= 撃っても何も起きない)。
+
+    ⚠ 保守的に判定する: do が 1 つ以上あり、 その全てが `conditional` で、 全ての条件が今 false
+    の時だけ True。 1 つでも無条件 primitive があれば False (= 何かは起きる)。
+    """
+    do = eff.get("do")
+    if not isinstance(do, list) or not do:
+        return False
+    from .effects import eval_all_conditions
+    for prim in do:
+        if not isinstance(prim, dict) or list(prim.keys()) != ["conditional"]:
+            return False
+        cond = (prim.get("conditional") or {}).get("if")
+        if not cond:
+            return False
+        try:
+            if eval_all_conditions({"if": cond}, state, me, None):
+                return False
+        except Exception:  # noqa: BLE001
+            return False
+    return True
+
+
 def _is_event_main_effect_unfirable(
     state: GameState,
     me: Player,
@@ -241,6 +265,12 @@ def _is_event_main_effect_unfirable(
         if _main_effect_does_nothing_no_opp_char(opp, eff):
             # 相手キャラ 0 体で「相手キャラ除去/移動」だけの効果 → 何もしない (= 対象不在)。
             # firable 扱いせず、 撃たない (ohtsuki 報告: 対象いない時に使ってる、 2026-07-18)。
+            continue
+        if _all_do_conditionals_are_off(eff, state, me):
+            # do が全部 `conditional` で、 今どれも条件不成立 → 撃っても何も起きない。
+            # 公式は 「〜できる：<条件>の場合、…」 のコロン後の条件を **効果のみ** の gate と
+            # するので、 イベントの発動自体は legal (cardqa_op_01「発動できますが、何も起きません」)。
+            # だが撃つ理由が無いので AI は選ばない (= 神避 等のタダ撃ち抑止と同じ趣旨)。
             continue
         return False  # 1 つでも fire 可能 (= 何かする)
     return True
@@ -1049,6 +1079,10 @@ class GreedyAI:
             eligible = []
             for a in act_main:
                 eff = self._get_activate_eff(state, a)
+                if eff and self._is_activate_effect_all_gated_off(state, me, eff):
+                    # 効果が全部 条件 off = コストだけ払って何も起きない → 選ばない。
+                    # (legal ではある = 人間は払える。 AI が選ばないだけ)
+                    continue
                 if eff and self._has_useless_untap(eff, me):
                     # untap が機能しないので後回し
                     deferred_act_main.append(a)
@@ -1570,6 +1604,44 @@ class GreedyAI:
             return None
         viable.sort(key=lambda x: -x[1].power)
         return viable[0][0]
+
+    def _is_activate_effect_all_gated_off(
+        self, state: GameState, me: Player, eff: dict,
+        self_inplay: Optional[InPlay] = None,
+    ) -> bool:
+        """この起動メイン効果の `do` が **全部 conditional で、 今どれも条件不成立** か。
+
+        = 発動してもコストだけ払って何も起きない (= 純粋な損)。
+
+        公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の gate と
+        する (cardqa_eb_04)。 なので任意コストは条件不成立でも払える = **legal ではある**。
+        だが払う理由が無いので **AI は選ばない** のが正しい。
+        ⚠ 「legal でない」 ことにしてはいけない (人間は払える必要がある = 選択肢の平等)。
+
+        判定は保守的に: **top-level の do が 1 つ以上あり、 その全てが `conditional` で、
+        全ての条件が今 false** の時だけ True。 1 つでも無条件の primitive があれば False
+        (= 何かは起きるので発動の価値を否定できない)。
+        """
+        do = eff.get("do")
+        if not isinstance(do, list) or not do:
+            return False
+        from .effects import eval_all_conditions
+        for prim in do:
+            if not isinstance(prim, dict) or list(prim.keys()) != ["conditional"]:
+                return False
+            spec = prim.get("conditional") or {}
+            cond = spec.get("if")
+            if not cond:
+                return False           # 条件なし = 必ず起きる
+            # ⚠ eval_all_conditions は **効果 dict** (= `if` キーを持つ) を取り、
+            #   第 4 引数は self_inplay。 条件 dict を直接渡すと `if` が見つからず
+            #   常に True (= 条件なし扱い) になる。
+            try:
+                if eval_all_conditions({"if": cond}, state, me, self_inplay):
+                    return False       # 1 つでも成立 = 何か起きる
+            except Exception:  # noqa: BLE001
+                return False           # 判定不能なら発動を止めない (安全側)
+        return True
 
     def _has_useless_untap(self, eff: dict, me: Player) -> bool:
         """この起動メイン効果が untap_don を含み、 現状 don_rested 不足で発動しても

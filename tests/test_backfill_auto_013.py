@@ -602,6 +602,12 @@ def test_eb03_052_shirahoshi_activate_main_ai():
 
 def test_eb03_052_shirahoshi_activate_main_wrong_leader():
     """リーダーが「しらほし」でなければ leader_name 条件不成立 → 起動メインが legal に出ない。"""
+    # ⚠ 2026-08-05 是正: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を
+    #   **効果のみ** の gate とする。 任意コストは条件不成立でも支払える。
+    #   一次情報 (cardqa_op_02): 「自分のリーダーが「エンポリオ・イワンコフ」ではない場合、
+    #   この【起動メイン】効果を発動できますか？」 → 「はい、できます。 その場合、このカードを
+    #   レストにしますが、 **その後の効果では何も起きません**」。
+    #   → 「条件不成立なら legal に出ない」 は **行動の合法性ごと消す旧バグ** を固定していた。
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, "OP01-001", overlay)  # ゾロ (しらほしでない)
@@ -613,4 +619,6 @@ def test_eb03_052_shirahoshi_activate_main_wrong_leader():
     assert eval_condition({"leader_name": "しらほし"}, st, me) is False, \
         "非しらほしリーダーで leader_name 条件が成立してはいけない"
     opts = _am(st, me, overlay, "EB03-052")
-    assert len(opts) == 0, "しらほしリーダー以外で起動メインが legal に出てはいけない"
+    assert len(opts) == 1, (
+        "任意コストは条件不成立でも払えるので legal に残るべき (公式: cardqa_op_02)"
+    )

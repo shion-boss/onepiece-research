@@ -29,6 +29,22 @@ from engine.effects import (
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` の両対応)。
+
+    ⚠ 2026-08-05: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の
+    gate とする (cardqa_op_02 / cardqa_st_04)。 top-level `if` に置くと **任意コストの支払いごと
+    消える** ので、 overlay ではこの形の条件を `conditional` の中に移した。
+    条件そのものは変わっていないので、 テストはどちらの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    for _prim in eff.get("do") or []:
+        if isinstance(_prim, dict) and "conditional" in _prim:
+            return (_prim.get("conditional") or {}).get("if") or {}
+    return {}
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -168,9 +184,9 @@ def test_op02_008_jozu_on_attached_don_grants_rush():
 
     assert "速攻" not in jozu.granted_keywords
     do, eff = _do(overlay, "OP02-008", "on_attached_don")
-    assert eff.get("if", {}).get("leader_feature") == "白ひげ海賊団", \
+    assert _cond_of(eff).get("leader_feature") == "白ひげ海賊団", \
         "overlay の リーダー特徴条件 (白ひげ海賊団) が無い"
-    assert eff.get("if", {}).get("self_life_le") == 2, \
+    assert _cond_of(eff).get("self_life_le") == 2, \
         "overlay の ライフ2以下条件が無い"
     for prim in do:
         execute_effect(prim, st, me, opp, jozu)
@@ -198,7 +214,7 @@ def test_op02_009_squard_on_play_debuff_and_life_to_hand_ai():
     hand_before = len(me.hand)
     life_before = len(me.life)
     do, eff = _do(overlay, "OP02-009", "on_play")
-    assert "白ひげ海賊団" in eff.get("if", {}).get("leader_features_any", []), \
+    assert "白ひげ海賊団" in _cond_of(eff).get("leader_features_any", []), \
         "overlay の リーダー特徴条件 (白ひげ海賊団) が無い"
     for prim in do:
         execute_effect(prim, st, me, opp,
@@ -474,7 +490,7 @@ def test_op02_017_masked_deuce_attack_ko_power_le2000_ai():
     opp.characters = [victim]
 
     do, eff = _do(overlay, "OP02-017", "on_attack")
-    assert eff.get("if", {}).get("self_attached_don_ge") == 2, \
+    assert _cond_of(eff).get("self_attached_don_ge") == 2, \
         "overlay の ドンゲート self_attached_don_ge=2 が無い"
     for prim in do:
         execute_effect(prim, st, me, opp, attacker)
@@ -530,7 +546,7 @@ def test_op02_018_marco_on_ko_revive_from_trash_rested_ai():
     trash_before = len(me.trash)
     chars_before = len(me.characters)
     do, eff = _do(overlay, "OP02-018", "on_ko")
-    assert eff.get("if", {}).get("self_life_le") == 2, \
+    assert _cond_of(eff).get("self_life_le") == 2, \
         "overlay の ライフ2以下条件が無い"
     for prim in do:
         execute_effect(prim, st, me, opp, None)

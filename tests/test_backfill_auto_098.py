@@ -40,6 +40,22 @@ _SMALL_B = "OP01-077"          # ペローナ cost1 (バニラ、 相手キャ�
 _KUROHIGE_CARD = "OP09-089"    # ストロンガー (特徴《黒ひげ海賊団》、 サーチ対象)
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` の両対応)。
+
+    ⚠ 2026-08-05: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の
+    gate とする (cardqa_op_02 / cardqa_st_04)。 top-level `if` に置くと **任意コストの支払いごと
+    消える** ので、 overlay ではこの形の条件を `conditional` の中に移した。
+    条件そのものは変わっていないので、 テストはどちらの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    for _prim in eff.get("do") or []:
+        if isinstance(_prim, dict) and "conditional" in _prim:
+            return (_prim.get("conditional") or {}).get("if") or {}
+    return {}
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -135,7 +151,7 @@ def test_op09_087_condition_requires_opp_hand_5():
     st = _state(repo, _LEADER_MUGIWARA, overlay)
     me, opp = st.players[0], st.players[1]
     eff = _eff(overlay, "OP09-087", "on_play")
-    assert eff.get("if", {}).get("opp_hand_count_ge") == 5, \
+    assert _cond_of(eff).get("opp_hand_count_ge") == 5, \
         "overlay の 条件 opp_hand_count_ge=5 が無い"
 
     opp.hand = [repo.get(_FILLER)] * 4
@@ -163,7 +179,7 @@ def test_op09_088_attack_optional_discard_draw_ai():
     me.deck = [repo.get(_FILLER)] * 5
 
     eff = _eff(overlay, "OP09-088", "on_attack")
-    assert eff.get("if", {}).get("self_attached_don_ge") == 1, \
+    assert _cond_of(eff).get("self_attached_don_ge") == 1, \
         "overlay の ドンゲート self_attached_don_ge=1 が無い"
     trash_before = len(me.trash)
     deck_before = len(me.deck)
@@ -239,10 +255,12 @@ def test_op09_089_activate_main_gated_by_leader():
     me.hand = [repo.get(_FILLER)]
 
     eff = _eff(overlay, "OP09-089", "activate_main")
-    assert eff.get("if", {}).get("leader_feature") == "黒ひげ海賊団", \
+    assert _cond_of(eff).get("leader_feature") == "黒ひげ海賊団", \
         "overlay の リーダー条件 (黒ひげ海賊団) が無い"
-    assert len(_am_opts(st, me, overlay, "OP09-089")) == 0, \
-        "黒ひげでない leader で 起動メインが legal に出てはいけない"
+    # ⚠ 2026-08-05: コロン後の条件は効果のみを gate する (cardqa_op_02 / cardqa_st_04)。
+    #   任意コストは条件不成立でも払えるので legal には残る。
+    assert len(_am_opts(st, me, overlay, "OP09-089")) == 1, \
+        "任意コストは条件不成立でも払えるので legal に残るべき (cardqa_op_02)"
 
 
 # --------------------------------------------------------------------------- #
@@ -346,10 +364,13 @@ def test_op09_092_activate_main_gated_by_hand_diff():
     opp.hand = [repo.get(_FILLER)] * 4  # diff 0
 
     eff = _eff(overlay, "OP09-092", "activate_main")
-    assert eff.get("if", {}).get("self_hand_diff_le") == -3, \
+    assert _cond_of(eff).get("self_hand_diff_le") == -3, \
         "overlay の 条件 self_hand_diff_le=-3 が無い"
-    assert len(_am_opts(st, me, overlay, "OP09-092")) == 0, \
-        "手札差が条件を満たさないのに 起動メインが legal に出てはいけない"
+
+    # ⚠ 2026-08-05: コロン後の条件は効果のみを gate する (cardqa_op_02 / cardqa_st_04)。
+    #   任意コストは条件不成立でも払えるので legal には残る。
+    assert len(_am_opts(st, me, overlay, "OP09-092")) == 1, \
+        "任意コストは条件不成立でも払えるので legal に残るべき (cardqa_op_02)"
 
 
 # --------------------------------------------------------------------------- #
@@ -539,7 +560,7 @@ def test_op09_098_main_gated_by_leader():
     st = _state(repo, _LEADER_MUGIWARA, overlay)  # 麦わら = 黒ひげでない
     me, opp = st.players[0], st.players[1]
     eff = _eff(overlay, "OP09-098", "main")
-    assert eff.get("if", {}).get("leader_feature") == "黒ひげ海賊団", \
+    assert _cond_of(eff).get("leader_feature") == "黒ひげ海賊団", \
         "overlay の リーダー条件 (黒ひげ海賊団) が無い"
     assert eval_all_conditions(eff, st, me, None) is False, \
         "黒ひげでない leader で 条件が成立してはいけない"
@@ -600,9 +621,9 @@ def test_op09_100_trigger_conditions():
     repo = _repo()
     overlay = _overlay()
     eff = _eff(overlay, "OP09-100", "trigger")
-    assert eff.get("if", {}).get("leader_feature") == "革命軍", \
+    assert _cond_of(eff).get("leader_feature") == "革命軍", \
         "overlay の リーダー条件 (革命軍) が無い"
-    assert eff.get("if", {}).get("total_life_le") == 5, \
+    assert _cond_of(eff).get("total_life_le") == 5, \
         "overlay の 条件 total_life_le=5 が無い"
 
     # 革命軍 + ライフ4 → 成立

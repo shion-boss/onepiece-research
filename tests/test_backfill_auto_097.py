@@ -40,6 +40,22 @@ _THRILLER_C1 = "OP01-077"      # ペローナ cost1 (スリラーバーク海賊
 _THRILLER_C1B = "OP06-091"     # ビクトリア・シンドリー cost1 (スリラーバーク海賊団)
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` の両対応)。
+
+    ⚠ 2026-08-05: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の
+    gate とする (cardqa_op_02 / cardqa_st_04)。 top-level `if` に置くと **任意コストの支払いごと
+    消える** ので、 overlay ではこの形の条件を `conditional` の中に移した。
+    条件そのものは変わっていないので、 テストはどちらの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    for _prim in eff.get("do") or []:
+        if isinstance(_prim, dict) and "conditional" in _prim:
+            return (_prim.get("conditional") or {}).get("if") or {}
+    return {}
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -114,7 +130,7 @@ def test_op09_074_don_returned_pump_leader_ai():
     me, opp = st.players[0], st.players[1]
 
     eff = _eff(overlay, "OP09-074", "on_self_don_returned_to_deck")
-    assert eff.get("if", {}).get("self_turn") is True, \
+    assert _cond_of(eff).get("self_turn") is True, \
         "overlay の 自ターン条件 (self_turn) が無い"
     assert eff.get("cost", {}).get("once_per_turn") is True, \
         "overlay の 【ターン1回】制限が無い"
@@ -170,7 +186,7 @@ def test_op09_075_on_play_life_to_hand_add_don_ai():
     me.don_remaining_in_deck = 5
 
     eff = _eff(overlay, "OP09-075", "on_play")
-    assert eff.get("if", {}).get("leader_feature") == "キッド海賊団", \
+    assert _cond_of(eff).get("leader_feature") == "キッド海賊団", \
         "overlay の リーダー条件 (キッド海賊団) が無い"
     for prim in eff["do"]:
         execute_effect(prim, st, me, opp,
@@ -328,7 +344,7 @@ def test_op09_078_counter_pump_draw_ai():
     assert eff.get("cost", {}).get("pay_don") == 2, "overlay の ドン-2 コストが無い"
     assert eff.get("cost", {}).get("discard_hand") == 1, \
         "overlay の 手札1捨てコストが無い"
-    assert eff.get("if", {}).get("leader_feature") == "麦わらの一味", \
+    assert _cond_of(eff).get("leader_feature") == "麦わらの一味", \
         "overlay の リーダー条件 (麦わらの一味) が無い"
     hand_before = len(me.hand)
     for prim in eff["do"]:
@@ -509,7 +525,7 @@ def test_op09_083_activate_main_cost_minus_ai():
     opp.characters = [victim]
 
     eff = _eff(overlay, "OP09-083", "activate_main")
-    assert eff.get("if", {}).get("leader_feature") == "黒ひげ海賊団", \
+    assert _cond_of(eff).get("leader_feature") == "黒ひげ海賊団", \
         "overlay の リーダー条件 (黒ひげ海賊団) が無い"
     options = list_activate_main_effects(st, me, overlay)
     ogre_opts = [(src, e) for (src, e) in options

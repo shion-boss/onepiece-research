@@ -66,6 +66,22 @@ _COST5_C = "PRB02-011"           # ドフラミンゴ cost5 (王下七武海)
 _COST6_C = "PRB02-013"           # ゲッコー・モリア cost6
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` の両対応)。
+
+    ⚠ 2026-08-05: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の
+    gate とする (cardqa_op_02 / cardqa_st_04)。 top-level `if` に置くと **任意コストの支払いごと
+    消える** ので、 overlay ではこの形の条件を `conditional` の中に移した。
+    条件そのものは変わっていないので、 テストはどちらの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    for _prim in eff.get("do") or []:
+        if isinstance(_prim, dict) and "conditional" in _prim:
+            return (_prim.get("conditional") or {}).get("if") or {}
+    return {}
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -405,7 +421,7 @@ def test_op10_117_counter_condition_gate():
     repo = _repo()
     overlay = _overlay()
     eff = _eff(overlay, "OP10-117", "counter")
-    assert eff.get("if", {}).get("self_life_le") == 1, \
+    assert _cond_of(eff).get("self_life_le") == 1, \
         "overlay の 条件 self_life_le=1 が無い"
 
     st = _state(repo, _LEADER_GENERIC, overlay)
@@ -653,7 +669,7 @@ def test_op11_006_on_attack_debuff_special_attr_ai():
     attacker.attached_dons = 1
 
     eff = _eff(overlay, "OP11-006", "on_attack")
-    assert eff.get("if", {}).get("self_attached_don_ge") == 1, \
+    assert _cond_of(eff).get("self_attached_don_ge") == 1, \
         "overlay の ドンゲート self_attached_don_ge=1 が無い"
     power_before = victim.power
     for prim in eff["do"]:
@@ -734,6 +750,12 @@ def test_op11_007_activate_main_pump_navy_ai():
 
 def test_op11_007_activate_main_gated_by_non_navy_leader():
     """自リーダーが海軍でない場合、 起動メインは legal に出ない (leader_feature ゲート)。"""
+    # ⚠ 2026-08-05 是正: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を
+    #   **効果のみ** の gate とする。 任意コストは条件不成立でも支払える。
+    #   一次情報 (cardqa_op_02): 「自分のリーダーが「エンポリオ・イワンコフ」ではない場合、
+    #   この【起動メイン】効果を発動できますか？」 → 「はい、できます。 その場合、このカードを
+    #   レストにしますが、 **その後の効果では何も起きません**」。
+    #   → 「条件不成立なら legal に出ない」 は **行動の合法性ごと消す旧バグ** を固定していた。
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, _LEADER_NON_NAVY, overlay)  # 麦わら (非海軍)
@@ -743,7 +765,9 @@ def test_op11_007_activate_main_gated_by_non_navy_leader():
 
     opts = [o for o in list_activate_main_effects(st, me, overlay)
             if o[0].card.card_id == "OP11-007"]
-    assert len(opts) == 0, "非海軍リーダー下で起動メインが legal に出てはいけない"
+    assert len(opts) == 1, (
+        "任意コストは条件不成立でも払えるので legal に残るべき (公式: cardqa_op_02)"
+    )
 
 
 def test_op11_007_activate_main_once_per_turn():

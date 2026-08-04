@@ -11293,7 +11293,7 @@ pub fn fire_activate_main(
     if let Some(c) = &cost {
         if let Some(o) = c.as_object() {
             for k in o.keys() {
-                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card" | "ko_self_with_filter" | "trash_self" | "trash_to_deck" | "discard_hand_or_trash_filtered_chara" | "discard_hand" | "return_self_to_hand" | "discard_hand_with_filter" | "reveal_hand_with_filter") {
+                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card" | "ko_self_with_filter" | "trash_self" | "trash_to_deck" | "discard_hand_or_trash_filtered_chara" | "discard_hand" | "return_self_to_hand" | "discard_hand_with_filter" | "reveal_hand_with_filter" | "rest_self_target_name" | "rest_self_target") {
                     note_unknown_key("activate_cost", k);
                     return Err(format!("activate_main cost 未対応: {k} ({card_id})"));
                 }
@@ -11336,6 +11336,25 @@ pub fn fire_activate_main(
                 if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     enqueue_field_when(state, me_idx, "on_self_don_returned_to_deck");
                     maybe_resolve(state)?;
+                }
+            }
+        }
+        // rest_self_target_name / rest_self_target: 自場の同名アクティブ 1 枚をレスト
+        // (effects.py:8929 と対。 専用 primitive が無いのでここで直接処理する)。
+        for key in ["rest_self_target_name", "rest_self_target"] {
+            if let Some(spec) = c.get(key) {
+                let want = spec.get("name").and_then(|v| v.as_str())
+                    .or_else(|| spec.as_str()).unwrap_or("").to_string();
+                let mep = &mut state.players[me_idx];
+                // Python は characters → stages の順に走査して最初の 1 枚をレスト
+                let mut done = false;
+                for x in mep.characters.iter_mut() {
+                    if x.card.name == want && !x.rested { x.rested = true; done = true; break; }
+                }
+                if !done {
+                    for x in mep.stages.iter_mut() {
+                        if x.card.name == want && !x.rested { x.rested = true; break; }
+                    }
                 }
             }
         }
@@ -11939,6 +11958,19 @@ fn can_pay_activate_cost(state: &GameState, me_idx: usize, ip: &InPlay, on_field
     }
     if gb("return_self_to_hand") && !on_field {
         return false;
+    }
+    // rest_self_target_name / rest_self_target = 「自分の『X』1枚をレストにできる：」
+    // (effects.py:8697)。 自場 (キャラ+ステージ) に 同名のアクティブが 1 枚以上 必要。
+    for key in ["rest_self_target_name", "rest_self_target"] {
+        if let Some(spec) = o.get(key) {
+            let want = spec.get("name").and_then(|v| v.as_str())
+                .or_else(|| spec.as_str()).unwrap_or("");
+            let found = me.characters.iter().chain(me.stages.iter())
+                .any(|x| x.card.name == want && !x.rested);
+            if !found {
+                return false;
+            }
+        }
     }
     if gi("discard_hand") > 0 && (me.hand.len() as i32) < gi("discard_hand") {
         return false;

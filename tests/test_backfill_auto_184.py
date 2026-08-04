@@ -71,6 +71,22 @@ _BIG_C = "PRB02-013"          # ゲッコー・モリア cost6 power7000 (元々
 _CG_C = "ST25-005"            # モージ cost4 クロスギルド (手札から登場させる駒)
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` の両対応)。
+
+    ⚠ 2026-08-05: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の
+    gate とする (cardqa_op_02 / cardqa_st_04)。 top-level `if` に置くと **任意コストの支払いごと
+    消える** ので、 overlay ではこの形の条件を `conditional` の中に移した。
+    条件そのものは変わっていないので、 テストはどちらの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    for _prim in eff.get("do") or []:
+        if isinstance(_prim, dict) and "conditional" in _prim:
+            return (_prim.get("conditional") or {}).get("if") or {}
+    return {}
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -154,7 +170,7 @@ def test_st23_003_on_play_trash_then_ko_ai():
     opp.characters = [victim]
 
     eff = _eff(overlay, "ST23-003", "on_play")
-    assert eff.get("if", {}).get("leader_feature") == "赤髪海賊団", \
+    assert _cond_of(eff).get("leader_feature") == "赤髪海賊団", \
         "overlay の 赤髪海賊団 leader 条件が無い"
     for prim in eff["do"]:
         execute_effect(prim, st, me, opp,
@@ -265,7 +281,7 @@ def test_st24_001_on_play_draw_discard_when_six_rested_ai():
         me.characters.append(ch)
 
     eff = _eff(overlay, "ST24-001", "on_play")
-    assert eff.get("if", {}).get("self_rested_cards_count_ge") == 6, \
+    assert _cond_of(eff).get("self_rested_cards_count_ge") == 6, \
         "overlay の 自レスト6枚以上条件が無い"
     deck_before = len(me.deck)
     trash_before = len(me.trash)
@@ -282,7 +298,7 @@ def test_st24_001_condition_gate_in_overlay():
     """発動条件 (自レスト6枚以上) が overlay の if 節に載っている (= 近似で省かれていない)。"""
     overlay = _overlay()
     eff = _eff(overlay, "ST24-001", "on_play")
-    assert eff.get("if", {}).get("self_rested_cards_count_ge") == 6
+    assert _cond_of(eff).get("self_rested_cards_count_ge") == 6
 
 
 # --------------------------------------------------------------------------- #
@@ -319,7 +335,7 @@ def test_st24_005_on_play_rest_opp_cost5_ai():
     opp.characters = [victim]
 
     eff = _eff(overlay, "ST24-005", "on_play")
-    assert eff.get("if", {}).get("leader_feature") == "超新星", \
+    assert _cond_of(eff).get("leader_feature") == "超新星", \
         "overlay の 超新星 leader 条件が無い"
     execute_effect(eff["do"][0], st, me, opp,
                    InPlay.of(repo.get("ST24-005"), sickness=True))
@@ -368,7 +384,7 @@ def test_st24_005_schedule_turn_end_untap_don_fires():
     me.don_rested = 3
 
     eff = _eff(overlay, "ST24-005", "on_play")
-    assert eff.get("if", {}).get("leader_feature") == "超新星", \
+    assert _cond_of(eff).get("leader_feature") == "超新星", \
         "overlay の 超新星 leader 条件が無い"
     src = InPlay.of(repo.get("ST24-005"), sickness=True)
     for prim in eff["do"]:
@@ -433,7 +449,7 @@ def test_st25_001_on_play_draw3_discard2_when_buggy_ai():
     me.hand = [repo.get(_FILLER), repo.get(_NAMI)]  # 捨てる余地
 
     eff = _eff(overlay, "ST25-001", "on_play")
-    assert eff.get("if", {}).get("leader_name") == "バギー", \
+    assert _cond_of(eff).get("leader_name") == "バギー", \
         "overlay の バギー leader 条件が無い"
     hand_before = len(me.hand)
     for prim in eff["do"]:
@@ -571,7 +587,7 @@ def test_st25_004_activate_main_trash_self_play_crossguild_ai():
     me.hand = [repo.get(_FILLER), repo.get(_CG_C)]  # 捨てる用 + クロスギルド cost4 (<=6)
 
     eff = _eff(overlay, "ST25-004", "activate_main")
-    assert eff.get("if", {}).get("leader_name") == "バギー", \
+    assert _cond_of(eff).get("leader_name") == "バギー", \
         "overlay の バギー leader 条件が無い"
     opts = _acts(st, me, overlay, "ST25-004")
     assert len(opts) == 1, f"ST25-004 の起動メインが legal に出ない: {len(opts)}"
@@ -614,9 +630,9 @@ def test_st25_005_on_ko_draw_when_buggy_and_few_cards_ai():
     me.hand = [repo.get(_FILLER)]  # 1 枚 (<=3)
 
     eff = _eff(overlay, "ST25-005", "on_ko")
-    assert eff.get("if", {}).get("leader_name") == "バギー", \
+    assert _cond_of(eff).get("leader_name") == "バギー", \
         "overlay の バギー leader 条件が無い"
-    assert eff.get("if", {}).get("self_hand_count_le") == 3, \
+    assert _cond_of(eff).get("self_hand_count_le") == 3, \
         "overlay の 手札3枚以下条件が無い"
     deck_before = len(me.deck)
     for prim in eff["do"]:

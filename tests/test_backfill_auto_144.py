@@ -32,6 +32,22 @@ from engine.deck import CardRepository
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` の両対応)。
+
+    ⚠ 2026-08-05: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の
+    gate とする (cardqa_op_02 / cardqa_st_04)。 top-level `if` に置くと **任意コストの支払いごと
+    消える** ので、 overlay ではこの形の条件を `conditional` の中に移した。
+    条件そのものは変わっていないので、 テストはどちらの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    for _prim in eff.get("do") or []:
+        if isinstance(_prim, dict) and "conditional" in _prim:
+            return (_prim.get("conditional") or {}).get("if") or {}
+    return {}
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -289,10 +305,10 @@ def test_op15_083_activate_condition_trash_ge_15():
     st = _state(repo, "OP01-001", overlay)
     me = st.players[0]
     me.trash = [repo.get("OP01-016")] * 14
-    assert eval_condition(eff.get("if", {}), st, me) is False, \
+    assert eval_condition(_cond_of(eff), st, me) is False, \
         "トラッシュ14枚で起動メイン条件が成立してはいけない"
     me.trash = [repo.get("OP01-016")] * 15
-    assert eval_condition(eff.get("if", {}), st, me) is True, \
+    assert eval_condition(_cond_of(eff), st, me) is True, \
         "トラッシュ15枚で起動メイン条件が成立していない"
 
 
@@ -334,9 +350,9 @@ def test_op15_085_activate_condition_leader_strawhat():
     _, eff = _do(overlay, "OP15-085", "activate_main")
     st_ok = _state(repo, "EB02-010", overlay)  # モンキー・D・ルフィ (麦わらの一味)
     st_ng = _state(repo, "OP15-039", overlay)  # レベッカ (ドレスローザ = 非麦わらの一味)
-    assert eval_condition(eff.get("if", {}), st_ok, st_ok.players[0]) is True, \
+    assert eval_condition(_cond_of(eff), st_ok, st_ok.players[0]) is True, \
         "《麦わらの一味》リーダーで起動メイン条件が成立していない"
-    assert eval_condition(eff.get("if", {}), st_ng, st_ng.players[0]) is False, \
+    assert eval_condition(_cond_of(eff), st_ng, st_ng.players[0]) is False, \
         "非《麦わらの一味》リーダーで条件が成立してはいけない"
 
 
@@ -597,10 +613,10 @@ def test_op15_093_activate_condition_trash_ge_15():
     st = _state(repo, "OP01-001", overlay)
     me = st.players[0]
     me.trash = [repo.get("OP01-016")] * 14
-    assert eval_condition(eff.get("if", {}), st, me) is False, \
+    assert eval_condition(_cond_of(eff), st, me) is False, \
         "トラッシュ14枚で起動メイン条件が成立してはいけない"
     me.trash = [repo.get("OP01-016")] * 15
-    assert eval_condition(eff.get("if", {}), st, me) is True, \
+    assert eval_condition(_cond_of(eff), st, me) is True, \
         "トラッシュ15枚で起動メイン条件が成立していない"
 
 

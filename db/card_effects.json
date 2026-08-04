@@ -1130,18 +1130,24 @@
  ],
  "OP08-040": [
   {
-   "_text": "アトモス 登場時: 白ひげ海賊団リーダー時 相手キャラ1枚レスト",
+   "_text": "アトモス 登場時: 白ひげ海賊団リーダー時 相手キャラ1枚レスト [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "on_play",
-   "if": {
-    "leader_feature": "白ひげ海賊団"
-   },
    "do": [
     {
-     "return_to_hand": {
-      "type": "one_opponent_character_filtered",
-      "filter": {
-       "cost_le": 4
-      }
+     "conditional": {
+      "if": {
+       "leader_feature": "白ひげ海賊団"
+      },
+      "do": [
+       {
+        "return_to_hand": {
+         "type": "one_opponent_character_filtered",
+         "filter": {
+          "cost_le": 4
+         }
+        }
+       }
+      ]
      }
     }
    ],
@@ -1157,16 +1163,22 @@
  ],
  "OP08-041": [
   {
-   "_text": "OP08-041 activate_main: このキャラを持ち主の手札に戻すことができる：自分のリーダーが特徴《九蛇海賊団》を持つ場合、相手のコスト1以下のキャラ1枚までを、持ち主のデッキの下に置く。",
+   "_text": "OP08-041 activate_main: このキャラを持ち主の手札に戻すことができる：自分のリーダーが特徴《九蛇海賊団》を持つ場合、相手のコスト1以下のキャラ1枚までを、持ち主のデッキの下に置く。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "return_to_deck_bottom": "one_opponent_character_cost_le_1cost"
+     "conditional": {
+      "if": {
+       "leader_feature": "九蛇海賊団"
+      },
+      "do": [
+       {
+        "return_to_deck_bottom": "one_opponent_character_cost_le_1cost"
+       }
+      ]
+     }
     }
    ],
-   "if": {
-    "leader_feature": "九蛇海賊団"
-   },
    "cost": {
     "return_self_to_hand": true
    }
@@ -2723,29 +2735,35 @@
  ],
  "P-081": [
   {
-   "_text": "P-081 起動メイン: self手札戻し+ターン1回 + 青クロスギルド3+で 手札 cost5クロスギルドキャラ登場",
+   "_text": "P-081 起動メイン: self手札戻し+ターン1回 + 青クロスギルド3+で 手札 cost5クロスギルドキャラ登場 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 / cardqa_op_02 / cardqa_st_04 の一般則)。",
    "when": "activate_main",
    "cost": {
     "return_self_to_hand": true
    },
-   "if": {
-    "self_chara_filtered_count_ge": {
-     "filter": {
-      "feature": "クロスギルド",
-      "color": "青"
-     },
-     "count": 3
-    }
-   },
    "do": [
     {
-     "play_from_hand": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 5,
-       "feature": "クロスギルド"
+     "conditional": {
+      "if": {
+       "self_chara_filtered_count_ge": {
+        "filter": {
+         "feature": "クロスギルド",
+         "color": "青"
+        },
+        "count": 3
+       }
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 5,
+          "feature": "クロスギルド"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ]
@@ -3170,26 +3188,32 @@
  ],
  "EB02-025": [
   {
-   "_text": "EB02-025 activate_main: 自分のドン‼1枚とこのキャラをレストにできる：自分のリーダーが「ドンキホーテ・ロシナンテ」の場合、自分のデッキの上から5枚を見て、コスト2以下のキャラカード1枚",
+   "_text": "EB02-025 activate_main: 自分のドン‼1枚とこのキャラをレストにできる：自分のリーダーが「ドンキホーテ・ロシナンテ」の場合、自分のデッキの上から5枚を見て、コスト2以下のキャラカード1枚 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "search_top_n": {
-      "depth": 5,
-      "filter": {
-       "cost_le": 2,
-       "category": "CHARACTER"
+     "conditional": {
+      "if": {
+       "leader_name": "ドンキホーテ・ロシナンテ"
       },
-      "limit": 1,
-      "destination": "play",
-      "rest_remain": "bottom",
-      "rested": true
+      "do": [
+       {
+        "search_top_n": {
+         "depth": 5,
+         "filter": {
+          "cost_le": 2,
+          "category": "CHARACTER"
+         },
+         "limit": 1,
+         "destination": "play",
+         "rest_remain": "bottom",
+         "rested": true
+        }
+       }
+      ]
      }
     }
    ],
-   "if": {
-    "leader_name": "ドンキホーテ・ロシナンテ"
-   },
    "cost": {
     "rest_self_don": 1,
     "rest_self": true
@@ -3296,20 +3320,26 @@
    ]
   },
   {
-   "_text": "【起動メイン】【ターン1回】自分のリーダーが特徴《アラバスタ王国》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-1000。",
+   "_text": "【起動メイン】【ターン1回】自分のリーダーが特徴《アラバスタ王国》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-1000。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
-   "if": {
-    "leader_feature": "アラバスタ王国"
-   },
    "cost": {
     "once_per_turn": true
    },
    "do": [
     {
-     "power_pump": {
-      "target": "one_opponent_character_any",
-      "amount": -1000,
-      "duration": "turn"
+     "conditional": {
+      "if": {
+       "leader_feature": "アラバスタ王国"
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "one_opponent_character_any",
+         "amount": -1000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ]
@@ -3379,18 +3409,24 @@
    ]
   },
   {
-   "_text": "EB03-028 activate_main: このキャラをトラッシュに置くことができる：自分の手札が4枚以下の場合、カード2枚を引く。",
+   "_text": "EB03-028 activate_main: このキャラをトラッシュに置くことができる：自分の手札が4枚以下の場合、カード2枚を引く。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "draw": 2
+     "conditional": {
+      "if": {
+       "self_hand_count_le": 4
+      },
+      "do": [
+       {
+        "draw": 2
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "trash_self": true
-   },
-   "if": {
-    "self_hand_count_le": 4
    }
   }
  ],
@@ -5744,25 +5780,31 @@
  ],
  "OP09-078": [
   {
-   "_text": "OP09-078 ゴムゴムの巨人 カウンター: ドン-2 + 1捨て → 麦わらリーダーで +4000 + 2ドロー",
+   "_text": "OP09-078 ゴムゴムの巨人 カウンター: ドン-2 + 1捨て → 麦わらリーダーで +4000 + 2ドロー [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "counter",
    "cost": {
     "pay_don": 2,
     "discard_hand": 1
    },
-   "if": {
-    "leader_feature": "麦わらの一味"
-   },
    "do": [
     {
-     "power_pump": {
-      "target": "self_inplay",
-      "amount": 4000,
-      "duration": "battle"
+     "conditional": {
+      "if": {
+       "leader_feature": "麦わらの一味"
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "self_inplay",
+         "amount": 4000,
+         "duration": "battle"
+        }
+       },
+       {
+        "draw": 2
+       }
+      ]
      }
-    },
-    {
-     "draw": 2
     }
    ]
   }
@@ -6007,20 +6049,26 @@
  ],
  "OP13-076": [
   {
-   "_text": "OP13-076 神避 メイン: ドン-5 + 自付与ドンあり → 相手キャラ1体 -8000 turn",
+   "_text": "OP13-076 神避 メイン: ドン-5 + 自付与ドンあり → 相手キャラ1体 -8000 turn [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "main",
    "cost": {
     "rest_self_don": 5
    },
-   "if": {
-    "self_attached_don_ge": 1
-   },
    "do": [
     {
-     "power_pump": {
-      "target": "one_opponent_character_any",
-      "amount": -8000,
-      "duration": "turn"
+     "conditional": {
+      "if": {
+       "self_attached_don_ge": 1
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "one_opponent_character_any",
+         "amount": -8000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ]
@@ -6765,18 +6813,24 @@
  ],
  "OP11-080": [
   {
-   "_text": "OP11-080 main: 自分のドン‼2枚をレストにできる：自分のリーダーが青を含む場合、ドン‼デッキからドン‼1枚までを、レストで追加する。",
+   "_text": "OP11-080 main: 自分のドン‼2枚をレストにできる：自分のリーダーが青を含む場合、ドン‼デッキからドン‼1枚までを、レストで追加する。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "main",
    "do": [
     {
-     "add_rested_don": 1
+     "conditional": {
+      "if": {
+       "leader_color": "青"
+      },
+      "do": [
+       {
+        "add_rested_don": 1
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "rest_self_don": 2
-   },
-   "if": {
-    "leader_color": "青"
    }
   },
   {
@@ -7122,33 +7176,39 @@
  ],
  "OP12-028": [
   {
-   "_text": "OP12-028 activate_main: 自分のドン‼1枚とこのキャラをレストにできる：自分のリーダーが「ロロノア・ゾロ」の場合、自分のデッキの上から5枚を見て、属性(斬)を持つカードか緑のイベント1枚",
+   "_text": "OP12-028 activate_main: 自分のドン‼1枚とこのキャラをレストにできる：自分のリーダーが「ロロノア・ゾロ」の場合、自分のデッキの上から5枚を見て、属性(斬)を持つカードか緑のイベント1枚 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "search_top_n": {
-      "depth": 5,
-      "filter": {
-       "or_clauses": [
-        {
-         "attribute": "斬"
-        },
-        {
-         "category": "EVENT",
-         "color": "緑"
-        }
-       ]
+     "conditional": {
+      "if": {
+       "leader_name": "ロロノア・ゾロ"
       },
-      "limit": 1,
-      "destination": "hand",
-      "rest_remain": "bottom",
-      "public": true
+      "do": [
+       {
+        "search_top_n": {
+         "depth": 5,
+         "filter": {
+          "or_clauses": [
+           {
+            "attribute": "斬"
+           },
+           {
+            "category": "EVENT",
+            "color": "緑"
+           }
+          ]
+         },
+         "limit": 1,
+         "destination": "hand",
+         "rest_remain": "bottom",
+         "public": true
+        }
+       }
+      ]
      }
     }
    ],
-   "if": {
-    "leader_name": "ロロノア・ゾロ"
-   },
    "cost": {
     "rest_self_don": 1,
     "rest_self": true
@@ -7355,19 +7415,25 @@
  ],
  "OP13-098": [
   {
-   "_text": "OP13-098 メイン: ドン-1, イムリーダーで 相手cost7ステージ1KO",
+   "_text": "OP13-098 メイン: ドン-1, イムリーダーで 相手cost7ステージ1KO [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "main",
    "cost": {
     "rest_self_don": 1
    },
-   "if": {
-    "leader_name": "イム"
-   },
    "do": [
     {
-     "ko_opp_stage": {
-      "cost": 7,
-      "limit": 1
+     "conditional": {
+      "if": {
+       "leader_name": "イム"
+      },
+      "do": [
+       {
+        "ko_opp_stage": {
+         "cost": 7,
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ]
@@ -8870,18 +8936,24 @@
  ],
  "OP13-097": [
   {
-   "_text": "OP13-097 main: 自分のドン‼5枚をレストにできる：自分の場のキャラが、特徴《天竜人》を持つキャラのみの場合、相手の元々のコスト6以下のキャラ1枚までを、KOする。",
+   "_text": "OP13-097 main: 自分のドン‼5枚をレストにできる：自分の場のキャラが、特徴《天竜人》を持つキャラのみの場合、相手の元々のコスト6以下のキャラ1枚までを、KOする。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "main",
    "do": [
     {
-     "ko": "one_opponent_character_truly_original_cost_le_6"
+     "conditional": {
+      "if": {
+       "self_all_chara_feature": "天竜人"
+      },
+      "do": [
+       {
+        "ko": "one_opponent_character_truly_original_cost_le_6"
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "rest_self_don": 5
-   },
-   "if": {
-    "self_all_chara_feature": "天竜人"
    }
   },
   {
@@ -8930,21 +9002,27 @@
  ],
  "OP13-102": [
   {
-   "_text": "OP13-102 activate_main: このキャラをトラッシュに置くことができる：自分のライフの枚数が相手のライフの枚数以下の場合、カード1枚を引く。その後、相手のコスト3以下のキャラ1枚までを、レス",
+   "_text": "OP13-102 activate_main: このキャラをトラッシュに置くことができる：自分のライフの枚数が相手のライフの枚数以下の場合、カード1枚を引く。その後、相手のコスト3以下のキャラ1枚までを、レス [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "draw": 1
-    },
-    {
-     "rest": "one_opponent_character_cost_le_3cost"
+     "conditional": {
+      "if": {
+       "self_life_le_opp": true
+      },
+      "do": [
+       {
+        "draw": 1
+       },
+       {
+        "rest": "one_opponent_character_cost_le_3cost"
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "trash_self": true
-   },
-   "if": {
-    "self_life_le_opp": true
    }
   },
   {
@@ -9380,22 +9458,28 @@
  ],
  "OP11-008": [
   {
-   "_text": "OP11-008 on_play: 自分の手札1枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-6000。",
+   "_text": "OP11-008 on_play: 自分の手札1枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-6000。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "on_play",
    "do": [
     {
-     "power_pump": {
-      "target": "one_opponent_character_any",
-      "amount": -6000,
-      "duration": "turn"
+     "conditional": {
+      "if": {
+       "leader_feature": "海軍"
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "one_opponent_character_any",
+         "amount": -6000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "discard_hand": 1
-   },
-   "if": {
-    "leader_feature": "海軍"
    }
   }
  ],
@@ -11361,28 +11445,34 @@
  ],
  "OP11-082": [
   {
-   "_text": "OP11-082 アラマキ 起動メイン: 自KO cost → 自海軍 1 に アクティブキャラアタック可 + デッキ上2 trash",
+   "_text": "OP11-082 アラマキ 起動メイン: 自KO cost → 自海軍 1 に アクティブキャラアタック可 + デッキ上2 trash [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "give_attack_active_chara": {
-      "target": {
-       "type": "one_self_chara_or_leader_filtered",
-       "filter": {
-        "feature": "海軍"
+     "conditional": {
+      "if": {
+       "leader_feature": "海軍"
+      },
+      "do": [
+       {
+        "give_attack_active_chara": {
+         "target": {
+          "type": "one_self_chara_or_leader_filtered",
+          "filter": {
+           "feature": "海軍"
+          }
+         }
+        }
+       },
+       {
+        "mill_self_top": 2
        }
-      }
+      ]
      }
-    },
-    {
-     "mill_self_top": 2
     }
    ],
    "cost": {
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "海軍"
    }
   }
  ],
@@ -12064,21 +12154,27 @@
    ]
   },
   {
-   "_text": "OP15-032 activate_main: このキャラをトラッシュに置くことができる：自分のリーダーが特徴《麦わらの一味》を持つ場合、自分の元々のコスト8以下のキャラ1枚までを、アクティブにする。",
+   "_text": "OP15-032 activate_main: このキャラをトラッシュに置くことができる：自分のリーダーが特徴《麦わらの一味》を持つ場合、自分の元々のコスト8以下のキャラ1枚までを、アクティブにする。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "untap_chara": {
-      "target": "one_self_character_truly_original_cost_le_8",
-      "limit": 1
+     "conditional": {
+      "if": {
+       "leader_feature": "麦わらの一味"
+      },
+      "do": [
+       {
+        "untap_chara": {
+         "target": "one_self_character_truly_original_cost_le_8",
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "麦わらの一味"
    }
   }
  ],
@@ -16677,37 +16773,49 @@
  ],
  "OP03-077": [
   {
-   "_text": "OP03-077 【アタック時】②(コストエリアのドン!!を指定の数レストにできる),自分の手札1枚を捨てることができる：自分のライフが1枚以下の場合、デッキの上から1枚までを、ライフの上に加える。 [don-gate]",
+   "_text": "OP03-077 【アタック時】②(コストエリアのドン!!を指定の数レストにできる),自分の手札1枚を捨てることができる：自分のライフが1枚以下の場合、デッキの上から1枚までを、ライフの上に加える。 [don-gate] [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "on_attack",
    "do": [
     {
-     "put_top_to_life": 1
+     "conditional": {
+      "if": {
+       "self_life_le": 1,
+       "self_attached_don_ge": 2
+      },
+      "do": [
+       {
+        "put_top_to_life": 1
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "discard_hand": 1
-   },
-   "if": {
-    "self_life_le": 1,
-    "self_attached_don_ge": 2
    }
   }
  ],
  "OP03-077_p1": [
   {
-   "_text": "OP03-077_p1 【アタック時】②(コストエリアのドン!!を指定の数レストにできる),自分の手札1枚を捨てることができる：自分のライフが1枚以下の場合、デッキの上から1枚までを、ライフの上に加える。 [don-gate]",
+   "_text": "OP03-077_p1 【アタック時】②(コストエリアのドン!!を指定の数レストにできる),自分の手札1枚を捨てることができる：自分のライフが1枚以下の場合、デッキの上から1枚までを、ライフの上に加える。 [don-gate] [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "on_attack",
    "do": [
     {
-     "put_top_to_life": 1
+     "conditional": {
+      "if": {
+       "self_life_le": 1,
+       "self_attached_don_ge": 2
+      },
+      "do": [
+       {
+        "put_top_to_life": 1
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "discard_hand": 1
-   },
-   "if": {
-    "self_life_le": 1,
-    "self_attached_don_ge": 2
    }
   }
  ],
@@ -17851,7 +17959,7 @@
  ],
  "ST13-003": [
   {
-   "_text": "ST13-003 起動メイン(ターン1,手札1捨て):自ライフ0の場合、手札かトラッシュのcost5キャラ2枚までをライフ上に表向き [don-gate2]",
+   "_text": "ST13-003 起動メイン(ターン1,手札1捨て):自ライフ0の場合、手札かトラッシュのcost5キャラ2枚までをライフ上に表向き [don-gate2] [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "cost": {
     "once_per_turn": true,
@@ -17859,26 +17967,32 @@
    },
    "do": [
     {
-     "hand_or_trash_to_self_life": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 5
-      },
-      "count": 2,
+     "conditional": {
       "if": {
-       "self_life_le": 0
-      }
+       "self_attached_don_ge": 2
+      },
+      "do": [
+       {
+        "hand_or_trash_to_self_life": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 5
+         },
+         "count": 2,
+         "if": {
+          "self_life_le": 0
+         }
+        }
+       }
+      ]
      }
     }
-   ],
-   "if": {
-    "self_attached_don_ge": 2
-   }
+   ]
   }
  ],
  "ST13-003_p1": [
   {
-   "_text": "ST13-003 起動メイン(ターン1,手札1捨て):自ライフ0の場合、手札かトラッシュのcost5キャラ2枚までをライフ上に表向き [don-gate2]",
+   "_text": "ST13-003 起動メイン(ターン1,手札1捨て):自ライフ0の場合、手札かトラッシュのcost5キャラ2枚までをライフ上に表向き [don-gate2] [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "cost": {
     "once_per_turn": true,
@@ -17886,21 +18000,27 @@
    },
    "do": [
     {
-     "hand_or_trash_to_self_life": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 5
-      },
-      "count": 2,
+     "conditional": {
       "if": {
-       "self_life_le": 0
-      }
+       "self_attached_don_ge": 2
+      },
+      "do": [
+       {
+        "hand_or_trash_to_self_life": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 5
+         },
+         "count": 2,
+         "if": {
+          "self_life_le": 0
+         }
+        }
+       }
+      ]
      }
     }
-   ],
-   "if": {
-    "self_attached_don_ge": 2
-   }
+   ]
   }
  ],
  "ST12-001": [
@@ -20271,21 +20391,27 @@
  ],
  "OP07-109": [
   {
-   "_text": "OP07-109 activate_main: このキャラをトラッシュに置くことができる：自分のライフが2枚以下の場合、相手のコスト4以下のキャラ1枚までを、KOする。その後、カード1枚を引く。",
+   "_text": "OP07-109 activate_main: このキャラをトラッシュに置くことができる：自分のライフが2枚以下の場合、相手のコスト4以下のキャラ1枚までを、KOする。その後、カード1枚を引く。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_4cost"
-    },
-    {
-     "draw": 1
+     "conditional": {
+      "if": {
+       "self_life_le": 2
+      },
+      "do": [
+       {
+        "ko": "one_opponent_character_cost_le_4cost"
+       },
+       {
+        "draw": 1
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "trash_self": true
-   },
-   "if": {
-    "self_life_le": 2
    }
   },
   {
@@ -20486,18 +20612,24 @@
  ],
  "OP10-114": [
   {
-   "_text": "OP10-114 activate_main: このキャラをレストにできる：自分のライフの枚数が相手のライフの枚数以下の場合、相手のコスト4以下のキャラ1枚までを、レストにする。",
+   "_text": "OP10-114 activate_main: このキャラをレストにできる：自分のライフの枚数が相手のライフの枚数以下の場合、相手のコスト4以下のキャラ1枚までを、レストにする。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_4cost"
+     "conditional": {
+      "if": {
+       "self_life_le_opp": true
+      },
+      "do": [
+       {
+        "rest": "one_opponent_character_cost_le_4cost"
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "rest_self": true
-   },
-   "if": {
-    "self_life_le_opp": true
    }
   }
  ],
@@ -21464,18 +21596,24 @@
    ]
   },
   {
-   "_text": "【起動メイン】【ターン1回】自分のドン‼2枚をレストにできる：自分のリーダーが特徴《百獣海賊団》を持つ場合、ドン‼デッキからドン‼1枚までを、レストで追加する。",
+   "_text": "【起動メイン】【ターン1回】自分のドン‼2枚をレストにできる：自分のリーダーが特徴《百獣海賊団》を持つ場合、ドン‼デッキからドン‼1枚までを、レストで追加する。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
-   "if": {
-    "leader_feature": "百獣海賊団"
-   },
    "cost": {
     "once_per_turn": true,
     "rest_self_don": 2
    },
    "do": [
     {
-     "add_rested_don": 1
+     "conditional": {
+      "if": {
+       "leader_feature": "百獣海賊団"
+      },
+      "do": [
+       {
+        "add_rested_don": 1
+       }
+      ]
+     }
     }
    ]
   }
@@ -21929,16 +22067,22 @@
    ]
   },
   {
-   "_text": "EB02-049 activate_main: このキャラをレストにできる：自分のリーダーが「モンキー・D・ガープ」の場合、相手のコスト1以下のキャラ1枚までを、KOする。",
+   "_text": "EB02-049 activate_main: このキャラをレストにできる：自分のリーダーが「モンキー・D・ガープ」の場合、相手のコスト1以下のキャラ1枚までを、KOする。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_1cost"
+     "conditional": {
+      "if": {
+       "leader_name": "モンキー・D・ガープ"
+      },
+      "do": [
+       {
+        "ko": "one_opponent_character_cost_le_1cost"
+       }
+      ]
+     }
     }
    ],
-   "if": {
-    "leader_name": "モンキー・D・ガープ"
-   },
    "cost": {
     "rest_self": true
    }
@@ -22163,24 +22307,30 @@
  ],
  "OP15-064": [
   {
-   "_text": "OP15-064 activate_main: ドン‼-2,このキャラをレストにできる：自分の「サトリ」と「ホトリ」がいる場合、相手のパワー5000以下のキャラ1枚までを、レストにする。",
+   "_text": "OP15-064 activate_main: ドン‼-2,このキャラをレストにできる：自分の「サトリ」と「ホトリ」がいる場合、相手のパワー5000以下のキャラ1枚までを、レストにする。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "rest": "one_opponent_character_le_5000"
+     "conditional": {
+      "if": {
+       "self_field_named_all_with_power": {
+        "names": [
+         "サトリ",
+         "ホトリ"
+        ]
+       }
+      },
+      "do": [
+       {
+        "rest": "one_opponent_character_le_5000"
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "pay_don": 2,
     "rest_self": true
-   },
-   "if": {
-    "self_field_named_all_with_power": {
-     "names": [
-      "サトリ",
-      "ホトリ"
-     ]
-    }
    }
   }
  ],
@@ -23011,31 +23161,37 @@
  ],
  "OP13-095": [
   {
-   "_text": "OP13-095 登場時(手札1捨て):自キャラが天竜人のみの場合、相手元々cost3以下2枚KO",
+   "_text": "OP13-095 登場時(手札1捨て):自キャラが天竜人のみの場合、相手元々cost3以下2枚KO [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "on_play",
    "do": [
     {
-     "ko_multi": [
-      {
-       "type": "one_opponent_character_filtered",
-       "filter": {
-        "truly_original_cost_le": 3
-       }
+     "conditional": {
+      "if": {
+       "self_all_chara_feature": "天竜人"
       },
-      {
-       "type": "one_opponent_character_filtered",
-       "filter": {
-        "truly_original_cost_le": 3
+      "do": [
+       {
+        "ko_multi": [
+         {
+          "type": "one_opponent_character_filtered",
+          "filter": {
+           "truly_original_cost_le": 3
+          }
+         },
+         {
+          "type": "one_opponent_character_filtered",
+          "filter": {
+           "truly_original_cost_le": 3
+          }
+         }
+        ]
        }
-      }
-     ]
+      ]
+     }
     }
    ],
    "cost": {
     "discard_hand": 1
-   },
-   "if": {
-    "self_all_chara_feature": "天竜人"
    }
   }
  ],
@@ -24859,18 +25015,24 @@
  ],
  "OP10-075": [
   {
-   "_text": "OP10-075 activate_main: このキャラをトラッシュに置くことができる：自分の場のドン‼が相手の場のドン‼の枚数以下の場合、カード1枚を引く。",
+   "_text": "OP10-075 activate_main: このキャラをトラッシュに置くことができる：自分の場のドン‼が相手の場のドン‼の枚数以下の場合、カード1枚を引く。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "draw": 1
+     "conditional": {
+      "if": {
+       "don_diff_le": 0
+      },
+      "do": [
+       {
+        "draw": 1
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "trash_self": true
-   },
-   "if": {
-    "don_diff_le": 0
    }
   }
  ],
@@ -25481,19 +25643,25 @@
  ],
  "OP09-083": [
   {
-   "_text": "OP09-083 activate_main: このキャラをレストにできる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、相手のキャラ1枚までを、このターン中、コスト-3。",
+   "_text": "OP09-083 activate_main: このキャラをレストにできる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、相手のキャラ1枚までを、このターン中、コスト-3。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "cost_minus": {
-      "target": "one_opponent_character_any",
-      "amount": 3
+     "conditional": {
+      "if": {
+       "leader_feature": "黒ひげ海賊団"
+      },
+      "do": [
+       {
+        "cost_minus": {
+         "target": "one_opponent_character_any",
+         "amount": 3
+        }
+       }
+      ]
      }
     }
    ],
-   "if": {
-    "leader_feature": "黒ひげ海賊団"
-   },
    "cost": {
     "rest_self": true
    }
@@ -25535,41 +25703,53 @@
  ],
  "OP09-089": [
   {
-   "_text": "OP09-089 activate_main: 自分の手札1枚を捨て、このキャラをトラッシュに置くことができる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、カード1枚を引く。その後、相手のキャラ1枚までを、このターン中、コスト-2。",
+   "_text": "OP09-089 activate_main: 自分の手札1枚を捨て、このキャラをトラッシュに置くことができる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、カード1枚を引く。その後、相手のキャラ1枚までを、このターン中、コスト-2。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "draw": 1
-    },
-    {
-     "cost_minus": {
-      "target": "one_opponent_character_any",
-      "amount": 2,
-      "duration": "turn"
+     "conditional": {
+      "if": {
+       "leader_feature": "黒ひげ海賊団"
+      },
+      "do": [
+       {
+        "draw": 1
+       },
+       {
+        "cost_minus": {
+         "target": "one_opponent_character_any",
+         "amount": 2,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "trash_self": true,
     "discard_hand": 1
-   },
-   "if": {
-    "leader_feature": "黒ひげ海賊団"
    }
   }
  ],
  "OP09-090": [
   {
-   "_text": "OP09-090 activate_main: このキャラをレストにできる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、相手のコスト1以下のキャラ1枚までを、KOする。",
+   "_text": "OP09-090 activate_main: このキャラをレストにできる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、相手のコスト1以下のキャラ1枚までを、KOする。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_1cost"
+     "conditional": {
+      "if": {
+       "leader_feature": "黒ひげ海賊団"
+      },
+      "do": [
+       {
+        "ko": "one_opponent_character_cost_le_1cost"
+       }
+      ]
+     }
     }
    ],
-   "if": {
-    "leader_feature": "黒ひげ海賊団"
-   },
    "cost": {
     "rest_self": true
    }
@@ -26733,24 +26913,30 @@
  ],
  "OP07-058": [
   {
-   "_text": "OP07-058 activate_main: 自分の手札1枚を捨て、このステージをレストにできる：自分のリーダーが特徴《九蛇海賊団》を持つ場合、自分の特徴《アマゾン・リリー》か《九蛇海賊団》を持つキャラ1枚",
+   "_text": "OP07-058 activate_main: 自分の手札1枚を捨て、このステージをレストにできる：自分のリーダーが特徴《九蛇海賊団》を持つ場合、自分の特徴《アマゾン・リリー》か《九蛇海賊団》を持つキャラ1枚 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "return_to_hand": {
-      "type": "one_self_chara_filtered",
-      "filter": {
-       "feature_in": [
-        "アマゾン・リリー",
-        "九蛇海賊団"
-       ]
-      }
+     "conditional": {
+      "if": {
+       "leader_feature": "九蛇海賊団"
+      },
+      "do": [
+       {
+        "return_to_hand": {
+         "type": "one_self_chara_filtered",
+         "filter": {
+          "feature_in": [
+           "アマゾン・リリー",
+           "九蛇海賊団"
+          ]
+         }
+        }
+       }
+      ]
      }
     }
    ],
-   "if": {
-    "leader_feature": "九蛇海賊団"
-   },
    "cost": {
     "discard_hand": 1,
     "rest_self": true
@@ -28945,21 +29131,27 @@
  ],
  "ST27-001": [
   {
-   "_text": "【起動メイン】【ターン1回】自分の「ハチノス」1枚をレストにできる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、このキャラは、このターン中、パワー+4000。",
+   "_text": "【起動メイン】【ターン1回】自分の「ハチノス」1枚をレストにできる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、このキャラは、このターン中、パワー+4000。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
-   "if": {
-    "leader_feature": "黒ひげ海賊団"
-   },
    "cost": {
     "once_per_turn": true,
     "rest_self_target_name": "ハチノス"
    },
    "do": [
     {
-     "power_pump": {
-      "target": "self",
-      "amount": 4000,
-      "duration": "turn"
+     "conditional": {
+      "if": {
+       "leader_feature": "黒ひげ海賊団"
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "self",
+         "amount": 4000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ]
@@ -28976,21 +29168,27 @@
  ],
  "ST27-002": [
   {
-   "_text": "ST27-002 activate_main: このキャラをトラッシュに置くことができる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、相手のキャラ1枚までを、このターン中、コスト-1。",
+   "_text": "ST27-002 activate_main: このキャラをトラッシュに置くことができる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、相手のキャラ1枚までを、このターン中、コスト-1。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "cost_minus": {
-      "target": "one_opponent_character_any",
-      "amount": 1
+     "conditional": {
+      "if": {
+       "leader_feature": "黒ひげ海賊団"
+      },
+      "do": [
+       {
+        "cost_minus": {
+         "target": "one_opponent_character_any",
+         "amount": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "黒ひげ海賊団"
    }
   },
   {
@@ -30637,35 +30835,47 @@
  ],
  "OP10-114_p1": [
   {
-   "_text": "OP10-114_p1 activate_main: このキャラをレストにできる：自分のライフの枚数が相手のライフの枚数以下の場合、相手のコスト4以下のキャラ1枚までを、レストにする。",
+   "_text": "OP10-114_p1 activate_main: このキャラをレストにできる：自分のライフの枚数が相手のライフの枚数以下の場合、相手のコスト4以下のキャラ1枚までを、レストにする。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_4cost"
+     "conditional": {
+      "if": {
+       "self_life_le_opp": true
+      },
+      "do": [
+       {
+        "rest": "one_opponent_character_cost_le_4cost"
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "rest_self": true
-   },
-   "if": {
-    "self_life_le_opp": true
    }
   }
  ],
  "OP10-114_p2": [
   {
-   "_text": "OP10-114_p2 activate_main: このキャラをレストにできる：自分のライフの枚数が相手のライフの枚数以下の場合、相手のコスト4以下のキャラ1枚までを、レストにする。",
+   "_text": "OP10-114_p2 activate_main: このキャラをレストにできる：自分のライフの枚数が相手のライフの枚数以下の場合、相手のコスト4以下のキャラ1枚までを、レストにする。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_4cost"
+     "conditional": {
+      "if": {
+       "self_life_le_opp": true
+      },
+      "do": [
+       {
+        "rest": "one_opponent_character_cost_le_4cost"
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "rest_self": true
-   },
-   "if": {
-    "self_life_le_opp": true
    }
   }
  ],
@@ -30754,29 +30964,35 @@
  ],
  "P-081_p2": [
   {
-   "_text": "P-081_p2 activate_main: このキャラを持ち主の手札に戻すことができる：自分の青の特徴《クロスギルド》を持つキャラが3枚以上いる場合、自分の手札からコスト5の特徴《クロスギルド》を持つキャ",
+   "_text": "P-081_p2 activate_main: このキャラを持ち主の手札に戻すことができる：自分の青の特徴《クロスギルド》を持つキャラが3枚以上いる場合、自分の手札からコスト5の特徴《クロスギルド》を持つキャ [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "cost": {
     "return_self_to_hand": true
    },
-   "if": {
-    "self_chara_filtered_count_ge": {
-     "filter": {
-      "feature": "クロスギルド",
-      "color": "青"
-     },
-     "count": 3
-    }
-   },
    "do": [
     {
-     "play_from_hand": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 5,
-       "feature": "クロスギルド"
+     "conditional": {
+      "if": {
+       "self_chara_filtered_count_ge": {
+        "filter": {
+         "feature": "クロスギルド",
+         "color": "青"
+        },
+        "count": 3
+       }
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 5,
+          "feature": "クロスギルド"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ]
@@ -31532,25 +31748,31 @@
  ],
  "OP09-078_p2": [
   {
-   "_text": "OP09-078 ゴムゴムの巨人 カウンター: ドン-2 + 1捨て → 麦わらリーダーで +4000 + 2ドロー",
+   "_text": "OP09-078 ゴムゴムの巨人 カウンター: ドン-2 + 1捨て → 麦わらリーダーで +4000 + 2ドロー [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "counter",
    "cost": {
     "pay_don": 2,
     "discard_hand": 1
    },
-   "if": {
-    "leader_feature": "麦わらの一味"
-   },
    "do": [
     {
-     "power_pump": {
-      "target": "self_inplay",
-      "amount": 4000,
-      "duration": "battle"
+     "conditional": {
+      "if": {
+       "leader_feature": "麦わらの一味"
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "self_inplay",
+         "amount": 4000,
+         "duration": "battle"
+        }
+       },
+       {
+        "draw": 2
+       }
+      ]
      }
-    },
-    {
-     "draw": 2
     }
    ]
   }
@@ -35106,21 +35328,27 @@
    ]
   },
   {
-   "_text": "OP15-032_p1 activate_main: このキャラをトラッシュに置くことができる：自分のリーダーが特徴《麦わらの一味》を持つ場合、自分の元々のコスト8以下のキャラ1枚までを、アクティブにする。",
+   "_text": "OP15-032_p1 activate_main: このキャラをトラッシュに置くことができる：自分のリーダーが特徴《麦わらの一味》を持つ場合、自分の元々のコスト8以下のキャラ1枚までを、アクティブにする。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "untap_chara": {
-      "target": "one_self_character_truly_original_cost_le_8",
-      "limit": 1
+     "conditional": {
+      "if": {
+       "leader_feature": "麦わらの一味"
+      },
+      "do": [
+       {
+        "untap_chara": {
+         "target": "one_self_character_truly_original_cost_le_8",
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "麦わらの一味"
    }
   }
  ],
@@ -36599,20 +36827,26 @@
  ],
  "OP13-076_p1": [
   {
-   "_text": "OP13-076 神避 メイン: ドン-5 + 自付与ドンあり → 相手キャラ1体 -8000 turn",
+   "_text": "OP13-076 神避 メイン: ドン-5 + 自付与ドンあり → 相手キャラ1体 -8000 turn [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "main",
    "cost": {
     "rest_self_don": 5
    },
-   "if": {
-    "self_attached_don_ge": 1
-   },
    "do": [
     {
-     "power_pump": {
-      "target": "one_opponent_character_any",
-      "amount": -8000,
-      "duration": "turn"
+     "conditional": {
+      "if": {
+       "self_attached_don_ge": 1
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "one_opponent_character_any",
+         "amount": -8000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ]
@@ -37850,22 +38084,28 @@
  ],
  "OP11-008_p1": [
   {
-   "_text": "OP11-008_p1 on_play: 自分の手札1枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-6000。",
+   "_text": "OP11-008_p1 on_play: 自分の手札1枚を捨てることができる：自分のリーダーが特徴《海軍》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-6000。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "on_play",
    "do": [
     {
-     "power_pump": {
-      "target": "one_opponent_character_any",
-      "amount": -6000,
-      "duration": "turn"
+     "conditional": {
+      "if": {
+       "leader_feature": "海軍"
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "one_opponent_character_any",
+         "amount": -6000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "discard_hand": 1
-   },
-   "if": {
-    "leader_feature": "海軍"
    }
   }
  ],
@@ -38095,18 +38335,24 @@
  ],
  "OP11-080_p1": [
   {
-   "_text": "OP11-080_p1 main: 自分のドン‼2枚をレストにできる：自分のリーダーが青を含む場合、ドン‼デッキからドン‼1枚までを、レストで追加する。",
+   "_text": "OP11-080_p1 main: 自分のドン‼2枚をレストにできる：自分のリーダーが青を含む場合、ドン‼デッキからドン‼1枚までを、レストで追加する。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "main",
    "do": [
     {
-     "add_rested_don": 1
+     "conditional": {
+      "if": {
+       "leader_color": "青"
+      },
+      "do": [
+       {
+        "add_rested_don": 1
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "rest_self_don": 2
-   },
-   "if": {
-    "leader_color": "青"
    }
   },
   {
@@ -39523,21 +39769,27 @@
  ],
  "OP07-109_p1": [
   {
-   "_text": "OP07-109_p1 activate_main: このキャラをトラッシュに置くことができる：自分のライフが2枚以下の場合、相手のコスト4以下のキャラ1枚までを、KOする。その後、カード1枚を引く。",
+   "_text": "OP07-109_p1 activate_main: このキャラをトラッシュに置くことができる：自分のライフが2枚以下の場合、相手のコスト4以下のキャラ1枚までを、KOする。その後、カード1枚を引く。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_4cost"
-    },
-    {
-     "draw": 1
+     "conditional": {
+      "if": {
+       "self_life_le": 2
+      },
+      "do": [
+       {
+        "ko": "one_opponent_character_cost_le_4cost"
+       },
+       {
+        "draw": 1
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "trash_self": true
-   },
-   "if": {
-    "self_life_le": 2
    }
   },
   {
@@ -41872,25 +42124,31 @@
  ],
  "OP09-078_p1": [
   {
-   "_text": "OP09-078 ゴムゴムの巨人 カウンター: ドン-2 + 1捨て → 麦わらリーダーで +4000 + 2ドロー",
+   "_text": "OP09-078 ゴムゴムの巨人 カウンター: ドン-2 + 1捨て → 麦わらリーダーで +4000 + 2ドロー [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "counter",
    "cost": {
     "pay_don": 2,
     "discard_hand": 1
    },
-   "if": {
-    "leader_feature": "麦わらの一味"
-   },
    "do": [
     {
-     "power_pump": {
-      "target": "self_inplay",
-      "amount": 4000,
-      "duration": "battle"
+     "conditional": {
+      "if": {
+       "leader_feature": "麦わらの一味"
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "self_inplay",
+         "amount": 4000,
+         "duration": "battle"
+        }
+       },
+       {
+        "draw": 2
+       }
+      ]
      }
-    },
-    {
-     "draw": 2
     }
    ]
   }
@@ -42490,20 +42748,26 @@
    ]
   },
   {
-   "_text": "【起動メイン】【ターン1回】自分のリーダーが特徴《アラバスタ王国》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-1000。",
+   "_text": "【起動メイン】【ターン1回】自分のリーダーが特徴《アラバスタ王国》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-1000。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
-   "if": {
-    "leader_feature": "アラバスタ王国"
-   },
    "cost": {
     "once_per_turn": true
    },
    "do": [
     {
-     "power_pump": {
-      "target": "one_opponent_character_any",
-      "amount": -1000,
-      "duration": "turn"
+     "conditional": {
+      "if": {
+       "leader_feature": "アラバスタ王国"
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "one_opponent_character_any",
+         "amount": -1000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ]
@@ -43760,21 +44024,27 @@
  ],
  "OP07-109_p3": [
   {
-   "_text": "OP07-109_p3 activate_main: このキャラをトラッシュに置くことができる：自分のライフが2枚以下の場合、相手のコスト4以下のキャラ1枚までを、KOする。その後、カード1枚を引く。",
+   "_text": "OP07-109_p3 activate_main: このキャラをトラッシュに置くことができる：自分のライフが2枚以下の場合、相手のコスト4以下のキャラ1枚までを、KOする。その後、カード1枚を引く。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_4cost"
-    },
-    {
-     "draw": 1
+     "conditional": {
+      "if": {
+       "self_life_le": 2
+      },
+      "do": [
+       {
+        "ko": "one_opponent_character_cost_le_4cost"
+       },
+       {
+        "draw": 1
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "trash_self": true
-   },
-   "if": {
-    "self_life_le": 2
    }
   },
   {
@@ -43789,21 +44059,27 @@
  ],
  "OP07-109_p5": [
   {
-   "_text": "OP07-109_p5 activate_main: このキャラをトラッシュに置くことができる：自分のライフが2枚以下の場合、相手のコスト4以下のキャラ1枚までを、KOする。その後、カード1枚を引く。",
+   "_text": "OP07-109_p5 activate_main: このキャラをトラッシュに置くことができる：自分のライフが2枚以下の場合、相手のコスト4以下のキャラ1枚までを、KOする。その後、カード1枚を引く。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_4cost"
-    },
-    {
-     "draw": 1
+     "conditional": {
+      "if": {
+       "self_life_le": 2
+      },
+      "do": [
+       {
+        "ko": "one_opponent_character_cost_le_4cost"
+       },
+       {
+        "draw": 1
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "trash_self": true
-   },
-   "if": {
-    "self_life_le": 2
    }
   },
   {
@@ -44046,26 +44322,32 @@
  ],
  "OP09-089_p1": [
   {
-   "_text": "OP09-089 activate_main: 自分の手札1枚を捨て、このキャラをトラッシュに置くことができる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、カード1枚を引く。その後、相手のキャラ1枚までを、このターン中、コスト-2。",
+   "_text": "OP09-089 activate_main: 自分の手札1枚を捨て、このキャラをトラッシュに置くことができる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、カード1枚を引く。その後、相手のキャラ1枚までを、このターン中、コスト-2。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "draw": 1
-    },
-    {
-     "cost_minus": {
-      "target": "one_opponent_character_any",
-      "amount": 2,
-      "duration": "turn"
+     "conditional": {
+      "if": {
+       "leader_feature": "黒ひげ海賊団"
+      },
+      "do": [
+       {
+        "draw": 1
+       },
+       {
+        "cost_minus": {
+         "target": "one_opponent_character_any",
+         "amount": 2,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "trash_self": true,
     "discard_hand": 1
-   },
-   "if": {
-    "leader_feature": "黒ひげ海賊団"
    }
   }
  ],
@@ -44141,33 +44423,39 @@
  ],
  "OP12-028_p1": [
   {
-   "_text": "OP12-028_p1 activate_main: 自分のドン‼1枚とこのキャラをレストにできる：自分のリーダーが「ロロノア・ゾロ」の場合、自分のデッキの上から5枚を見て、属性(斬)を持つカードか緑のイベント1枚",
+   "_text": "OP12-028_p1 activate_main: 自分のドン‼1枚とこのキャラをレストにできる：自分のリーダーが「ロロノア・ゾロ」の場合、自分のデッキの上から5枚を見て、属性(斬)を持つカードか緑のイベント1枚 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "search_top_n": {
-      "depth": 5,
-      "filter": {
-       "or_clauses": [
-        {
-         "attribute": "斬"
-        },
-        {
-         "category": "EVENT",
-         "color": "緑"
-        }
-       ]
+     "conditional": {
+      "if": {
+       "leader_name": "ロロノア・ゾロ"
       },
-      "limit": 1,
-      "destination": "hand",
-      "rest_remain": "bottom",
-      "public": true
+      "do": [
+       {
+        "search_top_n": {
+         "depth": 5,
+         "filter": {
+          "or_clauses": [
+           {
+            "attribute": "斬"
+           },
+           {
+            "category": "EVENT",
+            "color": "緑"
+           }
+          ]
+         },
+         "limit": 1,
+         "destination": "hand",
+         "rest_remain": "bottom",
+         "public": true
+        }
+       }
+      ]
      }
     }
    ],
-   "if": {
-    "leader_name": "ロロノア・ゾロ"
-   },
    "cost": {
     "rest_self_don": 1,
     "rest_self": true
@@ -44176,33 +44464,39 @@
  ],
  "OP12-028_p2": [
   {
-   "_text": "OP12-028_p2 activate_main: 自分のドン‼1枚とこのキャラをレストにできる：自分のリーダーが「ロロノア・ゾロ」の場合、自分のデッキの上から5枚を見て、属性(斬)を持つカードか緑のイベント1枚",
+   "_text": "OP12-028_p2 activate_main: 自分のドン‼1枚とこのキャラをレストにできる：自分のリーダーが「ロロノア・ゾロ」の場合、自分のデッキの上から5枚を見て、属性(斬)を持つカードか緑のイベント1枚 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "search_top_n": {
-      "depth": 5,
-      "filter": {
-       "or_clauses": [
-        {
-         "attribute": "斬"
-        },
-        {
-         "category": "EVENT",
-         "color": "緑"
-        }
-       ]
+     "conditional": {
+      "if": {
+       "leader_name": "ロロノア・ゾロ"
       },
-      "limit": 1,
-      "destination": "hand",
-      "rest_remain": "bottom",
-      "public": true
+      "do": [
+       {
+        "search_top_n": {
+         "depth": 5,
+         "filter": {
+          "or_clauses": [
+           {
+            "attribute": "斬"
+           },
+           {
+            "category": "EVENT",
+            "color": "緑"
+           }
+          ]
+         },
+         "limit": 1,
+         "destination": "hand",
+         "rest_remain": "bottom",
+         "public": true
+        }
+       }
+      ]
      }
     }
    ],
-   "if": {
-    "leader_name": "ロロノア・ゾロ"
-   },
    "cost": {
     "rest_self_don": 1,
     "rest_self": true
@@ -44774,29 +45068,35 @@
  ],
  "P-081_p1": [
   {
-   "_text": "P-081_p1 activate_main: このキャラを持ち主の手札に戻すことができる：自分の青の特徴《クロスギルド》を持つキャラが3枚以上いる場合、自分の手札からコスト5の特徴《クロスギルド》を持つキャ",
+   "_text": "P-081_p1 activate_main: このキャラを持ち主の手札に戻すことができる：自分の青の特徴《クロスギルド》を持つキャラが3枚以上いる場合、自分の手札からコスト5の特徴《クロスギルド》を持つキャ [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "cost": {
     "return_self_to_hand": true
    },
-   "if": {
-    "self_chara_filtered_count_ge": {
-     "filter": {
-      "feature": "クロスギルド",
-      "color": "青"
-     },
-     "count": 3
-    }
-   },
    "do": [
     {
-     "play_from_hand": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 5,
-       "feature": "クロスギルド"
+     "conditional": {
+      "if": {
+       "self_chara_filtered_count_ge": {
+        "filter": {
+         "feature": "クロスギルド",
+         "color": "青"
+        },
+        "count": 3
+       }
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 5,
+          "feature": "クロスギルド"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ]
@@ -46062,21 +46362,27 @@
  ],
  "OP07-109_p2": [
   {
-   "_text": "OP07-109_p2 activate_main: このキャラをトラッシュに置くことができる：自分のライフが2枚以下の場合、相手のコスト4以下のキャラ1枚までを、KOする。その後、カード1枚を引く。",
+   "_text": "OP07-109_p2 activate_main: このキャラをトラッシュに置くことができる：自分のライフが2枚以下の場合、相手のコスト4以下のキャラ1枚までを、KOする。その後、カード1枚を引く。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_4cost"
-    },
-    {
-     "draw": 1
+     "conditional": {
+      "if": {
+       "self_life_le": 2
+      },
+      "do": [
+       {
+        "ko": "one_opponent_character_cost_le_4cost"
+       },
+       {
+        "draw": 1
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "trash_self": true
-   },
-   "if": {
-    "self_life_le": 2
    }
   },
   {
@@ -46178,18 +46484,24 @@
  ],
  "OP08-040_p1": [
   {
-   "_text": "アトモス 登場時: 白ひげ海賊団リーダー時 相手キャラ1枚レスト",
+   "_text": "アトモス 登場時: 白ひげ海賊団リーダー時 相手キャラ1枚レスト [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "on_play",
-   "if": {
-    "leader_feature": "白ひげ海賊団"
-   },
    "do": [
     {
-     "return_to_hand": {
-      "type": "one_opponent_character_filtered",
-      "filter": {
-       "cost_le": 4
-      }
+     "conditional": {
+      "if": {
+       "leader_feature": "白ひげ海賊団"
+      },
+      "do": [
+       {
+        "return_to_hand": {
+         "type": "one_opponent_character_filtered",
+         "filter": {
+          "cost_le": 4
+         }
+        }
+       }
+      ]
      }
     }
    ],
@@ -48515,21 +48827,27 @@
  ],
  "OP07-109_r1": [
   {
-   "_text": "OP07-109_r1 activate_main: このキャラをトラッシュに置くことができる：自分のライフが2枚以下の場合、相手のコスト4以下のキャラ1枚までを、KOする。その後、カード1枚を引く。",
+   "_text": "OP07-109_r1 activate_main: このキャラをトラッシュに置くことができる：自分のライフが2枚以下の場合、相手のコスト4以下のキャラ1枚までを、KOする。その後、カード1枚を引く。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_4cost"
-    },
-    {
-     "draw": 1
+     "conditional": {
+      "if": {
+       "self_life_le": 2
+      },
+      "do": [
+       {
+        "ko": "one_opponent_character_cost_le_4cost"
+       },
+       {
+        "draw": 1
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "trash_self": true
-   },
-   "if": {
-    "self_life_le": 2
    }
   },
   {
@@ -49254,25 +49572,31 @@
  ],
  "OP09-078_r1": [
   {
-   "_text": "OP09-078 ゴムゴムの巨人 カウンター: ドン-2 + 1捨て → 麦わらリーダーで +4000 + 2ドロー",
+   "_text": "OP09-078 ゴムゴムの巨人 カウンター: ドン-2 + 1捨て → 麦わらリーダーで +4000 + 2ドロー [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "counter",
    "cost": {
     "pay_don": 2,
     "discard_hand": 1
    },
-   "if": {
-    "leader_feature": "麦わらの一味"
-   },
    "do": [
     {
-     "power_pump": {
-      "target": "self_inplay",
-      "amount": 4000,
-      "duration": "battle"
+     "conditional": {
+      "if": {
+       "leader_feature": "麦わらの一味"
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "self_inplay",
+         "amount": 4000,
+         "duration": "battle"
+        }
+       },
+       {
+        "draw": 2
+       }
+      ]
      }
-    },
-    {
-     "draw": 2
     }
    ]
   }
@@ -49791,18 +50115,24 @@
  ],
  "OP10-114_r1": [
   {
-   "_text": "OP10-114_r1 activate_main: このキャラをレストにできる：自分のライフの枚数が相手のライフの枚数以下の場合、相手のコスト4以下のキャラ1枚までを、レストにする。",
+   "_text": "OP10-114_r1 activate_main: このキャラをレストにできる：自分のライフの枚数が相手のライフの枚数以下の場合、相手のコスト4以下のキャラ1枚までを、レストにする。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_4cost"
+     "conditional": {
+      "if": {
+       "self_life_le_opp": true
+      },
+      "do": [
+       {
+        "rest": "one_opponent_character_cost_le_4cost"
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "rest_self": true
-   },
-   "if": {
-    "self_life_le_opp": true
    }
   }
  ],
@@ -50110,29 +50440,35 @@
  ],
  "P-081_r1": [
   {
-   "_text": "P-081_r1 activate_main: このキャラを持ち主の手札に戻すことができる：自分の青の特徴《クロスギルド》を持つキャラが3枚以上いる場合、自分の手札からコスト5の特徴《クロスギルド》を持つキャ",
+   "_text": "P-081_r1 activate_main: このキャラを持ち主の手札に戻すことができる：自分の青の特徴《クロスギルド》を持つキャラが3枚以上いる場合、自分の手札からコスト5の特徴《クロスギルド》を持つキャ [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "cost": {
     "return_self_to_hand": true
    },
-   "if": {
-    "self_chara_filtered_count_ge": {
-     "filter": {
-      "feature": "クロスギルド",
-      "color": "青"
-     },
-     "count": 3
-    }
-   },
    "do": [
     {
-     "play_from_hand": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 5,
-       "feature": "クロスギルド"
+     "conditional": {
+      "if": {
+       "self_chara_filtered_count_ge": {
+        "filter": {
+         "feature": "クロスギルド",
+         "color": "青"
+        },
+        "count": 3
+       }
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 5,
+          "feature": "クロスギルド"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ]
@@ -52043,13 +52379,22 @@
  ],
  "OP02-018_p3": [
   {
-   "_text": "OP02-018_p3 on_ko: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード1枚を捨てることができる：自分のライフが2枚以下の場合、このキャラカードをトラッシュからレストで登場させる。",
+   "_text": "OP02-018_p3 on_ko: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード1枚を捨てることができる：自分のライフが2枚以下の場合、このキャラカードをトラッシュからレストで登場させる。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "on_ko",
    "do": [
     {
-     "play_self": {
-      "from": "trash",
-      "rested": true
+     "conditional": {
+      "if": {
+       "self_life_le": 2
+      },
+      "do": [
+       {
+        "play_self": {
+         "from": "trash",
+         "rested": true
+        }
+       }
+      ]
      }
     }
    ],
@@ -52060,21 +52405,27 @@
      },
      "count": 1
     }
-   },
-   "if": {
-    "self_life_le": 2
    }
   }
  ],
  "OP02-018_p4": [
   {
-   "_text": "OP02-018_p4 on_ko: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード1枚を捨てることができる：自分のライフが2枚以下の場合、このキャラカードをトラッシュからレストで登場させる。",
+   "_text": "OP02-018_p4 on_ko: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード1枚を捨てることができる：自分のライフが2枚以下の場合、このキャラカードをトラッシュからレストで登場させる。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "on_ko",
    "do": [
     {
-     "play_self": {
-      "from": "trash",
-      "rested": true
+     "conditional": {
+      "if": {
+       "self_life_le": 2
+      },
+      "do": [
+       {
+        "play_self": {
+         "from": "trash",
+         "rested": true
+        }
+       }
+      ]
      }
     }
    ],
@@ -52085,21 +52436,27 @@
      },
      "count": 1
     }
-   },
-   "if": {
-    "self_life_le": 2
    }
   }
  ],
  "OP02-018_p5": [
   {
-   "_text": "OP02-018_p5 on_ko: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード1枚を捨てることができる：自分のライフが2枚以下の場合、このキャラカードをトラッシュからレストで登場させる。",
+   "_text": "OP02-018_p5 on_ko: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード1枚を捨てることができる：自分のライフが2枚以下の場合、このキャラカードをトラッシュからレストで登場させる。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "on_ko",
    "do": [
     {
-     "play_self": {
-      "from": "trash",
-      "rested": true
+     "conditional": {
+      "if": {
+       "self_life_le": 2
+      },
+      "do": [
+       {
+        "play_self": {
+         "from": "trash",
+         "rested": true
+        }
+       }
+      ]
      }
     }
    ],
@@ -52110,21 +52467,27 @@
      },
      "count": 1
     }
-   },
-   "if": {
-    "self_life_le": 2
    }
   }
  ],
  "OP02-018_r2": [
   {
-   "_text": "OP02-018_r2 on_ko: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード1枚を捨てることができる：自分のライフが2枚以下の場合、このキャラカードをトラッシュからレストで登場させる。",
+   "_text": "OP02-018_r2 on_ko: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード1枚を捨てることができる：自分のライフが2枚以下の場合、このキャラカードをトラッシュからレストで登場させる。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "on_ko",
    "do": [
     {
-     "play_self": {
-      "from": "trash",
-      "rested": true
+     "conditional": {
+      "if": {
+       "self_life_le": 2
+      },
+      "do": [
+       {
+        "play_self": {
+         "from": "trash",
+         "rested": true
+        }
+       }
+      ]
      }
     }
    ],
@@ -52135,9 +52498,6 @@
      },
      "count": 1
     }
-   },
-   "if": {
-    "self_life_le": 2
    }
   }
  ],
@@ -54746,151 +55106,187 @@
  ],
  "OP06-060_p1": [
   {
-   "_text": "OP06-060_p1 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66",
+   "_text": "OP06-060_p1 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "play_from_hand_or_trash": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 7,
-       "name": "ヴィンスモーク・イチジ"
+     "conditional": {
+      "if": {
+       "leader_feature": "ジェルマ66"
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand_or_trash": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 7,
+          "name": "ヴィンスモーク・イチジ"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "pay_don": 1,
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "ジェルマ66"
    }
   }
  ],
  "OP06-060_p2": [
   {
-   "_text": "OP06-060_p2 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66",
+   "_text": "OP06-060_p2 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "play_from_hand_or_trash": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 7,
-       "name": "ヴィンスモーク・イチジ"
+     "conditional": {
+      "if": {
+       "leader_feature": "ジェルマ66"
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand_or_trash": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 7,
+          "name": "ヴィンスモーク・イチジ"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "pay_don": 1,
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "ジェルマ66"
    }
   }
  ],
  "OP06-060_r1": [
   {
-   "_text": "OP06-060_r1 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66",
+   "_text": "OP06-060_r1 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "play_from_hand_or_trash": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 7,
-       "name": "ヴィンスモーク・イチジ"
+     "conditional": {
+      "if": {
+       "leader_feature": "ジェルマ66"
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand_or_trash": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 7,
+          "name": "ヴィンスモーク・イチジ"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "pay_don": 1,
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "ジェルマ66"
    }
   }
  ],
  "OP06-064_p1": [
   {
-   "_text": "OP06-064_p1 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66",
+   "_text": "OP06-064_p1 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "play_from_hand_or_trash": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 5,
-       "name": "ヴィンスモーク・ニジ"
+     "conditional": {
+      "if": {
+       "leader_feature": "ジェルマ66"
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand_or_trash": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 5,
+          "name": "ヴィンスモーク・ニジ"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "pay_don": 1,
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "ジェルマ66"
    }
   }
  ],
  "OP06-064_p2": [
   {
-   "_text": "OP06-064_p2 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66",
+   "_text": "OP06-064_p2 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "play_from_hand_or_trash": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 5,
-       "name": "ヴィンスモーク・ニジ"
+     "conditional": {
+      "if": {
+       "leader_feature": "ジェルマ66"
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand_or_trash": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 5,
+          "name": "ヴィンスモーク・ニジ"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "pay_don": 1,
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "ジェルマ66"
    }
   }
  ],
  "OP06-064_r1": [
   {
-   "_text": "OP06-064_r1 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66",
+   "_text": "OP06-064_r1 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "play_from_hand_or_trash": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 5,
-       "name": "ヴィンスモーク・ニジ"
+     "conditional": {
+      "if": {
+       "leader_feature": "ジェルマ66"
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand_or_trash": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 5,
+          "name": "ヴィンスモーク・ニジ"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "pay_don": 1,
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "ジェルマ66"
    }
   }
  ],
@@ -54930,151 +55326,187 @@
  ],
  "OP06-066_p1": [
   {
-   "_text": "OP06-066_p1 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66",
+   "_text": "OP06-066_p1 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "play_from_hand_or_trash": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 4,
-       "name": "ヴィンスモーク・ヨンジ"
+     "conditional": {
+      "if": {
+       "leader_feature": "ジェルマ66"
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand_or_trash": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 4,
+          "name": "ヴィンスモーク・ヨンジ"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "pay_don": 1,
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "ジェルマ66"
    }
   }
  ],
  "OP06-066_p2": [
   {
-   "_text": "OP06-066_p2 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66",
+   "_text": "OP06-066_p2 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "play_from_hand_or_trash": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 4,
-       "name": "ヴィンスモーク・ヨンジ"
+     "conditional": {
+      "if": {
+       "leader_feature": "ジェルマ66"
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand_or_trash": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 4,
+          "name": "ヴィンスモーク・ヨンジ"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "pay_don": 1,
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "ジェルマ66"
    }
   }
  ],
  "OP06-066_r1": [
   {
-   "_text": "OP06-066_r1 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66",
+   "_text": "OP06-066_r1 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "play_from_hand_or_trash": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 4,
-       "name": "ヴィンスモーク・ヨンジ"
+     "conditional": {
+      "if": {
+       "leader_feature": "ジェルマ66"
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand_or_trash": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 4,
+          "name": "ヴィンスモーク・ヨンジ"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "pay_don": 1,
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "ジェルマ66"
    }
   }
  ],
  "OP06-068_p1": [
   {
-   "_text": "OP06-068_p1 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66",
+   "_text": "OP06-068_p1 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "play_from_hand_or_trash": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 4,
-       "name": "ヴィンスモーク・レイジュ"
+     "conditional": {
+      "if": {
+       "leader_feature": "ジェルマ66"
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand_or_trash": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 4,
+          "name": "ヴィンスモーク・レイジュ"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "pay_don": 1,
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "ジェルマ66"
    }
   }
  ],
  "OP06-068_p2": [
   {
-   "_text": "OP06-068_p2 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66",
+   "_text": "OP06-068_p2 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "play_from_hand_or_trash": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 4,
-       "name": "ヴィンスモーク・レイジュ"
+     "conditional": {
+      "if": {
+       "leader_feature": "ジェルマ66"
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand_or_trash": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 4,
+          "name": "ヴィンスモーク・レイジュ"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "pay_don": 1,
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "ジェルマ66"
    }
   }
  ],
  "OP06-068_r1": [
   {
-   "_text": "OP06-068_r1 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66",
+   "_text": "OP06-068_r1 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "play_from_hand_or_trash": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 4,
-       "name": "ヴィンスモーク・レイジュ"
+     "conditional": {
+      "if": {
+       "leader_feature": "ジェルマ66"
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand_or_trash": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 4,
+          "name": "ヴィンスモーク・レイジュ"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "pay_don": 1,
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "ジェルマ66"
    }
   }
  ],
@@ -56752,23 +57184,29 @@
  ],
  "EB04-034": [
   {
-   "_text": "EB04-034 相手アタック時(ターン1,手札1捨て):トラッシュにイベント4枚以上ある場合、自リーダーかキャラ+2000",
+   "_text": "EB04-034 相手アタック時(ターン1,手札1捨て):トラッシュにイベント4枚以上ある場合、自リーダーかキャラ+2000 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "opp_attack",
    "do": [
     {
-     "power_pump": {
-      "target": "self_inplay",
-      "amount": 2000,
-      "duration": "battle"
+     "conditional": {
+      "if": {
+       "self_trash_event_count_ge": 4
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "self_inplay",
+         "amount": 2000,
+         "duration": "battle"
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "once_per_turn": true,
     "discard_hand": 1
-   },
-   "if": {
-    "self_trash_event_count_ge": 4
    }
   }
  ],
@@ -56972,30 +57410,36 @@
  ],
  "EB04-045": [
   {
-   "_text": "EB04-045 activate_main: このキャラをレストにできる：コスト8以上のキャラが2枚以上いる場合、自分の特徴《革命軍》を持つ、リーダーかキャラ1枚までを、このターン中、パワー+1000。",
+   "_text": "EB04-045 activate_main: このキャラをレストにできる：コスト8以上のキャラが2枚以上いる場合、自分の特徴《革命軍》を持つ、リーダーかキャラ1枚までを、このターン中、パワー+1000。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "power_pump": {
-      "target": {
-       "type": "one_self_chara_or_leader_filtered",
-       "filter": {
-        "feature": "革命軍"
+     "conditional": {
+      "if": {
+       "self_chara_cost_ge_count": {
+        "cost_ge": 8,
+        "n": 2
        }
       },
-      "amount": 1000,
-      "duration": "turn"
+      "do": [
+       {
+        "power_pump": {
+         "target": {
+          "type": "one_self_chara_or_leader_filtered",
+          "filter": {
+           "feature": "革命軍"
+          }
+         },
+         "amount": 1000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "rest_self": true
-   },
-   "if": {
-    "self_chara_cost_ge_count": {
-     "cost_ge": 8,
-     "n": 2
-    }
    }
   }
  ],
@@ -57761,25 +58205,31 @@
  ],
  "EB03-029": [
   {
-   "_text": "EB03-029 main: 自分のドン‼4枚をレストにできる：自分のリーダーが「ボア・ハンコック」の場合、自分の手札からコスト6以下の、特徴《アマゾン・リリー》か《九蛇海賊団》を持つキャラ",
+   "_text": "EB03-029 main: 自分のドン‼4枚をレストにできる：自分のリーダーが「ボア・ハンコック」の場合、自分の手札からコスト6以下の、特徴《アマゾン・リリー》か《九蛇海賊団》を持つキャラ [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "main",
    "do": [
     {
-     "play_from_hand": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_le": 6,
-       "feature_in": [
-        "アマゾン・リリー",
-        "九蛇海賊団"
-       ]
-      }
+     "conditional": {
+      "if": {
+       "leader_name": "ボア・ハンコック"
+      },
+      "do": [
+       {
+        "play_from_hand": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_le": 6,
+          "feature_in": [
+           "アマゾン・リリー",
+           "九蛇海賊団"
+          ]
+         }
+        }
+       }
+      ]
      }
     }
    ],
-   "if": {
-    "leader_name": "ボア・ハンコック"
-   },
    "cost": {
     "rest_self_don": 4
    }
@@ -57948,19 +58398,25 @@
  ],
  "EB03-038": [
   {
-   "_text": "EB03-038 main: 自分のドン‼1枚をレストにできる：自分の場のドン‼が相手の場のドン‼の枚数以下で、自分のキャラが『ジェルマ』を含む特徴を持つキャラのみの場合、ドン‼デッキからド",
+   "_text": "EB03-038 main: 自分のドン‼1枚をレストにできる：自分の場のドン‼が相手の場のドン‼の枚数以下で、自分のキャラが『ジェルマ』を含む特徴を持つキャラのみの場合、ドン‼デッキからド [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "main",
    "do": [
     {
-     "add_rested_don": 2
+     "conditional": {
+      "if": {
+       "don_diff_le": 0,
+       "self_chara_only_feature_contains": "ジェルマ"
+      },
+      "do": [
+       {
+        "add_rested_don": 2
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "rest_self_don": 1
-   },
-   "if": {
-    "don_diff_le": 0,
-    "self_chara_only_feature_contains": "ジェルマ"
    }
   },
   {
@@ -58099,22 +58555,28 @@
  ],
  "EB03-049": [
   {
-   "_text": "EB03-049 main: 自分のドン‼7枚をレストにできる：自分のリーダーが「ペローナ」の場合、自分の手札かトラッシュから特徴《スリラーバーク海賊団》を持つ、コスト6以下とコスト4以下の",
+   "_text": "EB03-049 main: 自分のドン‼7枚をレストにできる：自分のリーダーが「ペローナ」の場合、自分の手札かトラッシュから特徴《スリラーバーク海賊団》を持つ、コスト6以下とコスト4以下の [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "main",
    "do": [
     {
-     "play_from_hand_or_trash": {
-      "filter": {
-       "feature": "スリラーバーク海賊団",
-       "cost_le": 6
+     "conditional": {
+      "if": {
+       "leader_name": "ペローナ"
       },
-      "limit": 2
+      "do": [
+       {
+        "play_from_hand_or_trash": {
+         "filter": {
+          "feature": "スリラーバーク海賊団",
+          "cost_le": 6
+         },
+         "limit": 2
+        }
+       }
+      ]
      }
     }
    ],
-   "if": {
-    "leader_name": "ペローナ"
-   },
    "cost": {
     "rest_self_don": 7
    }
@@ -58154,31 +58616,37 @@
  ],
  "EB03-052": [
   {
-   "_text": "EB03-052 しらほし 起動メイン: このキャラをトラッシュ：リーダーしらほしの場合 デッキ上1をライフ→海王類すべて+1000(turn)",
+   "_text": "EB03-052 しらほし 起動メイン: このキャラをトラッシュ：リーダーしらほしの場合 デッキ上1をライフ→海王類すべて+1000(turn) [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "cost": {
     "trash_self": true
    },
    "do": [
     {
-     "put_top_to_life": 1
-    },
-    {
-     "power_pump": {
-      "target": {
-       "type": "all_self_chara_filtered",
-       "filter": {
-        "feature": "海王類"
-       }
+     "conditional": {
+      "if": {
+       "leader_name": "しらほし"
       },
-      "amount": 1000,
-      "duration": "turn"
+      "do": [
+       {
+        "put_top_to_life": 1
+       },
+       {
+        "power_pump": {
+         "target": {
+          "type": "all_self_chara_filtered",
+          "filter": {
+           "feature": "海王類"
+          }
+         },
+         "amount": 1000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
-   ],
-   "if": {
-    "leader_name": "しらほし"
-   }
+   ]
   }
  ],
  "EB03-054": [
@@ -59617,24 +60085,30 @@
    ]
   },
   {
-   "_text": "【相手のアタック時】【ターン1回】自分の手札1枚を捨てることができる：自分のリーダーが特徴《ワノ国》か《白ひげ海賊団》を持つ場合、相手のリーダーかキャラ1枚までを、このターン中、パワー-2000。",
+   "_text": "【相手のアタック時】【ターン1回】自分の手札1枚を捨てることができる：自分のリーダーが特徴《ワノ国》か《白ひげ海賊団》を持つ場合、相手のリーダーかキャラ1枚までを、このターン中、パワー-2000。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "opp_attack",
-   "if": {
-    "leader_features_any": [
-     "ワノ国",
-     "白ひげ海賊団"
-    ]
-   },
    "cost": {
     "once_per_turn": true,
     "discard_hand": 1
    },
    "do": [
     {
-     "power_pump": {
-      "target": "one_opponent_inplay_any",
-      "amount": -2000,
-      "duration": "turn"
+     "conditional": {
+      "if": {
+       "leader_features_any": [
+        "ワノ国",
+        "白ひげ海賊団"
+       ]
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "one_opponent_inplay_any",
+         "amount": -2000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ]
@@ -60848,28 +61322,34 @@
  ],
  "OP15-072": [
   {
-   "_text": "OP15-072 activate_main: ドン‼-2,このキャラをレストにできる：自分の「コトリ」と「サトリ」がいる場合、相手のキャラ1枚までを、このターン中、パワー-3000。",
+   "_text": "OP15-072 activate_main: ドン‼-2,このキャラをレストにできる：自分の「コトリ」と「サトリ」がいる場合、相手のキャラ1枚までを、このターン中、パワー-3000。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "power_pump": {
-      "target": "one_opponent_character_any",
-      "amount": -3000,
-      "duration": "turn"
+     "conditional": {
+      "if": {
+       "self_field_named_all_with_power": {
+        "names": [
+         "コトリ",
+         "サトリ"
+        ]
+       }
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "one_opponent_character_any",
+         "amount": -3000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "pay_don": 2,
     "rest_self": true
-   },
-   "if": {
-    "self_field_named_all_with_power": {
-     "names": [
-      "コトリ",
-      "サトリ"
-     ]
-    }
    }
   }
  ],
@@ -61029,21 +61509,27 @@
    ]
   },
   {
-   "_text": "OP15-083 activate_main: このキャラをトラッシュに置くことができる：自分のトラッシュが15枚以上ある場合、自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
+   "_text": "OP15-083 activate_main: このキャラをトラッシュに置くことができる：自分のトラッシュが15枚以上ある場合、自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "attach_rested_don": {
-      "target": "self_inplay_choice",
-      "count": 1
+     "conditional": {
+      "if": {
+       "self_trash_count_ge": 15
+      },
+      "do": [
+       {
+        "attach_rested_don": {
+         "target": "self_inplay_choice",
+         "count": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "trash_self": true
-   },
-   "if": {
-    "self_trash_count_ge": 15
    }
   }
  ],
@@ -61058,25 +61544,31 @@
    ]
   },
   {
-   "_text": "OP15-085 activate_main: このキャラをトラッシュに置くことができる：自分のリーダーが特徴《麦わらの一味》を持つ場合、自分のトラッシュから「トニートニー・チョッパー」以外の特徴《麦わらの一",
+   "_text": "OP15-085 activate_main: このキャラをトラッシュに置くことができる：自分のリーダーが特徴《麦わらの一味》を持つ場合、自分のトラッシュから「トニートニー・チョッパー」以外の特徴《麦わらの一 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "trash_to_hand": {
-      "filter": {
-       "category": "CHARACTER",
-       "feature": "麦わらの一味",
-       "exclude_name": "トニートニー・チョッパー"
+     "conditional": {
+      "if": {
+       "leader_feature": "麦わらの一味"
       },
-      "limit": 1
+      "do": [
+       {
+        "trash_to_hand": {
+         "filter": {
+          "category": "CHARACTER",
+          "feature": "麦わらの一味",
+          "exclude_name": "トニートニー・チョッパー"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "麦わらの一味"
    }
   }
  ],
@@ -61193,31 +61685,37 @@
  ],
  "OP15-093": [
   {
-   "_text": "OP15-093 activate_main: このキャラトラッシュ：トラッシュ15+で ルフィに速攻：キャラ+属性(斬)",
+   "_text": "OP15-093 activate_main: このキャラトラッシュ：トラッシュ15+で ルフィに速攻：キャラ+属性(斬) [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "cost": {
     "trash_self": true
    },
-   "if": {
-    "self_trash_count_ge": 15
-   },
    "do": [
     {
-     "give_keyword": {
-      "target": {
-       "type": "self_chara_or_leader_named",
-       "name": "モンキー・D・ルフィ"
+     "conditional": {
+      "if": {
+       "self_trash_count_ge": 15
       },
-      "keyword": "速攻：キャラ"
-     }
-    },
-    {
-     "give_attribute": {
-      "target": {
-       "type": "self_chara_or_leader_named",
-       "name": "モンキー・D・ルフィ"
-      },
-      "attribute": "斬"
+      "do": [
+       {
+        "give_keyword": {
+         "target": {
+          "type": "self_chara_or_leader_named",
+          "name": "モンキー・D・ルフィ"
+         },
+         "keyword": "速攻：キャラ"
+        }
+       },
+       {
+        "give_attribute": {
+         "target": {
+          "type": "self_chara_or_leader_named",
+          "name": "モンキー・D・ルフィ"
+         },
+         "attribute": "斬"
+        }
+       }
+      ]
      }
     }
    ]
@@ -61225,25 +61723,31 @@
  ],
  "OP15-095": [
   {
-   "_text": "OP15-095 main: 自分のドン‼1枚をレストにできる：自分のトラッシュが15枚以上ある場合、自分の特徴《麦わらの一味》を持つ、リーダーかキャラ1枚までを、このターン中、パワー+30",
+   "_text": "OP15-095 main: 自分のドン‼1枚をレストにできる：自分のトラッシュが15枚以上ある場合、自分の特徴《麦わらの一味》を持つ、リーダーかキャラ1枚までを、このターン中、パワー+30 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "main",
    "do": [
     {
-     "power_pump": {
-      "target": {
-       "type": "one_self_chara_or_leader_filtered",
-       "filter": {
-        "feature": "麦わらの一味"
-       }
+     "conditional": {
+      "if": {
+       "self_trash_count_ge": 15
       },
-      "amount": 3000,
-      "duration": "turn"
+      "do": [
+       {
+        "power_pump": {
+         "target": {
+          "type": "one_self_chara_or_leader_filtered",
+          "filter": {
+           "feature": "麦わらの一味"
+          }
+         },
+         "amount": 3000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ],
-   "if": {
-    "self_trash_count_ge": 15
-   },
    "cost": {
     "rest_self_don": 1
    }
@@ -61267,16 +61771,22 @@
  ],
  "OP15-096": [
   {
-   "_text": "OP15-096 main: 自分のドン‼1枚をレストにできる：自分のリーダーが特徴《麦わらの一味》を持つ場合、自分のデッキの上から5枚をトラッシュに置く。",
+   "_text": "OP15-096 main: 自分のドン‼1枚をレストにできる：自分のリーダーが特徴《麦わらの一味》を持つ場合、自分のデッキの上から5枚をトラッシュに置く。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "main",
    "do": [
     {
-     "mill_self_top": 5
+     "conditional": {
+      "if": {
+       "leader_feature": "麦わらの一味"
+      },
+      "do": [
+       {
+        "mill_self_top": 5
+       }
+      ]
+     }
     }
    ],
-   "if": {
-    "leader_feature": "麦わらの一味"
-   },
    "cost": {
     "rest_self_don": 1
    }
@@ -62118,16 +62628,22 @@
  ],
  "OP14-076": [
   {
-   "_text": "OP14-076 main: 自分のドン‼2枚をレストにできる：自分のリーダーが特徴《ドンキホーテ海賊団》を持つ場合、ドン‼デッキからドン‼1枚までを、レストで追加する。",
+   "_text": "OP14-076 main: 自分のドン‼2枚をレストにできる：自分のリーダーが特徴《ドンキホーテ海賊団》を持つ場合、ドン‼デッキからドン‼1枚までを、レストで追加する。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "main",
    "do": [
     {
-     "add_rested_don": 1
+     "conditional": {
+      "if": {
+       "leader_feature": "ドンキホーテ海賊団"
+      },
+      "do": [
+       {
+        "add_rested_don": 1
+       }
+      ]
+     }
     }
    ],
-   "if": {
-    "leader_feature": "ドンキホーテ海賊団"
-   },
    "cost": {
     "rest_self_don": 2
    }
@@ -63172,18 +63688,24 @@
  ],
  "OP13-057": [
   {
-   "_text": "OP13-057 main: 自分のドン‼1枚をレストにできる：自分のライフが1枚以下の場合、相手は、このターン中、自分のリーダーがアタックする際【ブロッカー】を発動できない。",
+   "_text": "OP13-057 main: 自分のドン‼1枚をレストにできる：自分のライフが1枚以下の場合、相手は、このターン中、自分のリーダーがアタックする際【ブロッカー】を発動できない。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "main",
    "do": [
     {
-     "prevent_blocker_for_attacker": {
-      "target": "self_leader"
+     "conditional": {
+      "if": {
+       "self_life_le": 1
+      },
+      "do": [
+       {
+        "prevent_blocker_for_attacker": {
+         "target": "self_leader"
+        }
+       }
+      ]
      }
     }
    ],
-   "if": {
-    "self_life_le": 1
-   },
    "cost": {
     "rest_self_don": 1
    }
@@ -63333,25 +63855,31 @@
  ],
  "OP13-077": [
   {
-   "_text": "OP13-077 main: 自分のドン‼3枚をレストにできる：自分の付与されているドン‼がある場合、相手の元々の、パワー4000以下のキャラ1枚までとパワー3000以下のキャラ1枚までを、",
+   "_text": "OP13-077 main: 自分のドン‼3枚をレストにできる：自分の付与されているドン‼がある場合、相手の元々の、パワー4000以下のキャラ1枚までとパワー3000以下のキャラ1枚までを、 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "main",
    "do": [
     {
-     "ko_multi": [
-      {
-       "target": "one_opponent_character_filtered_by_truly_power_le_4000"
+     "conditional": {
+      "if": {
+       "self_attached_don_ge": 1
       },
-      {
-       "target": "one_opponent_character_filtered_by_truly_power_le_3000"
-      }
-     ]
+      "do": [
+       {
+        "ko_multi": [
+         {
+          "target": "one_opponent_character_filtered_by_truly_power_le_4000"
+         },
+         {
+          "target": "one_opponent_character_filtered_by_truly_power_le_3000"
+         }
+        ]
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "rest_self_don": 3
-   },
-   "if": {
-    "self_attached_don_ge": 1
    }
   },
   {
@@ -65538,16 +66066,22 @@
  ],
  "OP12-117": [
   {
-   "_text": "OP12-117 main: 自分のドン‼5枚をレストにできる：自分のリーダーが特徴《超新星》を持つ場合、コスト9以下のキャラ1枚までを、持ち主のライフの上か下に裏向きで加える。",
+   "_text": "OP12-117 main: 自分のドン‼5枚をレストにできる：自分のリーダーが特徴《超新星》を持つ場合、コスト9以下のキャラ1枚までを、持ち主のライフの上か下に裏向きで加える。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "main",
    "do": [
     {
-     "chara_to_opp_life": "one_opponent_character_cost_le_9"
+     "conditional": {
+      "if": {
+       "leader_feature": "超新星"
+      },
+      "do": [
+       {
+        "chara_to_opp_life": "one_opponent_character_cost_le_9"
+       }
+      ]
+     }
     }
    ],
-   "if": {
-    "leader_feature": "超新星"
-   },
    "cost": {
     "rest_self_don": 5
    }
@@ -65712,25 +66246,31 @@
  ],
  "OP11-007": [
   {
-   "_text": "OP11-007 activate_main: このキャラをレストにできる：自分のリーダーが特徴《海軍》を持つ場合、自分の特徴《海軍》を持つキャラ1枚までを、このターン中、パワー+2000。",
+   "_text": "OP11-007 activate_main: このキャラをレストにできる：自分のリーダーが特徴《海軍》を持つ場合、自分の特徴《海軍》を持つキャラ1枚までを、このターン中、パワー+2000。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "power_pump": {
-      "target": {
-       "type": "one_self_chara_filtered",
-       "filter": {
-        "feature": "海軍"
-       }
+     "conditional": {
+      "if": {
+       "leader_feature": "海軍"
       },
-      "amount": 2000,
-      "duration": "turn"
+      "do": [
+       {
+        "power_pump": {
+         "target": {
+          "type": "one_self_chara_filtered",
+          "filter": {
+           "feature": "海軍"
+          }
+         },
+         "amount": 2000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ],
-   "if": {
-    "leader_feature": "海軍"
-   },
    "cost": {
     "rest_self": true
    }
@@ -65943,21 +66483,27 @@
  ],
  "OP11-034": [
   {
-   "_text": "OP11-034 activate_main: このキャラをレストにできる：自分のリーダーが特徴《魚人族》か《人魚族》を持つ場合、相手のコスト3以下のキャラ1枚までは、次の相手のターン終了時まで、レストにでき",
+   "_text": "OP11-034 activate_main: このキャラをレストにできる：自分のリーダーが特徴《魚人族》か《人魚族》を持つ場合、相手のコスト3以下のキャラ1枚までは、次の相手のターン終了時まで、レストにでき [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "set_cannot_rest": "one_opponent_character_cost_le_3"
+     "conditional": {
+      "if": {
+       "leader_features_any": [
+        "魚人族",
+        "人魚族"
+       ]
+      },
+      "do": [
+       {
+        "set_cannot_rest": "one_opponent_character_cost_le_3"
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "rest_self": true
-   },
-   "if": {
-    "leader_features_any": [
-     "魚人族",
-     "人魚族"
-    ]
    }
   }
  ],
@@ -66683,18 +67229,24 @@
  ],
  "OP11-114": [
   {
-   "_text": "OP11-114 main: 自分のドン‼3枚をレストにできる：お互いのライフの合計枚数が5枚以上の場合、相手の元々のコスト5以下のキャラ1枚までを、KOする。",
+   "_text": "OP11-114 main: 自分のドン‼3枚をレストにできる：お互いのライフの合計枚数が5枚以上の場合、相手の元々のコスト5以下のキャラ1枚までを、KOする。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "main",
    "do": [
     {
-     "ko": "one_opponent_character_truly_original_cost_le_5"
+     "conditional": {
+      "if": {
+       "total_life_ge": 5
+      },
+      "do": [
+       {
+        "ko": "one_opponent_character_truly_original_cost_le_5"
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "rest_self_don": 3
-   },
-   "if": {
-    "total_life_ge": 5
    }
   },
   {
@@ -66713,18 +67265,24 @@
  ],
  "OP11-114_p1": [
   {
-   "_text": "OP11-114_p1 main: 自分のドン‼3枚をレストにできる：お互いのライフの合計枚数が5枚以上の場合、相手の元々のコスト5以下のキャラ1枚までを、KOする。",
+   "_text": "OP11-114_p1 main: 自分のドン‼3枚をレストにできる：お互いのライフの合計枚数が5枚以上の場合、相手の元々のコスト5以下のキャラ1枚までを、KOする。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "main",
    "do": [
     {
-     "ko": "one_opponent_character_truly_original_cost_le_5"
+     "conditional": {
+      "if": {
+       "total_life_ge": 5
+      },
+      "do": [
+       {
+        "ko": "one_opponent_character_truly_original_cost_le_5"
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "rest_self_don": 3
-   },
-   "if": {
-    "total_life_ge": 5
    }
   },
   {
@@ -68681,20 +69239,26 @@
  ],
  "OP09-011": [
   {
-   "_text": "OP09-011 activate_main: このキャラをレストにできる：自分のリーダーが特徴《赤髪海賊団》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-2000。",
+   "_text": "OP09-011 activate_main: このキャラをレストにできる：自分のリーダーが特徴《赤髪海賊団》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-2000。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "power_pump": {
-      "target": "one_opponent_character_any",
-      "amount": -2000,
-      "duration": "turn"
+     "conditional": {
+      "if": {
+       "leader_feature": "赤髪海賊団"
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "one_opponent_character_any",
+         "amount": -2000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ],
-   "if": {
-    "leader_feature": "赤髪海賊団"
-   },
    "cost": {
     "rest_self": true
    }
@@ -69500,21 +70064,27 @@
  ],
  "OP09-092": [
   {
-   "_text": "OP09-092 起動メイン(自レスト):自手札が相手より3枚以上少ない場合、カード2枚引き手札1枚捨てる",
+   "_text": "OP09-092 起動メイン(自レスト):自手札が相手より3枚以上少ない場合、カード2枚引き手札1枚捨てる [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "draw": 2
-    },
-    {
-     "trash_self_hand_random": 1
+     "conditional": {
+      "if": {
+       "self_hand_diff_le": -3
+      },
+      "do": [
+       {
+        "draw": 2
+       },
+       {
+        "trash_self_hand_random": 1
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "rest_self": true
-   },
-   "if": {
-    "self_hand_diff_le": -3
    }
   }
  ],
@@ -70231,23 +70801,29 @@
  ],
  "OP08-016": [
   {
-   "_text": "OP08-016 activate_main: このキャラをレストにできる：自分のリーダーが「トニートニー・チョッパー」の場合、自分のキャラの「トニートニー・チョッパー」すべてを、このターン中、パワー+200",
+   "_text": "OP08-016 activate_main: このキャラをレストにできる：自分のリーダーが「トニートニー・チョッパー」の場合、自分のキャラの「トニートニー・チョッパー」すべてを、このターン中、パワー+200 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "power_pump": {
-      "target": {
-       "type": "all_self_chara_named",
-       "name": "トニートニー・チョッパー"
+     "conditional": {
+      "if": {
+       "leader_name": "トニートニー・チョッパー"
       },
-      "amount": 2000,
-      "duration": "turn"
+      "do": [
+       {
+        "power_pump": {
+         "target": {
+          "type": "all_self_chara_named",
+          "name": "トニートニー・チョッパー"
+         },
+         "amount": 2000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ],
-   "if": {
-    "leader_name": "トニートニー・チョッパー"
-   },
    "cost": {
     "rest_self": true
    }
@@ -70416,16 +70992,22 @@
  ],
  "OP08-032": [
   {
-   "_text": "OP08-032 activate_main: このキャラをレストにできる：自分のリーダーが特徴《ミンク族》を持つ場合、自分のドン‼1枚までを、アクティブにする。",
+   "_text": "OP08-032 activate_main: このキャラをレストにできる：自分のリーダーが特徴《ミンク族》を持つ場合、自分のドン‼1枚までを、アクティブにする。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "untap_don": 1
+     "conditional": {
+      "if": {
+       "leader_feature": "ミンク族"
+      },
+      "do": [
+       {
+        "untap_don": 1
+       }
+      ]
+     }
     }
    ],
-   "if": {
-    "leader_feature": "ミンク族"
-   },
    "cost": {
     "rest_self": true
    }
@@ -70694,22 +71276,28 @@
  ],
  "OP08-062": [
   {
-   "_text": "OP08-062 activate_main: このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ビッグ・マム海賊団》を持つ場合、自分の手札からコスト3以上でかつ、相手の場のドン‼の枚数以下のコ",
+   "_text": "OP08-062 activate_main: このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ビッグ・マム海賊団》を持つ場合、自分の手札からコスト3以上でかつ、相手の場のドン‼の枚数以下のコ [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "play_from_hand_named_with_dynamic_cost": {
-      "name": "シャーロット・カタクリ",
-      "cost_ge": 3,
-      "cost_le_source": "opp_don_total"
+     "conditional": {
+      "if": {
+       "leader_feature": "ビッグ・マム海賊団"
+      },
+      "do": [
+       {
+        "play_from_hand_named_with_dynamic_cost": {
+         "name": "シャーロット・カタクリ",
+         "cost_ge": 3,
+         "cost_le_source": "opp_don_total"
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "ビッグ・マム海賊団"
    }
   }
  ],
@@ -71361,22 +71949,31 @@
  ],
  "OP08-101": [
   {
-   "_text": "OP08-101 activate_main: 【ターン1回】自分のライフの上から1枚をトラッシュに置くことができる：自分のリーダーが特徴《ビッグ・マム海賊団》を持つ場合、このターン終了時、自分のデッキの上か",
+   "_text": "OP08-101 activate_main: 【ターン1回】自分のライフの上から1枚をトラッシュに置くことができる：自分のリーダーが特徴《ビッグ・マム海賊団》を持つ場合、このターン終了時、自分のデッキの上か [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "optional_cost_then": {
-      "cost": [
+     "conditional": {
+      "if": {
+       "leader_feature": "ビッグ・マム海賊団"
+      },
+      "do": [
        {
-        "mill_self_life_to_trash": 1
-       }
-      ],
-      "effect": [
-       {
-        "schedule_at_self_turn_end": {
-         "do": [
+        "optional_cost_then": {
+         "cost": [
           {
-           "put_top_to_life": 1
+           "mill_self_life_to_trash": 1
+          }
+         ],
+         "effect": [
+          {
+           "schedule_at_self_turn_end": {
+            "do": [
+             {
+              "put_top_to_life": 1
+             }
+            ]
+           }
           }
          ]
         }
@@ -71387,9 +71984,6 @@
    ],
    "cost": {
     "once_per_turn": true
-   },
-   "if": {
-    "leader_feature": "ビッグ・マム海賊団"
    }
   }
  ],
@@ -72747,18 +73341,24 @@
  ],
  "OP07-074": [
   {
-   "_text": "OP07-074 activate_main: このキャラをトラッシュに置くことができる：自分のリーダーが特徴《フォクシー海賊団》を持つ場合、ドン!!デッキからドン!!1枚までを、レストで追加する。",
+   "_text": "OP07-074 activate_main: このキャラをトラッシュに置くことができる：自分のリーダーが特徴《フォクシー海賊団》を持つ場合、ドン!!デッキからドン!!1枚までを、レストで追加する。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "add_rested_don": 1
+     "conditional": {
+      "if": {
+       "leader_feature": "フォクシー海賊団"
+      },
+      "do": [
+       {
+        "add_rested_don": 1
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "フォクシー海賊団"
    }
   }
  ],
@@ -74011,26 +74611,32 @@
  ],
  "OP06-060": [
   {
-   "_text": "OP06-060 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66",
+   "_text": "OP06-060 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "play_from_hand_or_trash": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 7,
-       "name": "ヴィンスモーク・イチジ"
+     "conditional": {
+      "if": {
+       "leader_feature": "ジェルマ66"
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand_or_trash": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 7,
+          "name": "ヴィンスモーク・イチジ"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "pay_don": 1,
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "ジェルマ66"
    }
   }
  ],
@@ -74187,76 +74793,94 @@
  ],
  "OP06-064": [
   {
-   "_text": "OP06-064 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66",
+   "_text": "OP06-064 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "play_from_hand_or_trash": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 5,
-       "name": "ヴィンスモーク・ニジ"
+     "conditional": {
+      "if": {
+       "leader_feature": "ジェルマ66"
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand_or_trash": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 5,
+          "name": "ヴィンスモーク・ニジ"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "pay_don": 1,
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "ジェルマ66"
    }
   }
  ],
  "OP06-066": [
   {
-   "_text": "OP06-066 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66",
+   "_text": "OP06-066 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "play_from_hand_or_trash": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 4,
-       "name": "ヴィンスモーク・ヨンジ"
+     "conditional": {
+      "if": {
+       "leader_feature": "ジェルマ66"
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand_or_trash": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 4,
+          "name": "ヴィンスモーク・ヨンジ"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "pay_don": 1,
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "ジェルマ66"
    }
   }
  ],
  "OP06-068": [
   {
-   "_text": "OP06-068 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66",
+   "_text": "OP06-068 activate_main: ドン !!-1(自分の場のドン !!を指定の数ドン !!デッキに戻すことができる),このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ジェルマ66 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "play_from_hand_or_trash": {
-      "filter": {
-       "category": "CHARACTER",
-       "cost_eq": 4,
-       "name": "ヴィンスモーク・レイジュ"
+     "conditional": {
+      "if": {
+       "leader_feature": "ジェルマ66"
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand_or_trash": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_eq": 4,
+          "name": "ヴィンスモーク・レイジュ"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "pay_don": 1,
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "ジェルマ66"
    }
   }
  ],
@@ -77149,18 +77773,24 @@
  ],
  "OP04-061": [
   {
-   "_text": "OP04-061 activate_main: このキャラをトラッシュに置くことができる：自分のリーダーが特徴《W7》を持つ場合、ドン!!デッキからドン!!1枚までを、レストで追加する。",
+   "_text": "OP04-061 activate_main: このキャラをトラッシュに置くことができる：自分のリーダーが特徴《W7》を持つ場合、ドン!!デッキからドン!!1枚までを、レストで追加する。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "add_rested_don": 1
+     "conditional": {
+      "if": {
+       "leader_feature": "W7"
+      },
+      "do": [
+       {
+        "add_rested_don": 1
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "W7"
    }
   }
  ],
@@ -80060,13 +80690,22 @@
  ],
  "OP02-018": [
   {
-   "_text": "OP02-018 on_ko: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード1枚を捨てることができる：自分のライフが2枚以下の場合、このキャラカードをトラッシュからレストで登場させる。",
+   "_text": "OP02-018 on_ko: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード1枚を捨てることができる：自分のライフが2枚以下の場合、このキャラカードをトラッシュからレストで登場させる。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "on_ko",
    "do": [
     {
-     "play_self": {
-      "from": "trash",
-      "rested": true
+     "conditional": {
+      "if": {
+       "self_life_le": 2
+      },
+      "do": [
+       {
+        "play_self": {
+         "from": "trash",
+         "rested": true
+        }
+       }
+      ]
      }
     }
    ],
@@ -80077,21 +80716,27 @@
      },
      "count": 1
     }
-   },
-   "if": {
-    "self_life_le": 2
    }
   }
  ],
  "OP02-018_p1": [
   {
-   "_text": "OP02-018_p1 on_ko: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード1枚を捨てることができる：自分のライフが2枚以下の場合、このキャラカードをトラッシュからレストで登場させる。",
+   "_text": "OP02-018_p1 on_ko: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード1枚を捨てることができる：自分のライフが2枚以下の場合、このキャラカードをトラッシュからレストで登場させる。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "on_ko",
    "do": [
     {
-     "play_self": {
-      "from": "trash",
-      "rested": true
+     "conditional": {
+      "if": {
+       "self_life_le": 2
+      },
+      "do": [
+       {
+        "play_self": {
+         "from": "trash",
+         "rested": true
+        }
+       }
+      ]
      }
     }
    ],
@@ -80102,9 +80747,6 @@
      },
      "count": 1
     }
-   },
-   "if": {
-    "self_life_le": 2
    }
   }
  ],
@@ -80731,24 +81373,30 @@
  ],
  "OP02-070": [
   {
-   "_text": "OP02-070 activate_main: このステージをレストにできる：自分のリーダーが「エンポリオ・イワンコフ」の場合、カード1枚を引き、自分の手札1枚を捨てる。その後、自分の手札3枚までを捨てる。 [dd-mand]",
+   "_text": "OP02-070 activate_main: このステージをレストにできる：自分のリーダーが「エンポリオ・イワンコフ」の場合、カード1枚を引き、自分の手札1枚を捨てる。その後、自分の手札3枚までを捨てる。 [dd-mand] [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "draw": 1
-    },
-    {
-     "trash_self_hand_random": 1
-    },
-    {
-     "trash_self_hand_random": 3
+     "conditional": {
+      "if": {
+       "leader_name": "エンポリオ・イワンコフ"
+      },
+      "do": [
+       {
+        "draw": 1
+       },
+       {
+        "trash_self_hand_random": 1
+       },
+       {
+        "trash_self_hand_random": 3
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "rest_self": true
-   },
-   "if": {
-    "leader_name": "エンポリオ・イワンコフ"
    }
   }
  ],
@@ -82001,16 +82649,22 @@
  ],
  "OP01-063": [
   {
-   "_text": "don×1 activate_main: このキャラをレストにできる：相手の手札1枚を選び、公開する。公開したカードがイベントの場合、相手のライフ1枚までを、持ち",
+   "_text": "don×1 activate_main: このキャラをレストにできる：相手の手札1枚を選び、公開する。公開したカードがイベントの場合、相手のライフ1枚までを、持ち [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "reveal_opp_hand_and_if_event_mill_life": 1
+     "conditional": {
+      "if": {
+       "self_attached_don_ge": 1
+      },
+      "do": [
+       {
+        "reveal_opp_hand_and_if_event_mill_life": 1
+       }
+      ]
+     }
     }
    ],
-   "if": {
-    "self_attached_don_ge": 1
-   },
    "cost": {
     "rest_self": true
    }
@@ -83940,19 +84594,25 @@
  ],
  "OP09-083_r1": [
   {
-   "_text": "OP09-083_r1 activate_main: このキャラをレストにできる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、相手のキャラ1枚までを、このターン中、コスト-3。",
+   "_text": "OP09-083_r1 activate_main: このキャラをレストにできる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、相手のキャラ1枚までを、このターン中、コスト-3。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "cost_minus": {
-      "target": "one_opponent_character_any",
-      "amount": 3
+     "conditional": {
+      "if": {
+       "leader_feature": "黒ひげ海賊団"
+      },
+      "do": [
+       {
+        "cost_minus": {
+         "target": "one_opponent_character_any",
+         "amount": 3
+        }
+       }
+      ]
      }
     }
    ],
-   "if": {
-    "leader_feature": "黒ひげ海賊団"
-   },
    "cost": {
     "rest_self": true
    }
@@ -83994,41 +84654,53 @@
  ],
  "OP09-089_r1": [
   {
-   "_text": "OP09-089 activate_main: 自分の手札1枚を捨て、このキャラをトラッシュに置くことができる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、カード1枚を引く。その後、相手のキャラ1枚までを、このターン中、コスト-2。",
+   "_text": "OP09-089 activate_main: 自分の手札1枚を捨て、このキャラをトラッシュに置くことができる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、カード1枚を引く。その後、相手のキャラ1枚までを、このターン中、コスト-2。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "draw": 1
-    },
-    {
-     "cost_minus": {
-      "target": "one_opponent_character_any",
-      "amount": 2,
-      "duration": "turn"
+     "conditional": {
+      "if": {
+       "leader_feature": "黒ひげ海賊団"
+      },
+      "do": [
+       {
+        "draw": 1
+       },
+       {
+        "cost_minus": {
+         "target": "one_opponent_character_any",
+         "amount": 2,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "trash_self": true,
     "discard_hand": 1
-   },
-   "if": {
-    "leader_feature": "黒ひげ海賊団"
    }
   }
  ],
  "OP09-090_r1": [
   {
-   "_text": "OP09-090_r1 activate_main: このキャラをレストにできる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、相手のコスト1以下のキャラ1枚までを、KOする。",
+   "_text": "OP09-090_r1 activate_main: このキャラをレストにできる：自分のリーダーが特徴《黒ひげ海賊団》を持つ場合、相手のコスト1以下のキャラ1枚までを、KOする。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_1cost"
+     "conditional": {
+      "if": {
+       "leader_feature": "黒ひげ海賊団"
+      },
+      "do": [
+       {
+        "ko": "one_opponent_character_cost_le_1cost"
+       }
+      ]
+     }
     }
    ],
-   "if": {
-    "leader_feature": "黒ひげ海賊団"
-   },
    "cost": {
     "rest_self": true
    }
@@ -84668,25 +85340,31 @@
  ],
  "ST25-004": [
   {
-   "_text": "ST25-004 activate_main: 自分の手札1枚を捨て、このキャラをトラッシュに置くことができる：自分のリーダーが「バギー」の場合、自分の手札からコスト6以下の特徴《クロスギルド》を持つキャラカ",
+   "_text": "ST25-004 activate_main: 自分の手札1枚を捨て、このキャラをトラッシュに置くことができる：自分のリーダーが「バギー」の場合、自分の手札からコスト6以下の特徴《クロスギルド》を持つキャラカ [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "play_from_hand": {
-      "filter": {
-       "cost_le": 6,
-       "feature": "クロスギルド"
+     "conditional": {
+      "if": {
+       "leader_name": "バギー"
       },
-      "limit": 1
+      "do": [
+       {
+        "play_from_hand": {
+         "filter": {
+          "cost_le": 6,
+          "feature": "クロスギルド"
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "trash_self": true,
     "discard_hand": 1
-   },
-   "if": {
-    "leader_name": "バギー"
    }
   }
  ],
@@ -84831,20 +85509,26 @@
  ],
  "OP09-011_r1": [
   {
-   "_text": "OP09-011_r1 activate_main: このキャラをレストにできる：自分のリーダーが特徴《赤髪海賊団》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-2000。",
+   "_text": "OP09-011_r1 activate_main: このキャラをレストにできる：自分のリーダーが特徴《赤髪海賊団》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-2000。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "power_pump": {
-      "target": "one_opponent_character_any",
-      "amount": -2000,
-      "duration": "turn"
+     "conditional": {
+      "if": {
+       "leader_feature": "赤髪海賊団"
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "one_opponent_character_any",
+         "amount": -2000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ],
-   "if": {
-    "leader_feature": "赤髪海賊団"
-   },
    "cost": {
     "rest_self": true
    }
@@ -86776,13 +87460,22 @@
  ],
  "OP02-018_r1": [
   {
-   "_text": "OP02-018_r1 on_ko: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード1枚を捨てることができる：自分のライフが2枚以下の場合、このキャラカードをトラッシュからレストで登場させる。",
+   "_text": "OP02-018_r1 on_ko: 自分の手札から『白ひげ海賊団』を含む特徴を持つカード1枚を捨てることができる：自分のライフが2枚以下の場合、このキャラカードをトラッシュからレストで登場させる。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "on_ko",
    "do": [
     {
-     "play_self": {
-      "from": "trash",
-      "rested": true
+     "conditional": {
+      "if": {
+       "self_life_le": 2
+      },
+      "do": [
+       {
+        "play_self": {
+         "from": "trash",
+         "rested": true
+        }
+       }
+      ]
      }
     }
    ],
@@ -86793,9 +87486,6 @@
      },
      "count": 1
     }
-   },
-   "if": {
-    "self_life_le": 2
    }
   }
  ],
@@ -89100,11 +89790,20 @@
  ],
  "ST05-005": [
   {
-   "_text": "ST05-005 起動メイン(ターン1,自レスト,手札FILM1捨て):相手場ドン>自場ドンの場合、ドン2レスト追加",
+   "_text": "ST05-005 起動メイン(ターン1,自レスト,手札FILM1捨て):相手場ドン>自場ドンの場合、ドン2レスト追加 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "add_rested_don": 2
+     "conditional": {
+      "if": {
+       "don_diff_le": -1
+      },
+      "do": [
+       {
+        "add_rested_don": 2
+       }
+      ]
+     }
     }
    ],
    "cost": {
@@ -89116,9 +89815,6 @@
      },
      "count": 1
     }
-   },
-   "if": {
-    "don_diff_le": -1
    }
   }
  ],
@@ -90455,11 +91151,20 @@
  ],
  "ST05-005_r1": [
   {
-   "_text": "ST05-005 起動メイン(ターン1,自レスト,手札FILM1捨て):相手場ドン>自場ドンの場合、ドン2レスト追加",
+   "_text": "ST05-005 起動メイン(ターン1,自レスト,手札FILM1捨て):相手場ドン>自場ドンの場合、ドン2レスト追加 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "add_rested_don": 2
+     "conditional": {
+      "if": {
+       "don_diff_le": -1
+      },
+      "do": [
+       {
+        "add_rested_don": 2
+       }
+      ]
+     }
     }
    ],
    "cost": {
@@ -90471,9 +91176,6 @@
      },
      "count": 1
     }
-   },
-   "if": {
-    "don_diff_le": -1
    }
   }
  ],
@@ -91612,22 +92314,28 @@
  ],
  "OP08-062_p1": [
   {
-   "_text": "OP08-062_p1 activate_main: このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ビッグ・マム海賊団》を持つ場合、自分の手札からコスト3以上でかつ、相手の場のドン‼の枚数以下のコ",
+   "_text": "OP08-062_p1 activate_main: このキャラをトラッシュに置くことができる：自分のリーダーが特徴《ビッグ・マム海賊団》を持つ場合、自分の手札からコスト3以上でかつ、相手の場のドン‼の枚数以下のコ [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "play_from_hand_named_with_dynamic_cost": {
-      "name": "シャーロット・カタクリ",
-      "cost_ge": 3,
-      "cost_le_source": "opp_don_total"
+     "conditional": {
+      "if": {
+       "leader_feature": "ビッグ・マム海賊団"
+      },
+      "do": [
+       {
+        "play_from_hand_named_with_dynamic_cost": {
+         "name": "シャーロット・カタクリ",
+         "cost_ge": 3,
+         "cost_le_source": "opp_don_total"
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
     "trash_self": true
-   },
-   "if": {
-    "leader_feature": "ビッグ・マム海賊団"
    }
   }
  ],
@@ -91795,20 +92503,26 @@
  ],
  "OP09-011_p1": [
   {
-   "_text": "OP09-011_p1 activate_main: このキャラをレストにできる：自分のリーダーが特徴《赤髪海賊団》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-2000。",
+   "_text": "OP09-011_p1 activate_main: このキャラをレストにできる：自分のリーダーが特徴《赤髪海賊団》を持つ場合、相手のキャラ1枚までを、このターン中、パワー-2000。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "power_pump": {
-      "target": "one_opponent_character_any",
-      "amount": -2000,
-      "duration": "turn"
+     "conditional": {
+      "if": {
+       "leader_feature": "赤髪海賊団"
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "one_opponent_character_any",
+         "amount": -2000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ],
-   "if": {
-    "leader_feature": "赤髪海賊団"
-   },
    "cost": {
     "rest_self": true
    }
@@ -92161,18 +92875,24 @@
  ],
  "OP13-057_p1": [
   {
-   "_text": "OP13-057_p1 main: 自分のドン‼1枚をレストにできる：自分のライフが1枚以下の場合、相手は、このターン中、自分のリーダーがアタックする際【ブロッカー】を発動できない。",
+   "_text": "OP13-057_p1 main: 自分のドン‼1枚をレストにできる：自分のライフが1枚以下の場合、相手は、このターン中、自分のリーダーがアタックする際【ブロッカー】を発動できない。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "main",
    "do": [
     {
-     "prevent_blocker_for_attacker": {
-      "target": "self_leader"
+     "conditional": {
+      "if": {
+       "self_life_le": 1
+      },
+      "do": [
+       {
+        "prevent_blocker_for_attacker": {
+         "target": "self_leader"
+        }
+       }
+      ]
      }
     }
    ],
-   "if": {
-    "self_life_le": 1
-   },
    "cost": {
     "rest_self_don": 1
    }
@@ -105199,20 +105919,26 @@
  ],
  "OP16-081": [
   {
-   "_text": "OP16-081 【起動メイン】このキャラをレストにできる：コスト8以上のキャラがいる場合、相手のキャラ1枚までをこのターン中パワー-2000。 ⚠「コスト8以上のキャラ」は自他両陣営を数える (cardqa_op_16: 自分に居なくても相手に居れば発動可)。",
+   "_text": "OP16-081 【起動メイン】このキャラをレストにできる：コスト8以上のキャラがいる場合、相手のキャラ1枚までをこのターン中パワー-2000。 ⚠「コスト8以上のキャラ」は自他両陣営を数える (cardqa_op_16: 自分に居なくても相手に居れば発動可)。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "cost": {
     "rest_self": true
    },
-   "if": {
-    "exists_chara_cost_ge": 8
-   },
    "do": [
     {
-     "power_pump": {
-      "target": "one_opponent_character_any",
-      "amount": -2000,
-      "duration": "turn"
+     "conditional": {
+      "if": {
+       "exists_chara_cost_ge": 8
+      },
+      "do": [
+       {
+        "power_pump": {
+         "target": "one_opponent_character_any",
+         "amount": -2000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ]
@@ -106811,11 +107537,8 @@
  ],
  "OP16-084": [
   {
-   "_text": "OP16-084 【起動メイン】コスト20以上のこのキャラをトラッシュ：場のドン9以上ならトラッシュからコスト9の「光月モモの助」1枚までを登場。",
+   "_text": "OP16-084 【起動メイン】コスト20以上のこのキャラをトラッシュ：場のドン9以上ならトラッシュからコスト9の「光月モモの助」1枚までを登場。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
-   "if": {
-    "self_inplay_cost_ge": 20
-   },
    "cost": {
     "trash_self": true
    },
@@ -106823,17 +107546,26 @@
     {
      "conditional": {
       "if": {
-       "self_don_count_ge": 9
+       "self_inplay_cost_ge": 20
       },
       "do": [
        {
-        "play_from_trash": {
-         "filter": {
-          "category": "CHARACTER",
-          "name": "光月モモの助",
-          "cost_eq": 9
+        "conditional": {
+         "if": {
+          "self_don_count_ge": 9
          },
-         "limit": 1
+         "do": [
+          {
+           "play_from_trash": {
+            "filter": {
+             "category": "CHARACTER",
+             "name": "光月モモの助",
+             "cost_eq": 9
+            },
+            "limit": 1
+           }
+          }
+         ]
         }
        }
       ]
@@ -108237,33 +108969,39 @@
  ],
  "OP12-028_r1": [
   {
-   "_text": "OP12-028 activate_main: 自分のドン‼1枚とこのキャラをレストにできる：自分のリーダーが「ロロノア・ゾロ」の場合、自分のデッキの上から5枚を見て、属性(斬)を持つカードか緑のイベント1枚",
+   "_text": "OP12-028 activate_main: 自分のドン‼1枚とこのキャラをレストにできる：自分のリーダーが「ロロノア・ゾロ」の場合、自分のデッキの上から5枚を見て、属性(斬)を持つカードか緑のイベント1枚 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "search_top_n": {
-      "depth": 5,
-      "filter": {
-       "or_clauses": [
-        {
-         "attribute": "斬"
-        },
-        {
-         "category": "EVENT",
-         "color": "緑"
-        }
-       ]
+     "conditional": {
+      "if": {
+       "leader_name": "ロロノア・ゾロ"
       },
-      "limit": 1,
-      "destination": "hand",
-      "rest_remain": "bottom",
-      "public": true
+      "do": [
+       {
+        "search_top_n": {
+         "depth": 5,
+         "filter": {
+          "or_clauses": [
+           {
+            "attribute": "斬"
+           },
+           {
+            "category": "EVENT",
+            "color": "緑"
+           }
+          ]
+         },
+         "limit": 1,
+         "destination": "hand",
+         "rest_remain": "bottom",
+         "public": true
+        }
+       }
+      ]
      }
     }
    ],
-   "if": {
-    "leader_name": "ロロノア・ゾロ"
-   },
    "cost": {
     "rest_self_don": 1,
     "rest_self": true
@@ -109063,18 +109801,24 @@
  ],
  "OP10-114_r2": [
   {
-   "_text": "OP10-114 activate_main: このキャラをレストにできる：自分のライフの枚数が相手のライフの枚数以下の場合、相手のコスト4以下のキャラ1枚までを、レストにする。",
+   "_text": "OP10-114 activate_main: このキャラをレストにできる：自分のライフの枚数が相手のライフの枚数以下の場合、相手のコスト4以下のキャラ1枚までを、レストにする。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "when": "activate_main",
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_4cost"
+     "conditional": {
+      "if": {
+       "self_life_le_opp": true
+      },
+      "do": [
+       {
+        "rest": "one_opponent_character_cost_le_4cost"
+       }
+      ]
+     }
     }
    ],
    "cost": {
     "rest_self": true
-   },
-   "if": {
-    "self_life_le_opp": true
    }
   }
  ],

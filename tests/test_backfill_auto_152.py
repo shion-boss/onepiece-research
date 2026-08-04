@@ -44,6 +44,22 @@ NAVY_LEADER = "OP16-060"   # センゴク (海軍 LEADER, 紫)
 NEUTRAL_LEADER = "OP01-001"  # ロロノア・ゾロ (超新星/麦わらの一味 = 非ワノ国/非海軍)
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` の両対応)。
+
+    ⚠ 2026-08-05: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の
+    gate とする (cardqa_op_02 / cardqa_st_04)。 top-level `if` に置くと **任意コストの支払いごと
+    消える** ので、 overlay ではこの形の条件を `conditional` の中に移した。
+    条件そのものは変わっていないので、 テストはどちらの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    for _prim in eff.get("do") or []:
+        if isinstance(_prim, dict) and "conditional" in _prim:
+            return (_prim.get("conditional") or {}).get("if") or {}
+    return {}
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -225,8 +241,11 @@ def test_op16_081_activate_main_not_legal_without_cost8():
     st = _state(repo, NEUTRAL_LEADER, overlay)
     me, _ = st.players[0], st.players[1]
     me.characters = [InPlay.of(repo.get("OP16-081"), sickness=False)]  # お玉 (cost2) のみ
-    assert len(_am(st, me, overlay, "OP16-081")) == 0, \
-        "コスト8+キャラ不在で起動メインが legal に出てはいけない"
+
+    # ⚠ 2026-08-05: コロン後の条件は効果のみを gate する (cardqa_op_02 / cardqa_st_04)。
+    #   任意コストは条件不成立でも払えるので legal には残る。
+    assert len(_am(st, me, overlay, "OP16-081")) == 1, \
+        "任意コストは条件不成立でも払えるので legal に残るべき (cardqa_op_02)"
 
 
 def test_op16_081_activate_main_debuff_human_pick():
@@ -280,9 +299,9 @@ def test_op16_082_on_play_search_wano_when_wano_leader_ai():
     st = _state(repo, WANO_LEADER, overlay)
     me, opp = st.players[0], st.players[1]
     _, eff = _do(overlay, "OP16-082", "on_play")
-    assert eff.get("if", {}).get("leader_feature") == "ワノ国", \
+    assert _cond_of(eff).get("leader_feature") == "ワノ国", \
         "on_play の leader_feature 条件 (ワノ国) が overlay に無い"
-    assert eval_condition(eff["if"], st, me, None) is True, \
+    assert eval_condition(_cond_of(eff), st, me, None) is True, \
         "ワノ国リーダーで条件が成立していない"
     me.deck = [repo.get(WANO_C)] + [repo.get(RED1)] * 20  # 上5に ワノ国 を1枚
     me.hand = []
@@ -301,7 +320,7 @@ def test_op16_082_on_play_condition_false_when_not_wano():
     st = _state(repo, NEUTRAL_LEADER, overlay)
     me, _ = st.players[0], st.players[1]
     _, eff = _do(overlay, "OP16-082", "on_play")
-    assert eval_condition(eff["if"], st, me, None) is False, \
+    assert eval_condition(_cond_of(eff), st, me, None) is False, \
         "非ワノ国リーダーで条件が成立してはいけない"
 
 
@@ -574,7 +593,7 @@ def test_op16_091_on_play_search_wano_when_wano_leader_ai():
     st = _state(repo, WANO_LEADER, overlay)
     me, opp = st.players[0], st.players[1]
     _, eff = _do(overlay, "OP16-091", "on_play")
-    assert eval_condition(eff["if"], st, me, None) is True, \
+    assert eval_condition(_cond_of(eff), st, me, None) is True, \
         "ワノ国リーダーで条件が成立していない"
     me.deck = [repo.get(WANO_C)] + [repo.get(RED1)] * 20  # 上4に ワノ国 (マルコ) を1枚
     me.hand = []
@@ -593,7 +612,7 @@ def test_op16_091_on_play_condition_false_when_not_wano():
     st = _state(repo, NEUTRAL_LEADER, overlay)
     me, _ = st.players[0], st.players[1]
     _, eff = _do(overlay, "OP16-091", "on_play")
-    assert eval_condition(eff["if"], st, me, None) is False, \
+    assert eval_condition(_cond_of(eff), st, me, None) is False, \
         "非ワノ国リーダーで条件が成立してはいけない"
 
 

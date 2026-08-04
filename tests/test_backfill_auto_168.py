@@ -238,6 +238,10 @@ def test_st05_005_karina_activate_add_rested_don_ai():
 
 def test_st05_005_karina_activate_not_legal_when_don_not_behind():
     """相手場ドン ≤ 自場ドン なら don_diff_le:-1 不成立 → 起動メインが legal に出ない。"""
+    # ⚠ 2026-08-05 是正: コロン後の条件は **効果のみ** を gate する (cardqa_op_02:
+    #   「リーダーが「イワンコフ」ではない場合、この【起動メイン】効果を発動できますか？」
+    #   → 「はい。 このカードをレストにしますが、 その後の効果では何も起きません」)。
+    #   「条件不成立なら legal に出ない」 は行動の合法性ごと消す旧バグの固定だった。
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, "ST05-001", overlay)
@@ -250,8 +254,8 @@ def test_st05_005_karina_activate_not_legal_when_don_not_behind():
 
     opts = [o for o in list_activate_main_effects(st, me, overlay)
             if o[0].card.card_id == "ST05-005"]
-    assert len(opts) == 0, \
-        "相手ドンが多くないのに起動メインが legal に出てはいけない"
+    assert len(opts) == 1, \
+        "任意コストは条件不成立でも払えるので legal に残るべき (cardqa_op_02)"
 
 
 # --------------------------------------------------------------------------- #

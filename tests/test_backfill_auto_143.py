@@ -31,6 +31,22 @@ from engine.deck import CardRepository
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` の両対応)。
+
+    ⚠ 2026-08-05: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の
+    gate とする (cardqa_op_02 / cardqa_st_04)。 top-level `if` に置くと **任意コストの支払いごと
+    消える** ので、 overlay ではこの形の条件を `conditional` の中に移した。
+    条件そのものは変わっていないので、 テストはどちらの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    for _prim in eff.get("do") or []:
+        if isinstance(_prim, dict) and "conditional" in _prim:
+            return (_prim.get("conditional") or {}).get("if") or {}
+    return {}
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -109,9 +125,9 @@ def test_op15_057_on_play_condition_dressrosa_leader():
     _, eff = _do(overlay, "OP15-057", "on_play")
     st_ok = _state(repo, "OP15-039", overlay)   # レベッカ (ドレスローザ)
     st_ng = _state(repo, "OP01-001", overlay)   # ゾロ (非ドレスローザ)
-    assert eval_condition(eff.get("if", {}), st_ok, st_ok.players[0]) is True, \
+    assert eval_condition(_cond_of(eff), st_ok, st_ok.players[0]) is True, \
         "《ドレスローザ》リーダーで登場時条件が成立していない"
-    assert eval_condition(eff.get("if", {}), st_ng, st_ng.players[0]) is False, \
+    assert eval_condition(_cond_of(eff), st_ng, st_ng.players[0]) is False, \
         "非《ドレスローザ》リーダーで登場時条件が成立してはいけない"
 
 
@@ -162,10 +178,10 @@ def test_op15_063_on_ko_condition_self_don_le_6():
     st = _state(repo, "OP01-001", overlay)
     me = st.players[0]
     me.don_active = 6
-    assert eval_condition(eff.get("if", {}), st, me) is True, \
+    assert eval_condition(_cond_of(eff), st, me) is True, \
         "自場ドン6枚で KO時条件が成立していない"
     me.don_active = 7
-    assert eval_condition(eff.get("if", {}), st, me) is False, \
+    assert eval_condition(_cond_of(eff), st, me) is False, \
         "自場ドン7枚で KO時条件が成立してはいけない"
 
 
@@ -223,13 +239,13 @@ def test_op15_064_condition_needs_satori_and_hotori():
     st = _state(repo, "OP01-001", overlay)
     me = st.players[0]
     me.characters = [InPlay.of(repo.get("OP15-064"), sickness=False)]  # コトリのみ
-    assert eval_condition(eff.get("if", {}), st, me) is False, \
+    assert eval_condition(_cond_of(eff), st, me) is False, \
         "「サトリ」「ホトリ」不在で条件が成立してはいけない"
     me.characters += [
         InPlay.of(repo.get("OP15-066"), sickness=False),  # サトリ
         InPlay.of(repo.get("OP15-072"), sickness=False),  # ホトリ
     ]
-    assert eval_condition(eff.get("if", {}), st, me) is True, \
+    assert eval_condition(_cond_of(eff), st, me) is True, \
         "「サトリ」「ホトリ」在で条件が成立していない"
 
 
@@ -454,13 +470,13 @@ def test_op15_072_condition_needs_kotori_and_satori():
     st = _state(repo, "OP01-001", overlay)
     me = st.players[0]
     me.characters = [InPlay.of(repo.get("OP15-072"), sickness=False)]  # ホトリのみ
-    assert eval_condition(eff.get("if", {}), st, me) is False, \
+    assert eval_condition(_cond_of(eff), st, me) is False, \
         "「コトリ」「サトリ」不在で条件が成立してはいけない"
     me.characters += [
         InPlay.of(repo.get("OP15-064"), sickness=False),  # コトリ
         InPlay.of(repo.get("OP15-066"), sickness=False),  # サトリ
     ]
-    assert eval_condition(eff.get("if", {}), st, me) is True, \
+    assert eval_condition(_cond_of(eff), st, me) is True, \
         "「コトリ」「サトリ」在で条件が成立していない"
 
 
@@ -500,6 +516,12 @@ def test_op15_072_do_human_target_pick():
     a = InPlay.of(repo.get("OP01-013"), sickness=False)  # power3000
     b = InPlay.of(repo.get("OP15-066"), sickness=False)  # power2000
     opp.characters = [a, b]
+    # ⚠ 2026-08-05: 公式は 「ドン‼-2,このキャラをレストにできる：**自分の「コトリ」と「サトリ」が
+    #   いる場合**、…-3000」。 コロン後の条件は効果のみを gate するので overlay では `conditional`
+    #   の中にある。 以前は top-level `if` で、 テストが `do` を直接実行して **条件を満たさずに
+    #   効果だけ検証** していた (= 条件が壊れても緑になる)。
+    me.characters = [InPlay.of(repo.get("OP15-064"), sickness=False),   # コトリ
+                     InPlay.of(repo.get("OP15-066"), sickness=False)]   # サトリ
     do, _ = _do(overlay, "OP15-072", "activate_main")
     execute_effect(do[0], st, me, opp,
                    InPlay.of(repo.get("OP15-072"), sickness=False))

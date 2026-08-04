@@ -42,6 +42,22 @@ _OPP_SMALL = "OP01-016"       # ナミ cost1 power2000 (小型 KO 対象)
 _FILLER = "OP01-013"          # サンジ cost2 power3000 (デッキ/手札 埋め用、 vanilla)
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` の両対応)。
+
+    ⚠ 2026-08-05: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の
+    gate とする (cardqa_op_02 / cardqa_st_04)。 top-level `if` に置くと **任意コストの支払いごと
+    消える** ので、 overlay ではこの形の条件を `conditional` の中に移した。
+    条件そのものは変わっていないので、 テストはどちらの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    for _prim in eff.get("do") or []:
+        if isinstance(_prim, dict) and "conditional" in _prim:
+            return (_prim.get("conditional") or {}).get("if") or {}
+    return {}
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -208,7 +224,7 @@ def test_op09_010_bonk_punch_on_attack_self_pump_ai():
     me.characters = [bonk]
 
     on_attack = _eff(overlay, "OP09-010", "on_attack")
-    assert on_attack.get("if", {}).get("self_attached_don_ge") == 1, \
+    assert _cond_of(on_attack).get("self_attached_don_ge") == 1, \
         "overlay の ドンゲート self_attached_don_ge=1 が無い"
     power_before = bonk.power
     for prim in on_attack["do"]:
@@ -247,6 +263,10 @@ def test_op09_011_hongou_activate_main_debuff_ai():
 
 def test_op09_011_hongou_activate_main_no_akagami_leader():
     """赤髪 でない leader なら 条件不成立 → 起動メインが legal に出ない (発動不可)。"""
+    # ⚠ 2026-08-05 是正: コロン後の条件は **効果のみ** を gate する (cardqa_op_02:
+    #   「リーダーが「イワンコフ」ではない場合、この【起動メイン】効果を発動できますか？」
+    #   → 「はい。 このカードをレストにしますが、 その後の効果では何も起きません」)。
+    #   「条件不成立なら legal に出ない」 は行動の合法性ごと消す旧バグの固定だった。
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, _LEADER_NEUTRAL, overlay)  # 中立 leader (= 条件不成立)
@@ -257,8 +277,8 @@ def test_op09_011_hongou_activate_main_no_akagami_leader():
 
     opts = [(src, eff) for (src, eff) in list_activate_main_effects(st, me, overlay)
             if src.card.card_id == "OP09-011"]
-    assert len(opts) == 0, \
-        "赤髪でない leader では ホンゴウ の起動メインは legal に出てはいけない"
+    assert len(opts) == 1, \
+        "任意コストは条件不成立でも払えるので legal に残るべき (cardqa_op_02)"
 
 
 # --------------------------------------------------------------------------- #

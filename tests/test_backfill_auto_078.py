@@ -512,6 +512,12 @@ def test_op07_074_activate_trash_self_add_rested_don_ai():
 
 def test_op07_074_activate_requires_foxy_leader():
     """negative: リーダーが《フォクシー海賊団》でなければ起動メインが legal に出ない。"""
+    # ⚠ 2026-08-05 是正: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を
+    #   **効果のみ** の gate とする。 任意コストは条件不成立でも支払える。
+    #   一次情報 (cardqa_op_02): 「自分のリーダーが「エンポリオ・イワンコフ」ではない場合、
+    #   この【起動メイン】効果を発動できますか？」 → 「はい、できます。 その場合、このカードを
+    #   レストにしますが、 **その後の効果では何も起きません**」。
+    #   → 「条件不成立なら legal に出ない」 は **行動の合法性ごと消す旧バグ** を固定していた。
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, _LEADER, overlay)  # フォクシーでない leader
@@ -521,7 +527,9 @@ def test_op07_074_activate_requires_foxy_leader():
 
     opts = [o for o in list_activate_main_effects(st, me, overlay)
             if o[0].card.card_id == "OP07-074"]
-    assert len(opts) == 0, "フォクシーでないリーダーで起動メインが legal に出てはいけない"
+    assert len(opts) == 1, (
+        "任意コストは条件不成立でも払えるので legal に残るべき (公式: cardqa_op_02)"
+    )
 
 
 # --------------------------------------------------------------------------- #

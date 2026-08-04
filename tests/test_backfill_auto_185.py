@@ -74,6 +74,22 @@ _HACHINOSU = "OP09-099"      # ハチノス (STAGE 黒ひげ海賊団)
 _BB_CHEAP = "OP16-107"       # ジーザス・バージェス cost3 黒ひげ海賊団 (トラッシュ登場駒)
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` の両対応)。
+
+    ⚠ 2026-08-05: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の
+    gate とする (cardqa_op_02 / cardqa_st_04)。 top-level `if` に置くと **任意コストの支払いごと
+    消える** ので、 overlay ではこの形の条件を `conditional` の中に移した。
+    条件そのものは変わっていないので、 テストはどちらの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    for _prim in eff.get("do") or []:
+        if isinstance(_prim, dict) and "conditional" in _prim:
+            return (_prim.get("conditional") or {}).get("if") or {}
+    return {}
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -339,7 +355,7 @@ def test_st27_001_activate_main_self_pump_ai():
 
     power_before = pisaro.power
     eff = _eff(overlay, "ST27-001", "activate_main")
-    assert eff.get("if", {}).get("leader_feature") == "黒ひげ海賊団", \
+    assert _cond_of(eff).get("leader_feature") == "黒ひげ海賊団", \
         "overlay の 黒ひげ海賊団 leader 条件が無い"
     opts = _acts(st, me, overlay, "ST27-001")
     assert len(opts) == 1, f"ST27-001 の起動メインが legal に出ない: {len(opts)}"
@@ -414,7 +430,7 @@ def test_st27_002_activate_main_opp_cost_minus_ai():
     opp.characters = [victim]
 
     eff = _eff(overlay, "ST27-002", "activate_main")
-    assert eff.get("if", {}).get("leader_feature") == "黒ひげ海賊団", \
+    assert _cond_of(eff).get("leader_feature") == "黒ひげ海賊団", \
         "overlay の 黒ひげ海賊団 leader 条件が無い"
     opts = _acts(st, me, overlay, "ST27-002")
     assert len(opts) == 1, f"ST27-002 の起動メインが legal に出ない: {len(opts)}"
@@ -649,9 +665,9 @@ def test_st28_001_on_play_ko_when_wano_and_life3_ai():
     opp.characters = [victim]
 
     eff = _eff(overlay, "ST28-001", "on_play")
-    assert eff.get("if", {}).get("leader_feature") == "ワノ国", \
+    assert _cond_of(eff).get("leader_feature") == "ワノ国", \
         "overlay の ワノ国 leader 条件が無い"
-    assert eff.get("if", {}).get("opp_life_ge") == 3, \
+    assert _cond_of(eff).get("opp_life_ge") == 3, \
         "overlay の 相手ライフ3枚以上条件が無い"
     for prim in eff["do"]:
         execute_effect(prim, st, me, opp,
@@ -669,7 +685,7 @@ def test_st28_001_condition_off_when_life_low():
     me, opp = st.players[0], st.players[1]
     opp.life = [repo.get(_FILLER)] * 2
     eff = _eff(overlay, "ST28-001", "on_play")
-    assert eval_condition(eff.get("if", {}), st, me, opp) is False, \
+    assert eval_condition(_cond_of(eff), st, me, opp) is False, \
         "相手ライフ2枚では条件が不成立であるべき"
 
 
@@ -681,7 +697,7 @@ def test_st28_001_condition_off_when_plain_leader():
     me, opp = st.players[0], st.players[1]
     opp.life = [repo.get(_FILLER)] * 3
     eff = _eff(overlay, "ST28-001", "on_play")
-    assert eval_condition(eff.get("if", {}), st, me, opp) is False, \
+    assert eval_condition(_cond_of(eff), st, me, opp) is False, \
         "ワノ国 でない leader では条件が不成立であるべき"
 
 

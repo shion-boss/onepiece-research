@@ -38,6 +38,22 @@ LEADER = "OP01-001"     # モンキー・D・ルフィ (赤 LEADER)
 COST5_CHAR = "ST13-008"  # サボ (cost5 power6000 CHARACTER 黄) — cost5 キャラ素材
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` の両対応)。
+
+    ⚠ 2026-08-05: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の
+    gate とする (cardqa_op_02 / cardqa_st_04)。 top-level `if` に置くと **任意コストの支払いごと
+    消える** ので、 overlay ではこの形の条件を `conditional` の中に移した。
+    条件そのものは変わっていないので、 テストはどちらの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    for _prim in eff.get("do") or []:
+        if isinstance(_prim, dict) and "conditional" in _prim:
+            return (_prim.get("conditional") or {}).get("if") or {}
+    return {}
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -118,9 +134,9 @@ def test_st12_011_on_attack_self_pump_ai():
     me.characters = [attacker]
 
     eff = _eff(overlay, "ST12-011", "on_attack")
-    assert eff.get("if", {}).get("self_hand_count_le") == 5, \
+    assert _cond_of(eff).get("self_hand_count_le") == 5, \
         "overlay の 条件 self_hand_count_le=5 が無い"
-    assert eff.get("if", {}).get("self_attached_don_ge") == 1, \
+    assert _cond_of(eff).get("self_attached_don_ge") == 1, \
         "overlay の ドンゲート self_attached_don_ge=1 が無い"
     power_before = attacker.power
     for prim in eff["do"]:
@@ -401,7 +417,7 @@ def test_st13_003_activate_main_hand_or_trash_to_life_ai():
     me.life = []                 # ライフ 0 (= do の条件 self_life_le 0 成立)
 
     eff = _eff(overlay, "ST13-003", "activate_main")
-    assert eff.get("if", {}).get("self_attached_don_ge") == 2, \
+    assert _cond_of(eff).get("self_attached_don_ge") == 2, \
         "overlay の ドンゲート self_attached_don_ge=2 が無い"
 
     options = list_activate_main_effects(st, me, overlay)

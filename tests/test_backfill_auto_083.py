@@ -30,6 +30,22 @@ from engine.effects import (
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` の両対応)。
+
+    ⚠ 2026-08-05: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の
+    gate とする (cardqa_op_02 / cardqa_st_04)。 top-level `if` に置くと **任意コストの支払いごと
+    消える** ので、 overlay ではこの形の条件を `conditional` の中に移した。
+    条件そのものは変わっていないので、 テストはどちらの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    for _prim in eff.get("do") or []:
+        if isinstance(_prim, dict) and "conditional" in _prim:
+            return (_prim.get("conditional") or {}).get("if") or {}
+    return {}
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -249,7 +265,7 @@ def test_op08_010_hiking_bear_activate_main_pump_ai():
     other_before = other.power
 
     eff = overlay.get("OP08-010").effects[0]
-    assert eff.get("if", {}).get("self_attached_don_ge") == 1, \
+    assert _cond_of(eff).get("self_attached_don_ge") == 1, \
         "overlay の ドンゲート self_attached_don_ge=1 が無い"
     opts = [o for o in list_activate_main_effects(st, me, overlay)
             if o[0].card.card_id == "OP08-010"]
@@ -301,7 +317,7 @@ def test_op08_012_lapan_attack_ko_ai():
     opp.characters = [victim]
 
     eff = overlay.get("OP08-012").effects[0]
-    assert eff.get("if", {}).get("leader_feature") == "ドラム王国", \
+    assert _cond_of(eff).get("leader_feature") == "ドラム王国", \
         "overlay に leader_feature=ドラム王国 gate が無い"
     for prim in eff["do"]:
         execute_effect(prim, st, me, opp, lapan)
@@ -467,6 +483,10 @@ def test_op08_016_hiluluk_activate_main_pump_all_chopper_ai():
 
 def test_op08_016_hiluluk_gate_wrong_leader():
     """自リーダーが「トニートニー・チョッパー」でない場合 起動メインが legal に出ない。"""
+    # ⚠ 2026-08-05 是正: コロン後の条件は **効果のみ** を gate する (cardqa_op_02:
+    #   「リーダーが「イワンコフ」ではない場合、この【起動メイン】効果を発動できますか？」
+    #   → 「はい。 このカードをレストにしますが、 その後の効果では何も起きません」)。
+    #   「条件不成立なら legal に出ない」 は行動の合法性ごと消す旧バグの固定だった。
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, "OP01-001", overlay)  # リーダー = シャンクス (非チョッパー)
@@ -476,8 +496,8 @@ def test_op08_016_hiluluk_gate_wrong_leader():
 
     opts = [o for o in list_activate_main_effects(st, me, overlay)
             if o[0].card.card_id == "OP08-016"]
-    assert len(opts) == 0, \
-        "リーダーが チョッパー でないのに起動メインが legal に出てはいけない"
+    assert len(opts) == 1, \
+        "任意コストは条件不成立でも払えるので legal に残るべき (cardqa_op_02)"
 
 
 # --------------------------------------------------------------------------- #

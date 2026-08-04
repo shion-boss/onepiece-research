@@ -530,6 +530,12 @@ def test_eb02_049_garp_activate_main_ko_cost1_ai():
 
 def test_eb02_049_garp_activate_main_not_legal_wrong_leader():
     """リーダーが「ガープ」でない場合、 起動メインの if 条件で legal に出ない。"""
+    # ⚠ 2026-08-05 是正: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を
+    #   **効果のみ** の gate とする。 任意コストは条件不成立でも支払える。
+    #   一次情報 (cardqa_op_02): 「自分のリーダーが「エンポリオ・イワンコフ」ではない場合、
+    #   この【起動メイン】効果を発動できますか？」 → 「はい、できます。 その場合、このカードを
+    #   レストにしますが、 **その後の効果では何も起きません**」。
+    #   → 「条件不成立なら legal に出ない」 は **行動の合法性ごと消す旧バグ** を固定していた。
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, "OP01-001", overlay)  # ゾロ (ガープでない)
@@ -539,7 +545,9 @@ def test_eb02_049_garp_activate_main_not_legal_wrong_leader():
 
     opts = list_activate_main_effects(st, me, overlay)
     mine = [(s, e) for (s, e) in opts if s.card.card_id == "EB02-049"]
-    assert len(mine) == 0, "リーダーが「ガープ」でないのに 起動メインが legal に出てはいけない"
+    assert len(mine) == 1, (
+        "任意コストは条件不成立でも払えるので legal に残るべき (公式: cardqa_op_02)"
+    )
 
 
 def test_eb02_049_garp_activate_main_human_ko_modal():

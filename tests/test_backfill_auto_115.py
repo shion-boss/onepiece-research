@@ -31,6 +31,22 @@ from engine.effects import (
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` の両対応)。
+
+    ⚠ 2026-08-05: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の
+    gate とする (cardqa_op_02 / cardqa_st_04)。 top-level `if` に置くと **任意コストの支払いごと
+    消える** ので、 overlay ではこの形の条件を `conditional` の中に移した。
+    条件そのものは変わっていないので、 テストはどちらの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    for _prim in eff.get("do") or []:
+        if isinstance(_prim, dict) and "conditional" in _prim:
+            return (_prim.get("conditional") or {}).get("if") or {}
+    return {}
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -237,7 +253,7 @@ def test_op11_082_aramaki_no_activate_when_non_navy_leader():
     me.deck = [repo.get(_FILLER)] * 10
 
     on_play_entry = _do(overlay, "OP11-082", "activate_main")[1]
-    assert on_play_entry.get("if", {}).get("leader_feature") == "海軍", \
+    assert _cond_of(on_play_entry).get("leader_feature") == "海軍", \
         "overlay の起動メイン条件 leader_feature=海軍 が無い"
     # 非海軍 leader にはアクティブアタック可が付かない (条件で gate)
     assert "アクティブアタック可" not in me.leader.granted_keywords
@@ -479,7 +495,7 @@ def test_op11_097_counter_trash_to_hand_when_10plus():
     # 2 番目の counter 効果 (trash_to_hand) を取得
     entries = _do_all(overlay, "OP11-097", "counter")
     trash_entry = next(
-        (do for do, e in entries if e.get("if", {}).get("self_trash_count_ge") == 10),
+        (do for do, e in entries if _cond_of(e).get("self_trash_count_ge") == 10),
         None,
     )
     assert trash_entry is not None, "self_trash_count_ge=10 の counter 効果が overlay に無い"

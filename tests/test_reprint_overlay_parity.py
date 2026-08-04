@@ -43,6 +43,22 @@ from engine.effects import (
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` の両対応)。
+
+    ⚠ 2026-08-05: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の
+    gate とする (cardqa_op_02 / cardqa_st_04)。 top-level `if` に置くと **任意コストの支払いごと
+    消える** ので、 overlay ではこの形の条件を `conditional` の中に移した。
+    条件そのものは変わっていないので、 テストはどちらの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    for _prim in eff.get("do") or []:
+        if isinstance(_prim, dict) and "conditional" in _prim:
+            return (_prim.get("conditional") or {}).get("if") or {}
+    return {}
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -151,7 +167,7 @@ def test_op06_100_trigger_checks_opponent_life():
     overlay = _overlay()
     for cid in ("OP06-100", "OP06-100_r1", "OP06-100_r2"):
         eff = _eff(overlay, cid, "trigger")
-        assert eff.get("if", {}).get("opp_life_le") == 3, \
+        assert _cond_of(eff).get("opp_life_le") == 3, \
             f"{cid}: トリガー条件が 公式 (相手のライフ3枚以下) と違う: {eff.get('if')}"
 
 
@@ -294,13 +310,18 @@ def test_p081_requires_blue_crossguild_characters():
     overlay = _overlay()
     for cid in ("P-081", "P-081_r1"):
         eff = _eff(overlay, cid, "activate_main")
-        cond = eff["if"]["self_chara_filtered_count_ge"]
+        cond = _cond_of(eff)["self_chara_filtered_count_ge"]
         assert cond["filter"].get("color") == "青", f"{cid}: 「青の」 条件が抜けている"
         assert cond["filter"].get("feature") == "クロスギルド"
         assert cond["count"] == 3
         assert "once_per_turn" not in eff.get("cost", {}), \
             f"{cid}: 公式テキストに 【ターン1回】 は無い"
-        filt = eff["do"][0]["play_from_hand"]["filter"]
+        # ⚠ 2026-08-05: コロン後の条件は効果のみを gate するので do は `conditional` で
+        #   包まれている (top-level `if` だと任意コストの支払いごと消える、 cardqa_op_02)。
+        _inner = eff["do"][0]
+        if "conditional" in _inner:
+            _inner = _inner["conditional"]["do"][0]
+        filt = _inner["play_from_hand"]["filter"]
         assert filt.get("category") == "CHARACTER" and filt.get("cost_eq") == 5, \
             f"{cid}: 公式は 「コスト5の…キャラカード」 ({filt})"
 
@@ -340,7 +361,7 @@ def test_op06_080_moria_requires_attached_don():
         if overlay.get(cid) is None:
             continue
         eff = _eff(overlay, cid, "on_attack")
-        assert eff.get("if", {}).get("self_attached_don_ge") == 1, \
+        assert _cond_of(eff).get("self_attached_don_ge") == 1, \
             f"{cid}: 【ドン‼×1】 の条件が無い = ドン未付与でも発動できてしまう"
 
 
@@ -399,7 +420,7 @@ def test_st03_003_targets_either_side():
         eff = _eff(overlay, cid, "on_block")
         assert eff["do"][0]["return_to_deck_bottom"] == "one_character_either_cost_le_2", \
             f"{cid}: 両陣営対象になっていない"
-        assert "self_don_ge" not in eff.get("if", {}), \
+        assert "self_don_ge" not in _cond_of(eff), \
             f"{cid}: self_don_ge は 【ドン‼×1】 (= 付与ドン) と無関係"
 
 

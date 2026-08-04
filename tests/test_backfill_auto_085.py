@@ -33,6 +33,22 @@ from engine.effects import (
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` の両対応)。
+
+    ⚠ 2026-08-05: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の
+    gate とする (cardqa_op_02 / cardqa_st_04)。 top-level `if` に置くと **任意コストの支払いごと
+    消える** ので、 overlay ではこの形の条件を `conditional` の中に移した。
+    条件そのものは変わっていないので、 テストはどちらの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    for _prim in eff.get("do") or []:
+        if isinstance(_prim, dict) and "conditional" in _prim:
+            return (_prim.get("conditional") or {}).get("if") or {}
+    return {}
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -296,6 +312,10 @@ def test_op08_041_afeland_activate_main_return_deck_bottom_ai():
 
 def test_op08_041_afeland_wrong_leader_not_legal():
     """リーダーが《九蛇海賊団》でない場合、条件 gate で起動メインが legal に出ない。"""
+    # ⚠ 2026-08-05 是正: コロン後の条件は **効果のみ** を gate する (cardqa_op_02:
+    #   「リーダーが「イワンコフ」ではない場合、この【起動メイン】効果を発動できますか？」
+    #   → 「はい。 このカードをレストにしますが、 その後の効果では何も起きません」)。
+    #   「条件不成立なら legal に出ない」 は行動の合法性ごと消す旧バグの固定だった。
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, "OP01-001", overlay)  # ルフィ (九蛇でない)
@@ -306,8 +326,8 @@ def test_op08_041_afeland_wrong_leader_not_legal():
 
     aff_opts = [o for o in list_activate_main_effects(st, me, overlay)
                 if o[0].card.card_id == "OP08-041"]
-    assert len(aff_opts) == 0, \
-        "《九蛇海賊団》以外のリーダーで起動メインが legal に出てはいけない"
+    assert len(aff_opts) == 1, \
+        "任意コストは条件不成立でも払えるので legal に残るべき (cardqa_op_02)"
 
 
 def test_op08_041_afeland_activate_main_human_target_pick():
@@ -360,9 +380,9 @@ def test_op08_043_newgate_on_play_set_attack_cost_discard_ai():
 
     on_play = next(e for e in overlay.get("OP08-043").effects
                    if e["when"] == "on_play")
-    assert on_play.get("if", {}).get("self_life_le") == 2, \
+    assert _cond_of(on_play).get("self_life_le") == 2, \
         "overlay の条件 self_life_le=2 が無い"
-    assert on_play.get("if", {}).get("leader_feature_contains") == "白ひげ海賊団", \
+    assert _cond_of(on_play).get("leader_feature_contains") == "白ひげ海賊団", \
         "overlay の条件 leader_feature_contains=白ひげ海賊団 が無い"
     for prim in on_play["do"]:
         execute_effect(prim, st, me, opp,

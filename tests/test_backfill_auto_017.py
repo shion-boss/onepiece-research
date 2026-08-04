@@ -529,6 +529,11 @@ def test_eb04_034_pudding_opp_attack_pump_ai():
     me, opp = st.players[0], st.players[1]
     prin = InPlay.of(repo.get("EB04-034"), sickness=False)  # power1000
     me.characters = [prin]
+    # ⚠ 2026-08-05: 公式は 「自分の手札1枚を捨てることができる：**自分のトラッシュにイベントが
+    #   4枚以上ある場合**、…+2000」。 コロン後の条件は効果のみを gate するので overlay では
+    #   `conditional` の中にある。 以前は top-level `if` で、 テストが `do` を直接実行して
+    #   **条件を一切満たさずに効果だけ検証** していた (= 条件が壊れても緑になる)。
+    me.trash = [repo.get("EB04-008")] * 4          # イベント 4 枚 = 条件成立
     power_before = me.leader.power  # リーダー power5000 > プリン power1000 → AI はリーダーを選ぶ
 
     do, _ = _do(overlay, "EB04-034", "opp_attack")

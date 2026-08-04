@@ -30,6 +30,22 @@ from engine.effects import (
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` の両対応)。
+
+    ⚠ 2026-08-05: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の
+    gate とする (cardqa_op_02 / cardqa_st_04)。 top-level `if` に置くと **任意コストの支払いごと
+    消える** ので、 overlay ではこの形の条件を `conditional` の中に移した。
+    条件そのものは変わっていないので、 テストはどちらの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    for _prim in eff.get("do") or []:
+        if isinstance(_prim, dict) and "conditional" in _prim:
+            return (_prim.get("conditional") or {}).get("if") or {}
+    return {}
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -299,7 +315,7 @@ def test_op14_076_main_add_rested_don_ai():
     me, opp = st.players[0], st.players[1]
     me.don_remaining_in_deck = 10
     do, eff = _do(overlay, "OP14-076", "main")
-    assert eff.get("if", {}).get("leader_feature") == "ドンキホーテ海賊団", \
+    assert _cond_of(eff).get("leader_feature") == "ドンキホーテ海賊団", \
         "overlay の leader_feature ゲートが無い"
 
     rested_before = me.don_rested
@@ -383,7 +399,7 @@ def test_op14_077_counter_add_don_when_opp_big_chara_ai():
 
     rested_before = me.don_rested
     do, eff = _do(overlay, "OP14-077", "counter", needle="add_rested_don")
-    assert eff.get("if", {}).get("exists_opp_chara_power_ge") == 6000, \
+    assert _cond_of(eff).get("exists_opp_chara_power_ge") == 6000, \
         "overlay の exists_opp_chara_power_ge=6000 ゲートが無い"
     for prim in do:
         execute_effect(prim, st, me, opp, None)
@@ -403,7 +419,7 @@ def test_op14_078_counter_pump_ai():
     st = _state(repo, "OP01-060", overlay)
     me, opp = st.players[0], st.players[1]
     do, eff = _do(overlay, "OP14-078", "counter")
-    assert eff.get("if", {}).get("leader_feature") == "ドンキホーテ海賊団", \
+    assert _cond_of(eff).get("leader_feature") == "ドンキホーテ海賊団", \
         "overlay の leader_feature ゲートが無い"
 
     power_before = me.leader.power

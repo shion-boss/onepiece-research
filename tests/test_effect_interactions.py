@@ -1096,10 +1096,15 @@ def test_self_all_chara_feature_not_vacuously_true_at_zero_characters():
     me, opp = st.players[0], st.players[1]
 
     eff = next(e for e in overlay.get("OP13-097").effects if e.get("when") == "main")
-    cond = eff.get("if")
+    # ⚠ 公式は 「自分のドン‼5枚をレストにできる：…の場合、…KOする」 = **コロン後**の条件。
+    #   条件は効果のみを gate するので overlay では `conditional` の中にある
+    #   (top-level `if` にすると任意コストの支払いごと消える、 cardqa_eb_04 の一般則)。
+    assert eff.get("if") is None, "条件が top-level `if` に戻っている (任意コストを妨げる)"
+    inner = next(x["conditional"] for x in eff["do"] if "conditional" in x)
+    cond = inner.get("if")
     assert cond == {"self_all_chara_feature": "天竜人"}, \
         "前提が崩れた: OP13-097 の main 条件が変わっている"
-    ko_prim = eff["do"][0]
+    ko_prim = inner["do"][0]
     assert "ko" in ko_prim, "前提が崩れた: OP13-097 main の先頭が KO ではない"
 
     # 相手にコスト6以下のキャラ (KO 候補) を 1 体
@@ -1163,9 +1168,23 @@ def test_op16_081_cost8_condition_false_when_neither_has_cost8():
     me.characters = [InPlay.of(repo.get("OP16-081"), sickness=False)]
     opp.characters = [InPlay.of(repo.get(_FILLER), sickness=False)]  # cost2
 
+    # ⚠ 2026-08-05: 公式は 「このキャラをレストにできる：**コスト8以上のキャラがいる場合**、…」。
+    #   コロン後の条件は **効果のみ** を gate する (cardqa_eb_04 の一般則) ので、
+    #   cost8+ が居なくても **任意コスト (このキャラをレスト) は払える = legal のまま**。
+    #   「条件不成立なら legal に出ない」 を期待値にすると、 行動の合法性ごと消す旧バグを固定する。
     opt = [o for o in list_activate_main_effects(st, me, overlay)
            if o[0].card.card_id == "OP16-081"]
-    assert len(opt) == 0, "cost8+ が両陣営に居ないのに起動メインが legal になっている"
+    assert len(opt) == 1, "任意コストは条件不成立でも払えるので legal に残るべき"
+
+    # 効果側 (パワー-2000) は条件不成立なので起きない、 が本質。
+    from engine.effects import execute_effect
+    eff = next(e for e in overlay.get("OP16-081").effects
+               if e.get("when") == "activate_main")
+    power_before = opp.characters[0].power
+    for prim in eff["do"]:
+        execute_effect(prim, st, me, opp, me.characters[0])
+    assert opp.characters[0].power == power_before, \
+        "cost8+ が両陣営に居ないのに パワー-2000 が起きている"
 
 
 # --------------------------------------------------------------------------- #
@@ -1408,11 +1427,16 @@ def test_st13_009_optional_cost_is_implemented_not_free():
     assert len(p1.life) == before, "条件不成立なのに相手ライフが減っている"
 
 
-def test_no_opp_hand_optional_cost_remains_gated_by_top_level_if():
-    """opp_hand 系の 「〜できる：相手の手札がN枚以上ある場合」 に top-level `if` が残っていない。
+def test_no_optional_cost_remains_gated_by_post_colon_condition():
+    """「〜できる：<条件>の場合、効果」 に top-level `if` が残っていない (全語彙・全カード)。
 
-    cron は 4 枚を是正したが同型が 4 枚残っていた (OP05-082 / OP07-047 / OP16-047 / ST13-009)。
-    同じ形の取りこぼしを機械で止める。
+    コロン後の条件は **効果のみ** を gate する (cardqa_eb_04 の一般則)。 top-level `if` に
+    置くと **行動の合法性ごと消える** ので、 任意コストを払う選択が engine から無くなる。
+
+    ⚠ `cost` ブロックを持たないエントリは除外する。 そちらは 「任意コスト自体が overlay に
+    未実装 (= 効果がタダ撃ちできる)」 という **別の欠陥** で、 カードごとにコストを実装する
+    必要がある (ST13-009 で実施)。 残数は
+    `test_optional_cost_missing_backlog_is_tracked` で固定している。
     """
     import re
     cards = {c["card_id"]: c for c in
@@ -1424,20 +1448,56 @@ def test_no_opp_hand_optional_cost_remains_gated_by_top_level_if():
             continue
         card = cards.get(cid) or {}
         for eff in effs:
-            if not isinstance(eff, dict):
+            if not isinstance(eff, dict) or not isinstance(eff.get("if"), dict):
                 continue
-            cond = eff.get("if")
-            if not (isinstance(cond, dict) and "opp_hand_count_ge" in cond):
+            if not eff.get("cost"):
+                continue          # 任意コスト未実装 = 別 issue (下のテストで数を固定)
+            src = "trigger" if eff.get("when") == "trigger" else "text"
+            text = re.sub(r"[(（][^)）]*[)）]", "",
+                          re.sub(r"\s+", "", card.get(src) or ""))
+            m = re.search(r"できる[：:]", text)
+            if not m or "場合" not in text[m.end():]:
+                continue
+            if "場合" in text[:m.start()]:
+                continue          # コロン前にも条件 = top-level if が妥当
+            bad.append(f"{cid}[{src}]: {text[:80]}")
+    assert not bad, (
+        "コロン後の条件が top-level `if` のままで、 任意コストの支払いを妨げている:\n  "
+        + "\n  ".join(bad[:40])
+    )
+
+
+def test_optional_cost_missing_backlog_is_tracked():
+    """「〜できる：」 の任意コストが overlay に **未実装** な残数を固定する。
+
+    この形は 「コストを払わずに効果だけ起きる」 = タダ撃ち。 条件を conditional へ移しても
+    直らない (コスト自体が無い) ので、 カードごとにコストを実装するしかない。
+    残数が **増えたら** 新弾等で同じ欠陥が入ったということなので落とす。
+    """
+    import re
+    cards = {c["card_id"]: c for c in
+             json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    missing = set()
+    for cid, effs in sorted(ov.items()):
+        if not isinstance(effs, list):
+            continue
+        card = cards.get(cid) or {}
+        for eff in effs:
+            if not isinstance(eff, dict) or not isinstance(eff.get("if"), dict):
+                continue
+            if eff.get("cost"):
                 continue
             src = "trigger" if eff.get("when") == "trigger" else "text"
             text = re.sub(r"[(（][^)）]*[)）]", "",
                           re.sub(r"\s+", "", card.get(src) or ""))
             m = re.search(r"できる[：:]", text)
-            if m and "場合" in text[m.end():]:
-                bad.append(f"{cid}: {text[:80]}")
-    assert not bad, (
-        "コロン後の条件が top-level `if` のままで、 任意コストの支払いを妨げている:\n  "
-        + "\n  ".join(bad)
+            if m and "場合" in text[m.end():] and "場合" not in text[:m.start()]:
+                missing.add(cid.split("_")[0])
+    # 2026-08-05 時点の実測。 減らすのは歓迎、 増えたら退行。
+    assert len(missing) <= 26, (
+        f"任意コスト未実装 (タダ撃ち) が {len(missing)} 枚に増えた:\n  "
+        + "\n  ".join(sorted(missing))
     )
 
 

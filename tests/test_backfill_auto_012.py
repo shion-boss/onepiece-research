@@ -207,6 +207,12 @@ def test_eb03_028_yuu_activate_main_draw_ai():
 
 def test_eb03_028_yuu_activate_main_blocked_when_hand_full():
     """手札が5枚以上なら【手札4枚以下】条件が不成立 → 起動メインは legal に出ない。"""
+    # ⚠ 2026-08-05 是正: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を
+    #   **効果のみ** の gate とする。 任意コストは条件不成立でも支払える。
+    #   一次情報 (cardqa_op_02): 「自分のリーダーが「エンポリオ・イワンコフ」ではない場合、
+    #   この【起動メイン】効果を発動できますか？」 → 「はい、できます。 その場合、このカードを
+    #   レストにしますが、 **その後の効果では何も起きません**」。
+    #   → 「条件不成立なら legal に出ない」 は **行動の合法性ごと消す旧バグ** を固定していた。
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, "OP01-001", overlay)
@@ -219,7 +225,9 @@ def test_eb03_028_yuu_activate_main_blocked_when_hand_full():
     assert eval_condition({"self_hand_count_le": 4}, st, me) is False, \
         "手札5枚で self_hand_count_le=4 が成立してはいけない"
     opts = _am(st, me, overlay, "EB03-028")
-    assert len(opts) == 0, "手札5枚では起動メインが legal に出てはいけない"
+    assert len(opts) == 1, (
+        "任意コストは条件不成立でも払えるので legal に残るべき (公式: cardqa_op_02)"
+    )
 
 
 # --------------------------------------------------------------------------- #
