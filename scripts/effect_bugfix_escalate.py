@@ -144,6 +144,10 @@ def _render(skips, unimpl, approx) -> str:
         "> 自動修正ルーティンが直せなかった項目 (= 忠実な自動修正が困難で human の判断が要る) の一覧。",
         "> 空なら「レビュー待ちなし」。 消化するには session で私 (Claude) に「pending review やって」と伝えるか、",
         "> 各項目を手動修正 → skip 解除 / `_unimplemented` 実装 で対応する。",
+        ">",
+        "> ⚠ **このファイルは毎回 全文再生成される**。 手書きした内容は cron の次回実行で消える",
+        "> (2026-08-04 に実際に消えた)。 公式裁定の記録など恒久情報は",
+        "> [docs/official_rulings.md](../docs/official_rulings.md) に書くこと。",
         "",
         f"**合計: {len(skips) + len(unimpl) + len(approx)} 件** "
         f"(skip {len(skips)} / _unimplemented {len(unimpl)} / 近似・未実装 {len(approx)})",
