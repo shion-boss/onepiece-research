@@ -18,6 +18,7 @@ from pathlib import Path
 from engine.core import GameState, InPlay, Phase, Player
 from engine.deck import CardRepository
 from engine.effects import (
+    eval_condition,
     evaluate_static_effects,
     execute_effect,
     fire_activate_main,
@@ -1070,3 +1071,89 @@ def test_plain_power_uses_current_and_truly_original_uses_printed():
     execute_effect({"ko": {"type": "one_opponent_character_filtered",
                            "filter": {"truly_original_power_le": cap}}}, st, p0, p1, None)
     assert v not in p1.characters, "「元々のパワーN以下」 は印刷パワーで判定するので当たるはず"
+
+
+# --------------------------------------------------------------------------- #
+#  P. 「自分の場のキャラが特徴Xを持つキャラのみの場合」 は **キャラ 0 枚では不成立**
+#     公式 (cardqa_op_13, OP13-097「世界の均衡など…永遠には保てぬのだ」):
+#       「自分の場にキャラが0枚の場合、この【メイン】効果で相手のキャラをKOできますか？」
+#       →「いいえ、できません。」
+#     是正前は all(空集合) が vacuously True になり、 0 枚でも KO できてしまっていた。
+#     Python/Rust とも同じ overlay 条件 (self_all_chara_feature) を読むので差分検証では沈黙。
+# --------------------------------------------------------------------------- #
+def test_self_all_chara_feature_not_vacuously_true_at_zero_characters():
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+
+    eff = next(e for e in overlay.get("OP13-097").effects if e.get("when") == "main")
+    cond = eff.get("if")
+    assert cond == {"self_all_chara_feature": "天竜人"}, \
+        "前提が崩れた: OP13-097 の main 条件が変わっている"
+    ko_prim = eff["do"][0]
+    assert "ko" in ko_prim, "前提が崩れた: OP13-097 main の先頭が KO ではない"
+
+    # 相手にコスト6以下のキャラ (KO 候補) を 1 体
+    opp.characters = [InPlay.of(repo.get(_FILLER), sickness=False)]  # OP01-013 cost2
+
+    # (1) 自分の場にキャラ 0 枚 → 条件不成立 → KO は起きない
+    me.characters = []
+    assert eval_condition(cond, st, me) is False, \
+        "キャラ 0 枚なのに条件が成立している (vacuous-true バグ)"
+    before = len(opp.characters)
+    if eval_condition(cond, st, me):            # engine と同じく条件成立時のみ do を回す
+        execute_effect(ko_prim, st, me, opp, None)
+    assert len(opp.characters) == before, \
+        "0 枚では KO できないはずなのに相手キャラが消えた"
+
+    # (2) 自分の場に 天竜人 キャラ 1 体 → 条件成立 → KO できる (対照)
+    me.characters = [InPlay.of(repo.get("OP13-083"), sickness=False)]  # サターン聖 (天竜人)
+    assert eval_condition(cond, st, me) is True
+    if eval_condition(cond, st, me):
+        execute_effect(ko_prim, st, me, opp, None)
+    assert len(opp.characters) == before - 1, \
+        "天竜人 が 1 体でも居れば KO できるはず"
+
+
+# --------------------------------------------------------------------------- #
+#  Q. OP16-081 お玉「コスト8以上のキャラがいる場合」 は **自他両陣営** を数える
+#     公式 (cardqa_op_16, OP16-081):
+#       「自分のコスト8以上のキャラがおらず、相手のコスト8以上のキャラがいる場合でも、
+#         『相手のキャラ1枚までを、このターン中、パワー-2000』することはできますか？」
+#       →「はい、できます。」
+#     是正前は self_chara_filtered_count_ge (自陣のみ) だったので、 相手だけ cost8+ だと
+#     起動メインが legal に出ず -2000 を撃てなかった。 exists_chara_cost_ge (両陣営) に是正。
+# --------------------------------------------------------------------------- #
+def test_op16_081_cost8_condition_counts_both_players():
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+
+    otama = InPlay.of(repo.get("OP16-081"), sickness=False)   # お玉 = cost2 (自陣に cost8+ 無し)
+    me.characters = [otama]
+    big = InPlay.of(repo.get("OP07-015_r1"), sickness=False)  # cost8 (相手陣のみ)
+    opp.characters = [big]
+    power_before = big.power
+
+    opt = [o for o in list_activate_main_effects(st, me, overlay)
+           if o[0].card.card_id == "OP16-081"]
+    assert len(opt) == 1, \
+        "相手だけ cost8+ でも 起動メインは legal であるべき (自陣のみ判定だと 0 件になる)"
+    fire_activate_main(st, me, opp, *opt[0])
+    assert big.power == power_before - 2000, \
+        "相手キャラに -2000 が入っていない (条件が自陣のみで発動を落としている)"
+
+
+# --------------------------------------------------------------------------- #
+#  Q2. 対照: 自他どちらにも cost8+ が居なければ OP16-081 の起動メインは発動できない
+# --------------------------------------------------------------------------- #
+def test_op16_081_cost8_condition_false_when_neither_has_cost8():
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.characters = [InPlay.of(repo.get("OP16-081"), sickness=False)]
+    opp.characters = [InPlay.of(repo.get(_FILLER), sickness=False)]  # cost2
+
+    opt = [o for o in list_activate_main_effects(st, me, overlay)
+           if o[0].card.card_id == "OP16-081"]
+    assert len(opt) == 0, "cost8+ が両陣営に居ないのに起動メインが legal になっている"

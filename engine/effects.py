@@ -1391,13 +1391,21 @@ def eval_condition(
             if (len(me.life) + opp_life) > int(v):
                 return False
         elif k == "self_all_chara_feature":
-            # 自分のキャラすべてが特徴《v》を「持つ」 (= 特徴名の完全一致、 空なら vacuously True)。
+            # 自分のキャラすべてが特徴《v》を「持つ」 (= 特徴名の完全一致)。
             # 公式「特徴《X》を持つキャラのみ」 (= OP15-001 東の海 / OP13-097 天竜人 等)。
+            # ⚠ **キャラ 0 枚は不成立** (vacuously True にしない)。 公式裁定
+            # (cardqa_op_13, OP13-097「自分の場にキャラが0枚の場合…KOできますか？→いいえ」):
+            # 「特徴Xを持つキャラのみの場合」 は キャラが 1 枚以上 存在することを要求する。
+            if not me.characters:
+                return False
             if not all(str(v) in (c.card.features or ()) for c in me.characters):
                 return False
         elif k == "self_all_chara_feature_contains":
-            # 自分のキャラすべてが「v を含む特徴」を持つ (= 特徴名の部分一致、 空なら vacuously True)。
+            # 自分のキャラすべてが「v を含む特徴」を持つ (= 特徴名の部分一致)。
             # 公式「『X』を含む特徴を持つキャラのみ」 (= OP11-046 ジェルマ: 特徴 'ジェルマ66' が 'ジェルマ' を含む)。
+            # ⚠ self_all_chara_feature と同じく **キャラ 0 枚は不成立** (上記裁定)。
+            if not me.characters:
+                return False
             if not all(
                 any(str(v) in f for f in (c.card.features or ()))
                 for c in me.characters

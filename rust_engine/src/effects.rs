@@ -555,15 +555,18 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                 let n = v.as_i64().unwrap_or(0);
                 !me.characters.iter().any(|c| c.card.power as i64 >= n)
             }
-            // 自キャラが全員 特徴 v を持つ (空なら vacuously true、 effects.py:1352)
+            // 自キャラが全員 特徴 v を持つ。 ⚠ キャラ 0 枚は不成立 (公式 cardqa_op_13 /
+            // OP13-097「場にキャラ0枚→KOできない」。 vacuously true にしない、 effects.py:1393)
             "self_all_chara_feature" => {
                 let f = v.as_str().unwrap_or("");
-                me.characters.iter().all(|c| c.card.features.iter().any(|x| x == f))
+                !me.characters.is_empty()
+                    && me.characters.iter().all(|c| c.card.features.iter().any(|x| x == f))
             }
-            // 自キャラが全員「v を含む特徴」を持つ (部分一致、 effects.py:1357/1700)
+            // 自キャラが全員「v を含む特徴」を持つ (部分一致)。 ⚠ キャラ 0 枚は不成立 (同上、 effects.py:1398)
             "self_all_chara_feature_contains" | "self_chara_only_feature_contains" => {
                 let f = v.as_str().unwrap_or("");
-                me.characters.iter().all(|c| c.card.features.iter().any(|x| x.contains(f)))
+                !me.characters.is_empty()
+                    && me.characters.iter().all(|c| c.card.features.iter().any(|x| x.contains(f)))
             }
             // 特徴 v を持つ自キャラが count 枚以上 (effects.py:1428)
             "self_chara_feature_count_ge" => {
