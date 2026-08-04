@@ -47,10 +47,23 @@ def qid_of(q: str, a: str) -> str:
     return hashlib.sha1((q + "\n" + a).encode("utf-8")).hexdigest()[:12]
 
 
-def collect() -> dict:
-    """cardqa 全ファイルから ユニーク Q&A を集める (文言が同じものは 1 件に畳む)。"""
+def collect() -> tuple[dict, bool]:
+    """cardqa 全ファイルから ユニーク Q&A を集める (文言が同じものは 1 件に畳む)。
+
+    返り値 = (uniq, from_primary)。
+      from_primary = True  → 一次ソース `db/faq/cardqa_*.json` (scraper 産、 全件) を読めた。
+      from_primary = False → 一次ソース不在で committed snapshot `db/cardqa_tagged.json`
+                             (= scraper 出力を tag 付けした忠実 copy、 q/a 逐語一致 = qid 一致)
+                             に fallback した。 これは snapshot なので **一次より少ない可能性** がある。
+
+    なぜ fallback が要るか: 一次ソースは Bandai 著作物ゆえ gitignore。 fresh clone +
+    公式サイト遮断の環境 (= クラウドルーティンが着地しうる) では一切存在せず、 collect が
+    空 → sync が **台帳を全消去** する data-loss があった。 committed snapshot に退避しつつ、
+    sync 側で from_primary=False の時は **prune しない** (下記) ことで台帳を守る。
+    """
     uniq: dict[str, dict] = {}
-    for f in sorted(glob.glob(str(ROOT / "db" / "faq" / "cardqa_*.json"))):
+    primary_files = sorted(glob.glob(str(ROOT / "db" / "faq" / "cardqa_*.json")))
+    for f in primary_files:
         fn = Path(f).name
         try:
             items = json.loads(Path(f).read_text(encoding="utf-8")).get("items", [])
@@ -66,7 +79,27 @@ def collect() -> dict:
                     uniq[k]["files"].append(fn)
             else:
                 uniq[k] = {"q": q, "a": a, "files": [fn]}
-    return uniq
+    if uniq:
+        return uniq, True
+
+    # 一次ソース不在 → committed snapshot に fallback (add-only、 prune しない)
+    tagged = ROOT / "db" / "cardqa_tagged.json"
+    if tagged.exists():
+        try:
+            items = json.loads(tagged.read_text(encoding="utf-8")).get("items", [])
+        except Exception:  # noqa: BLE001
+            items = []
+        for it in items:
+            q, a = (it.get("q") or "").strip(), (it.get("a") or "").strip()
+            if not q:
+                continue
+            k = qid_of(q, a)
+            if k in uniq:
+                if "cardqa_tagged.json" not in uniq[k]["files"]:
+                    uniq[k]["files"].append("cardqa_tagged.json")
+            else:
+                uniq[k] = {"q": q, "a": a, "files": ["cardqa_tagged.json"]}
+    return uniq, False
 
 
 def load_status() -> dict:
@@ -81,17 +114,27 @@ def save(db: dict) -> None:
                    encoding="utf-8")
 
 
-def sync(db: dict, uniq: dict) -> dict:
-    """新弾で増えた Q&A を pending として取り込む。 既存の status は保持する。"""
+def sync(db: dict, uniq: dict, from_primary: bool = True) -> dict:
+    """新弾で増えた Q&A を pending として取り込む。 既存の status は保持する。
+
+    from_primary=True (= 一次ソース `db/faq/cardqa_*.json` を読めた) の時だけ、 cardqa から
+    消えた Q&A を台帳からも落とす (公式が削除した裁定を追わない)。 一次不在で snapshot に
+    fallback した時 (from_primary=False) は snapshot が一次より少ない可能性があるので
+    **prune しない** (= add-only)。 これがないと、 一次ソースを持たない環境で本 script を
+    走らせると台帳が全消去される (= 処理済 status ごと吹き飛ぶ data-loss)。
+    """
     for k, v in uniq.items():
         if k in db:
-            db[k]["q"], db[k]["a"], db[k]["files"] = v["q"], v["a"], sorted(v["files"])
+            # fallback (snapshot) は一次より metadata が粗い (files が "cardqa_tagged.json"
+            # のみ) ので、 既存エントリの q/a/files は **上書きしない** (一次由来の pack 名を守る)。
+            if from_primary:
+                db[k]["q"], db[k]["a"], db[k]["files"] = v["q"], v["a"], sorted(v["files"])
         else:
             db[k] = {**v, "files": sorted(v["files"]), "status": "pending", "note": ""}
-    # cardqa から消えた Q&A は台帳からも落とす (公式が削除した裁定を追わない)
-    for k in list(db):
-        if k not in uniq:
-            del db[k]
+    if from_primary:
+        for k in list(db):
+            if k not in uniq:
+                del db[k]
     return db
 
 
@@ -102,7 +145,12 @@ def main() -> None:
                     help="1 件の status を更新")
     args = ap.parse_args()
 
-    db = sync(load_status(), collect())
+    uniq, from_primary = collect()
+    db = sync(load_status(), uniq, from_primary)
+    if not from_primary:
+        print("⚠ 一次ソース db/faq/cardqa_*.json 不在 → committed snapshot "
+              "db/cardqa_tagged.json に fallback (add-only、 台帳を prune しない)。",
+              file=sys.stderr)
 
     if args.set:
         qid, st, note = args.set
