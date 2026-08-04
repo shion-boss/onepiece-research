@@ -6509,6 +6509,102 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
         // cost 降順→power 降順→name 昇順 で並べ 先頭 limit 枚。 保守 bail: 動的 filter(cost_le_dynamic/
         // or/name_in_last_discarded)・no_effect・STAGE・then_life_to_hand(fire_self_life_to_hand cascade)・
         // field-full(trash_weakest)。 登場後 execute_on_play で on_play cascade 発火。
+        // 「自分の手札から (filter) キャラカード reveal_limit 枚までを公開する。 公開したカードの
+        //   うち1枚を登場させ、 残りがコスト extra_rested_cost_le 以下ならレストで登場させる」
+        //   (effects.py:4556、 OP10-058 レベッカ)。
+        // AI 経路 = 盤面最大化: (cost, power) 降順の先頭を active、 以降で コスト条件を満たす
+        // 最初の 1 枚を rested。 コスト超のカードはレスト登場できないので **公開のみ (手札に残る)**。
+        "reveal_hand_play_split" => {
+            let spec = v.as_object();
+            let resolved = resolve_dynamic_filter(spec.and_then(|o| o.get("filter")), state, me_idx);
+            let filt = resolved.as_ref();
+            let reveal_limit =
+                spec.and_then(|o| o.get("reveal_limit")).and_then(|x| x.as_i64()).unwrap_or(2) as usize;
+            let rest_cost_le =
+                spec.and_then(|o| o.get("extra_rested_cost_le")).and_then(|x| x.as_i64()).unwrap_or(4) as i32;
+            // 候補 = 手札の CHARACTER で filter 一致 かつ 効果で登場可能 (hand 順を保つ)
+            let mut cands: Vec<(usize, i32, i32)> = vec![]; // (hand_idx, cost, power)
+            {
+                let me = &state.players[me_idx];
+                for (i, c) in me.hand.iter().enumerate() {
+                    if c.category != crate::state::Category::Character {
+                        continue;
+                    }
+                    if card_no_play_via_effect(&c.card_id) {
+                        continue;
+                    }
+                    if !matches_filter(c, filt) {
+                        continue;
+                    }
+                    cands.push((i, c.cost, c.power));
+                }
+            }
+            if cands.is_empty() {
+                return true; // 該当手札なし = 不発 (Python も log のみ)
+            }
+            // (cost, power) 降順。 sort_by は stable = 同値は hand 順 (Python の sorted 同様)。
+            let mut ordered = cands.clone();
+            ordered.sort_by(|a, b| (b.1, b.2).cmp(&(a.1, a.2)));
+            let mut reveal_set: Vec<usize> = vec![ordered[0].0];
+            if let Some(t) = ordered[1..].iter().find(|t| t.1 <= rest_cost_le) {
+                reveal_set.push(t.0);
+            }
+            reveal_set.truncate(reveal_limit);
+            // active 枠 = コスト超のカードを優先 (レスト登場できない為)、 無ければ reveal_set 全体。
+            // ⚠ Python の `max()` は **最初の最大** を返す (Rust の max_by_key は最後) → 手で first-max。
+            let active_idx = {
+                let me = &state.players[me_idx];
+                let big: Vec<usize> =
+                    reveal_set.iter().copied().filter(|&i| me.hand[i].cost > rest_cost_le).collect();
+                let pool = if big.is_empty() { &reveal_set } else { &big };
+                let mut best = pool[0];
+                let mut bestk = (me.hand[best].cost, me.hand[best].power);
+                for &i in &pool[1..] {
+                    let k = (me.hand[i].cost, me.hand[i].power);
+                    if k > bestk {
+                        best = i;
+                        bestk = k;
+                    }
+                }
+                best
+            };
+            // 登場する (hand_idx, rested) を hand から抜く **前** に確定する (Python 同順)。
+            let mut plays: Vec<(usize, bool)> = vec![(active_idx, false)];
+            {
+                let me = &state.players[me_idx];
+                for &i in &reveal_set {
+                    if i == active_idx {
+                        continue;
+                    }
+                    if me.hand[i].cost <= rest_cost_le {
+                        plays.push((i, true));
+                    }
+                    // コスト超 = レスト登場できず 「公開のみ」 で手札に残る
+                }
+            }
+            let play_cards: Vec<(crate::state::CardDef, bool)> = {
+                let me = &state.players[me_idx];
+                plays.iter().map(|&(i, r)| (me.hand[i].clone(), r)).collect()
+            };
+            let mut desc: Vec<usize> = plays.iter().map(|&(i, _)| i).collect();
+            desc.sort_unstable_by(|a, b| b.cmp(a)); // 降順 pop で index ずれ防止
+            for i in desc {
+                state.players[me_idx].hand.remove(i);
+            }
+            for (card, rested) in play_cards {
+                trash_weakest_for_field_full(state, me_idx); // 場5枚は最弱trash (3-7-6-1、 KO無)
+                let mut ip = InPlay::of(card.clone(), true); // sickness=true
+                ip.rested = rested;
+                state.players[me_idx].characters.push(ip);
+                let played_idx = state.players[me_idx].characters.len() - 1;
+                state.last_self_chara_played_card = Some(card);
+                state.last_self_chara_played_from_trash = false;
+                if execute_on_play(state, me_idx, played_idx).is_err() {
+                    return false;
+                }
+            }
+            true
+        }
         "play_from_hand" => {
             let spec = v.as_object();
             // cost_le_dynamic を静的化してから使う (self_don_total 等)。
@@ -8082,6 +8178,16 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
         // block_chara_play / block_chara_play_turn: 共に自陣キャラ登場禁止 flag (effects.py:5544/5707)。
         "block_chara_play" | "block_chara_play_turn" => {
             state.players[me_idx].block_chara_play_until_turn_end = true;
+            true
+        }
+        // 「その後、 このバトル終了時、 このキャラを持ち主のデッキの下に置く」 (effects.py:6934、
+        // OP02-064 ボン・クレー)。 発動元に flag を立てるだけで、 実際の移動は バトル終了フック
+        // (rules.rs:reset_battle_buffs) が行う。 発動元が場に居ない (Detached) 時は Python も
+        // `if self_inplay is not None` で no-op。
+        "schedule_self_return_to_deck_bottom_at_battle_end" => {
+            if let Some(ip) = src_ip_mut(&mut state.players[me_idx], src) {
+                ip.return_to_deck_bottom_at_battle_end = true;
+            }
             true
         }
         // このターン中、 自効果ドロー禁止 (effects.py:block_self_draw_turn、 OP12-099 on_self_life_to_hand)。

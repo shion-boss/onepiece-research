@@ -55,10 +55,10 @@ KNOWN_BENIGN = {
 
 # Rust に primitive 自体が無い → 実経路では **明示 bail** する (= 不変条件は守られる)。
 # その sub-key が片側にしか無くても 「黙って違う」 ことにはならないので別枠。
-RUST_UNIMPLEMENTED_PRIMITIVES = {
-    "reveal_hand_play_split": ("reveal_limit", "extra_rested_cost_le"),
-    "schedule_self_return_to_deck_bottom_at_battle_end": (),
-}
+# 2026-08-04 に最後の 2 件 (reveal_hand_play_split / OP10-058、
+# schedule_self_return_to_deck_bottom_at_battle_end / OP02-064) を Rust 実装したので **空**。
+# 新しく片側だけの primitive を作ったらここに理由付きで登録する。
+RUST_UNIMPLEMENTED_PRIMITIVES: dict[str, tuple[str, ...]] = {}
 
 
 def overlay_keys() -> Counter:

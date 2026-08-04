@@ -52,6 +52,24 @@ fn reset_battle_buffs(state: &mut GameState) {
             ip.battle_buff = 0;
         }
     }
+    // 「その後、 このバトル終了時、 このキャラを持ち主のデッキの下に置く」 (OP02-064 ボン・クレー)。
+    // Python も バトル終了フック (game.py:_reset_battle_buffs、 公式 7-1-5-1) 本体で flush する
+    // ので、 AttackLeader / AttackCharacter のどちらの経路でも同じ位置で処理される。
+    // トリガー (on_self_chara_leave_by_self_effect) は Python も発火しないので発火しない。
+    for p in state.players.iter_mut() {
+        let mut i = 0;
+        while i < p.characters.len() {
+            if p.characters[i].return_to_deck_bottom_at_battle_end {
+                let mut ip = p.characters.remove(i);
+                ip.return_to_deck_bottom_at_battle_end = false;
+                let don = ip.attached_dons;
+                p.deck.push(ip.card);
+                p.don_rested += don; // 公式 6-5-5-4: 付与ドンはレストでコストエリアへ
+            } else {
+                i += 1;
+            }
+        }
+    }
 }
 
 // ============================ 戦闘 (Attack) 用ヘルパー ============================
@@ -1026,7 +1044,7 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 return Ok(());
             }
             let is_leader = atk_kind == "leader";
-            let (atk_cid, cost_discard, ret_at_battle_end) = {
+            let (atk_cid, cost_discard, _ret_at_battle_end) = {
                 let a = if is_leader { &state.players[me].leader } else { &state.players[me].characters[atk_idx] };
                 (a.card.card_id.clone(), a.attack_cost_discard_hand_n, a.return_to_deck_bottom_at_battle_end)
             };
@@ -1049,9 +1067,6 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     let c = state.players[me].hand.remove(idx);
                     state.players[me].trash.push(c);
                 }
-            }
-            if ret_at_battle_end {
-                return Err("return_at_battle_end 未対応".into());
             }
             // attacker.rested = true (game.py:1833、 on_attack 発火前、 target-check より先)
             if is_leader {

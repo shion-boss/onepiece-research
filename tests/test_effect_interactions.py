@@ -298,6 +298,96 @@ def test_unpayable_optional_cost_does_not_fire_effect():
 
 
 # --------------------------------------------------------------------------- #
+#  F3. 「このバトル終了時」 は リーダー戦でも成立する
+#      ⚠ flush が AttackCharacter 分岐にだけ書かれており、 リーダーへアタックした場合は
+#        フラグが残留していた (後続の別バトル終了時に誤爆する)。 公式は 「このバトル終了時」
+#        なのでリーダー戦もバトル。 2026-08-04 に バトル終了フック本体 (公式 7-1-5-1) へ移した。
+# --------------------------------------------------------------------------- #
+def _bon_clay_state(repo, overlay):
+    """OP02-064 ボン・クレー (ドン‼×1 で【アタック時】が有効) が攻撃できる盤面。"""
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    bon = InPlay.of(repo.get("OP02-064"), sickness=False)
+    bon.attached_dons = 1                              # 【ドン‼×1】 ゲート
+    me.characters = [bon]
+    opp.characters = [InPlay.of(repo.get("OP01-016"), sickness=False)]  # cost1 = 対象
+    me.hand = [repo.get(_FILLER)]                      # 「手札1枚を捨てる」 コスト用
+    return st, me, opp, bon
+
+
+def test_return_at_battle_end_fires_on_leader_attack():
+    """リーダーにアタックした場合も バトル終了時にデッキの下へ行く。"""
+    repo, overlay = _repo(), _overlay()
+    st, me, opp, bon = _bon_clay_state(repo, overlay)
+    deck_before = len(me.deck)
+
+    apply_action(st, AttackLeader(attacker_iid=bon.instance_id))
+
+    assert bon not in me.characters, "リーダー戦で 「このバトル終了時」 が処理されていない"
+    assert any(c.card_id == "OP02-064" for c in me.deck), "デッキの下に置かれていない"
+    assert len(me.deck) == deck_before + 1
+    assert bon.return_to_deck_bottom_at_battle_end is False, "フラグが残留している (後続バトルで誤爆する)"
+
+
+def test_return_at_battle_end_fires_on_character_attack():
+    """キャラにアタックした場合も同じ (従来から動いていた経路の回帰)。"""
+    repo, overlay = _repo(), _overlay()
+    st, me, opp, bon = _bon_clay_state(repo, overlay)
+    deck_before = len(me.deck)
+
+    apply_action(st, AttackCharacter(attacker_iid=bon.instance_id,
+                                     target_iid=opp.characters[0].instance_id))
+
+    assert bon not in me.characters, "キャラ戦で 「このバトル終了時」 が処理されていない"
+    assert len(me.deck) == deck_before + 1
+    assert bon.return_to_deck_bottom_at_battle_end is False
+
+
+# --------------------------------------------------------------------------- #
+#  F4. 「公開したカードのうち1枚を登場させ、 残りがコストN以下ならレストで登場」
+#      OP10-058 レベッカ。 コスト超のカードはレスト登場できないので **公開のみで手札に残る**。
+# --------------------------------------------------------------------------- #
+def test_reveal_hand_play_split_active_and_rested():
+    """コスト7 を active、 コスト4 を rested で登場させる (2 枚とも手札から出る)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.hand = [repo.get("OP16-053"),  # ドレスローザ cost7 → active 枠
+               repo.get("EB03-042"),  # ドレスローザ cost4 → rested 枠
+               repo.get(_FILLER)]     # 特徴違い = 対象外
+    hand_before = len(me.hand)
+
+    do = next(e for e in overlay.get("OP10-058").effects if e.get("when") == "on_play")["do"]
+    spec = next(p for p in do if "reveal_hand_play_split" in p)
+    execute_effect(spec, st, me, opp, None)
+
+    played = {c.card.card_id: c for c in me.characters}
+    assert "OP16-053" in played, "コスト7 のキャラが登場していない"
+    assert "EB03-042" in played, "コスト4 のキャラがレストで登場していない"
+    assert played["OP16-053"].rested is False, "active 枠がレストになっている"
+    assert played["EB03-042"].rested is True, "「残り」 はレストで登場するはず"
+    assert len(me.hand) == hand_before - 2, "登場した 2 枚が手札から抜けていない"
+    assert me.hand[0].card_id == _FILLER, "対象外のカードまで抜けている"
+
+
+def test_reveal_hand_play_split_over_cost_stays_in_hand():
+    """コスト上限超のカードしか残らない場合、 2 枚目は登場せず手札に残る。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.hand = [repo.get("OP16-053"), repo.get("OP15-046")]  # 両方 cost7 (>4)
+    do = next(e for e in overlay.get("OP10-058").effects if e.get("when") == "on_play")["do"]
+    spec = next(p for p in do if "reveal_hand_play_split" in p)
+    execute_effect(spec, st, me, opp, None)
+
+    assert len(me.characters) == 1, (
+        "コスト4超は 「残り」 節が適用外でレスト登場できない = 登場は 1 枚のはず"
+        f" (現在 {[c.card.card_id for c in me.characters]})"
+    )
+    assert len(me.hand) == 1, "登場しなかった 1 枚は手札に残るはず"
+
+
+# --------------------------------------------------------------------------- #
 #  G. 【相手のアタック時】が複数枚同時に自身をトラッシュする時の順序
 #     公式上は 場の並び順に処理される = トラッシュへの到着順も場の並び順。
 # --------------------------------------------------------------------------- #

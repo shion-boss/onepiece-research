@@ -515,6 +515,22 @@ def _reset_battle_buffs(state: GameState) -> None:
             #  再発火ループ防止フラグ、 effects.py _enqueue_opp_attack_with_cost、 2026-06-09)
             if getattr(ip, "_opp_attack_opt_skipped", None):
                 ip._opp_attack_opt_skipped = set()
+    # 「その後、 このバトル終了時、 このキャラを持ち主のデッキの下に置く」 (OP02-064 ボン・クレー)。
+    # ⚠ 以前は AttackCharacter 分岐にだけ書かれており、 **リーダーへのアタックでは flush されず
+    #   フラグが残留** していた (公式は 「このバトル終了時」 = リーダー戦もバトル)。 残留すると
+    #   後続の別バトル終了時に誤爆する。 バトル終了フック (公式 7-1-5-1) 本体に移して
+    #   全経路をカバーする (2026-08-04)。
+    for player in state.players:
+        leaving = [ip for ip in player.characters
+                   if getattr(ip, "return_to_deck_bottom_at_battle_end", False)]
+        for ip in leaving:
+            ip.return_to_deck_bottom_at_battle_end = False
+            player.characters.remove(ip)
+            player.deck.append(ip.card)
+            if ip.attached_dons > 0:   # 公式 6-5-5-4: 付与ドンはレストでコストエリアへ
+                player.don_rested += ip.attached_dons
+                ip.attached_dons = 0
+            state.push_log(f"  バトル終了時: {ip.card.name} を デッキの下に置く")
 
 
 def _reset_turn_buff(state: GameState) -> None:
@@ -2023,17 +2039,9 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
             state.last_battled_opp_iid = actual_target.instance_id
             from .effects import trigger_on_self_battled
             trigger_on_self_battled(state, me, opp, attacker, state.effects_overlay)
-        # 「このバトル終了時、 このキャラを持ち主のデッキの下に置く」 (OP02-064)。
-        if getattr(attacker, "return_to_deck_bottom_at_battle_end", False):
-            attacker.return_to_deck_bottom_at_battle_end = False
-            if attacker in me.characters:
-                me.characters.remove(attacker)
-                me.deck.append(attacker.card)
-                if attacker.attached_dons > 0:
-                    me.don_rested += attacker.attached_dons
-                    attacker.attached_dons = 0
-                state.push_log(f"  バトル終了時: {attacker.card.name} を デッキの下に置く")
-        # 公式 7-1-5-1: バトル終了時に「このバトル中」効果をリセット
+        # 公式 7-1-5-1: バトル終了時に「このバトル中」効果をリセット。
+        # 「このバトル終了時、 このキャラをデッキの下に置く」 (OP02-064) も この中で flush する
+        # (= AttackLeader を含む全経路をカバーするため、 2026-08-04 に移動)。
         _reset_battle_buffs(state)
         return
 

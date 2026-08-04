@@ -12,11 +12,18 @@
 | 差分 全カード合成デッキ 329 (`rust_parity_sweep`) | match 40,410 / bail 0 / **MISMATCH 0 / PANIC 0** |
 | 効果差分 3 パス (`rust_effect_smoke_parity --assert`) | 直接発火 5,084 + 静的 527 + 置換 108 / **MISMATCH 0** |
 | **効果ありカード 4,262 枚の bit 一致証明** | **100%** |
-| Rust 単独掃引 (`rust_fullsweep`、 60 デッキ / 360 game) | action 1,505,873 中 **bail 8 (0.0005%)**、 保存則違反 0、 中断 0 |
+| Rust 単独掃引 (`rust_fullsweep`、 60 デッキ / 360 game) | action 1,505,877 中 **bail 0**、 保存則違反 0、 中断 0 |
 | overlay 網羅 | primitive / condition / when / target spec が **全て実装済 (未対応 0)** |
 
-**残る唯一の bail クラス**: when-effect 中の `optional_cost_then`
-(cost=`trash_self_hand_random` → effect=`return_to_deck_bottom`) の組み合わせ。
+**⭐ bail 0 到達 (2026-08-04)**。 最後まで残っていた 2 primitive を実装した:
+- `schedule_self_return_to_deck_bottom_at_battle_end` (OP02-064 ボン・クレー)
+- `reveal_hand_play_split` (OP10-058 レベッカ)
+
+⚠ 前者の実装中に **Python 側のバグ** も見つかった: 「このバトル終了時」 の flush が
+`AttackCharacter` 分岐にだけ書かれており、 **リーダーへアタックした場合フラグが残留** して
+後続の別バトル終了時に誤爆しうる状態だった。 公式は 「このバトル終了時」 = リーダー戦もバトル
+なので、 バトル終了フック本体 (`game.py:_reset_battle_buffs`、 公式 7-1-5-1) に移して全経路を
+カバーした。 Rust も同じ位置 (`rules.rs:reset_battle_buffs`) で flush する。
 
 **証明範囲の 3 パス** (自己検査でなく **Python との bit 比較**):
 1. 直接発火 — 効果の `do` を両エンジンで実行して digest 比較。 発動元が LEADER の時は
