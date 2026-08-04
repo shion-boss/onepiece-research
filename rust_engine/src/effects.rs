@@ -2675,13 +2675,11 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
             };
             Some(me.characters.iter().filter(|c| matches_filter(&c.card, filt)).count() >= n)
         }
+        // ⚠ Python (effects.py:8637) は **filter 一致** の枚数で払えるか見る。 count だけ見ると
+        //   「コスト1のステージ」 指定を無視して 別コストのステージで払えると誤判定する (OP06-102)。
         "stage_to_deck_bottom" => {
-            let n = if cv.is_object() {
-                cv.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize
-            } else {
-                cv.as_i64().unwrap_or(1) as usize
-            };
-            Some(me.stages.len() >= n)
+            let (n, filt) = stage_count_and_filter(cv);
+            Some(me.stages.iter().filter(|s| matches_filter(&s.card, filt.as_ref())).count() >= n)
         }
         "attach_opp_don_to_opp_chara" => {
             let (n, from_cost) = if cv.is_object() {
@@ -2730,6 +2728,21 @@ fn count_and_filter(cv: &Value) -> (usize, Option<&Value>) {
     if let Some(o) = cv.as_object() {
         let count = o.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
         (count, o.get("filter"))
+    } else {
+        (cv.as_i64().unwrap_or(1) as usize, None)
+    }
+}
+
+/// `stage_to_deck_bottom` の spec を (枚数, filter) に分解する。
+/// ⚠ この cost だけ **filter が兄弟キーとして直に書かれる** 形式で、 Python は
+///   `{k: v for k, v in spec.items() if k != "count"}` を filter にしている
+///   (effects.py:8633/9034)。 spec が数値なら count のみ・filter なし。
+fn stage_count_and_filter(cv: &Value) -> (usize, Option<Value>) {
+    if let Some(o) = cv.as_object() {
+        let count = o.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+        let filt: serde_json::Map<String, Value> =
+            o.iter().filter(|(k, _)| k.as_str() != "count").map(|(k, v)| (k.clone(), v.clone())).collect();
+        (count, if filt.is_empty() { None } else { Some(Value::Object(filt)) })
     } else {
         (cv.as_i64().unwrap_or(1) as usize, None)
     }
@@ -2951,6 +2964,26 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
                     state.players[me_idx].don_rested += don;
                 }
                 _ => {}
+            }
+        }
+        // 「自分の(コスト N の)ステージ 1 枚を持ち主のデッキの下に置く」 cost (effects.py:9028)。
+        // Python は **stage の並び順 (最古順)** に filter 一致を先頭から count 枚。 sort しない。
+        // 付与ドンは公式 6-5-5-4 と同じくレストでコストエリアへ (Python 同順)。
+        // ⚠ これが未実装で OP06-102 カマキリの起動メインが bail していた (2026-08-04)。
+        "stage_to_deck_bottom" => {
+            let (count, filt) = stage_count_and_filter(&cv);
+            let pl = &mut state.players[me_idx];
+            let stages = std::mem::take(&mut pl.stages);
+            let mut moved = 0usize;
+            for s in stages {
+                if moved < count && matches_filter(&s.card, filt.as_ref()) {
+                    let don = s.attached_dons;
+                    pl.deck.push(s.card);
+                    pl.don_rested += don;
+                    moved += 1;
+                } else {
+                    pl.stages.push(s);
+                }
             }
         }
         // 「自分のキャラ N 枚を持ち主のデッキの下に置く」 cost (effects.py:8967)。
