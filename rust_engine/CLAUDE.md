@@ -118,6 +118,18 @@ RNG 依存効果は `rng.rs` (MT19937、 CPython `random` の bit 再現) を使
 - **once_per_turn の canonical 化**: top-level `once_per_turn` の発動済みは `once_per_turn_used` (set、
   `iid:` 依存で _EXCLUDE) では Rust から見えない。 field-when 系は InPlay の `event_once_used` field に昇格
   (`_FIELD_WHEN_ONCE_MIRROR`、 refresh で clear) して digest に載せる。
+- **公式の語の書き分けは 「入口で正規化」 して 1 箇所で決める** (2026-08-04):
+  - 素の 「コストN以下」 = **現在コスト** (`InPlay::base_cost()`) / 「元々のコストN以下」 =
+    **印刷コスト** (`CardDef.cost`)。 `resolve_target` の入口で `_truly_original_cost_` の
+    有無を見て `use_printed_cost` を決め、 以降は `cost_of(ip)` を通す。 **分岐ごとに書くと
+    必ず漏れる**。
+  - 盤面 (InPlay) に対する filter は `matches_filter_ip(ip, filt)` を使う。 `matches_filter`
+    (CardDef のみ) は印刷コスト固定なので、 盤面に使うと同じ裁定が *経路によって効いたり
+    効かなかったり* する。 判定基準 = **`X.card` を渡していたら InPlay = ip 版に直す**。
+  - 「相手の」 が無い 「キャラ1枚まで」 は **両陣営**。 `one_character_either_*` /
+    `one_inplay_either_filtered` は **相手側を `opp_value` 降順で 1 枚、 居なければ自陣の先頭**
+    (Python `_either_pick_one` と同順)。 ⚠ 両陣営を混ぜて power 降順にすると高パワーの
+    自キャラを巻き込む (OP10-046 キュロス自己バウンス事故と同型)。
 - **`matches_filter` の未知キー方針が Python と逆**: Python の `_matches_filter` は未知キーを
   **黙って無視 (= 制限なし)**、 Rust は `_ => return false` で **不一致扱い (安全側)**。 そのため
   Python 側で 「filter に書いたが _matches_filter が読まないキー」 (= `rested` / `active` /

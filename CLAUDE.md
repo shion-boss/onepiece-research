@@ -277,6 +277,14 @@ onepiece_research/
   - 既存の simplified entry を発見したら必ず公式テキストから再構築
   - `scripts/audit_overlay_vs_faq.py` で違反検出 (severity)
   - DSL に対応する primitive がない場合は新規追加 (`engine/effects.py:execute_effect`)
+  - **公式の語の書き分けを潰さない** (2026-08-04 に 165 効果エントリを是正、 詳細は
+    `docs/official_rulings.md`):
+    - 素の 「コストN以下」 = **効果修正後の現在コスト** / 「元々のコストN以下」 = **印刷コスト**
+      (spec は `truly_original_cost_{le,ge,eq}_N`)
+    - 「相手の」 が **無い** 「キャラ1枚まで」 = **両陣営** (自キャラ・発動元自身も選べる)。
+      spec は `one_character_either_*` / `one_inplay_either_filtered`
+    - 【トリガー】の文面は `text` でなく **`trigger` フィールド** (820 枚)。 監査を書く時は
+      効果エントリの `when` で読むフィールドを切り替える
 - ルール厳密性 < シミュレーションが回ること
 - カード固有効果はメタデッキの主要カードから優先実装
 - **`harness.run_matchup` には `effects_overlay` を必ず渡す**(過去に渡し忘れて全試合で
@@ -330,6 +338,7 @@ onepiece_research/
 | データ更新 | scrape_official_faq.py / scrape_official_banlist.py / scrape_cardrush_decks.py / refresh_all.py |
 | overlay 拡張・監査 | suggest_overlay_from_cards.py / merge_overlay_suggestions.py / audit_overlay_vs_faq.py / verify_overlay_vs_cardqa.py / smoke_test_card_effects.py |
 | engine 厳密化 | audit_engine_strictness.py (10 項目、 R63 で追加) |
+| **公式 Q&A conformance** | faq_qa_manifest.py (全 1,205 件の処理台帳) / audit_sonogo_order.py (「その後」順) / audit_target_scope.py (「相手の」修飾 vs 片側限定 spec) |
 | 対戦・分析 | compute_matchup_matrix.py / report_bad_moves.py (R63、 AI 行動品質) / tune_eval_weights.py |
 | 画像 | cache_deck_images.py / cache_all_images.py |
 
@@ -342,6 +351,12 @@ onepiece_research/
   - **方針: 表示用 matrix は 配備 AI (= uniform ExploitBeam + agnostic value + per-deck config) で 計算する** (= /meta で 公開する データを 実際の対戦相手 AI に 揃える)。 ⚠ **現配備 = uniform agnostic value (21dim) + beam** (2026-07-22 c23c939 で per-deck v6 を撤回・退避、 上の value 節参照)。 **matrix は uniform agnostic で要再計算 (現行の `ExploitBeam_v6` 産は stale = v6 は退避済で実際には agnostic に fallback している)**。 再計算: `compute_matchup_matrix.py --ai-mode exploitbeam --incremental --workers 12 --n-games 20` (= 先攻/後攻は cell内で交互、 A vs B と B vs A 両方計算)。 旧 ExploitBeam_v6 / ExploitBeam_vd / SmartOpponentAI_deployed / GoalDirectedAI 産は全て stale。
     - ⚠ **value-defense (= per-deck config で ON の deck) は matrix を ~5x 遅くする** (= 全試合に防御 sim が乗る、 240cell N=20 で **~5.4h**)。 必ず `--incremental` + 新 `--ai-version` で起動し、 5 cell checkpoint + version 照合で **crash 時に同一コマンド再実行で自動 resume** (= 計算済 cell を reuse、 timeout 失敗対策)。
     - ⚠ **配備AIの手が変わる変更後は要再計算** (例: 2026-06-13 offense force-attack 除去 / 2026-06-22 meta value-defense config 配備で再計算実施)。 deck の per-deck config (`db/deck_ai_config_*.json`) を変えたら その deck が絡む cell が stale
+- `faq_qa_status.json`: **公式 Q&A 全 1,205 件 (ユニーク) の処理台帳**。 status =
+  pending/conform/fixed/n/a/escalated。 公式 Q&A は engine が Python でも Rust でもない
+  **唯一の外部オラクル** で、 **両エンジンが同じ間違いをしている領域はここでしか見つからない**
+  (差分検証は原理的に沈黙する)。 cron `optcg-faq-conformance` (毎時) が未処理を減らす。
+  裁定の根拠は `docs/official_rulings.md` に一次情報つきで恒久記録する
+  (⚠ `db/_pending_review.md` は自動再生成されるので手書きしない)
 - `overlay_audit.{md,json}`: audit 結果 (sev≥5 = 0、 sev=3-4 = 0)
 - `overlay_when_missing.json`: cardqa sweep 結果 (X5、 missing 0)
 - `rules/*.pdf`: 公式ルール一次情報
