@@ -143,8 +143,8 @@ def test_op09_101_on_play_chara_to_life_human_pick():
     b = InPlay.of(repo.get(_SMALL_B), sickness=False)   # cost1
     opp.characters = [a, b]
 
-    # do[1] = chara_to_opp_life (対象選択本体)
-    execute_effect(_eff(overlay, "OP09-101", "on_play")["do"][1], st, me, opp,
+    # do[0] = chara_to_opp_life (対象選択本体、 手札破棄は then にネスト = 是正後)
+    execute_effect(_eff(overlay, "OP09-101", "on_play")["do"][0], st, me, opp,
                    InPlay.of(repo.get("OP09-101"), sickness=True))
     assert st.pending_choice is not None, "人間 + 複数候補で target_pick modal が立たない"
     assert st.pending_choice.get("kind") == "target_pick", \

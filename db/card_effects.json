@@ -69606,14 +69606,18 @@
  ],
  "OP09-101": [
   {
-   "_text": "OP09-101 on_play: 相手のコスト3以下のキャラ1枚を、相手のライフの上か下に表向きで置く：相手は自身の手札1枚を捨てる。",
+   "_text": "OP09-101 on_play: 相手のコスト3以下のキャラ1枚を、相手のライフの上か下に表向きで置く：置いた場合のみ相手は自身の手札1枚を捨てる (cardqa: 置かない場合は捨てない)",
    "when": "on_play",
    "do": [
     {
-     "trash_opp_hand_random": 1
-    },
-    {
-     "chara_to_opp_life": "one_opponent_character_cost_le_3"
+     "chara_to_opp_life": {
+      "target": "one_opponent_character_cost_le_3",
+      "then": [
+       {
+        "trash_opp_hand_random": 1
+       }
+      ]
+     }
     }
    ]
   }

@@ -7329,7 +7329,11 @@ def _execute_effect_body(
         elif k == "chara_to_opp_life":
             # 公式: 「相手のキャラ1枚までを、 相手のライフの上か下に表向きで置く」 EB01-053 等。
             # 場のキャラを取り除き、 持ち主 (= opp) のライフへ。
+            # 「置く：相手は手札1枚を捨てる」 の後段は **実際に置いた場合のみ** 実行する
+            # (OP09-101 クザン、 cardqa: 「ライフに置かない事はできますか→はい。 その場合、
+            #  相手は手札1枚を捨てることはありません。」)。 → "then" サブ効果は placed>0 で発火。
             target_spec = v if isinstance(v, str) else (v or {}).get("target", "one_opponent_character_any")
+            then_specs = (v or {}).get("then", []) if isinstance(v, dict) else []
             # resolve_pending_choice 再実行時 の _iid_picks を target_spec へ 伝播
             if isinstance(v, dict) and "_iid_picks" in v and not (
                 isinstance(target_spec, dict) and "_iid_picks" in target_spec
@@ -7341,6 +7345,7 @@ def _execute_effect_body(
             )
             if not targets:
                 return False
+            placed = 0
             for t in targets:
                 if t in opp.characters:
                     opp.characters.remove(t)
@@ -7349,6 +7354,10 @@ def _execute_effect_body(
                         t.attached_dons = 0
                     opp.life.insert(0, t.card)
                     state.push_log(f"  効果: 相手キャラ {t.card.name} → 相手ライフ上")
+                    placed += 1
+            if placed and then_specs:
+                for es in then_specs:
+                    execute_effect(es, state, me, opp, self_inplay)
         elif k == "return_opp_don":
             # 相手は自身の場のドン N 枚をドンデッキに戻す。 active 優先、 不足は rested から。
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))

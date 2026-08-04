@@ -3907,6 +3907,12 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             } else {
                 v.get("target").cloned().unwrap_or(Value::String("one_opponent_character_any".into()))
             };
+            // 「置く：相手は手札1枚を捨てる」 の後段は 実際に置いた場合のみ (OP09-101 クザン、 cardqa)。
+            let then_specs = if v.is_object() {
+                v.get("then").and_then(|x| x.as_array()).cloned().unwrap_or_default()
+            } else {
+                Vec::new()
+            };
             let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else {
                 return false;
             };
@@ -3920,6 +3926,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 .filter_map(|&(_, sl)| if let Slot::Char(i) = sl { Some(i) } else { None })
                 .collect();
             idxs.sort_by(|a, b| b.cmp(a));
+            let mut placed = 0usize;
             for i in idxs {
                 if i >= state.players[opp_idx].characters.len() {
                     continue;
@@ -3930,6 +3937,14 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     t.attached_dons = 0;
                 }
                 state.players[opp_idx].life.insert(0, t.card);
+                placed += 1;
+            }
+            if placed > 0 {
+                for es in &then_specs {
+                    if !execute_effect(es, state, me_idx, src) {
+                        return false;
+                    }
+                }
             }
             true
         }

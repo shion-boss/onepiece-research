@@ -735,3 +735,49 @@ def test_cannot_be_rested_blocks_rest_by_other_effect():
     victim.cannot_be_rested_buff = True
     execute_effect({"rest": "one_opponent_character_any"}, st, me, opp, None)
     assert victim.rested is False, "「レストにできない」 のに他効果でレストされている"
+
+
+# --------------------------------------------------------------------------- #
+#  N. 「(効果)：相手は手札を捨てる」 の後段は 効果が起きた場合のみ (OP09-101 クザン)
+#     公式 (cardqa): 「このキャラを登場させ、相手のコスト3以下のキャラ1枚を相手のライフに
+#                    置かない事はできますか？」→「はい、できます。その場合、相手は手札1枚を
+#                    捨てることはありません。」
+#     = ライフに置く後段の手札破棄は、 実際に置いた時だけ発火する (置けない/置かないなら破棄なし)。
+# --------------------------------------------------------------------------- #
+def test_op09_101_no_discard_when_no_life_target():
+    """OP09-101: 相手にコスト3以下のキャラが居なければ 相手の手札破棄は起きない。
+
+    是正前の overlay は `[trash_opp_hand_random, chara_to_opp_life]` の 2 段独立で、
+    ライフに置けない (対象なし) 場合でも 手札を捨てさせていた = 公式違反。
+    修正後は chara_to_opp_life の `then` に 破棄を入れ、 実際に置いた時だけ発火する。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    opp.hand = [repo.get(_FILLER)] * 4
+    opp.characters = []                       # ライフに置く対象 (コスト3以下) が居ない
+    src = InPlay.of(repo.get("OP09-101"), sickness=True)
+    me.characters = [src]
+    hand_before = len(opp.hand)
+    trigger_on_play(st, me, opp, src, overlay)
+    assert len(opp.hand) == hand_before, \
+        "ライフに置けないのに相手が手札を捨てている (公式: 置かない場合は捨てない)"
+
+
+def test_op09_101_discards_when_life_target_placed():
+    """対照: コスト3以下のキャラが居れば ライフに置き、 その場合のみ 相手は手札1枚を捨てる。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    opp.hand = [repo.get(_FILLER)] * 4
+    victim = InPlay.of(repo.get(_FILLER), sickness=False)   # OP01-013 = コスト2 (<=3)
+    assert victim.card.cost <= 3, "前提: 対象は コスト3以下"
+    opp.characters = [victim]
+    src = InPlay.of(repo.get("OP09-101"), sickness=True)
+    me.characters = [src]
+    hand_before, life_before = len(opp.hand), len(opp.life)
+    trigger_on_play(st, me, opp, src, overlay)
+    assert victim not in opp.characters and len(opp.life) == life_before + 1, \
+        "コスト3以下のキャラが相手ライフに置かれるはず"
+    assert len(opp.hand) == hand_before - 1, \
+        "ライフに置いた場合は相手が手札1枚を捨てるはず"
