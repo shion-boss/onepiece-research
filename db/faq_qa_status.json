@@ -832,7 +832,7 @@
   "files": [
    "cardqa_.json"
   ],
-  "note": "コスト意味論を是正 (7fc2b2d)。素の「コスト」=現在値 / 「元々のコスト」=印刷値。target spec 経路で実挙動検証済。⚠ filter dict 経路 (_matches_filter は CardDef のみ) は未対応で別issue。",
+  "note": "コスト意味論を是正 (8b42991 + c486750)。素の「コスト」=現在値 / 「元々のコスト」=印刷値。target spec 文字列と filter dict の両経路とも対応済 (_matches_filter_ip / matches_filter_ip)。Python/Rust 両エンジンで実挙動検証。",
   "q": "自分の場のドン!!が10枚、相手のドン!!が9枚以下の状態で、相手のこのキャラが他の効果によってコストが8以下になっています。\nこのとき、自分が「EB01-039 降三世 引奈落」を発動して、「ドン!!-1」で自分の場のドン!!が9枚にし、相手のこのキャラをKOすることはできますか？",
   "status": "fixed"
  },
@@ -2736,7 +2736,7 @@
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "コスト意味論を是正 (7fc2b2d)。素の「コスト」=現在値 / 「元々のコスト」=印刷値。target spec 経路で実挙動検証済。⚠ filter dict 経路 (_matches_filter は CardDef のみ) は未対応で別issue。",
+  "note": "コスト意味論を是正 (8b42991 + c486750)。素の「コスト」=現在値 / 「元々のコスト」=印刷値。target spec 文字列と filter dict の両経路とも対応済 (_matches_filter_ip / matches_filter_ip)。Python/Rust 両エンジンで実挙動検証。",
   "q": "本来のコストが8以上のキャラが、他の効果で7コスト以下になった場合、この【自分のターン中】効果でコスト-1することができますか？",
   "status": "fixed"
  },
@@ -5454,7 +5454,7 @@
   "files": [
    "cardqa_eb_03.json"
   ],
-  "note": "コスト意味論を是正 (7fc2b2d)。素の「コスト」=現在値 / 「元々のコスト」=印刷値。target spec 経路で実挙動検証済。⚠ filter dict 経路 (_matches_filter は CardDef のみ) は未対応で別issue。",
+  "note": "コスト意味論を是正 (8b42991 + c486750)。素の「コスト」=現在値 / 「元々のコスト」=印刷値。target spec 文字列と filter dict の両経路とも対応済 (_matches_filter_ip / matches_filter_ip)。Python/Rust 両エンジンで実挙動検証。",
   "q": "この【登場時】効果で、元々のコストが4以上で、他の効果によって現在のコストが3以下になっているキャラをデッキの下に置くことはできますか？",
   "status": "fixed"
  },

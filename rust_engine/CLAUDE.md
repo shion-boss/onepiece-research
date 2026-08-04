@@ -123,6 +123,11 @@ RNG 依存効果は `rng.rs` (MT19937、 CPython `random` の bit 再現) を使
     **印刷コスト** (`CardDef.cost`)。 `resolve_target` の入口で `_truly_original_cost_` の
     有無を見て `use_printed_cost` を決め、 以降は `cost_of(ip)` を通す。 **分岐ごとに書くと
     必ず漏れる**。
+  - パワーも同型: 素の 「パワーN以下」 = **現在パワー** (`InPlay::power()`、 ドン付与/バフ込み) /
+    「元々のパワー」 = **印刷パワー** (`CardDef.power`)。 入口で `_truly_original_power_` を畳んで
+    `power_of(ip)` に集約。 置換条件 (`replace_ko_match`) は `target_{cost,power}_{le,ge}` =
+    現在値 / `target_truly_original_*` = 印刷値。 ⚠ Rust の `replace_ko_match` は CardDef しか
+    受け取っていなかったので **現在値を引数で渡す** ようにした (victim_cur_cost/victim_cur_power)。
   - 盤面 (InPlay) に対する filter は `matches_filter_ip(ip, filt)` を使う。 `matches_filter`
     (CardDef のみ) は印刷コスト固定なので、 盤面に使うと同じ裁定が *経路によって効いたり
     効かなかったり* する。 判定基準 = **`X.card` を渡していたら InPlay = ip 版に直す**。

@@ -841,22 +841,53 @@ def test_overlay_cost_wording_matches_spec_key():
              json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
     ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
 
-    plain_rx = re.compile(r"(?<!元々の)(?<!元々のコスト)コスト\d+(以下|以上)")
+    # ⚠ 【トリガー】の文面は `text` でなく `trigger` フィールド (820 枚)。 効果エントリごとに
+    #   対応するテキスト欄と突き合わせる。
+    # ⚠ 「相手の元々の、パワーN以下のキャラとコストM以下のキャラ」 のように **読点で 「元々の」 が
+    #   両方に係る** 書き方がある (EB03-021 / OP10-098)。 「元々のコスト」 の literal 検索だけでは
+    #   取りこぼすので 「元々の」 + 読点 も 「元々の」 扱いにする。
+    # 1 枚のカード内で 「元々のコスト/パワー」 節と 素の 「コスト/パワー」 節が同居するもの。
+    # 節ごとに正しく書き分けてあることを個別に確認済 (2026-08-04)。
+    MIXED_WORDING = {
+        # 【相手のターン中】= 「自分のアクティブの元々のコストが5のキャラ」 (盤面 → truly_original)
+        # 【登場時】       = 「自分の手札からコスト5の緑のキャラカード」 (手札 → 素の cost_eq で正)
+        "OP04-119": "手札の「コスト5」と盤面の「元々のコスト5」が同居",
+        # replace_leave = 「自分の元々のコスト6以下のキャラ」 / 【相手のターン中】= 「元々のコスト2」
+        # どちらも truly_original。 素の cost 表記は無いが 「元々の」 が複数節にある。
+        "OP12-102": "複数節すべて「元々のコスト」で、節ごとに明示キー化済",
+    }
     bad: list[str] = []
     for cid, effs in sorted(ov.items()):
         if not isinstance(effs, list):
             continue
-        text = (cards.get(cid, {}) or {}).get("text") or ""
-        blob = json.dumps(effs, ensure_ascii=False)
-        uses_orig = "truly_original_cost_" in blob
-        says_orig = "元々のコスト" in text
-        if uses_orig and not says_orig:
-            bad.append(f"{cid}: overlay が truly_original_cost_* だが 公式に 「元々のコスト」 が無い")
-        elif says_orig and not uses_orig and plain_rx.search(text) is None:
-            # 公式が 「元々のコスト」 しか言っていないのに 素の spec を使っている
-            if re.search(r"_cost_(le|ge|eq)_\d", blob) or '"cost_le"' in blob or '"cost_ge"' in blob:
-                bad.append(f"{cid}: 公式は 「元々のコスト」 だが overlay が素のコスト spec")
-    assert not bad, "コスト表記と spec キーの不一致:\n  " + "\n  ".join(bad[:30])
+        if cid.split("_")[0] in MIXED_WORDING:
+            continue
+        card = cards.get(cid) or {}
+        for eff in effs:
+            if not isinstance(eff, dict):
+                continue
+            src = "trigger" if eff.get("when") == "trigger" else "text"
+            # ⚠ overlay の `_text` は要約なので (「元々cost5」 等) 判定源にできない。 公式本文を使う。
+            #   1 枚に 「元々のコスト」 節と素の 「コスト」 節が同居するカードは MIXED_WORDING で除外。
+            text = re.sub(r"[(（][^)）]*[)）]", "", re.sub(r"\s+", "", card.get(src) or ""))
+            # ⚠ `_text` / `_doc` は spec 名を引用していることがあるので blob から除く
+            #   (OP05-001 の `_doc` が truly_original_power_ge を引用していて誤検出した)。
+            blob = json.dumps({k: v for k, v in eff.items() if not k.startswith("_")},
+                              ensure_ascii=False)
+            for word, key in (("コスト", "cost"), ("パワー", "power")):
+                # `_by_truly_power_le_N` は 「元々のパワー」 を意味する既存の明示 spec
+                uses_orig = (f"truly_original_{key}_" in blob) or (f"_by_truly_{key}_" in blob)
+                says_orig = (f"元々の{word}" in text) or ("元々の、" in text and f"{word}" in text)
+                plain_rx = re.compile(rf"(?<!元々の){word}[+\-−]?\d+(以下|以上)")
+                uses_plain = bool(
+                    re.search(rf"(?<!truly_original)(?<!_by_truly)_{key}_(le|ge|eq)_\d", blob)
+                    or re.search(rf'"{key}_(le|ge|eq)"', blob)
+                )
+                if uses_orig and not says_orig:
+                    bad.append(f"{cid}[{src}]: truly_original_{key}_* だが 公式に 「元々の{word}」 が無い")
+                elif says_orig and uses_plain and plain_rx.search(text) is None:
+                    bad.append(f"{cid}[{src}]: 公式は 「元々の{word}」 だが overlay が素の {key} spec")
+    assert not bad, "コスト/パワー表記と spec キーの不一致:\n  " + "\n  ".join(bad[:40])
 
 
 def test_no_card_needs_plain_cost_attack_restriction():
@@ -1004,3 +1035,38 @@ def test_no_board_filter_uses_carddef_only_matcher():
         "盤面 InPlay に CardDef 専用の _matches_filter を使っている (印刷コスト固定に退行):\n  "
         + "\n  ".join(sorted(set(bad)))
     )
+
+
+def test_plain_power_uses_current_and_truly_original_uses_printed():
+    """パワーも コストと同じ書き分け (2026-08-04)。
+
+    一次情報 (cardqa): 「元々のパワーが6000以下のキャラが効果で7000以上となっている場合、
+    この【メイン】効果でKOできますか？」 → **「いいえ、できません。現在のパワーが6000以下の
+    キャラをKOできます。」** 対照で 「元々のパワーが3000以下で、 ドン!!の付与などによって
+    パワー4000以上になったキャラをトラッシュに置くことはできますか？」 → 「はい、できます。」
+    """
+    from engine.core import InPlay
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def board():
+        st, p0, p1 = _either_board(repo, ov, [], [])
+        v = InPlay.of(repo.get("OP01-013"), sickness=False)
+        v.turn_buff = 3000                       # 印刷 3000 → 現在 6000
+        p1.characters = [v]
+        return st, p0, p1, v
+
+    st, p0, p1, v = board()
+    cap = v.card.power + 1000                    # 印刷 < cap < 現在
+    assert v.card.power < cap < v.power
+    execute_effect({"ko": {"type": "one_opponent_character_filtered",
+                           "filter": {"power_le": cap}}}, st, p0, p1, None)
+    assert v in p1.characters, "素の 「パワーN以下」 は現在パワーで判定するので当たらないはず"
+
+    st, p0, p1, v = board()
+    execute_effect({"ko": {"type": "one_opponent_character_filtered",
+                           "filter": {"truly_original_power_le": cap}}}, st, p0, p1, None)
+    assert v not in p1.characters, "「元々のパワーN以下」 は印刷パワーで判定するので当たるはず"

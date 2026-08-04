@@ -1162,6 +1162,12 @@ fn resolve_target(
     let use_printed_cost = s.contains("_truly_original_cost_");
     let s = if use_printed_cost { s.replace("_truly_original_cost_", "_cost_") } else { s };
     let cost_of = |ip: &InPlay| -> i32 { if use_printed_cost { ip.card.cost } else { ip.base_cost() } };
+    //   パワーも同じ書き分け (cardqa: 「元々のパワーが6000以下のキャラが効果で7000以上となって
+    //   いる場合、 この【メイン】効果でKOできますか？」 → 「いいえ。 **現在のパワー**が6000以下の
+    //   キャラをKOできます」)。 素の 「パワーN以下」 = 現在パワー / 「元々のパワー」 = 印刷パワー。
+    let use_printed_power = s.contains("_truly_original_power_");
+    let s = if use_printed_power { s.replace("_truly_original_power_", "_power_") } else { s };
+    let power_of = |ip: &InPlay| -> i32 { if use_printed_power { ip.card.power } else { ip.power() } };
     let out = match s.as_str() {
         // effects.py:2346 — self_inplay=None (source-gone) なら 0 対象 = no-op。
         "self" => {
@@ -1320,7 +1326,7 @@ fn resolve_target(
             let n = parse_after(os, "power_eq_").unwrap_or(0);
             let opp = &state.players[opp_idx];
             let mut cands: Vec<usize> =
-                (0..opp.characters.len()).filter(|&i| opp.characters[i].card.power == n).collect();
+                (0..opp.characters.len()).filter(|&i| power_of(&opp.characters[i]) == n).collect();
             if !cands.is_empty() {
                 cands.sort_by(|&a, &b| {
                     opp_value(&opp.characters[b])
@@ -1331,7 +1337,7 @@ fn resolve_target(
             }
             let me = &state.players[me_idx];
             (0..me.characters.len())
-                .find(|&i| me.characters[i].card.power == n)
+                .find(|&i| power_of(&me.characters[i]) == n)
                 .map(|i| vec![(me_idx, Slot::Char(i))])
                 .unwrap_or_default()
         }
@@ -1485,7 +1491,7 @@ fn resolve_target(
             let n = parse_after(os, "power_le_").unwrap_or(0);
             let opp = &state.players[opp_idx];
             let mut cands: Vec<usize> =
-                (0..opp.characters.len()).filter(|&i| opp.characters[i].power() <= n).collect();
+                (0..opp.characters.len()).filter(|&i| power_of(&opp.characters[i]) <= n).collect();
             cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
             cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
         }
@@ -1611,7 +1617,7 @@ fn resolve_target(
         os if os.starts_with("all_opponent_characters_power_le_") => {
             let n = parse_after(os, "power_le_").unwrap_or(0);
             (0..state.players[opp_idx].characters.len())
-                .filter(|&i| state.players[opp_idx].characters[i].power() <= n)
+                .filter(|&i| power_of(&state.players[opp_idx].characters[i]) <= n)
                 .map(|i| (opp_idx, Slot::Char(i)))
                 .collect()
         }
@@ -1690,13 +1696,14 @@ fn resolve_target(
                         }
                     }
                     if let Some(n) = power_le {
-                        if c.power() > n {
+                        if power_of(c) > n {
                             return false;
                         }
                     }
-                    // power_eq は 現パワーでなく **印字値** (Python: c.card.power == n)。
+                    // power_eq も 素の 「パワー」 なら現在値 (「元々のパワー」 なら spec 名が
+                    // _truly_original_power_ を含み power_of が印刷値を返す)。
                     if let Some(n) = power_eq {
-                        if c.card.power != n {
+                        if power_of(c) != n {
                             return false;
                         }
                     }
@@ -1749,7 +1756,7 @@ fn resolve_target(
             let n = parse_after(os, "power_le_").unwrap_or(0);
             let opp = &state.players[opp_idx];
             (0..opp.characters.len())
-                .filter(|&i| opp.characters[i].power() <= n)
+                .filter(|&i| power_of(&opp.characters[i]) <= n)
                 .map(|i| (opp_idx, Slot::Char(i)))
                 .collect()
         }
@@ -2125,7 +2132,8 @@ fn worst_hand_idx(hand: &[crate::state::CardDef], known: &[String]) -> Option<us
 /// 「元々のコスト」 は `truly_original_cost_*` (印刷値) なので委譲側でそのまま正しい。
 fn matches_filter_ip(ip: &InPlay, filt: Option<&Value>) -> bool {
     let Some(f) = filt.and_then(|x| x.as_object()) else { return true };
-    const PLAIN: [&str; 4] = ["cost_le", "cost_ge", "cost_eq", "cost"];
+    const PLAIN: [&str; 7] = ["cost_le", "cost_ge", "cost_eq", "cost",
+                              "power_le", "power_ge", "power_eq"];
     if !PLAIN.iter().any(|k| f.contains_key(*k)) {
         return matches_filter(&ip.card, filt);
     }
@@ -2135,6 +2143,10 @@ fn matches_filter_ip(ip: &InPlay, filt: Option<&Value>) -> bool {
     if gi("cost_ge").map_or(false, |n| cur < n) { return false; }
     if gi("cost_eq").map_or(false, |n| cur != n) { return false; }
     if gi("cost").map_or(false, |n| cur != n) { return false; }
+    let pw = ip.power() as i64;
+    if gi("power_le").map_or(false, |n| pw > n) { return false; }
+    if gi("power_ge").map_or(false, |n| pw < n) { return false; }
+    if gi("power_eq").map_or(false, |n| pw != n) { return false; }
     let mut rest = f.clone();
     for k in PLAIN { rest.remove(k); }
     matches_filter(&ip.card, Some(&Value::Object(rest)))
@@ -9211,6 +9223,8 @@ fn replace_ko_match(
     cond: &serde_json::Map<String, Value>,
     holder_is_victim: bool,
     victim: &crate::state::CardDef,
+    victim_cur_cost: i32,
+    victim_cur_power: i32,
     by_opp_effect: bool,
 ) -> Option<bool> {
     if cond.get("by_opp_effect").and_then(|v| v.as_bool()).unwrap_or(false) && !by_opp_effect {
@@ -9238,28 +9252,50 @@ fn replace_ko_match(
             return Some(false);
         }
     }
+    // ⭐ 素の `target_cost_*` / `target_power_*` = **現在値** /
+    //    `target_truly_original_*` = **印刷値** (Python `_replace_ko_match` と対)。
     if let Some(n) = cond.get("target_cost_le").and_then(|v| v.as_i64()) {
-        if victim.cost as i64 > n {
+        if victim_cur_cost as i64 > n {
             return Some(false);
         }
     }
     if let Some(n) = cond.get("target_cost_ge").and_then(|v| v.as_i64()) {
+        if (victim_cur_cost as i64) < n {
+            return Some(false);
+        }
+    }
+    if let Some(n) = cond.get("target_truly_original_cost_le").and_then(|v| v.as_i64()) {
+        if victim.cost as i64 > n {
+            return Some(false);
+        }
+    }
+    if let Some(n) = cond.get("target_truly_original_cost_ge").and_then(|v| v.as_i64()) {
         if (victim.cost as i64) < n {
             return Some(false);
         }
     }
     if let Some(n) = cond.get("target_power_le").and_then(|v| v.as_i64()) {
+        if victim_cur_power as i64 > n {
+            return Some(false);
+        }
+    }
+    if let Some(n) = cond.get("target_power_ge").and_then(|v| v.as_i64()) {
+        if (victim_cur_power as i64) < n {
+            return Some(false);
+        }
+    }
+    if let Some(n) = cond.get("target_truly_original_power_le").and_then(|v| v.as_i64()) {
         if victim.power as i64 > n {
+            return Some(false);
+        }
+    }
+    if let Some(n) = cond.get("target_truly_original_power_ge").and_then(|v| v.as_i64()) {
+        if (victim.power as i64) < n {
             return Some(false);
         }
     }
     if let Some(n) = cond.get("target_truly_original_power_eq").and_then(|v| v.as_i64()) {
         if victim.power as i64 != n {
-            return Some(false);
-        }
-    }
-    if let Some(n) = cond.get("target_power_ge").and_then(|v| v.as_i64()) {
-        if (victim.power as i64) < n {
             return Some(false);
         }
     }
@@ -9314,7 +9350,10 @@ pub fn try_replace_ko(
 ) -> Result<bool, String> {
     let Some(ov) = overlay() else { return Ok(false) };
     let victim_slot = Slot::Char(victim_char_idx);
-    let victim_card = get_ip(&state.players[victim_owner], victim_slot).card.clone();
+    let victim_ip = get_ip(&state.players[victim_owner], victim_slot);
+    let victim_card = victim_ip.card.clone();
+    // 素の 「コスト/パワー N 以下」 は **現在値** (公式 4-9 が定義するのは 「元々の」 の意味だけ)。
+    let (victim_cur_cost, victim_cur_power) = (victim_ip.base_cost(), victim_ip.power());
     // holder 走査順: leader → chars → stages (Python と同順、 先頭一致で発動)
     let mut holders: Vec<Slot> = vec![Slot::Leader];
     for i in 0..state.players[victim_owner].characters.len() {
@@ -9331,7 +9370,10 @@ pub fn try_replace_ko(
     //   (ST30-009 リトルオーズJr. の replace_leave 条件漏れ修正、 クラウド commit 3444423)。
     const EXCL: &[&str] = &[
         "target", "target_attribute", "target_cost_le", "target_cost_ge",
-        "target_power_le", "target_power_ge", "target_truly_original_power_eq",
+        "target_truly_original_cost_le", "target_truly_original_cost_ge",
+        "target_power_le", "target_power_ge",
+        "target_truly_original_power_le", "target_truly_original_power_ge",
+        "target_truly_original_power_eq",
         "target_feature", "target_feature_contains", "target_color", "target_name_exclude",
         "target_name", "target_rested", "by_opp_effect", "by_battle",
     ];
@@ -9349,7 +9391,8 @@ pub fn try_replace_ko(
                 continue;
             }
             let cond = eff.get("if").and_then(|v| v.as_object()).unwrap_or(&empty);
-            match replace_ko_match(cond, hslot == victim_slot, &victim_card, by_opp_effect) {
+            match replace_ko_match(cond, hslot == victim_slot, &victim_card,
+                                   victim_cur_cost, victim_cur_power, by_opp_effect) {
                 Some(true) => {}
                 Some(false) => continue,
                 None => return Err("replace_ko match 未知 target キー".into()),

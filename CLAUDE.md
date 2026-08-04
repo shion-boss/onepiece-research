@@ -281,6 +281,13 @@ onepiece_research/
     `docs/official_rulings.md`):
     - 素の 「コストN以下」 = **効果修正後の現在コスト** / 「元々のコストN以下」 = **印刷コスト**
       (spec は `truly_original_cost_{le,ge,eq}_N`)
+    - 素の 「パワーN以下」 = **現在パワー** (ドン付与/バフ込み) / 「元々のパワーN以下」 =
+      **印刷パワー** (spec は `truly_original_power_{le,ge,eq}`)。 置換条件は
+      `target_{cost,power}_{le,ge}` = 現在値 / `target_truly_original_*` = 印刷値
+    - ⚠ ルール **4-9 が定義するのは 「元々の」 の意味だけ**。 素の表記を印刷値にする根拠ではない
+      (overlay の `_doc` に 「4-9 に従い印刷値」 と書かれていたカードが実際は誤りだった)
+    - ⚠ 盤面 (InPlay) の filter は `_matches_filter_ip` / `matches_filter_ip` を使う。
+      `_matches_filter(x.card, ...)` は CardDef のみ = 印刷値固定で、 経路によって裁定が変わる
     - 「相手の」 が **無い** 「キャラ1枚まで」 = **両陣営** (自キャラ・発動元自身も選べる)。
       spec は `one_character_either_*` / `one_inplay_either_filtered`
     - 【トリガー】の文面は `text` でなく **`trigger` フィールド** (820 枚)。 監査を書く時は

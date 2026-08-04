@@ -584,7 +584,7 @@
       ],
       "effect": [
        {
-        "return_to_hand": "one_opponent_character_power_eq_6000"
+        "return_to_hand": "one_opponent_character_truly_original_power_eq_6000"
        }
       ]
      }
@@ -1784,8 +1784,8 @@
    "when": "replace_ko",
    "if": {
     "target": "any_self_chara",
-    "target_cost_ge": 4,
-    "by_opp_effect": true
+    "by_opp_effect": true,
+    "target_truly_original_cost_ge": 4
    },
    "cost": [
     {
@@ -2067,7 +2067,7 @@
     "target": "any_self_chara",
     "target_feature": "海軍",
     "by_opp_effect": true,
-    "target_power_le": 7000
+    "target_truly_original_power_le": 7000
    },
    "cost": [
     {
@@ -2705,7 +2705,7 @@
     "target": "any_self_chara",
     "target_feature": "空島",
     "by_opp_effect": true,
-    "target_power_ge": 6000
+    "target_truly_original_power_ge": 6000
    },
    "do": [
     {
@@ -3357,7 +3357,7 @@
    "when": "on_play",
    "do": [
     {
-     "return_to_hand": "one_character_either_power_eq_7000"
+     "return_to_hand": "one_character_either_truly_original_power_eq_7000"
     }
    ]
   }
@@ -5556,7 +5556,7 @@
      "ko": {
       "type": "one_opponent_character_filtered",
       "filter": {
-       "power_le": 7000
+       "truly_original_power_le": 7000
       }
      }
     }
@@ -9925,7 +9925,7 @@
    "if": {
     "target": "any_self_chara",
     "by_opp_effect": true,
-    "target_power_le": 7000
+    "target_truly_original_power_le": 7000
    },
    "do": [
     {
@@ -12310,8 +12310,8 @@
    "when": "replace_leave",
    "if": {
     "target": "any_self_chara",
-    "target_power_le": 7000,
-    "by_opp_effect": true
+    "by_opp_effect": true,
+    "target_truly_original_power_le": 7000
    },
    "do": [
     {
@@ -12372,7 +12372,7 @@
      "rest": {
       "type": "one_opponent_character_filtered",
       "filter": {
-       "power_le": 7000
+       "truly_original_power_le": 7000
       }
      }
     }
@@ -12664,8 +12664,8 @@
    "when": "replace_ko",
    "if": {
     "target": "any_self_chara",
-    "target_cost_ge": 4,
-    "by_opp_effect": true
+    "by_opp_effect": true,
+    "target_truly_original_cost_ge": 4
    },
    "cost": [
     {
@@ -12803,7 +12803,7 @@
  "OP05-001_p2": [
   {
    "_text": "OP05-001_p2 【ドン!!×1】【相手のターン中】【ターン1回】自分のパワー5000以上のキャラがKOされる場合、そのキャラはKOされる代わりに、このターン中、パワー-1000できる。",
-   "_doc": "「パワー5000以上」 は truly_original_power_ge で判定 (公式 4-9 の例に従い、 KO時の現在パワーでなくカード原本パワー = 公式解釈通り)。",
+   "_doc": "公式テキストは素の 「パワー5000以上」 = **現在パワー** で判定する (ルール 4-9 が定義するのは 「元々の」 の意味だけで、 素の表記を印刷値に する根拠ではない。 cardqa: 「元々のパワーが6000以下のキャラが効果で7000以上 となっている場合…KOできますか？」→「いいえ。現在のパワーが6000以下の キャラをKOできます」)。 2026-08-04 に印刷値判定から是正。",
    "when": "replace_ko",
    "if": {
     "target": "any_self_chara",
@@ -14177,7 +14177,7 @@
          "target": {
           "type": "one_self_chara_filtered",
           "filter": {
-           "power_le": 4000
+           "truly_original_power_le": 4000
           }
          },
          "amount": 2000,
@@ -14216,7 +14216,7 @@
          "target": {
           "type": "one_self_chara_filtered",
           "filter": {
-           "power_le": 4000
+           "truly_original_power_le": 4000
           }
          },
          "amount": 2000,
@@ -15907,7 +15907,7 @@
  "OP05-001": [
   {
    "_text": "OP05-001 【ドン!!×1】【相手のターン中】【ターン1回】自分のパワー5000以上のキャラがKOされる場合、そのキャラはKOされる代わりに、このターン中、パワー-1000できる。",
-   "_doc": "「パワー5000以上」 は truly_original_power_ge で判定 (公式 4-9 の例に従い、 KO時の現在パワーでなくカード原本パワー = 公式解釈通り)。",
+   "_doc": "公式テキストは素の 「パワー5000以上」 = **現在パワー** で判定する (ルール 4-9 が定義するのは 「元々の」 の意味だけで、 素の表記を印刷値に する根拠ではない。 cardqa: 「元々のパワーが6000以下のキャラが効果で7000以上 となっている場合…KOできますか？」→「いいえ。現在のパワーが6000以下の キャラをKOできます」)。 2026-08-04 に印刷値判定から是正。",
    "when": "replace_ko",
    "if": {
     "target": "any_self_chara",
@@ -15935,7 +15935,7 @@
  "OP05-001_p1": [
   {
    "_text": "OP05-001_p1 【ドン!!×1】【相手のターン中】【ターン1回】自分のパワー5000以上のキャラがKOされる場合、そのキャラはKOされる代わりに、このターン中、パワー-1000できる。",
-   "_doc": "「パワー5000以上」 は truly_original_power_ge で判定 (公式 4-9 の例に従い、 KO時の現在パワーでなくカード原本パワー = 公式解釈通り)。",
+   "_doc": "公式テキストは素の 「パワー5000以上」 = **現在パワー** で判定する (ルール 4-9 が定義するのは 「元々の」 の意味だけで、 素の表記を印刷値に する根拠ではない。 cardqa: 「元々のパワーが6000以下のキャラが効果で7000以上 となっている場合…KOできますか？」→「いいえ。現在のパワーが6000以下の キャラをKOできます」)。 2026-08-04 に印刷値判定から是正。",
    "when": "replace_ko",
    "if": {
     "target": "any_self_chara",
@@ -18956,7 +18956,7 @@
     "target": "any_self_chara",
     "target_feature": "空島",
     "by_opp_effect": true,
-    "target_power_ge": 6000
+    "target_truly_original_power_ge": 6000
    },
    "do": [
     {
@@ -19015,7 +19015,7 @@
     "target": "any_self_chara",
     "target_feature": "海軍",
     "by_opp_effect": true,
-    "target_power_le": 7000
+    "target_truly_original_power_le": 7000
    },
    "cost": [
     {
@@ -28765,7 +28765,7 @@
    "if": {
     "self_chara_filtered_count_ge": {
      "filter": {
-      "power_eq": 6000
+      "truly_original_power_eq": 6000
      },
      "count": 2
     }
@@ -34118,7 +34118,7 @@
       ],
       "effect": [
        {
-        "return_to_hand": "one_opponent_character_power_eq_6000"
+        "return_to_hand": "one_opponent_character_truly_original_power_eq_6000"
        }
       ]
      }
@@ -35818,7 +35818,7 @@
      "rest": {
       "type": "one_opponent_character_filtered",
       "filter": {
-       "power_le": 7000
+       "truly_original_power_le": 7000
       }
      }
     }
@@ -41679,7 +41679,7 @@
    "if": {
     "self_chara_filtered_count_ge": {
      "filter": {
-      "power_eq": 6000
+      "truly_original_power_eq": 6000
      },
      "count": 2
     }
@@ -42499,7 +42499,7 @@
    "when": "on_play",
    "do": [
     {
-     "return_to_hand": "one_character_either_power_eq_7000"
+     "return_to_hand": "one_character_either_truly_original_power_eq_7000"
     }
    ]
   }
@@ -48782,7 +48782,7 @@
    ],
    "if": {
     "opp_inplay_truly_original_power_ge_count": {
-     "power_ge": 5000,
+     "truly_original_power_ge": 5000,
      "count": 2
     }
    }
@@ -56841,9 +56841,9 @@
    "when": "replace_ko",
    "if": {
     "target": "any_self_chara",
-    "target_cost_le": 5,
     "target_color": "黒",
-    "by_opp_effect": true
+    "by_opp_effect": true,
+    "target_truly_original_cost_le": 5
    },
    "cost": [
     {
@@ -56876,9 +56876,9 @@
    "when": "replace_ko",
    "if": {
     "target": "any_self_chara",
-    "target_cost_le": 5,
     "target_color": "黒",
-    "by_opp_effect": true
+    "by_opp_effect": true,
+    "target_truly_original_cost_le": 5
    },
    "cost": [
     {
@@ -61715,7 +61715,7 @@
     {
      "swap_opp_power": {
       "filter": {
-       "power_le": 9000
+       "truly_original_power_le": 9000
       }
      }
     }
@@ -61888,7 +61888,7 @@
         "rest": {
          "type": "one_opponent_character_filtered",
          "filter": {
-          "power_le": 7000
+          "truly_original_power_le": 7000
          }
         }
        }
@@ -62742,7 +62742,7 @@
          "target": {
           "type": "one_self_chara_filtered",
           "filter": {
-           "power_le": 2000
+           "truly_original_power_le": 2000
           }
          },
          "amount": 1000,
@@ -66069,7 +66069,7 @@
    "when": "trigger",
    "do": [
     {
-     "return_to_deck_bottom": "one_character_either_truly_original_cost_le_1"
+     "return_to_deck_bottom": "one_character_either_cost_le_1"
     }
    ]
   }
@@ -66885,7 +66885,7 @@
    ],
    "if": {
     "opp_inplay_truly_original_power_ge_count": {
-     "power_ge": 5000,
+     "truly_original_power_ge": 5000,
      "count": 2
     }
    }
@@ -67621,7 +67621,7 @@
       "target": {
        "type": "all_self_chara_filtered",
        "filter": {
-        "power_le": 1000
+        "truly_original_power_le": 1000
        }
       },
       "duration": "next_opp_turn_end"
@@ -68507,7 +68507,7 @@
    ],
    "if": {
     "opp_inplay_truly_original_power_ge_count": {
-     "power_ge": 5000,
+     "truly_original_power_ge": 5000,
      "count": 2
     }
    }
@@ -69861,7 +69861,7 @@
      "set_ko_immune": {
       "type": "all_self_chara_filtered",
       "filter": {
-       "cost_eq": 5
+       "truly_original_cost_eq": 5
       },
       "rested": false
      }
@@ -78141,7 +78141,7 @@
      "set_ko_immune": {
       "type": "all_self_chara_filtered",
       "filter": {
-       "cost_eq": 5
+       "truly_original_cost_eq": 5
       },
       "rested": false
      }
@@ -78182,7 +78182,7 @@
      "set_ko_immune": {
       "type": "all_self_chara_filtered",
       "filter": {
-       "cost_eq": 5
+       "truly_original_cost_eq": 5
       },
       "rested": false
      }
@@ -83079,7 +83079,7 @@
       "target": {
        "type": "all_self_chara_filtered",
        "filter": {
-        "power_eq": 6000
+        "truly_original_power_eq": 6000
        },
        "limit": 2
       },
@@ -83103,7 +83103,7 @@
       "target": {
        "type": "all_self_chara_filtered",
        "filter": {
-        "power_eq": 6000
+        "truly_original_power_eq": 6000
        },
        "limit": 2
       },
@@ -83140,7 +83140,7 @@
       "ポートガス・D・エース",
       "モンキー・D・ルフィ"
      ],
-     "power_eq": 6000
+     "truly_original_power_eq": 6000
     }
    },
    "do": [
@@ -83173,7 +83173,7 @@
       "ポートガス・D・エース",
       "モンキー・D・ルフィ"
      ],
-     "power_eq": 6000
+     "truly_original_power_eq": 6000
     }
    },
    "do": [
@@ -85316,7 +85316,7 @@
        "type": "all_self_chara_filtered",
        "filter": {
         "feature": "麦わらの一味",
-        "power_le": 4000
+        "truly_original_power_le": 4000
        }
       },
       "amount": 1000,
@@ -85341,7 +85341,7 @@
        "type": "all_self_chara_filtered",
        "filter": {
         "feature": "麦わらの一味",
-        "power_le": 4000
+        "truly_original_power_le": 4000
        }
       },
       "amount": 1000,
@@ -98809,7 +98809,7 @@
    "if": {
     "opp_chara_filtered_count_le": {
      "filter": {
-      "power_ge": 5000
+      "truly_original_power_ge": 5000
      },
      "count": 1
     }
@@ -99196,8 +99196,8 @@
    "when": "replace_leave",
    "if": {
     "target": "any_self_chara",
-    "target_power_le": 7000,
-    "by_opp_effect": true
+    "by_opp_effect": true,
+    "target_truly_original_power_le": 7000
    },
    "do": [
     {
@@ -99231,7 +99231,7 @@
    "if": {
     "target": "any_self_chara",
     "by_opp_effect": true,
-    "target_power_le": 7000
+    "target_truly_original_power_le": 7000
    },
    "do": [
     {
@@ -99310,7 +99310,7 @@
    "if": {
     "target": "other_self_chara",
     "by_opp_effect": true,
-    "target_power_le": 7000
+    "target_truly_original_power_le": 7000
    },
    "do": [
     {
@@ -99392,8 +99392,8 @@
    "when": "replace_leave",
    "if": {
     "target": "any_self_chara",
-    "target_power_le": 7000,
-    "by_opp_effect": true
+    "by_opp_effect": true,
+    "target_truly_original_power_le": 7000
    },
    "do": [
     {
@@ -100087,8 +100087,8 @@
    "when": "replace_leave",
    "if": {
     "target": "self",
-    "target_cost_le": 6,
-    "by_opp_effect": true
+    "by_opp_effect": true,
+    "target_truly_original_cost_le": 6
    },
    "do": [
     {
@@ -100105,7 +100105,7 @@
     "self_chara_filtered_count_le": {
      "filter": {
       "name": "しらほし",
-      "cost_eq": 2
+      "truly_original_cost_eq": 2
      },
      "count": 1
     }
@@ -100132,8 +100132,8 @@
    "when": "replace_leave",
    "if": {
     "target": "self",
-    "target_cost_le": 6,
-    "by_opp_effect": true
+    "by_opp_effect": true,
+    "target_truly_original_cost_le": 6
    },
    "do": [
     {
@@ -100150,7 +100150,7 @@
     "self_chara_filtered_count_le": {
      "filter": {
       "name": "しらほし",
-      "cost_eq": 2
+      "truly_original_cost_eq": 2
      },
      "count": 1
     }
@@ -100511,7 +100511,7 @@
     "target": "other_self_chara",
     "target_name_exclude": "サボ",
     "by_opp_effect": true,
-    "target_cost_le": 7
+    "target_truly_original_cost_le": 7
    },
    "do": [
     {
@@ -102447,7 +102447,7 @@
       "target": {
        "type": "all_self_chara_filtered",
        "filter": {
-        "power_eq": 6000
+        "truly_original_power_eq": 6000
        }
       },
       "amount": 1000,
@@ -102471,7 +102471,7 @@
       "target": {
        "type": "all_self_chara_filtered",
        "filter": {
-        "power_eq": 6000
+        "truly_original_power_eq": 6000
        }
       },
       "amount": 1000,
@@ -102531,9 +102531,9 @@
    "when": "replace_leave",
    "if": {
     "target": "any_self_chara",
-    "target_power_le": 6000,
-    "target_power_ge": 6000,
-    "by_opp_effect": true
+    "by_opp_effect": true,
+    "target_truly_original_power_le": 6000,
+    "target_truly_original_power_ge": 6000
    },
    "do": [
     {
@@ -102549,9 +102549,9 @@
    "when": "replace_leave",
    "if": {
     "target": "any_self_chara",
-    "target_power_le": 6000,
-    "target_power_ge": 6000,
-    "by_opp_effect": true
+    "by_opp_effect": true,
+    "target_truly_original_power_le": 6000,
+    "target_truly_original_power_ge": 6000
    },
    "do": [
     {
@@ -103314,7 +103314,7 @@
     "target": "other_self_chara",
     "target_name_exclude": "サボ",
     "by_opp_effect": true,
-    "target_cost_le": 7
+    "target_truly_original_cost_le": 7
    },
    "do": [
     {
@@ -103452,7 +103452,7 @@
       "target": {
        "type": "all_self_chara_filtered",
        "filter": {
-        "power_le": 3000
+        "truly_original_power_le": 3000
        }
       },
       "amount": 1000,
@@ -103726,7 +103726,7 @@
     "target": "other_self_chara",
     "target_name_exclude": "サボ",
     "by_opp_effect": true,
-    "target_cost_le": 7
+    "target_truly_original_cost_le": 7
    },
    "do": [
     {
@@ -104112,7 +104112,7 @@
         "reveal_hand_with_filter": {
          "filter": {
           "category": "CHARACTER",
-          "power_eq": 8000
+          "truly_original_power_eq": 8000
          },
          "count": 1
         }
@@ -104145,7 +104145,7 @@
         "reveal_hand_with_filter": {
          "filter": {
           "category": "CHARACTER",
-          "power_eq": 8000
+          "truly_original_power_eq": 8000
          },
          "count": 1
         }
@@ -106516,7 +106516,7 @@
          "count": 1,
          "filter": {
           "category": "CHARACTER",
-          "power_eq": 8000
+          "truly_original_power_eq": 8000
          }
         }
        }

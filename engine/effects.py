@@ -2103,10 +2103,21 @@ def _resolve_target(
     if isinstance(target_spec, str) and "_truly_original_cost_" in target_spec:
         _use_printed_cost = True
         target_spec = target_spec.replace("_truly_original_cost_", "_cost_")
+    # パワーも同じ書き分け (公式 cardqa: 「元々のパワーが6000以下のキャラが効果で7000以上に
+    # なっている場合、 この【メイン】効果でKOできますか？」 → 「いいえ。 **現在のパワー**が
+    # 6000以下のキャラをKOできます」)。 素の 「パワーN以下」 = 現在値 / 「元々のパワー」 = 印刷値。
+    _use_printed_power = False
+    if isinstance(target_spec, str) and "_truly_original_power_" in target_spec:
+        _use_printed_power = True
+        target_spec = target_spec.replace("_truly_original_power_", "_power_")
 
     def _cost_of(ip) -> int:
         """target spec のコスト判定に使う値 (公式: 既定は現在コスト)。"""
         return ip.card.cost if _use_printed_cost else ip.base_cost
+
+    def _power_of(ip) -> int:
+        """target spec のパワー判定に使う値 (公式: 既定は現在パワー)。"""
+        return ip.card.power if _use_printed_power else ip.power
 
     # opp target 「実害 評価」 (= AI が pick する 際 の eval 良い順)。
     # ohtsuki さん 要望 「AI も最善手 考えるよう target expansion」。
@@ -2503,7 +2514,7 @@ def _resolve_target(
         return list(opp.characters)
     if target_spec == "all_opponent_characters_power_le_0":
         # 「相手のパワー0以下のキャラすべて」 (= OP15-114 ワイパー 等)。 現在 power で判定。
-        return [c for c in opp.characters if c.power <= 0]
+        return [c for c in opp.characters if _power_of(c) <= 0]
     if target_spec == "any_self_chara":
         # 「自分のキャラ 1 枚」 を 表す 別名 (= 25 overlay 使用)。
         # 公式 「自分のキャラ 1 枚を、 〜」 系。 one_self_character_any と 同 semantics。
@@ -2786,7 +2797,7 @@ def _resolve_target(
         m = re.match(r"any_opponent_character_power_le_(\d+)$", target_spec)
         if m:
             n = int(m.group(1))
-            return [c for c in opp.characters if c.power <= n]
+            return [c for c in opp.characters if _power_of(c) <= n]
 
         # one_opponent_rested_character_cost_le_N (レスト + コスト N 以下、1 体)
         m = re.match(r"one_opponent_rested_character_cost_le_(\d+)(?:cost)?$", target_spec)
@@ -2805,7 +2816,7 @@ def _resolve_target(
         m = re.match(r"one_opponent_character_power_le_(\d+)$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = [c for c in opp.characters if c.power <= n]
+            cands = [c for c in opp.characters if _power_of(c) <= n]
             if outer_kind and _maybe_request_target_pick(
                 state, cands, 1, outer_kind, outer_value, self_inplay,
                 description=f"相手キャラ から 1 枚 選択 (パワー≤{n})",
@@ -2820,8 +2831,8 @@ def _resolve_target(
         if m:
             n = int(m.group(1))
             picked = _either_pick_one(
-                [c for c in opp.characters if c.card.power == n],
-                [c for c in me.characters if c.card.power == n],
+                [c for c in opp.characters if _power_of(c) == n],
+                [c for c in me.characters if _power_of(c) == n],
                 f"両陣営のキャラ から 1 枚 選択 (元々のパワー={n})",
             )
             return [] if picked is None else picked
@@ -2842,7 +2853,7 @@ def _resolve_target(
         m = re.match(r"one_opponent_character_power_eq_(\d+)$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = [c for c in opp.characters if c.card.power == n]
+            cands = [c for c in opp.characters if _power_of(c) == n]
             if outer_kind and _maybe_request_target_pick(
                 state, cands, 1, outer_kind, outer_value, self_inplay,
                 description=f"相手キャラ から 1 枚 選択 (元々のパワー={n})",
@@ -2908,7 +2919,7 @@ def _resolve_target(
         m = re.match(r"one_opponent_rested_character_power_le_(\d+)$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = [c for c in opp.characters if c.rested and c.power <= n]
+            cands = [c for c in opp.characters if c.rested and _power_of(c) <= n]
             if outer_kind and _maybe_request_target_pick(
                 state, cands, 1, outer_kind, outer_value, self_inplay,
                 description=f"相手レストキャラ から 1 枚 選択 (パワー≤{n})",
@@ -10895,22 +10906,28 @@ def name_matches(card: CardDef, target: str) -> bool:
 def _matches_filter_ip(ip: Any, filt: dict[str, Any]) -> bool:
     """**場に出ている InPlay** に対する filter 判定 (= コストは公式どおり現在値で見る)。
 
-    ⭐ 公式 (ルール 1-3-6-2 + cardqa_op_02): 素の 「コストN以下」 は **効果修正後の現在コスト**。
-      `_matches_filter` は `CardDef` しか受け取らないので **印刷コスト固定** で、 場のキャラに
-      対して使うと 「コストを下げてから除去する」 実在ラインが機能しない。
+    ⭐ 公式は 素の 「コスト/パワー」 と 「**元々の**コスト/パワー」 を書き分ける。
+      - コスト (ルール 1-3-6-2 + cardqa_op_02): 素の 「コストN以下」 = **効果修正後の現在コスト**
+      - パワー (cardqa): 「元々のパワーが6000以下のキャラが効果で7000以上となっている場合、
+        この【メイン】効果でKOできますか？」 → 「**いいえ**。 現在のパワーが6000以下のキャラを
+        KOできます」 = 素の 「パワーN以下」 も **現在パワー** (ドン付与/バフ込み)
+      `_matches_filter` は `CardDef` しか受け取らないので **印刷値固定** で、 場のキャラに
+      対して使うと 「コスト/パワーを動かしてから除去する」 実在ラインが機能しない。
 
-    ここで plain な `cost_le/ge/eq` / `cost` を `InPlay.base_cost` (= cost_minus 反映) で判定し、
+    ここで plain な `cost_le/ge/eq` / `cost` を `InPlay.base_cost` (= cost_minus 反映)、
+    `power_le/ge/eq` を `InPlay.power` (= ドン付与/バフ込み) で判定し、
     残りは従来どおり `_matches_filter(ip.card, ...)` に委譲する。
-    「元々のコスト」 は `truly_original_cost_*` (印刷値) なので委譲側でそのまま正しい。
+    「元々の〜」 は `truly_original_{cost,power}_*` (印刷値) なので委譲側でそのまま正しい。
 
     ⚠ 手札/デッキ/トラッシュのカードには使わない (= そこでは修正が乗らず印刷値=現在値)。
     """
     if not filt:
         return True
-    plain = ("cost_le", "cost_ge", "cost_eq", "cost")
+    plain = ("cost_le", "cost_ge", "cost_eq", "cost",
+             "power_le", "power_ge", "power_eq")
     if not any(k in filt for k in plain):
         return _matches_filter(ip.card, filt)
-    cur = ip.base_cost
+    cur, pw = ip.base_cost, ip.power
     if "cost_le" in filt and cur > int(filt["cost_le"]):
         return False
     if "cost_ge" in filt and cur < int(filt["cost_ge"]):
@@ -10918,6 +10935,12 @@ def _matches_filter_ip(ip: Any, filt: dict[str, Any]) -> bool:
     if "cost_eq" in filt and cur != int(filt["cost_eq"]):
         return False
     if "cost" in filt and cur != int(filt["cost"]):
+        return False
+    if "power_le" in filt and pw > int(filt["power_le"]):
+        return False
+    if "power_ge" in filt and pw < int(filt["power_ge"]):
+        return False
+    if "power_eq" in filt and pw != int(filt["power_eq"]):
         return False
     rest = {k: v for k, v in filt.items() if k not in plain}
     return _matches_filter(ip.card, rest)
@@ -12721,7 +12744,11 @@ def try_replace_ko(
                 k: v for k, v in eff.get("if", {}).items()
                 if k not in ("target", "target_attribute", "target_cost_le",
                              "target_cost_ge",
+                             "target_truly_original_cost_le",
+                             "target_truly_original_cost_ge",
                              "target_power_le", "target_power_ge",
+                             "target_truly_original_power_le",
+                             "target_truly_original_power_ge",
                              "target_truly_original_power_eq",
                              "target_feature", "target_feature_contains",
                              "target_color", "target_name_exclude",
@@ -13098,22 +13125,38 @@ def _replace_ko_match(
         # 「属性(X)を持つ」 = substring 一致 (多属性「斬/打」対応、 完全一致は取りこぼしバグ)
         if str(cond["target_attribute"]) not in (victim.card.attribute or ""):
             return False
+    # ⭐ 公式 4-9 が定義するのは 「**元々の**」 の意味 (= カードに表記された数値) だけで、
+    #   素の 「コスト/パワー N 以下」 を印刷値にする根拠ではない。 素の表記は現在値
+    #   (cardqa: 「元々のパワーが6000以下のキャラが効果で7000以上となっている場合…KOできますか？」
+    #    → 「いいえ。**現在のパワー**が6000以下のキャラをKOできます」)。
+    #   よって置換条件も `target_*` = 現在値 / `target_truly_original_*` = 印刷値 に分ける。
     if "target_cost_le" in cond:
-        if victim.card.cost > int(cond["target_cost_le"]):
+        if victim.base_cost > int(cond["target_cost_le"]):
             return False
     if "target_cost_ge" in cond:
-        if victim.card.cost < int(cond["target_cost_ge"]):
+        if victim.base_cost < int(cond["target_cost_ge"]):
+            return False
+    if "target_truly_original_cost_le" in cond:
+        if victim.card.cost > int(cond["target_truly_original_cost_le"]):
+            return False
+    if "target_truly_original_cost_ge" in cond:
+        if victim.card.cost < int(cond["target_truly_original_cost_ge"]):
             return False
     if "target_power_le" in cond:
+        if victim.power > int(cond["target_power_le"]):
+            return False
+    if "target_power_ge" in cond:
+        if victim.power < int(cond["target_power_ge"]):
+            return False
+    if "target_truly_original_power_le" in cond:
         # 公式 4-9: 「元々のパワー X 以下」は永続効果で変更されない CardDef オリジナル値で判定
-        if victim.truly_original_power > int(cond["target_power_le"]):
+        if victim.truly_original_power > int(cond["target_truly_original_power_le"]):
+            return False
+    if "target_truly_original_power_ge" in cond:
+        if victim.truly_original_power < int(cond["target_truly_original_power_ge"]):
             return False
     if "target_truly_original_power_eq" in cond:
         if victim.truly_original_power != int(cond["target_truly_original_power_eq"]):
-            return False
-    if "target_power_ge" in cond:
-        # 公式 4-9: 「元々のパワー X 以上」も同様
-        if victim.truly_original_power < int(cond["target_power_ge"]):
             return False
     if "target_feature" in cond:
         if cond["target_feature"] not in victim.card.features:
