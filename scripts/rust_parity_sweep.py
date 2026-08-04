@@ -144,8 +144,17 @@ def run_one_game(deck_a: dict, deck_b: dict, seed: int, max_turns: int, stats: d
         e = P._enc(st, act)
         if e.get("t") != "?":
             dump = json.dumps(full_dump(st))
-            # static-diff は combat 忠実性の対象外 (rust_parity_check と同じ方針)
-            if eng.recompute_static_digest(dump) == state_digest(st):
+            # ⚠ 静的効果 (recompute_static) が食い違う局面は action 比較を丸ごと飛ばす。
+            #   これを黙って飛ばすと 「静的効果の乖離」 が **MISMATCH にも bail にも出ず、
+            #   match 数がこっそり減るだけ** で見えない (2026-08-04 に計器の穴として発覚)。
+            #   飛ばす方針自体は rust_parity_check と揃えるが、 **必ず数えて報告する**。
+            _static_ok = eng.recompute_static_digest(dump) == state_digest(st)
+            if not _static_ok:
+                stats["tot"]["static_skip"] += 1
+                stats["static_skip"][
+                    f"{st.turn_player.leader.card.card_id} vs {st.opponent.leader.card.card_id}"
+                ] += 1
+            if _static_ok:
                 c = fast_clone(st)
                 # Rust が入力に使う _rng_state に Python 側 clone も揃える
                 _src = getattr(st, "rng", None)
@@ -159,6 +168,10 @@ def run_one_game(deck_a: dict, deck_b: dict, seed: int, max_turns: int, stats: d
                     ok = c.pending_choice is None
                 except Exception:
                     ok = False
+                # ⚠ Python が pending_choice で止まった / 例外を投げた局面も比較不能で skip。
+                #   数えないと 「ゲームが壊れて比較点が消えた」 のを MISMATCH=0 のまま見逃す。
+                if not ok:
+                    stats["tot"]["py_skip"] += 1
                 if ok:
                     dpy = state_digest(c)
                     try:
@@ -221,6 +234,7 @@ def save(stats: dict, done: list[str], elapsed: float) -> None:
         "bail_top": stats["bail"].most_common(40),
         "panic_top": stats["panic"].most_common(40),
         "mismatch_top": stats["mismatch"].most_common(60),
+        "static_skip_top": stats["static_skip"].most_common(40),
         "cards_proven": sorted(stats["cards_ok"]),
         "cards_mismatch": sorted(stats["cards_bad"]),
         "decks_done": done,
@@ -247,7 +261,8 @@ def main() -> None:
         decks = decks[:args.limit]
 
     stats = {"tot": Counter(), "bail": Counter(), "mismatch": Counter(),
-             "panic": Counter(), "cards_ok": set(), "cards_bad": set(),
+             "panic": Counter(), "static_skip": Counter(),
+             "cards_ok": set(), "cards_bad": set(),
              "dumps": [], "dump_limit": args.dump_limit, "dump_seen": {}}
     done: list[str] = []
 
@@ -259,6 +274,7 @@ def main() -> None:
         stats["mismatch"] = Counter(dict(prev.get("mismatch_top", [])))
         stats["cards_ok"] = set(prev.get("cards_proven", []))
         stats["cards_bad"] = set(prev.get("cards_mismatch", []))
+        stats["static_skip"] = Counter(dict(prev.get("static_skip_top", [])))
         done = list(prev.get("decks_done", []))
         print(f"[resume] {len(done)} デッキ済 / match={stats['tot'].get('match', 0)}")
 
@@ -289,7 +305,8 @@ def main() -> None:
     total = t.get("match", 0) + t.get("bail", 0) + t.get("MISMATCH", 0)
     print("\n=== 結果 ===")
     print(f"match={t.get('match', 0)}  bail(Err)={t.get('bail', 0)}  "
-          f"MISMATCH={t.get('MISMATCH', 0)}  PANIC={t.get('PANIC', 0)}")
+          f"MISMATCH={t.get('MISMATCH', 0)}  PANIC={t.get('PANIC', 0)}  "
+          f"static_skip={t.get('static_skip', 0)}  py_skip={t.get('py_skip', 0)}")
     if total:
         ok = t.get("match", 0) + t.get("bail", 0)
         print(f"correctness (match+bail、 黙って間違えない) = {100 * ok / total:.2f}%")
@@ -297,6 +314,12 @@ def main() -> None:
     if stats["mismatch"]:
         print("\n=== MISMATCH top ===")
         for k, n in stats["mismatch"].most_common(30):
+            print(f"  {n:5d}  {k}")
+    if stats["static_skip"]:
+        # ⚠ 静的効果の乖離。 action 比較は飛ばしているので MISMATCH には出ないが、
+        #   **黙って違う状態** の一種なので必ず目に入れる。
+        print("\n=== ⚠ static_skip (静的効果が Python と食い違う局面) top ===")
+        for k, n in stats["static_skip"].most_common(20):
             print(f"  {n:5d}  {k}")
     if stats["bail"]:
         print("\n=== bail 理由 top ===")

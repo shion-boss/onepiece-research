@@ -495,6 +495,10 @@ fn fire_effect_smoke(
         (selfplay::zone_card_count(&st.players[1]), selfplay::don_total(&st.players[1])),
     ];
     let src = match src_idx {
+        // -3 = 発動元が **自リーダー** (LEADER カードの activate_main / field-when)。
+        //      これが無く LEADER が Detached になっていたため、 直接発火ハーネスが
+        //      リーダー効果を丸ごと skip(no_src) していた (113 件、 2026-08-04)。
+        -3 => effects::Slot::Leader,
         -2 => effects::Slot::Stage(0),
         i if i >= 0 => effects::Slot::Char(i as usize),
         _ => effects::Slot::Detached,

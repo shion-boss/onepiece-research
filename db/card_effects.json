@@ -102098,11 +102098,11 @@
  "OP03-043": [
   {
    "_text": "OP03-043 相手のライフにダメージを与えた時、自分のデッキの上から3枚をトラッシュに置いてもよい。そうした場合、このキャラをトラッシュに置く。",
-   "_doc": "self に attached cost (= self KO 代償) を 引き換え に mill 3。 cost 払いで mill、 do で self KO の 一連 動作。",
+   "_doc": "公式は 「このキャラを **トラッシュに置く**」 = KO ではない (【KO時】は発動せず、 被KO数にも数えない)。 2026-08-04 に self_ko → trash_self へ是正 (差分ハーネスの when 拡張で発覚)。",
    "when": "on_opp_life_taken",
    "optional": true,
    "cost": {
-    "self_ko": true
+    "trash_self": true
    },
    "do": [
     {

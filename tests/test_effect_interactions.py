@@ -284,6 +284,70 @@ def test_multiple_self_trash_opp_attack_go_to_trash_in_board_order():
 
 
 # --------------------------------------------------------------------------- #
+#  G2. 「トラッシュに置く」 は KO ではない
+#      公式は 「KOする」 と 「トラッシュに置く」 を書き分けている。 後者は 場を離れるだけで
+#      【KO時】は発動せず、 このターンの被 KO 数にも数えない。
+#      ⚠ OP03-043 ガイモンの overlay が `self_ko` になっており (公式は 「トラッシュに置く」)、
+#        被 KO 数が誤って増えていた。 2026-08-04 に `trash_self` へ是正。
+# --------------------------------------------------------------------------- #
+def test_trash_self_cost_is_not_a_ko():
+    """自身をトラッシュに置くコストは KO ではない (被 KO 数が増えない)。"""
+    from engine.effects import _pay_counter_cost
+
+    repo, overlay = _repo(), _overlay()
+    eff = next(e for e in overlay.get("OP03-043").effects
+               if e.get("when") == "on_opp_life_taken")
+    assert eff["cost"] == {"trash_self": True}, (
+        f"公式は 「このキャラをトラッシュに置く」 なので trash_self のはず: {eff['cost']}"
+    )
+
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    src = InPlay.of(repo.get("OP03-043"), sickness=False)
+    me.characters = [src]
+    _pay_counter_cost(st, me, opp, src, eff["cost"])
+
+    assert src not in me.characters, "コストで自身が場を離れていない"
+    assert me.trash and me.trash[-1].card_id == "OP03-043", "トラッシュに置かれていない"
+    assert me.chara_ko_taken_this_turn == 0, (
+        "「トラッシュに置く」 は KO ではないので 被 KO 数を増やしてはいけない"
+        f" (現在 {me.chara_ko_taken_this_turn})"
+    )
+
+
+def test_no_card_uses_self_ko_cost_against_official_text():
+    """`self_ko` コストは 公式テキストに 「KO」 とあるカードにしか使わない。
+
+    「トラッシュに置く」 を self_ko で書くと 【KO時】が誤発動し 被 KO 数もズレる。
+    overlay 全体を走査して 恒久的に見張る。
+    """
+    import json as _json
+
+    ov = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    cards = {c["card_id"]: c for c in _json.loads(
+        (ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    bad = []
+
+    def walk(cid, x):
+        if isinstance(x, dict):
+            if x.get("self_ko"):
+                if "KO" not in (cards.get(cid, {}).get("text") or ""):
+                    bad.append(cid)
+            for v in x.values():
+                walk(cid, v)
+        elif isinstance(x, list):
+            for v in x:
+                walk(cid, v)
+
+    for cid, effs in ov.items():
+        walk(cid, effs)
+    assert not bad, (
+        "公式テキストに 「KO」 が無いのに self_ko コストを使っているカード: "
+        f"{sorted(set(bad))} → 「トラッシュに置く」 なら trash_self にする"
+    )
+
+
+# --------------------------------------------------------------------------- #
 #  H. 効果無効は 「相手がキャラを登場させた時」 のような場のトリガーにも効く
 # --------------------------------------------------------------------------- #
 def test_negated_source_does_not_fire_on_play():

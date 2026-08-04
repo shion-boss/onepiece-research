@@ -231,7 +231,11 @@ def run_parity(n_games: int | None = None, seeds=(1, 7), max_turns=220):
             e = _enc(st, act)
             if e.get("t") != "?":
                 dump = json.dumps(full_dump(st))
-                # static-diff は combat 忠実性の対象外 (evaluate_static のズレは別軸) → skip
+                # static-diff は combat 忠実性の対象外 (evaluate_static のズレは別軸) → skip。
+                # ⚠ ただし **黙って** 飛ばすと 「静的効果の乖離」 が MISMATCH にも bail にも
+                #   出ず match 数が減るだけで不可視になる → 必ず数える (2026-08-04)。
+                if eng.recompute_static_digest(dump) != state_digest(st):
+                    tot["static_skip"] += 1
                 if eng.recompute_static_digest(dump) == state_digest(st):
                     c = fast_clone(st)
                     # ⭐ rng を full_dump が capture した state (= Rust が入力に使う _rng_state) に揃える。
@@ -248,6 +252,11 @@ def run_parity(n_games: int | None = None, seeds=(1, 7), max_turns=220):
                         ok = c.pending_choice is None
                     except Exception:
                         ok = False
+                    # ⚠ Python 側が pending_choice で止まった / 例外を投げた局面も比較不能で
+                    #   skip している。 数えないと 「ゲームが壊れて比較点が消えた」 のを
+                    #   MISMATCH=0 のまま見逃す (実際に 2037→724 の激減を見逃しかけた)。
+                    if not ok:
+                        tot["py_skip"] += 1
                     if ok:
                         dpy = state_digest(c)
                         try:
@@ -355,7 +364,8 @@ def main():
 
     tot, bail_msgs, mismatch = run_parity(args.games)
     denom = tot["match"] + tot["bail"] + tot["MISMATCH"]
-    print(f"match={tot['match']}  bail(Err)={tot['bail']}  MISMATCH={tot['MISMATCH']}")
+    print(f"match={tot['match']}  bail(Err)={tot['bail']}  MISMATCH={tot['MISMATCH']}"
+          f"  static_skip={tot['static_skip']}  py_skip={tot['py_skip']}")
     print(f"correctness (match+bail、 黙って間違えない) = {100*(tot['match']+tot['bail'])/max(1,denom):.2f}%")
     if mismatch:
         print("=== ⚠ MISMATCH card (correctness 違反、 要修正) ===")

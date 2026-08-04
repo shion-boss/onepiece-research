@@ -91,7 +91,11 @@ DUMMY_OPP_CHARACTERS = ["OP01-013", "OP01-016"]
 def make_state(repo: CardRepository, overlay: dict, src_card_id: str) -> GameState:
     """テスト用合成 state を生成。 me に src_card がある状態 + 標準的な手札・場・トラッシュ。"""
     src = repo._by_id[src_card_id]
-    leader = repo._by_id["OP01-001"]  # ロロノア・ゾロ (汎用)
+    # ⚠ 対象カードが LEADER なら **それを自リーダーに据える**。 以前は常に OP01-001 だったため
+    #   リーダー効果は発動元が場に居らず、 直接発火の差分検証が丸ごと skip(no_src) になっていた
+    #   (113 件、 2026-08-04)。 Rust 側 (rust_effect_smoke.build_state_json) と同じ state を
+    #   作るのがこの関数の責務なので、 ここを直せば両側に効く。
+    leader = src if src.category == Category.LEADER else repo._by_id["OP01-001"]
     p1 = Player(name="P0", leader=InPlay.of(leader, sickness=False))
     p2 = Player(name="P1", leader=InPlay.of(repo._by_id["OP01-002"], sickness=False))
     p1.don_active = 8

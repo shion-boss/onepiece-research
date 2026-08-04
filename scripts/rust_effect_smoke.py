@@ -72,7 +72,10 @@ def build_state_json(repo, overlay, card_id: str, when: str) -> tuple[str, int]:
     st = make_state(repo, overlay, card_id)
     card = repo._by_id[card_id]
     idx = -1
-    if when in FIELD_WHENS and card.category in (Category.CHARACTER, Category.STAGE):
+    if when in FIELD_WHENS and card.category == Category.LEADER:
+        # make_state が対象 LEADER を自リーダーに据えている → 発動元は Slot::Leader (= -3)。
+        idx = -3
+    elif when in FIELD_WHENS and card.category in (Category.CHARACTER, Category.STAGE):
         ip = InPlay.of(card, sickness=False)
         if card.category == Category.CHARACTER:
             st.players[0].characters.append(ip)

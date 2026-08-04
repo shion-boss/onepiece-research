@@ -54,6 +54,18 @@ OUT = ROOT / "db" / "rust_selfplay" / "effect_smoke_parity.json"
 DIRECT_WHENS = {
     "on_play", "on_attack", "opp_attack", "on_block", "counter", "trigger", "main",
     "activate_main", "end_of_turn", "opp_end_of_turn", "on_ko",
+    # 2026-08-04: 盤面トリガー系も raw 実行で比較できる (Rust の execute_one_effect が
+    # 同じ do 配列を同じ src で回すため)。 これを入れる前は 「self-play で到達しない
+    # field-when しか持たないカード」 が一度も bit 一致を証明されずに残っていた。
+    "on_self_chara_played", "on_opp_chara_played", "on_self_chara_ko", "on_opp_chara_ko",
+    "on_self_life_taken", "on_opp_life_taken", "on_self_life_to_hand", "on_self_life_to_trash",
+    "on_self_hand_discarded", "on_self_event_played", "on_self_rested", "on_self_trigger_fired",
+    "on_self_chara_leave_by_self_effect", "on_self_don_returned_to_deck", "on_opp_blocker_use",
+    "on_life_zero", "opp_event_or_trigger_fired", "on_self_chara_rested_by_self_effect",
+    "on_self_battled", "on_self_chara_leave_by_opp_effect", "on_self_don_attached",
+    "on_self_battle_ko", "on_opp_chara_returned_to_hand_by_self_effect",
+    "on_self_draw_non_draw_phase", "on_turn_start", "opp_turn_start", "game_start",
+    "opp_attack_on_leader", "opp_attack_on_chara",
 }
 
 
@@ -63,7 +75,10 @@ def _py_state(repo, overlay_py, card_id: str, when: str):
     st = S.make_state(repo, overlay_py, card_id)
     card = repo._by_id[card_id]
     src_ip = None
-    if when in S.FIELD_WHENS and card.category in (Category.CHARACTER, Category.STAGE):
+    if when in S.FIELD_WHENS and card.category == Category.LEADER:
+        # make_state が対象 LEADER を自リーダーに据えている (2026-08-04)。 発動元はそれ。
+        src_ip = st.players[0].leader
+    elif when in S.FIELD_WHENS and card.category in (Category.CHARACTER, Category.STAGE):
         ip = InPlay.of(card, sickness=False)
         if card.category == Category.CHARACTER:
             st.players[0].characters.append(ip)
@@ -176,9 +191,85 @@ def run(limit: int = 0, quiet: bool = False):
         "detail_top": detail.most_common(120),
         "mismatch_cards": sorted(mismatch_cards),
         "proven_cards": sorted(proven),
+        "static_proven_cards": [],   # run_static が後から埋める
         "elapsed_sec": round(time.time() - t0, 1),
     }, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     return res, detail, proven, mismatch_cards
+
+
+def run_static(limit: int = 0, quiet: bool = False):
+    """**静的効果** (on_attached_don / in_hand / setup_modifier) を両エンジンで比較する。
+
+    静的効果は 「発火」 ではなく盤面から毎回再計算される (Python evaluate_static_effects /
+    Rust recompute_static)。 do 配列を直接叩く上の経路では踏めないので専用パスを持つ。
+
+    ⚠ この軸が無いと、 静的効果しか持たないカード (リーダーの【ドン‼×N】等) は
+      **一度も bit 一致を証明されない**。 実戦掃引 (rust_parity_sweep) は毎 action
+      recompute_static_digest を突き合わせるが、 場に出なかったカードは当然通らない。
+
+    手順: 対象カードを場 (or 手札) に置いた最小 state を作り、 Python 側で
+    evaluate_static_effects → state_digest、 Rust 側で recompute_static_digest を取って比較。
+    """
+    from engine.effects import evaluate_static_effects
+
+    repo, overlay_py = P._load()
+    overlay = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    targets = sorted(
+        cid for cid, effs in overlay.items()
+        if isinstance(effs, list) and cid in repo._by_id
+        and any(isinstance(e, dict) and e.get("when") in S.STATIC_WHENS for e in effs)
+    )
+    if limit:
+        targets = targets[:limit]
+
+    res: Counter = Counter()
+    detail: Counter = Counter()
+    proven: set[str] = set()
+    bad: set[str] = set()
+    for cid in targets:
+        card = repo._by_id[cid]
+        try:
+            reset_iid()
+            st = S.make_state(repo, overlay_py, cid)
+            if card.category == Category.CHARACTER:
+                st.players[0].characters.append(InPlay.of(card, sickness=False))
+            elif card.category == Category.STAGE:
+                st.players[0].stages.append(InPlay.of(card, sickness=False))
+            # LEADER は make_state が自リーダーに据えている。 EVENT は手札のみ (in_hand 用)。
+            evaluate_static_effects(st, overlay_py)
+            dump = json.dumps(full_dump(st))
+            dpy = state_digest(st)
+        except Exception as e:                       # noqa: BLE001
+            res["skip(state)"] += 1
+            detail[f"skip(state) @{cid}: {type(e).__name__}"] += 1
+            continue
+        try:
+            dr = eng.recompute_static_digest(dump)
+        except BaseException as e:                   # noqa: BLE001
+            if isinstance(e, (KeyboardInterrupt, SystemExit)):
+                raise
+            if type(e).__name__ == "PanicException":
+                res["PANIC"] += 1
+                detail[f"PANIC @{cid}: {str(e).splitlines()[0][:70]}"] += 1
+            else:
+                res["bail"] += 1
+                detail[f"bail @{cid}: {str(e).splitlines()[0][:70]}"] += 1
+            continue
+        if dr == dpy:
+            res["match"] += 1
+            proven.add(cid)
+        else:
+            res["MISMATCH"] += 1
+            bad.add(cid)
+            detail[f"MISMATCH(static) @{cid}"] += 1
+    if not quiet:
+        print(f"\n=== 静的効果 (on_attached_don / in_hand / setup_modifier) ===")
+        print(f"対象 {len(targets)} 枚: match={res['match']}  bail={res['bail']}  "
+              f"MISMATCH={res['MISMATCH']}  PANIC={res['PANIC']}  "
+              f"skip={res['skip(state)']}")
+        for k, v in detail.most_common(20):
+            print(f"  {v:5d}  {k}")
+    return res, proven, bad
 
 
 def main() -> None:
@@ -188,20 +279,29 @@ def main() -> None:
     args = ap.parse_args()
 
     res, detail, proven, bad = run(args.limit)
+    sres, sproven, sbad = run_static(args.limit)
+    # 静的パスの結果を JSON に追記 (run() が書いた内容を保ったまま)
+    _d = json.loads(OUT.read_text(encoding="utf-8"))
+    _d["static_res"] = dict(sres)
+    _d["static_proven_cards"] = sorted(sproven)
+    _d["static_mismatch_cards"] = sorted(sbad)
+    OUT.write_text(json.dumps(_d, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     tot = res["match"] + res["bail"] + res["MISMATCH"] + res["PANIC"]
     print("\n=== 結果 ===")
     print(f"match={res['match']}  bail={res['bail']}  MISMATCH={res['MISMATCH']}  PANIC={res['PANIC']}")
     if tot:
         ok = res["match"] + res["bail"]
         print(f"correctness (match+bail、 黙って間違えない) = {100 * ok / tot:.2f}%")
-    print(f"bit 一致を証明できたカード: {len(proven)}")
+    print(f"bit 一致を証明できたカード: {len(proven | sproven)} "
+          f"(直接発火 {len(proven)} + 静的 {len(sproven)})")
     print("skip: " + "  ".join(f"{k}={v}" for k, v in sorted(res.items()) if k.startswith("skip")))
     if detail:
         print("\n=== 内訳 top ===")
         for k, v in detail.most_common(30):
             print(f"  {v:5d}  {k}")
     print(f"\n→ {OUT}")
-    if args.do_assert and (res["MISMATCH"] > 0 or res["PANIC"] > 0):
+    if args.do_assert and (res["MISMATCH"] > 0 or res["PANIC"] > 0
+                           or sres["MISMATCH"] > 0 or sres["PANIC"] > 0):
         sys.exit(1)
 
 
