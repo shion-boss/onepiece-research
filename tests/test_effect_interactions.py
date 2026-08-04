@@ -647,3 +647,57 @@ def test_cannot_be_rested_blocks_blocker_activation():
         "「レストにできない」 のに【ブロッカー】が発動している"
         " (ブロックはレストにすることが必要な行動)"
     )
+
+
+# --------------------------------------------------------------------------- #
+#  L. 「A。 その後、 B」 の解決順と 後段の強制性
+#     公式: 「-4000しなかった場合も、 **可能な限り**ライフ1枚を手札に加えます」
+#     (cardqa_op_02 / st_15) = 前段が空振りでも後段は実行される。
+#     ⚠ overlay の do 順が公式と逆になっていた 19 件を 2026-08-04 に是正
+#       (`scripts/audit_sonogo_order.py` が恒久監査)。
+# --------------------------------------------------------------------------- #
+def test_sonogo_tail_runs_even_when_head_finds_no_target():
+    """前段 (相手キャラへのパワー-2000) が空振りでも 後段 (ライフ→手札) は実行される。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="ST15-001")
+    me, opp = st.players[0], st.players[1]
+    opp.characters = []                       # 前段の対象なし
+    src = InPlay.of(repo.get("ST15-004"), sickness=True)
+    me.characters = [src]
+    life_before, hand_before = len(me.life), len(me.hand)
+
+    eff = next(e for e in overlay.get("ST15-004").effects if e.get("when") == "on_play")
+    assert [next(iter(d)) for d in eff["do"]] == ["power_pump", "life_to_hand"], \
+        "公式は 「パワー-2000。 その後、 ライフを手札に」 の順"
+    for prim in eff["do"]:
+        execute_effect(prim, st, me, opp, src)
+
+    assert len(me.life) == life_before - 1 and len(me.hand) == hand_before + 1, \
+        "前段が空振りでも後段は 「可能な限り」 実行されるはず"
+
+
+# --------------------------------------------------------------------------- #
+#  M. ライフ 0 の扱い
+#     公式: 「自分のライフが0枚のときに 『ライフの上から1枚を手札に加える』 ことはできますか？」
+#           →「いいえ、できません」 (cardqa_op_12)
+#           一方 「デッキの上から1枚をライフの上に加える」 は ライフ0でも **できる** (op_15/op_06)
+# --------------------------------------------------------------------------- #
+def test_life_to_hand_does_nothing_at_zero_life():
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.life = []
+    hand_before = len(me.hand)
+    execute_effect({"life_to_hand": 1}, st, me, opp, None)
+    assert len(me.hand) == hand_before, "ライフ 0 なのに手札が増えている"
+
+
+def test_put_top_to_life_works_at_zero_life():
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.life = []
+    deck_before = len(me.deck)
+    execute_effect({"put_top_to_life": 1}, st, me, opp, None)
+    assert len(me.life) == 1 and len(me.deck) == deck_before - 1, \
+        "ライフ 0 でも デッキ上→ライフ は行える (公式)"

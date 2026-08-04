@@ -56,3 +56,19 @@ def test_invariants_hold_in_selfplay():
     )
     bail = sum(v["bail"] for v in out["coverage"]["actions"].values())
     assert bail == 0, f"Rust が action を再現できず bail した: {out['coverage']['bail_reasons']}"
+
+
+def test_sonogo_order_matches_official_text():
+    """overlay の `do` 順が 公式テキストの 「その後、」 と一致している。
+
+    順序が効くのは 前段が盤面を変えて後段の対象が変わる / 前段のトリガーが先に走る /
+    人間 modal の提示順 が変わるため。 2026-08-04 に 19 件の逆順を是正した。
+    """
+    r = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "audit_sonogo_order.py"), "--assert"],
+        capture_output=True, text=True, cwd=str(ROOT), timeout=600,
+    )
+    assert r.returncode == 0, (
+        "公式テキストの 「その後、」 と overlay の do 順が食い違っている:\n"
+        f"{r.stdout}\n{r.stderr}"
+    )
