@@ -490,10 +490,7 @@ fn fire_effect_smoke(
 ) -> PyResult<String> {
     let mut st: state::GameState = serde_json::from_str(state_json)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("state: {e}")))?;
-    let base = [
-        (selfplay::zone_card_count(&st.players[0]), selfplay::don_total(&st.players[0])),
-        (selfplay::zone_card_count(&st.players[1]), selfplay::don_total(&st.players[1])),
-    ];
+    let base = selfplay::inv_base(&st);
     let src = match src_idx {
         // -3 = 発動元が **自リーダー** (LEADER カードの activate_main / field-when)。
         //      これが無く LEADER が Detached になっていたため、 直接発火ハーネスが
@@ -527,10 +524,7 @@ fn fire_effect_smoke(
 fn don_phase_modifier_smoke(state_json: &str) -> PyResult<String> {
     let mut st: state::GameState = serde_json::from_str(state_json)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("state: {e}")))?;
-    let base = [
-        (selfplay::zone_card_count(&st.players[0]), selfplay::don_total(&st.players[0])),
-        (selfplay::zone_card_count(&st.players[1]), selfplay::don_total(&st.players[1])),
-    ];
+    let base = selfplay::inv_base(&st);
     let r = effects::apply_don_phase_modifier(&mut st, 0);
     let inv = selfplay::check_invariants(&st, &base, "don_phase_smoke");
     let out = match r {
@@ -546,10 +540,7 @@ fn don_phase_modifier_smoke(state_json: &str) -> PyResult<String> {
 fn static_effect_smoke(state_json: &str) -> PyResult<String> {
     let mut st: state::GameState = serde_json::from_str(state_json)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("state: {e}")))?;
-    let base = [
-        (selfplay::zone_card_count(&st.players[0]), selfplay::don_total(&st.players[0])),
-        (selfplay::zone_card_count(&st.players[1]), selfplay::don_total(&st.players[1])),
-    ];
+    let base = selfplay::inv_base(&st);
     effects::evaluate_static_effects(&mut st);
     let inv = selfplay::check_invariants(&st, &base, "static_smoke");
     Ok(serde_json::json!({"ok": true, "invariant_violations": inv}).to_string())
@@ -567,10 +558,7 @@ fn replace_effect_smoke(
 ) -> PyResult<String> {
     let mut st: state::GameState = serde_json::from_str(state_json)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("state: {e}")))?;
-    let base = [
-        (selfplay::zone_card_count(&st.players[0]), selfplay::don_total(&st.players[0])),
-        (selfplay::zone_card_count(&st.players[1]), selfplay::don_total(&st.players[1])),
-    ];
+    let base = selfplay::inv_base(&st);
     let r = effects::try_replace_ko(&mut st, victim_owner, victim_idx, by_opp_effect, leave_kind);
     let inv = selfplay::check_invariants(&st, &base, "replace_smoke");
     // ⚠ digest / after を返さないと Python と bit 比較できず、 置換効果 (replace_ko /

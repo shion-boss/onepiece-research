@@ -11019,6 +11019,19 @@ def evaluate_static_effects(
     leader / characters / stages すべてを走査対象にする (ステージ永続効果対応)。
     state.effects_overlay に変更があった場合や、ドン付与・キャラ登場・KO 後に呼ぶ。
     """
+    # ⚠ 表向きライフ枚数の正規化 (2026-08-04)。 face_up_life_count は **増やす側も読む側も**
+    #   `min(..., len(life))` で clamp していたが、 **ライフが減る時に減らしていなかった**。
+    #   ライフ 1 (表向き 1) → ダメージで 0 になっても 1 のまま残り、 後で put_top_to_life 等で
+    #   ライフが増えると **新しく置いた裏向きのライフを表向きと誤認** する潜在バグだった。
+    #   読み出しが clamp されているため挙動には出にくいが、 値は canonical state (digest 対象) の
+    #   一部なので 「壊れた状態」 そのもの。 Rust 側の保存則チェック (INV-face-up-life) が検出した
+    #   = 差分検証では見えない (両エンジンが同じ間違いをしていた) クラス。
+    #   静的再計算は両エンジンが同じ場所で回すので、 ここで正規化すれば bit 一致も保たれる。
+    for _p in state.players:
+        _fu = int(getattr(_p, "face_up_life_count", 0) or 0)
+        _clamped = max(0, min(_fu, len(_p.life)))
+        if _clamped != _fu:
+            _p.face_up_life_count = _clamped
     if not effects_overlay:
         return
 

@@ -11420,6 +11420,18 @@ fn fire_hand_discarded(state: &mut GameState, me_idx: usize, src: Slot) -> Resul
 
 /// game.py:evaluate_static_effects の移植 (on_attached_don 常在)。
 pub fn evaluate_static_effects(state: &mut GameState) {
+    // ⚠ 表向きライフ枚数の正規化 (effects.py:evaluate_static_effects 冒頭と同じ、 2026-08-04)。
+    //   face_up_life_count は増やす側/読む側は clamp していたが **ライフが減る時に減らして
+    //   いなかった** ため、 ライフ 0 なのに表向き 1 という壊れた値が残り、 後でライフが増えると
+    //   裏向きの新しいライフを表向きと誤認しうる。 保存則チェック (INV-face-up-life) が検出した
+    //   = 両エンジンが同じ間違いをしていて差分では見えなかったクラス。
+    //   ⚠ overlay 未 load でも正規化する (Python も early return より前で行う)。
+    for p in state.players.iter_mut() {
+        let clamped = p.face_up_life_count.clamp(0, p.life.len() as i32);
+        if clamped != p.face_up_life_count {
+            p.face_up_life_count = clamped;
+        }
+    }
     let Some(ov) = overlay() else { return };
     // 全 InPlay の静的フラグをリセット (effects.py:10733-10753)
     for p in state.players.iter_mut() {

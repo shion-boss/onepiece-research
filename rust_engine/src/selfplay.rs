@@ -191,14 +191,63 @@ pub fn don_total(p: &Player) -> i32 {
         + p.stages.iter().map(|c| c.attached_dons).sum::<i32>()
 }
 
-/// 状態の絶対条件を検査 (Python 不要)。 base = 試合開始時の (カード枚数, ドン総数) × 2 player。
+/// card_id の **順不同チェックサム** (= 集合として変化していないかを見る)。
+/// ⚠ 枚数だけ見ていると 「A が消えて B が増えた」 (置換・複製) を見逃す。 和は可換なので
+/// zone 間の移動では変わらず、 **card_id の入れ替わりだけを検出** する。 leader は zone_card_count
+/// と揃えて除外 (場を離れないので不変)。
+fn card_id_hash(s: &str) -> u64 {
+    // FNV-1a (64bit)。 順不同和に使うだけなので暗号強度は不要。
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in s.as_bytes() {
+        h ^= *b as u64;
+        h = h.wrapping_mul(0x100_0000_01b3);
+    }
+    h
+}
+
+pub fn card_multiset_sum(p: &Player) -> u64 {
+    let mut h: u64 = 0;
+    for c in p.deck.iter().chain(p.hand.iter()).chain(p.life.iter()).chain(p.trash.iter()) {
+        h = h.wrapping_add(card_id_hash(&c.card_id));
+    }
+    for ip in p.characters.iter().chain(p.stages.iter()) {
+        h = h.wrapping_add(card_id_hash(&ip.card.card_id));
+    }
+    h
+}
+
+/// 不変条件の基準値 (カード枚数, ドン総数, card_id 順不同和) を両 player 分作る。
+pub fn inv_base(st: &GameState) -> [(usize, i32, u64); 2] {
+    [
+        (zone_card_count(&st.players[0]), don_total(&st.players[0]), card_multiset_sum(&st.players[0])),
+        (zone_card_count(&st.players[1]), don_total(&st.players[1]), card_multiset_sum(&st.players[1])),
+    ]
+}
+
+/// 状態の絶対条件を検査 (Python 不要 = **独立した正しさの根拠**)。
+/// base = 基準時点の (カード枚数, ドン総数, card_id 順不同和) × 2 player。
 /// 検出したら INV_VIOLATIONS に積む。 戻り値 = このチェックで見つけた違反数。
-pub fn check_invariants(st: &GameState, base: &[(usize, i32); 2], ctx: &str) -> usize {
+pub fn check_invariants(st: &GameState, base: &[(usize, i32, u64); 2], ctx: &str) -> usize {
     let mut n = 0;
     let total_now: usize = st.players.iter().map(zone_card_count).sum();
     let total_base: usize = base[0].0 + base[1].0;
     if total_now != total_base {
         note_violation("INV-card-total", format!("{total_base} → {total_now} ({ctx})"));
+        n += 1;
+    }
+    // ⚠ 全体の card_id 集合は不変。 player 単位だと 「相手のライフの上に置く」 (chara_to_opp_life)
+    //   のような **持ち主をまたぐ移動** で正当に変わりうるので、 集合チェックは全体で見る。
+    let sum_now = card_multiset_sum(&st.players[0]).wrapping_add(card_multiset_sum(&st.players[1]));
+    let sum_base = base[0].2.wrapping_add(base[1].2);
+    if sum_now != sum_base {
+        note_violation(
+            "INV-card-multiset",
+            format!("card_id 集合が変化 (枚数は合っているが中身が違う) ({ctx})"),
+        );
+        n += 1;
+    }
+    if st.turn_player_idx > 1 {
+        note_violation("INV-turn-player", format!("turn_player_idx={} ({ctx})", st.turn_player_idx));
         n += 1;
     }
     for (i, p) in st.players.iter().enumerate() {
@@ -228,11 +277,25 @@ pub fn check_invariants(st: &GameState, base: &[(usize, i32); 2], ctx: &str) -> 
             note_violation("INV-leader-exists", format!("p{i} ({ctx})"));
             n += 1;
         }
-        if p.characters.iter().any(|c| c.attached_dons < 0) || p.leader.attached_dons < 0 {
+        // ⚠ 以前は stages を見ておらず、 ステージに付与されたドンの負値を取りこぼしていた。
+        if p.characters.iter().chain(p.stages.iter()).any(|c| c.attached_dons < 0)
+            || p.leader.attached_dons < 0
+        {
             note_violation("INV-attached-negative", format!("p{i} ({ctx})"));
             n += 1;
         }
+        // 表向きライフは 0 以上 かつ ライフ枚数以下 (公式: ライフの一部を表向きにする効果群)
+        if p.face_up_life_count < 0 || p.face_up_life_count > p.life.len() as i32 {
+            note_violation(
+                "INV-face-up-life",
+                format!("p{i} face_up={} / life={} ({ctx})", p.face_up_life_count, p.life.len()),
+            );
+            n += 1;
+        }
     }
+    // ⚠ 「game_over なら winner が確定」 は **不変条件ではない**。 公式 floor_rule II. の
+    //   時間切れ両者敗北 (= 引き分け) は winner=None のまま game_over になるのが正しい。
+    //   一度書きかけたが成立しないので入れない (検査は 「必ず真」 のものだけ載せる)。
     n
 }
 
@@ -665,10 +728,7 @@ pub fn play_game(
     advance_to_main(&mut st)?;
     let mut steps: i64 = 0;
     // 保存則の基準 (試合開始時のカード枚数 / ドン総数)。 diag 時のみ各手後に照合する。
-    let inv_base: [(usize, i32); 2] = [
-        (zone_card_count(&st.players[0]), don_total(&st.players[0])),
-        (zone_card_count(&st.players[1]), don_total(&st.players[1])),
-    ];
+    let inv_base = inv_base(&st);
     let diag = DIAG_ON.load(std::sync::atomic::Ordering::Relaxed);
     let mut inv_bad: i64 = 0;
     // 防御が実際に働いているかの計器 (無防御回帰の検出用)

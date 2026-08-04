@@ -477,6 +477,48 @@ def test_no_card_uses_self_ko_cost_against_official_text():
 
 
 # --------------------------------------------------------------------------- #
+#  I. 表向きライフ枚数は ライフ枚数を超えない (状態の正規化)
+#     ⚠ face_up_life_count は **増やす側も読む側も** clamp していたが、 ライフが減る時に
+#       減らしていなかった。 「ライフ 0 なのに表向き 1」 が残り、 後でライフが増えると
+#       **新しく置いた裏向きのライフを表向きと誤認** する潜在バグだった。
+#       Rust の保存則チェック (INV-face-up-life) が検出 = 両エンジンが同じ間違いをしていて
+#       差分検証では原理的に見えなかったクラス ([[reference_rust_mismatch_root_cause_taxonomy]])。
+# --------------------------------------------------------------------------- #
+def test_face_up_life_never_exceeds_life_count():
+    """ライフが減ったら表向き枚数もそれ以下に正規化される。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    me.life = [repo.get(_FILLER)]
+    me.face_up_life_count = 1
+
+    me.life.clear()                       # ダメージ等でライフが尽きた状況
+    evaluate_static_effects(st, overlay)  # = 両エンジンが回す正規化フック
+
+    assert me.face_up_life_count == 0, (
+        f"ライフ 0 なのに表向き {me.face_up_life_count} 枚が残っている"
+    )
+
+
+def test_stale_face_up_does_not_mark_new_life_as_face_up():
+    """ライフが再び増えた時、 古い表向きカウントが新しい裏向きライフを表向きにしない。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    me.life = [repo.get(_FILLER)]
+    me.face_up_life_count = 1
+    me.life.clear()
+    evaluate_static_effects(st, overlay)          # ここで 0 に正規化される
+
+    me.life.append(repo.get(_FILLER))             # 効果でライフを 1 枚積み直す (裏向き)
+    evaluate_static_effects(st, overlay)
+    assert me.face_up_life_count == 0, (
+        "新しく置いた裏向きのライフが表向き扱いになっている"
+        f" (face_up={me.face_up_life_count})"
+    )
+
+
+# --------------------------------------------------------------------------- #
 #  H. 効果無効は 「相手がキャラを登場させた時」 のような場のトリガーにも効く
 # --------------------------------------------------------------------------- #
 def test_negated_source_does_not_fire_on_play():
