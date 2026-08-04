@@ -4,15 +4,41 @@
 > `optcg_engine`) は self-play を 30-100x 高速化するための**忠実ミラー**。 配備 AI・人間対戦・API は
 > Python のまま。 詳細背景は memory `project_rust_engine.md`。
 
-## 現状 (2026-08-02): 「Rust 単独で正しい game を回せる」 を数字で確認済
+## 現状 (2026-08-04): Python との bit 一致を **効果カード全数** で証明済
 
 | 検証 | 結果 |
 |---|---|
-| メタ 92 デッキ self-play (400 game) | **action bail 0 / 353,015**、 保存則違反 0、 中断 0 |
-| メタ広域 (1500 game、 beam 込み) | **action bail 0 / 4,891,075**、 保存則違反 0、 中断 0 |
-| 全カード合成デッキ掃引 深掘り (329 デッキ = 4,263 効果カード / 2,632 game) | **action bail 0 / 2,242,104**、 保存則違反 0、 panic 0、 中断 0、 発火 97.4% |
-| 差分ハーネス (`rust_parity_check --assert`) | **match 2037 / bail 0 / MISMATCH 0** |
+| 差分ハーネス 16 デッキ (`rust_parity_check --assert`) | match 2,037 / bail 0 / **MISMATCH 0** / static_skip 0 / py_skip 0 |
+| 差分 全カード合成デッキ 329 (`rust_parity_sweep`) | match 40,410 / bail 0 / **MISMATCH 0 / PANIC 0** |
+| 効果差分 3 パス (`rust_effect_smoke_parity --assert`) | 直接発火 5,084 + 静的 527 + 置換 108 / **MISMATCH 0** |
+| **効果ありカード 4,262 枚の bit 一致証明** | **100%** |
+| Rust 単独掃引 (`rust_fullsweep`、 60 デッキ / 360 game) | action 1,505,873 中 **bail 8 (0.0005%)**、 保存則違反 0、 中断 0 |
 | overlay 網羅 | primitive / condition / when / target spec が **全て実装済 (未対応 0)** |
+
+**残る唯一の bail クラス**: when-effect 中の `optional_cost_then`
+(cost=`trash_self_hand_random` → effect=`return_to_deck_bottom`) の組み合わせ。
+
+**証明範囲の 3 パス** (自己検査でなく **Python との bit 比較**):
+1. 直接発火 — 効果の `do` を両エンジンで実行して digest 比較。 発動元が LEADER の時は
+   `src_idx=-3` (= `Slot::Leader`) を渡す。
+2. 静的 — `on_attached_don` / `in_hand` / `setup_modifier` は発火でなく盤面からの再計算なので
+   Python `evaluate_static_effects` vs Rust `recompute_static_digest` で比較。
+3. 置換 — `replace_ko` / `replace_leave` / `replace_rest` は `try_replace_ko` を両側で呼んで比較。
+
+⚠ **計器の穴に注意**: 差分ハーネスは 「静的効果が食い違う局面」 と 「Python が pending_choice /
+例外で止まった局面」 で比較を飛ばす。 飛ばすこと自体は妥当だが **数えないと乖離が MISMATCH にも
+bail にも出ず match 数が減るだけで不可視**。 `static_skip` / `py_skip` として計上している
+(現状どちらも 0)。 新しい skip パスを足す時も必ず数えること。
+
+## self-play 速度 (2026-08-04 実測、 cardrush_1342 ミラー)
+
+| | ms/game |
+|---|---|
+| Rust `self_play` greedy | **48.8** |
+| Rust `self_play` beam(8,12) | 576.4 |
+| Python `run_matchup` greedy (harness 込み) | 226.4 |
+
+= greedy で約 **4.6x**。 Python 側は harness のオーバーヘッドを含むので下限値。
 
 **アタッカーの離場**: on_attack/opp_attack の解決中にアタッカー自身が場を離れても、 Python は
 attacker を **object 参照** で持つのでバトルを続行する。 Rust は位置 index なので、 離場直前の
