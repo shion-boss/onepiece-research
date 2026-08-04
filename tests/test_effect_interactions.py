@@ -11,6 +11,7 @@
 """
 from __future__ import annotations
 
+import json
 import random
 from pathlib import Path
 
@@ -781,3 +782,100 @@ def test_op09_101_discards_when_life_target_placed():
         "コスト3以下のキャラが相手ライフに置かれるはず"
     assert len(opp.hand) == hand_before - 1, \
         "ライフに置いた場合は相手が手札1枚を捨てるはず"
+# ---------------------------------------------------------------------------
+# 公式のコスト意味論 (2026-08-04 是正)
+#   素の 「コスト N 以下」    → **効果修正後の現在コスト** (cardqa_op_02 / 公式ルール 1-3-6-2)
+#   「元々のコスト N 以下」   → **印刷コスト**            (cardqa_eb_03 / cardqa_promo)
+# ---------------------------------------------------------------------------
+
+def test_plain_cost_uses_current_cost_and_truly_original_uses_printed():
+    """コスト修正を受けたキャラに対し、 2 つの表記が別々に効く。"""
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def board():
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        victim = InPlay.of(repo.get("OP02-004"), sickness=False)   # 印刷コスト 9
+        victim.cost_minus_until_turn_end = 8                        # → 現在コスト 1
+        p1.characters = [victim]
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 10
+            p.life = [repo.get("OP01-013")] * 3
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 0, 5
+        return st, p0, p1, victim
+
+    st, p0, p1, victim = board()
+    assert victim.card.cost == 9 and victim.base_cost == 1
+    execute_effect({"ko": "one_opponent_character_cost_le_2cost"}, st, p0, p1, None)
+    assert victim not in p1.characters, (
+        "素の 「コスト2以下」 は 現在コスト(1) で判定するので当たるはず "
+        "(公式 cardqa_op_02: コストを下げた後は下がった値で参照する)"
+    )
+
+    st, p0, p1, victim = board()
+    execute_effect({"ko": "one_opponent_character_truly_original_cost_le_2"}, st, p0, p1, None)
+    assert victim in p1.characters, (
+        "「元々のコスト2以下」 は 印刷コスト(9) で判定するので当たらないはず "
+        "(公式 cardqa_eb_03)"
+    )
+
+
+def test_overlay_cost_wording_matches_spec_key():
+    """overlay の コスト判定キーが 公式テキストの表記 (元々の / 素) と一致している。
+
+    素の 「コスト」 に `truly_original_cost_*` を使うと 印刷値で判定してしまい、
+    逆に 「元々のコスト」 に素の spec を使うと 現在値で判定してしまう。 どちらも
+    差分検証 (Python↔Rust) では **両エンジンが同じ間違いをする** ので沈黙する。
+    """
+    import re
+
+    cards = {c["card_id"]: c for c in
+             json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+
+    plain_rx = re.compile(r"(?<!元々の)(?<!元々のコスト)コスト\d+(以下|以上)")
+    bad: list[str] = []
+    for cid, effs in sorted(ov.items()):
+        if not isinstance(effs, list):
+            continue
+        text = (cards.get(cid, {}) or {}).get("text") or ""
+        blob = json.dumps(effs, ensure_ascii=False)
+        uses_orig = "truly_original_cost_" in blob
+        says_orig = "元々のコスト" in text
+        if uses_orig and not says_orig:
+            bad.append(f"{cid}: overlay が truly_original_cost_* だが 公式に 「元々のコスト」 が無い")
+        elif says_orig and not uses_orig and plain_rx.search(text) is None:
+            # 公式が 「元々のコスト」 しか言っていないのに 素の spec を使っている
+            if re.search(r"_cost_(le|ge|eq)_\d", blob) or '"cost_le"' in blob or '"cost_ge"' in blob:
+                bad.append(f"{cid}: 公式は 「元々のコスト」 だが overlay が素のコスト spec")
+    assert not bad, "コスト表記と spec キーの不一致:\n  " + "\n  ".join(bad[:30])
+
+
+def test_no_card_needs_plain_cost_attack_restriction():
+    """`set_cannot_attack_target_cost_le` の消費側は **印刷コスト** 固定。
+
+    game.py の `_can_attack_target` は `tgt.card.cost` と比べるので、 素の
+    「コスト N 以下のキャラへアタックできない」 カードが登場したら **消費側を
+    `base_cost` に切り替える分岐が要る**。 現状そういうカードが無いことを固定する。
+    """
+    cards = {c["card_id"]: c for c in
+             json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    offenders = [
+        cid for cid, effs in ov.items()
+        if isinstance(effs, list)
+        and "set_cannot_attack_target_cost_le" in json.dumps(effs, ensure_ascii=False)
+        and "元々のコスト" not in ((cards.get(cid, {}) or {}).get("text") or "")
+    ]
+    assert not offenders, (
+        "素の 「コスト」 でアタック制限するカードが現れた。 消費側 (game.py:_can_attack_target) を "
+        f"現在コストで判定する分岐に拡張すること: {offenders}"
+    )

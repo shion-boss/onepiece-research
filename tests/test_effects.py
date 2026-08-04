@@ -3727,9 +3727,16 @@ def test_op13_091_overlay_target_spec_string():
     on_play = next(e for e in bundle.effects if e.get("when") == "on_play")
     ko_target = next(p["ko"] for p in on_play["do"] if "ko" in p)
     assert isinstance(ko_target, str), f"ko target が str で ない: {type(ko_target)}"
+    # 公式は 「相手の **元々の** コスト5以下」 = 印刷コスト判定 (2026-08-04)。
+    # spec は `_truly_original_cost_` を含み、 engine が **入口で** `_cost_` に正規化して
+    # 印刷コストで比較する。 ここでも同じ正規化をかけてから regex を当てる。
+    assert "_truly_original_cost_" in ko_target, (
+        f"公式が 「元々のコスト」 なのに spec が印刷コスト指定でない: '{ko_target}'"
+    )
+    normalized = ko_target.replace("_truly_original_cost_", "_cost_")
     # engine regex を inline 検証
     pat = re.compile(r"one_opponent_character_cost_le_(\d+)(?:cost)?$")
-    m = pat.match(ko_target)
+    m = pat.match(normalized)
     assert m is not None, (
         f"OP13-091 ko target '{ko_target}' が engine regex に 一致 しない "
         f"(= 旧 'one_opponent_character_le_5cost' は 'cost_' 抜け で 不発)"

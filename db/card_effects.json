@@ -1428,7 +1428,7 @@
    "when": "on_attack",
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_6cost"
+     "rest": "one_opponent_character_truly_original_cost_le_6"
     }
    ],
    "if": {
@@ -2154,7 +2154,7 @@
     {
      "set_cannot_attack_target_cost_le": {
       "target": "self_leader",
-      "cost_le": 7
+      "truly_original_cost_le": 7
      }
     }
    ],
@@ -7155,7 +7155,7 @@
    "when": "on_play",
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_6cost"
+     "rest": "one_opponent_character_truly_original_cost_le_6"
     }
    ]
   }
@@ -7302,7 +7302,7 @@
    },
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_5"
+     "ko": "one_opponent_character_truly_original_cost_le_5"
     }
    ]
   }
@@ -8854,10 +8854,10 @@
    "when": "on_play",
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_2cost"
+     "rest": "one_opponent_character_truly_original_cost_le_2cost"
     },
     {
-     "ko": "one_opponent_rested_character_cost_le_1cost"
+     "ko": "one_opponent_rested_character_truly_original_cost_le_1"
     }
    ]
   }
@@ -8868,7 +8868,7 @@
    "when": "main",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_6cost"
+     "ko": "one_opponent_character_truly_original_cost_le_6"
     }
    ],
    "cost": {
@@ -8997,7 +8997,7 @@
    "when": "on_ko",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_4cost"
+     "ko": "one_opponent_character_truly_original_cost_le_4"
     }
    ],
    "if": {
@@ -12063,7 +12063,7 @@
    "do": [
     {
      "untap_chara": {
-      "target": "one_self_character_cost_le_8cost",
+      "target": "one_self_character_truly_original_cost_le_8",
       "limit": 1
      }
     }
@@ -12557,7 +12557,7 @@
      "play_event_from_hand": {
       "filter": {
        "feature": "麦わらの一味",
-       "cost_le": 3
+       "truly_original_cost_le": 3
       }
      }
     }
@@ -14240,7 +14240,7 @@
     {
      "set_cannot_attack_target_cost_le": {
       "target": "self_leader",
-      "cost_le": 7
+      "truly_original_cost_le": 7
      }
     }
    ],
@@ -14268,7 +14268,7 @@
      "play_event_from_hand": {
       "filter": {
        "feature": "麦わらの一味",
-       "cost_le": 3
+       "truly_original_cost_le": 3
       }
      }
     }
@@ -18311,7 +18311,7 @@
     {
      "set_cannot_attack_target_cost_le": {
       "target": "self_leader",
-      "cost_le": 7
+      "truly_original_cost_le": 7
      }
     }
    ],
@@ -18845,7 +18845,7 @@
     {
      "set_cannot_attack_target_cost_le": {
       "target": "self_leader",
-      "cost_le": 7
+      "truly_original_cost_le": 7
      }
     }
    ],
@@ -20614,7 +20614,7 @@
    "when": "on_ko",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_4cost"
+     "ko": "one_opponent_character_truly_original_cost_le_4"
     }
    ],
    "if": {
@@ -21621,8 +21621,8 @@
    "do": [
     {
      "ko_multi": [
-      "one_opponent_character_cost_le_3",
-      "one_opponent_character_cost_le_3"
+      "one_opponent_character_truly_original_cost_le_3",
+      "one_opponent_character_truly_original_cost_le_3"
      ]
     }
    ],
@@ -21721,7 +21721,7 @@
       ],
       "effect": [
        {
-        "ko": "one_opponent_character_cost_le_3cost"
+        "ko": "one_opponent_character_truly_original_cost_le_3"
        }
       ]
      }
@@ -22716,7 +22716,7 @@
    "when": "on_ko",
    "do": [
     {
-     "ko": "one_opponent_character_cost_eq_1"
+     "ko": "one_opponent_character_truly_original_cost_eq_1"
     }
    ]
   }
@@ -23012,13 +23012,13 @@
       {
        "type": "one_opponent_character_filtered",
        "filter": {
-        "cost_le": 3
+        "truly_original_cost_le": 3
        }
       },
       {
        "type": "one_opponent_character_filtered",
        "filter": {
-        "cost_le": 3
+        "truly_original_cost_le": 3
        }
       }
      ]
@@ -23118,7 +23118,7 @@
       ],
       "effect": [
        {
-        "ko": "one_opponent_character_cost_le_6"
+        "ko": "one_opponent_character_truly_original_cost_le_6"
        }
       ]
      }
@@ -23169,7 +23169,7 @@
    "when": "activate_main",
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_4cost"
+     "rest": "one_opponent_character_truly_original_cost_le_4"
     },
     {
      "conditional": {
@@ -24041,7 +24041,7 @@
      "declare_cost_reveal_then": {
       "effect": [
        {
-        "ko": "one_opponent_character_cost_le_3"
+        "ko": "one_opponent_character_truly_original_cost_le_3"
        },
        {
         "add_rested_don": 1
@@ -28885,7 +28885,7 @@
    "when": "on_play",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_5cost"
+     "ko": "one_opponent_character_truly_original_cost_le_5"
     }
    ],
    "if": {
@@ -29045,7 +29045,7 @@
    "if": {
     "self_chara_filtered_count_ge": {
      "filter": {
-      "cost_ge": 5
+      "truly_original_cost_ge": 5
      },
      "count": 2
     }
@@ -31052,7 +31052,7 @@
    "when": "on_ko",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_4cost"
+     "ko": "one_opponent_character_truly_original_cost_le_4"
     }
    ],
    "if": {
@@ -35101,7 +35101,7 @@
    "do": [
     {
      "untap_chara": {
-      "target": "one_self_character_cost_le_8cost",
+      "target": "one_self_character_truly_original_cost_le_8",
       "limit": 1
      }
     }
@@ -36967,7 +36967,7 @@
    },
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_5"
+     "ko": "one_opponent_character_truly_original_cost_le_5"
     }
    ]
   }
@@ -37000,7 +37000,7 @@
    },
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_5"
+     "ko": "one_opponent_character_truly_original_cost_le_5"
     }
    ]
   }
@@ -37414,7 +37414,7 @@
    "when": "on_play",
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_6cost"
+     "rest": "one_opponent_character_truly_original_cost_le_6"
     }
    ]
   }
@@ -44193,7 +44193,7 @@
    "when": "on_play",
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_6cost"
+     "rest": "one_opponent_character_truly_original_cost_le_6"
     }
    ]
   }
@@ -44253,7 +44253,7 @@
    "when": "on_ko",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_4cost"
+     "ko": "one_opponent_character_truly_original_cost_le_4"
     }
    ],
    "if": {
@@ -46303,7 +46303,7 @@
    "when": "activate_main",
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_4cost"
+     "rest": "one_opponent_character_truly_original_cost_le_4"
     },
     {
      "conditional": {
@@ -56948,7 +56948,7 @@
       ],
       "effect": [
        {
-        "ko": "one_opponent_character_cost_le_5cost"
+        "ko": "one_opponent_character_truly_original_cost_le_5"
        }
       ]
      }
@@ -60520,7 +60520,7 @@
       "filter": {
        "feature": "ドレスローザ",
        "category": "EVENT",
-       "cost_le": 3
+       "truly_original_cost_le": 3
       }
      }
     }
@@ -61248,7 +61248,7 @@
    "do": [
     {
      "set_cannot_attack": {
-      "target": "one_opponent_character_cost_le_5cost",
+      "target": "one_opponent_character_truly_original_cost_le_5",
       "duration": "next_opp_turn_end"
      }
     }
@@ -62775,7 +62775,7 @@
     {
      "play_from_hand": {
       "filter": {
-       "cost_le": 5
+       "truly_original_cost_le": 5
       },
       "limit": 1,
       "rested": true
@@ -62804,7 +62804,7 @@
     {
      "play_from_hand": {
       "filter": {
-       "cost_le": 5
+       "truly_original_cost_le": 5
       },
       "limit": 1,
       "rested": true
@@ -64517,10 +64517,10 @@
     {
      "ko_multi": [
       {
-       "target": "one_opponent_rested_character_cost_le_4"
+       "target": "one_opponent_rested_character_truly_original_cost_le_4"
       },
       {
-       "target": "one_opponent_rested_character_cost_le_4"
+       "target": "one_opponent_rested_character_truly_original_cost_le_4"
       }
      ]
     }
@@ -64549,7 +64549,7 @@
    "when": "on_play",
    "do": [
     {
-     "return_to_deck_bottom": "one_opponent_character_cost_le_1cost"
+     "return_to_deck_bottom": "one_opponent_character_truly_original_cost_le_1"
     }
    ]
   }
@@ -64632,7 +64632,7 @@
       "effect": [
        {
         "disable_blocker": {
-         "target": "one_opponent_character_cost_le_4",
+         "target": "one_opponent_character_truly_original_cost_le_4",
          "duration": "turn"
         }
        }
@@ -66014,7 +66014,7 @@
    "when": "on_play",
    "do": [
     {
-     "return_to_deck_bottom": "one_opponent_character_cost_eq_1"
+     "return_to_deck_bottom": "one_opponent_character_truly_original_cost_eq_1"
     }
    ]
   }
@@ -66060,7 +66060,7 @@
    "when": "main",
    "do": [
     {
-     "return_to_deck_bottom": "one_opponent_character_cost_le_4cost"
+     "return_to_deck_bottom": "one_opponent_character_truly_original_cost_le_4"
     }
    ]
   },
@@ -66069,7 +66069,7 @@
    "when": "trigger",
    "do": [
     {
-     "return_to_deck_bottom": "one_opponent_character_cost_le_1"
+     "return_to_deck_bottom": "one_opponent_character_truly_original_cost_le_1"
     }
    ]
   }
@@ -66285,7 +66285,7 @@
      "declare_cost_reveal_then": {
       "effect": [
        {
-        "ko": "one_opponent_character_cost_le_8"
+        "ko": "one_opponent_character_truly_original_cost_le_8"
        }
       ]
      }
@@ -66610,7 +66610,7 @@
    "when": "main",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_5cost"
+     "ko": "one_opponent_character_truly_original_cost_le_5"
     }
    ],
    "cost": {
@@ -66640,7 +66640,7 @@
    "when": "main",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_5cost"
+     "ko": "one_opponent_character_truly_original_cost_le_5"
     }
    ],
    "cost": {
@@ -67787,7 +67787,7 @@
    "when": "activate_main",
    "do": [
     {
-     "ko": "one_opponent_character_cost_le_3cost"
+     "ko": "one_opponent_character_truly_original_cost_le_3"
     }
    ],
    "cost": {
@@ -84513,7 +84513,7 @@
    "if": {
     "self_chara_filtered_count_ge": {
      "filter": {
-      "cost_ge": 5
+      "truly_original_cost_ge": 5
      },
      "count": 2
     }
@@ -95556,7 +95556,7 @@
       "effect": [
        {
         "disable_blocker": {
-         "target": "one_opponent_character_cost_le_4",
+         "target": "one_opponent_character_truly_original_cost_le_4",
          "duration": "turn"
         }
        }
@@ -99508,9 +99508,9 @@
       "target": {
        "type": "all_self_chara_filtered",
        "filter": {
-        "cost_ge": 4,
         "color": "緑",
-        "feature": "麦わらの一味"
+        "feature": "麦わらの一味",
+        "truly_original_cost_ge": 4
        }
       },
       "amount": 1000,
@@ -102701,7 +102701,7 @@
    "if": {
     "self_chara_filtered_count_ge": {
      "filter": {
-      "cost_ge": 5
+      "truly_original_cost_ge": 5
      },
      "count": 2
     }
@@ -107181,7 +107181,7 @@
     },
     {
      "set_cannot_rest": {
-      "target": "one_opponent_character_cost_le_6",
+      "target": "one_opponent_character_truly_original_cost_le_6",
       "count": 1,
       "duration": "next_opp_turn_end"
      }
@@ -107855,7 +107855,7 @@
      "declare_cost_reveal_then": {
       "effect": [
        {
-        "ko": "one_opponent_character_cost_le_8"
+        "ko": "one_opponent_character_truly_original_cost_le_8"
        }
       ]
      }
@@ -108057,7 +108057,7 @@
     {
      "set_cannot_attack_target_cost_le": {
       "target": "self_leader",
-      "cost_le": 7
+      "truly_original_cost_le": 7
      }
     }
    ],
@@ -108461,7 +108461,7 @@
      "declare_cost_reveal_then": {
       "effect": [
        {
-        "ko": "one_opponent_character_cost_le_3"
+        "ko": "one_opponent_character_truly_original_cost_le_3"
        },
        {
         "add_rested_don": 1
@@ -108664,7 +108664,7 @@
    "when": "on_play",
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_6cost"
+     "rest": "one_opponent_character_truly_original_cost_le_6"
     }
    ]
   }
@@ -108978,7 +108978,7 @@
    "when": "activate_main",
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_4cost"
+     "rest": "one_opponent_character_truly_original_cost_le_4"
     },
     {
      "conditional": {

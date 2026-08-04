@@ -216,3 +216,48 @@ Rust `effects.rs` 両方)。 overlay を
 - **「N枚まで KO その後 登場」 の後段は前段が空振りでも独立実行** (EB03-013 キャロット) —
   「相手をKOせずに『ゾウ』を登場できますか？」→「はい」。 `ko`(1枚まで=0可) の後の
   `play_stage_from_hand` は settled その後 tail 原則 (`test_sonogo_tail_runs`) で独立実行 = 正しい。
+## 「コストN以下」 は **現在コスト**、 「元々のコストN以下」 は **印刷コスト** (2026-08-04 是正)
+
+**一次情報**:
+
+- 公式ルール **1-3-6-2**: カードのコストは効果によって変化する。 以降の参照は変化後の値。
+- `db/faq/cardqa_op_02.json` — 「本来のコストが8以上のキャラが、他の効果によってコストが
+  7以下になった場合、この効果の対象にできますか？」 → **「はい、できます。」**
+- `db/faq/cardqa_eb_03.json` — 「**元々のコスト**が4以上で、他の効果によって現在のコストが
+  3以下になっているキャラを、この効果でKOできますか？」 → **「いいえ、できません。」**
+- `db/faq/cardqa_promo.json` — 同趣旨
+
+**是正前の挙動**: engine は 素の 「コストN以下」 も **印刷コスト (`CardDef.cost`)** で判定して
+いた。 コストを下げてから除去する実在のラインが丸ごと機能していなかった。
+
+**実装**: `_resolve_target` の **入口で正規化** する。 spec 名に `_truly_original_cost_` が
+入っていれば印刷コスト、 それ以外は現在コスト (`InPlay.base_cost`)。 分岐ごとに regex を
+増やすと保守が破綻するので、 どちらのコストを見るかは `_cost_of(ip)` 1 箇所で決まる。
+Rust も同じ入口正規化 (`effects.rs:resolve_target` の `use_printed_cost` / `cost_of`)。
+
+overlay 側は 公式テキストに 「元々のコスト」 とあるカード **59 枚** を
+`truly_original_cost_{le,ge,eq}_N` へ移行した。
+
+⚠ **`set_cannot_attack_target_cost_le` は例外**: 消費側 (`game.py:_can_attack_target`) が
+`tgt.card.cost` (= 印刷値) と比べる作りで、 該当カード (OP12-020 ゾロ系) は全て公式が
+「元々のコスト」。 素の 「コスト」 版が現れたら **消費側を `base_cost` に切り替える分岐が要る**。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+- `test_plain_cost_uses_current_cost_and_truly_original_uses_printed` — 対照テスト
+- `test_overlay_cost_wording_matches_spec_key` — overlay 全走査で表記と spec キーの不一致を検出
+  (この検査が移行漏れ 6 枚を追加で摘出した)
+- `test_no_card_needs_plain_cost_attack_restriction` — 上記例外の前提が崩れたら落ちる
+
+⭐ **教訓**: 「元々の」 のような **1 語の限定** は、 全カードを機械走査しないと必ず取りこぼす。
+公式テキストと spec キーの対応を **テストで固定** すると、 以後の新弾でも自動で守られる。
+
+---
+
+## 監査は `text` だけでなく **`trigger` フィールド** も読む (2026-08-04)
+
+`db/cards.json` は 【トリガー】の文面を **`text` とは別の `trigger` フィールド** に持つ
+(820 枚)。 `text` だけ見る監査は trigger 効果を **丸ごと未検査** にする。
+
+`audit_sonogo_order.py` / `audit_target_scope.py` は 効果エントリごとに
+`when == "trigger"` なら `trigger`、 それ以外は `text` と突き合わせる。
+⚠ mutation で 「空でない」 ことを確認済 (OP03-097 六王銃 の trigger do を反転 → 検出)。

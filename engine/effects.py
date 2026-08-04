@@ -2090,6 +2090,24 @@ def _resolve_target(
       再実行 する 際 の 外側 primitive 名 (= "ko" / "power_pump" 等)。
     - outer_value: pending_choice に 記録する 元 spec (= 再実行時に そのまま 使う)
     """
+    # ⭐ 公式は 「コストN以下」 と 「**元々の**コストN以下」 を区別する (2026-08-04)。
+    #   - 「コストN以下」        = 効果修正を反映した **現在のコスト** (InPlay.base_cost)
+    #     cardqa_op_02「本来のコストが8以上のキャラが、他の効果で7コスト以下になった場合…はい、できます」
+    #   - 「元々のコストN以下」   = **印刷コスト** (CardDef.cost)
+    #     cardqa_eb_03「元々のコストが4以上で、他の効果によって現在のコストが3以下になっている
+    #                  キャラを…」→「いいえ、できません」
+    #   spec 名に `_truly_original_cost_` が入っていれば印刷コスト、 それ以外は現在コスト。
+    #   ⚠ 分岐ごとに regex を増やすと保守が破綻するので **入口で正規化** し、 各分岐は
+    #     `_cost_of(ip)` を通す (= どちらのコストを見るかは 1 箇所で決まる)。
+    _use_printed_cost = False
+    if isinstance(target_spec, str) and "_truly_original_cost_" in target_spec:
+        _use_printed_cost = True
+        target_spec = target_spec.replace("_truly_original_cost_", "_cost_")
+
+    def _cost_of(ip) -> int:
+        """target spec のコスト判定に使う値 (公式: 既定は現在コスト)。"""
+        return ip.card.cost if _use_printed_cost else ip.base_cost
+
     # opp target 「実害 評価」 (= AI が pick する 際 の eval 良い順)。
     # ohtsuki さん 要望 「AI も最善手 考えるよう target expansion」。
     # 排除 価値 = cost + power + blocker bonus + finisher role bonus
@@ -2117,6 +2135,28 @@ def _resolve_target(
         except Exception:
             pass
         return val
+
+    def _either_pick_one(
+        opp_cands: list, self_cands: list, description: str
+    ) -> Optional[list]:
+        """両陣営候補から 1 枚選ぶ (公式: 修飾なし 「キャラ1枚まで」 は自陣も対象)。
+
+        一次情報 (複数の弾で繰り返し = 一般則): 「この【登場時】/【アタック時】/【メイン】/
+        【カウンター】/【トリガー】/【ブロック時】/【起動メイン】/【KO時】効果で **自分の
+        キャラ** を手札に戻す/デッキの下に置く/ライフに置く ことはできますか？」 →
+        「はい、できます」。 「このキャラ自身」 も選べる。
+
+        human は modal で両陣営から選ぶ (= 選択肢の平等)。 AI は相手キャラ優先 (= 除去価値)、
+        居なければ自キャラ。 **None を返したら 呼び出し側は [] を返して halt** (= modal 待ち)。
+        """
+        cands = list(opp_cands) + list(self_cands)
+        if outer_kind and _maybe_request_target_pick(
+            state, cands, 1, outer_kind, outer_value, self_inplay,
+            description=description,
+        ):
+            return None
+        ranked = sorted(opp_cands, key=lambda c: -_opp_value(c))
+        return ranked[:1] if ranked else list(self_cands)[:1]
 
     # _iid_picks bypass (= resolve_pending_choice 経由 の 再実行)
     # ユーザ の 選択した iid から 該当 InPlay を 全 場 から 直接 解決 する。
@@ -2262,40 +2302,50 @@ def _resolve_target(
             if "limit" in target_spec:
                 cands = sorted(cands, key=lambda ip: -ip.power)[:int(target_spec["limit"])]
             return cands
-        if t == "one_opponent_character_filtered":
+        if t in ("one_opponent_character_filtered", "one_character_either_filtered"):
             # 相手キャラから filter にマッチする 1 枚 (= パワー高い順、 attached_don 等の属性条件も追加サポート)
+            # `one_character_either_filtered` は 公式が 「相手の」 と書いていない場合 (= 両陣営) 用。
             filt = target_spec.get("filter", {})
             attached_don_ge = int(filt.get("attached_don_ge", 0))
             rested_required = bool(filt.get("rested", False))
             active_required = bool(filt.get("active", False))
             blocker_required = bool(filt.get("blocker", False))
-            cands = []
-            for ip in opp.characters:
+
+            def _chara_filter_ok(ip) -> bool:
                 if not _matches_filter(ip.card, filt):
-                    continue
+                    return False
                 if attached_don_ge > 0 and ip.attached_dons < attached_don_ge:
-                    continue
+                    return False
                 if rested_required and not ip.rested:
-                    continue
+                    return False
                 if active_required and ip.rested:
-                    continue
+                    return False
                 # 公式 「【ブロッカー】を持つキャラ」 (= 付与込みの現在の blocker 状態)
                 if blocker_required and not ip.is_blocker_now:
-                    continue
+                    return False
                 if "current_power_le" in filt and ip.power > int(filt["current_power_le"]):
-                    continue
+                    return False
                 # 現在(実効)コスト条件 (= base_cost、 cost_minus/軽減 反映)。 公式の 平文
                 # 「コスト N の…」 は現在コスト参照 (「元々のコスト」 は printed=_matches_filter の
                 # cost_eq を使う)。 CardDef を受ける _matches_filter では実効コストを見られない
                 # ため、 InPlay を持つ この resolver で判定する (= current_power_le と同じ扱い)。
                 # 例: EB01-040 キュロス「相手のコスト0のキャラをKO」 = 軽減で0になったキャラも対象。
                 if "current_cost_eq" in filt and ip.base_cost != int(filt["current_cost_eq"]):
-                    continue
+                    return False
                 if "current_cost_le" in filt and ip.base_cost > int(filt["current_cost_le"]):
-                    continue
+                    return False
                 if "current_cost_ge" in filt and ip.base_cost < int(filt["current_cost_ge"]):
-                    continue
-                cands.append(ip)
+                    return False
+                return True
+
+            cands = [ip for ip in opp.characters if _chara_filter_ok(ip)]
+            if t == "one_character_either_filtered":
+                self_cands = [ip for ip in me.characters if _chara_filter_ok(ip)]
+                if iid_picks is not None:
+                    return [ip for ip in (cands + self_cands)
+                            if ip.instance_id in iid_picks][:1]
+                picked = _either_pick_one(cands, self_cands, "両陣営のキャラ から 1 枚 選択")
+                return [] if picked is None else picked
             if iid_picks is not None:
                 return [ip for ip in cands if ip.instance_id in iid_picks][:1]
             if outer_kind and _maybe_request_target_pick(
@@ -2626,7 +2676,7 @@ def _resolve_target(
                    if isinstance(target_spec, str) else None)
     if _m_all_self:
         cap = int(_m_all_self.group(1))
-        return [c for c in me.characters if c.card.cost <= cap]
+        return [c for c in me.characters if _cost_of(c) <= cap]
     if target_spec == "all_self_team":
         return [me.leader] + list(me.characters)
     if target_spec == "one_self_team_any":
@@ -2650,7 +2700,7 @@ def _resolve_target(
         m = re.match(r"one_opponent_character_(?:any_)?cost_le_(\d+)(?:cost)?$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = [c for c in opp.characters if c.card.cost <= n]
+            cands = [c for c in opp.characters if _cost_of(c) <= n]
             if outer_kind and _maybe_request_target_pick(
                 state, cands, 1, outer_kind, outer_value, self_inplay,
                 description=f"相手キャラ から 1 枚 選択 (コスト≤{n})",
@@ -2663,7 +2713,7 @@ def _resolve_target(
         m = re.match(r"all_chara_either_cost_le_(\d+)$", target_spec)
         if m:
             n = int(m.group(1))
-            return [c for c in (list(opp.characters) + list(me.characters)) if c.card.cost <= n]
+            return [c for c in (list(opp.characters) + list(me.characters)) if _cost_of(c) <= n]
         # one_character_either(_except_self)_cost_le_N (両陣営 1 体、 元々コスト)。
         # 公式 「コストN以下のキャラ1枚まで(両陣営)、 持ち主の手札/デッキの下に戻す」
         # (OP10-046/OP07-040/OP03-122/OP05-051/P-030/OP12-054 等)。 AI は相手キャラ優先
@@ -2678,8 +2728,8 @@ def _resolve_target(
         if m:
             except_self = bool(m.group(1))
             n = int(m.group(2))
-            opp_cands = [c for c in opp.characters if c.card.cost <= n]
-            self_cands = [c for c in me.characters if c.card.cost <= n
+            opp_cands = [c for c in opp.characters if _cost_of(c) <= n]
+            self_cands = [c for c in me.characters if _cost_of(c) <= n
                           and not (except_self and self_inplay is not None
                                    and c.instance_id == self_inplay.instance_id)]
             cands = opp_cands + self_cands
@@ -2716,7 +2766,7 @@ def _resolve_target(
         )
         if m:
             n = int(m.group(1))
-            return [c for c in opp.characters if c.card.cost <= n]
+            return [c for c in opp.characters if _cost_of(c) <= n]
 
         # any_opponent_character_power_le_N (全員、パワー N 以下)
         # set_cannot_attack 等の count 指定と併用 (= EB04-028 アイスタイム
@@ -2730,7 +2780,7 @@ def _resolve_target(
         m = re.match(r"one_opponent_rested_character_cost_le_(\d+)(?:cost)?$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = [c for c in opp.characters if c.rested and c.card.cost <= n]
+            cands = [c for c in opp.characters if c.rested and _cost_of(c) <= n]
             if outer_kind and _maybe_request_target_pick(
                 state, cands, 1, outer_kind, outer_value, self_inplay,
                 description=f"相手レストキャラ から 1 枚 選択 (コスト≤{n})",
@@ -2784,7 +2834,7 @@ def _resolve_target(
         m = re.match(r"one_self_character_cost_le_(\d+)(?:cost)?$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = [c for c in me.characters if c.card.cost <= n]
+            cands = [c for c in me.characters if _cost_of(c) <= n]
             if outer_kind and _maybe_request_target_pick(
                 state, cands, 1, outer_kind, outer_value, self_inplay,
                 description=f"自キャラ から 1 枚 選択 (コスト≤{n})",
@@ -2809,7 +2859,7 @@ def _resolve_target(
 
             cands = [
                 c for c in me.characters
-                if c.card.cost <= n and not _has_on_play(c.card)
+                if _cost_of(c) <= n and not _has_on_play(c.card)
             ]
             if outer_kind and _maybe_request_target_pick(
                 state, cands, 1, outer_kind, outer_value, self_inplay,
@@ -2836,7 +2886,7 @@ def _resolve_target(
         m = re.match(r"one_opponent_character_cost_(?:eq_)?(\d+)$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = [c for c in opp.characters if c.card.cost == n]
+            cands = [c for c in opp.characters if _cost_of(c) == n]
             if outer_kind and _maybe_request_target_pick(
                 state, cands, 1, outer_kind, outer_value, self_inplay,
                 description=f"相手キャラ から 1 枚 選択 (コスト={n})",
@@ -2849,13 +2899,13 @@ def _resolve_target(
         m = re.match(r"all_opponent_rested_characters_le_(\d+)cost$", target_spec)
         if m:
             n = int(m.group(1))
-            return [c for c in opp.characters if c.rested and c.card.cost <= n]
+            return [c for c in opp.characters if c.rested and _cost_of(c) <= n]
 
         # one_self_character_le_Ncost (= 自分の cost N 以下キャラ 1 枚、 パワー高い順)
         m = re.match(r"one_self_character_le_(\d+)cost$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = [c for c in me.characters if c.card.cost <= n]
+            cands = [c for c in me.characters if _cost_of(c) <= n]
             if outer_kind and _maybe_request_target_pick(
                 state, cands, 1, outer_kind, outer_value, self_inplay,
                 description=f"自キャラ から 1 枚 選択 (コスト≤{n})",
@@ -2868,7 +2918,7 @@ def _resolve_target(
         m = re.match(r"one_self_character_cost_eq_(\d+)$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = [c for c in me.characters if c.card.cost == n]
+            cands = [c for c in me.characters if _cost_of(c) == n]
             if outer_kind and _maybe_request_target_pick(
                 state, cands, 1, outer_kind, outer_value, self_inplay,
                 description=f"自キャラ から 1 枚 選択 (コスト={n})",
@@ -2899,7 +2949,7 @@ def _resolve_target(
         if m:
             cost_cap = int(m.group(1))
             n = int(m.group(2))
-            cands = [c for c in opp.characters if c.rested and c.card.cost <= cost_cap]
+            cands = [c for c in opp.characters if c.rested and _cost_of(c) <= cost_cap]
             if outer_kind and len(cands) > n and _maybe_request_target_pick(
                 state, cands, n, outer_kind, outer_value, self_inplay,
                 description=f"相手レストキャラ(コスト{cost_cap}以下) から {n} 枚 まで 選択",
@@ -3032,14 +3082,14 @@ def _resolve_target(
         m = re.match(r"one_opponent_inplay_cost_le_(\d+)(?:cost)?$", target_spec)
         if m:
             n = int(m.group(1))
-            cands = [opp.leader] + [c for c in opp.characters if c.card.cost <= n]
+            cands = [opp.leader] + [c for c in opp.characters if _cost_of(c) <= n]
             if outer_kind and _maybe_request_target_pick(
                 state, cands, 1, outer_kind, outer_value, self_inplay,
                 description=f"相手リーダー or キャラ から 1 枚 選択 (コスト≤{n})",
             ):
                 return []
             sorted_chara = sorted(
-                [c for c in opp.characters if c.card.cost <= n],
+                [c for c in opp.characters if _cost_of(c) <= n],
                 key=lambda c: -c.power,
             )
             if sorted_chara:
@@ -7867,10 +7917,14 @@ def _execute_effect_body(
             )
         elif k == "set_cannot_attack_target_cost_le":
             # 「相手の元々のコスト N 以下のキャラへアタックできない」 (OP12-020 リーダー等)
-            # spec: {"target": "self_leader", "cost_le": 7} or {"cost_le": 7} (= self_leader 既定)
-            spec_val = v if isinstance(v, dict) else {"cost_le": int(v)}
+            # spec: {"target": "self_leader", "truly_original_cost_le": 7}
+            # ⚠ 公式は 「元々のコスト」 = 印刷コスト。 消費側 (game.py の _can_attack_target) は
+            #   `tgt.card.cost` (= 印刷値) と比べるので、 このキーは印刷値専用。
+            #   素の 「コスト N 以下」 版のカードが出たら **消費側を base_cost に切り替える**
+            #   分岐が要る (現状そのカードは存在しない = tests/test_effect_interactions.py で固定)。
+            spec_val = v if isinstance(v, dict) else {"truly_original_cost_le": int(v)}
             target_spec = spec_val.get("target", "self_leader")
-            cost_le = int(spec_val.get("cost_le", 0))
+            cost_le = int(spec_val.get("truly_original_cost_le", 0))
             targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="set_cannot_attack_target_cost_le", outer_value=target_spec)
             for t in targets:
                 t.cannot_attack_target_cost_le_until_turn_end = cost_le
@@ -10837,6 +10891,19 @@ def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
     # original_cost_eq: 元々(印刷)コスト = N。 CardDef.cost = 印刷値なので cost_eq と同義の
     # エイリアス。 未処理で silently 無視されていた (= 2026-06-05 filter キー監査で検出)。
     if "original_cost_eq" in filt and card.cost != int(filt["original_cost_eq"]):
+        return False
+    # ⭐ truly_original_cost_le/ge/eq = 公式 「**元々の**コストN以下/以上」 (2026-08-04 追加)。
+    #   公式は 「コスト」 (= 効果修正後の現在値) と 「元々のコスト」 (= 印刷値) を明確に区別する:
+    #     - cardqa_eb_03「元々のコストが4以上で、他の効果によって現在のコストが3以下になっている
+    #       キャラを (元々のコスト3以下として) デッキの下に置けますか？」→「いいえ、できません」
+    #     - cardqa_op_02「本来のコストが8以上のキャラが、他の効果で7コスト以下になった場合、
+    #       (コスト7以下として) コスト-1することができますか？」→「はい、できます」
+    #   CardDef は印刷値しか持たないので、 このキーは常に card.cost で判定する (= 正しい)。
+    if "truly_original_cost_le" in filt and card.cost > int(filt["truly_original_cost_le"]):
+        return False
+    if "truly_original_cost_ge" in filt and card.cost < int(filt["truly_original_cost_ge"]):
+        return False
+    if "truly_original_cost_eq" in filt and card.cost != int(filt["truly_original_cost_eq"]):
         return False
     if "power_le" in filt and card.power > int(filt["power_le"]):
         return False

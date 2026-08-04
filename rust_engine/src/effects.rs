@@ -1093,6 +1093,17 @@ fn resolve_target(
             return None;
         }
     };
+    // ⭐ 公式は 「コストN以下」 と 「**元々の**コストN以下」 を区別する (effects.py:_resolve_target と対)。
+    //   - 「コストN以下」       = 効果修正を反映した **現在のコスト** (InPlay::base_cost)
+    //     cardqa_op_02「本来のコストが8以上のキャラが、他の効果で7コスト以下になった場合…はい、できます」
+    //   - 「元々のコストN以下」  = **印刷コスト** (CardDef.cost)
+    //     cardqa_eb_03「元々のコストが4以上で、他の効果によって現在のコストが3以下になっているキャラを…」
+    //                 →「いいえ、できません」
+    //   ⚠ 分岐ごとに判定を書くと必ず漏れるので **入口で正規化** する。 spec 名を素の形に畳み、
+    //     どちらのコストを見るかは `use_printed_cost` 1 箇所で決める。
+    let use_printed_cost = s.contains("_truly_original_cost_");
+    let s = if use_printed_cost { s.replace("_truly_original_cost_", "_cost_") } else { s };
+    let cost_of = |ip: &InPlay| -> i32 { if use_printed_cost { ip.card.cost } else { ip.base_cost() } };
     let out = match s.as_str() {
         // effects.py:2346 — self_inplay=None (source-gone) なら 0 対象 = no-op。
         "self" => {
@@ -1150,7 +1161,7 @@ fn resolve_target(
             let n = parse_after(os, "cost_le_").unwrap_or(0);
             let me = &state.players[me_idx];
             let mut cands: Vec<usize> = (0..me.characters.len())
-                .filter(|&i| me.characters[i].card.cost <= n)
+                .filter(|&i| cost_of(&me.characters[i]) <= n)
                 .collect();
             cands.sort_by(|&a, &b| me.characters[b].power().cmp(&me.characters[a].power()));
             cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect()
@@ -1160,7 +1171,7 @@ fn resolve_target(
             let n = parse_after(os, "cost_eq_").unwrap_or(-1);
             let me = &state.players[me_idx];
             let mut cands: Vec<usize> = (0..me.characters.len())
-                .filter(|&i| me.characters[i].card.cost == n)
+                .filter(|&i| cost_of(&me.characters[i]) == n)
                 .collect();
             cands.sort_by(|&a, &b| me.characters[b].power().cmp(&me.characters[a].power()));
             cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect()
@@ -1240,7 +1251,7 @@ fn resolve_target(
             //   誤動作になる (OP10-046 キュロスが自分を戻して場に出ない、 2026-08-03 発覚)。
             let opp = &state.players[opp_idx];
             let mut opp_cands: Vec<usize> =
-                (0..opp.characters.len()).filter(|&i| opp.characters[i].card.cost <= n).collect();
+                (0..opp.characters.len()).filter(|&i| cost_of(&opp.characters[i]) <= n).collect();
             if !opp_cands.is_empty() {
                 opp_cands.sort_by(|&a, &b| {
                     opp_value(&opp.characters[b])
@@ -1251,7 +1262,7 @@ fn resolve_target(
             }
             let me = &state.players[me_idx];
             (0..me.characters.len())
-                .find(|&i| me.characters[i].card.cost <= n)
+                .find(|&i| cost_of(&me.characters[i]) <= n)
                 .map(|i| vec![(me_idx, Slot::Char(i))])
                 .unwrap_or_default()
         }
@@ -1311,7 +1322,7 @@ fn resolve_target(
         {
             let n = parse_after(os, "cost_le_").unwrap_or(0);
             (0..state.players[me_idx].characters.len())
-                .filter(|&i| state.players[me_idx].characters[i].card.cost <= n)
+                .filter(|&i| cost_of(&state.players[me_idx].characters[i]) <= n)
                 .map(|i| (me_idx, Slot::Char(i)))
                 .collect()
         }
@@ -1319,12 +1330,12 @@ fn resolve_target(
         os if os.starts_with("all_chara_either_cost_le_") => {
             let n = parse_after(os, "cost_le_").unwrap_or(0);
             let mut out: Vec<(usize, Slot)> = (0..state.players[opp_idx].characters.len())
-                .filter(|&i| state.players[opp_idx].characters[i].card.cost <= n)
+                .filter(|&i| cost_of(&state.players[opp_idx].characters[i]) <= n)
                 .map(|i| (opp_idx, Slot::Char(i)))
                 .collect();
             out.extend(
                 (0..state.players[me_idx].characters.len())
-                    .filter(|&i| state.players[me_idx].characters[i].card.cost <= n)
+                    .filter(|&i| cost_of(&state.players[me_idx].characters[i]) <= n)
                     .map(|i| (me_idx, Slot::Char(i))),
             );
             out
@@ -1346,7 +1357,7 @@ fn resolve_target(
             let n = parse_after(os, "cost_le_").unwrap_or(0);
             let opp = &state.players[opp_idx];
             let mut cands: Vec<usize> =
-                (0..opp.characters.len()).filter(|&i| opp.characters[i].card.cost <= n).collect();
+                (0..opp.characters.len()).filter(|&i| cost_of(&opp.characters[i]) <= n).collect();
             cands.sort_by(|&a, &b| {
                 opp_value(&opp.characters[b])
                     .partial_cmp(&opp_value(&opp.characters[a]))
@@ -1426,7 +1437,7 @@ fn resolve_target(
             let me = &state.players[me_idx];
             let mut cands: Vec<usize> = (0..me.characters.len())
                 .filter(|&i| {
-                    me.characters[i].card.cost <= n && !card_has_on_play(&me.characters[i].card.card_id)
+                    cost_of(&me.characters[i]) <= n && !card_has_on_play(&me.characters[i].card.card_id)
                 })
                 .collect();
             cands.sort_by(|&a, &b| me.characters[b].power().cmp(&me.characters[a].power()));
@@ -1496,7 +1507,7 @@ fn resolve_target(
             let n = parse_after(os, "cost_le_").unwrap_or(0);
             let opp = &state.players[opp_idx];
             let mut chars: Vec<usize> = (0..opp.characters.len())
-                .filter(|&i| opp.characters[i].card.cost <= n)
+                .filter(|&i| cost_of(&opp.characters[i]) <= n)
                 .collect();
             // power 降順、 tie は board 順維持 (stable、 Python sorted(key=-power) と一致)。
             chars.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
@@ -1509,7 +1520,7 @@ fn resolve_target(
         // = 相手キャラを filter → opp_value 最大を 1 体 (AI 自動選択、 effects.py:2443/2540/2627)。
         os if os.starts_with("one_opponent_") => {
             let rested_only = os.contains("rested_character");
-            let cost_le = parse_after(os, "cost_le_"); // c.card.cost <= n
+            let cost_le = parse_after(os, "cost_le_"); // cost_of(&c) <= n
             // current_cost_le_N = 現在コスト (base_cost、 cost_minus 反映) 版。 通常 cost_le は元コスト
             // (card.cost)。 クロコダイル「コスト0」系 (effects.py:2603)。
             let cost_is_current = os.contains("current_cost_le_");
@@ -1558,7 +1569,7 @@ fn resolve_target(
                         return false;
                     }
                     if let Some(n) = cost_le {
-                        let cc = if cost_is_current { c.base_cost() } else { c.card.cost };
+                        let cc = cost_of(c);
                         if cc > n {
                             return false;
                         }
@@ -1574,9 +1585,10 @@ fn resolve_target(
                             return false;
                         }
                     }
-                    // cost_eq も元コスト (Python: c.card.cost == n)。
+                    // cost_eq (公式 「コストN の」) も 素の 「コスト」 なので **現在コスト**。
+                    // 「元々のコストN」 なら spec 名が _truly_original_cost_ を含み cost_of が印刷値を返す。
                     if let Some(n) = cost_eq {
-                        if c.card.cost != n {
+                        if cost_of(c) != n {
                             return false;
                         }
                     }
@@ -1614,7 +1626,7 @@ fn resolve_target(
             };
             let opp = &state.players[opp_idx];
             (0..opp.characters.len())
-                .filter(|&i| opp.characters[i].card.cost <= n)
+                .filter(|&i| cost_of(&opp.characters[i]) <= n)
                 .map(|i| (opp_idx, Slot::Char(i)))
                 .collect()
         }
@@ -1631,7 +1643,7 @@ fn resolve_target(
             let n: i32 = os["all_opponent_rested_characters_le_".len()..os.len() - 4].parse().unwrap_or(0);
             let opp = &state.players[opp_idx];
             (0..opp.characters.len())
-                .filter(|&i| opp.characters[i].rested && opp.characters[i].card.cost <= n)
+                .filter(|&i| opp.characters[i].rested && cost_of(&opp.characters[i]) <= n)
                 .map(|i| (opp_idx, Slot::Char(i)))
                 .collect()
         }
@@ -1643,7 +1655,7 @@ fn resolve_target(
             let n: usize = n_str.parse().unwrap_or(1);
             let opp = &state.players[opp_idx];
             let mut cands: Vec<usize> = (0..opp.characters.len())
-                .filter(|&i| opp.characters[i].rested && opp.characters[i].card.cost <= cost_cap)
+                .filter(|&i| opp.characters[i].rested && cost_of(&opp.characters[i]) <= cost_cap)
                 .collect();
             cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
             cands.into_iter().take(n).map(|i| (opp_idx, Slot::Char(i))).collect()
@@ -2004,6 +2016,12 @@ fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
             // 厳密 "cost": N (= cost_eq エイリアス、 公式「コストN の」、 effects.py:30、 OP14-084 等)。
             // original_cost_eq も印刷コスト一致 (CardDef.cost=印刷値)。
             "cost_eq" | "cost" | "original_cost_eq" => (card.cost as i64) == v.as_i64().unwrap_or(-1),
+            // ⭐ 公式 「**元々の**コストN以下/以上」 (2026-08-04 追加、 effects.py と対)。
+            // 公式は 「コスト」(効果修正後の現在値) と 「元々のコスト」(印刷値) を区別する。
+            // CardDef は印刷値しか持たないので、 このキーは常に card.cost で判定する。
+            "truly_original_cost_le" => (card.cost as i64) <= v.as_i64().unwrap_or(0),
+            "truly_original_cost_ge" => (card.cost as i64) >= v.as_i64().unwrap_or(0),
+            "truly_original_cost_eq" => (card.cost as i64) == v.as_i64().unwrap_or(-1),
             "power_le" => (card.power as i64) <= v.as_i64().unwrap_or(0),
             "power_ge" => (card.power as i64) >= v.as_i64().unwrap_or(0),
             // power_eq (overlay 30 箇所)。 未実装だと `_ => return false` に落ち、 filter 付き
@@ -7613,7 +7631,8 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             let (tgt, cost_le) = if let Some(o) = v.as_object() {
                 (
                     o.get("target").unwrap_or(&default_tgt),
-                    o.get("cost_le").and_then(|x| x.as_i64()).unwrap_or(0) as i32,
+                    // 公式 「元々のコスト」 = 印刷コスト。 消費側は card.cost と比べる (Python 準拠)
+                    o.get("truly_original_cost_le").and_then(|x| x.as_i64()).unwrap_or(0) as i32,
                 )
             } else {
                 (&default_tgt, v.as_i64().unwrap_or(0) as i32)

@@ -77,13 +77,16 @@ def main() -> None:
         card = cards.get(cid)
         if not card:
             continue
-        text = (card.get("text") or "")
-        if "その後" not in text:
-            continue
-        head, _, tail = text.partition("その後")
+        # ⚠ 【トリガー】は `text` ではなく **`trigger` フィールド** に入っている (820 枚)。
+        #   `text` だけ見ると trigger 効果の順序が丸ごと未監査になる (2026-08-04 に判明)。
         for eff in effs:
             if not isinstance(eff, dict):
                 continue
+            src = "trigger" if eff.get("when") == "trigger" else "text"
+            text = (card.get(src) or "")
+            if "その後" not in text:
+                continue
+            head, _, tail = text.partition("その後")
             do = eff.get("do")
             if not isinstance(do, list) or len(do) < 2:
                 continue
