@@ -1758,3 +1758,223 @@ def test_converted_cost_not_gated_entries_really_have_optional_cost():
         "別の節の 「できる：」 を拾って誤変換している (発動条件を効果側へ移すと "
         "条件不成立でも発動できてしまう):\n  " + "\n  ".join(bad[:30])
     )
+
+
+# =========================================================================== #
+#  公式 Q&A 全件保証 (2026-08-05 バッチ)。 各テストは overlay/engine が公式どおりかを
+#  engine を実際に動かして盤面差分で確認する。 docstring に一次情報 (cardqa) を引用。
+# =========================================================================== #
+
+
+def test_op08_019_pump_self_runs_when_opponent_has_no_character():
+    """OP08-019 バクバク食 【メイン】/【カウンター】= 「相手のキャラ1枚までを、この
+    ターン中、パワー-3000。その後、自分のキャラ1枚までを、このターン中、パワー+3000。」
+    一次情報 (cardqa_op_08): 「相手の場にキャラが無いとき、この【メイン】/【カウンター】
+    効果で自分のキャラ1枚をパワー+3000できますか？」→「はい、できます。」
+    前段 (相手 -3000) が対象不在で空振りでも、後段 (自分 +3000) は独立実行される
+    (settled その後 tail 原則)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    ally = InPlay.of(repo.get("OP01-013"), sickness=False)  # 印刷パワー 3000
+    me.characters = [ally]
+    opp.characters = []  # 相手キャラ無し
+    base = ally.power
+    execute_effect({"power_pump": {"target": "one_opponent_character_any",
+                                   "amount": -3000, "duration": "turn"}}, st, me, opp, None)
+    execute_effect({"power_pump": {"target": "one_self_character_any",
+                                   "amount": 3000, "duration": "turn"}}, st, me, opp, None)
+    assert ally.power == base + 3000, (
+        "相手キャラ0でも自分のキャラ+3000は入るべき (公式 cardqa_op_08: はい、できます)"
+    )
+
+
+def test_st34_002_ko_tail_runs_when_don_deck_is_empty():
+    """ST34-002 クラッカー 【登場時】= 「ドン!!デッキからドン!!1枚までを、レストで追加する。
+    その後、相手のコスト2以下のキャラ1枚までを、KOする。」
+    一次情報 (cardqa_st_34): 「ドン!!デッキが0枚の場合、この【登場時】効果で相手のコスト
+    2以下のキャラ1枚をKOできますか？」→「はい、できます。」
+    前段 (ドン追加) がドンデッキ0で空振りでも、後段 (KO) は独立実行される。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.don_remaining_in_deck = 0  # ドンデッキ空
+    don_before = me.don_rested
+    victim = InPlay.of(repo.get("OP01-013"), sickness=False)  # 印刷コスト 2
+    opp.characters = [victim]
+    execute_effect({"add_rested_don": 1}, st, me, opp, None)
+    assert me.don_rested == don_before, "ドンデッキ0なのにドンが増えている (前提崩れ)"
+    execute_effect({"ko": "one_opponent_character_cost_le_2cost"}, st, me, opp, None)
+    assert victim not in opp.characters, (
+        "ドンデッキ0でも後段のKOは実行されるべき (公式 cardqa_st_34: はい、できます)"
+    )
+
+
+def test_op11_013_disable_blocker_snapshots_board_at_effect_time():
+    """OP11-013 プリンス・グルス 【アタック時】= 「相手のパワー2000以下のキャラすべては、
+    このターン中、【ブロッカー】を発動できない。」
+    一次情報 (cardqa_op_11): 「この【アタック時】効果を発動し、その後そのターン中に
+    登場した相手のパワー2000以下のキャラは、そのターン中【ブロッカー】を発動できますか？」
+    →「はい、できます。」
+    効果は発動時点に居た該当キャラにのみフラグを立てる (スナップショット)。後から登場した
+    キャラは対象外なのでブロック可能。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    present = InPlay.of(repo.get("OP01-016"), sickness=False)  # 印刷パワー 2000
+    opp.characters = [present]
+    execute_effect({"disable_blocker": {"target": {"type": "all_opponent_chara_filtered",
+                    "filter": {"power_le": 2000}}, "duration": "turn"}}, st, me, opp, None)
+    assert present.blocker_disabled_until_turn_end, (
+        "発動時点に居たパワー2000以下のキャラはブロッカー無効になるべき (前提崩れ)"
+    )
+    later = InPlay.of(repo.get("OP01-016"), sickness=True)  # 効果後に登場、 パワー 2000
+    opp.characters.append(later)
+    assert not later.blocker_disabled_until_turn_end, (
+        "効果発動後に登場したキャラはブロッカー無効の対象外 = ブロック可能 "
+        "(公式 cardqa_op_11: はい、できます)"
+    )
+
+
+def test_op02_069_draw_to_hand_size_never_forces_discard():
+    """OP02-069 DEATH WINK 【カウンター】= 「...その後、自分の手札が2枚になるように
+    カードを引く。」
+    一次情報 (cardqa_op_02): 「手札が3枚以上の場合、この【カウンター】効果で手札が2枚に
+    なるようにカードを捨てる必要がありますか？」→「いいえ、捨てる必要はありません。」
+    draw_to_hand_size は不足分のみドロー。手札が既に目標以上なら 0 ドロー・捨てもしない。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.hand = [repo.get(_FILLER)] * 3
+    me.deck = [repo.get(_FILLER)] * 10
+    execute_effect({"draw_to_hand_size": 2}, st, me, opp, None)
+    assert len(me.hand) == 3, (
+        "手札3枚 (>目標2) では捨てもドローもしないべき (公式 cardqa_op_02: 捨てる必要なし)"
+    )
+    me.hand = [repo.get(_FILLER)] * 1  # 対照: 1枚 → 2枚になるよう +1 ドロー
+    execute_effect({"draw_to_hand_size": 2}, st, me, opp, None)
+    assert len(me.hand) == 2, "手札1枚なら2枚になるようドローするべき (対照)"
+
+
+def test_op13_119_opp_play_requires_prior_bounce():
+    """OP13-119 エース 【登場時】= 「...その後、相手のコスト5以下のキャラ1枚までを、
+    持ち主の手札に戻してもよい。そうした場合、相手は自身の手札からコスト4以下のキャラ
+    カードを登場させる。」
+    一次情報 (cardqa_op_13): 「この【登場時】効果で相手のコスト5以下のキャラ1枚を手札に
+    戻さなかった場合、相手は自身の手札からコスト4以下のキャラカードを登場させることは
+    できますか？」→「いいえ、できません。」
+    「そうした場合」= 実際に戻した場合のみ相手の登場が発動 (require_prior_bounce)。"""
+    repo, overlay = _repo(), _overlay()
+    # bounce なし: 相手の場にキャラ無し → 戻す対象0 → 相手は登場しない
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    opp.characters = []
+    opp.hand = [repo.get("OP01-013")] * 3  # cost2 (≤4) = 登場可能な候補
+    chars_before = len(opp.characters)
+    execute_effect({"return_to_hand": "one_opponent_character_cost_le_5"}, st, me, opp, None)
+    assert st.last_return_to_hand_success is False, "戻す対象0なら bounce 不成立のはず"
+    execute_effect({"force_opp_play_from_hand": {"cost_le": 4, "count": 1,
+                    "require_prior_bounce": True}}, st, me, opp, None)
+    assert len(opp.characters) == chars_before, (
+        "手札に戻さなかった場合、相手はコスト4以下を登場できない "
+        "(公式 cardqa_op_13: いいえ、できません)"
+    )
+    # 対照: bounce あり → 相手は登場する
+    st2 = _state(repo, overlay)
+    me2, opp2 = st2.players[0], st2.players[1]
+    opp2.characters = [InPlay.of(repo.get("OP01-013"), sickness=False)]  # cost2 (≤5) 戻せる
+    opp2.hand = [repo.get("OP01-013")] * 3
+    execute_effect({"return_to_hand": "one_opponent_character_cost_le_5"}, st2, me2, opp2, None)
+    assert st2.last_return_to_hand_success is True, "戻す対象ありなら bounce 成立のはず"
+    n_after_bounce = len(opp2.characters)
+    execute_effect({"force_opp_play_from_hand": {"cost_le": 4, "count": 1,
+                    "require_prior_bounce": True}}, st2, me2, opp2, None)
+    assert len(opp2.characters) == n_after_bounce + 1, (
+        "手札に戻した場合、相手はコスト4以下を登場する (対照)"
+    )
+
+
+def test_op06_074_negate_does_not_strip_external_power_buff():
+    """OP06-074 ゼファー 【登場時】= 「相手のキャラ1枚までを、このターン中、効果を無効に
+    する。その後、そのキャラのパワーが5000以下の場合、KOする。」
+    一次情報 (cardqa_op_06): 「この【登場時】効果で選んだキャラが、他のカードやドン!!
+    カードによって『このターン中、パワー+1000。』などの効果を受けている場合、この
+    【登場時】効果でパワーは元の値に戻りますか？」→「いいえ、元の値に戻りません。」
+    効果無効は当該カード自身の効果のみを無効化し、他カード由来の +1000 は残る。その後の
+    KO 判定は現在パワー (5000+1000=6000 > 5000) で行うので KO されない。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    victim = InPlay.of(repo.get("ST34-002"), sickness=False)  # 印刷パワー 5000
+    victim.turn_buff = 1000  # 他カード由来の「このターン中 +1000」
+    opp.characters = [victim]
+    assert victim.power == 6000, "前提: 5000 + 外部 1000 = 6000"
+    execute_effect({"negate_effect": "one_opponent_character_any"}, st, me, opp, None)
+    assert victim.power == 6000, (
+        "効果無効で外部 +1000 が剥がれてはならない (公式 cardqa_op_06: 元の値に戻らない)"
+    )
+    execute_effect({"ko": "opp_just_negated_power_le_5000"}, st, me, opp, None)
+    assert victim in opp.characters, (
+        "現在パワー6000 (>5000) なので KO されないべき (公式 cardqa_op_06)"
+    )
+    # 対照: +1000 が無ければ 5000 ≤5000 で KO される
+    st2 = _state(repo, overlay)
+    me2, opp2 = st2.players[0], st2.players[1]
+    victim2 = InPlay.of(repo.get("ST34-002"), sickness=False)  # 5000
+    opp2.characters = [victim2]
+    execute_effect({"negate_effect": "one_opponent_character_any"}, st2, me2, opp2, None)
+    execute_effect({"ko": "opp_just_negated_power_le_5000"}, st2, me2, opp2, None)
+    assert victim2 not in opp2.characters, "現在パワー5000 (≤5000) なら KO される (対照)"
+
+
+def test_op02_069_trigger_return_can_target_own_character():
+    """OP02-069 DEATH WINK 【トリガー】= 「コスト7以下のキャラ1枚までを、持ち主の手札に
+    戻す。」(「相手の」修飾なし = 両陣営が対象)
+    一次情報 (cardqa_op_02): 「この【トリガー】効果で自分のキャラを手札に戻すことは
+    できますか？」→「はい、できます。」
+
+    ⚠ 検証は **人間経路** で行う (既存 test_unqualified_character_target_can_hit_own_board
+    と同じ理由)。 「1枚まで」= 0 枚可なので AI の auto-pick は 「相手が居なければ 0 枚」 が
+    正しく、 自陣を戻すことを期待値にすると自滅を固定してしまう。 公式が問うのは 「自キャラを
+    対象に **できる** か」 = 候補に入るか、 なので modal の候補集合で検証する。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    st.human_player_idx = 0
+    me, opp = st.players[0], st.players[1]
+    ally = InPlay.of(repo.get("OP01-013"), sickness=False)  # cost 2 ≤7
+    me.characters = [ally]
+    opp.characters = []  # 相手キャラ無し → 自キャラしか候補になりえない
+    execute_effect({"return_to_hand": "one_character_either_cost_le_7"}, st, me, opp, None)
+    pc = st.pending_choice
+    assert pc is not None, "相手の場が空でも自キャラが候補になるはず (modal が立たない)"
+    raw = pc.get("cards") or pc.get("candidates") or []
+    iids = {c.get("iid") if isinstance(c, dict) else c for c in raw}
+    assert ally.instance_id in iids, (
+        "「相手の」無しの『持ち主の手札に戻す』は自分のキャラも対象になれるべき "
+        "(公式 cardqa_op_02: はい、できます)"
+    )
+
+
+def test_st06_004_double_attack_reevaluated_when_cost0_char_leaves():
+    """ST06-004 スモーカー 【ドン!!×1】= 「コスト0のキャラがいる場合、このキャラは
+    【ダブルアタック】を得る。」
+    一次情報 (cardqa_st_06): 「ダメージステップより前にコスト0のキャラが場にいない状態に
+    なった場合、このキャラは【ダブルアタック】を失い、リーダーへ与えるダメージは1になります。」
+    【ドン!!×1】は静的効果 (evaluate_static_effects で毎回再評価) なので、条件のコスト0
+    キャラが離れると【ダブルアタック】も外れる。ダメージは damage step (カウンターフェイズ
+    後) に is_double_attack_now を読む (engine/game.py) ので、この再評価が反映される。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    smoker = InPlay.of(repo.get("ST06-004"), sickness=False)
+    smoker.attached_dons = 1  # 【ドン!!×1】成立
+    zero = InPlay.of(repo.get("OP01-013"), sickness=False)  # 印刷コスト 2
+    zero.cost_minus_until_turn_end = 2  # → 現在コスト 0
+    me.characters = [smoker, zero]
+    evaluate_static_effects(st, overlay)
+    assert smoker.is_double_attack_now, "コスト0キャラが居れば【ダブルアタック】取得 (前提)"
+    me.characters = [smoker]  # コスト0キャラが場を離れる
+    evaluate_static_effects(st, overlay)
+    assert not smoker.is_double_attack_now, (
+        "コスト0キャラが離れたら【ダブルアタック】を失うべき (公式 cardqa_st_06)"
+    )

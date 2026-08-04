@@ -1008,3 +1008,79 @@ top-level `if` → `conditional` で効果側のみを包む。 `cost` ブロッ
 ⭐ **教訓**: 「公式テキストと overlay を突合する検査」 は、 **テキストの切り出し単位** と
 **overlay 側の表現ゆれ** の両方を先に確定させてから数える。 どちらを外しても
 「多すぎる誤検出」 と 「見えない取りこぼし」 が同時に起きる。
+
+---
+
+## 公式どおりで **問題なかった** もの (2026-08-05 バッチ、 FAQ 全件保証 台帳より)
+
+いずれも engine を実際に動かして盤面差分を実測し conform と確認。 テストは
+`tests/test_effect_interactions.py` に追加 (mutation で 「空でない」 ことも確認済)。
+
+- **「A(相手対象)。 その後 B(自分対象)」 の後段は前段が空振りでも独立実行** (OP08-019 バクバク食、
+  cardqa_op_08) — 「相手の場にキャラが無いとき、 この【メイン】/【カウンター】効果で自分のキャラ1枚を
+  パワー+3000できますか？」→「はい」。 前段 (相手 -3000) が対象0で空振りでも後段 (自分 +3000) は
+  独立実行 (settled その後 tail 原則)。 実測 `test_op08_019_pump_self_runs_when_opponent_has_no_character`。
+- **「ドン追加。 その後 KO」 の後段はドンデッキ0でも独立実行** (ST34-002 クラッカー、 cardqa_st_34) —
+  「ドン!!デッキが0枚の場合、 この【登場時】効果で相手のコスト2以下のキャラ1枚をKOできますか？」→「はい」。
+  `add_rested_don` は `min(n, don_remaining_in_deck)` でデッキ0なら+0の空振り、 後段のKOは独立実行。
+  実測 `test_st34_002_ko_tail_runs_when_don_deck_is_empty`。 (⚠ docs 別項の 「相手対象不在でもドン追加」
+  と対の関係 = どちらの側が空でも tail は回る)。
+- **`disable_blocker` は発動時点の盤面をスナップショットする** (OP11-013 プリンス・グルス、 cardqa_op_11) —
+  「この【アタック時】効果を発動し、 その後そのターン中に登場した相手のパワー2000以下のキャラは、
+  そのターン中【ブロッカー】を発動できますか？」→「はい」。 `disable_blocker` は発動時点で resolve した
+  該当キャラにのみ `blocker_disabled_until_turn_end` を立てる。 後から登場したキャラは対象外 = ブロック可能。
+  実測 `test_op11_013_disable_blocker_snapshots_board_at_effect_time`。 (docs 別項 OP09-014 ライムジュース
+  「選択時に flag、 後のパワー変化で再評価しない」 と同機構)。
+- **`draw_to_hand_size` は不足分のみドロー、 捨てはしない** (OP02-069 DEATH WINK、 cardqa_op_02) —
+  「手札が3枚以上の場合、 この【カウンター】効果で手札が2枚になるようにカードを捨てる必要がありますか？」
+  →「いいえ」。 `draw_to_hand_size` は `max(0, size-len(hand))` 枚だけ引く。 既に目標以上なら0ドロー・
+  捨ても無い。 実測 `test_op02_069_draw_to_hand_size_never_forces_discard`。
+- **「そうした場合」 の後段は前段が実際に起きた時のみ** (OP13-119 エース、 cardqa_op_13) —
+  「この【登場時】効果で相手のコスト5以下のキャラ1枚を手札に戻さなかった場合、 相手は自身の手札から
+  コスト4以下のキャラカードを登場させることはできますか？」→「いいえ」。 overlay の
+  `force_opp_play_from_hand` は `require_prior_bounce: true` を持ち、 直前 `return_to_hand` が実際に
+  bounce した (`state.last_return_to_hand_success`) 場合のみ相手の登場を発動。 戻さなければ相手は登場不可。
+  実測 `test_op13_119_opp_play_requires_prior_bounce` (mutation: require フラグを外すと bounce 無しでも
+  相手が登場 = gate は load-bearing)。 ⚠ 「その後」 の tail 独立則 (前段空振りでも後段実行) とは **別**。
+  こちらは 「そうした場合」 = 前段成功が明示条件。
+- **「効果を無効にする」 は当該カード自身の効果のみ抑止 = 他カード由来の +N は残る + その後の KO 判定は
+  現在パワー** (OP06-074 ゼファー、 cardqa_op_06) — 「この【登場時】効果で選んだキャラが、 他のカードや
+  ドン!!カードによって『このターン中、 パワー+1000』などの効果を受けている場合、 この効果でパワーは
+  元の値に戻りますか？」→「いいえ、 元の値に戻りません」。 効果無効は当該カードを源とする効果だけを
+  抑止し、 外部由来の `turn_buff` は残る。 続く KO 判定 `opp_just_negated_power_le_5000` は `ip.power`
+  (現在値 = +1000込みの6000) を見るので 6000>5000 で KO されない。 実測
+  `test_op06_074_negate_does_not_strip_external_power_buff` (対照: +1000無しの5000は KO)。
+  docs 別項 「効果を無効にする は当該カード自身の効果のみ無効化」 (OP09) と同原則の別カード確認。
+- **「相手の」 無しの【トリガー】『持ち主の手札に戻す』 は自キャラも対象** (OP02-068/069、 cardqa_op_02) —
+  「この【トリガー】効果で自分のキャラを手札に戻すことができますか？」→「はい」。 overlay は
+  `one_character_either_cost_le_N` (両陣営)。 人間 modal に自キャラが候補入りする (AI の auto-pick は
+  「相手が居なければ0枚」 が正しく、 自陣を戻すのは悪手なので期待値にしない)。 実測
+  `test_op02_069_trigger_return_can_target_own_character`。 docs 別項 「相手の が無い キャラ1枚まで は
+  両陣営」 の一般則どおり。
+- **【ダブルアタック】(【ドン!!×1】静的付与) は条件のコスト0キャラが離脱すると外れる** (ST06-004
+  スモーカー、 cardqa_st_06) — 「ダメージステップより前にコスト0のキャラが場にいない状態の場合、
+  このキャラは【ダブルアタック】を失い、 リーダーへ与えるダメージは1になります」。 【ドン!!×1】は
+  静的効果で `evaluate_static_effects` が毎回再評価 → コスト0キャラ離脱で `static_granted_keywords` から
+  ダブルアタックが外れる。 ダメージは damage step (カウンターフェイズ後) に `is_double_attack_now` を
+  読む (`game.py:1801`) ので再評価が反映される。 実測
+  `test_st06_004_double_attack_reevaluated_when_cost0_char_leaves`。 docs 別項 「【ダブルアタック】の
+  判定時点」 と同機構。
+- **効果で手札に戻したキャラカードのカウンターは同バトルで使用可 (構造的に正しい)** (cardqa_st_03) —
+  「自分のキャラを戻した場合、 そのキャラカードのカウンターをそのバトル中に使用できますか？」→「はい」。
+  カウンター適格は防御側の **現在の手札内容 + `c.counter > 0`** のみで判定され (`engine/ai.py:580`
+  `[i for i,c in enumerate(defender.hand) if c.counter > 0]`)、 「いつ手札に入ったか」 の gate が存在しない。
+  よって効果で戻された札も通常の手札札と同格でカウンターに使える = 構造的に公式どおり。
+
+### escalated: 多カード battle 相互作用 (要人間レビュー、 一次ソース不在)
+
+- **replace_ko で対戦相手を除去された ホーキンス の 「バトルした場合」 untap は発火するか** (OP05-030
+  ロシナンテ × ST02-010 バジル・ホーキンス、 cardqa_op_05) — 「このキャラと相手のホーキンスがバトル
+  した時、 この【相手のターン中】効果で代わりにトラッシュに置いた場合、 相手のホーキンスの
+  【自分のターン中】効果を発動できますか？」→「はい」。 ホーキンス overlay = `on_self_battled`
+  (DON≥1 ∧ self_turn で自身 untap)、 ロシナンテ overlay = `replace_ko` (自レストキャラのKOを代わりに
+  自身トラッシュ)。 **escalated の理由**: (1) ホーキンスの untap が対戦相手を replacement で除去された
+  後も発火するかは 2026-08-04 の battle-abort 是正 (バトル中断) と絡み、 多カード full-battle テストが
+  要る。 (2) ロシナンテ overlay の `if.target: other_self_chara` (= 自身を除外) が Q の 「このキャラ
+  (=ロシナンテ) がトラッシュに置いた」 と整合するか、 = 自身のKOを replace 対象に含むかで解釈が割れる。
+  一次ソース `cardqa_op_05.json` がリポジトリ不在 (snapshot fallback) で原文の 「このキャラ」 の指示対象を
+  確定できない。 rule 11 (アーキ/多カード/解釈割れ) に従い人間レビューへ。
