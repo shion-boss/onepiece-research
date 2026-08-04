@@ -25,6 +25,7 @@ from engine.effects import (
     list_activate_main_effects,
     load_effect_overlay,
     resolve_pending_choice,
+    trigger_on_attack,
     trigger_on_play,
 )
 from engine.game import AttackCharacter, AttackLeader, apply_action
@@ -1157,3 +1158,96 @@ def test_op16_081_cost8_condition_false_when_neither_has_cost8():
     opt = [o for o in list_activate_main_effects(st, me, overlay)
            if o[0].card.card_id == "OP16-081"]
     assert len(opt) == 0, "cost8+ が両陣営に居ないのに起動メインが legal になっている"
+
+
+# --------------------------------------------------------------------------- #
+#  任意コスト「〜することができる：<条件>の場合、<効果>」 (2026-08-04 是正)
+#
+#  一次情報 (db/faq/cardqa_eb_04.json、 EB04-022 イッショウ):
+#    「この【登場時】効果で、相手の手札が5枚以下の時に『自分の手札2枚を捨てる』ことは
+#      できますか？」
+#    → 「はい、できます。この場合、『相手は自身の手札2枚を好きな順番でデッキの下に置く。』は
+#        行いません。」
+#
+#  = コロン後の「相手の手札が6枚以上ある場合」は **効果のみ** を gate する。 任意コスト
+#    (自分の手札2枚を捨てる) は条件不成立でも支払える。
+#
+#  是正前: overlay が top-level `if: opp_hand_count_ge` を持ち、 これが _execute_event で
+#    **コスト支払いの手前で** entry ごと skip していた (= 条件不成立ならコストすら払えない)。
+#    Python/Rust とも同じ overlay を読むので差分検証では原理的に沈黙するクラス。
+#  是正後: top-level if を除去し、 opp_hand_to_deck_bottom 等の効果を `conditional` で包む
+#    (= 43 枚が既に使う Pattern B に統一)。
+# --------------------------------------------------------------------------- #
+def _play_setup(repo, overlay, opp_hand_n, self_hand_n=4, self_trash_n=0,
+                self_deck_n=25, human=None):
+    st = _state(repo, overlay, human_idx=human)
+    me, opp = st.players[0], st.players[1]
+    me.hand = [repo.get(_FILLER)] * self_hand_n
+    opp.hand = [repo.get(_FILLER)] * opp_hand_n
+    me.trash = [repo.get(_FILLER)] * self_trash_n
+    me.deck = [repo.get(_FILLER)] * self_deck_n
+    return st, me, opp
+
+
+def test_eb04_022_optional_cost_payable_when_condition_false():
+    """EB04-022: 相手手札 5 (=6未満) でも 自分の手札2枚を捨てられる (= コストは払える)。
+    ただし『相手はデッキ下に置く』 効果は起きない (条件不成立)。"""
+    repo, overlay = _repo(), _overlay()
+    st, me, opp = _play_setup(repo, overlay, opp_hand_n=5, self_hand_n=4)
+    src = InPlay.of(repo.get("EB04-022"), sickness=True)
+    me.characters = [src]
+    self_before, opp_before = len(me.hand), len(opp.hand)
+    trigger_on_play(st, me, opp, src, overlay)
+    # AI は任意コストを auto-pay する → 手札 2 枚は捨てられる (公式: 「はい、できます」)
+    assert len(me.hand) == self_before - 2, \
+        "相手手札<6 でも 自分の手札2枚を捨てる (任意コスト) は払えるべき"
+    # 効果 (相手デッキ下) は条件不成立で起きない
+    assert len(opp.hand) == opp_before, \
+        "相手手札<6 なのに『相手はデッキ下に置く』が起きている (効果 gate 漏れ)"
+
+
+def test_eb04_022_effect_fires_when_condition_true():
+    """対照: 相手手札 6 なら コスト後に『相手はデッキ下に置く』 が起きる。"""
+    repo, overlay = _repo(), _overlay()
+    st, me, opp = _play_setup(repo, overlay, opp_hand_n=6, self_hand_n=4)
+    src = InPlay.of(repo.get("EB04-022"), sickness=True)
+    me.characters = [src]
+    self_before, opp_before = len(me.hand), len(opp.hand)
+    trigger_on_play(st, me, opp, src, overlay)
+    assert len(me.hand) == self_before - 2, "コスト (手札2枚捨て) が払われていない"
+    assert len(opp.hand) == opp_before - 2, "相手手札>=6 なのにデッキ下効果が起きていない"
+
+
+def test_eb04_022_human_is_offered_cost_even_when_condition_false():
+    """人間操作: 相手手札 5 でも 任意コストの pay/skip を提示されるべき
+    (= 公式『はい、できます』 の直接検証。 是正前は entry skip で提示すらされなかった)。"""
+    repo, overlay = _repo(), _overlay()
+    st, me, opp = _play_setup(repo, overlay, opp_hand_n=5, self_hand_n=4, human=0)
+    src = InPlay.of(repo.get("EB04-022"), sickness=True)
+    me.characters = [src]
+    trigger_on_play(st, me, opp, src, overlay)
+    assert st.pending_choice is not None and \
+        st.pending_choice.get("kind") == "optional_cost_confirm", \
+        "相手手札<6 でも 人間は任意コストの支払い可否を提示されるべき (公式: はい、できます)"
+
+
+def test_op10_118_on_attack_optional_cost_payable_when_condition_false():
+    """OP10-118 (on_attack 経路): 相手手札 4 (=5未満) でも トラッシュ3枚をデッキ下に
+    置く任意コストは払える。 効果 (相手手札1枚捨て) は条件不成立で起きない。"""
+    repo, overlay = _repo(), _overlay()
+    st, me, opp = _play_setup(repo, overlay, opp_hand_n=4, self_trash_n=5)
+    atk = InPlay.of(repo.get("OP10-118"), sickness=False)
+    me.characters = [atk]
+    trash_before, opp_before = len(me.trash), len(opp.hand)
+    trigger_on_attack(st, me, opp, atk, overlay)
+    assert len(me.trash) == trash_before - 3, \
+        "相手手札<5 でも トラッシュ3枚をデッキ下 (任意コスト) は払えるべき"
+    assert len(opp.hand) == opp_before, \
+        "相手手札<5 なのに『相手は手札1枚を捨てる』が起きている (効果 gate 漏れ)"
+    # 対照: 相手手札5 なら効果も起きる
+    st2, me2, opp2 = _play_setup(repo, overlay, opp_hand_n=5, self_trash_n=5)
+    atk2 = InPlay.of(repo.get("OP10-118"), sickness=False)
+    me2.characters = [atk2]
+    opp2_before = len(opp2.hand)
+    trigger_on_attack(st2, me2, opp2, atk2, overlay)
+    assert len(opp2.hand) == opp2_before - 1, "相手手札>=5 なのに手札破棄が起きていない"
