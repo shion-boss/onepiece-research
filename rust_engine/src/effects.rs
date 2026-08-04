@@ -2749,6 +2749,16 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
             if n > 0 && !pay_don_field(state, me_idx, n) {
                 return None;
             }
+            // ⚠ Python は optional_cost_then の cost も **execute_effect 経由** (effects.py:9155) で
+            //   払うので、 pay_don primitive の
+            //   `trigger_on_self_don_returned_to_deck` が必ず発火する。 Rust は pay_cost_one が
+            //   独自に払っていて この cascade を落としていた (OP06-075 の ドン-1 で相手場の
+            //   OP06-076 人斬り鎌ぞうが発動せず、 2026-08-04 掃引 MISMATCH)。
+            //   pay_don_field が last_returned_don_count を set 済。
+            if n > 0 && me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
+                enqueue_field_when(state, me_idx, "on_self_don_returned_to_deck");
+                maybe_resolve(state).ok()?;
+            }
         }
         "rest_self_don" => {
             let n = cv.as_i64().unwrap_or(0) as i32;
@@ -2911,7 +2921,7 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
         "return_self_to_trash" => {
             match src {
                 Slot::Char(i) if i < state.players[me_idx].characters.len() => {
-                    let ip = state.players[me_idx].characters.remove(i);
+                let ip = state.players[me_idx].characters.remove(i);
                     let don = ip.attached_dons;
                     state.players[me_idx].trash.push(ip.card);
                     state.players[me_idx].don_rested += don;
@@ -2929,7 +2939,7 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
         "return_self_to_deck_bottom" => {
             match src {
                 Slot::Char(i) if i < state.players[me_idx].characters.len() => {
-                    let ip = state.players[me_idx].characters.remove(i);
+                let ip = state.players[me_idx].characters.remove(i);
                     let don = ip.attached_dons;
                     state.players[me_idx].deck.push(ip.card);
                     state.players[me_idx].don_rested += don;
@@ -3444,6 +3454,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 if vidx >= state.players[vpi].characters.len() {
                     continue;
                 }
+                note_ko_victim_negated(state, vpi, vidx);
                 let removed = state.players[vpi].characters.remove(vidx);
                 let cid = removed.card.card_id.clone();
                 let don = removed.attached_dons;
@@ -3561,6 +3572,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     continue;
                 }
                 let removed = me.characters.remove(i);
+            let neg_ip = removed.clone();
                 me.don_active += removed.attached_dons;
                 if place_bottom {
                     me.life.push(removed.card);
@@ -3744,6 +3756,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 let Slot::Char(idx) = find_tagged(state, me_idx, tok) else { continue };
                 let vcid = state.players[me_idx].characters[idx].card.card_id.clone();
                 let vdon = state.players[me_idx].characters[idx].attached_dons;
+                note_ko_victim_negated(state, me_idx, idx);
                 let removed = state.players[me_idx].characters.remove(idx);
                 state.players[me_idx].trash.push(removed.card);
                 state.players[me_idx].don_rested += vdon;
@@ -3994,10 +4007,15 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             opp.don_remaining_in_deck += removed;
             if removed > 0 {
                 state.last_returned_don_count = removed;
-                if me_board_has_when(state, opp_idx, "on_self_don_returned_to_deck")
-                    && fire_field_when(state, opp_idx, "on_self_don_returned_to_deck").is_err()
-                {
-                    return false;
+                // ⚠ Python(trigger_on_self_don_returned_to_deck) は enqueue → _maybe_resolve なので、
+                //   **効果の解決中は後回し** になる (resolving=True で _maybe_resolve が no-op)。
+                //   Rust が inline 発火していると 「KO が先に起きて盤面が縮む」 = 対象がズレる
+                //   (OP06-075 のドン-1 → 相手 OP06-076 の KO、 2026-08-04 掃引)。 必ず enqueue。
+if me_board_has_when(state, opp_idx, "on_self_don_returned_to_deck") {
+                    enqueue_field_when(state, opp_idx, "on_self_don_returned_to_deck");
+                    if maybe_resolve(state).is_err() {
+                        return false;
+                    }
                 }
             }
             true
@@ -4006,7 +4024,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         "return_self_to_hand" => {
             if let Slot::Char(i) = src {
                 if i < state.players[me_idx].characters.len() {
-                    let ip = state.players[me_idx].characters.remove(i);
+                let ip = state.players[me_idx].characters.remove(i);
                     let don = ip.attached_dons;
                     state.players[me_idx].don_rested += don;
                     state.players[me_idx].hand.push(ip.card);
@@ -4449,10 +4467,15 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
             if removed > 0 {
                 state.last_returned_don_count = removed;
-                if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck")
-                    && fire_field_when(state, me_idx, "on_self_don_returned_to_deck").is_err()
-                {
-                    return false;
+                // ⚠ Python(trigger_on_self_don_returned_to_deck) は enqueue → _maybe_resolve なので、
+                //   **効果の解決中は後回し** になる (resolving=True で _maybe_resolve が no-op)。
+                //   Rust が inline 発火していると 「KO が先に起きて盤面が縮む」 = 対象がズレる
+                //   (OP06-075 のドン-1 → 相手 OP06-076 の KO、 2026-08-04 掃引)。 必ず enqueue。
+if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
+                    enqueue_field_when(state, me_idx, "on_self_don_returned_to_deck");
+                    if maybe_resolve(state).is_err() {
+                        return false;
+                    }
                 }
             }
             true
@@ -4544,7 +4567,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                         // おそばマスク 等)。 Python は 2026-08-03 に分岐を追加 (effects.py の
                         // `elif t in me.characters`)。 置換 (replace_ko/leave) は通さず、
                         // 付与ドンはレストへ戻して手札に加えるだけ。
-                        let ip = state.players[pi].characters.remove(idx);
+                let ip = state.players[pi].characters.remove(idx);
                         let don = ip.attached_dons;
                         state.players[pi].hand.push(ip.card);
                         state.players[pi].don_rested += don;
@@ -4565,7 +4588,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                             return false;
                         }
                     }
-                    let ip = state.players[pi].characters.remove(idx);
+                let ip = state.players[pi].characters.remove(idx);
                     let don = ip.attached_dons;
                     state.players[pi].known_hand_card_ids.push(ip.card.card_id.clone());
                     state.players[pi].hand.push(ip.card);
@@ -4599,7 +4622,8 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         "ko_self" => {
             let (pi, removed_cid, don) = match src {
                 Slot::Char(i) if i < state.players[me_idx].characters.len() => {
-                    let ip = state.players[me_idx].characters.remove(i);
+                note_ko_victim_negated(state, me_idx, i);
+                let ip = state.players[me_idx].characters.remove(i);
                     let d = ip.attached_dons;
                     let cid = ip.card.card_id.clone();
                     state.players[me_idx].trash.push(ip.card);
@@ -4679,13 +4703,20 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             let more = (n - taken).min(opp.don_rested);
             opp.don_rested -= more;
             opp.don_remaining_in_deck += more;
-            let _ = taken + more;
-            // ⚠ Python の don_minus_opp は last_returned_don_count を **設定せず**
-            //   on_self_don_returned_to_deck も発火しない (effects.py)。 Rust だけ発火すると
-            //   「黙って違う状態」 になるので Python に合わせる (OP16-074、 2026-08-03 発覚)。
-            //   ⚠ 公式解釈としては 「相手の効果で自分の場のドンがドンデッキに戻された」 も
-            //   トリガー条件を満たしそうで、 Python 側の実装漏れの可能性がある。
-            //   → db/_pending_review.md に上げて公式 Q&A で裁定する (推測で変えない)。
+            let removed = taken + more;
+            // 公式 Q&A (cardqa_op_06 / op_02) で裁定済: 「相手のカードの効果で自分のドン!!が
+            // ドン!!デッキに戻された時」 も 「場のドン!!が戻された時」 を満たす (= 発動できる)。
+            // Python も 2026-08-04 に実装 (それまで両エンジンとも未発火だった)。
+            // owner = **戻された側** = opp_idx。
+            if removed > 0 {
+                state.last_returned_don_count = removed;
+                if me_board_has_when(state, opp_idx, "on_self_don_returned_to_deck") {
+                    enqueue_field_when(state, opp_idx, "on_self_don_returned_to_deck");
+                    if maybe_resolve(state).is_err() {
+                        return false;
+                    }
+                }
+            }
             true
         }
         // 「デッキ上 N 枚を見て好きな順に並べ替え上に置く」 (effects.py:8033、 OP06-059)。
@@ -5024,6 +5055,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     Err(_) => return false,
                 }
                 let vcid = state.players[pi].characters[idx].card.card_id.clone();
+                note_ko_victim_negated(state, pi, idx);
                 let ip = state.players[pi].characters.remove(idx);
                 let don = ip.attached_dons;
                 state.players[pi].trash.push(ip.card);
@@ -5055,7 +5087,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         "return_self_to_trash" => {
             if let Slot::Char(i) = src {
                 if i < state.players[me_idx].characters.len() {
-                    let ip = state.players[me_idx].characters.remove(i);
+                let ip = state.players[me_idx].characters.remove(i);
                     let don = ip.attached_dons;
                     state.players[me_idx].don_rested += don;
                     state.players[me_idx].trash.push(ip.card);
@@ -5384,6 +5416,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     Err(_) => return false,
                 }
                 let vcid = state.players[opp_idx].characters[idx].card.card_id.clone();
+                note_ko_victim_negated(state, opp_idx, idx);
                 let ip = state.players[opp_idx].characters.remove(idx);
                 let don = ip.attached_dons;
                 state.players[opp_idx].trash.push(ip.card);
@@ -5855,6 +5888,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             for tok in toks {
                 let Slot::Char(i) = find_tagged(state, me_idx, tok) else { continue };
                 let vcid = state.players[me_idx].characters[i].card.card_id.clone();
+                note_ko_victim_negated(state, me_idx, i);
                 let ip = state.players[me_idx].characters.remove(i);
                 let don = ip.attached_dons;
                 state.players[me_idx].trash.push(ip.card);
@@ -6249,6 +6283,18 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         }
         // レストドンを N 枚アクティブに (effects.py:4544)。 "all" = 全部。
         "untap_don" => {
+            // ⚠ 「このターン中、 キャラの効果でドン‼をアクティブにできない」 が立っていれば不発
+            //   (EB04-016 / OP10-030 の自己ロック、 effects.py と同条件)。
+            //   発動元がキャラの時だけ効く (リーダー/ステージ効果は対象外)。
+            if state.players[me_idx].block_chara_effect_untap_don_until_turn_end {
+                let is_chara = matches!(src, Slot::Char(i)
+                    if i < state.players[me_idx].characters.len()
+                       && state.players[me_idx].characters[i].card.category
+                          == crate::state::Category::Character);
+                if is_chara {
+                    return true; // Python は continue = 忠実な no-op
+                }
+            }
             let me = &mut state.players[me_idx];
             let n = if v.as_str() == Some("all") {
                 me.don_rested
@@ -7550,6 +7596,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 }
                 let vcid = state.players[opp_idx].characters[idx].card.card_id.clone();
                 let vdon = state.players[opp_idx].characters[idx].attached_dons;
+                note_ko_victim_negated(state, opp_idx, idx);
                 let removed = state.players[opp_idx].characters.remove(idx);
                 state.players[opp_idx].trash.push(removed.card);
                 state.players[opp_idx].don_rested += vdon;
@@ -7618,7 +7665,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                             return false;
                         }
                     }
-                    let ip = state.players[pi].characters.remove(idx);
+                let ip = state.players[pi].characters.remove(idx);
                     let don = ip.attached_dons;
                     state.players[pi].known_hand_card_ids.push(ip.card.card_id.clone());
                     state.players[pi].hand.push(ip.card);
@@ -7633,7 +7680,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                     state.last_chara_ko_victim_card = None;
                 } else {
                     // 両陣営 target の自キャラ bounce (持ち主 = me の手札へ、 known には載せない)。
-                    let ip = state.players[pi].characters.remove(idx);
+                let ip = state.players[pi].characters.remove(idx);
                     let don = ip.attached_dons;
                     state.players[pi].hand.push(ip.card);
                     state.players[pi].don_rested += don;
@@ -7951,10 +7998,15 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             // 「ドンをドンデッキに戻した時」 (EB02-035 / P-077)。 発火できるので bail 不要。
             if moved > 0 {
                 state.last_returned_don_count = moved;
-                if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck")
-                    && fire_field_when(state, me_idx, "on_self_don_returned_to_deck").is_err()
-                {
-                    return false;
+                // ⚠ Python(trigger_on_self_don_returned_to_deck) は enqueue → _maybe_resolve なので、
+                //   **効果の解決中は後回し** になる (resolving=True で _maybe_resolve が no-op)。
+                //   Rust が inline 発火していると 「KO が先に起きて盤面が縮む」 = 対象がズレる
+                //   (OP06-075 のドン-1 → 相手 OP06-076 の KO、 2026-08-04 掃引)。 必ず enqueue。
+if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
+                    enqueue_field_when(state, me_idx, "on_self_don_returned_to_deck");
+                    if maybe_resolve(state).is_err() {
+                        return false;
+                    }
                 }
             }
             true
@@ -7997,6 +8049,12 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         // このターン中、 自効果ドロー禁止 (effects.py:block_self_draw_turn、 OP12-099 on_self_life_to_hand)。
         "block_self_draw_turn" => {
             state.players[me_idx].block_self_draw_until_turn_end = true;
+            true
+        }
+        // 「自分は、 このターン中、 キャラの効果でドン‼をアクティブにできない」
+        // (EB04-016 トリ / OP10-030 スモーカー の 「その後、」 節、 effects.py と同名 primitive)。
+        "block_chara_effect_untap_don_turn" => {
+            state.players[me_idx].block_chara_effect_untap_don_until_turn_end = true;
             true
         }
         // このターン中、 自効果でライフを手札に加えられない (effects.py:prevent_self_life_to_hand_turn)。
@@ -8210,6 +8268,10 @@ pub fn execute_card_effects(
 ) -> Result<(), String> {
     let Some(ov) = overlay() else { return Ok(()) };
     let Some(effs) = ov.get(card_id) else { return Ok(()) };
+    // 発動元が 「効果無効」 なら主要 when は発動しない (effects.py:_execute_event の gate)。
+    if src_effect_negated(state, me_idx, src, when) {
+        return Ok(());
+    }
     // 発火追跡 (診断時のみ)。 「デッキに入っている」≠「効果が実行された」を区別する。
     if effs.iter().any(|e| e.get("when").and_then(|v| v.as_str()) == Some(when)) {
         crate::selfplay::note_fired(card_id);
@@ -8461,8 +8523,16 @@ pub fn execute_on_play(state: &mut GameState, me_idx: usize, played_idx: usize) 
         enqueue_trigger(state, "on_play", me_idx, &card_id, Slot::Char(played_idx));
     }
     enqueue_trigger(state, "on_self_chara_played", me_idx, &card_id, Slot::Char(played_idx));
+    // payload-aware 条件 `played_chara_truly_original_cost_ge` (OP12-081 コアラ) の参照先。
+    // ⚠ Rust は この field を **一度も set していなかった** ため条件が常に false = 相手の
+    //   【相手がキャラを登場させた時】が丸ごと不発だった (2026-08-04 掃引 MISMATCH)。
+    //   Python (effects.py:10959) と同じく enqueue の直前に set し、 drain 後に None へ戻す。
+    state.last_opp_chara_played_card =
+        Some(state.players[me_idx].characters[played_idx].card.clone());
     enqueue_trigger(state, "on_opp_chara_played", opp, &card_id, Slot::Char(played_idx));
-    maybe_resolve(state)
+    let r = maybe_resolve(state);
+    state.last_opp_chara_played_card = None;
+    r
 }
 
 /// キューに積まれたトリガー 1 件 (Python effects.py:TriggerEvent の移植)。
@@ -8487,6 +8557,25 @@ fn enqueue_trigger(state: &mut GameState, when: &str, owner_idx: usize, card_id:
         card_id: card_id.to_string(),
         slot,
         tok,
+    });
+}
+
+/// 場全体の field-when を **キューに積む** (= Python の trigger_* + _maybe_resolve と同じ挙動)。
+///
+/// Python は trigger_on_self_don_returned_to_deck 等で enqueue → _maybe_resolve を呼ぶが、
+/// _maybe_resolve は `state.resolving` (= 既に効果解決中) なら早期 return する。 つまり
+/// **効果の内側で起きたカスケードは、 その効果の do を終えてから** FIFO 順で処理される。
+/// inline 発火すると順序が逆になり、 両方が KO する盤面でトラッシュの並びが入れ替わる
+/// (OP06-074 ゼファーのコストが OP06-076 人斬り鎌ぞうの誘発を呼ぶ、 2026-08-04 発覚)。
+///
+/// 解決中でなければ Python 同様その場で drain される (maybe_resolve が回る)。
+fn enqueue_field_when(state: &mut GameState, owner_idx: usize, when: &str) {
+    state.rust_event_queue.push(PendingTrigger {
+        when: when.to_string(),
+        owner_idx,
+        card_id: String::new(), // field-when は発火元カードを特定しない (場全体を走査)
+        slot: Slot::Leader,
+        tok: None,
     });
 }
 
@@ -8658,6 +8747,10 @@ pub fn fire_on_attack(
 ) -> Result<(), String> {
     let src = if is_leader { Slot::Leader } else { Slot::Char(char_idx) };
     let Some(ov) = overlay() else { return Ok(()) };
+    // 発動元が 「効果無効」 なら 【アタック時】 は発動しない (effects.py の gate)。
+    if src_effect_negated(state, me_idx, src, "on_attack") {
+        return Ok(());
+    }
     let cid = get_ip(&state.players[me_idx], src).card.card_id.clone();
     let Some(effs) = ov.get(&cid) else { return Ok(()) };
     // Python trigger_on_attack: ① 支払いフェーズ (idx 順) で cost を払い once を立てる → 発火 idx 収集
@@ -9218,26 +9311,21 @@ pub fn try_replace_ko(
                 }
             }
             // discard_hand_with_filter cost 支払い (Python _pay_replace_cost、 do 前)。 先頭 cnt 個の matching を
-            // 降順 pop → hand_discarded flag + on_self_hand_discarded cascade (未対応なら bail)。 OP15-014。
+            // ⚠ Python (_pay_replace_cost、 effects.py:12846) は hand を **昇順に走査して
+            //   trash へ append** するだけで、 `hand_discarded_by_effect_this_turn` を立てず
+            //   `on_self_hand_discarded` も発火しない。 Rust は両方やっていて false MISMATCH に
+            //   なっていた (OP15-003 アルビダの KO 置換、 2026-08-04 掃引)。 Python に合わせる。
+            //   置換コストは 「捨てる」 が通常の効果ドロップと別扱い = 公式挙動の解釈は Python が正。
             if let Some((filt, cnt)) = discard_cost {
-                let mut matching: Vec<usize> = state.players[victim_owner]
-                    .hand
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, c)| matches_filter(c, Some(&filt)))
-                    .map(|(i, _)| i)
-                    .take(cnt)
-                    .collect();
-                matching.sort_unstable_by(|a, b| b.cmp(a));
-                let n_disc = matching.len();
-                for i in matching {
-                    let c = state.players[victim_owner].hand.remove(i);
-                    state.players[victim_owner].trash.push(c);
-                }
-                if n_disc > 0 {
-                    state.players[victim_owner].hand_discarded_by_effect_this_turn = true;
-                    if fire_field_when(state, victim_owner, "on_self_hand_discarded").is_err() {
-                        return Err("replace cost discard cascade 未対応".into());
+                let pl = &mut state.players[victim_owner];
+                let hand = std::mem::take(&mut pl.hand);
+                let mut discarded = 0usize;
+                for c in hand {
+                    if discarded < cnt && matches_filter(&c, Some(&filt)) {
+                        pl.trash.push(c);
+                        discarded += 1;
+                    } else {
+                        pl.hand.push(c);
                     }
                 }
             }
@@ -9267,6 +9355,33 @@ pub fn try_replace_ko(
 ///   allow-list で丸ごと bail していたが、 Detached 化で不要になった (2026-07-31)。 再現できない prim は
 ///   execute_effect が false を返して bail する。 cost / 未知条件 / draw cascade は従来通り Err。
 ///   replace_ko/replace_leave は呼出側 (do_battle_ko) で先に bail。
+/// KO する InPlay の 「効果無効」 状態を transient に記録する (除去の **直前** に呼ぶ)。
+/// 公式 Q&A: 無効化されたキャラの【KO時】は発動しない (effects.py:_ip_effect_negated と同じ判定)。
+fn note_ko_victim_negated(state: &mut GameState, pi: usize, idx: usize) {
+    let neg = state.players[pi]
+        .characters
+        .get(idx)
+        .map(|ip| {
+            ip.granted_keywords.contains("効果無効")
+                || ip.static_granted_keywords.contains("効果無効")
+                || ip.effect_disabled_through_opp_turn
+        })
+        .unwrap_or(false);
+    state.ko_victim_effect_negated = neg;
+}
+
+/// rules.rs (バトル KO) から呼ぶための公開ラッパ。
+pub fn note_ko_victim_negated_pub(state: &mut GameState, pi: usize, idx: usize) {
+    note_ko_victim_negated(state, pi, idx);
+}
+
+/// 除去済みの InPlay から直接 「効果無効」 を記録する (index が使えない経路用)。
+fn note_ko_victim_negated_ip(state: &mut GameState, ip: &InPlay) {
+    state.ko_victim_effect_negated = ip.granted_keywords.contains("効果無効")
+        || ip.static_granted_keywords.contains("効果無効")
+        || ip.effect_disabled_through_opp_turn;
+}
+
 pub fn fire_on_ko(
     state: &mut GameState,
     owner_idx: usize,
@@ -9275,6 +9390,12 @@ pub fn fire_on_ko(
 ) -> Result<(), String> {
     // 条件 by_opp_effect / by_battle 用 (Python は trigger_on_ko の引数を state に伝搬)。
     state.last_ko_by_opp_effect = by_opp_effect;
+    // 公式 Q&A (cardqa_op_09/op_10): 効果を無効にされたキャラの【KO時】は発動しない。
+    // 記録は note_ko_victim_negated が除去直前に行う。 読んだら必ず clear (次の KO に漏らさない)。
+    let victim_negated = std::mem::take(&mut state.ko_victim_effect_negated);
+    if victim_negated {
+        return Ok(());
+    }
     let Some(ov) = overlay() else { return Ok(()) };
     let Some(effs) = ov.get(victim_cid) else { return Ok(()) };
     if !effs.iter().any(|e| e.get("when").and_then(|v| v.as_str()) == Some("on_ko")) {
@@ -9613,12 +9734,11 @@ fn try_pay_counter_cost(
         return Err("pay_don 支払い不能".into());
     }
     // pay_don_field が last_returned_don_count を set 済 → on_self_don_returned_to_deck cascade。
-    // ⚠ Python は resolving=True 中 (counter event 解決内) なので deferred。 Rust は即時発火。
-    // 順序非依存なら digest 一致 (差分検証が判定)。 未対応 prim は fire_field_when が Err → bail。
-    if pay_don > 0 && me_board_has_when(state, me_idx, "on_self_don_returned_to_deck")
-        && fire_field_when(state, me_idx, "on_self_don_returned_to_deck").is_err()
-    {
-        return Err("counter cost pay_don cascade 未対応".into());
+    // Python は enqueue → _maybe_resolve なので **効果解決の内側なら do の後** に回る。
+    // return_self_don_to_deck 側と同じくキューに載せて順序を合わせる (2026-08-04)。
+    if pay_don > 0 && me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
+        enqueue_field_when(state, me_idx, "on_self_don_returned_to_deck");
+        maybe_resolve(state)?;
     }
     if rest_don > 0 {
         let me = &mut state.players[me_idx];
@@ -9640,10 +9760,13 @@ fn try_pay_counter_cost(
         };
         if moved > 0 {
             state.last_returned_don_count = moved;
-            if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck")
-                && fire_field_when(state, me_idx, "on_self_don_returned_to_deck").is_err()
-            {
-                return Err("counter cost return_self_don_to_deck cascade 未対応".into());
+            // Python (trigger_on_self_don_returned_to_deck) は enqueue → _maybe_resolve。
+            // 効果解決の内側なら _maybe_resolve は早期 return するので **do の後** に回る。
+            // inline 発火すると順序が逆になる (OP06-074 ゼファーのコストが OP06-076
+            // 人斬り鎌ぞうの誘発を呼び、 2 枚 KO の並びが入れ替わる、 2026-08-04 発覚)。
+            if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
+                enqueue_field_when(state, me_idx, "on_self_don_returned_to_deck");
+                maybe_resolve(state)?;
             }
         }
     }
@@ -9725,6 +9848,11 @@ fn try_pay_counter_cost(
             _ => None,
         };
         if let Some(r) = removed {
+            // 【KO時】 gate 用に 「効果無効」 を move 前に記録 (trash 送りのときだけ意味を持つ)。
+            let neg = r.granted_keywords.contains("効果無効")
+                || r.static_granted_keywords.contains("効果無効")
+                || r.effect_disabled_through_opp_turn;
+            state.ko_victim_effect_negated = neg;
             let don = r.attached_dons;
             if ret_self_hand {
                 me.hand.push(r.card);
@@ -10386,7 +10514,7 @@ fn pay_end_of_turn_cost(
         let to_hand = co.contains_key("return_self_to_hand") && !co.contains_key("trash_self");
         match src_slot {
             Slot::Char(i) if i < state.players[owner].characters.len() => {
-                let ip = state.players[owner].characters.remove(i);
+            let ip = state.players[owner].characters.remove(i);
                 let don = ip.attached_dons;
                 if to_hand {
                     state.players[owner].hand.push(ip.card);
@@ -10419,7 +10547,9 @@ fn pay_end_of_turn_cost(
         if taken + more > 0 {
             state.last_returned_don_count = taken + more;
             if me_board_has_when(state, owner, "on_self_don_returned_to_deck") {
-                fire_field_when(state, owner, "on_self_don_returned_to_deck")?;
+                // Python は enqueue → _maybe_resolve (解決中は後回し)。 inline 発火は順序が変わる。
+                enqueue_field_when(state, owner, "on_self_don_returned_to_deck");
+                maybe_resolve(state)?;
             }
         }
     }
@@ -10452,7 +10582,7 @@ fn pay_end_of_turn_cost(
         let mut i = 0usize;
         while i < state.players[owner].characters.len() && returned < need {
             if matches_filter(&state.players[owner].characters[i].card, filt.as_ref()) {
-                let ip = state.players[owner].characters.remove(i);
+            let ip = state.players[owner].characters.remove(i);
                 let don = ip.attached_dons;
                 state.players[owner].hand.push(ip.card);
                 state.players[owner].don_rested += don;
@@ -10468,6 +10598,7 @@ fn pay_end_of_turn_cost(
             .find(|&i| matches_filter(&state.players[owner].characters[i].card, Some(&ksf)))
         {
             let vcid = state.players[owner].characters[i].card.card_id.clone();
+            note_ko_victim_negated(state, owner, i);
             let ip = state.players[owner].characters.remove(i);
             let don = ip.attached_dons;
             state.players[owner].trash.push(ip.card);
@@ -10555,6 +10686,11 @@ pub fn fire_opp_attack(
     // trash_self cost 効果: (source char index, do 配列)。 Python 順 = pay(=trash 全部)→fire(全部 source-gone)。
     let mut trash_self_fires: Vec<(usize, Vec<Value>)> = vec![];
     for slot in slots {
+        // 発動元が 「効果無効」 なら 【相手のアタック時】/【ブロック時】 は発動しない
+        // (effects.py:_execute_event の gate)。 when_key は opp_attack / on_block。
+        if src_effect_negated(state, defender_idx, slot, "on_attack") {
+            continue;
+        }
         let cid = get_ip(&state.players[defender_idx], slot).card.card_id.clone();
         let Some(effs) = ov.get(&cid) else { continue };
         for (idx, eff) in effs.iter().enumerate() {
@@ -10655,12 +10791,19 @@ pub fn fire_opp_attack(
     //   KO でなく leave=chara_ko 非加算。 leave cascade は collect 時の guard で無し。
     if !trash_self_fires.is_empty() {
         trash_self_fires.sort_by_key(|(ci, _)| *ci);
-        for (ci, _) in trash_self_fires.iter().rev() {
-            if *ci < state.players[defender_idx].characters.len() {
-                let removed = state.players[defender_idx].characters.remove(*ci);
+        // ⚠ **昇順** に処理する。 Python は場の並び順 (leader→chars 昇順) にコストを払うので
+        //   trash への到着順も昇順。 降順 remove は index shift を避けられるが **トラッシュの順が
+        //   逆になる** = digest 不一致 (ST22-002 が 2 体並ぶと露見、 2026-08-04 掃引 MISMATCH)。
+        //   昇順のまま、 除去済み枚数ぶん index を詰めて shift を吸収する。
+        let mut shift = 0usize;
+        for (ci, _) in trash_self_fires.iter() {
+            let i = ci.saturating_sub(shift);
+            if i < state.players[defender_idx].characters.len() {
+                let removed = state.players[defender_idx].characters.remove(i);
                 let don = removed.attached_dons;
                 state.players[defender_idx].trash.push(removed.card);
                 state.players[defender_idx].don_rested += don;
+                shift += 1;
             }
         }
     }
@@ -10797,11 +10940,13 @@ pub fn fire_activate_main(
             let more = (pay_don - taken).min(me.don_rested);
             me.don_rested -= more;
             me.don_remaining_in_deck += more;
-            // 「ドンをドンデッキに戻した時」 (EB02-035 / P-077)。 Python も同順で発火する。
+            // 「ドンをドンデッキに戻した時」 (EB02-035 / P-077)。
+            // Python は enqueue → _maybe_resolve (解決中は後回し)。 inline 発火は順序が変わる。
             if taken + more > 0 {
                 state.last_returned_don_count = taken + more;
                 if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
-                    fire_field_when(state, me_idx, "on_self_don_returned_to_deck")?;
+                    enqueue_field_when(state, me_idx, "on_self_don_returned_to_deck");
+                    maybe_resolve(state)?;
                 }
             }
         }
@@ -10953,9 +11098,14 @@ pub fn fire_activate_main(
                 let removed = me.characters.remove(i);
                 let vcid = removed.card.card_id.clone();
                 let don = removed.attached_dons;
+                // 【KO時】 gate 用に move 前に記録 (公式 Q&A: 無効化されたキャラの【KO時】は不発)。
+                let neg = removed.granted_keywords.contains("効果無効")
+                    || removed.static_granted_keywords.contains("効果無効")
+                    || removed.effect_disabled_through_opp_turn;
                 me.trash.push(removed.card);
                 me.don_rested += don;
                 me.chara_ko_taken_this_turn += 1; // trigger_on_ko 相当 (全 KO で加算)
+                state.ko_victim_effect_negated = neg;
                 // last_chara_ko_victim_card set (victim_* 条件用)、 cascade 完了後 None (Python 準拠)。
                 state.last_chara_ko_victim_card = None; // 効果 cascade は nested=deferred で victim None
                 let mut err: Option<String> = None;
@@ -10974,10 +11124,12 @@ pub fn fire_activate_main(
             }
         }
     }
-    // once_per_turn フラグ (effects.py:13743、 default True で発動済マーク)。 ⚠ source_gone (trash_self)
+    // once_per_turn フラグ (effects.py と同じく **明示指定時のみ**)。 ⚠ source_gone (trash_self)
     // 時は起動源が場から消えている → Python は off-field object に setattr する (digest 不変=trash は
     // CardDef のみ) ので Rust は skip (stale index を触らない)。
-    let once = cost.as_ref().and_then(|c| c.get("once_per_turn")).and_then(|v| v.as_bool()).unwrap_or(true);
+    // ⚠ 既定 True (= 【ターン1回】 が無くても一律 1 回) は 2026-08-04 に撤去。 公式は
+    //   コストを払える限り何度でも起動できる。
+    let once = cost.as_ref().and_then(|c| c.get("once_per_turn")).and_then(|v| v.as_bool()).unwrap_or(false);
     if once && !source_gone {
         get_ip_mut(&mut state.players[me_idx], src).act_used = true;
     }
@@ -10995,6 +11147,10 @@ pub fn fire_activate_main(
     //   コスト自体が条件を崩すカードがあるため必須。 例 P-081 クロスギルド:
     //   cost=return_self_to_hand で自分が場を離れ 「青の《クロスギルド》キャラ3枚以上」 が
     //   崩れる → Python は不発、 Rust は支払い前の判定のまま登場させていた (2026-08-03 発覚)。
+    // 発動元が 「効果無効」 なら発動しない (effects.py:_execute_event の gate)。
+    if src_effect_negated(state, me_idx, do_src, "activate_main") {
+        return Ok(());
+    }
     match eval_effect_conditions(&eff_owned, state, me_idx, Some(do_src)) {
         Some(true) => {}
         Some(false) => return Ok(()), // 条件が崩れた = 効果は発動しない (コストは払い済み)
@@ -11048,6 +11204,9 @@ pub fn execute_one_effect(
     let Some(eff) = effs.get(effect_index) else { return Err("effect_index 範囲外".into()) };
     if eff.get("when").and_then(|v| v.as_str()) != Some(when) {
         return Err("when 不一致".into());
+    }
+    if src_effect_negated(state, me_idx, src, when) {
+        return Ok(()); // 発動元が効果無効 = 発動しない (effects.py:_execute_event の gate)
     }
     match eval_effect_conditions(eff, state, me_idx, Some(src)) {
         Some(true) => {}
@@ -11233,6 +11392,128 @@ fn pay_don_capacity(me: &Player) -> i32 {
         + me.characters.iter().map(|c| c.attached_dons).sum::<i32>()
 }
 
+/// effects.py:_execute_event の 「効果無効」 ゲート。 発動元が negate_effect/disable_effect で
+/// 無効化されていれば 主要 when の効果は発動しない。
+/// ⚠ Rust は 「効果無効」 を **付与するだけ** で発動時に見ていなかった。 OP06-083 オーズ
+///   (「自分の《スリラーバーク海賊団》1枚をKOできる：このキャラは、 このターン中、 効果が無効に
+///   なる」) は 1 回起動すると自分を無効化して以降発動しない = **公式の自己制限** だが、
+///   Rust は無限に起動して自陣を KO し続けていた (2026-08-04、 once_per_turn 既定 True の
+///   近似を外して初めて露出)。
+fn src_effect_negated(state: &GameState, me_idx: usize, src: Slot, when: &str) -> bool {
+    if !matches!(when, "on_play" | "on_attack" | "activate_main" | "main" | "counter") {
+        return false;
+    }
+    match src_ip(&state.players[me_idx], src) {
+        Some(ip) => {
+            ip.granted_keywords.contains("効果無効")
+                || ip.static_granted_keywords.contains("効果無効")
+                || ip.effect_disabled_through_opp_turn
+        }
+        None => false,
+    }
+}
+
+/// effects.py:_optional_cost_payable_in_do = `do` の optional_cost_then に書かれたコストが
+/// 払えるか (起動メインの列挙用)。 overlay は 「X することができる：Y」 を top-level `cost` では
+/// なく do 内の optional_cost_then で表すことが多く、 列挙時に見ないと 「払えないのに legal」 に
+/// なる (EB02-009 サウザンド・サニー号がレスト済でも延々と再起動していた、 2026-08-04)。
+/// ⚠ 判定できるものだけ見る (未知コストは true = 従来通り列挙)。
+fn optional_cost_payable_in_do(state: &GameState, me_idx: usize, ip: &InPlay, eff: &Value) -> bool {
+    let me = &state.players[me_idx];
+    let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { return true };
+    for prim in dos {
+        let Some(oct) = prim.get("optional_cost_then") else { continue };
+        let Some(costs) = oct.get("cost").and_then(|v| v.as_array()) else { continue };
+        for cs in costs {
+            if cs.get("rest_self").and_then(|v| v.as_bool()) == Some(true) && ip.rested {
+                return false;
+            }
+            if cs.get("rest").and_then(|v| v.as_str()) == Some("self") && ip.rested {
+                return false;
+            }
+            if let Some(n) = cs.get("rest_self_don").and_then(|v| v.as_i64()) {
+                if (me.don_active as i64) < n {
+                    return false;
+                }
+            }
+            if let Some(n) = cs.get("pay_don").and_then(|v| v.as_i64()) {
+                if ((me.don_active + me.don_rested) as i64) < n {
+                    return false;
+                }
+            }
+            if let Some(n) = cs.get("discard_hand").and_then(|v| v.as_i64()) {
+                if (me.hand.len() as i64) < n {
+                    return false;
+                }
+            }
+            // 資源が尽きたら払えない型 (effects.py:_optional_cost_payable_in_do と同条件)
+            if let Some(n) = cs.get("trash_self_hand_random").and_then(|v| v.as_i64()) {
+                if (me.hand.len() as i64) < n {
+                    return false;
+                }
+            }
+            for k in ["self_hand_to_deck_bottom", "hand_to_deck_bottom"] {
+                if let Some(v) = cs.get(k) {
+                    let n = v.get("amount").and_then(|x| x.as_i64())
+                        .or_else(|| v.as_i64()).unwrap_or(1);
+                    if (me.hand.len() as i64) < n {
+                        return false;
+                    }
+                }
+            }
+            if let Some(v) = cs.get("trash_to_deck") {
+                let n = v.get("limit").and_then(|x| x.as_i64())
+                    .or_else(|| v.get("count").and_then(|x| x.as_i64()))
+                    .or_else(|| v.as_i64()).unwrap_or(1);
+                if (me.trash.len() as i64) < n {
+                    return false;
+                }
+            }
+            for k in ["life_to_hand", "life_top_or_bottom_to_hand", "mill_self_life_to_trash"] {
+                if let Some(v) = cs.get(k) {
+                    let n = v.get("amount").and_then(|x| x.as_i64())
+                        .or_else(|| v.as_i64()).unwrap_or(1);
+                    if (me.life.len() as i64) < n {
+                        return false;
+                    }
+                }
+            }
+            if (cs.get("flip_life_face_up").is_some() || cs.get("flip_life_face_down").is_some())
+                && me.life.is_empty()
+            {
+                return false;
+            }
+            if let Some(n) = cs.get("return_self_don_to_deck").and_then(|v| v.as_i64()) {
+                if ((me.don_active + me.don_rested) as i64) < n {
+                    return false;
+                }
+            }
+        }
+    }
+    true
+}
+
+/// effects.py:_activate_main_is_noop = 起動メインが 「実行しても状態が変わらない」 と静的に
+/// 分かるか (探索のループ防止用)。 ⚠ 条件を足すのは 「no-op が確実」 な場合だけ。 迷ったら false。
+fn activate_main_is_noop(state: &GameState, me_idx: usize, ip: &InPlay, eff: &Value) -> bool {
+    let Some(do_list) = eff.get("do").and_then(|v| v.as_array()) else { return true };
+    if do_list.is_empty() {
+        return true;
+    }
+    // 「ドン‼をアクティブにする」 が自己ロック済 → untap_don も block も no-op
+    if state.players[me_idx].block_chara_effect_untap_don_until_turn_end
+        && ip.card.category == crate::state::Category::Character
+        && do_list.iter().all(|p| {
+            p.as_object().map_or(false, |o| {
+                o.keys().all(|k| k == "untap_don" || k == "block_chara_effect_untap_don_turn")
+            })
+        })
+    {
+        return true;
+    }
+    false
+}
+
 /// effects.py:_can_pay_activate_cost = activate_main の cost を支払えるか。
 fn can_pay_activate_cost(state: &GameState, me_idx: usize, ip: &InPlay, on_field: bool, cost: &Value) -> bool {
     let me = &state.players[me_idx];
@@ -11302,8 +11583,9 @@ fn can_pay_activate_cost(state: &GameState, me_idx: usize, ip: &InPlay, on_field
             return false;
         }
     }
-    // once_per_turn (default True) ゲート: 発動済なら払えない (effects.py:13096)。
-    let once = o.get("once_per_turn").and_then(|v| v.as_bool()).unwrap_or(true);
+    // once_per_turn ゲート: **明示指定時のみ** 発動済なら払えない (effects.py と一致)。
+    // 既定 True の近似は 2026-08-04 撤去 (公式は払える限り何度でも)。
+    let once = o.get("once_per_turn").and_then(|v| v.as_bool()).unwrap_or(false);
     if once && ip.act_used {
         return false;
     }
@@ -11489,6 +11771,22 @@ pub fn legal_actions(state: &GameState) -> Vec<Value> {
                 match eval_effect_conditions(eff, state, me_idx, Some(slot)) {
                     Some(true) => {}
                     _ => continue,
+                }
+                // 発動元が 「効果無効」 なら実行しても何も起きない (effects.py の gate)。
+                if src_effect_negated(state, me_idx, slot, "activate_main") {
+                    continue;
+                }
+                // 探索のループ防止 (ルール上の制限ではない、 effects.py:_activate_main_is_noop と同条件)。
+                // 【ターン1回】 の無い起動メインは公式上何度でも起動できるが、 効果が完全な no-op に
+                // なったものを出し続けると探索が同じ手を無限に選べる。 現状の該当は
+                // 「ドン‼アクティブ + 自己ロック」 (EB04-016 トリ / OP10-030 スモーカー) のみ。
+                if activate_main_is_noop(state, me_idx, ip, eff) {
+                    continue;
+                }
+                // do 内 optional_cost_then のコストが払えないなら legal ではない
+                // (effects.py:_optional_cost_payable_in_do と同条件)。
+                if !optional_cost_payable_in_do(state, me_idx, ip, eff) {
+                    continue;
                 }
                 let sidx = match slot {
                     Slot::Leader | Slot::Detached => 0, // legal_actions は場の slot のみ列挙 (Detached 不到達)

@@ -1709,7 +1709,18 @@
    "when": "activate_main",
    "do": [
     {
-     "draw": 1
+     "optional_cost_then": {
+      "cost": [
+       {
+        "return_self_to_deck_bottom": true
+       }
+      ],
+      "effect": [
+       {
+        "draw": 1
+       }
+      ]
+     }
     }
    ]
   }
@@ -3517,6 +3528,9 @@
    "do": [
     {
      "untap_don": 1
+    },
+    {
+     "block_chara_effect_untap_don_turn": true
     }
    ]
   },
@@ -63938,6 +63952,9 @@
    "do": [
     {
      "untap_don": 1
+    },
+    {
+     "block_chara_effect_untap_don_turn": true
     }
    ]
   }
@@ -67315,6 +67332,9 @@
    "do": [
     {
      "untap_don": 1
+    },
+    {
+     "block_chara_effect_untap_don_turn": true
     }
    ]
   }
@@ -67326,6 +67346,9 @@
    "do": [
     {
      "untap_don": 1
+    },
+    {
+     "block_chara_effect_untap_don_turn": true
     }
    ]
   }
@@ -68514,10 +68537,21 @@
    "when": "activate_main",
    "do": [
     {
-     "power_pump": {
-      "target": "one_opponent_character_any",
-      "amount": -3000,
-      "duration": "turn"
+     "optional_cost_then": {
+      "cost": [
+       {
+        "return_self_to_deck_bottom": true
+       }
+      ],
+      "effect": [
+       {
+        "power_pump": {
+         "target": "one_opponent_character_any",
+         "amount": -3000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ]
@@ -73358,10 +73392,21 @@
    "when": "activate_main",
    "do": [
     {
-     "power_pump": {
-      "target": "one_opponent_character_any",
-      "amount": -3000,
-      "duration": "turn"
+     "optional_cost_then": {
+      "cost": [
+       {
+        "return_self_to_deck_bottom": true
+       }
+      ],
+      "effect": [
+       {
+        "power_pump": {
+         "target": "one_opponent_character_any",
+         "amount": -3000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ]
@@ -92309,10 +92354,21 @@
    "when": "activate_main",
    "do": [
     {
-     "power_pump": {
-      "target": "one_opponent_character_any",
-      "amount": -3000,
-      "duration": "turn"
+     "optional_cost_then": {
+      "cost": [
+       {
+        "return_self_to_deck_bottom": true
+       }
+      ],
+      "effect": [
+       {
+        "power_pump": {
+         "target": "one_opponent_character_any",
+         "amount": -3000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ]
@@ -95093,10 +95149,21 @@
    "when": "activate_main",
    "do": [
     {
-     "power_pump": {
-      "target": "one_opponent_character_any",
-      "amount": -3000,
-      "duration": "turn"
+     "optional_cost_then": {
+      "cost": [
+       {
+        "return_self_to_deck_bottom": true
+       }
+      ],
+      "effect": [
+       {
+        "power_pump": {
+         "target": "one_opponent_character_any",
+         "amount": -3000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ]
@@ -95273,10 +95340,21 @@
    "when": "activate_main",
    "do": [
     {
-     "power_pump": {
-      "target": "one_opponent_character_any",
-      "amount": -3000,
-      "duration": "turn"
+     "optional_cost_then": {
+      "cost": [
+       {
+        "return_self_to_deck_bottom": true
+       }
+      ],
+      "effect": [
+       {
+        "power_pump": {
+         "target": "one_opponent_character_any",
+         "amount": -3000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ]

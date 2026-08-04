@@ -463,15 +463,13 @@ def test_op09_081_activate_main_disable_opp_on_play_ai():
     assert len(me.hand) == hand_before - 1, "手札1捨てコストが消費されていない"
 
 
-def test_op09_081_activate_main_capped_once_by_engine_default():
-    """【起動メイン】は engine 既定 (once_per_turn 未指定 = True) で 1 ターン 1 回に制限される。
+def test_op09_081_activate_main_repeatable_while_cost_payable():
+    """【起動メイン】に 【ターン1回】 が無いので コスト (手札1捨て) を払える限り再発動できる。
 
-    ⚠ 公式テキストに 【ターン1回】 は **無い** (「【起動メイン】自分の手札1枚を捨てることが
-    できる：…」)。 本来は手札がある限り再発動できる。 engine は
-    list_activate_main_effects が 「起動メインはターン1回が一般的」 という **意図的な近似**
-    (無限ループ回避) で `cost.get("once_per_turn", True)` を既定 True にしているため 1 回で
-    止まる。 この test はその **近似の現状** を固定するものであり、 公式準拠ではない。
-    近似を外す場合はここも一緒に直す。
+    公式テキスト: 「【起動メイン】自分の手札1枚を捨てることができる：…」 = 【ターン1回】 無し。
+    ⚠ 以前 engine は `cost.get("once_per_turn", True)` の **既定 True** で一律 1 回に制限して
+    いた (無限ループ回避の意図的近似)。 2026-08-04 に撤去し公式準拠にした
+    (無限ループは公式ルール側の自己ロック/自己制限コストが防いでいる)。
     """
     repo = _repo()
     overlay = _overlay()
@@ -485,8 +483,13 @@ def test_op09_081_activate_main_capped_once_by_engine_default():
     fire_activate_main(st, me, opp, *opts1[0])
     opts2 = [o for o in list_activate_main_effects(st, me, overlay)
              if o[0].card.card_id == "OP09-081"]
-    assert len(opts2) == 0, \
-        "engine 既定 (once_per_turn 未指定=True) で 2 回目は legal から消える"
+    assert len(opts2) == 1, \
+        "【ターン1回】 が無いので 手札が残っていれば再度 legal に出る"
+    # 手札を使い切ると コスト (手札1捨て) が払えず legal から消える = 公式どおりの自然な上限
+    fire_activate_main(st, me, opp, *opts2[0])
+    opts3 = [o for o in list_activate_main_effects(st, me, overlay)
+             if o[0].card.card_id == "OP09-081"]
+    assert len(opts3) == 0, "手札が尽きたら コスト未払いで legal から消える"
 
 
 # --------------------------------------------------------------------------- #

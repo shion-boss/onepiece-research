@@ -230,8 +230,13 @@ def test_p086_law_activate_main_once_per_turn():
 
 
 def test_p086_law_activate_main_noop_without_don():
-    """ドン!!が3枚未満だと ドン-3 の任意コストが払えず 効果不発 (登場なし・盤面不変)。
-    (起動メイン自体は任意コスト内包型のため legal に出るが、 発動しても解決しない。)"""
+    """ドン!!が3枚未満だと ドン-3 の任意コストが払えない → 列挙されない & 発動しても不発。
+
+    ⚠ 列挙から外すのは **ルール上の制限ではなく 探索層の枝刈り** (`_optional_cost_payable_in_do`)。
+      公式上は起動して任意コストを見送ることもできるが、 結果は 「何も起きない上に【ターン1回】を
+      消費する」 だけで 自傷にしかならないので列挙しない。 発動経路そのものは下で直接叩いて
+      盤面不変を確認する ([[project_approximation_hides_bugs]])。
+    """
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, "P-086", overlay)
@@ -243,8 +248,11 @@ def test_p086_law_activate_main_noop_without_don():
 
     opts = [o for o in list_activate_main_effects(st, me, overlay)
             if o[0].card.card_id == "P-086"]
-    assert len(opts) == 1
-    fire_activate_main(st, me, opp, *opts[0])
+    assert len(opts) == 0, "任意コストが払えないのに起動メインが列挙されている"
+
+    # 列挙を迂回して直接発動しても 盤面は一切変わらない (= 効果が不発)
+    eff = next(e for e in overlay.get("P-086").effects if e.get("when") == "activate_main")
+    fire_activate_main(st, me, opp, me.leader, eff)
     _drain(st, [0])
 
     assert me.don_active == 2, "コスト不能なのにドンが消費されてはいけない"

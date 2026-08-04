@@ -275,14 +275,21 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
             return
         # 効果無効化 (negate_effect/disable_effect プリミティブで付与)。 場にいて、 かつ
         # source が「効果無効」 キーワード or ターン跨ぎ無効フラグを持っているなら抑止。
-        # 主要効果のみ。 on_ko 等は除外。
+        # ⚠ 公式 「効果を無効にする」 に when の区別は無い = 発動する効果は全て抑止される。
+        #   旧実装は 「主要効果のみ (on_play/on_attack/activate_main/main/counter)」 に絞って
+        #   おり、 【相手のアタック時】/【ブロック時】 が **無効化されても発動していた**
+        #   (2026-08-04 発覚)。 静的効果は _recompute_static 側で別途抑止している。
+        #   ⚠ 【KO時】 も公式 Q&A (cardqa_op_09/op_10 「効果を無効にされたキャラがKOされた
+        #   場合、 そのキャラの持つ【KO時】効果は発動できますか？」→「いいえ」) で抑止だが、
+        #   on_ko は source が既に場外 (self_inplay=None) でここを通らない → 別途対応が要る。
         if (
             self_inplay is not None
             and (
                 "効果無効" in self_inplay.granted_keywords
                 or self_inplay.effect_disabled_through_opp_turn
             )
-            and evt.when in ("on_play", "on_attack", "activate_main", "main", "counter")
+            and evt.when in ("on_play", "on_attack", "activate_main", "main", "counter",
+                             "opp_attack", "on_block")
         ):
             state.push_log(
                 f"  効果無効: {self_inplay.card.name} の【{evt.when}】 は発動されない"
@@ -949,7 +956,7 @@ def _pay_counter_cost(
             if state.effects_overlay:
                 if is_ko:
                     trigger_on_ko(state, me, opp, src.card, state.effects_overlay,
-                                  by_opp_effect=False, victim_attached_don=src.attached_dons)
+                                  by_opp_effect=False, victim_attached_don=src.attached_dons, victim_effect_negated=_ip_effect_negated(src))
                     trigger_on_self_chara_ko(state, me, opp, state.effects_overlay,
                                              victim_card=src.card)
                 else:
@@ -1061,6 +1068,24 @@ def _maybe_resolve(state: GameState) -> None:
 # --------------------------------------------------------------------------- #
 # 条件評価
 # --------------------------------------------------------------------------- #
+def _ip_effect_negated(ip) -> bool:
+    """InPlay が 「効果無効」 状態か (negate_effect / disable_effect / 静的無効)。
+
+    KO 直前に呼んで trigger_on_ko(victim_effect_negated=...) に渡す。
+    公式 Q&A (cardqa_op_09 / op_10): 「効果を無効にされたキャラがKOされた場合、 そのキャラの
+    持つ【KO時】効果は発動できますか？」 → 「いいえ、 できません」。
+    on_ko は source が既に場外 (self_inplay=None) なので _execute_event の gate を通らない。
+    """
+    if ip is None:
+        return False
+    return (
+        "効果無効" in getattr(ip, "granted_keywords", set())
+        or "効果無効" in getattr(ip, "static_granted_keywords", set())
+        or bool(getattr(ip, "effect_disabled_through_opp_turn", False))
+    )
+
+
+
 def eval_all_conditions(
     eff: dict[str, Any],
     state: GameState,
@@ -3425,7 +3450,7 @@ def _execute_effect_body(
                     if state.effects_overlay:
                         # 効果による KO も【KO時】を発動 (10-2-1-3)
                         # KO 側 から 見ると 「相手 (= me) の効果」 由来 なので by_opp_effect=True
-                        trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons)
+                        trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons, victim_effect_negated=_ip_effect_negated(t))
                         # 「相手のキャラが KO された時」 (= 自分の効果で KO した側)
                         trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                         # 「自分のキャラが KO された時」 (= KO された側の場効果)
@@ -3461,7 +3486,7 @@ def _execute_effect_body(
                 _ksc_any = True
                 if state.effects_overlay:
                     # 効果による KO も【KO時】を発動 (10-2-1-3)。 自分の効果なので by_opp_effect=False。
-                    trigger_on_ko(state, me, opp, t.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=t.attached_dons)
+                    trigger_on_ko(state, me, opp, t.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=t.attached_dons, victim_effect_negated=_ip_effect_negated(t))
                     trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
             if _ksc_any and state.effects_overlay:
                 trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
@@ -3483,7 +3508,7 @@ def _execute_effect_body(
                     me.don_rested += tch.attached_dons
                 ko_count += 1
                 if state.effects_overlay:
-                    trigger_on_ko(state, me, opp, tch.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=tch.attached_dons)
+                    trigger_on_ko(state, me, opp, tch.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=tch.attached_dons, victim_effect_negated=_ip_effect_negated(tch))
                     trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
             if ko_count > 0:
                 execute_effect({"power_pump": {"target": "self_leader",
@@ -4674,6 +4699,13 @@ def _execute_effect_body(
         elif k == "untap_don":
             # レストドンを N 枚アクティブにする (緑紫ルフィ / 緑ミホーク等)
             # v="all" は「自分のドン!! すべてを、アクティブにする」(OP13-028)
+            # ⚠ 「このターン中、 キャラの効果でドン‼をアクティブにできない」 が立っていれば不発
+            #   (EB04-016 / OP10-030 の自己ロック)。 self_inplay がキャラの時だけ効く。
+            if (getattr(me, "block_chara_effect_untap_don_until_turn_end", False)
+                    and self_inplay is not None
+                    and self_inplay.card.category == Category.CHARACTER):
+                state.push_log("  効果: ドン アクティブ化は このターン禁止 (不発)")
+                continue
             if isinstance(v, str) and v == "all":
                 n = me.don_rested
             else:
@@ -4735,6 +4767,14 @@ def _execute_effect_body(
                 opp.don_remaining_in_deck += taken
                 removed += taken
             state.push_log(f"  効果: 相手ドン -{removed}")
+            # 公式 Q&A (cardqa_op_06 / op_02): 「自分のターン中に、 **相手のカードの効果で**
+            # 自分のドン!!がドン!!デッキに戻された時、 この効果を発動できますか？」 → 「はい」。
+            # 「場のドン!!が戻された時」 は 誰が戻したかを問わない (op_02 で相手側も含むと明記)。
+            # ⚠ ここで発火していなかったため 相手側の on_self_don_returned_to_deck が
+            #   丸ごと落ちていた (2026-08-04、 db/_pending_review.md の裁定で確定)。
+            if removed > 0 and state.effects_overlay:
+                trigger_on_self_don_returned_to_deck(
+                    state, opp, me, state.effects_overlay, count=removed)
         elif k == "mill":
             # 「相手 (or 自) のデッキ上 N 枚をトラッシュ」
             spec = v if isinstance(v, dict) else {"target": "opp", "count": int(v)}
@@ -5692,6 +5732,14 @@ def _execute_effect_body(
             # 公式: 「ゲーム開始時、 ドンデッキの枚数を N にする」 等の setup_modifier。
             # execute_effect 経由ではなく setup_game で読まれる。 ここでは log のみ。
             state.push_log(f"  効果: set_don_deck_size (setup_modifier 経由)")
+        elif k == "block_chara_effect_untap_don_turn":
+            # 「自分は、 このターン中、 キャラの効果でドン‼をアクティブにできない」
+            # (EB04-016 トリ / OP10-030 スモーカー の 「その後、」 節)。
+            # ⚠ 公式はこの自己ロックで 【ターン1回】 の無い起動メインの無限ループを防いでいる。
+            #   overlay に未実装だったため engine 側の 「起動メインは既定でターン1回」 近似が
+            #   フタをしていた (2026-08-04 発覚)。
+            me.block_chara_effect_untap_don_until_turn_end = True
+            state.push_log("  効果: このターン中、 キャラ効果でのドン アクティブ化 禁止")
         elif k == "block_self_draw_turn":
             # このターン中、 自分の効果でカードを引くことができない
             me.block_self_draw_until_turn_end = True
@@ -7447,7 +7495,7 @@ def _execute_effect_body(
                         _kao_any = True
                         if state.effects_overlay:
                             # me 側 victim、 me 側 effect → by_opp_effect=False (= 自爆)
-                            trigger_on_ko(state, me, opp, t.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=t.attached_dons)
+                            trigger_on_ko(state, me, opp, t.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=t.attached_dons, victim_effect_negated=_ip_effect_negated(t))
                             trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
                 else:
                     # 相手キャラ KO 経路
@@ -7474,7 +7522,7 @@ def _execute_effect_body(
                         _kao_any = True
                         if state.effects_overlay:
                             # opp 側 victim、 me 側 effect → victim から 見れば by_opp_effect=True
-                            trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons)
+                            trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons, victim_effect_negated=_ip_effect_negated(t))
                             trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                             trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
             if _kao_any and state.effects_overlay:
@@ -7532,7 +7580,7 @@ def _execute_effect_body(
                         _kom_any = True
                         if state.effects_overlay:
                             # opp 側 victim、 me 側 effect → by_opp_effect=True
-                            trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons)
+                            trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons, victim_effect_negated=_ip_effect_negated(t))
                             trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                             trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
             if _kom_any and state.effects_overlay:
@@ -7584,7 +7632,7 @@ def _execute_effect_body(
                 state.push_log(f"  効果: KO {t.card.name} (合計power<={cap})")
                 _kom_any = True
                 if state.effects_overlay:
-                    trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons)
+                    trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons, victim_effect_negated=_ip_effect_negated(t))
                     trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                     trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
             if _kom_any and state.effects_overlay:
@@ -7778,7 +7826,7 @@ def _execute_effect_body(
                 _ost_any = True
                 if state.effects_overlay:
                     # me 側 victim、 me 側 effect → by_opp_effect=False (= 自分の効果による自陣KO)
-                    trigger_on_ko(state, me, opp, ip.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=ip.attached_dons)
+                    trigger_on_ko(state, me, opp, ip.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=ip.attached_dons, victim_effect_negated=_ip_effect_negated(ip))
                     # 自KO なので on_self_chara_ko (= me 側) を発火
                     trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
             if _ost_any and state.effects_overlay:
@@ -9962,7 +10010,7 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             if state.effects_overlay:
                 trigger_on_ko(state, owner, opp_player, victim.card,
                               state.effects_overlay, by_opp_effect=bool(choice.get("by_opp_effect")),
-                              victim_attached_don=victim.attached_dons)
+                              victim_attached_don=victim.attached_dons, victim_effect_negated=_ip_effect_negated(victim))
                 trigger_on_opp_chara_ko(state, opp_player, owner, state.effects_overlay)
                 trigger_on_self_chara_ko(state, owner, opp_player, state.effects_overlay)
         elif leave_kind == "return_to_hand":
@@ -11529,7 +11577,7 @@ def _pay_end_of_turn_cost(
                     me.don_rested += c.attached_dons
                 state.push_log(f"  ターン終了コスト: 自KO {c.card.name}")
                 if state.effects_overlay:
-                    trigger_on_ko(state, me, opp, c.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=c.attached_dons)
+                    trigger_on_ko(state, me, opp, c.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=c.attached_dons, victim_effect_negated=_ip_effect_negated(c))
                     trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
                 break
     # once_per_turn フラグ
@@ -12953,6 +13001,7 @@ def trigger_on_ko(
     effects_overlay: dict[str, CardEffectBundle],
     by_opp_effect: bool = False,
     victim_attached_don: int = 0,
+    victim_effect_negated: bool = False,
 ) -> None:
     """【KO時】を enqueue。 ko_card は既にトラッシュへ (10-2-17-2)。
     source_iid=None: 場から既に消えているので、 _execute_event 内では self_inplay=None で実行。
@@ -12971,6 +13020,14 @@ def trigger_on_ko(
     # trigger_on_ko は全 KO 経路 (battle/効果/cost) の共通フックなので、 overlay 有無に依らず
     # bundle 早期 return より前で加算する (= vanilla キャラ KO も数える)。
     owner.chara_ko_taken_this_turn = int(getattr(owner, "chara_ko_taken_this_turn", 0) or 0) + 1
+    # 公式 Q&A (cardqa_op_09 / op_10): 「効果を無効にされたキャラがKOされた場合、 そのキャラの
+    # 持つ【KO時】効果は発動できますか？」 → 「いいえ、 できません」。
+    # ⚠ on_ko は source が既に場外 (self_inplay=None) なので _execute_event の 効果無効 gate を
+    #   通らない。 KO 直前の無効化状態を呼び出し側から渡してもらう (2026-08-04 実装)。
+    #   chara_ko_taken_this_turn の加算は 「KO された」 事実なので gate より前に行う。
+    if victim_effect_negated:
+        state.push_log(f"  効果無効: {ko_card.name} の【KO時】 は発動されない")
+        return
     bundle = effects_overlay.get(ko_card.card_id)
     if bundle is None:
         return
@@ -13390,8 +13447,18 @@ def _can_pay_activate_cost(
         chara_cands = [c for c in me.characters if _matches_filter(c.card, c_filt)]
         if len(me.hand) < n and len(chara_cands) < n:
             return False
-    once_per_turn = cost.get("once_per_turn", True)
-    if once_per_turn and getattr(inplay, "_act_used", False):
+    # ⚠ 公式: 【ターン1回】 の **無い** 起動メインは コストを払える限り何度でも起動できる。
+    #   以前は `cost.get("once_per_turn", True)` と **既定 True** にして一律 1 回に制限して
+    #   いた (無限ループ回避の意図的近似)。 これは公式と違ううえ、 **overlay の実装漏れを
+    #   隠していた** (EB04-016 トリ / OP10-030 スモーカー の自己ロック 「その後、 このターン中、
+    #   キャラの効果でドン‼をアクティブにできない」 が未実装なのに気付けなかった)。
+    #   → 既定を False にして公式準拠にする (2026-08-04)。
+    #   無限ループは **公式ルール側が防いでいる**: 起動メイン 197 枚のうち 180 枚は
+    #   自己制限的コスト (自身レスト/トラッシュ)、 11 枚は資源消費、 残る 2 枚 (上記) は
+    #   自己ロックで 2 回目が no-op になる。 その 2 枚は list_activate_main_effects 側で
+    #   「効果が無意味になったら列挙しない」 ガードを掛ける (= 探索のループ防止であって
+    #   ルール上の制限ではない)。
+    if cost.get("once_per_turn", False) and getattr(inplay, "_act_used", False):
         return False
     return True
 
@@ -13572,8 +13639,124 @@ def list_activate_main_effects(
             # if 条件 (例: 場にコスト5+キャラいる、leader_feature 等) も評価
             if not eval_all_conditions(eff, state, me, inplay):
                 continue
+            # 発動元が 「効果無効」 なら _execute_event の gate で必ず抑止される (= 実行しても
+            # 何も起きない)。 列挙しても無意味な手を AI に選ばせ続けるだけなので落とす。
+            # ⚠ ルール上の制限ではなく 「確実に no-op と分かる手を出さない」 だけ。
+            #   OP06-083 オーズ は自分で自分を無効化するので 2 回目以降がこれに当たる
+            #   (once_per_turn 既定 True の近似を外して初めて露出、 2026-08-04)。
+            if ("効果無効" in inplay.granted_keywords
+                    or "効果無効" in getattr(inplay, "static_granted_keywords", set())
+                    or getattr(inplay, "effect_disabled_through_opp_turn", False)):
+                continue
+            # ⚠ 探索のループ防止 (ルール上の制限ではない)。
+            #   【ターン1回】 の無い起動メインは公式上何度でも起動できるが、 効果が
+            #   **状態を一切変えない** 状態になったものを出し続けると beam/plan_search が
+            #   同じ手を無限に選べてしまう。 現状 該当するのは 「ドン‼をアクティブにする」 +
+            #   自己ロック (EB04-016 トリ / OP10-030 スモーカー) だけで、 ロック後の再起動は
+            #   完全な no-op になる。 no-op と分かっているものは列挙しない。
+            #   (2026-08-04: once_per_turn 既定 True の近似を撤去した際に導入)
+            if _activate_main_is_noop(state, me, inplay, eff):
+                continue
+            # ⚠ コストが `do` の optional_cost_then 側に書かれている overlay が多数ある
+            #   (EB02-009 サウザンド・サニー号 「このステージをレストにできる：…」 等)。
+            #   _can_pay_activate_cost は top-level `cost` しか見ないので、 レスト済でも
+            #   起動可能に見えてしまい AI が延々と再起動していた (once_per_turn 既定 True の
+            #   近似がフタをしていた、 2026-08-04 発覚。 実測で全 action の 6 割を 1 枚が占めた)。
+            #   公式は 「このステージをレストにできる」 = レスト済なら払えない。
+            if not _optional_cost_payable_in_do(state, me, inplay, eff):
+                continue
             out.append((inplay, eff))
     return out
+
+
+def _optional_cost_payable_in_do(
+    state: GameState, me: Player, inplay: InPlay, eff: EffectSpec
+) -> bool:
+    """`do` の optional_cost_then に書かれたコストが払えるか (起動メインの列挙用)。
+
+    overlay は 「X することができる：Y」 を top-level `cost` ではなく do 内の
+    optional_cost_then で表すことが多い。 列挙時にこれを見ないと 「払えないのに legal」 に
+    なる。 ⚠ 判定できるものだけ見る (未知コストは True = 従来通り列挙する)。
+    """
+    for prim in (eff.get("do") or []):
+        if not isinstance(prim, dict) or "optional_cost_then" not in prim:
+            continue
+        for cs in (prim["optional_cost_then"].get("cost") or []):
+            if not isinstance(cs, dict):
+                continue
+            # 自身をレスト/トラッシュ/手札戻し = 自身の状態で判定できる
+            if cs.get("rest_self") and inplay.rested:
+                return False
+            if cs.get("rest") == "self" and inplay.rested:
+                return False
+            if cs.get("rest_self_don"):
+                if me.don_active < int(cs["rest_self_don"]):
+                    return False
+            if cs.get("pay_don"):
+                if (me.don_active + me.don_rested) < int(cs["pay_don"]):
+                    return False
+            if cs.get("discard_hand"):
+                if len(me.hand) < int(cs["discard_hand"]):
+                    return False
+            # 資源が尽きたら払えない型 (判定が単純で確実なものだけ)
+            if cs.get("trash_self_hand_random"):
+                if len(me.hand) < int(cs["trash_self_hand_random"]):
+                    return False
+            if cs.get("self_hand_to_deck_bottom") or cs.get("hand_to_deck_bottom"):
+                v = cs.get("self_hand_to_deck_bottom") or cs.get("hand_to_deck_bottom")
+                n = int(v.get("amount", 1)) if isinstance(v, dict) else int(v)
+                if len(me.hand) < n:
+                    return False
+            if cs.get("trash_to_deck"):
+                v = cs["trash_to_deck"]
+                n = int(v.get("limit", v.get("count", 1))) if isinstance(v, dict) else int(v)
+                if len(me.trash) < n:
+                    return False
+            if cs.get("life_to_hand") or cs.get("life_top_or_bottom_to_hand"):
+                v = cs.get("life_to_hand") or cs.get("life_top_or_bottom_to_hand")
+                n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+                if len(me.life) < n:
+                    return False
+            if cs.get("mill_self_life_to_trash"):
+                v = cs["mill_self_life_to_trash"]
+                n = int(v.get("amount", 1)) if isinstance(v, dict) else int(v)
+                if len(me.life) < n:
+                    return False
+            if cs.get("flip_life_face_up") and not me.life:
+                return False
+            if cs.get("flip_life_face_down") and not me.life:
+                return False
+            if cs.get("return_self_to_deck_bottom") or cs.get("return_self_to_trash"):
+                # 自身が場に居る必要 (= 既に場外なら払えない)
+                if inplay not in me.characters and inplay not in me.stages:
+                    return False
+            if cs.get("return_self_don_to_deck"):
+                if (me.don_active + me.don_rested) < int(cs["return_self_don_to_deck"]):
+                    return False
+    return True
+
+
+def _activate_main_is_noop(
+    state: GameState, me: Player, inplay: InPlay, eff: EffectSpec
+) -> bool:
+    """起動メインが 「実行しても状態が変わらない」 と静的に分かるか (探索のループ防止用)。
+
+    ⚠ ここに条件を足すのは 「no-op であることが確実」 な場合だけ。 迷ったら False (= 列挙する)。
+    公式ルール上は起動できるので、 列挙しないのは あくまで探索が同じ手を繰り返さないため。
+    """
+    do = eff.get("do") or []
+    if not do:
+        return True
+    # 「ドン‼をアクティブにする」 が自己ロック済 → untap_don も block も no-op
+    if (getattr(me, "block_chara_effect_untap_don_until_turn_end", False)
+            and inplay.card.category == Category.CHARACTER
+            and all(
+                (isinstance(p, dict)
+                 and set(p) <= {"untap_don", "block_chara_effect_untap_don_turn"})
+                for p in do
+            )):
+        return True
+    return False
 
 
 def _find_effect_index(state: GameState, inplay: InPlay, eff: EffectSpec) -> Optional[int]:
@@ -13908,7 +14091,7 @@ def fire_activate_main(
             state.push_log(f"  起動メインコスト: 自KO {target.card.name}")
             if state.effects_overlay:
                 # me 側 victim、 me 側 cost (= 自爆 cost) → by_opp_effect=False
-                trigger_on_ko(state, me, opp, target.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=target.attached_dons)
+                trigger_on_ko(state, me, opp, target.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=target.attached_dons, victim_effect_negated=_ip_effect_negated(target))
                 # 自KO なので on_self_chara_ko (= me 側) を発火
                 trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
     # rest_self_target_name: 自場の name 一致キャラ/ステージを 1 枚 rest
@@ -14019,8 +14202,8 @@ def fire_activate_main(
             for ip in chosen:
                 ip.rested = True
                 state.push_log(f"  起動メインコスト: 自レスト {ip.card.name}")
-    # once_per_turn フラグ
-    if cost.get("once_per_turn", True):
+    # once_per_turn フラグ (明示指定時のみ。 既定 True の近似は 2026-08-04 に撤去)
+    if cost.get("once_per_turn", False):
         setattr(inplay, "_act_used", True)
     # effect 本体は enqueue (= 集中ドレインで実行)。 bundle 内 effect index を解決して payload に。
     # （header の push_log は関数冒頭で実施済み = cost 支払い前に観戦者へ何の起動メインか示す）

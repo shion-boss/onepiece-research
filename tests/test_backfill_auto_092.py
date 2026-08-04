@@ -138,7 +138,12 @@ def test_op09_008_building_snake_activate_main_debuff_ai():
 
 
 def test_op09_008_building_snake_activate_main_human_pick():
-    """人間 + 相手キャラ複数 → -3000 の target_pick modal が立ち resolve できる。"""
+    """人間: 任意コスト承諾 → -3000 の target_pick modal が立ち resolve できる。
+
+    ⚠ 公式は 「このキャラを持ち主のデッキの下に置く**ことができる**：」 = 任意コスト。
+      overlay が このコストを欠いていた のを 2026-08-04 に修正 → 人間経路は
+      optional_cost_confirm が先に立つ。
+    """
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, _LEADER_NEUTRAL, overlay, human_idx=0)
@@ -152,7 +157,12 @@ def test_op09_008_building_snake_activate_main_human_pick():
     src, eff = _amain(st, me, overlay, "OP09-008")
     fire_activate_main(st, me, opp, src, eff)
 
-    assert st.pending_choice is not None, "人間 + 複数候補で target_pick modal が立たない"
+    assert st.pending_choice is not None, "人間 任意コストで modal が立たない"
+    assert st.pending_choice.get("kind") == "optional_cost_confirm", \
+        f"kind が optional_cost_confirm でない: {st.pending_choice.get('kind')}"
+    resolve_pending_choice(st, [1])  # 承諾 = デッキの下に置く
+
+    assert st.pending_choice is not None, "承諾後に target_pick modal が立たない"
     assert st.pending_choice.get("kind") == "target_pick", \
         f"kind が target_pick でない: {st.pending_choice.get('kind')}"
     cands = st.pending_choice.get("candidates", [])

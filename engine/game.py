@@ -541,6 +541,7 @@ def _reset_turn_buff(state: GameState) -> None:
         # OP09-081 effect: 自ターン 開始 で 「相手 on_play 無効」 flag reset (= 設定 player から 見て 1 周)
         player.opp_on_play_disabled_through_opp_turn = False
         player.block_self_draw_until_turn_end = False
+        player.block_chara_effect_untap_don_until_turn_end = False
         player.cannot_attack_leader_until_turn_end = False
         player.turn_battle_ko_save_discard = False
         player.life_lost_this_turn = False
@@ -1579,6 +1580,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                         state.push_log(f"  KO: {redirect_target.card.name}")
                         if state.effects_overlay:
                             from .effects import (
+                                _ip_effect_negated,
                                 trigger_on_ko,
                                 trigger_on_opp_chara_ko,
                                 trigger_on_self_chara_ko,
@@ -1588,7 +1590,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                             trigger_on_ko(
                                 state, opp, me, redirect_target.card,
                                 state.effects_overlay, by_opp_effect=False,
-                                victim_attached_don=redirect_target.attached_dons,
+                                victim_attached_don=redirect_target.attached_dons, victim_effect_negated=_ip_effect_negated(redirect_target),
                             )
                             trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                             trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
@@ -1734,6 +1736,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     state.push_log(f"  KO: {actual_target.card.name}")
                     if state.effects_overlay:
                         from .effects import (
+                            _ip_effect_negated,
                             trigger_on_ko,
                             trigger_on_opp_chara_ko,
                             trigger_on_self_chara_ko,
@@ -1743,7 +1746,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                         trigger_on_ko(
                             state, opp, me, actual_target.card,
                             state.effects_overlay, by_opp_effect=False,
-                            victim_attached_don=actual_target.attached_dons,
+                            victim_attached_don=actual_target.attached_dons, victim_effect_negated=_ip_effect_negated(actual_target),
                         )
                         trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                         trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
@@ -2000,12 +2003,13 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                         state.push_log(f"  KO: {actual_target.card.name}")
                     if state.effects_overlay:
                         from .effects import (
+                            _ip_effect_negated,
                             trigger_on_ko,
                             trigger_on_opp_chara_ko,
                             trigger_on_self_chara_ko,
                         )
                         # battle KO → by_opp_effect=False
-                        trigger_on_ko(state, opp, me, actual_target.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=actual_target.attached_dons)
+                        trigger_on_ko(state, opp, me, actual_target.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=actual_target.attached_dons, victim_effect_negated=_ip_effect_negated(actual_target))
                         trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                         trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
         else:

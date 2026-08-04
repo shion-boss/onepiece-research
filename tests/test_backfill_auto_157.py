@@ -100,30 +100,76 @@ def test_all_wave157_cards_have_overlay():
 # --------------------------------------------------------------------------- #
 #  P-033 モンキー・D・ルフィ:
 #    【起動メイン】このキャラを持ち主のデッキの下に置くことができる：カード1枚を引く。
-#    (overlay は draw1 のみモデル化 = デッキ下戻しコストは overlay 対象外)
+#
+#  ⚠ 2026-08-04: overlay が 「デッキの下に置くことができる：」 の**任意コストを丸ごと欠いて
+#    いた** (= 無コストで毎ターン何度でもドローできていた)。 optional_cost_then で実装し直した。
+#    以降、 コストを払うか否かは **プレイヤーの判断** = 人間は modal、 AI は方策で決める。
 # --------------------------------------------------------------------------- #
-def test_p033_luffy_activate_main_draw_ai():
-    """起動メイン: カード1枚を引く (AI 自動発動)。"""
+def test_p033_luffy_activate_main_cost_is_optional():
+    """起動メインは legal に出る。 コストは任意なので発動しただけでは引かない。"""
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, NEUTRAL_LEADER, overlay)
+    me = st.players[0]
+    me.characters = [InPlay.of(repo.get("P-033"), sickness=False)]
+    me.hand = []
+    me.deck = [repo.get(COST2)] * 10
+
+    luffy_opts = [(src, eff) for (src, eff) in list_activate_main_effects(st, me, overlay)
+                  if src.card.card_id == "P-033"]
+    assert len(luffy_opts) == 1, \
+        f"P-033 の起動メインが legal に出ない: {len(luffy_opts)}"
+    cost = luffy_opts[0][1]["do"][0]["optional_cost_then"]["cost"]
+    assert any("return_self_to_deck_bottom" in c for c in cost), \
+        f"「デッキの下に置く」 任意コストが overlay に無い: {cost}"
+
+
+def test_p033_luffy_activate_main_human_pays_cost():
+    """人間が承諾: 自身がデッキの下へ → カード1枚を引く。"""
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, NEUTRAL_LEADER, overlay, human_idx=0)
+    me, opp = st.players[0], st.players[1]
+    luffy = InPlay.of(repo.get("P-033"), sickness=False)
+    me.characters = [luffy]
+    me.hand = []
+    me.deck = [repo.get(COST2)] * 10
+    deck_before = len(me.deck)
+
+    luffy_opts = [(src, eff) for (src, eff) in list_activate_main_effects(st, me, overlay)
+                  if src.card.card_id == "P-033"]
+    fire_activate_main(st, me, opp, *luffy_opts[0])
+    assert st.pending_choice is not None, "人間 任意コストで modal が立たない"
+    assert st.pending_choice.get("kind") == "optional_cost_confirm", \
+        f"kind が optional_cost_confirm でない: {st.pending_choice.get('kind')}"
+    resolve_pending_choice(st, [1])  # 承諾
+
+    assert len(me.hand) == 1, "承諾したのに draw が起きていない"
+    assert luffy not in me.characters, "承諾したのに自身がデッキの下に置かれていない"
+    # 自身がデッキ下に加わり、 1 枚ドローしたので 差し引き 0
+    assert len(me.deck) == deck_before, \
+        f"デッキ枚数が合わない (自身+1 / draw-1 で不変のはず): {len(me.deck)}"
+
+
+def test_p033_luffy_activate_main_human_declines():
+    """人間が拒否: 何も起きない (盤面・手札・デッキ すべて不変)。"""
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, NEUTRAL_LEADER, overlay, human_idx=0)
     me, opp = st.players[0], st.players[1]
     luffy = InPlay.of(repo.get("P-033"), sickness=False)
     me.characters = [luffy]
     me.hand = []
     me.deck = [repo.get(COST2)] * 10
 
-    hand_before = len(me.hand)
-    deck_before = len(me.deck)
-    options = list_activate_main_effects(st, me, overlay)
-    luffy_opts = [(src, eff) for (src, eff) in options
+    luffy_opts = [(src, eff) for (src, eff) in list_activate_main_effects(st, me, overlay)
                   if src.card.card_id == "P-033"]
-    assert len(luffy_opts) == 1, \
-        f"P-033 の起動メインが legal に出ない: {len(luffy_opts)}"
     fire_activate_main(st, me, opp, *luffy_opts[0])
+    resolve_pending_choice(st, [0])  # 拒否
 
-    assert len(me.hand) == hand_before + 1, "起動メインの draw が起きていない"
-    assert len(me.deck) == deck_before - 1, "ドローでデッキが1枚減っていない"
+    assert len(me.hand) == 0, "拒否したのに draw が起きている"
+    assert luffy in me.characters, "拒否したのに自身がデッキの下に置かれている"
+    assert len(me.deck) == 10, "拒否したのにデッキが変化している"
 
 
 # --------------------------------------------------------------------------- #

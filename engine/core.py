@@ -675,6 +675,9 @@ class Player:
     opp_on_play_disabled_through_opp_turn: bool = False
     # ターン中、 自分の効果でカードを引くことができない (OP12-099 カルガラ等)。 Phase.END でリセット
     block_self_draw_until_turn_end: bool = False
+    # 「自分は、 このターン中、 キャラの効果でドン‼をアクティブにできない」 (EB04-016 トリ /
+    # OP10-030 スモーカー)。 公式はこの自己ロックで 起動メインの無限ループを防いでいる。
+    block_chara_effect_untap_don_until_turn_end: bool = False
     # 「自分のキャラすべては、 このターン中、 バトルでKOされる場合、 代わりに手札1捨て」
     # (EB02-030)。 バトルKO時に手札があれば1捨てで救済。 ターン終了でクリア。
     turn_battle_ko_save_discard: bool = False

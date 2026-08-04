@@ -410,7 +410,11 @@ def test_p_013_activate_main_debuff_ai():
 
 
 def test_p_013_activate_main_debuff_human_pick():
-    """人間 + 相手キャラ複数 → target_pick modal が立ち resolve で 1 体に -3000。"""
+    """人間: 任意コスト承諾 → target_pick modal が立ち resolve で 1 体に -3000。
+
+    ⚠ 公式は 「このキャラを持ち主のデッキの下に置く**ことができる**：」 = 任意コスト。
+      overlay が このコストを欠いていた のを 2026-08-04 に修正 → optional_cost_confirm が先。
+    """
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, NEUTRAL_LEADER, overlay, human_idx=0)
@@ -422,7 +426,12 @@ def test_p_013_activate_main_debuff_human_pick():
     opp.characters = [a, b]
 
     _activate(st, me, opp, overlay, "P-013")
-    assert st.pending_choice is not None, "人間 + 複数候補で modal が立たない"
+    assert st.pending_choice is not None, "人間 任意コストで modal が立たない"
+    assert st.pending_choice.get("kind") == "optional_cost_confirm", \
+        f"kind が optional_cost_confirm でない: {st.pending_choice.get('kind')}"
+    resolve_pending_choice(st, [1])  # 承諾 = デッキの下に置く
+
+    assert st.pending_choice is not None, "承諾後に target_pick modal が立たない"
     assert st.pending_choice.get("kind") == "target_pick", \
         f"kind が target_pick でない: {st.pending_choice.get('kind')}"
     cands = st.pending_choice.get("candidates", [])

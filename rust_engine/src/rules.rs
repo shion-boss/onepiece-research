@@ -184,6 +184,11 @@ fn do_battle_ko(
         } else {
             None
         };
+    // 公式 Q&A (cardqa_op_09/op_10): 効果を無効にされたキャラの【KO時】は発動しない。
+    // ⚠ 除去の **直前** に記録する (fire_on_ko が take して消費)。 効果 KO 経路には入れていたが
+    //   バトル KO 経路だけ抜けており、 「効果無効」 を持つ victim の on_ko を Rust だけが発火して
+    //   いた (OP14-100 アブサロム、 掃引 MISMATCH、 2026-08-04)。
+    crate::effects::note_ko_victim_negated_pub(state, victim_owner, victim_idx);
     battle_ko_character(state, victim_owner, victim_idx);
     // game.py 準拠の順: trigger_on_ko (victim 側) → on_opp_chara_ko (攻撃側) → on_self_chara_ko (victim 側)。
     // Python trigger_on_ko が last_chara_ko_victim_card=victim を set (victim_* 条件用)、 cascade 完了後 None。
@@ -245,6 +250,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
         p.block_chara_play_until_turn_end = false;
         p.opp_on_play_disabled_through_opp_turn = false;
         p.block_self_draw_until_turn_end = false;
+        p.block_chara_effect_untap_don_until_turn_end = false;
         p.cannot_attack_leader_until_turn_end = false;
         p.turn_battle_ko_save_discard = false;
         p.life_lost_this_turn = false;
@@ -1060,6 +1066,17 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             } else {
                 crate::effects::tag_src(state, me, crate::effects::Slot::Char(atk_idx))
             };
+            // ⭐ アタック **対象** も一意トークンで追う。 Python は target を object 参照で持つので
+            //   【アタック時】が対象を KO したら 「対象消失 = 空打ち」 になる。 Rust は位置 index の
+            //   **長さ** しか見ておらず、 後ろのキャラが繰り上がって **別のキャラを殴っていた**
+            //   (OP15-036 が OP15-050 を KO → shift した OP15-051 とバトル、 2026-08-04 掃引で発覚)。
+            //   memory の 「iid vs 位置 idx」 = 深い MISMATCH 3 クラスの 1 つ。
+            let tgt_tok = if tgt_idx >= 0 && (tgt_idx as usize) < state.players[opp].characters.len()
+            {
+                crate::effects::tag_src(state, opp, crate::effects::Slot::Char(tgt_idx as usize))
+            } else {
+                None
+            };
             let atk_cid_dbg = if is_leader {
                 String::new()
             } else {
@@ -1114,10 +1131,16 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 None if is_leader => state.players[me].leader.power(),
                 None => state.players[me].characters[atk_idx].power(),
             };
-            let dp = if (tgt_idx as usize) < state.players[opp].characters.len() {
-                state.players[opp].characters[tgt_idx as usize].power()
-            } else {
-                0
+            // ⚠ tgt_idx は on_attack で盤面が動くと stale。 常にタグから引き直す。
+            let cur_tgt = |st: &GameState| -> i64 {
+                match crate::effects::peek_tagged(st, opp, tgt_tok) {
+                    crate::effects::Slot::Char(i) => i as i64,
+                    _ => -1,
+                }
+            };
+            let dp = match cur_tgt(state) {
+                i if i >= 0 => state.players[opp].characters[i as usize].power(),
+                _ => 0,
             };
             // 【相手のアタック時】がアタッカー自身を除去しうる → 発火前スナップショットを退避。
             let atk_pre_opp: Option<InPlay> = if is_leader {
@@ -1126,14 +1149,16 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 state.players[me].characters.get(atk_idx).cloned()
             };
             crate::effects::fire_opp_attack(state, opp, "opp_attack", ap, atk_cost, dp)?;
-            let dp2 = if (tgt_idx as usize) < state.players[opp].characters.len() {
-                state.players[opp].characters[tgt_idx as usize].power()
-            } else {
-                0
+            let dp2 = match cur_tgt(state) {
+                i if i >= 0 => state.players[opp].characters[i as usize].power(),
+                _ => 0,
             };
             crate::effects::fire_opp_attack(state, opp, "opp_attack_on_chara", ap, atk_cost, dp2)?;
-            // target 存在チェック (on_attack/opp_attack 後、 消失 = 空打ち = reset+Ok、 game.py:1849)
-            if tgt_idx < 0 || tgt_idx as usize >= state.players[opp].characters.len() {
+            // target 存在チェック (on_attack/opp_attack 後、 消失 = 空打ち = reset+Ok、 game.py:1849)。
+            // ⚠ 「長さ」 ではなく **タグ** で見る。 対象が KO されて後ろが繰り上がると
+            //   index は生きたままなので、 長さ判定だと別のキャラを殴ってしまう。
+            let tgt_idx = cur_tgt(state);
+            if tgt_idx < 0 {
                 reset_battle_buffs(state);
                 return Ok(());
             }
@@ -1194,7 +1219,14 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 }
             }
             // === カウンター: counter events → counter cards ===
+            // ⚠ 【カウンター】イベントが盤面を動かす (KO / バウンス) と actual_idx が stale になる。
+            //   タグで追い、 消えていたら bail (Python は object-ref でバトルを続けるが index では不能)。
+            let act_tok = crate::effects::tag_src(state, opp, crate::effects::Slot::Char(actual_idx));
             crate::effects::fire_counter_events(state, opp, me, &counter_events)?;
+            actual_idx = match crate::effects::find_tagged(state, opp, act_tok) {
+                crate::effects::Slot::Char(i) => i,
+                _ => return Err("counter event でバトル対象が消失 (object-ref 再現不能)".into()),
+            };
             let counter_added = spend_counters(&mut state.players[opp], &counter_cards);
             // === バトル解決 (attr bonus 両方向) ===
             let (atk_power, def_power, immune) = {

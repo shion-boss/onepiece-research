@@ -412,6 +412,10 @@ pub struct Player {
     pub block_chara_play_cost_ge_threshold: i32,
     pub opp_on_play_disabled_through_opp_turn: bool,
     pub block_self_draw_until_turn_end: bool,
+    /// 「自分は、 このターン中、 キャラの効果でドン‼をアクティブにできない」
+    /// (EB04-016 トリ / OP10-030 スモーカー)。 公式はこの自己ロックで 【ターン1回】 の
+    /// 無い起動メインの無限ループを防いでいる (core.py と同名 field)。
+    pub block_chara_effect_untap_don_until_turn_end: bool,
     pub turn_battle_ko_save_discard: bool,
     pub life_lost_this_turn: bool,
     pub chara_ko_taken_this_turn: i32,
@@ -527,6 +531,11 @@ pub struct GameState {
     /// 条件 by_opp_effect / by_battle の判定に使う。 fire_on_ko の引数から設定する。
     #[serde(skip)]
     pub last_ko_by_opp_effect: bool,
+    /// KO 直前の victim が 「効果無効」 状態だったか。 公式 Q&A (cardqa_op_09/op_10):
+    /// 「効果を無効にされたキャラがKOされた場合、 そのキャラの持つ【KO時】効果は発動できますか？」
+    /// → 「いいえ」。 on_ko は victim が既に場外なので、 除去時に記録して fire_on_ko が読む。
+    #[serde(skip)]
+    pub ko_victim_effect_negated: bool,
     /// 直前に negate_effect した相手のリーダー or キャラ (player_idx, Slot)。 effects.py:7666
     /// `state.last_negated_iid` の代替。 opp_just_negated_cost_le_N (OP09-098) と
     /// opp_just_negated_any (OP09-097 闇水、 リーダーも対象) の解決に使う。

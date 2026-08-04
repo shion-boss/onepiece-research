@@ -385,7 +385,12 @@ def test_op06_016_activate_main_debuff_opp_ai():
 
 
 def test_op06_016_activate_main_debuff_human_pick():
-    """起動メイン (人間): 相手キャラ複数 → target_pick modal で選択して -3000。"""
+    """起動メイン (人間): 任意コスト承諾 → target_pick modal で選択して -3000。
+
+    ⚠ 公式は 「このキャラを持ち主のデッキの下に置く**ことができる**：」 = 任意コスト。
+      overlay が このコストを丸ごと欠いていた (無コストで撃てた) のを 2026-08-04 に修正した
+      ため、 人間経路では **先に optional_cost_confirm** が立つ ([[feedback_optional_cost_then_human_decline]])。
+    """
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, _LEADER, overlay, human_idx=0)
@@ -401,7 +406,12 @@ def test_op06_016_activate_main_debuff_human_pick():
     assert len(opts) == 1
     fire_activate_main(st, me, opp, *opts[0])
 
-    assert st.pending_choice is not None, "人間 + 複数候補で target_pick modal が立たない"
+    assert st.pending_choice is not None, "人間 任意コストで modal が立たない"
+    assert st.pending_choice.get("kind") == "optional_cost_confirm", \
+        f"kind が optional_cost_confirm でない: {st.pending_choice.get('kind')}"
+    resolve_pending_choice(st, [1])  # 承諾 = デッキの下に置く
+
+    assert st.pending_choice is not None, "承諾後に target_pick modal が立たない"
     assert st.pending_choice.get("kind") == "target_pick", \
         f"kind が target_pick でない: {st.pending_choice.get('kind')}"
     cands = st.pending_choice.get("candidates", [])
@@ -411,6 +421,29 @@ def test_op06_016_activate_main_debuff_human_pick():
     a_before = a.power
     resolve_pending_choice(st, [a_idx])
     assert a.power == a_before - 3000, "人間が選んだ相手キャラに -3000 が反映されていない"
+    assert rmax not in me.characters, "コストを払ったのに自身が場に残っている"
+
+
+def test_op06_016_activate_main_human_can_decline():
+    """人間は任意コストを **拒否できる** = 自身は場に残り、 相手のパワーも変わらない。"""
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, _LEADER, overlay, human_idx=0)
+    me, opp = st.players[0], st.players[1]
+    rmax = InPlay.of(repo.get("OP06-016"), sickness=False)
+    me.characters = [rmax]
+    a = InPlay.of(repo.get(_RED_C2), sickness=False)
+    opp.characters = [a]
+    a_before = a.power
+
+    opts = [o for o in list_activate_main_effects(st, me, overlay)
+            if o[0].card.card_id == "OP06-016"]
+    fire_activate_main(st, me, opp, *opts[0])
+    assert st.pending_choice.get("kind") == "optional_cost_confirm"
+    resolve_pending_choice(st, [0])  # 拒否
+
+    assert a.power == a_before, "拒否したのに相手のパワーが下がっている"
+    assert rmax in me.characters, "拒否したのに自身がデッキの下に置かれている"
 
 
 # --------------------------------------------------------------------------- #
