@@ -272,6 +272,93 @@ def run_static(limit: int = 0, quiet: bool = False):
     return res, proven, bad
 
 
+def run_replace(limit: int = 0, quiet: bool = False):
+    """**置換効果** (replace_ko / replace_leave / replace_rest) を両エンジンで比較する。
+
+    置換は 「場を離れる直前に割り込む」 特殊経路 (try_replace_ko) で、 do 配列の直接実行でも
+    静的再計算でもないため、 上の 2 パスでは踏めない。 ここを埋めないと置換効果カードだけが
+    **一度も bit 一致を証明されない** (2026-08-04 時点で未証明 18 枚が全部これだった)。
+
+    手順: holder (= 効果保有カード) を自場 idx0 に置き、 それ自身を victim として
+    try_replace_ko を両エンジンで呼び、 digest を比較する。
+    """
+    from engine.effects import try_replace_ko
+
+    repo, overlay_py = P._load()
+    overlay = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    targets = []
+    for cid, effs in sorted(overlay.items()):
+        if not isinstance(effs, list) or cid not in repo._by_id:
+            continue
+        for e in effs:
+            if isinstance(e, dict) and e.get("when") in S.REPLACE_WHENS:
+                targets.append((cid, e["when"]))
+                break
+    if limit:
+        targets = targets[:limit]
+
+    res: Counter = Counter()
+    detail: Counter = Counter()
+    proven: set[str] = set()
+    bad: set[str] = set()
+    for cid, when in targets:
+        kind = {"replace_ko": "ko", "replace_rest": "rest"}.get(when, "return_to_hand")
+        try:
+            sj, vidx = S.build_replace_state_json(repo, overlay_py, cid)
+        except Exception as e:                        # noqa: BLE001
+            res["skip(state)"] += 1
+            detail[f"skip(state) @{cid}: {type(e).__name__}"] += 1
+            continue
+        try:
+            out = json.loads(eng.replace_effect_smoke(sj, 0, vidx, True, kind))
+        except BaseException as e:                    # noqa: BLE001
+            if isinstance(e, (KeyboardInterrupt, SystemExit)):
+                raise
+            k = "PANIC" if type(e).__name__ == "PanicException" else "bail"
+            res[k] += 1
+            detail[f"{k} @{cid} [{when}]: {str(e).splitlines()[0][:70]}"] += 1
+            continue
+        if not out.get("ok"):
+            res["bail"] += 1
+            detail[f"bail @{cid} [{when}]: {str(out.get('err'))[:80]}"] += 1
+            continue
+        # Python 側を **同一の最小 state** で走らせる (build_replace_state_json と同手順)。
+        try:
+            reset_iid()
+            st = S.make_state(repo, overlay_py, cid)
+            holder = InPlay.of(repo._by_id[cid], sickness=False)
+            st.players[0].characters.append(holder)
+            for c in st.players[0].hand:
+                if str(getattr(c.category, "value", c.category)).upper().find("CHARACTER") >= 0:
+                    st.players[0].characters.append(InPlay.of(c, sickness=False))
+                    break
+            try_replace_ko(st, st.players[0], st.players[1], holder, overlay_py,
+                           by_opp_effect=True, leave_kind=kind)
+            if st.pending_choice is not None:
+                res["skip(pending)"] += 1
+                continue
+            dpy = state_digest(st)
+        except Exception as e:                        # noqa: BLE001
+            res["skip(py_err)"] += 1
+            detail[f"skip(py_err) @{cid}: {type(e).__name__} {str(e)[:60]}"] += 1
+            continue
+        if out.get("digest") == dpy:
+            res["match"] += 1
+            proven.add(cid)
+        else:
+            res["MISMATCH"] += 1
+            bad.add(cid)
+            detail[f"MISMATCH(replace) @{cid} [{when}]"] += 1
+    if not quiet:
+        print("\n=== 置換効果 (replace_ko / replace_leave / replace_rest) ===")
+        print(f"対象 {len(targets)} 枚: match={res['match']}  bail={res['bail']}  "
+              f"MISMATCH={res['MISMATCH']}  PANIC={res['PANIC']}  "
+              + "  ".join(f"{k}={v}" for k, v in sorted(res.items()) if k.startswith("skip")))
+        for k, v in detail.most_common(20):
+            print(f"  {v:5d}  {k}")
+    return res, proven, bad
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=0)
@@ -280,11 +367,15 @@ def main() -> None:
 
     res, detail, proven, bad = run(args.limit)
     sres, sproven, sbad = run_static(args.limit)
+    rres, rproven, rbad = run_replace(args.limit)
     # 静的パスの結果を JSON に追記 (run() が書いた内容を保ったまま)
     _d = json.loads(OUT.read_text(encoding="utf-8"))
     _d["static_res"] = dict(sres)
     _d["static_proven_cards"] = sorted(sproven)
     _d["static_mismatch_cards"] = sorted(sbad)
+    _d["replace_res"] = dict(rres)
+    _d["replace_proven_cards"] = sorted(rproven)
+    _d["replace_mismatch_cards"] = sorted(rbad)
     OUT.write_text(json.dumps(_d, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     tot = res["match"] + res["bail"] + res["MISMATCH"] + res["PANIC"]
     print("\n=== 結果 ===")
@@ -292,8 +383,8 @@ def main() -> None:
     if tot:
         ok = res["match"] + res["bail"]
         print(f"correctness (match+bail、 黙って間違えない) = {100 * ok / tot:.2f}%")
-    print(f"bit 一致を証明できたカード: {len(proven | sproven)} "
-          f"(直接発火 {len(proven)} + 静的 {len(sproven)})")
+    print(f"bit 一致を証明できたカード: {len(proven | sproven | rproven)} "
+          f"(直接発火 {len(proven)} + 静的 {len(sproven)} + 置換 {len(rproven)})")
     print("skip: " + "  ".join(f"{k}={v}" for k, v in sorted(res.items()) if k.startswith("skip")))
     if detail:
         print("\n=== 内訳 top ===")
@@ -301,7 +392,8 @@ def main() -> None:
             print(f"  {v:5d}  {k}")
     print(f"\n→ {OUT}")
     if args.do_assert and (res["MISMATCH"] > 0 or res["PANIC"] > 0
-                           or sres["MISMATCH"] > 0 or sres["PANIC"] > 0):
+                           or sres["MISMATCH"] > 0 or sres["PANIC"] > 0
+                           or rres["MISMATCH"] > 0 or rres["PANIC"] > 0):
         sys.exit(1)
 
 

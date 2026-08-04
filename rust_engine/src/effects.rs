@@ -3497,7 +3497,6 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 // Python の trigger_on_ko (= 全 KO 経路の共通フック、 effects.py:12942) は
                 // 冒頭で owner.chara_ko_taken_this_turn を加算する。 overlay/on_ko の有無に
                 // 依らないので ko_multi でも増える (EB04-059、 2026-08-03 発覚)。
-                state.players[vpi].chara_ko_taken_this_turn += 1;
                 // Python 順: on_ko (victim 側 source-gone) → on_opp_chara_ko (me) → on_self_chara_ko (victim 側)
                 if fire_on_ko(state, vpi, &cid, true).is_err() {
                     return false;
@@ -3685,7 +3684,9 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             let victims: Vec<(usize, usize)> =
                 (0..state.players[me_idx].characters.len()).map(|i| (me_idx, i)).collect();
             if !victims.is_empty() {
-                remove_victims(state, victims, RemoveDest::Trash);
+                // ⚠ 公式は 「トラッシュに置く」 = KO ではない → 被 KO 数に数えない。
+                //   RemoveDest::Trash だと chara_ko_taken_this_turn が誤って増えていた。
+                remove_victims(state, victims, RemoveDest::TrashNoKo);
                 if me_board_has_when(state, me_idx, "on_self_chara_leave_by_self_effect")
                     && fire_field_when(state, me_idx, "on_self_chara_leave_by_self_effect").is_err()
                 {
@@ -3799,7 +3800,6 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
                 //   trigger_on_ko (= 全 KO 経路の共通フック、 effects.py:12942) が冒頭で
                 //   owner.chara_ko_taken_this_turn を無条件加算する (OP06-095、 2026-08-03 発覚)。
                 //   同種の誤解が ko_self_chara / ko_multi / ko_self_with_filter にもあった。
-                state.players[me_idx].chara_ko_taken_this_turn += 1;
                 state.last_chara_ko_victim_card = None;
                 if fire_on_ko(state, me_idx, &vcid, false).is_err() {
                     return false;
@@ -5094,7 +5094,6 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 state.players[pi].trash.push(ip.card);
                 state.players[pi].don_rested += don;
                 if by_opp {
-                    state.players[pi].chara_ko_taken_this_turn += 1;
                 }
                 ko_any = true;
                 state.last_chara_ko_victim_card = None;
@@ -5454,7 +5453,6 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 let don = ip.attached_dons;
                 state.players[opp_idx].trash.push(ip.card);
                 state.players[opp_idx].don_rested += don;
-                state.players[opp_idx].chara_ko_taken_this_turn += 1;
                 ko_any = true;
                 state.last_chara_ko_victim_card = None;
                 if fire_on_ko(state, opp_idx, &vcid, true).is_err()
@@ -5932,7 +5930,6 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 // 依らず加算されるので、 自分の効果による自陣 KO でも増える。
                 // ⚠ かつて 「chara_ko_taken_this_turn も加算しない」 とコメントして省いていたが
                 //   誤り (OP04-079 オオロンブス で MISMATCH、 2026-08-03 全カード差分掃引で発覚)。
-                state.players[me_idx].chara_ko_taken_this_turn += 1;
                 state.last_chara_ko_victim_card = None;
                 if fire_on_ko(state, me_idx, &vcid, false).is_err() {
                     return false;
@@ -7633,7 +7630,6 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 let removed = state.players[opp_idx].characters.remove(idx);
                 state.players[opp_idx].trash.push(removed.card);
                 state.players[opp_idx].don_rested += vdon;
-                state.players[opp_idx].chara_ko_taken_this_turn += 1;
                 ko_any = true;
                 // effects.py:3391 順: on_ko(victim側) → on_opp_chara_ko(me) → on_self_chara_ko(victim側)。
                 // ⭐ 効果 ko は nested resolution = Python は trigger を enqueue し、 その末尾で
@@ -8152,7 +8148,11 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
 }
 
 enum RemoveDest {
+    /// KO としてトラッシュへ (= このターンの被 KO 数に数える)。
     Trash,
+    /// **KO ではなく** 「トラッシュに置く」 (= 被 KO 数に数えない、【KO時】も発火しない)。
+    /// 公式は 「KOする」 と 「トラッシュに置く」 を書き分けている (OP13-082 五老星)。
+    TrashNoKo,
     Hand,
     DeckBottom,
 }
@@ -8192,6 +8192,8 @@ fn remove_victims(state: &mut GameState, mut victims: Vec<(usize, usize)>, dest:
                 state.players[pi].trash.push(card);
                 state.players[pi].chara_ko_taken_this_turn += 1;
             }
+            // 「トラッシュに置く」 = KO ではないので被 KO 数を増やさない (Python も増やさない)。
+            RemoveDest::TrashNoKo => state.players[pi].trash.push(card),
             RemoveDest::Hand => state.players[pi].hand.push(card),
             RemoveDest::DeckBottom => state.players[pi].deck.push(card),
         }
@@ -9423,6 +9425,11 @@ pub fn fire_on_ko(
 ) -> Result<(), String> {
     // 条件 by_opp_effect / by_battle 用 (Python は trigger_on_ko の引数を state に伝搬)。
     state.last_ko_by_opp_effect = by_opp_effect;
+    // ⚠ このターンの被 KO 数は **全 KO 経路の共通フック** で数える (Python trigger_on_ko:13022 と
+    //   同じ位置 = 効果無効 gate より前、 overlay 有無より前 = バニラキャラの KO も数える)。
+    //   以前は呼出側 10 箇所が個別に加算しており、 ko_self (OP16-014 マルコの replace_leave) など
+    //   加算漏れの経路があった (2026-08-04 の置換差分パスで発覚)。 ここに集約する。
+    state.players[owner_idx].chara_ko_taken_this_turn += 1;
     // 公式 Q&A (cardqa_op_09/op_10): 効果を無効にされたキャラの【KO時】は発動しない。
     // 記録は note_ko_victim_negated が除去直前に行う。 読んだら必ず clear (次の KO に漏らさない)。
     let victim_negated = std::mem::take(&mut state.ko_victim_effect_negated);
@@ -10638,7 +10645,6 @@ fn pay_end_of_turn_cost(
             state.players[owner].don_rested += don;
             // Python (_pay_end_of_turn_cost) は trigger_on_ko を呼ぶので
             // chara_ko_taken_this_turn が増える (= 全 KO 経路の共通フック)。
-            state.players[owner].chara_ko_taken_this_turn += 1;
             state.last_chara_ko_victim_card = None;
             fire_on_ko(state, owner, &vcid, false)?;
             fire_field_when(state, owner, "on_self_chara_ko")?;
@@ -11137,7 +11143,6 @@ pub fn fire_activate_main(
                     || removed.effect_disabled_through_opp_turn;
                 me.trash.push(removed.card);
                 me.don_rested += don;
-                me.chara_ko_taken_this_turn += 1; // trigger_on_ko 相当 (全 KO で加算)
                 state.ko_victim_effect_negated = neg;
                 // last_chara_ko_victim_card set (victim_* 条件用)、 cascade 完了後 None (Python 準拠)。
                 state.last_chara_ko_victim_card = None; // 効果 cascade は nested=deferred で victim None

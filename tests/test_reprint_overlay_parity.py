@@ -450,3 +450,29 @@ def test_st03_017_draws_conditionally_in_one_effect():
             drew = len(st.players[0].hand) > before
             assert drew is expect_draw, \
                 f"{cid}: 手札{hand_n}枚 で ドロー={drew} (期待 {expect_draw})"
+
+
+def test_no_overlay_entry_for_nonexistent_variant():
+    """overlay に `_pN` / `_rN` キーが有るのに **そのカードが cards.json に無い** ものを検出。
+
+    実在しないカードの overlay は どの経路からも到達できない = 差分検証もテストも通らない
+    「死にデータ」 で、 カバレッジ計算の分母だけを汚す。 新弾取込で先に overlay を書いた場合も
+    ここで気づける (取込後にカードが現れれば自動で解消する)。
+
+    ⚠ **base キー** (= `P-081` のように variant だけが実在し base は印刷されていない) は
+      variant 比較の基準として意図的に置いているので除外する。
+    """
+    import json as _json
+
+    ov = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    cards = {c["card_id"] for c in _json.loads(
+        (ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    ghosts = sorted(
+        k for k in ov
+        if not k.startswith("_") and k not in cards
+        and ("_p" in k or "_r" in k)          # base キーは除外 (variant 比較の基準)
+    )
+    assert not ghosts, (
+        "実在しないカードの overlay エントリ (cards.json に無い variant): "
+        f"{ghosts} → 誤記なら削除、 新弾なら scraper でカードを取り込む"
+    )

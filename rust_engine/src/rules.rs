@@ -137,7 +137,8 @@ fn spend_counters(p: &mut Player, idxs: &[i64]) -> i32 {
     total
 }
 
-/// バトル KO 実行: victim キャラを trash へ、 付与ドン→レスト、 chara_ko_taken_this_turn++。
+/// バトル KO 実行: victim キャラを trash へ、 付与ドン→レスト。
+/// (被 KO 数の加算は fire_on_ko 側 = 全 KO 経路の共通フック)
 /// (trigger cascade は呼出側で bail 済 = last_chara_ko_victim_card は cascade 完了後 None に戻るので触らない)
 fn battle_ko_character(state: &mut GameState, owner: usize, idx: usize) {
     if idx >= state.players[owner].characters.len() {
@@ -147,7 +148,8 @@ fn battle_ko_character(state: &mut GameState, owner: usize, idx: usize) {
     let don = removed.attached_dons;
     state.players[owner].trash.push(removed.card);
     state.players[owner].don_rested += don;
-    state.players[owner].chara_ko_taken_this_turn += 1;
+    // ⚠ chara_ko_taken_this_turn は fire_on_ko に集約した (Python trigger_on_ko と同じ位置)。
+    //   ここで足すと do_battle_ko → fire_on_ko で **二重加算** になる。
 }
 
 /// バトル KO + trigger cascade (game.py:1713/1974)。 KO 実行後に board trigger を発火:

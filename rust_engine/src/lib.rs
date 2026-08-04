@@ -573,8 +573,15 @@ fn replace_effect_smoke(
     ];
     let r = effects::try_replace_ko(&mut st, victim_owner, victim_idx, by_opp_effect, leave_kind);
     let inv = selfplay::check_invariants(&st, &base, "replace_smoke");
+    // ⚠ digest / after を返さないと Python と bit 比較できず、 置換効果 (replace_ko /
+    //   replace_leave / replace_rest) だけが **一度も差分検証されない** まま残る
+    //   (2026-08-04 時点で未証明 18 枚がこれ)。 fire_effect_smoke と同じ形で返す。
+    let dg = digest_of(&st).unwrap_or_default();
+    let after = serde_json::to_value(&st).unwrap_or(serde_json::Value::Null);
     let out = match r {
-        Ok(replaced) => serde_json::json!({"ok": true, "replaced": replaced, "invariant_violations": inv}),
+        Ok(replaced) => serde_json::json!({
+            "ok": true, "replaced": replaced, "invariant_violations": inv,
+            "digest": dg, "after": after}),
         Err(e) => serde_json::json!({"ok": false, "err": e, "invariant_violations": inv}),
     };
     Ok(out.to_string())
