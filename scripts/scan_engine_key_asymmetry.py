@@ -79,6 +79,48 @@ def overlay_keys() -> Counter:
     return keys
 
 
+def optional_cost_keys() -> Counter:
+    """`optional_cost_then` の cost に現れるキー (= 「〜することができる：」 の支払い)。
+
+    Python はこれを **`execute_effect` の primitive として** 払う (effects.py:9155 の汎用パス)。
+    Rust は `pay_cost_one` の explicit arm → 無ければ同じく `execute_effect` へ委譲する。
+    つまり **explicit arm も primitive も無いキーだけ** が Rust で払えず bail する。
+    実例: `stage_to_deck_bottom` は cost 専用の概念で primitive が無く、 explicit arm も
+    無かったので OP06-102 カマキリの起動メインが丸ごと bail していた (2026-08-04)。
+    """
+    ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    keys: Counter = Counter()
+
+    def walk(x):
+        if isinstance(x, dict):
+            oc = x.get("optional_cost_then")
+            if isinstance(oc, dict):
+                for cs in oc.get("cost") or []:
+                    if isinstance(cs, dict):
+                        for k in cs:
+                            keys[k] += 1
+            for v in x.values():
+                walk(v)
+        elif isinstance(x, list):
+            for v in x:
+                walk(v)
+
+    walk(ov)
+    return keys
+
+
+def rust_cost_gaps(rs: str) -> list[tuple[str, int]]:
+    """Rust で払えない optional cost キー (explicit arm も primitive も無い) を返す。"""
+    try:
+        i = rs.index("fn pay_cost_one(")
+        pay = rs[i:rs.index("\n}\n", i)]
+    except ValueError:
+        return []
+    prim = set(re.findall(r'"([a-z0-9_]+)"\s*(?:\|\s*"[a-z0-9_]+"\s*)*=>', rs))
+    return [(k, n) for k, n in optional_cost_keys().most_common()
+            if f'"{k}"' not in pay and k not in prim]
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--assert", dest="do_assert", action="store_true")
@@ -126,7 +168,12 @@ def main() -> None:
     show("人間操作経路のみ (self-play 差分には出ない)", human_gap)
     show("Rust に primitive 自体が無い (実経路では明示 bail = 不変条件は守られる)", bail_gap)
 
-    if args.do_assert and (ai_gap or both_missing):
+    cost_gaps = rust_cost_gaps(rs)
+    print(f"\n=== ⚠ Rust が払えない optional_cost (= その効果ごと bail): {len(cost_gaps)} 種 ===")
+    for k, n in cost_gaps:
+        print(f"  {k:<44}{n:>5} 箇所  pay_cost_one に arm 無し + primitive も無し")
+
+    if args.do_assert and (ai_gap or both_missing or cost_gaps):
         sys.exit(1)
 
 
