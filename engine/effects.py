@@ -13341,6 +13341,10 @@ def trigger_lifecard_trigger(
         source_card_id=card.card_id,
         source_iid=None,
     )
+    # 公式 (OP06-044 ギオン系): 【トリガー】効果は それに反応する opp_event_or_trigger_fired
+    # reactive より **先** に解決する。 counter 経路と同じ理由 (turn 優先で reactive が
+    # 先取りされる) で、 トリガー効果を先に drain してから reactive を積む。
+    _maybe_resolve(state)
     # 「相手がイベントか【トリガー】を発動した時」 (OP11-102 ケイミー 等)
     # defender = トリガー発火側 → attacker_player 側を opp として発火させる。
     trigger_opp_event_or_trigger_fired(
@@ -13416,6 +13420,10 @@ def trigger_main_event(
             source_card_id=card.card_id,
             source_iid=None,
         )
+        # 公式 (OP06-044 ギオン系): イベントの効果は それに反応する opp_event_or_trigger_fired
+        # reactive より **先** に解決する。 counter 経路と同じ理由 (turn 優先で reactive が
+        # 先取りされる) で、 main 効果を先に drain してから reactive を積む。
+        _maybe_resolve(state)
     # イベント発動そのもの (= bundle 有無に関わらず) で相手側の opp_event_or_trigger_fired を発火。
     # 公式 「相手がイベントか【トリガー】を発動した時」 (OP11-102 ケイミー 等)。
     trigger_opp_event_or_trigger_fired(state, opp, me, effects_overlay)
@@ -13444,6 +13452,13 @@ def trigger_counter_event(
             source_card_id=card.card_id,
             source_iid=None,
         )
+        # 公式 (cardqa_op_06 / OP06-044 ギオン): 「相手が使用したイベントの【カウンター】効果を
+        # 処理した後、 この【自分のターン中】効果で相手が自身の手札1枚をデッキの下に置きます」。
+        # = カウンター効果は それに反応する opp_event_or_trigger_fired reactive より **先** に
+        # 解決する。 _pop_next_event は turn_player 側イベントを優先するため、 counter (=防御側=
+        # 非turn) と reactive (=攻撃側=turn) を同時にキューへ積むと reactive が先に pop され順序が逆転
+        # していた。 counter を先に drain してから reactive を積む。
+        _maybe_resolve(state)
     trigger_opp_event_or_trigger_fired(state, opp, me, effects_overlay)
     trigger_self_event_played(state, me, opp, effects_overlay)
     # 防御中 (= AI ターン中) でも defender が human なら user pick を 有効化 する 為、

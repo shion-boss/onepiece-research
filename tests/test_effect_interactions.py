@@ -1431,3 +1431,48 @@ def test_no_opp_hand_optional_cost_remains_gated_by_top_level_if():
         "コロン後の条件が top-level `if` のままで、 任意コストの支払いを妨げている:\n  "
         + "\n  ".join(bad)
     )
+
+
+# --------------------------------------------------------------------------- #
+#  「相手がイベントを発動した時」 の reactive は、 反応対象のイベント効果を
+#   **処理した後** に解決する (発動そのものへの割り込みではない)。
+#  一次情報 (db/faq/cardqa_op_06、 OP06-044 ギオン):
+#    「相手がイベントの【カウンター】効果を発動した時、 この【自分のターン中】効果で相手は
+#      自身の手札1枚をデッキの下に置くのは、 その【カウンター】効果の処理を行う前ですか？」
+#    → 「いいえ、 相手が使用したイベントの【カウンター】効果を処理した後、 この【自分のターン中】
+#        効果で相手が自身の手札1枚をデッキの下に置きます。」
+#  是正前: _pop_next_event が turn_player 側イベントを優先するため、 ギオン (=攻撃側=turn) の
+#         reactive が counter (=防御側=非turn) より先に pop され、 順序が逆転していた。
+#         Python/Rust とも同じ overlay を読むので差分検証では原理的に沈黙する型。
+# --------------------------------------------------------------------------- #
+def test_gion_reactive_resolves_after_counter_event_effect():
+    """OP06-044 ギオンの reactive は 相手カウンターの効果を処理した **後** に発火する。"""
+    from engine.effects import trigger_counter_event
+    repo, overlay = _repo(), _overlay()
+    p0 = Player(name="ATK", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1 = Player(name="DEF", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    for p in (p0, p1):
+        p.deck = [repo.get(_FILLER)] * 25
+        p.life = [repo.get(_FILLER)] * 3
+    # 攻撃側 (turn player) に ギオン + カウンターの -3000 対象になる素キャラ。
+    gion = InPlay.of(repo.get("OP06-044"), sickness=False)
+    extra = InPlay.of(repo.get(_FILLER), sickness=False)
+    p0.characters = [gion, extra]
+    # 防御側は手札4枚 + カウンターコスト (ドン-1) を払える場のドン。
+    p1.hand = [repo.get(_FILLER)] * 4
+    p1.don_active, p1.don_rested = 3, 0
+    st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                   rng=random.Random(1), effects_overlay=overlay)
+    st.turn_player_idx, st.turn_number = 0, 9
+    st.log = []
+    # OP02-089 地獄の審判 (【カウンター】相手2枚 パワー-3000)。 防御側 p1 が使用。
+    trigger_counter_event(st, p1, p0, repo.get("OP02-089_p1"), overlay)
+    order = [l for l in st.log if "パワー-3000" in l or "デッキ下" in l]
+    assert len(order) >= 2, f"両効果のログが揃っていない: {order}"
+    # 是正前は ['...デッキ下', '...パワー-3000'] の逆順だった → この assert が落ちる。
+    assert "パワー-3000" in order[0], (
+        f"カウンター効果が先に解決していない (公式違反): {order}"
+    )
+    assert "デッキ下" in order[1], (
+        f"ギオンの reactive がカウンター効果より先に発火している (公式違反): {order}"
+    )

@@ -719,3 +719,47 @@ EB02-059 / OP14-018) で、 他は hand/条件経路のため挙動不変。 rus
 ⭐ **教訓**: 「今回はここまで直した / 残りは N 枚」 と書く時は **必ず全走査で N を出す**。
 バッチで見えた範囲を残件数として記録すると、 次に読む人 (人間でも routine でも) が
 「あと少し」 と誤認して打ち切る。
+
+## 「相手がイベント/【トリガー】を発動した時」 の reactive は、 反応対象の効果を **処理した後** に解決する (2026-08-04 是正)
+
+**一次情報** (`db/faq/cardqa_op_06`、 OP06-044 ギオン):
+
+> 「相手がイベントの【カウンター】効果を発動した時、 この【自分のターン中】効果で相手は自身の
+>   手札1枚をデッキの下に置くのは、 その【カウンター】効果の処理を行う前ですか？」
+> → **「いいえ、 相手が使用したイベントの【カウンター】効果を処理した後、 この【自分のターン中】
+>     効果で相手が自身の手札1枚をデッキの下に置きます。」**
+
+OP06-044 ギオン【自分のターン中】【ターン1回】= 「相手がイベントを発動した時、 相手は自身の手札
+1枚をデッキの下に置く」 (overlay `opp_event_or_trigger_fired`)。 反応の発火は 「イベント発動そのもの」
+への割り込みではなく、 **反応対象のイベント (カウンター) の効果が完全に解決した後**。
+
+**是正前の挙動 (Python のみ)**: `_pop_next_event` は `owner_idx == turn_player_idx` のイベントを
+優先して pop する (= 同時トリガーの公式ルール 7-x)。 だが 防御側が撃った カウンターイベント
+(owner=防御側=**非** turn) と、 それに反応する ギオンの reactive (owner=攻撃側=**turn**) を同時に
+キューへ積むと、 turn 優先で **reactive が先に pop** され、 「ギオン→カウンター効果」 の逆順に
+なっていた。 実測: 是正前 = 「ギオンで手札→デッキ下」 → 「カウンター -3000」、 是正後 =
+「カウンター -3000」 → 「ギオンで手札→デッキ下」。
+
+**Rust は元々正しかった**: `fire_counter_events` / `execute_main_event` /
+`trigger_lifecard_trigger` は `execute_card_effects("counter"/"main"/…)` を **inline で先に実行** し、
+その後 `fire_field_when(…, "opp_event_or_trigger_fired")` を呼ぶ構造 (= event 先→reactive 後)。
+Rust 作者はコメントで 「Python の順 = counter→opp_event」 と **意図** を書いていたが、 Python の
+実行時挙動 (turn 優先) はそれと食い違っていた。 = **Python が Rust の忠実ミラーから外れていた**
+稀な向き。 両効果が独立ゾーン (手札 vs パワー) を触る限り最終 digest は同一なので rust_parity は
+沈黙していた (= 順序差が状態差に化けるのは両効果が同一資源を奪い合う時のみ)。
+
+**実装 (Python のみ、 Rust は無変更で既に正)**: `trigger_counter_event` /
+`trigger_main_event` / `trigger_lifecard_trigger` で、 triggering event を enqueue した直後に
+`_maybe_resolve(state)` を挟んで **先に drain** してから `trigger_opp_event_or_trigger_fired`
+(+ `trigger_self_event_played` / `on_self_trigger_fired`) を積む。 main event は元々
+event=turn 側で FIFO により event 先だったので実質不変。 counter / life-trigger (event=非turn 側)
+が実際の是正対象。 影響 reactive = `opp_event_or_trigger_fired` 保有 6 base card
+(OP01-004 / OP06-044 / OP06-048 / OP11-012 / OP11-102 / OP15-119)。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+`test_gion_reactive_resolves_after_counter_event_effect` (カウンター -3000 が ギオンの手札→デッキ下
+より **先** にログへ出る = 是正前は逆順で落ちる)。 rust_parity MISMATCH=0 維持を確認。
+
+⭐ **教訓**: 差分検証は 「両者同じ間違い」 だけでなく 「片方だけ正しく、 順序差が最終状態に
+化けない」 領域でも沈黙する。 公式 Q&A (外部オラクル) が 「発動した時」 系 reactive の
+**解決タイミング** を明示している時は、 独立ゾーンでも順序をテストで固定する。

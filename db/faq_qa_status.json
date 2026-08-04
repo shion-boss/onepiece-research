@@ -364,90 +364,90 @@
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP02-026 サンジ 【ターン1回】on_self_chara_played: 元々効果なしキャラ登場+自キャラ<=3 で untap_don 2。 overlay に self_turn gate 無し=相手ターンでも発火。 実測: バニラ(OP04-077)登場を自ターン/相手ターン両方で発火→don_active +2、 非バニラ(OP01-013)対照は不発。 公式『はい』整合。",
   "q": "相手のターン中に、自分のキャラが2枚の場合、元々の効果のないキャラを手札から登場させました。この時、この【ターン1回】効果で自分のドン!!2枚をアクティブにできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "0b6cc98a8233": {
   "a": "はい、できます。このキャラの【登場時】を発動したターンの終了時に、自分のレストのドン!!を最大5枚まで望む枚数選び、アクティブにします。",
   "files": [
    "cardqa_op_14.json"
   ],
-  "note": "",
+  "note": "OP14-031 ナミ schedule_at_self_turn_end untap_don 5 = min(5,rested)。 公式『5枚まで望む枚数』の枚数選択(<=5)は untap_don が常に最大付与するUI粒度差だが、 5枚超のレストを不正にアクティブ化することはなく合法量。 実測: rested6→active5。",
   "q": "この【登場時】効果で、自分のレストのドン!!が5枚以上あるときに、自分のレストのドン!!4枚以下をアクティブにすることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "0b9ee07878bf": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_07.json"
   ],
-  "note": "",
+  "note": "OP07-001 ドラゴン move_attached_don count2 → 自キャラ1枚。 実測: 2キャラに1ドンずつ付与済→起動で1枚のキャラへ合計2枚集約(付与済ドンを複数ソースから移動可)。 公式『はい』整合。",
   "q": "自分のキャラ2枚にドン!!が1枚ずつ付与されている場合、この【起動メイン】効果でその2枚のドン!!を他の自分のキャラ1枚に付与できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "0baebbf40f33": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_st_18.json"
   ],
-  "note": "",
+  "note": "ST20-001 カタクリ activate_main cost=flip_life_face_up(トップライフ1枚を表向きに)→ attach_rested_don。 公式『トップライフが既に表向きなら不可(既に表向きの札を表向きにはできない)』。 engine のライフモデルは face_up_life_count(枚数)のみで物理位置(トップ)を区別しない(ST13-009 と同型の位置非モデル化)。 コストの表向き化はどの裏向きライフでも成立しうるため『トップが表向き』の一意な不成立を engine 状態で再現できない=検証不能。",
   "q": "自分のライフの一番上のカードが表向きの場合、この【起動メイン】効果で自分のリーダーかキャラ1枚にレストのドン!!1枚までを付与することはできますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "0bcfc691e5be": {
   "a": "いいえ、できません。\n(「OP06-034 ヒョウゾウ」の最新のテキストについては、公式HPでの情報をご確認下さい。)",
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "",
+  "note": "OP06-024 イカロス・ムッヒ 【登場時】手札からコスト4以下の魚人族キャラ登場、 で OP06-034 ヒョウゾウ(cards.json: cost4/魚人族)を登場できない(公式『いいえ』)。 Q&A に『ヒョウゾウの最新テキストは公式HP確認』のerrata注記=現行ヒョウゾウの印刷コストが4超に改訂された可能性。 engine の cost<=4 魚人族 filter 自体は正しく、 可否はヒョウゾウの現行コスト(カードデータ/errata)次第の純データ問題=engineロジック検証不能。 ⚠ cards.json が cost4 のままなら errata 未反映=データ更新候補(要 refresh)。",
   "q": "この【登場時】効果で、自分の手札の「OP06-034 ヒョウゾウ」を登場させることはできますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "0be4150a26f9": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_08.json"
   ],
-  "note": "",
+  "note": "OP08-098 カルガラ on_attack play_from_hand(feature=シャンドラの戦士, cost_le_dynamic=self_don_total)。 gate は self_attached_don_ge:1 のみでライフ非依存。 実測: 自ライフ0枚でも登場成功(chars 1→2)、 then_life_to_hand は空振りno-op。 公式『はい(ライフ0でも登場可)』整合。",
   "q": "自分のライフが0枚以下の時に、この【アタック時】効果で、手札から「自分の場のドン‼の枚数以下のコストを持ち特徴《シャンドラの戦士》を持つキャラカード」を登場させることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "0bef05e2504b": {
   "a": "自分の特徴《アラバスタ王国》を持つキャラを、自分のコストエリアのレストのドン!!の枚数分選び、自分のコストエリアのレストのドン!!を1枚ずつ付与します。",
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-004 カルー attach_rested_don per_target(feature=アラバスタ王国, count1)。 レストドン<キャラ数なら _take_rested(1) が枯渇でbreak=レストドン枚数分のキャラにのみ1枚付与。 実測: 2キャラ/rested1→1,0付与(合計1)。 公式『レストのドン枚数分選び1枚ずつ』整合。",
   "q": "自分の特徴《アラバスタ王国》を持つキャラの数より、自分のコストエリアのレストのドン!!の枚数が少ない場合、この【起動メイン】効果はどうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "0c0c0d9e1404": {
   "a": "はい、できます。",
   "files": [
    "cardqa_.json"
   ],
-  "note": "",
+  "note": "P-036 ルフィ on_attack optional_cost_then: cost life_top_or_bottom_to_hand → effect power_pump self +1000 & power_pump self_leader +1000。 実測: char 4000→5000 かつ leader 5000→6000(両方+1000)。 『このキャラと自分のリーダー1枚まで』=自身(必須)+リーダー(1枚まで)両方に付与。 公式『はい』整合。",
   "q": "「このキャラと自分のリーダー1枚までを、このターン中、パワー+1000。」とは、このキャラをパワー＋1000し、自分のリーダーをパワー＋1000することができますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "0c2839493616": {
   "a": "いいえ、相手が使用したイベントの【カウンター】効果を処理した後、この【自分のターン中】効果で相手が自身の手札1枚をデッキの下に置きます。",
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "",
+  "note": "OP06-044 ギオン 【自分のターン中】相手がイベント発動時 opp_hand_to_deck_bottom は、 反応対象のイベント効果を処理した後に発火する(公式cardqa_op_06: カウンター効果処理後に手札→デッキ下)。 是正前は _pop_next_event の turn_player 優先で reactive(攻撃側=turn)が counter(防御側=非turn)より先にpopされ順序逆転。 実測: 是正前=ギオン→-3000、 是正後=-3000→ギオン。 fix=Python の trigger_counter_event/trigger_main_event/trigger_lifecard_trigger で triggering event を先に_maybe_resolveしてから reactive を積む(Rustは元々 execute_card_effects→fire_field_when でevent先=正、 Pythonをそれに整合)。 回帰: test_gion_reactive_resolves_after_counter_event_effect。",
   "q": "相手がイベントの【カウンター】効果を発動した時、この【自分のターン中】効果で相手は自身の手札1枚をデッキの下に置くのは、その【カウンター】効果の処理を行う前ですか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "0c341ee6d1b4": {
   "a": "いいえ、捨てません。手札が6枚以上ある場合だけ、5枚になるまで手札を捨てます。",
   "files": [
    "cardqa_op_14.json"
   ],
-  "note": "",
+  "note": "OP14-054 フィッシャー・タイガー end_of_turn self_hand_to_size:5。 to_discard=len(hand)-5 が<=0 なら捨てない。 実測: hand4→4(捨てなし)、 hand7→5。 公式『5枚以下なら捨てない、 6枚以上で5枚まで』整合。",
   "q": "この【自分のターン終了時】効果で、自分の手札が5枚か、それより少ない場合、手札は捨てますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "0c4db574c728": {
   "a": "はい、できます。",
