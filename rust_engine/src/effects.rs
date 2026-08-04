@@ -283,7 +283,7 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                 let names: std::collections::BTreeSet<&str> = me
                     .characters
                     .iter()
-                    .filter(|c| matches_filter(&c.card, filt))
+                    .filter(|c| matches_filter_ip(&c, filt))
                     .map(|c| c.card.name.as_str())
                     .collect();
                 names.len() as i64 >= need
@@ -392,7 +392,7 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             "self_chara_filtered_count_le" => {
                 let filt = v.get("filter");
                 let need = v.get("count").and_then(|x| x.as_i64()).unwrap_or(0);
-                (me.characters.iter().filter(|c| matches_filter(&c.card, filt)).count() as i64) <= need
+                (me.characters.iter().filter(|c| matches_filter_ip(&c, filt)).count() as i64) <= need
             }
             "self_inplay_attached_dons_ge" => {
                 let n = v.as_i64().unwrap_or(0);
@@ -504,7 +504,7 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             "opp_chara_filtered_count_le" => {
                 let filt = v.get("filter");
                 let limit = v.get("count").and_then(|x| x.as_i64()).unwrap_or(0);
-                (opp.characters.iter().filter(|c| matches_filter(&c.card, filt)).count() as i64) <= limit
+                (opp.characters.iter().filter(|c| matches_filter_ip(&c, filt)).count() as i64) <= limit
             }
             // 発動元が召喚酔い中 (= このキャラが登場したターン)。 src 不明なら False (Python 準拠)。
             "self_summoning_sickness" => {
@@ -726,7 +726,7 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                     Value::Object(o)
                 });
                 let cnt = me.characters.iter().filter(|c| {
-                    matches_filter(&c.card, base_filt.as_ref())
+                    matches_filter_ip(&c, base_filt.as_ref())
                         && (!rested_req || c.rested)
                         && cpge.map_or(true, |t| c.power() as i64 >= t)
                         && cple.map_or(true, |t| (c.power() as i64) <= t)
@@ -747,7 +747,7 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                     Value::Object(o)
                 });
                 let cnt = opp.characters.iter().filter(|c| {
-                    matches_filter(&c.card, base_filt.as_ref())
+                    matches_filter_ip(&c, base_filt.as_ref())
                         && (!rested_req || c.rested)
                         && cpge.map_or(true, |t| c.power() as i64 >= t)
                         && cple.map_or(true, |t| (c.power() as i64) <= t)
@@ -878,15 +878,55 @@ fn resolve_target(
             };
             // {"type": "one_opponent_inplay_filtered", "filter": {...}} = 相手リーダー/キャラから
             // filter 一致 1 枚 (effects.py:2288、 threat_key = power 降順、 leader も候補)。
+            // {"type": "one_inplay_either_filtered", "filter": {...}} = **両陣営** のリーダー/キャラ
+            // から filter 一致 1 枚 (effects.py の同名 arm)。 公式が 「相手の」 と書いていない
+            // 「キャラ1枚まで」 は 自陣も対象 (= 複数弾の Q&A で明示された一般則、 2026-08-04)。
+            // ⚠ Python `_either_pick_one` は **相手側を opp_value 降順で 1 枚**、 居なければ
+            //   **自陣の先頭** (board 順)。 両陣営を混ぜて power 降順にしてはいけない。
+            if t == "one_inplay_either_filtered" {
+                let filt = v.get("filter");
+                let collect_side = |pi: usize, state: &GameState| -> Vec<Slot> {
+                    let p = &state.players[pi];
+                    let mut out: Vec<Slot> = vec![];
+                    if matches_filter_ip(&p.leader, filt) {
+                        out.push(Slot::Leader);
+                    }
+                    for i in 0..p.characters.len() {
+                        if matches_filter_ip(&p.characters[i], filt) {
+                            out.push(Slot::Char(i));
+                        }
+                    }
+                    out
+                };
+                let mut opp_cands = collect_side(opp_idx, state);
+                if !opp_cands.is_empty() {
+                    let opp = &state.players[opp_idx];
+                    let val = |sl: &Slot| -> f64 {
+                        match sl {
+                            Slot::Leader => opp_value(&opp.leader),
+                            Slot::Char(i) => opp_value(&opp.characters[*i]),
+                            _ => 0.0,
+                        }
+                    };
+                    opp_cands.sort_by(|a, b| {
+                        val(b).partial_cmp(&val(a)).unwrap_or(std::cmp::Ordering::Equal)
+                    });
+                    return Some(vec![(opp_idx, opp_cands[0])]);
+                }
+                let self_cands = collect_side(me_idx, state);
+                return Some(
+                    self_cands.into_iter().take(1).map(|sl| (me_idx, sl)).collect(),
+                );
+            }
             if t == "one_opponent_inplay_filtered" {
                 let filt = v.get("filter");
                 let opp = &state.players[opp_idx];
                 let mut cands: Vec<(Slot, i32)> = vec![];
-                if matches_filter(&opp.leader.card, filt) {
+                if matches_filter_ip(&opp.leader, filt) {
                     cands.push((Slot::Leader, opp.leader.power()));
                 }
                 for i in 0..opp.characters.len() {
-                    if matches_filter(&opp.characters[i].card, filt) {
+                    if matches_filter_ip(&opp.characters[i], filt) {
                         cands.push((Slot::Char(i), opp.characters[i].power()));
                     }
                 }
@@ -901,11 +941,11 @@ fn resolve_target(
                 let filt = v.get("filter");
                 let p = &state.players[me_idx];
                 let mut cands: Vec<(Slot, i32)> = vec![];
-                if matches_filter(&p.leader.card, filt) {
+                if matches_filter_ip(&p.leader, filt) {
                     cands.push((Slot::Leader, p.leader.power()));
                 }
                 for i in 0..p.characters.len() {
-                    if matches_filter(&p.characters[i].card, filt) {
+                    if matches_filter_ip(&p.characters[i], filt) {
                         cands.push((Slot::Char(i), p.characters[i].power()));
                     }
                 }
@@ -934,7 +974,7 @@ fn resolve_target(
                 let mut cands: Vec<usize> = (0..p.characters.len())
                     .filter(|&i| {
                         let c = &p.characters[i];
-                        matches_filter(&c.card, filt)
+                        matches_filter_ip(&c, filt)
                             && rested_req.map_or(true, |r| c.rested == r)
                             && cpge.map_or(true, |n| c.power() >= n)
                             && cple.map_or(true, |n| c.power() <= n)
@@ -989,11 +1029,11 @@ fn resolve_target(
                 let filt = v.get("filter");
                 let p = &state.players[me_idx];
                 let mut cands: Vec<Slot> = vec![];
-                if matches_filter(&p.leader.card, filt) {
+                if matches_filter_ip(&p.leader, filt) {
                     cands.push(Slot::Leader);
                 }
                 for i in 0..p.characters.len() {
-                    if matches_filter(&p.characters[i].card, filt) {
+                    if matches_filter_ip(&p.characters[i], filt) {
                         cands.push(Slot::Char(i));
                     }
                 }
@@ -1028,7 +1068,7 @@ fn resolve_target(
                 let mut cands: Vec<usize> = (0..p.characters.len())
                     .filter(|&i| {
                         let c = &p.characters[i];
-                        matches_filter(&c.card, base_filt.as_ref())
+                        matches_filter_ip(&c, base_filt.as_ref())
                             && (!rested_req || c.rested)
                             && (!active_req || !c.rested)
                             && cpge.map_or(true, |t| c.power() as i64 >= t)
@@ -1045,7 +1085,7 @@ fn resolve_target(
                 let filt = v.get("filter");
                 let opp = &state.players[opp_idx];
                 let mut cands: Vec<usize> = (0..opp.characters.len())
-                    .filter(|&i| matches_filter(&opp.characters[i].card, filt))
+                    .filter(|&i| matches_filter_ip(&opp.characters[i], filt))
                     .collect();
                 match v.get("limit").and_then(|x| x.as_i64()) {
                     Some(lim) => {
@@ -1059,7 +1099,7 @@ fn resolve_target(
                     None => return Some(cands.into_iter().map(|i| (opp_idx, Slot::Char(i))).collect()),
                 }
             }
-            if t == "one_opponent_character_filtered" {
+            if t == "one_opponent_character_filtered" || t == "one_character_either_filtered" {
                 let fo = v.get("filter").and_then(|f| f.as_object());
                 let gi = |k: &str| fo.and_then(|o| o.get(k)).and_then(|x| x.as_i64());
                 let gb = |k: &str| fo.and_then(|o| o.get(k)).and_then(|x| x.as_bool()).unwrap_or(false);
@@ -1072,21 +1112,39 @@ fn resolve_target(
                     }
                     Value::Object(m)
                 });
+                let ok = |c: &InPlay| -> bool {
+                    matches_filter_ip(&c, base_filt.as_ref())
+                        && (adg <= 0 || c.attached_dons as i64 >= adg)
+                        && (!rr || c.rested)
+                        && (!ar || !c.rested)
+                        && (!br || c.is_blocker_now())
+                        && cpl.map_or(true, |n| c.power() as i64 <= n)
+                        && cce.map_or(true, |n| c.base_cost() as i64 == n)
+                        && ccl.map_or(true, |n| c.base_cost() as i64 <= n)
+                        && ccg.map_or(true, |n| c.base_cost() as i64 >= n)
+                };
                 let opp = &state.players[opp_idx];
-                let mut cands: Vec<usize> = (0..opp.characters.len())
-                    .filter(|&i| {
-                        let c = &opp.characters[i];
-                        matches_filter(&c.card, base_filt.as_ref())
-                            && (adg <= 0 || c.attached_dons as i64 >= adg)
-                            && (!rr || c.rested)
-                            && (!ar || !c.rested)
-                            && (!br || c.is_blocker_now())
-                            && cpl.map_or(true, |n| c.power() as i64 <= n)
-                            && cce.map_or(true, |n| c.base_cost() as i64 == n)
-                            && ccl.map_or(true, |n| c.base_cost() as i64 <= n)
-                            && ccg.map_or(true, |n| c.base_cost() as i64 >= n)
-                    })
-                    .collect();
+                let mut cands: Vec<usize> =
+                    (0..opp.characters.len()).filter(|&i| ok(&opp.characters[i])).collect();
+                if t == "one_character_either_filtered" {
+                    // **両陣営** 版 (公式が 「相手の」 と書いていない 「キャラ1枚まで」)。
+                    // Python `_either_pick_one`: 相手側を opp_value 降順で 1 枚、 居なければ自陣先頭。
+                    if !cands.is_empty() {
+                        cands.sort_by(|&a, &b| {
+                            opp_value(&opp.characters[b])
+                                .partial_cmp(&opp_value(&opp.characters[a]))
+                                .unwrap_or(std::cmp::Ordering::Equal)
+                        });
+                        return Some(vec![(opp_idx, Slot::Char(cands[0]))]);
+                    }
+                    let me = &state.players[me_idx];
+                    return Some(
+                        (0..me.characters.len())
+                            .find(|&i| ok(&me.characters[i]))
+                            .map(|i| vec![(me_idx, Slot::Char(i))])
+                            .unwrap_or_default(),
+                    );
+                }
                 cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
                 return Some(cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect());
             }
@@ -1241,6 +1299,63 @@ fn resolve_target(
             Some((pi, Slot::Leader)) if pi == opp_idx => vec![(pi, Slot::Leader)],
             _ => vec![],
         },
+        // 両陣営から 1 枚 (公式が 「相手の」 と書いていない 「キャラ1枚まで」)。
+        // Python `_either_pick_one`: 相手側を opp_value 降順で 1 枚、 居なければ自陣の先頭。
+        "one_character_either_any" => {
+            let opp = &state.players[opp_idx];
+            let mut cands: Vec<usize> = (0..opp.characters.len()).collect();
+            if !cands.is_empty() {
+                cands.sort_by(|&a, &b| {
+                    opp_value(&opp.characters[b])
+                        .partial_cmp(&opp_value(&opp.characters[a]))
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+                return Some(vec![(opp_idx, Slot::Char(cands[0]))]);
+            }
+            let me = &state.players[me_idx];
+            if me.characters.is_empty() { vec![] } else { vec![(me_idx, Slot::Char(0))] }
+        }
+        // 両陣営、 元々のパワー N ぴったり 1 枚 (EB03-027 マーガレット等)。
+        os if os.starts_with("one_character_either_power_eq_") => {
+            let n = parse_after(os, "power_eq_").unwrap_or(0);
+            let opp = &state.players[opp_idx];
+            let mut cands: Vec<usize> =
+                (0..opp.characters.len()).filter(|&i| opp.characters[i].card.power == n).collect();
+            if !cands.is_empty() {
+                cands.sort_by(|&a, &b| {
+                    opp_value(&opp.characters[b])
+                        .partial_cmp(&opp_value(&opp.characters[a]))
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+                return Some(vec![(opp_idx, Slot::Char(cands[0]))]);
+            }
+            let me = &state.players[me_idx];
+            (0..me.characters.len())
+                .find(|&i| me.characters[i].card.power == n)
+                .map(|i| vec![(me_idx, Slot::Char(i))])
+                .unwrap_or_default()
+        }
+        // 両陣営、 コスト N ぴったり 1 枚。 素の 「コストN の」 は現在コスト、
+        // 「元々のコストN の」 は入口正規化で cost_of が印刷コストを返す。
+        os if os.starts_with("one_character_either_cost_eq_") => {
+            let n = parse_after(os, "cost_eq_").unwrap_or(0);
+            let opp = &state.players[opp_idx];
+            let mut cands: Vec<usize> =
+                (0..opp.characters.len()).filter(|&i| cost_of(&opp.characters[i]) == n).collect();
+            if !cands.is_empty() {
+                cands.sort_by(|&a, &b| {
+                    opp_value(&opp.characters[b])
+                        .partial_cmp(&opp_value(&opp.characters[a]))
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+                return Some(vec![(opp_idx, Slot::Char(cands[0]))]);
+            }
+            let me = &state.players[me_idx];
+            (0..me.characters.len())
+                .find(|&i| cost_of(&me.characters[i]) == n)
+                .map(|i| vec![(me_idx, Slot::Char(i))])
+                .unwrap_or_default()
+        }
         // one_character_either_cost_le_N = 両陣営のキャラから 元コスト N 以下 1 枚 (相手優先 power 降順)
         // ⚠ overlay の `one_inplay_cost_le_N` 表記も同 semantics (effects.py:2626、 OP02-062 等)。
         os if os.starts_with("one_character_either_cost_le_") || os.starts_with("one_inplay_cost_le_") => {
@@ -2000,6 +2115,31 @@ fn worst_hand_idx(hand: &[crate::state::CardDef], known: &[String]) -> Option<us
     })
 }
 
+/// **場に出ている InPlay** に対する filter 判定 (= コストは公式どおり現在値で見る)。
+///
+/// ⭐ 公式 (ルール 1-3-6-2 + cardqa_op_02): 素の 「コストN以下」 は **効果修正後の現在コスト**。
+///   `matches_filter` は `CardDef` しか受け取らないので **印刷コスト固定** で、 場のキャラに
+///   対して使うと 「コストを下げてから除去する」 実在ラインが機能しない (Python `_matches_filter_ip` と対)。
+///
+/// plain な `cost_le/ge/eq` / `cost` を `InPlay::base_cost()` で判定し、 残りは `matches_filter` に委譲。
+/// 「元々のコスト」 は `truly_original_cost_*` (印刷値) なので委譲側でそのまま正しい。
+fn matches_filter_ip(ip: &InPlay, filt: Option<&Value>) -> bool {
+    let Some(f) = filt.and_then(|x| x.as_object()) else { return true };
+    const PLAIN: [&str; 4] = ["cost_le", "cost_ge", "cost_eq", "cost"];
+    if !PLAIN.iter().any(|k| f.contains_key(*k)) {
+        return matches_filter(&ip.card, filt);
+    }
+    let cur = ip.base_cost() as i64;
+    let gi = |k: &str| f.get(k).and_then(|x| x.as_i64());
+    if gi("cost_le").map_or(false, |n| cur > n) { return false; }
+    if gi("cost_ge").map_or(false, |n| cur < n) { return false; }
+    if gi("cost_eq").map_or(false, |n| cur != n) { return false; }
+    if gi("cost").map_or(false, |n| cur != n) { return false; }
+    let mut rest = f.clone();
+    for k in PLAIN { rest.remove(k); }
+    matches_filter(&ip.card, Some(&Value::Object(rest)))
+}
+
 fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
     let Some(f) = filt.and_then(|x| x.as_object()) else { return true };
     for (k, v) in f {
@@ -2280,7 +2420,7 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
             let delta = spec.get("delta").and_then(|v| v.as_i64());
             let amount = spec.get("amount").and_then(|v| v.as_i64());
             for i in 0..n {
-                if !matches_filter(&state.players[pool].characters[i].card, filt) {
+                if !matches_filter_ip(&state.players[pool].characters[i], filt) {
                     continue;
                 }
                 let ip = &mut state.players[pool].characters[i];
@@ -2464,14 +2604,14 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
             let scope = spec.get("scope").and_then(|x| x.as_str()).unwrap_or("both").to_string();
             if scope == "self" || scope == "both" {
                 for c in state.players[me_idx].characters.iter_mut() {
-                    if matches_filter(&c.card, filt.as_ref()) {
+                    if matches_filter_ip(&c, filt.as_ref()) {
                         c.cannot_attack_static = true;
                     }
                 }
             }
             if scope == "opp" || scope == "both" {
                 for c in state.players[opp_idx].characters.iter_mut() {
-                    if matches_filter(&c.card, filt.as_ref()) {
+                    if matches_filter_ip(&c, filt.as_ref()) {
                         c.cannot_attack_static = true;
                     }
                 }
@@ -2481,7 +2621,7 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
         "set_effect_negate_filtered_static" => {
             let excl = spec.get("exclude_filter").cloned();
             for c in state.players[me_idx].characters.iter_mut() {
-                if !matches_filter(&c.card, excl.as_ref()) {
+                if !matches_filter_ip(&c, excl.as_ref()) {
                     c.static_granted_keywords.insert("効果無効".to_string());
                 }
             }
@@ -2558,8 +2698,8 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
         }
         "rest_self_leader_or_stage_filtered" => {
             let filt = cv.get("filter");
-            Some((!me.leader.rested && matches_filter(&me.leader.card, filt))
-                || me.stages.iter().any(|s| !s.rested && matches_filter(&s.card, filt)))
+            Some((!me.leader.rested && matches_filter_ip(&me.leader, filt))
+                || me.stages.iter().any(|s| !s.rested && matches_filter_ip(&s, filt)))
         }
         // Python は can_pay 未チェック (= 常に払える扱い、 実体無ければ payment で no-op)。
         // 「自分の、属性X を持つリーダー **か** ドン‼1枚をレストにできる：」 (ST32-001 錦えもん)。
@@ -2569,7 +2709,7 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
         //   (draw 2 + 手札1捨てが発動、 2026-08-04 の全カード掃引で発覚)。
         "rest_self_leader_filtered_or_don" => {
             let filt = cv.get("filter");
-            let leader_ok = !me.leader.rested && matches_filter(&me.leader.card, filt);
+            let leader_ok = !me.leader.rested && matches_filter_ip(&me.leader, filt);
             Some(leader_ok || me.don_active >= 1)
         }
         // 「自分の『X』1枚にアクティブのドンN枚を付与できる：」 (EB04-009/OP12-016/019 レイリー等)。
@@ -2591,7 +2731,7 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
         "flip_life_face_down" => Some(me.face_up_life_count.min(me.life.len() as i32) >= 1),
         "rest_self_chara_filtered" => {
             let filt = cv.get("filter");
-            Some(me.characters.iter().any(|c| !c.rested && matches_filter(&c.card, filt)))
+            Some(me.characters.iter().any(|c| !c.rested && matches_filter_ip(&c, filt)))
         }
         "reveal_hand_with_filter" | "discard_hand_with_filter" => {
             let (filt, count) = filter_and_count(cv);
@@ -2620,7 +2760,7 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
         // return_self_chara_to_hand cost: filter 一致の自キャラ ≥count 必要 (effects.py:8450)。
         "return_self_chara_to_hand" => {
             let (count, filt) = count_and_filter(cv);
-            Some(me.characters.iter().filter(|c| matches_filter(&c.card, filt)).count() >= count)
+            Some(me.characters.iter().filter(|c| matches_filter_ip(&c, filt)).count() >= count)
         }
         // trash_self_named_hand_or_field cost: 手札か自ステージに該当名が必要 (effects.py:8464、 OP06-033)。
         "trash_self_named_hand_or_field" => {
@@ -2673,7 +2813,7 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
         // ⚠ 以前ここを「未知キーは払える」既定にしたが、 それだと下記キーで判定が食い違う。
         "chara_to_self_life" => {
             let filt = cv.get("target").and_then(|t| t.get("filter"));
-            Some(me.characters.iter().any(|c| matches_filter(&c.card, filt)))
+            Some(me.characters.iter().any(|c| matches_filter_ip(&c, filt)))
         }
         "ko_self_chara" => {
             let (n, filt, excl) = if cv.is_object() {
@@ -2685,7 +2825,7 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
             };
             let src_idx = if let Slot::Char(i) = src { Some(i) } else { None };
             let cnt = (0..me.characters.len())
-                .filter(|&i| matches_filter(&me.characters[i].card, filt) && !(excl && Some(i) == src_idx))
+                .filter(|&i| matches_filter_ip(&me.characters[i], filt) && !(excl && Some(i) == src_idx))
                 .count();
             Some(cnt >= n)
         }
@@ -2703,13 +2843,13 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
             } else {
                 (cv.as_i64().unwrap_or(1) as usize, None)
             };
-            Some(me.characters.iter().filter(|c| matches_filter(&c.card, filt)).count() >= n)
+            Some(me.characters.iter().filter(|c| matches_filter_ip(&c, filt)).count() >= n)
         }
         // ⚠ Python (effects.py:8637) は **filter 一致** の枚数で払えるか見る。 count だけ見ると
         //   「コスト1のステージ」 指定を無視して 別コストのステージで払えると誤判定する (OP06-102)。
         "stage_to_deck_bottom" => {
             let (n, filt) = stage_count_and_filter(cv);
-            Some(me.stages.iter().filter(|s| matches_filter(&s.card, filt.as_ref())).count() >= n)
+            Some(me.stages.iter().filter(|s| matches_filter_ip(&s, filt.as_ref())).count() >= n)
         }
         "attach_opp_don_to_opp_chara" => {
             let (n, from_cost) = if cv.is_object() {
@@ -2847,11 +2987,11 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
             let mut avail: Vec<(Slot, bool)> = vec![]; // (slot, is_stage)
             {
                 let me = &state.players[me_idx];
-                if !me.leader.rested && matches_filter(&me.leader.card, filt) {
+                if !me.leader.rested && matches_filter_ip(&me.leader, filt) {
                     avail.push((Slot::Leader, false));
                 }
                 for i in 0..me.stages.len() {
-                    if !me.stages[i].rested && matches_filter(&me.stages[i].card, filt) {
+                    if !me.stages[i].rested && matches_filter_ip(&me.stages[i], filt) {
                         avail.push((Slot::Stage(i), true));
                     }
                 }
@@ -2868,7 +3008,7 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
             if me.don_active >= 1 {
                 me.don_active -= 1;
                 me.don_rested += 1;
-            } else if !me.leader.rested && matches_filter(&me.leader.card, filt) {
+            } else if !me.leader.rested && matches_filter_ip(&me.leader, filt) {
                 me.leader.rested = true;
             }
         }
@@ -2879,7 +3019,7 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
             {
                 let me = &state.players[me_idx];
                 for i in 0..me.characters.len() {
-                    if !me.characters[i].rested && matches_filter(&me.characters[i].card, filt) {
+                    if !me.characters[i].rested && matches_filter_ip(&me.characters[i], filt) {
                         avail.push((me.characters[i].power(), i));
                     }
                 }
@@ -3006,7 +3146,7 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
             let stages = std::mem::take(&mut pl.stages);
             let mut moved = 0usize;
             for s in stages {
-                if moved < count && matches_filter(&s.card, filt.as_ref()) {
+                if moved < count && matches_filter_ip(&s, filt.as_ref()) {
                     let don = s.attached_dons;
                     pl.deck.push(s.card);
                     pl.don_rested += don;
@@ -3024,7 +3164,7 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
                 .characters
                 .iter()
                 .enumerate()
-                .filter(|(_, c)| matches_filter(&c.card, filt))
+                .filter(|(_, c)| matches_filter_ip(&c, filt))
                 .map(|(i, c)| (i, c.power()))
                 .collect();
             cands.sort_by(|a, b| a.1.cmp(&b.1));
@@ -3051,7 +3191,7 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
                 .characters
                 .iter()
                 .enumerate()
-                .filter(|(_, c)| matches_filter(&c.card, filt))
+                .filter(|(_, c)| matches_filter_ip(&c, filt))
                 .map(|(i, c)| (i, c.power()))
                 .collect();
             cands.sort_by(|a, b| a.1.cmp(&b.1));
@@ -3142,7 +3282,7 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
             let src_idx = if let Slot::Char(i) = src { Some(i) } else { None };
             let mut cands: Vec<usize> = (0..state.players[me_idx].characters.len())
                 .filter(|&i| {
-                    matches_filter(&state.players[me_idx].characters[i].card, filt.as_ref())
+                    matches_filter_ip(&state.players[me_idx].characters[i], filt.as_ref())
                         && !(excl && Some(i) == src_idx)
                 })
                 .collect();
@@ -3789,7 +3929,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         "swap_self_power" => {
             let filt = v.get("filter").cloned();
             let mut cands: Vec<usize> = (0..state.players[me_idx].characters.len())
-                .filter(|&i| matches_filter(&state.players[me_idx].characters[i].card, filt.as_ref()))
+                .filter(|&i| matches_filter_ip(&state.players[me_idx].characters[i], filt.as_ref()))
                 .collect();
             if cands.len() < 2 {
                 return true;
@@ -3810,7 +3950,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             let amount = v.get("amount").and_then(|x| x.as_i64()).unwrap_or(1000) as i32;
             let duration = v.get("duration").and_then(|x| x.as_str()).unwrap_or("turn").to_string();
             let toks: Vec<Option<u64>> = (0..state.players[me_idx].characters.len())
-                .filter(|&i| matches_filter(&state.players[me_idx].characters[i].card, filt.as_ref()))
+                .filter(|&i| matches_filter_ip(&state.players[me_idx].characters[i], filt.as_ref()))
                 .collect::<Vec<_>>()
                 .into_iter()
                 .map(|i| tag_src(state, me_idx, Slot::Char(i)))
@@ -4428,7 +4568,7 @@ if me_board_has_when(state, opp_idx, "on_self_don_returned_to_deck") {
             let filt = v.get("filter").cloned().unwrap_or(json!({"power_le": 9000}));
             let opp = &state.players[opp_idx];
             let mut cands: Vec<usize> = (0..opp.characters.len())
-                .filter(|&i| matches_filter(&opp.characters[i].card, Some(&filt)))
+                .filter(|&i| matches_filter_ip(&opp.characters[i], Some(&filt)))
                 .collect();
             if cands.len() < 2 {
                 return true; // Python は return False = 忠実な no-op
@@ -4603,7 +4743,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             let cnt = state.players[me_idx]
                 .characters
                 .iter()
-                .filter(|c| matches_filter(&c.card, filt.as_ref()))
+                .filter(|c| matches_filter_ip(&c, filt.as_ref()))
                 .count();
             if cnt == 0 {
                 return true;
@@ -5313,7 +5453,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
         "give_ko_immune_through_opp_turn" => {
             let filt = v.get("filter");
             for c in state.players[me_idx].characters.iter_mut() {
-                if matches_filter(&c.card, filt) {
+                if matches_filter_ip(&c, filt) {
                     c.ko_immune_through_opp_turn = true;
                 }
             }
@@ -5942,7 +6082,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             let src_idx = if let Slot::Char(i) = src { Some(i) } else { None };
             let mut cands: Vec<usize> = (0..state.players[me_idx].characters.len())
                 .filter(|&i| {
-                    matches_filter(&state.players[me_idx].characters[i].card, filt)
+                    matches_filter_ip(&state.players[me_idx].characters[i], filt)
                         && !(excl && Some(i) == src_idx)
                 })
                 .collect();
@@ -6022,16 +6162,16 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             let mut cands: Vec<(Slot, i32)> = vec![];
             {
                 let me = &state.players[me_idx];
-                if !me.leader.rested && matches_filter(&me.leader.card, filt) {
+                if !me.leader.rested && matches_filter_ip(&me.leader, filt) {
                     cands.push((Slot::Leader, me.leader.power()));
                 }
                 for (i, c) in me.characters.iter().enumerate() {
-                    if !c.rested && matches_filter(&c.card, filt) {
+                    if !c.rested && matches_filter_ip(&c, filt) {
                         cands.push((Slot::Char(i), c.power()));
                     }
                 }
                 for (i, st) in me.stages.iter().enumerate() {
-                    if !st.rested && matches_filter(&st.card, filt) {
+                    if !st.rested && matches_filter_ip(&st, filt) {
                         cands.push((Slot::Stage(i), st.power()));
                     }
                 }
@@ -9357,7 +9497,7 @@ pub fn try_replace_ko(
                 let pl = &state.players[victim_owner];
                 let avail = std::iter::once(&pl.leader)
                     .chain(pl.stages.iter())
-                    .filter(|ip| !ip.rested && matches_filter(&ip.card, filt.as_ref()))
+                    .filter(|ip| !ip.rested && matches_filter_ip(&ip, filt.as_ref()))
                     .count();
                 if avail < n {
                     continue;
@@ -9487,13 +9627,13 @@ pub fn try_replace_ko(
                 let pl = &mut state.players[victim_owner];
                 let mut done = false;
                 for ip in pl.stages.iter_mut() {
-                    if !ip.rested && matches_filter(&ip.card, filt.as_ref()) {
+                    if !ip.rested && matches_filter_ip(&ip, filt.as_ref()) {
                         ip.rested = true;
                         done = true;
                         break;
                     }
                 }
-                if !done && !pl.leader.rested && matches_filter(&pl.leader.card, filt.as_ref()) {
+                if !done && !pl.leader.rested && matches_filter_ip(&pl.leader, filt.as_ref()) {
                     pl.leader.rested = true;
                 }
             }
@@ -10610,12 +10750,12 @@ fn can_pay_end_of_turn_cost(state: &GameState, owner: usize, src: Slot, cost: &V
         } else {
             (None, 1)
         };
-        if pl.characters.iter().filter(|c| matches_filter(&c.card, filt.as_ref())).count() < need {
+        if pl.characters.iter().filter(|c| matches_filter_ip(&c, filt.as_ref())).count() < need {
             return false;
         }
     }
     if let Some(ksf) = o.get("ko_self_with_filter") {
-        if !pl.characters.iter().any(|c| matches_filter(&c.card, Some(ksf))) {
+        if !pl.characters.iter().any(|c| matches_filter_ip(&c, Some(ksf))) {
             return false;
         }
     }
@@ -10779,7 +10919,7 @@ fn pay_end_of_turn_cost(
         let mut returned = 0usize;
         let mut i = 0usize;
         while i < state.players[owner].characters.len() && returned < need {
-            if matches_filter(&state.players[owner].characters[i].card, filt.as_ref()) {
+            if matches_filter_ip(&state.players[owner].characters[i], filt.as_ref()) {
             let ip = state.players[owner].characters.remove(i);
                 let don = ip.attached_dons;
                 state.players[owner].hand.push(ip.card);
@@ -10793,7 +10933,7 @@ fn pay_end_of_turn_cost(
     if let Some(ksf) = co.get("ko_self_with_filter").cloned() {
         // Python は最初の 1 体のみ KO し、 KO時トリガーを発火する。
         if let Some(i) = (0..state.players[owner].characters.len())
-            .find(|&i| matches_filter(&state.players[owner].characters[i].card, Some(&ksf)))
+            .find(|&i| matches_filter_ip(&state.players[owner].characters[i], Some(&ksf)))
         {
             let vcid = state.players[owner].characters[i].card.card_id.clone();
             note_ko_victim_negated(state, owner, i);
@@ -11224,7 +11364,7 @@ pub fn fire_activate_main(
                 }
             } else {
                 let mut cands: Vec<usize> = (0..state.players[me_idx].characters.len())
-                    .filter(|&i| matches_filter(&state.players[me_idx].characters[i].card, filt))
+                    .filter(|&i| matches_filter_ip(&state.players[me_idx].characters[i], filt))
                     .collect();
                 // Python: chara_cands.sort(key=power) = 昇順 (安定 = tie は board 順)
                 cands.sort_by_key(|&i| state.players[me_idx].characters[i].power());
@@ -11261,18 +11401,18 @@ pub fn fire_activate_main(
             let mut pool: Vec<(bool, i32, Slot)> = vec![];
             {
                 let me = &state.players[me_idx];
-                if !me.leader.rested && matches_filter(&me.leader.card, ro_filt) {
+                if !me.leader.rested && matches_filter_ip(&me.leader, ro_filt) {
                     pool.push((true, me.leader.power(), Slot::Leader));
                 }
                 for i in 0..me.characters.len() {
                     let ch = &me.characters[i];
-                    if !ch.rested && matches_filter(&ch.card, ro_filt) {
+                    if !ch.rested && matches_filter_ip(&ch, ro_filt) {
                         pool.push((false, ch.power(), Slot::Char(i)));
                     }
                 }
                 for i in 0..me.stages.len() {
                     let s = &me.stages[i];
-                    if !s.rested && matches_filter(&s.card, ro_filt) {
+                    if !s.rested && matches_filter_ip(&s, ro_filt) {
                         pool.push((false, s.power(), Slot::Stage(i)));
                     }
                 }
@@ -11291,7 +11431,7 @@ pub fn fire_activate_main(
         //   (self-ko なので on_opp_chara_ko は無し)。 未対応 on_ko/cascade は fire_on_ko/fire_field_when が bail。
         if let Some(kf) = c.get("ko_self_with_filter") {
             let me = &mut state.players[me_idx];
-            if let Some(i) = me.characters.iter().position(|ch| matches_filter(&ch.card, Some(kf))) {
+            if let Some(i) = me.characters.iter().position(|ch| matches_filter_ip(&ch, Some(kf))) {
                 let removed = me.characters.remove(i);
                 let vcid = removed.card.card_id.clone();
                 let don = removed.attached_dons;
@@ -11769,7 +11909,7 @@ fn can_pay_activate_cost(state: &GameState, me_idx: usize, ip: &InPlay, on_field
     }
     // ko_self_with_filter: filter 一致の自キャラ 1 枚以上必要 (value 自体が filter)
     if let Some(kf) = o.get("ko_self_with_filter") {
-        if !me.characters.iter().any(|c| matches_filter(&c.card, Some(kf))) {
+        if !me.characters.iter().any(|c| matches_filter_ip(&c, Some(kf))) {
             return false;
         }
     }
@@ -11787,7 +11927,7 @@ fn can_pay_activate_cost(state: &GameState, me_idx: usize, ip: &InPlay, on_field
         let n = ro.get("count").and_then(|v| v.as_i64()).unwrap_or(1) as usize;
         let ro_filt = ro.get("filter");
         let pool = std::iter::once(&me.leader).chain(me.characters.iter()).chain(me.stages.iter())
-            .filter(|ip| !ip.rested && matches_filter(&ip.card, ro_filt))
+            .filter(|ip| !ip.rested && matches_filter_ip(&ip, ro_filt))
             .count();
         if pool < n {
             return false;

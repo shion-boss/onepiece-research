@@ -1590,7 +1590,7 @@ def eval_condition(
             base_filt = {fk: fv for fk, fv in filt.items()
                          if fk not in ("current_power_ge", "current_power_le")}
             def _ip_matches(ip):
-                if not _matches_filter(ip.card, base_filt):
+                if not _matches_filter_ip(ip, base_filt):
                     return False
                 if rested_required and not ip.rested:
                     return False
@@ -1608,7 +1608,7 @@ def eval_condition(
             spec = v if isinstance(v, dict) else {}
             filt = spec.get("filter", {})
             need = int(spec.get("count", 0))
-            cnt = sum(1 for c in me.characters if _matches_filter(c.card, filt))
+            cnt = sum(1 for c in me.characters if _matches_filter_ip(c, filt))
             if cnt > need:
                 return False
         elif k == "opp_chara_filtered_count_ge" and opp is not None:
@@ -1617,7 +1617,7 @@ def eval_condition(
             spec = v if isinstance(v, dict) else {}
             filt = spec.get("filter", {})
             need = int(spec.get("count", 1))
-            count = sum(1 for c in opp.characters if _matches_filter(c.card, filt))
+            count = sum(1 for c in opp.characters if _matches_filter_ip(c, filt))
             if count < need:
                 return False
         elif k == "opp_chara_filtered_count_le" and opp is not None:
@@ -1626,7 +1626,7 @@ def eval_condition(
             spec = v if isinstance(v, dict) else {}
             filt = spec.get("filter", {})
             limit = int(spec.get("count", 0))
-            count = sum(1 for c in opp.characters if _matches_filter(c.card, filt))
+            count = sum(1 for c in opp.characters if _matches_filter_ip(c, filt))
             if count > limit:
                 return False
         elif k == "self_trash_has_named_all":
@@ -1811,7 +1811,7 @@ def eval_condition(
             spec = v if isinstance(v, dict) else {}
             filt = spec.get("filter", {})
             need = int(spec.get("count", 1))
-            distinct = {c.card.name for c in me.characters if _matches_filter(c.card, filt)}
+            distinct = {c.card.name for c in me.characters if _matches_filter_ip(c, filt)}
             if len(distinct) < need:
                 return False
         elif k == "self_trash_event_count_ge":
@@ -2211,7 +2211,7 @@ def _resolve_target(
             # 自リーダー / キャラから filter にマッチする 1 枚 (パワー高い順、 human は modal で選択)
             filt = target_spec.get("filter", {})
             cands = [ip for ip in [me.leader, *me.characters]
-                     if _matches_filter(ip.card, filt)]
+                     if _matches_filter_ip(ip, filt)]
             if iid_picks is not None:
                 return [ip for ip in cands if ip.instance_id in iid_picks][:1]
             if outer_kind and _maybe_request_target_pick(
@@ -2225,7 +2225,7 @@ def _resolve_target(
             # 自キャラのみから filter にマッチする 1 枚 (パワー高い順、 human は modal で選択)
             filt = target_spec.get("filter", {})
             cands = [ip for ip in me.characters
-                     if _matches_filter(ip.card, filt)]
+                     if _matches_filter_ip(ip, filt)]
             # 「(現在の) パワー N 以下/以上」 (= 元々のパワー でなく バフ込み 現在値)。
             # _matches_filter は CardDef ベースで現在値を見られないため ここで InPlay.power を判定。
             if "current_power_le" in filt:
@@ -2257,13 +2257,13 @@ def _resolve_target(
             # (自他両方)。 未処理で 0 対象 = silent no-op だった (2026-06-05 target dict 次元 sweep)。
             filt = target_spec.get("filter", {})
             return [ip for ip in [*me.characters, *opp.characters]
-                    if _matches_filter(ip.card, filt)]
+                    if _matches_filter_ip(ip, filt)]
         if t == "all_self_chara_filtered":
             # 自キャラ全員 (filter マッチ)。 limit 指定で上限あり (= 「N 枚まで」)。
             # rested フィールド (= optional) で active/rested を 絞れる。
             # human + 候補 > limit なら modal で 選択。
             filt = target_spec.get("filter", {})
-            cands = [ip for ip in me.characters if _matches_filter(ip.card, filt)]
+            cands = [ip for ip in me.characters if _matches_filter_ip(ip, filt)]
             if "rested" in target_spec:
                 rested_required = bool(target_spec["rested"])
                 cands = [ip for ip in cands if ip.rested == rested_required]
@@ -2298,7 +2298,7 @@ def _resolve_target(
             # EB02-007 等)。 AI は power 高い順に limit 枚。
             filt = target_spec.get("filter", {})
             cands = [ip for ip in [me.leader, *me.characters]
-                     if _matches_filter(ip.card, filt)]
+                     if _matches_filter_ip(ip, filt)]
             if "limit" in target_spec:
                 cands = sorted(cands, key=lambda ip: -ip.power)[:int(target_spec["limit"])]
             return cands
@@ -2312,7 +2312,7 @@ def _resolve_target(
             blocker_required = bool(filt.get("blocker", False))
 
             def _chara_filter_ok(ip) -> bool:
-                if not _matches_filter(ip.card, filt):
+                if not _matches_filter_ip(ip, filt):
                     return False
                 if attached_don_ge > 0 and ip.attached_dons < attached_don_ge:
                     return False
@@ -2359,7 +2359,7 @@ def _resolve_target(
             # 相手キャラ全員 (filter マッチ)。 limit 指定で上限あり (= 「N 枚まで」)。
             # 公式 「相手のキャラ N 枚まで」 で、 power 5000 制限がないケースに使う。
             filt = target_spec.get("filter", {})
-            cands = [ip for ip in opp.characters if _matches_filter(ip.card, filt)]
+            cands = [ip for ip in opp.characters if _matches_filter_ip(ip, filt)]
             limit = target_spec.get("limit")
             if iid_picks is not None and limit is not None:
                 return [ip for ip in cands if ip.instance_id in iid_picks][:int(limit)]
@@ -2373,11 +2373,25 @@ def _resolve_target(
                 cands.sort(key=lambda ip: -_opp_value(ip))
                 return cands[:int(limit)]
             return cands
+        if t == "one_inplay_either_filtered":
+            # 両陣営のリーダー/キャラ から filter にマッチする 1 枚 (公式が 「相手の」 と
+            # 書いていない場合)。 = one_opponent_inplay_filtered の両陣営版。
+            filt = target_spec.get("filter", {})
+            opp_cands = [ip for ip in [opp.leader, *opp.characters]
+                         if _matches_filter_ip(ip, filt)]
+            self_cands = [ip for ip in [me.leader, *me.characters]
+                          if _matches_filter_ip(ip, filt)]
+            if iid_picks is not None:
+                return [ip for ip in (opp_cands + self_cands)
+                        if ip.instance_id in iid_picks][:1]
+            picked = _either_pick_one(
+                opp_cands, self_cands, "両陣営のリーダー/キャラ から 1 枚 選択")
+            return [] if picked is None else picked
         if t == "one_opponent_inplay_filtered":
             # 相手リーダー or キャラ から filter にマッチする 1 枚
             filt = target_spec.get("filter", {})
             cands = [opp.leader, *opp.characters]
-            cands = [ip for ip in cands if _matches_filter(ip.card, filt)]
+            cands = [ip for ip in cands if _matches_filter_ip(ip, filt)]
             if iid_picks is not None:
                 return [ip for ip in cands if ip.instance_id in iid_picks][:1]
             if outer_kind and _maybe_request_target_pick(
@@ -2391,7 +2405,7 @@ def _resolve_target(
             # 自分のステージから filter にマッチする 1 枚 (= レスト中優先、 human は modal で選択)。
             # 公式 「自分の紫のステージ1枚までを、 アクティブにする」 (P-077 等)。
             filt = target_spec.get("filter", {})
-            cands = [ip for ip in me.stages if _matches_filter(ip.card, filt)]
+            cands = [ip for ip in me.stages if _matches_filter_ip(ip, filt)]
             if iid_picks is not None:
                 return [ip for ip in cands if ip.instance_id in iid_picks][:1]
             if outer_kind and _maybe_request_target_pick(
@@ -2600,6 +2614,11 @@ def _resolve_target(
             return []
         cands.sort(key=lambda c: -_opp_value(c))
         return cands[:1]
+    if target_spec == "one_character_either_any":
+        # 公式 「キャラ1枚まで」 (= 修飾なし → 両陣営)。 OP03-057 三・千・世・界 等。
+        picked = _either_pick_one(
+            list(opp.characters), list(me.characters), "両陣営のキャラ から 1 枚 選択")
+        return [] if picked is None else picked
     if target_spec == "one_opponent_character_any":
         cands = list(opp.characters)
         if outer_kind and _maybe_request_target_pick(
@@ -2722,7 +2741,8 @@ def _resolve_target(
         # 未処理だと 0 対象で silent no-op (= 効果が丸ごと不発) だったので同 semantics で受ける
         # (2026-08-02。 「コストN以下のキャラ1枚」 = 両陣営、 AI は相手優先)。
         m = (
-            re.match(r"one_character_either(_except_self)?_cost_le_(\d+)(?:cost)?$", target_spec)
+            re.match(r"one_character_either(_except_self)?_(?:any_)?cost_le_(\d+)(?:cost)?$",
+                     target_spec)
             or re.match(r"one_inplay(_except_self)?_cost_le_(\d+)(?:cost)?$", target_spec)
         )
         if m:
@@ -2732,17 +2752,9 @@ def _resolve_target(
             self_cands = [c for c in me.characters if _cost_of(c) <= n
                           and not (except_self and self_inplay is not None
                                    and c.instance_id == self_inplay.instance_id)]
-            cands = opp_cands + self_cands
-            if outer_kind and _maybe_request_target_pick(
-                state, cands, 1, outer_kind, outer_value, self_inplay,
-                description=f"両陣営のキャラ から 1 枚 選択 (コスト≤{n})",
-            ):
-                return []
-            # AI auto-pick: 相手キャラ優先 (= 除去価値高い順)、 無ければ自キャラ。
-            opp_cands.sort(key=lambda c: -_opp_value(c))
-            if opp_cands:
-                return opp_cands[:1]
-            return self_cands[:1]
+            picked = _either_pick_one(
+                opp_cands, self_cands, f"両陣営のキャラ から 1 枚 選択 (コスト≤{n})")
+            return [] if picked is None else picked
         # 現在コスト (= base_cost、 cost_minus 反映) 版。 クロコダイル「コスト0」 系 (= leader が
         # cost-10 して 作った コスト0 を 拾う)。 通常の cost_le_N は「元々のコスト」 (card.cost) のまま。
         m = re.match(r"one_opponent_character_current_cost_le_(\d+)$", target_spec)
@@ -2802,6 +2814,29 @@ def _resolve_target(
             cands.sort(key=_threat_key)  # 脅威度優先 + power tie-break
             return cands[:1]
 
+        # one_character_either_power_eq_N (両陣営、 パワー N ぴったり、 1 体)。
+        # 公式 「元々のパワー N のキャラ1枚まで」 (= 修飾なし → 両陣営)。 EB03-027 マーガレット等。
+        m = re.match(r"one_character_either_power_eq_(\d+)$", target_spec)
+        if m:
+            n = int(m.group(1))
+            picked = _either_pick_one(
+                [c for c in opp.characters if c.card.power == n],
+                [c for c in me.characters if c.card.power == n],
+                f"両陣営のキャラ から 1 枚 選択 (元々のパワー={n})",
+            )
+            return [] if picked is None else picked
+        # one_character_either_cost_eq_N (両陣営、 コスト N ぴったり、 1 体)。
+        # 素の 「コストN の」 は現在コスト、 「元々のコストN の」 は spec 名の
+        # `_truly_original_cost_` で入口正規化されて印刷コストになる (= _cost_of)。
+        m = re.match(r"one_character_either_cost_eq_(\d+)(?:cost)?$", target_spec)
+        if m:
+            n = int(m.group(1))
+            picked = _either_pick_one(
+                [c for c in opp.characters if _cost_of(c) == n],
+                [c for c in me.characters if _cost_of(c) == n],
+                f"両陣営のキャラ から 1 枚 選択 (コスト={n})",
+            )
+            return [] if picked is None else picked
         # one_opponent_character_power_eq_N (パワー N ぴったり、 1 体)。
         # 公式「元々のパワー N」 用 (= CardDef.power で判定)。
         m = re.match(r"one_opponent_character_power_eq_(\d+)$", target_spec)
@@ -3518,7 +3553,7 @@ def _execute_effect_body(
             kc_excl = bool(spec_val.get("exclude_self", False))
             cands = [
                 c for c in me.characters
-                if _matches_filter(c.card, kc_filt)
+                if _matches_filter_ip(c, kc_filt)
                 and not (kc_excl and self_inplay is not None
                          and c.instance_id == self_inplay.instance_id)
             ]
@@ -3547,7 +3582,7 @@ def _execute_effect_body(
             filt = spec_val.get("filter", {})
             amount = int(spec_val.get("amount", 1000))
             duration = spec_val.get("duration", "turn")
-            victims = [c for c in list(me.characters) if _matches_filter(c.card, filt)]
+            victims = [c for c in list(me.characters) if _matches_filter_ip(c, filt)]
             ko_count = 0
             for tch in victims:
                 if tch not in me.characters:
@@ -6669,7 +6704,7 @@ def _execute_effect_body(
             # このターン中、 入れ替える」 (OP14-017 等)。
             spec_val = v if isinstance(v, dict) else {}
             filt = spec_val.get("filter", {"power_le": 9000})
-            cands = [c for c in opp.characters if _matches_filter(c.card, filt)]
+            cands = [c for c in opp.characters if _matches_filter_ip(c, filt)]
             if len(cands) < 2:
                 state.push_log(f"  効果: swap_opp_power 該当 2 枚未満 (不発)")
                 return False
@@ -6699,7 +6734,7 @@ def _execute_effect_body(
             # このターン中、 入れ替える」 (OP14-001 ロー、 超新星/ハートの海賊団)。 swap_opp_power の自版。
             spec_val = v if isinstance(v, dict) else {}
             filt = spec_val.get("filter", {})
-            cands = [c for c in me.characters if _matches_filter(c.card, filt)]
+            cands = [c for c in me.characters if _matches_filter_ip(c, filt)]
             if len(cands) < 2:
                 state.push_log("  効果: swap_self_power 該当 2 枚未満 (不発)")
                 return False
@@ -6830,7 +6865,7 @@ def _execute_effect_body(
             # (EB04-011 ウロコ等)。 filter 一致の自キャラ数だけ draw → 同数 discard。
             spec_val = v if isinstance(v, dict) else {}
             filt = spec_val.get("filter", {})
-            cnt = sum(1 for c in me.characters if _matches_filter(c.card, filt))
+            cnt = sum(1 for c in me.characters if _matches_filter_ip(c, filt))
             if cnt <= 0:
                 state.push_log("  効果: 該当キャラ0 (ドローなし)")
                 return False
@@ -7356,7 +7391,7 @@ def _execute_effect_body(
             iid_picks = spec_val.get("_iid_picks")
             cands = [
                 ip for ip in [me.leader, *me.characters, *me.stages]
-                if not ip.rested and _matches_filter(ip.card, filt)
+                if not ip.rested and _matches_filter_ip(ip, filt)
             ]
             if len(cands) < count:
                 state.push_log(f"  効果: レスト不能 (active 不足)")
@@ -7910,7 +7945,7 @@ def _execute_effect_body(
             spec_val = v if isinstance(v, dict) else {}
             filt = spec_val.get("filter", {})
             for ip in me.characters:
-                if _matches_filter(ip.card, filt):
+                if _matches_filter_ip(ip, filt):
                     ip.ko_immune_through_opp_turn = True
             state.push_log(
                 f"  効果: KO耐性 (next_opp_turn_end) → filter={filt}"
@@ -8571,7 +8606,7 @@ def _execute_effect_body(
                     _cl = cs["chara_to_self_life"]
                     _cl_tgt = _cl.get("target", {}) if isinstance(_cl, dict) else {}
                     _cl_filt = _cl_tgt.get("filter", {}) if isinstance(_cl_tgt, dict) else {}
-                    if not any(_matches_filter(c.card, _cl_filt) for c in me.characters):
+                    if not any(_matches_filter_ip(c, _cl_filt) for c in me.characters):
                         can_pay = False
                         break
                 elif "rest_self_don" in cs:
@@ -8697,7 +8732,7 @@ def _execute_effect_body(
                     else:
                         sb_count = int(sb_spec)
                         sb_filt = {}
-                    matching = [s for s in me.stages if _matches_filter(s.card, sb_filt)]
+                    matching = [s for s in me.stages if _matches_filter_ip(s, sb_filt)]
                     if len(matching) < sb_count:
                         can_pay = False
                         break
@@ -8712,7 +8747,7 @@ def _execute_effect_body(
                     else:
                         rb_count = int(rb_spec)
                         rb_filt = {}
-                    matching = [c for c in me.characters if _matches_filter(c.card, rb_filt)]
+                    matching = [c for c in me.characters if _matches_filter_ip(c, rb_filt)]
                     if len(matching) < rb_count:
                         can_pay = False
                         break
@@ -8728,7 +8763,7 @@ def _execute_effect_body(
                     else:
                         rh_count = int(rh_spec)
                         rh_filt = {}
-                    matching = [c for c in me.characters if _matches_filter(c.card, rh_filt)]
+                    matching = [c for c in me.characters if _matches_filter_ip(c, rh_filt)]
                     if len(matching) < rh_count:
                         can_pay = False
                         break
@@ -8748,7 +8783,7 @@ def _execute_effect_body(
                         kc_excl = False
                     matching = [
                         c for c in me.characters
-                        if _matches_filter(c.card, kc_filt)
+                        if _matches_filter_ip(c, kc_filt)
                         and not (kc_excl and self_inplay is not None
                                  and c.instance_id == self_inplay.instance_id)
                     ]
@@ -8778,7 +8813,7 @@ def _execute_effect_body(
                     rl_n = int(rl_spec.get("count", 1)) if isinstance(rl_spec, dict) else int(rl_spec)
                     rl_filt = rl_spec.get("filter", {}) if isinstance(rl_spec, dict) else {}
                     pool = ([me.leader] if me.leader is not None else []) + list(me.stages)
-                    avail = [ip for ip in pool if not ip.rested and _matches_filter(ip.card, rl_filt)]
+                    avail = [ip for ip in pool if not ip.rested and _matches_filter_ip(ip, rl_filt)]
                     if len(avail) < rl_n:
                         can_pay = False
                         break
@@ -8788,7 +8823,7 @@ def _execute_effect_body(
                     rd_spec = cs["rest_self_leader_filtered_or_don"]
                     rd_filt = rd_spec.get("filter", {}) if isinstance(rd_spec, dict) else {}
                     leader_ok = (me.leader is not None and not me.leader.rested
-                                 and _matches_filter(me.leader.card, rd_filt))
+                                 and _matches_filter_ip(me.leader, rd_filt))
                     if not leader_ok and me.don_active < 1:
                         can_pay = False
                         break
@@ -8798,7 +8833,7 @@ def _execute_effect_body(
                     rc_spec = cs["rest_self_chara_filtered"]
                     rc_n = int(rc_spec.get("count", 1)) if isinstance(rc_spec, dict) else int(rc_spec)
                     rc_filt = rc_spec.get("filter", {}) if isinstance(rc_spec, dict) else {}
-                    avail = [c for c in me.characters if not c.rested and _matches_filter(c.card, rc_filt)]
+                    avail = [c for c in me.characters if not c.rested and _matches_filter_ip(c, rc_filt)]
                     if len(avail) < rc_n:
                         can_pay = False
                         break
@@ -8880,7 +8915,7 @@ def _execute_effect_body(
                     rl_n = int(rl_spec.get("count", 1)) if isinstance(rl_spec, dict) else int(rl_spec)
                     rl_filt = rl_spec.get("filter", {}) if isinstance(rl_spec, dict) else {}
                     pool = ([me.leader] if me.leader is not None else []) + list(me.stages)
-                    avail = [ip for ip in pool if not ip.rested and _matches_filter(ip.card, rl_filt)]
+                    avail = [ip for ip in pool if not ip.rested and _matches_filter_ip(ip, rl_filt)]
                     # AI 簡易: ステージ優先で rest (= リーダーは攻撃に使いたい)。
                     avail.sort(key=lambda ip: 0 if ip in me.stages else 1)
                     for ip in avail[:rl_n]:
@@ -8895,7 +8930,7 @@ def _execute_effect_body(
                         me.don_active -= 1
                         me.don_rested += 1
                         state.push_log("  効果コスト: ドン!!1枚をレスト")
-                    elif me.leader is not None and not me.leader.rested and _matches_filter(me.leader.card, rd_filt):
+                    elif me.leader is not None and not me.leader.rested and _matches_filter_ip(me.leader, rd_filt):
                         me.leader.rested = True
                         state.push_log(f"  効果コスト: リーダー {me.leader.card.name} をレスト")
                     continue
@@ -8903,7 +8938,7 @@ def _execute_effect_body(
                     rc_spec = cs["rest_self_chara_filtered"]
                     rc_n = int(rc_spec.get("count", 1)) if isinstance(rc_spec, dict) else int(rc_spec)
                     rc_filt = rc_spec.get("filter", {}) if isinstance(rc_spec, dict) else {}
-                    avail = [c for c in me.characters if not c.rested and _matches_filter(c.card, rc_filt)]
+                    avail = [c for c in me.characters if not c.rested and _matches_filter_ip(c, rc_filt)]
                     avail.sort(key=lambda c: c.power)  # AI 簡易: power 低い順
                     for ip in avail[:rc_n]:
                         ip.rested = True
@@ -9101,7 +9136,7 @@ def _execute_effect_body(
                     moved = 0
                     new_stages = []
                     for s in me.stages:
-                        if moved < sb_count and _matches_filter(s.card, sb_filt):
+                        if moved < sb_count and _matches_filter_ip(s, sb_filt):
                             me.deck.append(s.card)
                             moved += 1
                             state.push_log(
@@ -9124,7 +9159,7 @@ def _execute_effect_body(
                         rh_count = int(rh_spec)
                         rh_filt = {}
                     # AI 簡易: power 低い順に取り出す。
-                    cands = [c for c in me.characters if _matches_filter(c.card, rh_filt)]
+                    cands = [c for c in me.characters if _matches_filter_ip(c, rh_filt)]
                     cands.sort(key=lambda c: c.power)
                     if _maybe_pick_self_chara_cost(state, me, self_inplay, cands, rh_count, "hand",
                                                    list(cost_specs[_ci + 1:]) + list(effect_specs)):
@@ -9158,7 +9193,7 @@ def _execute_effect_body(
                         rb_count = int(rb_spec)
                         rb_filt = {}
                     # AI 簡易: filter 一致の中から power 低い順 (= 最も惜しくないキャラ) を取り出す。
-                    cands = [c for c in me.characters if _matches_filter(c.card, rb_filt)]
+                    cands = [c for c in me.characters if _matches_filter_ip(c, rb_filt)]
                     cands.sort(key=lambda c: c.power)
                     if _maybe_pick_self_chara_cost(state, me, self_inplay, cands, rb_count, "deck_bottom",
                                                    list(cost_specs[_ci + 1:]) + list(effect_specs)):
@@ -9195,7 +9230,7 @@ def _execute_effect_body(
                         kc_excl = False
                     cands = [
                         c for c in me.characters
-                        if _matches_filter(c.card, kc_filt)
+                        if _matches_filter_ip(c, kc_filt)
                         and not (kc_excl and self_inplay is not None
                                  and c.instance_id == self_inplay.instance_id)
                     ]
@@ -10857,6 +10892,37 @@ def name_matches(card: CardDef, target: str) -> bool:
     return False
 
 
+def _matches_filter_ip(ip: Any, filt: dict[str, Any]) -> bool:
+    """**場に出ている InPlay** に対する filter 判定 (= コストは公式どおり現在値で見る)。
+
+    ⭐ 公式 (ルール 1-3-6-2 + cardqa_op_02): 素の 「コストN以下」 は **効果修正後の現在コスト**。
+      `_matches_filter` は `CardDef` しか受け取らないので **印刷コスト固定** で、 場のキャラに
+      対して使うと 「コストを下げてから除去する」 実在ラインが機能しない。
+
+    ここで plain な `cost_le/ge/eq` / `cost` を `InPlay.base_cost` (= cost_minus 反映) で判定し、
+    残りは従来どおり `_matches_filter(ip.card, ...)` に委譲する。
+    「元々のコスト」 は `truly_original_cost_*` (印刷値) なので委譲側でそのまま正しい。
+
+    ⚠ 手札/デッキ/トラッシュのカードには使わない (= そこでは修正が乗らず印刷値=現在値)。
+    """
+    if not filt:
+        return True
+    plain = ("cost_le", "cost_ge", "cost_eq", "cost")
+    if not any(k in filt for k in plain):
+        return _matches_filter(ip.card, filt)
+    cur = ip.base_cost
+    if "cost_le" in filt and cur > int(filt["cost_le"]):
+        return False
+    if "cost_ge" in filt and cur < int(filt["cost_ge"]):
+        return False
+    if "cost_eq" in filt and cur != int(filt["cost_eq"]):
+        return False
+    if "cost" in filt and cur != int(filt["cost"]):
+        return False
+    rest = {k: v for k, v in filt.items() if k not in plain}
+    return _matches_filter(ip.card, rest)
+
+
 def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
     if not filt:
         return True
@@ -11273,14 +11339,14 @@ def evaluate_static_effects(
                         if scope in ("opp", "both"):
                             pools += list(opp.characters)
                         for t in pools:
-                            if _matches_filter(t.card, filt):
+                            if _matches_filter_ip(t, filt):
                                 t.cannot_attack_static = True
                         continue
                     if "set_effect_negate_filtered_static" in primitive:
                         spec = primitive["set_effect_negate_filtered_static"]
                         excl = spec.get("exclude_filter", {})
                         for t in list(me.characters):
-                            if not _matches_filter(t.card, excl):
+                            if not _matches_filter_ip(t, excl):
                                 t.static_granted_keywords.add("効果無効")
                         continue
                     # 「相手キャラは自分の効果で離れない」常在 (OP14-079 黒クロコ)
@@ -11418,14 +11484,14 @@ def evaluate_static_effects(
                         if "delta" in spec:
                             delta = int(spec["delta"])
                             for t in targets_pool:
-                                if not _matches_filter(t.card, filt):
+                                if not _matches_filter_ip(t, filt):
                                     continue
                                 cur = t.base_cost_override if t.base_cost_override is not None else t.card.cost
                                 t.base_cost_override = max(0, cur + delta)
                         elif "amount" in spec:
                             amount = int(spec["amount"])
                             for t in targets_pool:
-                                if not _matches_filter(t.card, filt):
+                                if not _matches_filter_ip(t, filt):
                                     continue
                                 t.base_cost_override = amount
                         continue
@@ -11554,13 +11620,13 @@ def _can_pay_end_of_turn_cost(
         else:
             filt, need = {}, 1
         from_chara = list(owner.characters)
-        candidates = [c for c in from_chara if _matches_filter(c.card, filt)]
+        candidates = [c for c in from_chara if _matches_filter_ip(c, filt)]
         if len(candidates) < need:
             return False
     # ko_self_with_filter
     ksf = cost.get("ko_self_with_filter")
     if ksf:
-        if not any(_matches_filter(c.card, ksf) for c in owner.characters):
+        if not any(_matches_filter_ip(c, ksf) for c in owner.characters):
             return False
     return True
 
@@ -11646,7 +11712,7 @@ def _pay_end_of_turn_cost(
         for c in list(me.characters):
             if returned >= need:
                 break
-            if not _matches_filter(c.card, filt):
+            if not _matches_filter_ip(c, filt):
                 continue
             me.characters.remove(c)
             me.hand.append(c.card)
@@ -11659,7 +11725,7 @@ def _pay_end_of_turn_cost(
     ksf = cost.get("ko_self_with_filter")
     if ksf:
         for c in list(me.characters):
-            if _matches_filter(c.card, ksf):
+            if _matches_filter_ip(c, ksf):
                 me.characters.remove(c)
                 me.trash.append(c.card)
                 if c.attached_dons > 0:
@@ -12858,7 +12924,7 @@ def _can_pay_replace_cost(
             rl_spec = cs["rest_self_leader_or_stage_filtered"]
             rl_filt = rl_spec.get("filter", {}) if isinstance(rl_spec, dict) else {}
             pool = ([me.leader] if me.leader is not None else []) + list(me.stages)
-            if not any(not ip.rested and _matches_filter(ip.card, rl_filt) for ip in pool):
+            if not any(not ip.rested and _matches_filter_ip(ip, rl_filt) for ip in pool):
                 return False
         elif "return_self_don_to_deck" in cs:
             # 「代わりに自分の場のドン1枚をドンデッキに戻す」 (EB04-031)。 場にドン必要。
@@ -12971,7 +13037,7 @@ def _pay_replace_cost(
             rl_filt = rl_spec.get("filter", {}) if isinstance(rl_spec, dict) else {}
             pool = list(me.stages) + ([me.leader] if me.leader is not None else [])
             for ip in pool:  # ステージ優先で rest (リーダー温存)
-                if not ip.rested and _matches_filter(ip.card, rl_filt):
+                if not ip.rested and _matches_filter_ip(ip, rl_filt):
                     ip.rested = True
                     state.push_log(f"  離脱置換コスト: 自レスト {ip.card.name}")
                     break
@@ -13501,7 +13567,7 @@ def _can_pay_activate_cost(
     ko_filter = cost.get("ko_self_with_filter")
     if ko_filter:
         # filter 一致の自キャラが少なくとも 1 枚必要
-        candidates = [c for c in me.characters if _matches_filter(c.card, ko_filter)]
+        candidates = [c for c in me.characters if _matches_filter_ip(c, ko_filter)]
         if not candidates:
             return False
     rest_filter_name = cost.get("rest_self_target_name") or cost.get("rest_self_target")
@@ -13526,7 +13592,7 @@ def _can_pay_activate_cost(
         _ro_filt = rest_own.get("filter", {}) if isinstance(rest_own, dict) else {}
         _ro_pool = [
             ip for ip in ([me.leader] + list(me.characters) + list(me.stages))
-            if ip is not None and not ip.rested and _matches_filter(ip.card, _ro_filt)
+            if ip is not None and not ip.rested and _matches_filter_ip(ip, _ro_filt)
         ]
         if len(_ro_pool) < _ro_n:
             return False
@@ -13537,7 +13603,7 @@ def _can_pay_activate_cost(
     if choice_cost:
         n = int(choice_cost.get("n", 1))
         c_filt = choice_cost.get("filter", {})
-        chara_cands = [c for c in me.characters if _matches_filter(c.card, c_filt)]
+        chara_cands = [c for c in me.characters if _matches_filter_ip(c, c_filt)]
         if len(me.hand) < n and len(chara_cands) < n:
             return False
     # ⚠ 公式: 【ターン1回】 の **無い** 起動メインは コストを払える限り何度でも起動できる。
@@ -14054,7 +14120,7 @@ def fire_activate_main(
     if choice_cost:
         n = int(choice_cost.get("n", 1))
         c_filt = choice_cost.get("filter", {})
-        chara_cands = [c for c in me.characters if _matches_filter(c.card, c_filt)]
+        chara_cands = [c for c in me.characters if _matches_filter_ip(c, c_filt)]
         # resume key: discard_idxs (= 既存 activate_main_discard_pick modal 由来、 手札 axis) /
         #             choice_cost_chara_iid (= activate_main_cost_pick modal 由来、 キャラ axis)。
         # 既存 2 modal を 再利用するため 新 UI component 不要。
@@ -14136,7 +14202,7 @@ def fire_activate_main(
     # 人間 acting + 候補 > 1 + pick 未指定 → modal halt + activate_main_cost_pick で resume。
     ko_filter = cost.get("ko_self_with_filter")
     if ko_filter is not None:
-        candidates = [c for c in me.characters if _matches_filter(c.card, ko_filter)]
+        candidates = [c for c in me.characters if _matches_filter_ip(c, ko_filter)]
         if candidates:
             target = None
             if "ko_iid" in cost_picks:
@@ -14251,7 +14317,7 @@ def fire_activate_main(
         ro_filt = rest_own.get("filter", {}) if isinstance(rest_own, dict) else {}
         ro_pool = [
             ip for ip in ([me.leader] + list(me.characters) + list(me.stages))
-            if ip is not None and not ip.rested and _matches_filter(ip.card, ro_filt)
+            if ip is not None and not ip.rested and _matches_filter_ip(ip, ro_filt)
         ]
         if ro_pool:
             chosen = []

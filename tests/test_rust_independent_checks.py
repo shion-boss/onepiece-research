@@ -72,3 +72,20 @@ def test_sonogo_order_matches_official_text():
         "公式テキストの 「その後、」 と overlay の do 順が食い違っている:\n"
         f"{r.stdout}\n{r.stderr}"
     )
+
+
+def test_target_scope_matches_official_wording():
+    """公式が 「相手の」 と書いていない 「キャラ1枚まで」 を overlay が片側限定にしていない。
+
+    修飾なし = **両陣営** (自分のキャラ / 発動元自身も選べる) が公式。 複数弾の Q&A で
+    繰り返し明示された一般則で、 間違えると選択肢が丸ごと消える。 overlay は Python/Rust
+    共通なので **差分検証では原理的に沈黙する** クラス (2026-08-04 に 46 枚を是正)。
+    """
+    r = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "audit_target_scope.py"), "--assert"],
+        capture_output=True, text=True, cwd=str(ROOT), timeout=600,
+    )
+    assert r.returncode == 0, (
+        "公式テキストの対象範囲と overlay の spec が食い違っている:\n"
+        f"{r.stdout}\n{r.stderr}"
+    )

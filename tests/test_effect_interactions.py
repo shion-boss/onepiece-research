@@ -879,3 +879,128 @@ def test_no_card_needs_plain_cost_attack_restriction():
         "素の 「コスト」 でアタック制限するカードが現れた。 消費側 (game.py:_can_attack_target) を "
         f"現在コストで判定する分岐に拡張すること: {offenders}"
     )
+
+
+# ---------------------------------------------------------------------------
+# 公式の対象範囲 (2026-08-04 是正)
+#   「**相手の** コスト3以下のキャラ1枚まで」 → 相手のみ
+#   「コスト3以下のキャラ1枚まで」          → **両陣営** (自分のキャラ / 発動元自身も選べる)
+# 一次情報は docs/official_rulings.md を参照 (複数弾で繰り返された一般則)。
+# ---------------------------------------------------------------------------
+
+def _either_board(repo, ov, mine: list[str], theirs: list[str]):
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p0.characters = [InPlay.of(repo.get(c), sickness=False) for c in mine]
+    p1.characters = [InPlay.of(repo.get(c), sickness=False) for c in theirs]
+    for p in (p0, p1):
+        p.deck = [repo.get("OP01-013")] * 10
+        p.life = [repo.get("OP01-013")] * 3
+    st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                   rng=random.Random(1), effects_overlay=ov)
+    st.turn_player_idx, st.turn_number = 0, 5
+    return st, p0, p1
+
+
+def test_unqualified_character_target_can_hit_own_board():
+    """修飾なし 「キャラ1枚まで」 は 相手が居なくても **自分のキャラ** を対象にできる。
+
+    ここが片側限定だと 「自キャラを戻して【登場時】を撃ち直す」 「KO から逃がす」 という
+    実在ラインが engine から丸ごと消える。 しかも overlay は Python/Rust 共通なので
+    **差分検証では永久に沈黙する** クラスのバグ。
+    """
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    cheap = "OP01-013"
+
+    specs = [
+        ("cost_le", {"return_to_deck_bottom": "one_character_either_cost_le_5"}),
+        ("any", {"return_to_deck_bottom": "one_character_either_any"}),
+        ("filtered", {"return_to_deck_bottom": {
+            "type": "one_character_either_filtered", "filter": {"cost_le": 5}}}),
+    ]
+    for label, eff in specs:
+        st, p0, p1 = _either_board(repo, ov, [cheap], [])
+        execute_effect(eff, st, p0, p1, None)
+        assert not p0.characters, (
+            f"{label}: 相手の場が空なのに自分のキャラを対象にできていない "
+            "(公式: 修飾なし 「キャラ1枚まで」 は両陣営)"
+        )
+
+    # 対照: 相手が居れば AI は相手を優先する (= 自陣を巻き込まない)
+    st, p0, p1 = _either_board(repo, ov, [cheap], [cheap])
+    execute_effect({"return_to_deck_bottom": "one_character_either_cost_le_5"}, st, p0, p1, None)
+    assert not p1.characters and len(p0.characters) == 1, (
+        "相手キャラが居る時は相手を優先すべき (AI の除去価値)"
+    )
+
+
+def test_target_scope_audit_is_clean():
+    """公式テキストの 「相手の」 修飾の有無と overlay の spec 片側限定が一致している。"""
+    import subprocess
+    import sys as _sys
+    r = subprocess.run(
+        [_sys.executable, str(ROOT / "scripts" / "audit_target_scope.py"), "--assert"],
+        capture_output=True, text=True, cwd=str(ROOT), timeout=600,
+    )
+    assert r.returncode == 0, (
+        "公式が 「相手の」 と書いていない対象を overlay が片側限定にしている:\n"
+        f"{r.stdout}\n{r.stderr}"
+    )
+
+
+def test_filter_dict_cost_also_uses_current_cost():
+    """filter dict の `cost_le` も **場のキャラに対しては現在コスト** で判定する。
+
+    `_matches_filter` は CardDef しか受け取らないので、 素で使うと 印刷コスト固定になり
+    「コストを下げてから除去する」 実在ラインが filter 経路だけ機能しない (= 経路ごとの
+    取りこぼし)。 盤面は `_matches_filter_ip` を通すことで target spec 文字列版と揃える。
+    """
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def board():
+        st, p0, p1 = _either_board(repo, ov, [], [])
+        from engine.core import InPlay
+        v = InPlay.of(repo.get("OP02-004"), sickness=False)   # 印刷 9
+        v.cost_minus_until_turn_end = 8                        # → 現在 1
+        p1.characters = [v]
+        return st, p0, p1, v
+
+    st, p0, p1, v = board()
+    assert v.card.cost == 9 and v.base_cost == 1
+    execute_effect({"ko": {"type": "one_opponent_character_filtered",
+                           "filter": {"cost_le": 2}}}, st, p0, p1, None)
+    assert v not in p1.characters, "filter の cost_le は現在コスト(1)で当たるべき"
+
+    st, p0, p1, v = board()
+    execute_effect({"ko": {"type": "one_opponent_character_filtered",
+                           "filter": {"truly_original_cost_le": 2}}}, st, p0, p1, None)
+    assert v in p1.characters, "filter の truly_original_cost_le は印刷コスト(9)で当たらないべき"
+
+
+def test_no_board_filter_uses_carddef_only_matcher():
+    """盤面 (InPlay) に対する filter 判定が `_matches_filter(x.card, ...)` に退行していない。
+
+    `.card` を渡すと CardDef ベース = 印刷コスト固定に戻る。 新しい盤面 filter を書く時は
+    必ず `_matches_filter_ip(ip, filt)` を使うこと。
+    """
+    import re
+    src = (ROOT / "engine" / "effects.py").read_text(encoding="utf-8")
+    # `_matches_filter_ip` 自身の委譲 (= CardDef 版を呼ぶのが正しい) は除外する
+    start = src.index("def _matches_filter_ip(")
+    end = src.index("def _matches_filter(", start)
+    src = src[:start] + src[end:]
+    bad = re.findall(r"_matches_filter\([A-Za-z_][A-Za-z0-9_\.\[\]]*\.card,", src)
+    assert not bad, (
+        "盤面 InPlay に CardDef 専用の _matches_filter を使っている (印刷コスト固定に退行):\n  "
+        + "\n  ".join(sorted(set(bad)))
+    )

@@ -261,3 +261,75 @@ overlay 側は 公式テキストに 「元々のコスト」 とあるカード
 `audit_sonogo_order.py` / `audit_target_scope.py` は 効果エントリごとに
 `when == "trigger"` なら `trigger`、 それ以外は `text` と突き合わせる。
 ⚠ mutation で 「空でない」 ことを確認済 (OP03-097 六王銃 の trigger do を反転 → 検出)。
+
+---
+
+## 「相手の」 が無い 「キャラ1枚まで」 は **両陣営** が対象 (2026-08-04 是正)
+
+**一次情報** (多数の弾で同趣旨が繰り返されている = 一般則):
+
+| 問 | 答 |
+|---|---|
+| この【登場時】効果で自分のキャラをデッキの下に置けますか？ | はい、置くことができます。 |
+| この【登場時】効果で **このキャラ自身や** 他の自分のキャラを手札に戻すことはできますか？ | はい、戻すことができます。 |
+| この【アタック時】/【メイン】/【カウンター】/【トリガー】/【ブロック時】/【起動メイン】効果で自分のキャラを手札に戻すことができますか？ | はい、できます。 |
+| この【KO時】効果で自分のキャラをデッキの下に置くことはできますか？ | はい、できます。 |
+| この【登場時】効果で自分のキャラを自分のライフに置くことができますか？ | はい、できます。 |
+
+**対照** (= 修飾があればその側だけ): 「自分のリーダーが特徴《王下七武海》を持たない場合、
+この【登場時】効果で自分のキャラ1枚を手札に戻すことはできますか？」 → 「はい、できます。
+**この場合、相手のコスト4以下のキャラ1枚を手札に戻すことはできません。**」
+
+公式テキストが 「持ち主の手札に戻す」 「持ち主のデッキの下に置く」 と **所有者を明示する**
+書き方をしているのは、 まさに **どちらの側のキャラも対象になりうる** ためである。
+
+**是正前の挙動**: overlay が **46 枚 / 116 効果エントリ** で `one_opponent_*` (相手限定) に
+なっており、 「自キャラを戻して【登場時】を撃ち直す」 「KO から逃がす」 という実在ラインが
+engine から丸ごと消えていた。 overlay は Python も Rust も同じものを読むので
+**差分検証では原理的に沈黙する** クラス。
+
+**実装**: 両陣営 spec を追加 (Python `engine/effects.py` / Rust `rust_engine/src/effects.rs`)。
+- 文字列: `one_character_either_any` / `_cost_le_N` / `_cost_eq_N` / `_power_eq_N`
+- dict type: `one_character_either_filtered` / `one_inplay_either_filtered`
+
+選び方は共通ヘルパー `_either_pick_one` に集約: **human は両陣営を並べた modal から選ぶ**
+(= 選択肢の平等)、 **AI は相手キャラを `_opp_value` 降順で優先**、 居なければ自陣の先頭。
+⚠ 両陣営を混ぜて power 降順にすると 高パワーの自キャラを巻き込む (2026-08-03 の
+OP10-046 キュロス自己バウンス事故と同型)。 Rust も同じ順序を守ること。
+
+**恒久ガード**:
+- `scripts/audit_target_scope.py` — 公式テキストの修飾有無 vs overlay の片側限定を全走査
+- `tests/test_effect_interactions.py::test_unqualified_character_target_can_hit_own_board`
+- `tests/test_rust_independent_checks.py::test_target_scope_matches_official_wording`
+
+⭐ **教訓**: 「相手の」 の **有無** という 3 文字の差が、 46 枚ぶんの選択肢を消していた。
+公式が所有者を書き分けている以上、 **書き分けを機械で突合する検査** を持つしかない。
+
+---
+
+## filter dict のコストも 場のキャラには **現在コスト** (2026-08-04、 上のコスト是正の続き)
+
+コスト意味論の是正は最初 **target spec 文字列** の経路だけを直した。 だが overlay には
+`{"type": "one_opponent_character_filtered", "filter": {"cost_le": 3}}` のように
+**filter dict** でコストを書く形も多く (盤面対象 119 エントリ)、 こちらは
+`_matches_filter(card: CardDef, ...)` を通るため **印刷コスト固定のまま** だった。
+
+= **同じ裁定が経路によって効いたり効かなかったりする** 状態。 これは
+「一部だけ実装」 (= 最も見つけにくい形) そのもので、 「レストにできない」 の時と同型。
+
+**実装**: 盤面 (InPlay) 用の判定を 1 本に集約する。
+- Python `engine/effects.py:_matches_filter_ip(ip, filt)` — plain な `cost_le/ge/eq`/`cost` を
+  `InPlay.base_cost` で判定し、 残りを `_matches_filter(ip.card, ...)` に委譲
+- Rust `rust_engine/src/effects.rs:matches_filter_ip(ip, filt)` — 同一
+
+盤面の呼び出しを **機械的に全置換** した (Python 57 / Rust 61 箇所)。 判定基準が
+`X.card` を渡すか否かで決まるので取りこぼしが起きない (手札/デッキ/トラッシュは `CardDef`
+を直接渡すので対象外 = そこでは修正が乗らず印刷値 = 現在値)。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+- `test_filter_dict_cost_also_uses_current_cost` — 対照テスト
+- `test_no_board_filter_uses_carddef_only_matcher` — ソース走査で
+  `_matches_filter(x.card, ...)` への退行を検出 (= 新しい盤面 filter を書く時の防波堤)
+
+⭐ **教訓**: 裁定を直す時は **同じ意味を持つ経路を全部数えてから** 直す。
+「target spec 文字列」 だけ直して終わりにすると、 filter dict 経路が静かに残る。
