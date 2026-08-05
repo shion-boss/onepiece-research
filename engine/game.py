@@ -2207,6 +2207,7 @@ def _resolve_life_taken(
     opp: "Player",
     taken: "CardDef",
     use_trigger: Optional[bool] = None,
+    by_effect: bool = False,
 ) -> None:
     """1 hit 分 の life→hand / trigger 処理。
 
@@ -2214,6 +2215,15 @@ def _resolve_life_taken(
         None: 旧挙動 (= should_fire_trigger で AI 判定)
         True: user 「使う」 → fire
         False: user 「使わない」 → 手札 add のみ
+
+    by_effect:
+        False (既定): **戦闘ダメージ** 経路。 移動後トリガーは trigger_on_opp_life_taken
+                       (on_opp_life_taken + on_self_life_to_hand/trash + on_self_life_taken)。
+        True: **効果ダメージ** (= 「Nダメージを与える」 = deal_opp_leader_damage) 経路。
+               公式 (cardqa_eb_03 / rules 7-1-4-1-1-2 line 180): 効果ダメージでも
+               ライフ札の【トリガー】は発動できる (= このバグ修正の要点)。 ただし
+               on_self_life_taken (= 「ダメージを受けた時」 = 戦闘専用) は発火せず、
+               「相手のライフが効果で離れた時」 (_fire_opp_life_left_by_effect) を発火する。
     """
     fired = False
     kept_in_hand = False
@@ -2291,10 +2301,18 @@ def _resolve_life_taken(
         state.push_log(f"  hit: {opp.name} life->hand ({taken.name})")
         went_to_hand = True
     if state.effects_overlay:
-        from .effects import trigger_on_opp_life_taken
-        trigger_on_opp_life_taken(
-            state, me, opp, went_to_hand, state.effects_overlay,
-        )
+        if by_effect:
+            # 効果ダメージ: on_self_life_taken (戦闘専用) を発火せず、
+            # 「相手のライフが効果で離れた時」 のみ (_fire_opp_life_left_by_effect と対称)。
+            from .effects import _fire_opp_life_left_by_effect
+            _fire_opp_life_left_by_effect(
+                state, me, opp, 1, "hand" if went_to_hand else "trash",
+            )
+        else:
+            from .effects import trigger_on_opp_life_taken
+            trigger_on_opp_life_taken(
+                state, me, opp, went_to_hand, state.effects_overlay,
+            )
 
 
 def resume_pending_attack_hit(state: GameState, use_trigger: bool) -> None:

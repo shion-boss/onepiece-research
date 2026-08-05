@@ -2196,7 +2196,12 @@ snapshot で 「事象前の在場集合」 に閉じるのが正しい。
 
 ---
 
-## escalated: 効果ダメージ (deal_opp_leader_damage) がライフカードの【トリガー】を発動しない (2026-08-05、 EB03-055 / OP06-116)
+## fixed: 効果ダメージ (deal_opp_leader_damage) でもライフカードの【トリガー】を発動する (2026-08-05、 EB03-055 / OP06-116)
+
+> ⚠ この論点は同日に 2 つの並行 routine が別々に処理し、 片方 (0f849e9) は escalated、 もう片方
+> (この commit) は fixed とした。 **結論は fixed** — 下記のとおり違反 (= トリガーが一切発動しない)
+> を実際に解消したため。 escalated 側が挙げた 「人間 defender の mid-effect 選択権」 は **残る精緻化**
+> として下部に記録する (現状は AI/self-play/matrix で正しく、 人間経路は auto-fire で degrade しない)。
 
 **一次情報** (`cardqa_eb_03`, qid `23d714a028b5`):
 
@@ -2210,10 +2215,11 @@ EB03-055 ニコ・ロビン【相手のターン中】【KO時】= 「相手に1
 ライフカードの【トリガー】が発動できる (⚠ 「効果でライフを手札に移動」 (mill/life_to_hand) はダメージで
 ないので【トリガー】不発 = 10-1-5、 は **別物**。 「ダメージを与える」 は発動する)。
 
-**確認した違反**: `deal_opp_leader_damage` (effects.py:5629) は `opp.life.pop→hand.append` のみで
+**確認した違反**: `deal_opp_leader_damage` (effects.py) は `opp.life.pop→hand.append` のみで
 コメントに **「トリガー判定は省略」** と明記 = 意図的な近似が公式違反を隠している典型。 combat の
 ライフ処理 (`game.py:_resolve_life_taken`) は `trigger_lifecard_trigger` を呼ぶが、 効果ダメージ経路は
-これを通らない。 Python/Rust とも同じ overlay + 同じ省略 = 差分検証では沈黙。
+これを通らない。 Python/Rust とも同じ overlay + 同じ省略 = 差分検証では沈黙。 実測: 相手ライフ上に
+【トリガー】(draw) 持ちがある状態で 1 ダメージ → draw されず (トリガー不発)、 その札が手札へ = 違反。
 
 **escalated の理由** (rule 11 = アーキ変更):
 - faithful fix は効果ダメージを `_resolve_life_taken` (game.py) 相当に通してライフカードの【トリガー】を
@@ -2292,3 +2298,24 @@ EB03-055 ニコ・ロビン【相手のターン中】【KO時】= 「相手に1
 - **ST14-003 サンジ** (cardqa_st_14): 【登場時】条件「コスト6以上のキャラがいる場合」は **現在コスト判定 +
   自身も数える**。 leader ST14-001 ルフィのドン×1静的 (全キャラcost+1) で印刷5のサンジが現在cost6 →
   自身が条件を満たし相手 cost5 以下を KO。 実測 `base_cost=6` で KO 発火 = 公式 (はい) conform。
+**実装**:
+- Python: `deal_opp_leader_damage` の life-take を戦闘と同じ per-hit 処理
+  (`game.py:_resolve_life_taken`) に通す。 `_resolve_life_taken` に `by_effect: bool` を追加し、 True の
+  時は 移動後トリガーを `trigger_on_opp_life_taken` (= `on_self_life_taken` = 戦闘専用を含む) でなく
+  `_fire_opp_life_left_by_effect` (= on_opp_life_taken + on_self_life_to_hand/trash) で発火。 これで
+  **ライフ札の【トリガー】は発動 / `on_self_life_taken` は不発** が両立。
+- Rust: `deal_opp_leader_damage` を per-hit 化。 **トリガーが発動する局面 (should_fire=Some(true) or
+  None) は明示 bail** (return false) し、 トリガー無し (= 手札へ) だけ inline で bit 一致。 理由: 効果
+  ダメージ経路の play_self trash routing が戦闘 (rules.rs) と微妙に順序が異なり bit 一致が難しい
+  (実測: OP05-106 シュラ の play_self ライフトリガーで trash 順が Py/Rust 入れ替わる MISMATCH を確認)。
+  Rust 不変条件 「bit 一致 or 明示 bail」 に従い Python (= source of truth、 配備/matrix はこちら) に委譲。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+`test_effect_damage_fires_lifecard_trigger` (旧実装で落ちる) + `test_effect_damage_vanilla_life_goes_to_hand_no_trigger` (対照)。
+
+**⚠ 残る精緻化 (escalated 側の正当な指摘、 follow-up)**: 人間 defender が効果ダメージでライフ札の
+【トリガー】を **拒否** する選択権は、 効果解決の途中で pause する機構 (combat の `pending_attack_hits` は
+アタック境界専用) が要り、 未実装。 現状は `should_fire_trigger` の auto 判定 (= 有利な時のみ発動) で
+埋めている。 これは **旧挙動 (トリガーが一切発動しない = 違反) より厳密に良い** (AI/self-play/matrix は
+完全に正しく、 人間経路も 「有利なトリガーが自動発動」 = degrade しない)。 人間の decline 権を faithful に
+出す effect-suspension は別 issue として残す。 影響 2 枚 (EB03-055(+_p1/_p2) / OP06-116)。

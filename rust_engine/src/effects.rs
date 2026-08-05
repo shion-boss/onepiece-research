@@ -8526,7 +8526,6 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             } else {
                 v.as_i64().unwrap_or(1)
             };
-            let mut moved = 0;
             for _ in 0..n {
                 if state.players[opp_idx].life.is_empty() {
                     // on_life_zero (回復効果) を持つ相手は cascade 再現不能 → bail。
@@ -8541,18 +8540,32 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     return true;
                 }
                 let taken = state.players[opp_idx].life.remove(0);
-                state.players[opp_idx].hand.push(taken);
-                moved += 1;
-            }
-            // ⭐ 効果で相手ライフが離れた時も 「相手のライフが離れた時」 は発火する
-            // (cardqa_op_08 / OP08-105 ボニー: 「相手の効果によって手札やトラッシュに移動した時…
-            //  できますか？」→「はい、できます」)。 Python `_fire_opp_life_left_by_effect` と対。
-            // ⚠ ライフカードの【トリガー】は発動しない (公式 10-1-5) / `on_self_life_taken`
-            //   (= ダメージを受けた時) は戦闘ダメージ専用なのでここでは発火しない。
-            if moved > 0 {
-                if fire_field_when(state, me_idx, "on_opp_life_taken").is_err()
-                    || fire_field_when(state, opp_idx, "on_self_life_to_hand").is_err()
-                {
+                let cid = taken.card_id.clone();
+                // ⭐ 効果ダメージでも **ライフ札の【トリガー】は発動できる** (公式 cardqa_eb_03 /
+                //   rules 7-1-4-1-1-2 line 180: 「1ダメージ → 相手はライフ上1枚を手札へ or
+                //   トリガー発動」)。 旧実装は hand.push 直行 = トリガー握り潰し (Python と同型なので
+                //   差分検証では沈黙)。 Python (engine/effects.py:deal_opp_leader_damage →
+                //   game.py:_resolve_life_taken(by_effect=True)) がトリガーを正しく発動する。
+                // ⚠ トリガーが **発動する** 局面は Rust では bail (= Python が source of truth)。
+                //   効果ダメージ経路の play_self trash routing は 戦闘 (rules.rs) と微妙に順序が
+                //   異なり bit 一致が難しい (= 対象 2 枚 / 稀ケース)。 Rust の不変条件
+                //   「Python と bit 一致 or 明示 bail」 に従い、 トリガー発動時は bail する。
+                //   トリガー無し (= 手札へ) の局面だけ inline で bit 一致させる。
+                let went_to_hand = match crate::effects::should_fire_trigger(state, opp_idx, &cid) {
+                    Some(false) => {
+                        state.players[opp_idx].hand.push(taken);
+                        true
+                    }
+                    _ => return false,
+                };
+                // ⭐ 効果で相手ライフが離れた時も 「相手のライフが離れた時」 は発火する
+                // (cardqa_op_08 / OP08-105 ボニー)。 Python `_fire_opp_life_left_by_effect` と対称。
+                // ⚠ `on_self_life_taken` (= ダメージを受けた時) は戦闘ダメージ専用なので発火しない。
+                if fire_field_when(state, me_idx, "on_opp_life_taken").is_err() {
+                    return false;
+                }
+                let self_when = if went_to_hand { "on_self_life_to_hand" } else { "on_self_life_to_trash" };
+                if fire_field_when(state, opp_idx, self_when).is_err() {
                     return false;
                 }
             }

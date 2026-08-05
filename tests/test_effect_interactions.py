@@ -3767,3 +3767,67 @@ def test_eb02_030_does_not_save_character_played_after_activation():
         "発動後に登場したキャラが バトルKO 代替で救済されている (公式 cardqa_eb_02: いいえ)"
     )
     assert len(p0.hand) == hand_before, "救済されないはずなのに手札を捨てている"
+# --------------------------------------------------------------------------- #
+#  効果ダメージ (「Nダメージを与える」) でも ライフ札の【トリガー】は発動できる
+#     一次情報 (`db/faq/cardqa_eb_03.json`、 EB03-055 ニコ・ロビン 【KO時】相手に1ダメージ):
+#       「相手のこのカードの【KO時】効果で自分がダメージを受け、ライフから【トリガー】を
+#         持つカードを手札に加える場合、その【トリガー】効果を発動することはできますか？」
+#       → 「はい、できます。」
+#     rules 7-1-4-1-1-2 / SKILL.md line 180:「効果 1 ダメージ → 相手はライフ上1枚を手札へ
+#       (or トリガー発動)」。 = 「ダメージを与える」 は 「ライフを手札に加える」 (=移動、
+#       トリガー無し) と区別され、 damage 経路なので【トリガー】が発動する。
+#     旧実装 (deal_opp_leader_damage): opp.hand.append 直行で【トリガー】を握り潰していた。
+#     Python/Rust とも同型なので差分検証では原理的に沈黙 (= FAQ 台帳でしか摘出できない型)。
+# --------------------------------------------------------------------------- #
+def _first_unconditional_draw_trigger_card(overlay) -> str:
+    """条件なしの【トリガー】= draw だけを持つカードを 1 枚返す (無ければ None)。"""
+    for cid, bundle in overlay.items():
+        if "_" in cid:
+            continue
+        for e in bundle.effects:
+            if (e.get("when") == "trigger" and not e.get("if") and not e.get("conditions")
+                    and len(e.get("do") or []) == 1 and "draw" in (e["do"][0])):
+                return cid
+    return None
+
+
+def test_effect_damage_fires_lifecard_trigger():
+    """効果ダメージで手札に加わるライフ札が【トリガー】を持てば発動する (公式 cardqa_eb_03)。"""
+    repo, overlay = _repo(), _overlay()
+    trig_cid = _first_unconditional_draw_trigger_card(overlay)
+    assert trig_cid is not None, "前提が崩れている: 無条件 draw トリガーのカードが存在しない"
+
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    # 相手ライフの一番上を「トリガー(draw)持ち」に、 残りは効果なしバニラに。
+    opp.life = [repo.get(trig_cid), repo.get(_FILLER), repo.get(_FILLER)]
+    opp.hand = []
+    deck0 = len(opp.deck)
+    trash0 = len(opp.trash)
+
+    execute_effect({"deal_opp_leader_damage": 1}, st, me, opp, None)
+
+    # 【トリガー】が発動 = デッキから draw (deck -1) + トリガー札は トラッシュへ (hand ではない)。
+    assert len(opp.deck) == deck0 - 1, (
+        "効果ダメージでライフ札の【トリガー】(draw) が発動していない "
+        "(旧実装は opp.hand.append 直行でトリガーを握り潰していた)"
+    )
+    assert len(opp.trash) == trash0 + 1, "発動した【トリガー】札がトラッシュに置かれていない"
+    assert repo.get(trig_cid) not in opp.hand, "発動したのにトリガー札が手札に残っている"
+
+
+def test_effect_damage_vanilla_life_goes_to_hand_no_trigger():
+    """対照: トリガーを持たないライフ札は 効果ダメージで 手札へ入るだけ (draw しない)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    opp.life = [repo.get(_FILLER)] * 3   # OP01-013 = バニラ (トリガー無し)
+    opp.hand = []
+    deck0 = len(opp.deck)
+    hand0 = len(opp.hand)
+
+    execute_effect({"deal_opp_leader_damage": 1}, st, me, opp, None)
+
+    assert len(opp.hand) == hand0 + 1, "バニラのライフ札が手札に加わっていない"
+    assert len(opp.deck) == deck0, "トリガーが無いのに draw している"
+    assert len(opp.life) == 2, "ライフが 1 枚減っていない"

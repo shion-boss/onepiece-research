@@ -5627,13 +5627,18 @@ def _execute_effect_body(
             me.don_rested += actual
             state.push_log(f"  効果: 自アクティブドン {actual} 枚をレストへ")
         elif k == "deal_opp_leader_damage":
-            # 相手リーダーに N ダメージ (= 相手ライフ N を相手の手札へ、 トリガー判定は省略)。
+            # 相手リーダーに N ダメージ (= 相手ライフ N を damage 経路で処理)。
             # ⚠ ライフ0で受けると【敗北】(効果ダメージも戦闘同様)。 戦闘 (game.py:1691-1699) と
             # 対称に、 まず on_life_zero (エネル等の回復) を試み、 まだ 0 なら declare_winner。
             # (旧実装は `if not opp.life: break` で 0ライフ相手を詰められない bug、
             #  7ロビン EB03-055 の『相手ライフ0でKOされると即敗北』が機能しなかった)
+            # ⭐ 効果ダメージでも **ライフ札の【トリガー】は発動できる** (公式 cardqa_eb_03 /
+            #   rules 7-1-4-1-1-2: 「1ダメージ → 相手はライフ上1枚を手札へ or トリガー発動」)。
+            #   旧実装は opp.hand.append で直行 = トリガーを握り潰していた (= 「ダメージを与える」
+            #   と 「ライフを手札に加える」 を混同、 両エンジンが同型なので差分検証では沈黙)。
+            #   → 戦闘と同じ per-hit 処理 (_resolve_life_taken) を by_effect=True で通す。
+            from .game import _resolve_life_taken
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
-            _moved = 0
             for _ in range(n):
                 if not opp.life:
                     if state.effects_overlay:
@@ -5644,10 +5649,8 @@ def _execute_effect_body(
                         return True
                     continue
                 taken = opp.life.pop(0)
-                opp.hand.append(taken)
-                _moved += 1
+                _resolve_life_taken(state, me, opp, taken, by_effect=True)
             state.push_log(f"  効果: 相手リーダーに {n} ダメージ")
-            _fire_opp_life_left_by_effect(state, me, opp, _moved, "hand")
         elif k == "force_opp_play_from_hand":
             # OP13-119: 「相手は自身の手札から (cost_le) キャラ1枚までを登場させる」 (opp 報酬)。
             # = 相手プレイヤーの行動。 AI opp / 人間 opp いずれも「無料でキャラを出せる」ので最善は

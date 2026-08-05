@@ -1345,9 +1345,9 @@
   "files": [
    "cardqa_eb_03.json"
   ],
-  "note": "EB03-055(+OP06-116)『相手に1ダメージを与える』(deal_opp_leader_damage): 効果ダメージでライフから【トリガー】持ちカードを手札に加えた時、そのトリガーを発動できる(公式はい)。だがengineのdeal_opp_leader_damageはlife pop→handのみで『トリガー判定は省略』(effects.py:5630)=ライフカードの【トリガー】が発動しない=違反。faithful fixは combat同様に _resolve_life_taken(game.py) 経由でトリガー発火させる必要があるが、(1)効果解決の途中で人間defenderにトリガー使用可否のpause(pending_attack_hitsは攻撃境界専用、効果midの中断機構が無い)(2)Rust mirror+rebuild+matrix再計算 が要る=アーキ変更(rule11)。影響2枚と小さいが人間pause mid-effectが architecture-touching。人間レビュー/集中回へ。",
+  "note": "EB03-055(+OP06-116) 効果ダメージ(deal_opp_leader_damage)でもライフ札の【トリガー】は発動する(公式cardqa_eb_03/rules line180)。 Py=_resolve_life_taken(by_effect=True)経路化でトリガー発火 / Rust=トリガー発動時bail(source of truth=Python)。 回帰test2本。 ⚠人間decline権(mid-effect pause)は残follow-up(現状should_fire_trigger auto、旧挙動=不発より厳密に良)。 docs記録",
   "q": "相手のこのカードの【KO時】効果で自分がダメージを受け、ライフから【トリガー】を持つカードを手札に加える場合、その【トリガー】効果を発動することはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "23f214079c1e": {
   "a": "はい、パワー+1000されています。",
