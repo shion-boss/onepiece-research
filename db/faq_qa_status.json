@@ -1003,27 +1003,27 @@
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "",
+  "note": "OP16-040 条件 self_field_named_all_with_power は自分の場のみ数える。相手の Mr.3 では条件不成立=効果不可。test_op16_040_condition_counts_only_own_field で実測 (自Luffyのみ+相手Mr.3→False、自に両方→True)。",
   "q": "相手の場にのみ「Mr.3(ギャルディーノ)」があり、自分の場に「モンキー・Ｄ・ルフィ」がある場合、この【メイン】効果で、「相手のレストのコスト6以下のキャラ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。」を行うことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "185d21c3c2e5": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "",
+  "note": "OP16-045 クロコダイル 登場時: コスト『自分のコスト2以上のキャラ1枚を戻す』の候補は me.characters 全体=自身(cost4≥2)も含む。自身を戻し手札のインペルダウンcost2を登場可。test_op16_045_self_bounce_cost_can_target_source_itself で実測。",
   "q": "この【登場時】効果で、このキャラ自身を手札に戻し、自分の手札からコスト2以下の特徴《インペルダウン》を持つキャラカード1枚を登場させることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "18cbf71ad63a": {
   "a": "はい、カードを1枚引く効果も発動します。イベントカードの発動時、そのカードはトラッシュに置かれ、手札の枚数には含まれません。",
   "files": [
    "cardqa_st_03.json"
   ],
-  "note": "",
+  "note": "ST03-017 メロメロ甘風 カウンター: イベントは発動時 _fire_counter_events が hand.pop→trash してから効果解決するので、自身を含め4枚→発動後3枚→self_hand_count_le:3 成立→draw。test_st03_017_event_leaves_hand_before_self_hand_count_check で実測+対照(5枚→draw無)。",
   "q": "このカードを合わせて手札が4枚の場合、この効果でカードは引けますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "18ccfd26c59a": {
   "a": "いいえ、できません。",
@@ -1039,144 +1039,144 @@
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "",
+  "note": "OP06-065 ヴィンスモーク・ニジ: 手札戻し選択肢はコスト4以下対象なのでコスト2キャラも当然含む。one_opponent_character_cost_le_4cost が cost2 に一致。test_op06_065_cost_le_4_return_option_can_target_cost2_char で実測。",
   "q": "この【登場時】効果で、相手のコスト2以下のキャラを相手の手札に戻すことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "197c26eeb0a4": {
   "a": "はい、発動できます。",
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-054 X・ドレーク 登場時KO『1枚まで』は0〜1枚。対象丁度1枚でも発動しKO。test_op01_054_ko_up_to_one_activates_with_exactly_one_target で実測。",
   "q": "この【登場時】効果でKOできるキャラが1枚の場合、この効果を発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "19a6fe8c9b5f": {
   "a": "いいえ、元の値に戻りません。",
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "",
+  "note": "OP06-083 オーズ 起動メイン『効果無効』は自己効果のみ抑止し外部 turn_buff(+1000) は残る。test_op06_083_self_negate_does_not_strip_external_power_buff で実測 (power 8000維持)。OP06-074 と同原則。",
   "q": "このキャラが、他のカードやドン!!カードによって「このターン中、パワー+1000。」などの効果を受けている場合、この【起動メイン】効果でパワーは元の値に戻りますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1a2eda8b6e9b": {
   "a": "はい、できます。",
   "files": [
    "cardqa_.json"
   ],
-  "note": "",
+  "note": "OP06-016 レイズ・マックス 起動メイン: 相手キャラ0でもコスト(自身デッキ下)を払って発動可(1枚まで=0可)。test_op06_016_activate_main_pays_cost_with_zero_opp_targets で実測。",
   "q": "この【起動メイン】効果で相手のキャラをパワー-3000せずに、このキャラをデッキの下に置くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1a3098230031": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_st_33.json"
   ],
-  "note": "",
+  "note": "ST33-002 サカズキ アタック時: 手札0でコロン前コスト(手札1捨て)払えず効果(相手discard)不発。test_st33_002_attack_effect_no_op_when_cost_unpayable_at_zero_hand で実測+対照。",
   "q": "自分の手札が0枚のときに、この【アタック時】で自分の手札1枚を捨てずに相手の手札を捨てさせることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1ac4cb7272bb": {
   "a": "はい。発動できます。手札を1枚捨てた後、何も起きません。",
   "files": [
    "cardqa_st_04.json"
   ],
-  "note": "",
+  "note": "ST04-008 ジャック: ドンデッキ空でも発動、コスト(手札1捨て)は払われ追加ドン0(何も起きない)。add_don は min(n, don_remaining_in_deck)。test_st04_008_activates_with_empty_don_deck_cost_still_paid で実測。",
   "q": "ドン!!デッキにカードがない場合も効果は発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1ae60b481aab": {
   "a": "はい、発動できます。自分のデッキを見た後、なにも登場させずにデッキをシャッフルします。",
   "files": [
    "cardqa_st_03.json"
   ],
-  "note": "",
+  "note": "ST03-007 戦桃丸【起動メイン】デッキからパシフィスタ1枚まで登場+シャッフル: デッキに対象0でも summon_from_deck は解決し(0体登場)shuffle_self_deck が走る=公式『発動でき、なにも登場させずシャッフル』。実測: 対象なしで chars+0/deck不変",
   "q": "デッキに「パシフィスタ」がない場合、効果を発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1afe33eec7e1": {
   "a": "デッキの上から見たカード全てを好きな順番に並び替え、デッキの下に置きます。",
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-030(等 search_top_n)【メイン】上5枚から対象1枚を手札へ+残りをデッキ下: 対象0枚でも search_top_n(rest_remain:bottom)は見た全カードをデッキ下へ、手札不変=公式どおり。実測: 非該当デッキで hand不変/deck不変(全て下へ)",
   "q": "この【メイン】効果で、手札に加えられるカードがなかった場合はどうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1c0e56864bcb": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP01-047 ロー【登場時】自キャラ1枚を戻す:手札からコスト3以下1枚を登場: play_from_hand の filter が cost_le:3 なので4コストは登場対象外=公式『いいえ』。実測: 手札の cost4 は登場せず手札に残る",
   "q": "自分のキャラが1枚の時にこの【起動メイン】を発動したあと、「OP01-047 トラファルガー・ロー」の【登場時】効果で、手札から4コストの《ワノ国》を持つキャラを登場できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1c3070a903c9": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_09.json"
   ],
-  "note": "",
+  "note": "『自分のキャラはレストで登場する』でレスト登場した時 on_self_rested 等は不発: trigger_on_self_rested/on_self_chara_rested_by_self_effect は rest primitive(effects.py:4062)からのみ発火、summon 経路(play_from_hand/summon_from_deck/play_from_trash)は呼ばない=登場時レストは『レストになった』に当たらず構造的に不発=公式『いいえ』。⚠別件: OP09-022 リムの『自分のキャラカードはレストで登場する』static 自体が overlay 未実装(follow-up、docs記載)",
   "q": "この「自分のキャラカードはレストで登場する。」の効果によって、キャラをレストで登場させた時、「キャラが自分の効果でレストになった時」などの効果は発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1c476551588c": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_13.json"
   ],
-  "note": "",
+  "note": "OP13-100 ボニー【自分のターン中】【ターン1回】自分の【トリガー】持ちキャラ登場時 リーダーかキャラにレストのドン2枚まで付与: on_self_chara_played(if played_self_chara_has_trigger+self_turn)で attach_rested_don count2=公式『はい、できます』。実測: レストドン pool から +2 付与",
   "q": "自分の【トリガー】を持つキャラが登場した時、この【自分のターン中】効果でそのキャラにレストのドン!!2枚までを付与できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1ce80cb5c2a6": {
   "a": "いいえ、しません。",
   "files": [
    "cardqa_eb_01.json"
   ],
-  "note": "",
+  "note": "自分のライフ1枚以下で『ライフが1枚になるようにトラッシュ』系メインはライフ増減しない: mill_self_life_until_n(target 1)は while len(life)>1 のみ削る=life<=1 で 0 枚削減。実測: life 0->0/1->1(milled 0)、2->1/3->1(milled 1/2)=公式『いいえ、しません』",
   "q": "自分のライフが1枚以下の時、この【メイン】効果で自分のライフの枚数は増減しますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1d4b5518f164": {
   "a": "いいえ、できません。この効果では、コスト1以下のキャラが、自分のキャラも相手のキャラもすべてKOされます。",
   "files": [
    "cardqa_st_08.json"
   ],
-  "note": "",
+  "note": "ST08-005 シャンクス【登場時】コスト1以下のキャラすべてをKO: overlay が ko_multi に dict(all_chara_filtered/scope:both)を渡していたが ko_multi は list 前提かつ opp のみで silent no-op 化(コスト払うだけで KO 0)。現在コストで両陣営を ko(any_opponent_character_cost_le_1)+ ko_self_chara(cost_le:1,count:99)に是正。両エンジンが同 overlay を読むので差分検証は沈黙、公式オラクルで検出。regression test 追加(test_st08_005_kos_all_cost1_on_both_sides_after_discard + no_ko_when_optional_discard_cost_unpayable)",
   "q": "この【登場時】効果を発動し、自分の手札1枚を捨てたあと、自分のコスト1以下のキャラをKOするかどうか選ぶことはできますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "1d505b056cd5": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "",
+  "note": "ST09-002 雨月天ぷらの【トリガー】で手札に加えた後、このキャラの【自分のターン中】効果は不発: 当DBの ST09-002 は text='-'で【自分のターン中】効果を持たない(効果は【トリガー】のみ)ため、この特定カードの盤面差分に落ちない。一般則(手札のカードは場効果=【自分のターン中】等を発火しない、engine は me.characters のみ走査)は構造的に保証。定義確認として n/a",
   "q": "「ST09-002 雨月天ぷら」の【トリガー】効果「【トリガー】相手のコスト2以下のキャラ1枚までを、レストにし、このカードを手札に加える。」を発動し手札に加えた場合、このキャラの【自分のターン中】効果は発動できますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "1d7b65a0111f": {
   "a": "いいえ、できません。カードテキスト中に「キャラ」と書かれている場合、場にあるキャラのみを指します。",
   "files": [
    "cardqa_st_07.json"
   ],
-  "note": "",
+  "note": "ST07-017 クイーン・ママ・シャンテ号【起動メイン】自分のコスト3のキャラ1枚までをライフへ: 手札のキャラカードはライフに加えられない(『キャラ』=場のキャラのみ)。target one_self_chara_filtered は me.characters のみ走査、手札は対象外=公式どおり。実測: cost3 キャラを手札のみに置くと対象0でライフ不変(resolved False)",
   "q": "この【起動メイン】効果で、手札のキャラカードをライフに加えることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1e1f1e48b0ca": {
   "a": "いいえ、できません。必ずカード1枚を引き、手札1枚を捨てます。",
   "files": [
    "cardqa_st_10.json"
   ],
-  "note": "",
+  "note": "ST10-014 ワイヤー【ターン1回】自分の場のドンがドンデッキに戻された時、カード1枚引き手札1枚捨てる: overlay は mandatory(『できる』でない)draw1+trash_self_hand_random1。引かない選択は不可=公式『いいえ、必ず引き捨てる』。実測: hand 2->3(draw)+deck-1、pending は捨てるカードの選択(mandatory discard target)であり発動可否の選択ではない",
   "q": "自分の場のドン!!がドン!!デッキに戻されたとき、この【ターン1回】効果でカードを引かないことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1edfe539d3b3": {
   "a": "いいえ、できません。",

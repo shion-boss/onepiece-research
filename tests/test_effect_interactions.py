@@ -29,7 +29,7 @@ from engine.effects import (
     trigger_on_attack,
     trigger_on_play,
 )
-from engine.game import AttackCharacter, AttackLeader, apply_action
+from engine.game import AttackCharacter, AttackLeader, apply_action, _fire_counter_events
 
 ROOT = Path(__file__).resolve().parent.parent
 _FILLER = "OP01-013"
@@ -3087,3 +3087,272 @@ def test_play_from_hand_named_set_cost_is_gated_without_the_named_card():
     execute_effect(eff["do"][0], st, p0, p1, src)
     assert victim in p1.characters, "「コトリ」 が無いのに相手キャラがライフへ送られている"
     assert len(p1.life) == life_before, "コストを払えないのに相手ライフが増えている"
+# --------------------------------------------------------------------------- #
+#  公式 Q&A conformance batch (2026-08-05、 cron optcg-faq-conformance)
+#  cardqa 一次情報を各テストの docstring に逐語引用する。 全て「違反なし=conform」の
+#  回帰ロック (= 記録しておかないと同じ調査を繰り返す + 挙動が黙って回帰しても気づけない)。
+# --------------------------------------------------------------------------- #
+def test_op06_083_self_negate_does_not_strip_external_power_buff():
+    """OP06-083 オーズ 【起動メイン】= 「自分の特徴《スリラーバーク海賊団》を持つキャラ1枚を
+    KOできる：このキャラは、このターン中、効果が無効になる。」
+    一次情報 (cardqa_op_06, qid 19a6fe8c9b5f): 「このキャラが、他のカードやドン!!カードに
+    よって『このターン中、パワー+1000。』などの効果を受けている場合、この【起動メイン】効果で
+    パワーは元の値に戻りますか？」→「いいえ、元の値に戻りません。」
+    効果無効は当該カード自身の効果のみを止め、外部由来の turn_buff (+1000) は残る。
+    OP06-074 ゼファーと同原則の自己付与版。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    oz = InPlay.of(repo.get("OP06-083"), sickness=False)  # 印刷パワー 7000
+    oz.turn_buff = 1000  # 他カード由来の「このターン中 +1000」
+    me.characters = [oz]
+    assert oz.power == 8000, "前提: 印刷7000 + 外部1000 = 8000"
+    execute_effect({"give_keyword": {"target": "self", "keyword": "効果無効"}}, st, me, opp, oz)
+    assert oz.power == 8000, (
+        "自己効果無効で外部 +1000 が剥がれてはならない (公式 cardqa_op_06: 元の値に戻らない)"
+    )
+
+
+def test_op16_040_condition_counts_only_own_field():
+    """OP16-040 ゴムゴムのトンカチ回転銃 【メイン】= 「自分の、『モンキー・Ｄ・ルフィ』と
+    『Mr.3(ギャルディーノ)』がいる場合、相手のレストのコスト6以下のキャラ1枚までは、次の相手の
+    リフレッシュフェイズでアクティブにならない。」
+    一次情報 (cardqa_op_16, qid 182e8c480524): 「相手の場にのみ『Mr.3(ギャルディーノ)』が
+    あり、自分の場に『モンキー・Ｄ・ルフィ』がある場合、この【メイン】効果で〔…〕を行うことは
+    できますか？」→「いいえ、できません。」
+    条件『自分の場に Luffy と Mr.3 がいる』は **自分の場のみ** を数える。相手の Mr.3 は無関係。"""
+    repo, overlay = _repo(), _overlay()
+    cond = {"self_field_named_all_with_power":
+            {"names": ["モンキー・Ｄ・ルフィ", "Mr.3(ギャルディーノ)"]}}
+    # モンキー・Ｄ・ルフィ = PRB02-005, Mr.3(ギャルディーノ) = PRB02-009 (どちらもキャラ)
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.characters = [InPlay.of(repo.get("PRB02-005"), sickness=False)]   # 自分は Luffy のみ
+    opp.characters = [InPlay.of(repo.get("PRB02-009"), sickness=False)]  # 相手に Mr.3
+    assert eval_condition(cond, st, me, me.characters[0]) is False, (
+        "相手の場の Mr.3 を数えて条件が成立してはいけない (公式 cardqa_op_16: できません)"
+    )
+    # 対照: 自分の場に Mr.3 も加えれば条件成立
+    me.characters.append(InPlay.of(repo.get("PRB02-009"), sickness=False))
+    assert eval_condition(cond, st, me, me.characters[0]) is True, (
+        "自分の場に Luffy と Mr.3 が揃えば条件成立するはず (対照)"
+    )
+
+
+def test_op06_016_activate_main_pays_cost_with_zero_opp_targets():
+    """OP06-016 レイズ・マックス 【起動メイン】= 「このキャラを持ち主のデッキの下に置くことが
+    できる：相手のキャラ1枚までを、このターン中、パワー-3000。」
+    一次情報 (cardqa, qid 1a2eda8b6e9b): 「この【起動メイン】効果で相手のキャラをパワー-3000
+    せずに、このキャラをデッキの下に置くことはできますか？」→「はい、できます。」
+    「1枚まで」= 0枚可なので、相手キャラ 0 でもコスト(自身をデッキ下)を払って発動できる。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.don_active = 10
+    rm = InPlay.of(repo.get("OP06-016"), sickness=False)
+    me.characters = [rm]
+    opp.characters = []  # 相手キャラ 0
+    deck_before = len(me.deck)
+    opts = [o for o in list_activate_main_effects(st, me, overlay)
+            if o[0].card.card_id == "OP06-016"]
+    assert len(opts) == 1, "相手キャラ0でも起動メインは legal であるべき (1枚まで=0可)"
+    fire_activate_main(st, me, opp, *opts[0])
+    assert rm not in me.characters, "自身がデッキの下に置かれていない"
+    assert len(me.deck) == deck_before + 1, "デッキの下に 1 枚 (自身) が加わっていない"
+
+
+def test_st33_002_attack_effect_no_op_when_cost_unpayable_at_zero_hand():
+    """ST33-002 サカズキ 【アタック時】= 「自分の手札1枚を捨てることができる：相手の手札が
+    6枚以上ある場合、相手は自身の手札1枚を捨てる。」
+    一次情報 (cardqa_st_33, qid 1a3098230031): 「自分の手札が0枚のときに、この【アタック時】で
+    自分の手札1枚を捨てずに相手の手札を捨てさせることはできますか？」→「いいえ、できません。」
+    「：」以前は発動コスト。手札0でコストを払えないので効果(相手discard)は一切起きない。"""
+    repo, overlay = _repo(), _overlay()
+    # 違反(タダ撃ち)なら手札0でも opp が捨てる → このテストが落ちる
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    sk = InPlay.of(repo.get("ST33-002"), sickness=False)
+    me.characters = [sk]
+    me.hand = []                              # 手札0 = コスト払えず
+    opp.hand = [repo.get(_FILLER)] * 6        # 相手6枚 (効果条件は満たす)
+    trigger_on_attack(st, me, opp, sk, overlay)
+    assert len(opp.hand) == 6, (
+        "手札0でコスト未払いなのに相手が手札を捨てている (公式 cardqa_st_33: できません)"
+    )
+    # 対照: 自分の手札1枚あればコストを払い相手も捨てる
+    st2 = _state(repo, overlay)
+    me2, opp2 = st2.players[0], st2.players[1]
+    sk2 = InPlay.of(repo.get("ST33-002"), sickness=False)
+    me2.characters = [sk2]
+    me2.hand = [repo.get(_FILLER)]
+    opp2.hand = [repo.get(_FILLER)] * 6
+    trigger_on_attack(st2, me2, opp2, sk2, overlay)
+    assert len(me2.hand) == 0 and len(opp2.hand) == 5, (
+        "コストを払えれば自分1捨て + 相手1捨てが起きるはず (対照)"
+    )
+
+
+def test_st04_008_activates_with_empty_don_deck_cost_still_paid():
+    """ST04-008 ジャック 【登場時】= 「自分の手札1枚を捨てることができる：ドン!!デッキから
+    ドン!!1枚までをアクティブで追加する。」
+    一次情報 (cardqa_st_04, qid 1ac4cb7272bb): 「ドン!!デッキにカードがない場合も効果は
+    発動できますか？」→「はい。発動できます。手札を1枚捨てた後、何も起きません。」
+    ドンデッキが空でも発動: コスト(手札1捨て)は払われ、追加ドンは 0 枚 (何も起きない)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    jk = InPlay.of(repo.get("ST04-008"), sickness=True)
+    me.characters = [jk]
+    me.hand = [repo.get(_FILLER), repo.get(_FILLER)]
+    me.don_remaining_in_deck = 0             # ドンデッキ空
+    me.don_active = 0
+    hand_before = len(me.hand)
+    trigger_on_play(st, me, opp, jk, overlay)
+    assert len(me.hand) == hand_before - 1, "コストの手札1捨てが行われていない (公式: 手札を1枚捨てた)"
+    assert me.don_active == 0, "ドンデッキ空なのにドンが追加されている (公式: 何も起きません)"
+
+
+def test_st03_017_event_leaves_hand_before_self_hand_count_check():
+    """ST03-017 メロメロ甘風 【カウンター】= 「自分のリーダーかキャラ1枚までを、このバトル中、
+    パワー+4000。その後、自分の手札が3枚以下の場合、カード1枚を引く。」
+    一次情報 (cardqa_st_03, qid 18cbf71ad63a): 「このカードを合わせて手札が4枚の場合、この効果で
+    カードは引けますか？」→「はい、カードを1枚引く効果も発動します。イベントカードの発動時、
+    そのカードはトラッシュに置かれ、手札の枚数には含まれません。」
+    メロメロ甘風を含めて手札4枚 → 発動でトラッシュ行き → 手札3枚 → 3以下 → ドロー。"""
+    repo, overlay = _repo(), _overlay()
+    melo = repo.get("ST03-017")
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.hand = [melo, repo.get(_FILLER), repo.get(_FILLER), repo.get(_FILLER)]  # melo含め4枚
+    me.don_active = melo.cost + 2
+    me.characters = [InPlay.of(repo.get(_FILLER), sickness=False)]  # +4000 の対象
+    deck_before = len(me.deck)
+    _fire_counter_events(st, me, opp, (0,))   # melo は idx0
+    assert len(me.deck) == deck_before - 1, (
+        "イベントは発動時に手札から抜けるので手札3枚→ドローが発動するはず (公式 cardqa_st_03)"
+    )
+    # 対照: melo含め5枚なら発動後4枚 (>3) でドローしない
+    st2 = _state(repo, overlay)
+    me2, opp2 = st2.players[0], st2.players[1]
+    me2.hand = [melo] + [repo.get(_FILLER)] * 4  # 5枚
+    me2.don_active = melo.cost + 2
+    me2.characters = [InPlay.of(repo.get(_FILLER), sickness=False)]
+    deck_before2 = len(me2.deck)
+    _fire_counter_events(st2, me2, opp2, (0,))
+    assert len(me2.deck) == deck_before2, "発動後4枚(>3)ならドローしないはず (対照)"
+
+
+def test_op01_054_ko_up_to_one_activates_with_exactly_one_target():
+    """OP01-054 X・ドレーク 【登場時】= 「相手のレストのコスト4以下のキャラ1枚までを、KOする。」
+    一次情報 (cardqa_op_01, qid 197c26eeb0a4): 「この【登場時】効果でKOできるキャラが1枚の場合、
+    この効果を発動できますか？」→「はい、発動できます。」
+    「1枚まで」は 0〜1 枚。対象が丁度1枚でも発動でき、その1枚をKOする。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    drake = InPlay.of(repo.get("OP01-054"), sickness=True)
+    me.characters = [drake]
+    victim = InPlay.of(repo.get(_FILLER), sickness=False)  # OP01-013 cost2 (<=4)
+    victim.rested = True                                    # 「相手のレスト」条件
+    opp.characters = [victim]
+    trigger_on_play(st, me, opp, drake, overlay)
+    assert victim not in opp.characters, (
+        "対象が丁度1枚のとき KO が発動していない (公式 cardqa_op_01: はい、発動できます)"
+    )
+
+
+def test_op06_065_cost_le_4_return_option_can_target_cost2_char():
+    """OP06-065 ヴィンスモーク・ニジ 【登場時】= 「自分の場のドン!!が相手の場のドン!!の枚数
+    以下の場合、以下から1つを選ぶ。・相手のコスト2以下のキャラ1枚までを、KOする。・相手の
+    コスト4以下のキャラ1枚までを、持ち主の手札に戻す。」
+    一次情報 (cardqa_op_06, qid 1941777d5f2e): 「この【登場時】効果で、相手のコスト2以下のキャラを
+    相手の手札に戻すことはできますか？」→「はい、できます。」
+    手札戻しは「コスト4以下」なので、コスト2のキャラも当然その対象に含まれる。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    c2 = InPlay.of(repo.get(_FILLER), sickness=False)   # OP01-013 cost2
+    opp.characters = [c2]
+    opp_hand_before = len(opp.hand)
+    execute_effect({"return_to_hand": "one_opponent_character_cost_le_4cost"},
+                   st, me, opp, None)
+    assert c2 not in opp.characters and len(opp.hand) == opp_hand_before + 1, (
+        "コスト4以下の手札戻しでコスト2キャラを戻せていない (公式 cardqa_op_06: はい、できます)"
+    )
+
+
+def test_op16_045_self_bounce_cost_can_target_source_itself():
+    """OP16-045 クロコダイル 【登場時】= 「自分のコスト2以上のキャラ1枚を持ち主の手札に戻す
+    ことができる：自分の手札からコスト2以下の特徴《インペルダウン》を持つキャラカード1枚まで
+    を、登場させる。」
+    一次情報 (cardqa_op_16, qid 185d21c3c2e5): 「この【登場時】効果で、このキャラ自身を手札に
+    戻し、自分の手札からコスト2以下の特徴《インペルダウン》を持つキャラカード1枚を登場させる
+    ことはできますか？」→「はい、できます。」
+    クロコダイル (コスト4≧2) 自身がコスト『自分のコスト2以上のキャラ』の対象になれる。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    croc = InPlay.of(repo.get("OP16-045"), sickness=True)   # cost4 ≥2, 特徴インペルダウン
+    me.characters = [croc]                                   # 場には自身のみ = 自身を戻すしかない
+    me.hand = [repo.get("EB01-026")]                         # インペルダウン cost2 キャラ
+    me.don_active = 10
+    trigger_on_play(st, me, opp, croc, overlay)
+    assert any(c.card_id == "OP16-045" for c in me.hand), (
+        "クロコダイル自身がコストで手札に戻せていない (公式 cardqa_op_16: はい、できます)"
+    )
+    assert any(c.card.card_id == "EB01-026" for c in me.characters), (
+        "コスト後にインペルダウンキャラが登場していない"
+    )
+    assert croc not in me.characters, "自身は場から離れているはず"
+
+
+def test_st08_005_kos_all_cost1_on_both_sides_after_discard():
+    """ST08-005 シャンクス 【登場時】= 「自分の手札1枚を捨てることができる：コスト1以下の
+    キャラすべてを、KOする。」
+
+    一次情報 (cardqa_st_08, qid 1d4b5518f164):
+      Q「この【登場時】効果を発動し、自分の手札1枚を捨てたあと、自分のコスト1以下のキャラを
+        KOするかどうか選ぶことはできますか？」
+      A「いいえ、できません。この効果では、コスト1以下のキャラが、自分のキャラも相手のキャラも
+        すべてKOされます。」
+
+    退行の背景: overlay が `ko_multi` に dict (all_chara_filtered/scope:both) を渡していたが、
+    `ko_multi` は list 前提 (`isinstance(v, list)` でなければ即 continue) かつ opp 側しか KO しない
+    実装で、 コスト支払いだけ済ませて **一切 KO しない** silent no-op だった。 Python/Rust とも
+    同じ overlay を読むため差分検証では原理的に沈黙。 公式オラクルでのみ検出。
+    現在コストで両陣営の cost1 を ko + ko_self_chara に是正。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    my_c1 = InPlay.of(repo.get("EB04-002"), sickness=False)   # cost1
+    my_c2 = InPlay.of(repo.get(_FILLER), sickness=False)      # OP01-013 cost2 (survivor)
+    op_c1 = InPlay.of(repo.get("EB04-002"), sickness=False)   # cost1
+    op_c3 = InPlay.of(repo.get("PRB02-004"), sickness=False)  # cost3 (survivor)
+    src = InPlay.of(repo.get("ST08-005"), sickness=True)
+    me.characters = [my_c1, my_c2, src]
+    opp.characters = [op_c1, op_c3]
+    me.hand = [repo.get(_FILLER)]                             # 任意コスト (手札1捨て) の弾
+    trigger_on_play(st, me, opp, src, overlay)
+    assert my_c1 not in me.characters, "自分の cost1 が KO されていない (公式: 自分のキャラもすべて KO)"
+    assert op_c1 not in opp.characters, "相手の cost1 が KO されていない (公式: 相手のキャラもすべて KO)"
+    assert my_c2 in me.characters, "cost2 まで巻き込んで KO している (対象は cost1 以下のみ)"
+    assert op_c3 in opp.characters, "cost3 まで巻き込んで KO している (対象は cost1 以下のみ)"
+
+
+def test_st08_005_no_ko_when_optional_discard_cost_unpayable():
+    """ST08-005: 任意コスト (手札1枚を捨てる) を払えない (手札0) 時は KO 効果ごと不発。
+    「〜できる：」の効果はコスト未払いなら一切起きない (タダ撃ちさせない)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    my_c1 = InPlay.of(repo.get("EB04-002"), sickness=False)
+    op_c1 = InPlay.of(repo.get("EB04-002"), sickness=False)
+    src = InPlay.of(repo.get("ST08-005"), sickness=True)
+    me.characters = [my_c1, src]
+    opp.characters = [op_c1]
+    me.hand = []                                              # 捨てる弾が無い = コスト払えない
+    trigger_on_play(st, me, opp, src, overlay)
+    assert my_c1 in me.characters and op_c1 in opp.characters, (
+        "コスト未払いなのに KO が発動している (任意コストのタダ撃ち)"
+    )

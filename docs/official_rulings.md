@@ -1780,3 +1780,165 @@ MISMATCH が出た時は 「Rust が間違っている」 と決めつけず、 
 併せて `should_fire` の 「手札が空なら hand_to_self_life は空回り」 guard が
 **コスト支払い前** に判定していたため、 コスト自身が手札を増やす型では誤って不発にしていた
 (両エンジンで cost 種別を見て guard を外す修正)。
+## 2026-08-05 batch (cron optcg-faq-conformance): 9 conform + 1 escalated
+
+一次情報は cardqa。 全 9 件は engine 実測で **公式どおり (conform)** を確認。 各件に回帰テストを
+`tests/test_effect_interactions.py` へ追加済 (conform でも将来の黙った回帰を検出するため lock)。
+
+- **効果無効(自己付与)は外部の +power を剥がさない** (OP06-083 オーズ, cardqa_op_06) —
+  「【起動メイン】…このキャラは、このターン中、効果が無効になる。」に対し「他のカードやドン!!で
+  『このターン中、パワー+1000』を受けている場合、この効果でパワーは元の値に戻りますか？」→「いいえ」。
+  `効果無効` は当該カード自身の効果のみ抑止し、外部由来 `turn_buff` は残る。OP06-074 ゼファーの自己版。
+  実測 `test_op06_083_self_negate_does_not_strip_external_power_buff` (power 8000 維持)。
+- **『自分の場に X と Y がいる場合』条件は自分の場のみ数える** (OP16-040 ゴムゴムのトンカチ回転銃,
+  cardqa_op_16) — 「相手の場にのみ『Mr.3(ギャルディーノ)』があり、自分の場に『モンキー・Ｄ・ルフィ』が
+  ある場合、この【メイン】効果〔…〕を行うことはできますか？」→「いいえ、できません」。条件
+  `self_field_named_all_with_power` は自分の場のみ判定。相手の Mr.3 は無関係。実測
+  `test_op16_040_condition_counts_only_own_field` (自Luffyのみ+相手Mr.3→False / 自に両方→True)。
+- **『1枚まで』の後段効果は対象0でも前段コストを払って発動できる** (OP06-016 レイズ・マックス,
+  cardqa) — 「【起動メイン】このキャラを持ち主のデッキの下に置くことができる：相手のキャラ1枚までを、
+  パワー-3000。」で「相手のキャラをパワー-3000せずに、このキャラをデッキの下に置くことはできますか？」
+  →「はい」。相手キャラ0でもコスト(自身デッキ下)を払い発動。実測
+  `test_op06_016_activate_main_pays_cost_with_zero_opp_targets`。docs 別項「1枚まで=0可」の一般則。
+- **『：』前コストが払えなければ効果は起きない (手札0での手札捨てコスト)** (ST33-002 サカズキ,
+  cardqa_st_33) — 「【アタック時】自分の手札1枚を捨てることができる：相手の手札が6枚以上ある場合、相手は
+  自身の手札1枚を捨てる。」で「自分の手札が0枚のとき、自分の手札1枚を捨てずに相手の手札を捨てさせる
+  ことはできますか？」→「いいえ、できません」。手札0=コスト未払い→効果不発。実測
+  `test_st33_002_attack_effect_no_op_when_cost_unpayable_at_zero_hand` (+ 対照: 手札1で相手も捨てる)。
+  ⚠ docs 別項「ST33-002 サカズキ 任意コストは相手手札5以下でも払える」はコロン後の**条件**の話で別論点。
+- **ドンデッキが空でも効果は発動 (コストは払われ、追加ドンは0)** (ST04-008 ジャック, cardqa_st_04) —
+  「【登場時】自分の手札1枚を捨てることができる：ドン!!デッキからドン!!1枚までをアクティブで追加する。」で
+  「ドン!!デッキにカードがない場合も発動できますか？」→「はい。手札を1枚捨てた後、何も起きません」。
+  `add_don` は `min(n, don_remaining_in_deck)` で空なら0追加。実測
+  `test_st04_008_activates_with_empty_don_deck_cost_still_paid`。
+- **イベントは発動時に手札を離れる → 自身の手札枚数条件はトラッシュ後で判定** (ST03-017 メロメロ甘風,
+  cardqa_st_03) — 「【カウンター】…その後、自分の手札が3枚以下の場合、カード1枚を引く。」で「このカードを
+  合わせて手札が4枚の場合、この効果でカードは引けますか？」→「はい。イベントカードの発動時、そのカードは
+  トラッシュに置かれ、手札の枚数には含まれません」。`_fire_counter_events` は `hand.pop→trash` してから
+  効果解決するので 4→3→`self_hand_count_le:3` 成立→draw。実測
+  `test_st03_017_event_leaves_hand_before_self_hand_count_check` (+ 対照: 5枚→draw無)。
+- **『1枚まで』KO は対象が丁度1枚でも発動できる** (OP01-054 X・ドレーク, cardqa_op_01) — 「【登場時】
+  相手のレストのコスト4以下のキャラ1枚までを、KOする。」で「KOできるキャラが1枚の場合、発動できますか？」
+  →「はい」。実測 `test_op01_054_ko_up_to_one_activates_with_exactly_one_target`。
+- **コスト4以下の対象指定はコスト2キャラも当然含む** (OP06-065 ヴィンスモーク・ニジ, cardqa_op_06) —
+  「【登場時】…・相手のコスト4以下のキャラ1枚までを、持ち主の手札に戻す。」で「相手のコスト2以下のキャラを
+  相手の手札に戻すことはできますか？」→「はい」。`one_opponent_character_cost_le_4cost` が cost2 に一致。
+  実測 `test_op06_065_cost_le_4_return_option_can_target_cost2_char`。
+- **『自分のコスト2以上のキャラ1枚を戻す』コストは発動元自身も対象になれる** (OP16-045 クロコダイル,
+  cardqa_op_16) — 「【登場時】自分のコスト2以上のキャラ1枚を持ち主の手札に戻すことができる：手札から
+  コスト2以下の《インペルダウン》キャラ1枚までを登場。」で「このキャラ自身を手札に戻し〔…〕登場させる
+  ことはできますか？」→「はい」。コスト候補は `me.characters` 全体で自身(cost4≥2)を含む。実測
+  `test_op16_045_self_bounce_cost_can_target_source_itself` (自身が手札へ + インペルダウン登場)。
+
+### escalated (自動修正の範囲外)
+
+- **OP08-043 白ひげ の cross-turn アタック税 × 手札6枚での攻撃可否** (cardqa_op_11, qid 18ccfd26c59a) —
+  「直前の相手のターンに相手が OP08-043【登場時】(相手キャラすべては次の相手ターン終了時まで、アタック時
+  手札2枚を捨てなければアタックできない)を発動、次の自分のターンに手札6枚のとき、手札2枚を捨ててこのキャラで
+  アタックできますか？」→「いいえ、できません」。engine は `set_attack_cost_discard_hand`
+  `duration:next_opp_turn_end` で税自体は実装済。だが **公式が『いいえ』とする根拠が一意に定まらない**:
+  (a) duration「次の相手のターン終了時」を直前相手ターン起点で読むと自ターン中はまだ税が有効=手札6なら
+  2捨てて攻撃可(=engine 読み)だが公式は不可、(b) Q&A が指す OP11 の「このキャラ」が snapshot では未特定で、
+  そのカード固有の追加制約かも判別不能。ターン跨ぎ duration の意味論確認 + 対象カード特定が要るため
+  **人間レビューへ escalate** (誤った conform / 誤修正を避ける)。
+
+---
+
+## ST08-005 シャンクス 「コスト1以下のキャラすべてをKO」 が silent no-op だった (2026-08-05 是正)
+
+**一次情報** (`db/faq/cardqa_st_08`、 qid `1d4b5518f164`):
+
+> 「この【登場時】効果を発動し、自分の手札1枚を捨てたあと、自分のコスト1以下のキャラを
+>   KOするかどうか選ぶことはできますか？」
+> → **「いいえ、できません。この効果では、コスト1以下のキャラが、自分のキャラも相手のキャラも
+>     すべてKOされます。」**
+
+ST08-005【登場時】= 「自分の手札1枚を捨てることができる：コスト1以下のキャラすべてを、KOする。」
+
+**是正前の挙動**: overlay が `{"ko_multi": {"target": {"type": "all_chara_filtered",
+"filter": {"cost_le": 1}}, "scope": "both"}}` と、 **ko_multi に dict** を渡していた。 だが
+`ko_multi` primitive は **`if not isinstance(v, list): continue`** で list 前提、 さらに loop は
+`if t in opp.characters:` の **opp 側しか KO しない** 実装。 結果:
+
+- ko_multi は dict を見て即 `continue` = **一切 KO しない**。 実測: 任意コスト (手札1捨て) は
+  払われるのに、 コスト1のキャラが自他とも場に残った (me [1,2,9]→[1,2,9] / opp [1,3]→[1,3])。
+
+`all_chara_filtered` target spec は _resolve_target(effects.py:2287)/rules.rs 両方に実装済で
+「両陣営を返す」 が、 それを消費する ko_multi 側が (a) list 前提 (b) opp 限定 の二重の理由で
+自陣 KO を落としていた。 **Python/Rust とも同じ overlay を読むので差分検証では原理的に沈黙**。
+公式 Q&A (外部オラクル) でのみ検出。
+
+**実装**: overlay-only 是正 (engine コード不変)。 既に両エンジンで parity 検証済の 2 primitive に
+置換 —
+```json
+"effect": [
+  {"ko": "any_opponent_character_cost_le_1"},
+  {"ko_self_chara": {"filter": {"cost_le": 1}, "count": 99}}
+]
+```
+- `ko` + `any_opponent_character_cost_le_1` = 相手のコスト1以下 **全員** を KO (現在コスト、
+  `_cost_of` 判定、 loop で全 resolve KO)。
+- `ko_self_chara` (filter cost_le:1, count:99) = 自陣のコスト1以下 **全員** を KO
+  (`_matches_filter_ip` = 現在コスト、 `cands[:count]`/`take(count)` で全数、 【KO時】等発火)。
+
+両 primitive は Python (effects.py) / Rust (effects.rs 6111 do-effect + 1732 target) に bit 一致
+実装済 → overlay-only で両エンジン同時是正、 rust_parity MISMATCH=0 維持。 `ko_multi` を own-branch
+拡張する案もあったが、 既存 primitive 流用の方が低リスクで同義。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+- `test_st08_005_kos_all_cost1_on_both_sides_after_discard` (自他の cost1 全 KO / cost2・cost3 生存)
+- `test_st08_005_no_ko_when_optional_discard_cost_unpayable` (手札0 = コスト未払いで KO 不発)
+
+旧 overlay で両テストが落ちることを確認済 (my_c1/op_c1 とも KO されず = no-op)。
+
+⭐ **教訓**: target spec を追加しても、 それを **消費する primitive** が受け取れない (型/scope) と
+効果ごと沈黙する。 `all_chara_filtered` は ST08-005 専用に追加されたのに ko_multi と噛み合って
+いなかった = 「一部だけ実装」 (最も見つけにくい形)。 primitive の入力型と scope が overlay の
+target と一致しているかは、 差分検証では見えない = 公式オラクルでしか出ない。
+
+---
+
+## 公式どおりで **問題なかった** もの (2026-08-05 バッチ その4、 FAQ 全件保証 台帳より)
+
+- **サーチ/召喚は対象0でも解決する** (ST03-007 戦桃丸、 cardqa_st_03) — 【起動メイン】「デッキから
+  コスト4以下のパシフィスタ1枚までを登場させ、シャッフル」 で、 デッキにパシフィスタが無くても
+  発動できるか→「はい、なにも登場させずシャッフル」。 `summon_from_deck`(limit1) は対象0で 0体登場、
+  後段 `shuffle_self_deck` は走る。 実測: 非該当デッキで chars+0 / deck 枚数不変。
+- **上N枚サーチは該当0でも全カードをデッキ下へ** (OP01-030 等 search_top_n、 cardqa_op_01) — 【メイン】
+  「上5枚を見て特徴一致1枚を手札へ、残りをデッキ下」 で、 手札に加えられるカードが無い場合→「見た全カードを
+  好きな順番でデッキ下」。 `search_top_n`(rest_remain:bottom) は対象0で hand 不変 + 見た分を全て下へ。
+  実測: 非該当デッキで hand 不変 / deck 不変。
+- **登場コスト制限は印字どおり(コスト3以下)** (OP01-047 ロー、 cardqa_op_02) — 【登場時】「自キャラ1枚を
+  戻す：手札からコスト3以下1枚を登場」 で、 4コストの《ワノ国》を登場できるか→「いいえ」。 `play_from_hand`
+  の filter が cost_le:3 = 4コスト対象外。 実測: 手札の cost4 は登場せず残る。
+- **『レストで登場』した時 on_self_rested 等は不発** (cardqa_op_09) — 「自分のキャラはレストで登場する」で
+  レスト状態で登場した時、「キャラが自分の効果でレストになった時」は発動できるか→「いいえ」。
+  `trigger_on_self_rested` / `on_self_chara_rested_by_self_effect` は **rest primitive
+  (effects.py:4062) からのみ**発火し、 summon 経路 (play_from_hand/summon_from_deck/play_from_trash)
+  は呼ばない = 「登場時レスト」 は 「レストになった」 に当たらず構造的に不発。
+  ⚠ **別件 follow-up**: OP09-022 リムの static 「自分のキャラカードはレストで登場する」 **自体が
+  overlay 未実装** (activate_main のみ登録)。 実装には summon 経路に 「この player のキャラは rested で
+  場に出る」 フラグを通す engine 改修 (Python/Rust 両) が要る = 影響1枚(+_p1)だが play 経路変更のため
+  今回は未対応。 この Q&A の論点 (トリガー不発) は static 有無に依らず conform。
+- **『トリガー持ちキャラ登場時にレストのドン2枚付与』は可能** (OP13-100 ボニー、 cardqa_op_13) — はい。
+  `on_self_chara_played`(if played_self_chara_has_trigger + self_turn, ターン1回) で
+  `attach_rested_don` count2。 実測: レストドン pool から +2 付与。
+- **ライフ1枚以下では『1枚になるようにトラッシュ』は増減しない** (EB01-059/060 等、 cardqa_eb_01) —
+  「はい/いいえ」→「増減しない」。 `mill_self_life_until_n`(target 1) は `while len(life) > 1` のみ削るので
+  life≤1 で 0 枚。 実測: life 0→0 / 1→1 (0削減)、 2→1 / 3→1 (1/2削減)。
+- **『キャラ』はカードテキスト上 場のキャラのみ** (ST07-017 クイーン・ママ・シャンテ号、 cardqa_st_07) —
+  【起動メイン】「自分のコスト3のキャラ1枚までをライフへ」 で 手札のキャラカードをライフに加えられるか→
+  「いいえ、『キャラ』は場のキャラのみ」。 target `one_self_chara_filtered` は me.characters のみ走査。
+  実測: cost3 キャラを手札だけに置くと対象0でライフ不変。
+- **ドンがドンデッキに戻された時の draw は強制** (ST10-014 ワイヤー、 cardqa_st_10) — 【ターン1回】「自分の
+  場のドンがドンデッキに戻された時、1枚引き手札1枚捨てる」 で 引かない選択はできるか→「いいえ、必ず引き捨てる」。
+  overlay は mandatory (『できる』でない) draw1+trash_self_hand_random1。 実測: hand 2→3(draw)+deck-1、
+  pending は「どの手札を捨てるか」の選択であって発動可否の選択ではない。 (既存裁定「ドンが戻された時は
+  誰の効果かを問わず発動」と整合)
+
+### engine 状態変化に落ちない (n/a、 2026-08-05)
+
+- **手札に加えたカードの【自分のターン中】効果は不発** (ST09-002 雨月天ぷら、 cardqa_op_05) — 【トリガー】で
+  ST09-002 を手札に加えた後、 このキャラの【自分のターン中】効果は発動できるか→「いいえ」。 当DBの ST09-002 は
+  text='-' で【自分のターン中】効果を **持たない** (効果は【トリガー】のみ) ため、 この特定カードの盤面差分に
+  落ちない。 一般則 (手札のカードは場効果を発火しない = engine は me.characters のみ走査) は構造的に保証。 n/a。

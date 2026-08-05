@@ -30023,7 +30023,7 @@
  ],
  "ST08-005": [
   {
-   "_text": "ST08-005 on_play: 自分の手札1枚を捨てることができる：コスト1以下のキャラすべてを、KOする。 [dd-fix]",
+   "_text": "ST08-005 on_play: 自分の手札1枚を捨てることができる：コスト1以下のキャラすべてを、KOする。 (ko_multi は list 前提 + opp のみで、 dict all_chara_filtered/both を silent no-op 化していた。 現在コストで両陣営の ko + ko_self_chara に是正、 cardqa_st_08)",
    "when": "on_play",
    "do": [
     {
@@ -30035,14 +30035,14 @@
       ],
       "effect": [
        {
-        "ko_multi": {
-         "target": {
-          "type": "all_chara_filtered",
-          "filter": {
-           "cost_le": 1
-          }
+        "ko": "any_opponent_character_cost_le_1"
+       },
+       {
+        "ko_self_chara": {
+         "filter": {
+          "cost_le": 1
          },
-         "scope": "both"
+         "count": 99
         }
        }
       ]
