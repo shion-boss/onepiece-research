@@ -1093,90 +1093,90 @@
   "files": [
    "cardqa_st_03.json"
   ],
-  "note": "",
+  "note": "ST03-007 戦桃丸【起動メイン】デッキからパシフィスタ1枚まで登場+シャッフル: デッキに対象0でも summon_from_deck は解決し(0体登場)shuffle_self_deck が走る=公式『発動でき、なにも登場させずシャッフル』。実測: 対象なしで chars+0/deck不変",
   "q": "デッキに「パシフィスタ」がない場合、効果を発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1afe33eec7e1": {
   "a": "デッキの上から見たカード全てを好きな順番に並び替え、デッキの下に置きます。",
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-030(等 search_top_n)【メイン】上5枚から対象1枚を手札へ+残りをデッキ下: 対象0枚でも search_top_n(rest_remain:bottom)は見た全カードをデッキ下へ、手札不変=公式どおり。実測: 非該当デッキで hand不変/deck不変(全て下へ)",
   "q": "この【メイン】効果で、手札に加えられるカードがなかった場合はどうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1c0e56864bcb": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP01-047 ロー【登場時】自キャラ1枚を戻す:手札からコスト3以下1枚を登場: play_from_hand の filter が cost_le:3 なので4コストは登場対象外=公式『いいえ』。実測: 手札の cost4 は登場せず手札に残る",
   "q": "自分のキャラが1枚の時にこの【起動メイン】を発動したあと、「OP01-047 トラファルガー・ロー」の【登場時】効果で、手札から4コストの《ワノ国》を持つキャラを登場できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1c3070a903c9": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_09.json"
   ],
-  "note": "",
+  "note": "『自分のキャラはレストで登場する』でレスト登場した時 on_self_rested 等は不発: trigger_on_self_rested/on_self_chara_rested_by_self_effect は rest primitive(effects.py:4062)からのみ発火、summon 経路(play_from_hand/summon_from_deck/play_from_trash)は呼ばない=登場時レストは『レストになった』に当たらず構造的に不発=公式『いいえ』。⚠別件: OP09-022 リムの『自分のキャラカードはレストで登場する』static 自体が overlay 未実装(follow-up、docs記載)",
   "q": "この「自分のキャラカードはレストで登場する。」の効果によって、キャラをレストで登場させた時、「キャラが自分の効果でレストになった時」などの効果は発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1c476551588c": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_13.json"
   ],
-  "note": "",
+  "note": "OP13-100 ボニー【自分のターン中】【ターン1回】自分の【トリガー】持ちキャラ登場時 リーダーかキャラにレストのドン2枚まで付与: on_self_chara_played(if played_self_chara_has_trigger+self_turn)で attach_rested_don count2=公式『はい、できます』。実測: レストドン pool から +2 付与",
   "q": "自分の【トリガー】を持つキャラが登場した時、この【自分のターン中】効果でそのキャラにレストのドン!!2枚までを付与できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1ce80cb5c2a6": {
   "a": "いいえ、しません。",
   "files": [
    "cardqa_eb_01.json"
   ],
-  "note": "",
+  "note": "自分のライフ1枚以下で『ライフが1枚になるようにトラッシュ』系メインはライフ増減しない: mill_self_life_until_n(target 1)は while len(life)>1 のみ削る=life<=1 で 0 枚削減。実測: life 0->0/1->1(milled 0)、2->1/3->1(milled 1/2)=公式『いいえ、しません』",
   "q": "自分のライフが1枚以下の時、この【メイン】効果で自分のライフの枚数は増減しますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1d4b5518f164": {
   "a": "いいえ、できません。この効果では、コスト1以下のキャラが、自分のキャラも相手のキャラもすべてKOされます。",
   "files": [
    "cardqa_st_08.json"
   ],
-  "note": "",
+  "note": "ST08-005 シャンクス【登場時】コスト1以下のキャラすべてをKO: overlay が ko_multi に dict(all_chara_filtered/scope:both)を渡していたが ko_multi は list 前提かつ opp のみで silent no-op 化(コスト払うだけで KO 0)。現在コストで両陣営を ko(any_opponent_character_cost_le_1)+ ko_self_chara(cost_le:1,count:99)に是正。両エンジンが同 overlay を読むので差分検証は沈黙、公式オラクルで検出。regression test 追加(test_st08_005_kos_all_cost1_on_both_sides_after_discard + no_ko_when_optional_discard_cost_unpayable)",
   "q": "この【登場時】効果を発動し、自分の手札1枚を捨てたあと、自分のコスト1以下のキャラをKOするかどうか選ぶことはできますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "1d505b056cd5": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "",
+  "note": "ST09-002 雨月天ぷらの【トリガー】で手札に加えた後、このキャラの【自分のターン中】効果は不発: 当DBの ST09-002 は text='-'で【自分のターン中】効果を持たない(効果は【トリガー】のみ)ため、この特定カードの盤面差分に落ちない。一般則(手札のカードは場効果=【自分のターン中】等を発火しない、engine は me.characters のみ走査)は構造的に保証。定義確認として n/a",
   "q": "「ST09-002 雨月天ぷら」の【トリガー】効果「【トリガー】相手のコスト2以下のキャラ1枚までを、レストにし、このカードを手札に加える。」を発動し手札に加えた場合、このキャラの【自分のターン中】効果は発動できますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "1d7b65a0111f": {
   "a": "いいえ、できません。カードテキスト中に「キャラ」と書かれている場合、場にあるキャラのみを指します。",
   "files": [
    "cardqa_st_07.json"
   ],
-  "note": "",
+  "note": "ST07-017 クイーン・ママ・シャンテ号【起動メイン】自分のコスト3のキャラ1枚までをライフへ: 手札のキャラカードはライフに加えられない(『キャラ』=場のキャラのみ)。target one_self_chara_filtered は me.characters のみ走査、手札は対象外=公式どおり。実測: cost3 キャラを手札のみに置くと対象0でライフ不変(resolved False)",
   "q": "この【起動メイン】効果で、手札のキャラカードをライフに加えることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1e1f1e48b0ca": {
   "a": "いいえ、できません。必ずカード1枚を引き、手札1枚を捨てます。",
   "files": [
    "cardqa_st_10.json"
   ],
-  "note": "",
+  "note": "ST10-014 ワイヤー【ターン1回】自分の場のドンがドンデッキに戻された時、カード1枚引き手札1枚捨てる: overlay は mandatory(『できる』でない)draw1+trash_self_hand_random1。引かない選択は不可=公式『いいえ、必ず引き捨てる』。実測: hand 2->3(draw)+deck-1、pending は捨てるカードの選択(mandatory discard target)であり発動可否の選択ではない",
   "q": "自分の場のドン!!がドン!!デッキに戻されたとき、この【ターン1回】効果でカードを引かないことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1edfe539d3b3": {
   "a": "いいえ、できません。",

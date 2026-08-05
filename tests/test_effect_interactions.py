@@ -2842,3 +2842,55 @@ def test_op16_045_self_bounce_cost_can_target_source_itself():
         "コスト後にインペルダウンキャラが登場していない"
     )
     assert croc not in me.characters, "自身は場から離れているはず"
+
+
+def test_st08_005_kos_all_cost1_on_both_sides_after_discard():
+    """ST08-005 シャンクス 【登場時】= 「自分の手札1枚を捨てることができる：コスト1以下の
+    キャラすべてを、KOする。」
+
+    一次情報 (cardqa_st_08, qid 1d4b5518f164):
+      Q「この【登場時】効果を発動し、自分の手札1枚を捨てたあと、自分のコスト1以下のキャラを
+        KOするかどうか選ぶことはできますか？」
+      A「いいえ、できません。この効果では、コスト1以下のキャラが、自分のキャラも相手のキャラも
+        すべてKOされます。」
+
+    退行の背景: overlay が `ko_multi` に dict (all_chara_filtered/scope:both) を渡していたが、
+    `ko_multi` は list 前提 (`isinstance(v, list)` でなければ即 continue) かつ opp 側しか KO しない
+    実装で、 コスト支払いだけ済ませて **一切 KO しない** silent no-op だった。 Python/Rust とも
+    同じ overlay を読むため差分検証では原理的に沈黙。 公式オラクルでのみ検出。
+    現在コストで両陣営の cost1 を ko + ko_self_chara に是正。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    my_c1 = InPlay.of(repo.get("EB04-002"), sickness=False)   # cost1
+    my_c2 = InPlay.of(repo.get(_FILLER), sickness=False)      # OP01-013 cost2 (survivor)
+    op_c1 = InPlay.of(repo.get("EB04-002"), sickness=False)   # cost1
+    op_c3 = InPlay.of(repo.get("PRB02-004"), sickness=False)  # cost3 (survivor)
+    src = InPlay.of(repo.get("ST08-005"), sickness=True)
+    me.characters = [my_c1, my_c2, src]
+    opp.characters = [op_c1, op_c3]
+    me.hand = [repo.get(_FILLER)]                             # 任意コスト (手札1捨て) の弾
+    trigger_on_play(st, me, opp, src, overlay)
+    assert my_c1 not in me.characters, "自分の cost1 が KO されていない (公式: 自分のキャラもすべて KO)"
+    assert op_c1 not in opp.characters, "相手の cost1 が KO されていない (公式: 相手のキャラもすべて KO)"
+    assert my_c2 in me.characters, "cost2 まで巻き込んで KO している (対象は cost1 以下のみ)"
+    assert op_c3 in opp.characters, "cost3 まで巻き込んで KO している (対象は cost1 以下のみ)"
+
+
+def test_st08_005_no_ko_when_optional_discard_cost_unpayable():
+    """ST08-005: 任意コスト (手札1枚を捨てる) を払えない (手札0) 時は KO 効果ごと不発。
+    「〜できる：」の効果はコスト未払いなら一切起きない (タダ撃ちさせない)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    my_c1 = InPlay.of(repo.get("EB04-002"), sickness=False)
+    op_c1 = InPlay.of(repo.get("EB04-002"), sickness=False)
+    src = InPlay.of(repo.get("ST08-005"), sickness=True)
+    me.characters = [my_c1, src]
+    opp.characters = [op_c1]
+    me.hand = []                                              # 捨てる弾が無い = コスト払えない
+    trigger_on_play(st, me, opp, src, overlay)
+    assert my_c1 in me.characters and op_c1 in opp.characters, (
+        "コスト未払いなのに KO が発動している (任意コストのタダ撃ち)"
+    )
