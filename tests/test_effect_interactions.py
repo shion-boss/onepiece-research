@@ -4773,3 +4773,221 @@ def test_st02_007_search_no_match_puts_all_viewed_to_deck_bottom():
                     "rest_remain": "bottom", "public": True}}, st, me, opp, None)
     assert len(me.deck) == deck_before, "超新星が無いのにデッキ枚数が減っている"
     assert len(me.hand) == hand_before, "超新星が無いのに手札に加わっている = 違反"
+
+
+# =========================================================================== #
+#  公式 Q&A conformance バッチ 2026-08-05 #2 (faq_qa_manifest, cron)
+#  8 件 conform を実測で固定 (engine/overlay 無変更、 挙動の回帰テストのみ)。
+#  一次情報は各 test の docstring に qid + Q/A 原文を引用。
+# =========================================================================== #
+def test_op14_115_takes_1_damage_even_when_no_card_added_to_life():
+    """OP14-115 リンドウ: ライフに加えなくても 1 ダメージは受ける。
+
+    公式 (cardqa_op_14, qid 32c70b593ae1):
+      Q: この【相手のターン中】効果で自分のデッキの上のカードをライフに加えなかった
+         場合でも、自分は1ダメージを受けますか？
+      A: はい、受けます。
+    on_ko の do は [put_top_to_life:1, take-1-damage] の 2 独立節。 デッキ0で
+    put_top_to_life が 0 枚でも、 後段のダメージは無条件で 1 枚ライフを減らす。
+    ⚠ ダメージの行き先 (手札/トラッシュ) は本 Q の対象外なので assert しない
+      (ライフ枚数が 1 減ることだけを固定する)。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    st.turn_player_idx = 1                 # 相手のターン (p0 から見て opp_turn=True)
+    me = st.players[0]
+    me.deck = []                           # デッキ0 → put_top_to_life は 0 枚
+    life_before = len(me.life)
+    lindou = InPlay.of(repo.get("OP14-115"))
+    execute_effect({"put_top_to_life": 1}, st, me, st.players[1], self_inplay=lindou)
+    assert len(me.life) == life_before, "前提が崩れている: デッキ0なのにライフが増えた"
+    execute_effect({"mill_self_life_to_trash": 1}, st, me, st.players[1], self_inplay=lindou)
+    assert len(me.life) == life_before - 1, (
+        "ライフに加えなかった場合でも 1 ダメージ (ライフ-1) を受けるべき"
+    )
+
+
+def test_op01_062_crocodile_no_draw_when_hand_5_at_resolution():
+    """OP01-062 クロコダイル: イベント解決後に手札5枚なら【ドン!!×1】は引けない。
+
+    公式 (cardqa_op_01, qid 32c854fbd2f9):
+      Q: 手札5枚→イベント発動で4枚→その効果で再び5枚。この【ドン!!×1】効果で引けますか？
+      A: いいえ、イベント発動後に手札が5枚以上のため引けません。
+    on_self_event_played は game.py/effects.py の event 解決 (hand 再充填) の **後** に
+    発火し、 `self_hand_count_le:4` を解決時点で評価する。 hand=5 なら不発、 hand=4 なら発火。
+    """
+    from engine.effects import trigger_self_event_played
+    repo, overlay = _repo(), _overlay()
+    # hand=5 → 引けない
+    st = _state(repo, overlay, leader0="OP01-062")
+    me, opp = st.players[0], st.players[1]
+    me.leader.attached_dons = 1
+    me.hand = [repo.get(_FILLER)] * 5
+    deck_before = len(me.deck)
+    trigger_self_event_played(st, me, opp, overlay)
+    assert len(me.deck) == deck_before, "手札5枚なのに引いている = 違反 (条件は解決時に評価)"
+    # hand=4 → 引ける (前提の健全性チェック = 条件が実際に効いている)
+    st2 = _state(repo, overlay, leader0="OP01-062")
+    me2, opp2 = st2.players[0], st2.players[1]
+    me2.leader.attached_dons = 1
+    me2.hand = [repo.get(_FILLER)] * 4
+    deck_before2 = len(me2.deck)
+    trigger_self_event_played(st2, me2, opp2, overlay)
+    assert len(me2.deck) == deck_before2 - 1, "手札4枚なら引けるはず (条件が死んでいないか確認)"
+
+
+def test_op13_120_sabo_cost_plus_is_uncapped_above_10():
+    """OP13-120 サボ: コスト+2 は 10 で頭打ちにならない (9→11)。
+
+    公式 (cardqa_op_13, qid 32d15a15dc83):
+      Q: この【起動メイン】効果で、9コスト以上のキャラを選んだ場合、そのキャラのコストは
+         10より大きい値になりますか？
+      A: はい、なります。
+    cost_minus(amount=-2) は base_cost を +2 する。 コスト上限は無いので 9→11 (>10)。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    target = InPlay.of(repo.get("OP06-118"), sickness=False)   # コスト9キャラ
+    me.characters = [target]
+    assert target.base_cost == 9, "前提が崩れている: 対象がコスト9でない"
+    execute_effect({"cost_minus": {"target": "one_self_character_any", "amount": -2,
+                    "duration": "next_opp_turn_end"}}, st, me, opp, self_inplay=me.leader)
+    assert target.base_cost == 11, "9+2=11 になるべき (10で頭打ちしない)"
+    assert target.base_cost > 10, "コストは10より大きくなる (公式回答=はい)"
+
+
+def test_op02_051_ivankov_can_play_character_when_hand_ge_3():
+    """OP02-051 イワンコフ: 手札3枚以上でも【登場時】でキャラを登場できる。
+
+    公式 (cardqa_op_02, qid 32d8bb5cc44e):
+      Q: 手札が3枚以上の場合、この【登場時】効果でキャラカードを登場できますか？
+      A: はい、登場できます。
+    do は [draw_to_hand_size:3, play_from_hand]。 hand≥3 で引きは0枚でも、 後段の
+    登場は独立に成立する (= 引き0が登場を妨げない)。 human で 登場を選べることを固定。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, human_idx=0)
+    me, opp = st.players[0], st.players[1]
+    me.hand = [repo.get("OP16-045"), repo.get(_FILLER), repo.get(_FILLER)]  # 青インペルダウンcost4 + 2枚 = 3枚
+    deck_before = len(me.deck)
+    iva = InPlay.of(repo.get("OP02-051"), sickness=False)
+    me.characters = [iva]
+    trigger_on_play(st, me, opp, iva, overlay)
+    guard = 0
+    while st.pending_choice is not None and guard < 6:
+        pc = st.pending_choice
+        cands = pc.get("candidates", [])
+        pick = [0]
+        for i, c in enumerate(cands):
+            if c.get("card_id") == "OP16-045":
+                pick = [i]
+        resolve_pending_choice(st, pick)
+        guard += 1
+    assert len(me.deck) == deck_before, "手札3枚なので引きは0枚のはず (前提)"
+    assert any(c.card.card_id == "OP16-045" for c in me.characters), (
+        "手札3枚以上でも登場時のキャラ登場が可能であるべき"
+    )
+
+
+def test_op08_045_thatch_replacement_suppresses_ko_triggers():
+    """OP08-045 サッチ: KO 置換 (トラッシュ+1ドロー) では KO したことにならない。
+
+    公式 (cardqa_op_08, qid 33204b854702):
+      Q: このカードがKOされ、代わりにトラッシュに置きカード1枚を引いたとき、他のカードの
+         持つ「キャラがKOされた時」の効果は発動しますか？
+      A: いいえ、発動しません。
+    try_replace_ko が成立すると caller は continue し、 trigger_on_ko / on_*_chara_ko を
+    一切 dispatch しない。 chara_ko_taken_this_turn が 0 のままであることで KO 未発生を固定。
+    """
+    from engine.effects import try_replace_ko
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    thatch = InPlay.of(repo.get("OP08-045"), sickness=False)
+    me.characters = [thatch]
+    me.hand = []
+    ko_before = int(getattr(me, "chara_ko_taken_this_turn", 0) or 0)
+    replaced = try_replace_ko(st, me, opp, thatch, overlay, by_opp_effect=True, leave_kind="ko")
+    assert replaced is True, "置換 (トラッシュ+ドロー) が成立していない"
+    assert repo.get("OP08-045") in me.trash, "置換でトラッシュに置かれていない"
+    assert len(me.hand) == 1, "置換で1枚引いていない"
+    assert int(getattr(me, "chara_ko_taken_this_turn", 0) or 0) == ko_before, (
+        "置換なのに KO カウンタが増えた = 『キャラがKOされた時』が発火しうる状態 (違反)"
+    )
+
+
+def test_op08_043_newgate_condition_checked_at_play_not_continuously():
+    """OP08-043 白ひげ: ライフ3枚以上で登場すると 手札2捨て制約は付かない (後でライフ2以下でも)。
+
+    公式 (cardqa_op_08, qid 338ca846c203):
+      Q: ライフ3枚以上でこの【登場時】を発動後、次の相手ターン中にライフが2枚以下になった。
+         相手キャラは手札2枚を捨てなければアタックできない状態になりますか？
+      A: いいえ、手札2枚を捨てずにアタックできます。
+    if(self_life_le:2) は登場時に一度だけ評価。 ライフ3枚なら不成立で制約を付与せず、
+    後からライフが減っても遡って付与されない (登場時効果は継続再評価しない)。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP08-002")   # マルコ = 白ひげ海賊団 リーダー
+    me, opp = st.players[0], st.players[1]
+    me.life = [repo.get(_FILLER)] * 3                 # ライフ3枚 (>=3)
+    opp_ch = InPlay.of(repo.get(_FILLER), sickness=False)
+    opp.characters = [opp_ch]
+    ng = InPlay.of(repo.get("OP08-043"), sickness=False)
+    me.characters = [ng]
+    trigger_on_play(st, me, opp, ng, overlay)
+    assert opp_ch.attack_cost_discard_hand_n == 0, "ライフ3枚なのに制約が付いた = if 評価が誤り"
+    me.life = [repo.get(_FILLER)] * 2                 # 後からライフ2枚に
+    assert opp_ch.attack_cost_discard_hand_n == 0, (
+        "登場時にライフ3枚だったので、 後からライフ2以下でも制約は付かないべき"
+    )
+
+
+def test_eb01_061_mr2_copy_power_then_don_bonus_applies_on_top():
+    """EB01-061 Mr.2: 元々のパワーを5000にコピー + ドン付与1枚 = 6000。
+
+    公式 (cardqa_eb_01, qid 33c1d8c18e2e):
+      Q: ドン!!1枚付与のこのキャラでアタックし、この【アタック時】効果で相手のパワー5000の
+         キャラを選んだ時、このキャラのパワーは6000になりますか？
+      A: はい、6000になります。
+    set_base_power_copy は base を 5000 に上書き。 ドン+1000 は base の上に加算される。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    mr2 = InPlay.of(repo.get("EB01-061"), sickness=False)
+    mr2.attached_dons = 1
+    me.characters = [mr2]
+    opp_ch = InPlay.of(repo.get("OP01-078"), sickness=False)   # 印刷パワー5000
+    opp.characters = [opp_ch]
+    assert opp_ch.power == 5000, "前提が崩れている: 相手キャラのパワーが5000でない"
+    trigger_on_attack(st, me, opp, mr2, overlay)
+    if st.pending_choice is not None:
+        resolve_pending_choice(st, [0])
+    assert mr2.base_power == 5000, "元々のパワーが5000にコピーされていない"
+    assert mr2.power == 6000, "コピー5000 + ドン+1000 = 6000 になるべき"
+
+
+def test_op03_001_ace_when_attacked_fires_before_counter_step_structurally():
+    """OP03-001 エース: 「アタックされた時」はカウンターステップより前 (後から発動不可)。
+
+    公式 (cardqa_op_03, qid 33e605eb9dc1):
+      Q: カウンターステップにカウンターを発動した後、リーダーの「アタックされた時」効果で
+         パワーを上げられますか？
+      A: いいえ、できません。
+    構造で担保 (既存 30be7538d5d5 と同型): apply_action の AttackLeader 経路で
+    trigger_on_opp_attack_on_leader (アタックされた時) が _fire_counter_events より前に
+    発火・解決する。 カウンター発動後にその窓は既に閉じている。
+    """
+    import inspect
+    from engine import game
+    # AttackLeader 処理の実体は _apply_action_impl (apply_action のラップ先)。
+    src = inspect.getsource(game._apply_action_impl)
+    # AttackLeader 経路で opp_attack トリガーが counter events より前に呼ばれること
+    i_trig = src.find("trigger_on_opp_attack_on_leader")
+    i_counter = src.find("_fire_counter_events")
+    assert i_trig != -1 and i_counter != -1, "前提が崩れている: 呼び出しが見つからない"
+    assert i_trig < i_counter, (
+        "『アタックされた時』トリガーがカウンター処理より後に配置されている = "
+        "カウンター後にリーダー効果を発動できてしまう (違反)"
+    )

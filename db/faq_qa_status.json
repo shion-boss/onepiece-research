@@ -2093,90 +2093,90 @@
   "files": [
    "cardqa_op_14.json"
   ],
-  "note": "",
+  "note": "OP14-115 リンドウ: on_ko=[put_top_to_life:1, take-1-damage] の2独立節。ライフに0枚加えでもダメージ(ライフ-1)は無条件。test_op14_115_takes_1_damage_even_when_no_card_added_to_life。⚠別件(本Q対象外): ダメージ行き先が mill_self_life_to_trash=トラッシュ実装だが公式ダメージ=手札(rules L192)。docs escalated 記録済、要 self-damage primitive+Rust",
   "q": "この【相手のターン中】効果で自分のデッキの上のカードをライフに加えなかった場合でも、自分は1ダメージを受けますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "32c854fbd2f9": {
   "a": "いいえ、イベントを発動した後に自分の手札が5枚以上のため、カードを引くことはできません。",
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-062 クロコダイル: on_self_event_played はイベント解決(hand再充填)後に self_hand_count_le:4 を評価(effects.py 13781, game 順序)。hand5→引けない/hand4→引ける を実測。test_op01_062_crocodile_no_draw_when_hand_5_at_resolution",
   "q": "手札が5枚の状態でST04-014「大看板\"災害\"」などを発動して手札が4枚になり、そのイベントの効果で手札が再び5枚になりました。このとき、この【ドン!!×1】効果でカードを引くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "32d15a15dc83": {
   "a": "はい、なります。",
   "files": [
    "cardqa_op_13.json"
   ],
-  "note": "",
+  "note": "OP13-120 サボ: cost_minus(amount=-2)=base_cost+2、コスト上限なし。コスト9キャラ→11(>10)を実測。test_op13_120_sabo_cost_plus_is_uncapped_above_10",
   "q": "この【起動メイン】効果で、9コスト以上のキャラを選んだ場合、そのキャラのコストは10より大きい値になりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "32d8bb5cc44e": {
   "a": "はい、登場できます。",
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP02-051 イワンコフ: on_play=[draw_to_hand_size:3, play_from_hand]。hand>=3 で引き0枚でも登場は独立成立、キャラ登場可を実測。test_op02_051_ivankov_can_play_character_when_hand_ge_3",
   "q": "手札が3枚以上の場合、この【登場時】効果でキャラカードを登場できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "32f36745b5c6": {
   "a": "この効果を発動したプレイヤーが、相手のコストエリアにあるドン!!を選びます。",
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-015 ヒグマ【登場時】attach_rested_don(to_opp): 付与するドンをどちらが選ぶか=発動者、という手続質問。相手コストエリアのドンは fungible で engine の状態差にならず検証不能。n/a",
   "q": "この【登場時】効果で相手のキャラに相手のドン!!1枚を付与するとき、付与するドン!!はどちらのプレイヤーが選びますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "33204b854702": {
   "a": "いいえ、発動しません。",
   "files": [
    "cardqa_op_08.json"
   ],
-  "note": "",
+  "note": "OP08-045 サッチ: replace_leave(trash+draw)成立時、try_replace_ko が True 返し caller が continue、trigger_on_ko/on_*_chara_ko を一切 dispatch しない=KO扱いにならない。chara_ko_taken_this_turn=0 を実測。test_op08_045_thatch_replacement_suppresses_ko_triggers",
   "q": "このカードがKOされ、代わりにトラッシュに置きカード1枚を引いたとき、他のカードの持つ「キャラがKOされた時」の効果は発動しますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "338ca846c203": {
   "a": "いいえ、相手のキャラは手札2枚を捨てずにアタックできます。",
   "files": [
    "cardqa_op_08.json"
   ],
-  "note": "",
+  "note": "OP08-043 白ひげ: on_play if(self_life_le:2)は登場時1回評価。ライフ3枚で不成立→set_attack_cost_discard_hand を付与せず、後でライフ2以下でも遡及付与なしを実測。test_op08_043_newgate_condition_checked_at_play_not_continuously",
   "q": "自分のライフが3枚以上の時にこの【登場時】効果を発動した後、次の相手のターンの間に自分のライフが2枚以下になりました。この場合、この【登場時】効果により手札2枚を捨てなければアタックできない状態になりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "33a5b522ef88": {
   "a": "この場合、相手がドン!!を追加するかどうかを決めます。",
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "",
+  "note": "OP12-075 ミス・オールサンデー: 相手はドン追加してもよい=相手が決める。overlay は actor:opp+optional だが _execute_event が bundle 直下の actor/optional を無視し DON を発動者(自分)に追加+非任意化=二重違反。actor:opp は本カード1枚のみだが、修正は core event dispatch 変更(actor swap+相手所有 pending_choice)+Rust mirror 要につき escalated。docs 記録",
   "q": "自分がこの【登場時】効果を発動した時、相手がドン!!を追加するかどうかを決めるのは自分ですか？相手ですか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "33c1d8c18e2e": {
   "a": "はい、6000になります。",
   "files": [
    "cardqa_eb_01.json"
   ],
-  "note": "",
+  "note": "EB01-061 Mr.2: set_base_power_copy が base_power を5000に上書き、ドン+1000は上に加算=6000。実測 base=5000 power=6000。test_eb01_061_mr2_copy_power_then_don_bonus_applies_on_top",
   "q": "ドン!!が1枚付与されているこのキャラでアタックし、この【アタック時】効果で相手のパワー5000のキャラを選んだ時、このキャラのパワーは6000になりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "33e605eb9dc1": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_03.json"
   ],
-  "note": "",
+  "note": "OP03-001 エース: opp_attack_on_leader(アタックされた時)は _apply_action_impl で _fire_counter_events より前に発火(game.py 1526<1580)=カウンター後に発動不可、構造で担保(既存 30be7538d5d5 同型)。test_op03_001_ace_when_attacked_fires_before_counter_step_structurally",
   "q": "自分がカウンターステップにカウンターを発動した後、自分のこのリーダーの「アタックされた時」の効果を発動してパワーを上げることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "33ece02d4726": {
   "a": "いいえ、できません。",

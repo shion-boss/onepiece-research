@@ -2808,3 +2808,87 @@ Python/Rust とも同じ overlay を読むため **差分検証では原理的�
   「デッキは0枚にならず」は 当該効果が deck を見て戻す(look-and-return)型である事に依存する **カード固有
   解釈** で、 engine の一般挙動(敗北は DRAW フェイズの空引きのみ、 game.py)に一意に落ちない。 特定不能 +
   カード固有につき n/a。
+
+---
+
+## 公式 Q&A conformance バッチ 2026-08-05 #2 (faq_qa_manifest、 cron optcg-faq-conformance)
+
+この回は **10 件中 8 件が conform**、 1 件 escalated、 1 件 n/a。 conform 8 件は
+`tests/test_effect_interactions.py` に回帰テストを追加して固定 (engine/overlay は無変更)。
+加えて conform 判定の過程で **OP14-115 のダメージ行き先の別件バグ** を発見し、 下記に escalate 記録。
+
+### conform (実測確認、 2026-08-05 #2)
+
+- **OP14-115 リンドウ: ライフに加えなくても 1 ダメージは受ける** (cardqa_op_14, `32c70b593ae1`) —
+  「【相手のターン中】【KO時】でデッキ上をライフに加えなかった場合でも 1 ダメージを受けるか」→
+  **はい**。 `on_ko` の do は `[put_top_to_life:1, take-1-damage]` の 2 独立節。 デッキ0で
+  put_top_to_life が 0 枚でも後段のダメージは無条件でライフを 1 枚減らす (life 3→2 を実測)。
+  `test_op14_115_takes_1_damage_even_when_no_card_added_to_life`。
+- **OP01-062 クロコダイル: イベント解決後に手札5枚なら【ドン!!×1】は引けない** (cardqa_op_01,
+  `32c854fbd2f9`) — 「手札5→イベントで4→効果で再び5、 この時引けるか」→ **いいえ**。
+  `on_self_event_played` は **イベントの効果解決 (手札再充填) の後** に発火し (effects.py:13781、
+  game 側で event bundle を `_maybe_resolve` してから trigger_self_event_played)、 `self_hand_count_le:4`
+  を解決時点で評価する。 hand5→引けない / hand4→引ける を実測。
+  `test_op01_062_crocodile_no_draw_when_hand_5_at_resolution`。
+- **OP13-120 サボ: コスト+2 は 10 で頭打ちにならない (9→11)** (cardqa_op_13, `32d15a15dc83`) —
+  「9コスト以上を選ぶとコストは10より大きくなるか」→ **はい**。 overlay `cost_minus(amount=-2)` は
+  `base_cost` を +2 する (base_cost = raw - cost_minus、 負値コストで加算)。 コスト上限は無く 9→11
+  (>10) を実測。 `test_op13_120_sabo_cost_plus_is_uncapped_above_10`。
+- **OP02-051 イワンコフ: 手札3枚以上でも【登場時】でキャラを登場できる** (cardqa_op_02, `32d8bb5cc44e`)
+  — 「手札3枚以上でキャラを登場できるか」→ **はい**。 on_play=`[draw_to_hand_size:3, play_from_hand]`。
+  hand≥3 で引きは0枚でも、 後段の play_from_hand は独立に成立 (human で OP16-045 を登場、 引き0を実測)。
+  `test_op02_051_ivankov_can_play_character_when_hand_ge_3`。
+- **OP08-045 サッチ: KO 置換 (トラッシュ+1ドロー) は KO 扱いにならない** (cardqa_op_08, `33204b854702`)
+  — 「置換でトラッシュ+ドローした時、 他のカードの『キャラがKOされた時』は発動するか」→ **いいえ**。
+  `try_replace_ko` が成立すると caller は `continue` し、 `trigger_on_ko`/`on_*_chara_ko` を一切
+  dispatch しない。 置換後 `chara_ko_taken_this_turn=0` (KO 未発生) を実測。
+  `test_op08_045_thatch_replacement_suppresses_ko_triggers`。
+- **OP08-043 白ひげ: ライフ3枚以上で登場すると 手札2捨て制約は付かない** (cardqa_op_08, `338ca846c203`)
+  — 「ライフ3枚で登場後、 相手ターン中にライフ2枚以下になったら制約が付くか」→ **いいえ**。
+  on_play の `if(self_life_le:2)` は登場時に一度だけ評価。 ライフ3枚で不成立 →
+  `set_attack_cost_discard_hand` を付与せず、 後からライフが減っても遡及付与しない (登場時効果は
+  継続再評価しない)。 `test_op08_043_newgate_condition_checked_at_play_not_continuously`。
+- **EB01-061 Mr.2: 元々のパワーを5000にコピー + ドン付与1枚 = 6000** (cardqa_eb_01, `33c1d8c18e2e`)
+  — 「ドン1枚付与でパワー5000のキャラをコピーしたらパワー6000になるか」→ **はい**。
+  `set_base_power_copy` は base を 5000 に上書き、 ドン+1000 は base の上に加算 (power = base 5000 +
+  don 1000 = 6000 を実測)。 `test_eb01_061_mr2_copy_power_then_don_bonus_applies_on_top`。
+- **OP03-001 エース: 「アタックされた時」はカウンターステップより前 (後から発動不可)** (cardqa_op_03,
+  `33e605eb9dc1`) — 「カウンター発動後にリーダーの『アタックされた時』でパワーを上げられるか」→
+  **いいえ**。 構造で担保 (既存 `30be7538d5d5` と同型): `_apply_action_impl` の AttackLeader 経路で
+  `trigger_on_opp_attack_on_leader` が `_fire_counter_events` より前に発火・解決する (game.py 1526<1580)。
+  カウンター発動後にその窓は既に閉じている。 `test_op03_001_ace_when_attacked_fires_before_counter_step_structurally`。
+
+### n/a (engine 挙動として検証不能、 2026-08-05 #2)
+
+- **OP15-015 ヒグマ: 付与するドンをどちらのプレイヤーが選ぶか** (cardqa_op_15, `32f36745b5c6`) —
+  「【登場時】で相手キャラに相手のドンを付与する時、 どちらが選ぶか」→ **発動したプレイヤーが相手の
+  コストエリアのドンを選ぶ**。 これは手続き (誰が選ぶか) の質問で、 相手コストエリアのドンは
+  fungible (どれを選んでも盤面状態は不変) のため engine の状態差にならない。 overlay は
+  `attach_rested_don(to_opp)` で正しく相手側のレストドンから付与する。 n/a。
+
+### escalated (2026-08-05 #2)
+
+- **OP12-075 ミス・オールサンデー: 相手はドンを追加してもよい = 相手が決める** (cardqa_op_12,
+  `33a5b522ef88`) — 「【登場時】で相手がドンを追加するか決めるのは自分か相手か」→ **相手が決める**。
+  overlay は 2 節目を `{"when":"on_play","optional":true,"actor":"opp","do":[{"add_don":1}]}` と
+  正しく記述しているが、 **`_execute_event` (effects.py:239) が bundle 直下の `actor`/`optional` を
+  一切消費せず** `run_do_array(do, state, me, opp, ...)` を発動者フレームで実行してしまう。 結果:
+  ① `actor:opp` 無視 → DON が **相手ではなく発動者 (自分)** に追加される
+  ② `optional:true` 無視 → **相手の任意選択にならず自動追加** される、 の二重違反。 実測でも
+  発動者 p0 の don_active が +1、 相手 p1 は 0 のまま。
+  → bundle 直下 `actor:opp` は **本カード 1 枚のみ** だが、 是正には core event dispatch に
+  (a) actor swap (相手フレームで do 実行) (b) 相手所有の optional pending_choice (発動者ターン中に
+  非手番側へ意思決定を渡す) の 2 点を追加し **Python/Rust 両方**を同時に直す必要がある。 core dispatch の
+  意思決定所有者を変えるアーキ変更につき **escalated**。 是正時は actor swap + 相手所有 optional を
+  両エンジンで実装し、 回帰テストで「DON が相手側に付き、 相手が拒否できる」ことを固定する。
+
+- **【別件・本 Q&A 対象外】OP14-115 リンドウ: 「1ダメージを受ける」の行き先がトラッシュ = 公式は手札**
+  (`32c70b593ae1` の conform 判定中に発見) — カードテキスト「その後、自分は1ダメージを受ける」は
+  ルール上 **ライフ上1枚を手札へ (トリガー発動可)** の damage 処理 (rules skill §L192 / 効果ダメージも
+  トリガー可は `deal_opp_leader_damage` の実装コメント参照)。 だが overlay は `mill_self_life_to_trash:1`
+  = **トラッシュ送り** で実装しており、 行き先が誤り (手札であるべき) + ライフ【トリガー】の機会も
+  握り潰している。 `mill_self_life_to_trash` を使う他 29 枚は全てテキストが明示的に「ライフをトラッシュに
+  置く」ので正しく、 **「ダメージを受ける」に流用しているのは OP14-115 の 1 枚のみ**。 影響 1 枚だが
+  是正には **自己ダメージ primitive (ライフ→手札 + トリガー機会、 `deal_opp_leader_damage` の自分版)** を
+  新設し Python/Rust 両方に配線する必要があるため escalated。 なお本 Q&A `32c70b593ae1` が問うのは
+  「加えなくてもダメージを受けるか」の無条件性のみで、 その点は conform (ライフは無条件で 1 枚減る)。
