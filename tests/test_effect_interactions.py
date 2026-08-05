@@ -3085,3 +3085,60 @@ def test_op15_073_summon_cost_restricted_to_exactly_one():
     while st.pending_choice is not None:
         resolve_pending_choice(st, [0])
     assert any(c.card.card_id == c1 for c in me.characters), "コスト1の 神官/神兵 が登場できていない"
+
+
+# --- 2026-08-05 (concurrent-run followup): OP02-013 -3000 の白ひげleader誤gate是正 ---
+def test_op02_013_power_debuff_unconditional_and_distinct_targets():
+    """OP02-013 ポートガス・D・エース 【登場時】= 「相手のキャラ2枚までを、このターン中、
+    パワー-3000。その後、自分のリーダーが『白ひげ海賊団』を含む特徴を持つ場合、このキャラは、
+    このターン中、【速攻】を得る。」
+
+    一次情報 (cardqa_op_02, qid 20355f3c0542): 「この【登場時】効果で同じキャラを2回選び、
+    パワーを-6000することはできますか？」→「いいえ、できません。」
+    → 「2枚まで」= 相異なる2枚 (同一キャラの二重選択で -6000 は不可)。
+
+    ⚠ 是正: overlay が -3000 の power_pump 自体に `if leader_features_any 白ひげ海賊団` を
+    付けており、 白ひげリーダー以外だと -3000 が **一切かからない** silent no-op だった。
+    公式テキストでは -3000 は無条件で、 条件がかかるのは後段の【速攻】のみ。
+    Python/Rust とも同じ overlay を読むため差分検証では沈黙 = 公式オラクルでのみ検出。
+    このテストは非・白ひげリーダーで -3000 を assert = 旧 overlay なら落ちる。"""
+    repo, overlay = _repo(), _overlay()
+    # 非・白ひげリーダー (OP01-001 = 麦わらの一味) でも -3000 は無条件でかかる
+    st = _state(repo, overlay, leader0="OP01-001")
+    me, opp = st.players[0], st.players[1]
+    a = InPlay.of(repo.get(_FILLER), sickness=False)   # OP01-013 power3000
+    b = InPlay.of(repo.get(_FILLER), sickness=False)
+    opp.characters = [a, b]
+    pa0, pb0 = a.power, b.power
+    ace = InPlay.of(repo.get("OP02-013"), sickness=True)
+    me.characters = [ace]
+    trigger_on_play(st, me, opp, ace, overlay)
+    assert a.power == pa0 - 3000 and b.power == pb0 - 3000, (
+        "非・白ひげリーダーで -3000 が2枚に無条件でかかっていない "
+        "(旧 overlay は power_pump を白ひげ leader に gate していた)"
+    )
+    # 相異なる2枚に分散 (同一キャラに -6000 スタックしていない)
+    assert a.power == pa0 - 3000 and b.power == pb0 - 3000, (
+        "同一キャラに -6000 が乗っている (公式: 同じキャラを2回は選べない)"
+    )
+
+
+def test_op02_013_rush_only_with_whitebeard_leader():
+    """OP02-013: 後段【速攻】は『白ひげ海賊団』リーダーの時のみ (条件は速攻側にのみ残す)。"""
+    repo, overlay = _repo(), _overlay()
+    # 白ひげ (OP02-001) → 速攻付与
+    st = _state(repo, overlay, leader0="OP02-001")
+    me, opp = st.players[0], st.players[1]
+    ace = InPlay.of(repo.get("OP02-013"), sickness=True)
+    me.characters = [ace]
+    trigger_on_play(st, me, opp, ace, overlay)
+    assert "速攻" in ace.granted_keywords, "白ひげリーダーで速攻が付いていない"
+    # 非・白ひげ (OP01-001) → 速攻なし
+    st2 = _state(repo, overlay, leader0="OP01-001")
+    me2, opp2 = st2.players[0], st2.players[1]
+    ace2 = InPlay.of(repo.get("OP02-013"), sickness=True)
+    me2.characters = [ace2]
+    trigger_on_play(st2, me2, opp2, ace2, overlay)
+    assert "速攻" not in ace2.granted_keywords, "非・白ひげリーダーで速攻が付いている (条件無視)"
+
+

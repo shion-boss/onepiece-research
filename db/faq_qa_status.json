@@ -1246,9 +1246,9 @@
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "OP02-013 エース 登場時: 相手キャラ2枚までパワー-3000。 target=all_opponent_chara_filtered limit2 は相手キャラから最大2体を distinct 選択、 同一キャラを2回選べない。 実測: 相手1体のみの時 -3000 が1回だけ適用(3000→0, -6000でない)。 公式『いいえ(同一2回不可)』どおり。",
+  "note": "qid論点(OP02-013 同一キャラ2回選択で-6000)は元々conform(2枚まで=相異なる2枚)。並行cron(5bbbbbf)はconformとしたが、検証中に別の公式違反を発見・是正: overlay が -3000 power_pump 自体に if:leader白ひげ を付け、非該当leaderで -3000 が一切かからない silent no-op だった。公式は -3000 無条件/【速攻】のみ白ひげ条件。overlay-only 是正(6 variant: base/_p1/_p2/_p3/_p5/_r1)。回帰 test_op02_013_power_debuff_unconditional_and_distinct_targets(旧overlayで落ちる)+ test_op02_013_rush_only_with_whitebeard_leader。",
   "q": "この【登場時】効果で同じキャラを2回選び、パワーを-6000することはできますか？",
-  "status": "conform"
+  "status": "fixed"
  },
  "20b418e26a6d": {
   "a": "はい、できます。",
