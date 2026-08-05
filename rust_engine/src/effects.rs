@@ -340,7 +340,12 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                     .and_then(|x| x.as_array())
                     .map(|a| a.iter().filter_map(|x| x.as_str()).map(norm_card_name).collect())
                     .unwrap_or_default();
-                let power_eq = v.get("power_eq").and_then(|x| x.as_i64());
+                // 公式テキストが 「元々のパワー」 の場合は `truly_original_power_eq` key
+                // (= 表記と spec key の整合、 overlay 命名規約)。 どちらも印刷パワー比較。
+                let power_eq = v
+                    .get("power_eq")
+                    .or_else(|| v.get("truly_original_power_eq"))
+                    .and_then(|x| x.as_i64());
                 names.iter().all(|nm| {
                     std::iter::once(&me.leader).chain(me.characters.iter()).any(|c| {
                         norm_card_name(&c.card.name) == *nm

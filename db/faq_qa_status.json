@@ -913,90 +913,90 @@
   "files": [
    "cardqa_op_03.json"
   ],
-  "note": "",
+  "note": "OP03-122 そげキング: 【登場時】コスト6以下1枚まで戻す(任意)は空振りでも後段 draw2→discard2 が独立実行。test_op03_122_mandatory_tail_runs_without_return_target。cardqa_op_03。",
   "q": "このキャラを登場させ【登場時】効果を発動し、コスト6以下のキャラを戻さない事を選べますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1624f9859094": {
   "a": "いいえ、この効果は、パワー+3000した後に、元々のパワーが6000ちょうどのキャラの「ポートガス・D・エース」と、元々のパワーが6000ちょうどのキャラの「モンキー・Ｄ・ルフィ」の両方が自分の場にいる場合、カード1枚を引く効果です。",
   "files": [
    "cardqa_st_30.json"
   ],
-  "note": "",
+  "note": "ST30-016 戦えるかルフィ: self_field_named_all_with_power の power 制約 key が overlay=truly_original_power_eq なのに engine(Py/Rust)は power_eq しか読まず、power制約が黙って無視されていた(実測: 印刷5000のエースでも条件成立=公式違反)。是正: engine(effects.py/effects.rs)が truly_original_power_eq も読むよう両エンジン修正(命名規約 test_overlay_cost_wording_matches_spec_key に従い overlay の元々の表記→truly_original key は維持)。両とも c.card.power(印刷=元々の)と比較。ace6+luffy6→True/ace5+luffy6→False。test_st30_016_named_power_condition_requires_exact_printed_6000。parity MISMATCH=0。cardqa_st_30。",
   "q": "この効果の「元々のパワー6000のキャラ」に、元々のパワー5000以下のキャラは含まれますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "162b5e19be9a": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-079 アブサロム: 【トリガー】発動の【KO時】は trash_to_hand=トラッシュ源のみ。ライフ由来の自身は対象外。test_op15_079_trigger_ko_effect_sources_only_from_own_trash。cardqa_op_15。",
   "q": "この【トリガー】効果でこのカード自身を手札に加えることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "16802d1a7f0e": {
   "a": "はい、登場できます。その場合、【登場時】効果は発動できません。",
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-011 ゴードン: 【登場時】自分の手札1枚をデッキ下に置くことができる：1ドロー。overlay が flat [self_hand_to_deck_bottom:1, draw:1] で cost gating 無し → 手札0(このゴードンが最後の1枚)でも draw が発火=タダ撃ち(実測: hand0→1/deck-1)=公式違反(cardqa_op_01: はい登場可・効果は発動できない)。faithful fix = optional_cost_then で包む必要があるが、そのcost handler群に hand-to-deck-bottom が無い(stage_to_deck_bottom/return_self_chara_to_deck_bottom はあるが手札版は未実装)。追加は Python+Rust 両 optional_cost_then dispatch への cost handler 新設(payability=hand>=N / payment=既存 self_hand_to_deck_bottom effv 再利用)= dual-engine 変更 + rebuild + parity 要。conditional+self_hand_ge の overlay shortcut は「できる」の任意性を潰す=近似禁止に抵触。→ 範囲/リスクを見て escalated(fix recipe は official_rulings.md)。同型: OP05-056(return_self_chara_to_deck_bottom cost=overlay修正可)/OP06-114+variants(stage_to_deck_bottom cost=overlay修正可)も同じ ungated できる：cost クラス。cardqa_op_01。",
   "q": "自分の手札が他にない場合、このキャラを登場できますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "16f2556c451f": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_14.json"
   ],
-  "note": "",
+  "note": "OP14-001 ロー: swap_self_power は me.characters のみ候補=相手キャラ/自分vs相手は不可。test_op14_001_swap_self_power_never_targets_opponent。cardqa_op_14。",
   "q": "この【起動メイン】効果で、自分のキャラと相手のキャラや、相手のキャラ同士のパワーを入れ替えることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1707f932b769": {
   "a": "はい、KOできます。",
   "files": [
    "cardqa_.json"
   ],
-  "note": "",
+  "note": "P-040 カイドウ: KO耐性(相手ドン10)は静的で DON 枚数に追随。OP01-094 の ドン-6 で相手ドン4→耐性消失→KO可。test_p040_ko_immunity_lifts_when_opp_don_drops_below_10。cardqa_promo。",
   "q": "相手の場にドン!!が10枚あり相手のリーダーが特徴《百獣海賊団》を持つときに、相手が「OP01-094 カイドウ」の効果「【登場時】ドン!!-6：自分のリーダーが特徴《百獣海賊団》を持つ場合、このキャラ以外のキャラすべてを、KOする。」を発動し、ドン!!を6枚ドン!!デッキに戻しました。この【登場時】効果で、この「P-040 カイドウ」をKOすることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "177fa5667ef4": {
   "a": "いいえ、公開しません。",
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "",
+  "note": "OP12-079 ルフィは海賊王…: search_top_n public:false = 手札に加えるカードは非公開。情報開示のみで engine 盤面差分に落ちない(手札は元来非公開)。cardqa_op_12。",
   "q": "この【メイン】効果で手札に加えるカードは相手に公開しますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "1782ba5b7e85": {
   "a": "いいえ、できません。可能な限り3枚になるようにカードを引きます。",
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP02-051 イワンコフ: draw_to_hand_size は強制ドロー(引かない選択不可、可能な限り3枚)。test_op02_051_draw_to_hand_size_is_mandatory。cardqa_op_02。",
   "q": "手札が2枚以下の場合、この【登場時】効果でカードを引かないことを選べますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1794b7238d18": {
   "a": "この場合、この【KO時】効果は発動せず、このカードはトラッシュに置かれます。",
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "",
+  "note": "OP16-103 ヴァン・オーガー: 【相手のターン中】【KO時】は on_ko if opp_turn=true。自分ターン中はトリガー発動でも不発(トラッシュ)。test_op16_103_trigger_ko_effect_gated_by_opp_turn。cardqa_op_16。",
   "q": "自分のターン中に自分のリーダーがダメージを受けて、この【トリガー】を発動した場合、この【KO時】効果はどうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1797e7d2de5f": {
   "a": "はい、できます。",
   "files": [
    "cardqa_st_19.json"
   ],
-  "note": "",
+  "note": "ST19-003 たしぎ: 【起動メイン】(相手コスト0トラッシュ)はリーダー名制約なし(登場ターン条件のみ)。リーダー≠スモーカーでも使用可。test_st19_003_activate_main_not_gated_by_leader。cardqa_st_19。",
   "q": "自分のリーダーが「スモーカー」ではない場合、この【起動メイン】効果で相手のコスト0のトラッシュに置くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "182e8c480524": {
   "a": "いいえ、できません。",

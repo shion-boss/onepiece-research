@@ -2429,3 +2429,197 @@ def test_op08_079_kaido_activate_main_only_on_summon_turn():
     assert len(p1.characters) == oc and len(p1.hand) == oh, (
         "登場ターン外なのに効果が起きている (公式: 何も起こりません)"
     )
+
+
+# --------------------------------------------------------------------------- #
+#  公式 Q&A 全件保証バッチ (2026-08-05)
+#  台帳 db/faq_qa_status.json の pending を 1 バッチ処理した際の回帰テスト。
+#  各テストは一次情報 (cardqa_*) の Q&A 原文をコメントに引用し、 「公式どおりか」 を
+#  engine の盤面差分で固定する。
+# --------------------------------------------------------------------------- #
+def test_op03_122_mandatory_tail_runs_without_return_target():
+    """OP03-122 そげキング: 「コスト6以下のキャラを戻さない」を選んでも draw2+discard2 は走る。
+
+    一次情報 (cardqa_op_03):
+      「このキャラを登場させ【登場時】効果を発動し、コスト6以下のキャラを戻さない事を
+        選べますか？」→「はい、できます。その場合も、カードを2枚引き、手札2枚を捨てます。」
+    = 前段 (return_to_hand 1枚まで) が空振りでも 後段 (draw2 → discard2) は独立に実行される。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.hand = [repo.get(_FILLER)] * 3
+    src = InPlay.of(repo.get("OP03-122"), sickness=True)
+    me.characters = [src]                      # 盤面に戻せるキャラは居ない (前段空振り)
+    deck_before, trash_before = len(me.deck), len(me.trash)
+    trigger_on_play(st, me, opp, src, overlay)
+    assert len(me.deck) == deck_before - 2, "後段 draw2 が走っていない"
+    assert len(me.trash) >= trash_before + 2, "後段 discard2 が走っていない"
+
+
+def test_st30_016_named_power_condition_requires_exact_printed_6000():
+    """ST30-016 戦えるかルフィ: 「元々のパワー6000」は **ちょうど6000** で、5000以下は含まない。
+
+    一次情報 (cardqa_st_30):
+      「この効果の「元々のパワー6000のキャラ」に、元々のパワー5000以下のキャラは
+        含まれますか？」→「いいえ、…元々のパワーが6000ちょうどのキャラの「エース」と
+        「ルフィ」の両方が自分の場にいる場合、カード1枚を引く効果です。」
+
+    是正前バグ: overlay の key が `truly_original_power_eq` で、engine (Python/Rust とも) は
+    `power_eq` しか読まないため power 制約が **黙って無視** され、5000パワーのエースでも
+    条件成立していた (= 差分検証では両エンジン同一挙動なので沈黙する型の乖離)。
+    """
+    repo, overlay = _repo(), _overlay()
+    cond = next(e for e in overlay.get("ST30-016").effects
+                if e.get("if", {}).get("self_field_named_all_with_power"))["if"]
+    ace6, ace5, luffy6 = "OP13-002", "OP16-001", "OP09-036"   # 印刷パワー 6000 / 5000 / 6000
+    assert repo.get(ace6).power == 6000 and repo.get(ace5).power == 5000
+
+    st = _state(repo, overlay)
+    me = st.players[0]
+    me.characters = [InPlay.of(repo.get(ace6)), InPlay.of(repo.get(luffy6))]
+    assert eval_condition(cond, st, me) is True, "6000ちょうどのペアは条件成立するはず"
+
+    st2 = _state(repo, overlay)
+    me2 = st2.players[0]
+    me2.characters = [InPlay.of(repo.get(ace5)), InPlay.of(repo.get(luffy6))]
+    assert eval_condition(cond, st2, me2) is False, (
+        "元々のパワー5000のエースは 6000 に含まれない (是正前は True = 公式違反)"
+    )
+
+
+def test_op15_079_trigger_ko_effect_sources_only_from_own_trash():
+    """OP15-079 アブサロム: 【トリガー】で発動する【KO時】は トラッシュからしか手札に加えない。
+
+    一次情報 (cardqa_op_15):
+      「この【トリガー】効果でこのカード自身を手札に加えることはできますか？」
+      →「いいえ、できません。」
+    = ライフから【トリガー】発動したアブサロム自身はトラッシュに居ないので対象にならない。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    absalom = InPlay.of(repo.get("OP15-079"), sickness=True)   # トリガー発動 = ライフ由来 = トラッシュに無い
+    me.trash = []
+    hand_before = len(me.hand)
+    execute_effect({"trash_to_hand": {"filter": {"feature": "スリラーバーク海賊団"},
+                                      "limit": 1}}, st, me, opp, absalom)
+    assert len(me.hand) == hand_before, "トラッシュが空なのに手札に加わっている (= 自身を加えた)"
+
+
+def test_op14_001_swap_self_power_never_targets_opponent():
+    """OP14-001 ロー: 元々のパワー入れ替えは **自分のキャラ2枚** のみ。相手キャラは対象外。
+
+    一次情報 (cardqa_op_14):
+      「この【起動メイン】効果で、自分のキャラと相手のキャラや、相手のキャラ同士の
+        パワーを入れ替えることはできますか？」→「いいえ、できません。」
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    a, b = "EB01-015", "ST24-004"              # 印刷 1000 / 11000、 いずれも 超新星/ハートの海賊団
+    ca, cb = InPlay.of(repo.get(a)), InPlay.of(repo.get(b))
+    me.characters = [ca, cb]
+    oc = InPlay.of(repo.get(_FILLER))
+    opp.characters = [oc]
+    execute_effect({"swap_self_power": {"filter": {"or": [{"feature": "超新星"},
+                                                          {"feature": "ハートの海賊団"}]}}},
+                   st, me, opp, ca)
+    assert {ca.turn_base_power_override, cb.turn_base_power_override} == {1000, 11000}, \
+        "自分のキャラ2枚の元々パワーが入れ替わっていない"
+    assert oc.turn_base_power_override is None, "相手キャラが swap_self_power の影響を受けている"
+
+
+def test_p040_ko_immunity_lifts_when_opp_don_drops_below_10():
+    """P-040 カイドウ: 「相手の場にドン10枚ある場合KOされない」は DON 枚数に追随する。
+
+    一次情報 (cardqa promo):
+      相手ドン10枚+百獣リーダーで OP01-094 の【登場時】(ドン-6) を発動しドン6枚を戻した時、
+      この P-040 カイドウを KO できるか → 「はい、KOできます。」
+    = ドン-6 で相手の場のドンが 4 になり、KO 耐性条件 (ドン10) が崩れるため KO 可能。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    p040 = InPlay.of(repo.get("P-040"))
+    me.characters = [p040]
+    opp.don_active, opp.don_rested = 10, 0
+    evaluate_static_effects(st, overlay)
+    assert p040.static_ko_immune is True, "相手ドン10枚なら KO 耐性が立つはず"
+    opp.don_active = 4                          # OP01-094 が ドン-6 を払った後
+    evaluate_static_effects(st, overlay)
+    assert p040.static_ko_immune is False, "相手ドンが4枚に減れば KO 耐性は消えるはず"
+
+
+def test_op02_051_draw_to_hand_size_is_mandatory():
+    """OP02-051 イワンコフ: 手札が3枚未満なら 3 になるまで **必ず** 引く (引かない選択不可)。
+
+    一次情報 (cardqa_op_02):
+      「手札が2枚以下の場合、この【登場時】効果でカードを引かないことを選べますか？」
+      →「いいえ、できません。可能な限り3枚になるようにカードを引きます。」
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.hand = [repo.get(_FILLER)]               # 1 枚
+    src = InPlay.of(repo.get("OP02-051"), sickness=True)
+    me.characters = [src]
+    execute_effect({"draw_to_hand_size": 3}, st, me, opp, src)
+    assert len(me.hand) == 3, "手札3枚になるまで引いていない (= 強制ドロー)"
+
+
+def test_st19_003_activate_main_not_gated_by_leader():
+    """ST19-003 たしぎ: 【起動メイン】(相手コスト0をトラッシュ) は リーダー名の制約を受けない。
+
+    一次情報 (cardqa_st_19):
+      「自分のリーダーが「スモーカー」ではない場合、この【起動メイン】効果で相手のコスト0の
+        トラッシュに置くことはできますか？」→「はい、できます。」
+    = リーダー「スモーカー」条件は【登場時】側のみ。【起動メイン】は登場ターン条件のみ。
+    """
+    repo, overlay = _repo(), _overlay()
+    # リーダー ≠ スモーカー (OP01-001) + 登場ターン (召喚酔い)
+    st = _state(repo, overlay, leader0="OP01-001")
+    me = st.players[0]
+    tashigi = InPlay.of(repo.get("ST19-003"), sickness=True)
+    me.characters = [tashigi]
+    opts = [o for o in list_activate_main_effects(st, me, overlay) if o[0] is tashigi]
+    assert len(opts) >= 1, "リーダー≠スモーカーでも起動メインは使えるはず (公式: はい)"
+    # 対照: 登場ターン外なら (登場ターン条件で) 起動メインは出ない
+    st2 = _state(repo, overlay, leader0="OP01-001")
+    me2 = st2.players[0]
+    tashigi2 = InPlay.of(repo.get("ST19-003"), sickness=False)
+    me2.characters = [tashigi2]
+    opts2 = [o for o in list_activate_main_effects(st2, me2, overlay) if o[0] is tashigi2]
+    assert opts2 == [], "登場ターン外なのに起動メインが出ている (= 登場ターン条件の欠落)"
+
+
+def test_op16_103_trigger_ko_effect_gated_by_opp_turn():
+    """OP16-103 ヴァン・オーガー: 【相手のターン中】【KO時】は 自分のターン中は発動しない。
+
+    一次情報 (cardqa_op_16):
+      「自分のターン中に自分のリーダーがダメージを受けて、この【トリガー】を発動した場合、
+        この【KO時】効果はどうなりますか？」→「この場合、この【KO時】効果は発動せず、
+        このカードはトラッシュに置かれます。」
+    = 【トリガー】が【KO時】を発動しても、自分のターン中は opp_turn 条件不成立で不発。
+    """
+    repo, overlay = _repo(), _overlay()
+    # リーダーは 黒ひげ海賊団 (OP16-080)
+    # 自分のターン (turn_player_idx = 0 = me) → opp_turn False → KO時 不発
+    st = _state(repo, overlay, leader0="OP16-080", leader1="OP16-080")
+    st.turn_player_idx = 0
+    me, opp = st.players[0], st.players[1]
+    opp.characters = [InPlay.of(repo.get(_FILLER))]
+    hand_before = len(me.hand)
+    execute_effect({"fire_self_effect": {"when_kind": "on_ko"}}, st, me, opp,
+                   InPlay.of(repo.get("OP16-103")))
+    assert len(me.hand) == hand_before, "自分のターン中なのに【KO時】が発動している (公式違反)"
+
+    # 対照: 相手のターン中 (turn_player_idx = 1) なら 発動する
+    st2 = _state(repo, overlay, leader0="OP16-080", leader1="OP16-080")
+    st2.turn_player_idx = 1
+    me2, opp2 = st2.players[0], st2.players[1]
+    opp2.characters = [InPlay.of(repo.get(_FILLER))]
+    hand_before2 = len(me2.hand)
+    execute_effect({"fire_self_effect": {"when_kind": "on_ko"}}, st2, me2, opp2,
+                   InPlay.of(repo.get("OP16-103")))
+    assert len(me2.hand) == hand_before2 + 1, "相手のターン中は【KO時】が発動するはず"

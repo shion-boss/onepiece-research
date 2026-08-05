@@ -1466,3 +1466,129 @@ OP06-071、 OP07-059/061/063/073、 OP08-060/077 … 等)。
   再評価は構造的に正しい。 だが 「ダメージ 1 と 2 の間に reactive を挿入できない」 という damage-step
   interleaving は engine が double-attack を atomic に解決する作りで、 最小ハーネスの単一 assert に
   落とせない = n/a (条件 live 評価は確認、 割り込み不能タイミングは検証保留)。
+
+---
+
+## ST30-016 戦えるかルフィ: `self_field_named_all_with_power` の power 制約 key ミスマッチ (是正済、 2026-08-05)
+
+**一次情報** (`cardqa_st_30`、 ST30-016 戦えるかルフィ!!!勿論だ!!!):
+
+> 「この効果の「元々のパワー6000のキャラ」に、元々のパワー5000以下のキャラは含まれますか？」
+> → **「いいえ、…パワー+3000した後に、元々のパワーが6000ちょうどのキャラの「ポートガス・D・
+>     エース」と、元々のパワーが6000ちょうどのキャラの「モンキー・Ｄ・ルフィ」の両方が自分の
+>     場にいる場合、カード1枚を引く効果です。」**
+
+ST30-016【カウンター】= 「自分のリーダーかキャラ1枚まで+3000。その後、自分の**元々のパワー6000**の
+キャラの、「エース」と「ルフィ」がいる場合、カード1枚を引く」。
+
+**是正前バグ** (Python/Rust **同一 overlay** = 差分検証では原理的に沈黙する型):
+overlay の条件 `self_field_named_all_with_power` が power 制約を **`truly_original_power_eq`** という
+key で書いていたが、 engine (Python `effects.py:1257` / Rust `effects.rs:337`) は **`power_eq`** しか
+読まない。 → power 制約が黙って無視され、 名前さえ一致すれば **パワー5000のエース (OP16-001) でも
+条件成立** = 公式違反 (実測: `ace5+luffy6 → True`)。
+
+**是正** (engine-only、 両エンジン同時 = parity MISMATCH=0 維持):
+`self_field_named_all_with_power` が `power_eq` に加え **`truly_original_power_eq`** を読むように
+Python (`effects.py`) と Rust (`effects.rs`) の両方を修正。 いずれも `c.card.power` (= 印刷パワー =
+元々のパワー) と比較するので意味は同一。 実測 (是正後): `ace6+luffy6 → True` / `ace5+luffy6 → False`。
+恒久ガード = `test_st30_016_named_power_condition_requires_exact_printed_6000`。
+
+⚠ **なぜ overlay 側の rename でなく engine 側を直したか**: 当初 overlay の key を
+`truly_original_power_eq` → `power_eq` に改名して engine に読ませたが、
+`test_overlay_cost_wording_matches_spec_key` が落ちた。 = **公式テキストが 「元々のパワー」 の効果は
+overlay で `truly_original_*` key を使う** という命名規約 (表記と spec key の整合) がある。 素の
+`power_eq` は 「現在パワー」 を含意するので 「元々の」 表記と不整合。 → overlay を元の
+`truly_original_power_eq` に戻し、 **engine が両 key を受ける** 方向で是正した (規約準拠 + バグ解消)。
+
+**同型検査**: overlay 全走査で `self_field_named_all_with_power` は 5 エントリ (OP15-064/OP15-072/
+OP16-040/ST30-016/ST30-016_p1)。 power 制約を持つのは ST30-016 系のみ (他 3 件は名前のみ = 制約なしで
+正しい)。 バレ key `truly_original_power_eq` の他の出現は全て `return_to_hand`/`filter`/
+`target_truly_original_power_eq` 等の **別 primitive の正当な key** で、 これらは engine が別途処理する
+(誤検出しないよう対象を `self_field_named_all_with_power` 内に限定して是正)。
+
+---
+
+## 公式どおりで **問題なかった** もの (2026-08-05 バッチ その3、 FAQ 全件保証 台帳より)
+
+一次情報は各 `cardqa_*`。 いずれも engine の盤面差分で確認済 (`tests/test_effect_interactions.py`)。
+
+- **【登場時】任意の前段が空振りでも 強制の後段は独立実行** (OP03-122 そげキング) — 「コスト6以下の
+  キャラを戻さない事を選べますか？」→「はい。その場合も、カードを2枚引き、手札2枚を捨てます」。
+  overlay `[return_to_hand(1枚まで) → draw2 → trash_self_hand_random2]` の後段は前段の成否と独立
+  (実測: 戻す対象不在でも deck-2 / trash+2)。 `test_op03_122_mandatory_tail_runs_without_return_target`。
+- **【トリガー】発動の【KO時】は トラッシュ源のみ = 自身は加えられない** (OP15-079 アブサロム) —
+  「この【トリガー】効果でこのカード自身を手札に加えることはできますか？」→「いいえ」。 `trash_to_hand`
+  は `me.trash` からしか引かず、 ライフ由来で発動したアブサロム自身はトラッシュに居ない (実測: 空
+  トラッシュで hand 不変)。 `test_op15_079_trigger_ko_effect_sources_only_from_own_trash`。
+- **元々のパワー入れ替えは自分のキャラ2枚のみ** (OP14-001 ロー) — 「自分のキャラと相手のキャラや、
+  相手のキャラ同士のパワーを入れ替えることはできますか？」→「いいえ」。 `swap_self_power` は
+  `me.characters` のみ候補 (実測: 相手キャラの override は None のまま)。
+  `test_op14_001_swap_self_power_never_targets_opponent`。
+- **静的 KO 耐性は条件値 (相手ドン枚数) に追随する** (P-040 カイドウ) — 相手ドン10+百獣で OP01-094 の
+  ドン-6 発動後、 この P-040 を KO できるか→「はい」。 `set_ko_immune if opp_don_count_ge:10` は静的で、
+  ドン-6 後は相手ドン4 → 耐性消失 (実測: don10 で immune True / don4 で False)。
+  `test_p040_ko_immunity_lifts_when_opp_don_drops_below_10`。
+- **`draw_to_hand_size` は強制ドロー** (OP02-051 イワンコフ) — 「手札が2枚以下の場合、引かないことを
+  選べますか？」→「いいえ。可能な限り3枚になるように引きます」。 実測: hand1 → draw_to_hand_size:3 で
+  hand3。 `test_op02_051_draw_to_hand_size_is_mandatory`。
+- **【相手のターン中】【KO時】は自分のターン中トリガー発動でも不発** (OP16-103 ヴァン・オーガー) —
+  「自分のターン中に自分のリーダーがダメージを受けてこの【トリガー】を発動した場合、この【KO時】は
+  どうなりますか？」→「発動せず、トラッシュに置かれます」。 on_ko の `if {opp_turn:true}` が自分の
+  ターン中は不成立 (実測: 自分ターンで hand 不変 / 相手ターンで draw)。 一次では【相手のターン中】が
+  KO時の発動タイミングを縛ることの確認。 `test_op16_103_trigger_ko_effect_gated_by_opp_turn`。
+- **【起動メイン】の登場ターン条件はリーダー名条件と独立** (ST19-003 たしぎ) — 「リーダーが「スモーカー」
+  ではない場合、この【起動メイン】で相手のコスト0をトラッシュにできますか？」→「はい」。 リーダー
+  「スモーカー」条件は【登場時】側のみ。【起動メイン】は `if self_summoning_sickness` (登場ターン) だけで、
+  リーダー名で gate されない (実測: 非スモーカー+登場ターンで option 提示、 登場ターン外は非提示)。
+  `test_st19_003_activate_main_not_gated_by_leader`。
+
+### engine 状態変化に落ちない (2026-08-05 バッチ その3、 n/a)
+
+- **サーチで手札に加えるカードは非公開** (OP12-079 ルフィは"海賊王"になる男だ、 cardqa_op_12) — 「この
+  【メイン】効果で手札に加えるカードは相手に公開しますか？」→「いいえ、公開しません」。 overlay の
+  `search_top_n` は `public: false` を持つが、 engine の手札は元来非公開で、 「公開しない」 は盤面差分に
+  落ちない = n/a (overlay の public:false は正しいことのみ確認)。
+
+---
+
+## OP01-011 ゴードン 【登場時】: 任意コスト (手札→デッキ下) が gate されず タダ撃ち = escalated (2026-08-05)
+
+**一次情報** (`cardqa_op_01`、 OP01-011 ゴードン):
+
+> 「自分の手札が他にない場合、このキャラを登場できますか？」
+> → **「はい、登場できます。その場合、【登場時】効果は発動できません。」**
+
+OP01-011【登場時】= 「自分の手札1枚をデッキの下に置く**ことができる**：カード1枚を引く」。
+= 「〜できる：効果」 の任意コスト型。 コスト (手札1枚→デッキ下) を払えない (= 手札にこのゴードン
+以外のカードが無い) 場合、 効果 (1ドロー) は **発動できない**。
+
+**確認したバグ** (Python/Rust **同一 overlay** = 差分検証では沈黙):
+overlay が **flat** `"do": [{"self_hand_to_deck_bottom": 1}, {"draw": 1}]` で、 cost gating が無い。
+→ 手札 0 で登場させると `self_hand_to_deck_bottom` は no-op、 続く `draw` が **無条件発火** =
+タダ撃ち (実測: `hand 0→1 / deck -1`)。 公式は 「効果は発動できません」。
+
+**なぜ escalated か** (task rule 11 + 近似禁止):
+- **faithful fix は `optional_cost_then` で包む** こと (他 63 枚のデッキ下コストはこの型)。 だが
+  `optional_cost_then` の cost handler 群 (`effects.py` payability ~8767 / payment ~9040、
+  Rust `effects.rs` ~2872/3175) には **`stage_to_deck_bottom` / `return_self_chara_to_deck_bottom`
+  はあるが 「手札→デッキ下」 の cost が無い**。 → **Python + Rust 両方に cost handler を新設**
+  (payability = `len(me.hand) >= N` / payment = 既存 `self_hand_to_deck_bottom` effect を再利用、
+  discard_hand と同じ human-pick pause/continuation 対応) する **dual-engine 変更 + Rust rebuild +
+  parity 再検証** が要る。
+- **overlay-only の代替 `conditional{if:{self_hand_ge:1}, then:[put, draw]}` は不可**: 「できる」 の
+  **任意性 (プレイヤーが払わない選択)** を潰す = 近似禁止 (公式テキスト忠実主義) に抵触。
+- 1 バッチ (10 件) の full 検証を既に消化済のため、 engine cost primitive 追加は **次の集中回** で
+  full attention 下に入れるのが安全 (cron 枠で急ぐと parity を壊す)。
+
+**同型 (scoping 全走査、 「デッキ下に置くことができる：」 cost = 65 エントリ中 63 が
+`optional_cost_then` で正)**: 未 gate は **3 base のみ**:
+- **OP01-011 ゴードン** (手札→デッキ下 cost、 上記 = 手札版 cost handler 要 = escalated)
+- **OP05-056** (「このキャラ以外の自分のキャラ1枚をデッキ下に置くことができる：1ドロー」、
+  overlay が `do:[{draw:1}]` で cost 表現すら無い) — `return_self_chara_to_deck_bottom` cost は
+  optional_cost_then に既存 = **overlay-only 修正可** (別バッチで対応)。
+- **OP06-114 (+_p1/_p2/_r1)** (「コスト1のステージ1枚をデッキ下に置くことができる：デッキ上5枚
+  サーチ」、 `do:[{search_top_n}]` で cost 無し) — `stage_to_deck_bottom` cost は既存 =
+  **overlay-only 修正可** (cost1 ステージ filter 付きで、 別バッチ)。
+
+⚠ 一次ソース (cardqa_st_06) 既述: 「「：」以前はすべて発動コスト。 一部でも支払えなければその効果を
+発動できない」。 上記は全てこの一般則の違反。

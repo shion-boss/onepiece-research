@@ -1256,11 +1256,15 @@ def eval_condition(
                 return False
         elif k == "self_field_named_all_with_power":
             # 自分の場 (リーダー+キャラ) に、 指定の全カード名が それぞれ存在する場合 True。
-            # power_eq 指定時は「元々のパワー (= card.power, base)」 がその値のキャラに限定。
+            # power_eq (= truly_original_power_eq) 指定時は「元々のパワー (= card.power, 印刷値)」
+            # がその値のキャラに限定。 公式テキストが 「元々のパワー」 の場合は
+            # `truly_original_power_eq` key を使う (= 表記と spec key の整合、 overlay 命名規約)。
             # 例: ST30-016「自分の元々のパワー6000のキャラの、『エース』と『ルフィ』がいる場合」。
             spec = v if isinstance(v, dict) else {"names": v}
             names = [normalize_card_name(n) for n in spec.get("names", [])]
             power_eq = spec.get("power_eq")
+            if power_eq is None:
+                power_eq = spec.get("truly_original_power_eq")
             pool = [me.leader, *me.characters]
             ok = True
             for nm in names:
