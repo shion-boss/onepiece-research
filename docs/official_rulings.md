@@ -2319,3 +2319,40 @@ EB03-055 ニコ・ロビン【相手のターン中】【KO時】= 「相手に1
 埋めている。 これは **旧挙動 (トリガーが一切発動しない = 違反) より厳密に良い** (AI/self-play/matrix は
 完全に正しく、 人間経路も 「有利なトリガーが自動発動」 = degrade しない)。 人間の decline 権を faithful に
 出す effect-suspension は別 issue として残す。 影響 2 枚 (EB03-055(+_p1/_p2) / OP06-116)。
+
+---
+
+## FAQ conformance batch (2026-08-05, part 4): conform 8 / n/a 1 / escalated 1 (engine 変更なし)
+
+いずれも既存 engine 挙動が公式どおりと確認 (overlay 構造 + 最小シナリオ実測)。engine 変更なし。
+
+- **ST24-004 ロー&ベポ** (qid 25c5bb50080c): 登場時の相手キャラレスト対象は **既にレストの相手キャラ**
+  も選べる (rest=no-op でも「次の相手リフレッシュでアクティブにならない」を付与)。overlay
+  `rest:one_opponent_character_any` は rested を除外しない。公式はい。
+- **ST29系【ブロック不可】** (qid 25d695024917): 効果によるアタック対象変更 (OP14-060 ドフラミンゴ
+  【相手のアタック時】/ EB01-038 オカマ道【カウンター】= redirect_attack→`pending_attack_redirect`)
+  は **ブロッカー宣言 (blocker_iid) とは別経路** で `has_no_block` に gate されない。公式「対象変更は
+  【ブロッカー】によるブロックとは異なる」= ブロック不可でも対象変更可、はい。
+- **OP09-031 ドフラミンゴ** (qid 25f749754e1e):【自分のターン終了時】「このキャラをアクティブにする」は
+  `untap:self` = **発動元1枚のみ**。公式「この効果でこのキャラ3枚をアクティブにできるか→いいえ、1枚のみ」
+  = 効果のスコープは自身 (全レストキャラを起こす効果ではない)。
+- **ST17-002 ロー** (qid 26213bfdd38d): 登場時 optional_cost_then のコスト (自キャラ手札戻し) は払えるが、
+  効果 (相手コスト4以下手札戻し) は `conditional{leader_feature:王下七武海}` で gate。leader が
+  非七武海→gate False で相手キャラは戻せない (実測 OP01-001→False / ST17-004→True)。公式はい。
+- **OP16-115 闇水** (qid 2653c83ea489):【メイン】`search_from_trash` filter `exclude_name:"闇水"`。
+  OP09-097 も name="闇水" のため `_matches_filter` で除外 (実測 False) = トラッシュから加えられない。公式いいえ。
+- **OP05-008 チャカ** (qid 26553c0f29ea): 起動メイン `attach_rested_don target:self_inplay_choice`
+  = リーダー or キャラ **1体** (実測 target 数=1)。ドン2枚は1つの対象へ、リーダーとキャラに1枚ずつ分割不可。
+  公式いいえ。
+- **OP15-001 クリーク** (qid 267feefbded8):【相手のターン中】条件 `self_all_chara_feature:"東の海"` は
+  **自キャラ0枚で False** (実測) = 相手キャラ-2000 されない。公式いいえ。
+- **OP15-097 人として恥ずかしいわ** (qid 26d53a0479ea): メイン `if self_trash_count_ge:10`。手札発動は
+  公式 8-4-2 で **イベントを先にトラッシュへ置いてから効果解決** (game.py:1405-1411) → トラッシュ9→10 で
+  条件成立=メイン発動。トリガー (fire_self_effect from life) はイベントをトラッシュに置かず発動→9 のまま
+  条件不成立=何も起きない。engine の event 発動順 (トラッシュ→効果) が公式どおり。
+- **op_11 系 refresh timing** (qid 260ac6c71ce0, n/a):「引く前か後か→引く前」。engine は REFRESH→DRAW の
+  固定 phase 順で実装するが、フェイズ進行の定義説明で単一カードの盤面差分に落ちない=n/a。
+- **ST26-001 おそばマスク** (qid 267b1672f2c8, escalated): 印刷 cost7 が `in_hand_cost_minus:5`
+  (元々P7000+サン五郎/サンジ存在時) で手札コスト2。OP01-047 ロー (play_from_hand cost_le:3) で登場可か
+  →公式はい。**手札コスト減算を play_from_hand の cost_le filter が honor するか** (in-hand cost modifier
+  × named-play filter の相互作用) の実測を要し、登場経路の driving が非自明で単一回で確証できず escalated。
