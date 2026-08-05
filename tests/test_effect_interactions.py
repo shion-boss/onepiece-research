@@ -4570,3 +4570,206 @@ def test_op15_098_simultaneous_leave_saves_both_sky_characters():
         f"空島キャラが両方残っていない (残: {surviving}) = 置換効果が両方に適用されていない"
     )
     assert len(p0.life) < life_before, "置換 (ライフ→手札) が発火していない (無償で残っている)"
+
+
+# --------------------------------------------------------------------------- #
+#  公式 Q&A conformance バッチ (2026-08-05、 faq_qa_manifest)
+#  ここから下は 「違反ではなかった (conform)」 を回帰で固定するテスト群。
+#  overlay/engine の構造が偶然そう振る舞うだけの箇所を、 公式裁定として明示ロックする。
+# --------------------------------------------------------------------------- #
+def test_op16_035_second_clause_runs_even_when_no_opp_to_rest():
+    """OP16-035 ゾロ: 相手のカードをレストにしなくても 後段 (手札1捨て→リーダーにレストドン3付与) は行える。
+
+    公式 (cardqa_op_16, qid 32a980922374):
+      Q: この効果で相手のカードをレストにしなかった場合に、自分の手札1枚を捨て、
+         自分のリーダーにレストのドン!!3枚までを付与することはできますか？
+      A: はい、できます。
+    「相手のカード1枚まで」= レスト0枚も可、 「その後」の任意コストは独立。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    opp.characters = []                 # レストする相手カードが居ない
+    me.hand = [repo.get(_FILLER)] * 2
+    me.don_rested = 5                    # 付与元のレストドン
+    src = InPlay.of(repo.get("OP16-035"), sickness=True)
+    me.characters = [src]
+    don_before, hand_before = me.leader.attached_dons, len(me.hand)
+    trigger_on_play(st, me, opp, src, overlay)
+    assert me.leader.attached_dons == don_before + 3, \
+        "レスト0でも 後段の レストドン3付与 が行われるはず"
+    assert len(me.hand) == hand_before - 1, "後段の 手札1捨て が行われるはず"
+
+
+def test_op10_030_self_lock_does_not_block_leader_untap():
+    """OP10-030 スモーカー(キャラ)の自己ロックは リーダーのドンアクティブ化を妨げない。
+
+    公式 (cardqa_op_10, qid 32c4c25da85c):
+      Q: この【起動メイン】効果を発動したあと、そのターンにリーダー「OP10-001 スモーカー」の
+         効果でドン!!2枚をアクティブにすることはできますか？
+      A: はい、できます。
+    OP10-030 は「このターン中 **キャラの効果で** ドンをアクティブにできない」= リーダー効果は対象外。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP10-001")
+    me, opp = st.players[0], st.players[1]
+    me.don_rested, me.don_active = 4, 0
+    big = InPlay.of(repo.get(_FILLER), sickness=False)
+    big.base_power_override = 7000      # リーダーの起動メイン条件 (7000+ キャラ)
+    smoker = InPlay.of(repo.get("OP10-030"), sickness=False)
+    me.characters = [big, smoker]
+    op = [(ip, e) for (ip, e) in list_activate_main_effects(st, me, overlay) if ip is smoker]
+    assert op, "OP10-030 の起動メインが列挙されていない"
+    fire_activate_main(st, me, opp, op[0][0], op[0][1])
+    assert me.block_chara_effect_untap_don_until_turn_end is True, "自己ロックが立っていない"
+    me.don_rested += 3
+    lo = [(ip, e) for (ip, e) in list_activate_main_effects(st, me, overlay) if ip is me.leader]
+    assert lo, "リーダーの起動メイン (ドンアクティブ化) が キャラ自己ロックで消えている = 違反"
+    before = me.don_active
+    fire_activate_main(st, me, opp, lo[0][0], lo[0][1])
+    assert me.don_active == before + 2, "リーダーのドンアクティブ化が阻害されている = 違反"
+
+
+def test_op02_102_power_pump_is_boolean_not_per_count():
+    """OP02-102 スモーカー: コスト0のキャラが2枚でも パワーは+2000 (+4000 にならない)。
+
+    公式 (cardqa_op_02, qid 320695305fc9):
+      Q: コスト0のキャラが2枚ある場合、このキャラのパワーは+4000されますか？
+      A: いいえ、されません。
+    「コスト0のキャラがいる場合」= 存在の真偽 (boolean)、 枚数倍ではない。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    c0a = InPlay.of(repo.get(_FILLER), sickness=False); c0a.base_cost_override = 0
+    c0b = InPlay.of(repo.get(_FILLER), sickness=False); c0b.base_cost_override = 0
+    src = InPlay.of(repo.get("OP02-102"), sickness=False)
+    me.characters = [c0a, c0b, src]
+    before = src.battle_buff
+    trigger_on_attack(st, me, opp, src, overlay)
+    assert src.battle_buff == before + 2000, \
+        f"コスト0キャラ2枚で +{src.battle_buff-before} = 枚数倍になっている (公式は +2000 固定)"
+
+
+def test_st13_002_end_of_turn_trashes_all_face_up_life_any_source():
+    """ST13-002 エース: 【起動メイン】以外で表向きになったライフも【ターン終了時】でトラッシュ。
+
+    公式 (cardqa_st_13, qid 32b0ead1a01e):
+      Q: この【起動メイン】以外の方法で自分のライフに置かれた表向きのカードは、
+         この【自分のターン終了時】効果でトラッシュに置かれますか？
+      A: はい、トラッシュに置かれます。
+    engine は face_up_life_count の count-only モデル = 由来を問わず表向き札すべてが対象。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="ST13-002")
+    me, opp = st.players[0], st.players[1]
+    me.life = [repo.get(_FILLER)] * 2
+    # 別経路 (flip_life_face_up_effect) で 2 枚を表向きに
+    execute_effect({"flip_life_face_up_effect": 2}, st, me, opp, None)
+    assert me.face_up_life_count == 2
+    trash_before = len(me.trash)
+    execute_effect({"trash_all_face_up_life": True}, st, me, opp, None)
+    assert len(me.trash) == trash_before + 2 and me.face_up_life_count == 0, \
+        "別経路で表向きにしたライフが【ターン終了時】でトラッシュされない = 違反"
+
+
+def test_op01_014_blocker_usable_with_empty_hand():
+    """OP01-014 ジンベエ: 手札に登場可能キャラが無くても【ブロッカー】は発動できる。
+
+    公式 (cardqa_op_01, qid 31c2d92dfcb1):
+      Q: この【ブロック時】効果で登場できるキャラカードが手札にない時、
+         このキャラの【ブロッカー】効果を発動できますか？
+      A: はい、発動できます。
+    【ブロッカー】キーワードは【ブロック時】の実行可否と独立。 空手札の on_block は no-op。
+    """
+    from engine.effects import trigger_on_block
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    blk = InPlay.of(repo.get("OP01-014"), sickness=False)
+    blk.attached_dons = 1                # 【ドン!!×1】条件
+    opp.characters = [blk]               # ブロッカーは 防御側 (opp) の場
+    opp.hand = []                        # 登場できるキャラが手札に無い
+    assert blk.is_blocker_now is True and blk.rested is False, \
+        "空手札だと【ブロッカー】自体が使えなくなっている = 違反"
+    hand_before = len(opp.hand)
+    trigger_on_block(st, opp, me, blk, overlay)   # 例外を出さず no-op であること
+    assert len(opp.hand) == hand_before, "空手札の【ブロック時】が不正なプレイをしている"
+
+
+def test_give_attack_active_chara_does_not_bypass_summoning_sickness():
+    """「アクティブのキャラにもアタックできる」効果は 召喚酔いを解除しない (OP11-014/082)。
+
+    公式 (cardqa_op_11, qid 3200dcd72841):
+      Q: この【起動メイン】効果で、そのターンに登場した自分のキャラを選んだ場合、
+         そのキャラはアクティブのキャラにアタックできますか？
+      A: いいえ、できません。（登場ターンは そもそもアタック宣言ができない）
+    give_attack_active_chara は攻撃対象を広げるだけ。 召喚酔いチェックが先に効く。
+    """
+    from engine.game import legal_actions, AttackCharacter
+    repo, overlay = _repo(), _overlay()
+    # 召喚酔いキャラに buff を付けても アタックは一切出ない
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    sick = InPlay.of(repo.get(_FILLER), sickness=True)
+    sick.granted_keywords.add("アクティブアタック可")
+    me.characters = [sick]
+    opp.characters = [InPlay.of(repo.get(_FILLER), sickness=False)]  # アクティブな相手キャラ
+    acts = legal_actions(st)
+    assert not [a for a in acts if getattr(a, "attacker_iid", None) == sick.instance_id], \
+        "召喚酔いキャラが アクティブアタック可 buff でアタックできてしまう = 違反"
+    # 対照: 酔っていなければ 同 buff で アクティブな相手キャラにアタック可
+    st2 = _state(repo, overlay)
+    me2, opp2 = st2.players[0], st2.players[1]
+    ok = InPlay.of(repo.get(_FILLER), sickness=False)
+    ok.granted_keywords.add("アクティブアタック可")
+    me2.characters = [ok]
+    opp2.characters = [InPlay.of(repo.get(_FILLER), sickness=False)]
+    acts2 = legal_actions(st2)
+    char_atk = [a for a in acts2 if getattr(a, "attacker_iid", None) == ok.instance_id
+                and isinstance(a, AttackCharacter)]
+    assert char_atk, "酔っていなければ アクティブな相手キャラにアタックできるはず (対照が壊れている)"
+
+
+def test_op06_018_two_pump_clauses_pick_targets_independently():
+    """OP06-018: +3000 の対象と +1000 の対象は 別々に選べる (異なるキャラ可)。
+
+    公式 (cardqa_op_06, qid 324d7c6a1b4e):
+      Q: この【メイン】効果でパワーを+3000するキャラとパワーを+1000するキャラは、
+         異なるものを選べますか？
+      A: はい、できます。
+    2 つの main 節は それぞれ独立に target_pick を出す (人間は別対象を選べる)。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, human_idx=0)
+    me, opp = st.players[0], st.players[1]
+    me.characters = [InPlay.of(repo.get(_FILLER), sickness=False),
+                     InPlay.of(repo.get(_FILLER), sickness=False)]
+    big = InPlay.of(repo.get(_FILLER), sickness=False); big.base_power_override = 8000
+    opp.characters = [big]              # 2 節目の条件 (相手7000+キャラ) を満たす
+    main_effs = [e for e in overlay.get("OP06-018").effects if e.get("when") == "main"]
+    assert len(main_effs) == 2, "OP06-018 の main 節が 2 つでない"
+    for prim in main_effs[0]["do"]:
+        execute_effect(prim, st, me, opp, None)
+    assert st.pending_choice is not None and st.pending_choice.get("kind") == "target_pick", \
+        "1 節目が独立の target_pick を出していない = 別対象を選べない可能性"
+
+
+def test_st02_007_search_no_match_puts_all_viewed_to_deck_bottom():
+    """ST02-007 ボニー: 《超新星》が無ければ 見た札すべてを好きな順でデッキ下に置く。
+
+    公式 (cardqa_st_02, qid 32aa45212c09):
+      Q: 《超新星》を持つカードがなかった場合はどうなりますか？
+      A: デッキの上から見たカード全てを好きな順番に並び替え、デッキの下に置きます。
+    search_top_n(rest_remain=bottom): マッチ0なら 手札増えず デッキ枚数不変 (全て下へ)。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.deck = [repo.get(_FILLER)] * 10   # _FILLER に 超新星 特徴なし
+    deck_before, hand_before = len(me.deck), len(me.hand)
+    execute_effect({"search_top_n": {"depth": 5, "filter": {"category": "CHARACTER",
+                    "feature": "超新星"}, "limit": 1, "destination": "hand",
+                    "rest_remain": "bottom", "public": True}}, st, me, opp, None)
+    assert len(me.deck) == deck_before, "超新星が無いのにデッキ枚数が減っている"
+    assert len(me.hand) == hand_before, "超新星が無いのに手札に加わっている = 違反"

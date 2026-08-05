@@ -2003,90 +2003,90 @@
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-014 ジンベエ 【ブロッカー】+【ドン×1】【ブロック時】赤コスト2以下キャラ登場。ブロック宣言(game.py:1643-1660)は rested/is_blocker_now/disabled/cannot_be_rested のみ判定し on_block の実行可否に依存しない。on_block(play_from_hand)は空手札で no-op。実測で is_blocker_now=True かつ空手札 on_block が例外なし。回帰: test_op01_014_blocker_usable_with_empty_hand",
   "q": "この【ブロック時】効果で登場できるキャラカードが手札にない時、このキャラの【ブロッカー】効果を発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "31e479b41474": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-012 バギー 【アタック時】『リーダーかキャラ1枚に持ち主のレストのドン1枚まで付与』の対象で相手のOP11-041ナミ(0ドン)にドン付与→ナミの【ドン×1】【相手のアタック時】は発動不可(公式=いいえ)。この Q は 既 escalated 2f3620bfd8b9(バギー系の両陣営 target scope=one_self_team_any で自陣限定=違反、 primitive アーキ変更要)の下流。現engineは そもそも相手ナミを対象化できずシナリオ再現不可。正しい是正には 2f3620bfd8b9 の両陣営付与に加え【相手のアタック時】【ドン×1】gate を『アタック宣言時点』評価(=攻撃側【アタック時】のドン付与解決前)にする必要。engine の宣言時発火順は trigger_on_attack→trigger_on_opp_attack(game.py:1521-1526)で 付与が先に走る為 gate タイミング検証は 2f3620bfd8b9 修正時に併せて要確認。単独では検証不能=escalated",
   "q": "この【アタック時】効果で、相手のドン!!が付与されていない「OP11-041 ナミ」にドン!!を付与した場合、相手は「ナミ」の【相手のアタック時】効果を発動することはできますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "3200dcd72841": {
   "a": "いいえ、できません。この効果は、選んだリーダーやキャラによるアタックの宣言をする時、アタックの対象にアクティブのキャラも選べるようにする効果です。キャラが登場したターンは、そのキャラはアタックの宣言ができないため、アクティブのキャラにアタックできません。",
   "files": [
    "cardqa_op_11.json"
   ],
-  "note": "",
+  "note": "OP11-014/082系 起動メイン『自海軍1枚はこのターン アクティブのキャラにもアタックできる』(give_attack_active_chara)。登場ターンのキャラは召喚酔いで そもそもアタック宣言不可。legal_actions(game.py:997)が summoning_sickness を先に弾き attack_active_ok は対象拡大のみ。実測: 酔いキャラ+buffでアタック0手/非酔いなら対象キャラへ攻撃可。回帰: test_give_attack_active_chara_does_not_bypass_summoning_sickness",
   "q": "この【起動メイン】効果で、そのターンに登場した自分のキャラを選んだ場合、そのキャラはアクティブのキャラにアタックできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "320695305fc9": {
   "a": "いいえ、されません。",
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP02-102 スモーカー 【アタック時】コスト0キャラがいる場合+2000。overlay=power_pump amount:2000 + if:exists_chara_cost_le:0(存在の真偽=boolean)。枚数倍でない。コスト0キャラ2枚でも battle_buff+2000(not +4000)を実測。回帰: test_op02_102_power_pump_is_boolean_not_per_count",
   "q": "コスト0のキャラが2枚ある場合、このキャラのパワーは+4000されますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "322e497f7a62": {
   "a": "いいえ、デッキは0枚にならず、敗北しません。",
   "files": [
    "cardqa_.json"
   ],
-  "note": "",
+  "note": "『自分のデッキが1枚の時この【起動メイン】発動→デッキ0で敗北?→いいえ、デッキは0枚にならず敗北しない』。cardqa_.json(series空)でカード個別テキスト不明=どの起動メインか特定不能。『デッキは0枚にならず』は 当該効果が deck を見て戻す(look-and-return)型である事に依存するカード固有解釈で、engine 一般挙動(敗北は DRAW フェイズの空引きのみ、game.py)に一意に落ちない。特定不能+カード固有につき n/a",
   "q": "自分のデッキが1枚の時、この【起動メイン】効果を発動しました。この場合、デッキが0枚になることでゲームに敗北しますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "324d7c6a1b4e": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "",
+  "note": "OP06-018 【メイン】自リーダーかキャラ+3000/その後 相手7000+キャラがいれば 自リーダーかキャラ+1000。overlay=2つの独立 main 節、各々 self_inplay(=自リーダーかキャラ1枚 shorthand, effects.py:2518)で target を個別解決。人間は各節で別 target_pick(pending_choice kind=target_pick 確認)。異なる対象を選べる。回帰: test_op06_018_two_pump_clauses_pick_targets_independently",
   "q": "この【メイン】効果でパワーを+3000するキャラとパワーを+1000するキャラは、異なるものを選べますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "32a980922374": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "",
+  "note": "OP16-035 ゾロ 【登場時】相手カード1枚まで(=0可)レスト→その後 手札1捨て→リーダーにレストドン3付与。後段の optional_cost_then は独立 do 節でレスト0でも実行される。engine 実測(trigger_on_play)で 相手キャラ0でも attached_dons+3/hand-1 を確認。回帰: test_op16_035_second_clause_runs_even_when_no_opp_to_rest",
   "q": "この効果で相手のカードをレストにしなかった場合に、自分の手札1枚を捨て、自分のリーダーにレストのドン!!3枚までを付与することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "32aa45212c09": {
   "a": "デッキの上から見たカード全てを好きな順番に並び替え、デッキの下に置きます。",
   "files": [
    "cardqa_st_02.json"
   ],
-  "note": "",
+  "note": "ST02-007 ボニー 起動メイン search_top_n(depth5, filter feature 超新星, rest_remain:bottom)。マッチ0なら手札増えず 見た札すべてを好きな順でデッキ下=デッキ枚数不変。実測: 超新星なしデッキで deck 10→10 / hand 0→0。回帰: test_st02_007_search_no_match_puts_all_viewed_to_deck_bottom",
   "q": "《超新星》を持つカードがなかった場合はどうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "32b0ead1a01e": {
   "a": "はい、トラッシュに置かれます。",
   "files": [
    "cardqa_st_13.json"
   ],
-  "note": "",
+  "note": "ST13-002 エース 【自分のターン終了時】自ライフの表向き札すべてトラッシュ。engine は face_up_life_count の count-only モデルで由来を区別しない=別経路(flip_life_face_up_effect)で表向きにした札も trash_all_face_up_life の対象。実測 trash+2 確認。回帰: test_st13_002_end_of_turn_trashes_all_face_up_life_any_source",
   "q": "この【起動メイン】以外の方法で自分のライフに置かれた表向きのカードは、この【自分のターン終了時】効果でトラッシュに置かれますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "32c4c25da85c": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_10.json"
   ],
-  "note": "",
+  "note": "OP10-030 スモーカー(キャラ)の起動メイン=ドン1アクティブ+『このターンキャラ効果でドン不可』自己ロック。ロックは self_inplay.category==CHARACTER 時のみ効く(effects.py:4832)ため リーダーOP10-001の起動メイン(ドン2アクティブ)は阻害されない。engine 実測で leader untap +2 確認。回帰: test_op10_030_self_lock_does_not_block_leader_untap",
   "q": "この【起動メイン】効果を発動したあと、そのターンにリーダー「OP10-001 スモーカー」の効果でドン!!2枚をアクティブにすることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "32c70b593ae1": {
   "a": "はい、受けます。",

@@ -2737,3 +2737,74 @@ Python/Rust とも同じ overlay を読むため **差分検証では原理的�
   `to_opp` flag で発動時に up-front 固定)—の2点が必要で、 primitive のデータの持ち方を変える**アーキ変更**。
   実害は稀(自陣付与は既に正しく動作、 相手側に相手のレストドンを縛る非自明プレイのみが欠落)、 影響
   4 枚。 規模の見極め(アーキ変更)により **escalated**。 是正時は per-target owner 解決 + 両エンジン同時。
+
+---
+
+## 公式 Q&A conformance バッチ 2026-08-05 (faq_qa_manifest、 cron optcg-faq-conformance)
+
+この回は **10 件中 8 件が conform (違反なし)**、 1 件 escalated、 1 件 n/a。 conform 8 件は
+`tests/test_effect_interactions.py` に回帰テストを追加して固定した (engine/overlay は無変更)。
+
+### conform (公式どおりと実測確認、 2026-08-05)
+
+- **OP16-035 ゾロ: 相手カードをレストにしなくても 後段 (手札1捨て→リーダーにレストドン3付与) は行える**
+  (cardqa_op_16, `32a980922374`) — 「この効果で相手のカードをレストにしなかった場合に、手札1枚を捨て、
+  自リーダーにレストのドン3枚までを付与できるか」→ **はい**。 overlay は `[rest:one_opponent_inplay_any,
+  optional_cost_then{...}]` の2 do 節。 後段の任意コストは独立 do 節でレスト有無に依存しない。 相手キャラ0で
+  `trigger_on_play` 実測 → `attached_dons +3 / hand -1`。 `test_op16_035_second_clause_runs_even_when_no_opp_to_rest`。
+- **OP10-030 スモーカー(キャラ)の自己ロックは リーダーのドンアクティブ化を妨げない** (cardqa_op_10,
+  `32c4c25da85c`) — OP10-030 起動メイン = ドン1アクティブ +「このターン中 **キャラの効果で** ドンをアクティブ
+  にできない」。 その後 リーダー OP10-001 スモーカーの起動メイン(ドン2アクティブ)は可能か→ **はい**。 ロックは
+  `block_chara_effect_untap_don_until_turn_end` を **`self_inplay.category==CHARACTER` の時のみ** 適用
+  (effects.py:4832)。 リーダー効果は対象外。 実測で leader untap `don_active +2`。
+  `test_op10_030_self_lock_does_not_block_leader_untap`。
+- **OP02-102 スモーカー: コスト0キャラが2枚でも パワー+2000 (+4000 にならない)** (cardqa_op_02,
+  `320695305fc9`) — 「コスト0のキャラが2枚ある場合 +4000 されるか」→ **いいえ**。 overlay は
+  `power_pump amount:2000` + `if:exists_chara_cost_le:0`(存在の真偽 = boolean)。 枚数倍ではない。
+  コスト0キャラ2枚で `battle_buff +2000`(not +4000)を実測。 `test_op02_102_power_pump_is_boolean_not_per_count`。
+- **ST13-002 エース: 【起動メイン】以外で表向きになったライフも【ターン終了時】でトラッシュ** (cardqa_st_13,
+  `32b0ead1a01e`) — 「この起動メイン以外の方法でライフに置かれた表向き札も この【自分のターン終了時】で
+  トラッシュされるか」→ **はい**。 engine は `face_up_life_count` の **count-only モデル**(由来を区別しない)
+  なので、 別経路(`flip_life_face_up_effect`)で表向きにした札も `trash_all_face_up_life` の対象。 実測 trash+2。
+  `test_st13_002_end_of_turn_trashes_all_face_up_life_any_source`。
+- **OP01-014 ジンベエ: 手札に登場可能キャラが無くても【ブロッカー】は発動できる** (cardqa_op_01,
+  `31c2d92dfcb1`) — 「【ブロック時】で登場できるキャラが手札に無い時 【ブロッカー】を発動できるか」→ **はい**。
+  ブロック宣言(game.py:1643-1660)は `rested / is_blocker_now / disabled / cannot_be_rested` のみ判定し、
+  【ブロック時】(on_block)の実行可否に依存しない。 空手札の `play_from_hand` は no-op。 実測で
+  `is_blocker_now=True` かつ 空手札 on_block が例外なし。 `test_op01_014_blocker_usable_with_empty_hand`。
+- **「アクティブのキャラにもアタックできる」は召喚酔いを解除しない** (cardqa_op_11, `3200dcd72841`,
+  OP11-014 ボルサリーノ / OP11-082 アラマキの `give_attack_active_chara`) — 「この起動メインで そのターンに
+  登場した自キャラを選んだ場合、 アクティブのキャラにアタックできるか」→ **いいえ**(登場ターンは そもそも
+  アタック宣言不可)。 `legal_actions`(game.py:997)が `summoning_sickness` を先に弾き、 `attack_active_ok`
+  (line1015)は攻撃 **対象** を広げるだけ。 実測: 酔いキャラ+buff でアタック0手 / 非酔いなら対象キャラへ攻撃可。
+  `test_give_attack_active_chara_does_not_bypass_summoning_sickness`。
+- **OP06-018: +3000 の対象と +1000 の対象は 別々に選べる** (cardqa_op_06, `324d7c6a1b4e`) — 「+3000 する
+  キャラと +1000 するキャラは異なるものを選べるか」→ **はい**。 overlay は 2 つの独立 `main` 節で、 各々
+  `self_inplay`(=「自リーダーかキャラ1枚まで」の shorthand、 effects.py:2518)で target を個別解決。 人間は
+  各節で別々の `target_pick`(pending_choice kind=`target_pick` を実測)を出す = 別対象を選べる。
+  `test_op06_018_two_pump_clauses_pick_targets_independently`。
+- **ST02-007 ボニー: 《超新星》が無ければ 見た札すべてを好きな順でデッキ下** (cardqa_st_02, `32aa45212c09`)
+  — 「《超新星》を持つカードがなかった場合は」→ 見たカード全てを好きな順に並べデッキの下へ。 overlay は
+  `search_top_n(depth5, filter feature:超新星, rest_remain:bottom)`。 マッチ0なら手札増えず、 見た札全てが
+  デッキ下 = デッキ枚数不変。 実測: 超新星なしデッキで deck 10→10 / hand 0→0。
+  `test_st02_007_search_no_match_puts_all_viewed_to_deck_bottom`。
+
+### escalated (2026-08-05)
+
+- **OP15-012 バギー【アタック時】で相手ナミにドン付与→ナミの【相手のアタック時】は発動不可** (cardqa_op_15,
+  `31e479b41474`) — 「相手のドンが付与されていない OP11-041 ナミにドンを付与した場合、 相手はナミの
+  【ドン×1】【相手のアタック時】を発動できるか」→ **いいえ**。 この Q は **既 escalated `2f3620bfd8b9`
+  (バギー系の両陣営 target scope、 現 overlay=`one_self_team_any` で自陣限定=違反、 primitive アーキ変更要)
+  の下流**。 現 engine は そもそも バギーで相手ナミを対象化できず シナリオ再現不可。 正しい是正には
+  ① `2f3620bfd8b9` の両陣営付与に加え ② ナミの【相手のアタック時】【ドン×1】gate を **「アタック宣言時点」**
+  評価(=攻撃側【アタック時】のドン付与が解決される前の 0 ドン状態で判定)にする必要。 engine の宣言時
+  発火順は `trigger_on_attack → trigger_on_opp_attack`(game.py:1521-1526)で 付与が先に走るため、 gate
+  タイミングは `2f3620bfd8b9` 修正時に **併せて要検証**。 単独では検証不能につき escalated。
+
+### n/a (engine 挙動として検証不能、 2026-08-05)
+
+- **「デッキ1枚でこの起動メイン発動→デッキ0で敗北?→いいえ、デッキは0枚にならず敗北しない」**
+  (cardqa_.json = series 空, `322e497f7a62`) — カード個別テキスト不明(どの起動メインか特定不能)。
+  「デッキは0枚にならず」は 当該効果が deck を見て戻す(look-and-return)型である事に依存する **カード固有
+  解釈** で、 engine の一般挙動(敗北は DRAW フェイズの空引きのみ、 game.py)に一意に落ちない。 特定不能 +
+  カード固有につき n/a。
