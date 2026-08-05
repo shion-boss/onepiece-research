@@ -1303,11 +1303,19 @@ def apply_action(state: GameState, action: Action, ai=None) -> None:
 
 
 def _compute_filtered_cost_reduction(me: Player, card: CardDef) -> int:
-    """場の静的効果 (play_cost_reductions_filtered) から、 card がマッチする
-    軽減量を合計する。 OP05-097 「コスト2以上の天竜人キャラのコスト -1」 等。"""
+    """場の静的効果 (play_cost_reductions_filtered) + ターン限定効果
+    (play_cost_reductions_filtered_turn) から、 card がマッチする軽減量を合計する。
+    OP05-097 「コスト2以上の天竜人キャラのコスト -1」 (静的) /
+    OP02-025 「このターン中、 次に登場させるコスト3以上《ワノ国》キャラのコスト -1」 (ターン限定)。
+
+    ⚠ 以前は静的リストしか読んでおらず、 ターン限定 filter 軽減 (OP02-025) は
+    legal_actions._eff_cost だけが加味し、 実際の支払い (apply_action) では無視されていた
+    (= legal_actions が「2ドンで登場可」 と言ったのに apply_action が全コストを要求して
+    「not enough don」 で失敗、 公式 cardqa_op_02: 割引は効くべき)。 両リストを合算して整合させる。
+    """
     from .effects import _matches_filter
     total = 0
-    for r in me.play_cost_reductions_filtered:
+    for r in me.play_cost_reductions_filtered + me.play_cost_reductions_filtered_turn:
         if _matches_filter(card, r.get("filter", {})):
             total += int(r.get("amount", 0))
     return total

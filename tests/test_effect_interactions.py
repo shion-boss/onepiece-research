@@ -4143,3 +4143,72 @@ def test_op14_060_redirect_can_target_own_blocker():
                               outer_kind="redirect_attack", outer_value=spec)
     assert any(t.instance_id == blocker.instance_id for t in targets), \
         "ブロッカーが redirect の対象候補に入っていない (ブロックと混同している)"
+
+
+def test_op02_025_filtered_turn_cost_reduction_applies_at_payment():
+    """OP02-025 錦えもん 【起動メイン】: 「このターン中、次に登場させるコスト3以上《ワノ国》キャラの
+    支払うコストは1少なくなる」割引が、 legal_actions だけでなく **実際の支払い (apply_action)** でも効く。
+
+    公式 Q&A (cardqa_op_02, qid 27f57268a683):
+      Q: 自分のキャラが0枚のときにこの【起動メイン】を発動したあと、手札から《ワノ国》を持たない
+         キャラを登場させました。この次に手札から登場させるコスト3の《ワノ国》を持つキャラのコストは
+         1少なくなりますか？
+      A: はい、少なくなります。
+
+    是正前バグ: 割引は play_cost_reductions_filtered_turn に登録されるが、 支払い経路の
+    _compute_filtered_cost_reduction が **静的リストしか読まず** ターン限定リストを無視していた。
+    legal_actions._eff_cost は両リストを読むため「2ドンで登場可」 と表示するのに、 apply_action は
+    全コスト(3)を要求して not enough don で失敗する不整合だった。
+    """
+    from engine.effects import list_activate_main_effects, fire_activate_main
+    from engine.game import (_compute_filtered_cost_reduction, _compute_in_hand_cost_minus,
+                             legal_actions, apply_action, PlayCharacter)
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP02-025")
+    me, opp = st.players[0], st.players[1]
+    me.characters = []  # 自キャラ0枚 (条件 self_chara_count_le:1 を満たす)
+
+    # 錦えもんリーダーの【起動メイン】を発動 = 割引を登録
+    fired = False
+    for o in list_activate_main_effects(st, me, overlay):
+        fire_activate_main(st, me, opp, *o)
+        fired = True
+        break
+    assert fired, "OP02-025 の【起動メイン】が発動できていない"
+    assert me.play_cost_reductions_filtered_turn, "ターン限定割引が登録されていない"
+
+    # コスト3のワノ国キャラを探す
+    import json
+    from pathlib import Path
+    cards = json.loads((Path(__file__).resolve().parent.parent / "db" / "cards.json").read_text())
+    wano3 = next(c["card_id"] for c in cards
+                 if not c.get("variant") and c.get("category") == "CHARACTER"
+                 and (c.get("cost") or "").isdigit() and int(c["cost"]) == 3
+                 and "ワノ国" in (c.get("features") or ""))
+    card = repo.get(wano3)
+
+    # 非・ワノ国キャラを1枚登場 (割引を消費しないことを確認)
+    nonwano = next(c["card_id"] for c in cards
+                   if not c.get("variant") and c.get("category") == "CHARACTER"
+                   and (c.get("cost") or "").isdigit() and int(c["cost"]) == 2
+                   and "ワノ国" not in (c.get("features") or ""))
+    me.don_active = 10
+    me.hand = [repo.get(nonwano)]
+    apply_action(st, PlayCharacter(hand_idx=0))
+
+    # 支払い経路のコスト計算 = 印字3 - 割引1 = 2 (是正前は割引が効かず 3)
+    pay_cost = (card.cost - me.play_cost_reduction
+                - _compute_in_hand_cost_minus(st, me, card)
+                - _compute_filtered_cost_reduction(me, card))
+    assert pay_cost == 2, (
+        f"ワノ国コスト3キャラの支払いコストが {pay_cost} (期待2)。 "
+        "ターン限定 filter 割引が支払い経路に反映されていない (非ワノ国登場でも消費されない)"
+    )
+
+    # 2 ドンちょうどで実際に登場できる (legal_actions と apply_action が整合)
+    me.hand = [card]
+    me.don_active = 2
+    plays = [a for a in legal_actions(st) if isinstance(a, PlayCharacter)]
+    assert plays, "2ドンでワノ国コスト3が legal になっていない"
+    apply_action(st, plays[0])  # 是正前は not enough don で ValueError
+    assert any(c.card.card_id == wano3 for c in me.characters), "ワノ国コスト3が登場していない"
