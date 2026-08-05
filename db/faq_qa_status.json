@@ -2183,90 +2183,90 @@
   "files": [
    "cardqa_eb_01.json"
   ],
-  "note": "",
+  "note": "EB01-008 リトルオーズJr. replace_ko: 手札にイベント/ステージ無し→コスト不可→KO代替不成立(通常KO)。try_replace_ko実測=replaced False(対照:EVENT有りでTrue)。公式=いいえできません conform",
   "q": "自分の手札にイベントもステージカードも無い時、この【ターン1回】効果でこのキャラが効果によってKOされないことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "346402667b7a": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-111 ヘラ activate_main: 同名2枚の一方の起動メインがコスト(このキャラ以外の《ホーミーズ》1枚トラッシュ)でもう1枚を対象化。実測=characters2→1/trash+1。公式=はいできます conform",
   "q": "自分の場にこのカードが2枚あるとき、一方の【起動メイン】効果でもう一方をトラッシュに置けますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "34671783ab18": {
   "a": "はい、加えられます。",
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-030 シャボンディ諸島 main: 検索filterは特徴《麦わらの一味》のみ色指定なし。実測=緑OP06-118(赤以外)が手札に加わる。公式=はい加えられます conform",
   "q": "この【メイン】効果で、赤以外の特徴《麦わらの一味》を持つキャラカードを手札に加えられますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "346e1e1ac578": {
   "a": "はい、この場合この【トリガー】効果でカード1枚を引き、このカードをトラッシュに置きます。",
   "files": [
    "cardqa_op_07.json"
   ],
-  "note": "",
+  "note": "OP07-107 フランキー trigger: draw→(自ライフ1以下なら)play_self。ライフ2で条件不成立→draw1のみ+登場せず(card→trash)。実測=hand+1/chara不変/self_life_le(1)=False。公式=はい引きトラッシュへ conform",
   "q": "自分のライフが2枚以上の場合、この【トリガー】効果でカードを引くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "351b9ec7f7a5": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "",
+  "note": "OP16-026 イワンコフ on_play: search(《インペルダウン》1まで)とその後の手札からcost2以下登場は独立do。search0枚でも後段実行。実測=chara+1。公式=はいできます conform",
   "q": "この【登場時】効果で、特徴《インペルダウン》を持つカード1枚までを手札に加えなかった場合、自分の手札からコスト2以下のキャラカード1枚までを登場させることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "35911fe43dbe": {
   "a": "この場合、自分の手札1枚を捨てることで場を離れるキャラを2枚とも場に残すか、何もせずキャラ2枚が場を離れるかを選びます。",
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-090 ペローナ replace_leave(元々パワー7000以下が相手効果で離脱→手札1捨てで代替)。公式=2枚同時離脱でも手札1捨てで両方残す(2枚捨て不可)or何もせず両方離脱。engine実測=ko_multiがtry_replace_koをvictim毎に呼び手札2捨て(2victim=2discard)=違反。修正は同時離脱のバッチ化(1holderの置換を全victim分1回・単一コストで適用)=アーキ変更、OP15置換サイクル(ペローナ/ボニー/ノラ/レオ/ラブーン等)横断。escalated",
   "q": "自分の元々のパワー7000以下のキャラが2枚同時に相手の効果で場を離れる場合、代わりに自分の手札2枚を捨てることはできますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "35efcda7c42d": {
   "a": "この場合、同時に登場したキャラ1枚ごとにこの効果が発動します。例として、「OP16-105 ゲッコー・モリア」の【トリガー】効果で3枚のキャラを同時に登場させた場合、合計で3枚のカードを引きます。",
   "files": [
    "cardqa_op_14.json"
   ],
-  "note": "",
+  "note": "OP14-041 ハンコック リーダー on_self_chara_played(opp_turn): 相手ターン中の自キャラ登場ごとに発動。2枚同時登場を逐次で再現→draw2(対照:自ターン=draw0)。公式=枚数分ドロー conform",
   "q": "相手のターン中、キャラを2枚以上登場させる効果によって自分のキャラが2枚以上同時に登場した場合、このリーダーの【相手のアタック時】効果で何枚のカードを引きますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "35fd0c818381": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_07.json"
   ],
-  "note": "",
+  "note": "OP07-095 鉄塊 counter: +4000その後トラッシュ10以上で同対象+2000。トラッシュ9で撃つと鉄塊自身が10枚目→+6000総計。実測=攻10000vs守5000+6000でライフ耐える/trash9→10。公式=はいできます conform",
   "q": "自分のトラッシュが9枚の時にこの【カウンター】効果を発動しました。この時、自分のリーダーかキャラ1枚を合計でパワー+6000できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "36275ea6da45": {
   "a": "この場合、自分の3枚以下のデッキをすべてトラッシュに置いた後、自分のキャラ1枚までを、アクティブにします。",
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-022 ブルック activate_main: mill4(不足時は全部)その後デッキ0なら自キャラ1アクティブ。デッキ3で発動→3枚全trash/deck0/untap step実行。activate自体legal(公式=はいできます)conform。注:untap default targetがsource優先の別AI品質論点あるが本Q&A対象外",
   "q": "自分のデッキが3枚以下の時、この【起動メイン】を発動することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "368229976579": {
   "a": "はい、されます。",
   "files": [
    "cardqa_eb_01.json"
   ],
-  "note": "",
+  "note": "EB01-024 ハムレット static: 手札4以下で自《SMILE》キャラ全+1000。自身がSMILE→含まれる。実測=hand3でpower4000→5000/hand5で4000。公式=はいされます conform",
   "q": "自分の手札が4枚以下の場合、このカードの効果でこのカード自身のパワーは+1000されますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "36f9b12bb5f4": {
   "a": "いいえ、できません。",

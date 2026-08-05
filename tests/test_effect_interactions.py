@@ -4991,3 +4991,247 @@ def test_op03_001_ace_when_attacked_fires_before_counter_step_structurally():
         "『アタックされた時』トリガーがカウンター処理より後に配置されている = "
         "カウンター後にリーダー効果を発動できてしまう (違反)"
     )
+
+
+# --------------------------------------------------------------------------- #
+#  Z. 公式 Q&A conformance バッチ (2026-08-05, cron optcg-faq-conformance)
+#     10 件を engine 実測で検証。 9 件 conform を以下で固定、 1 件 (OP15-090
+#     同時離脱の置換) は アーキ変更が要るため escalated (docs/official_rulings.md)。
+# --------------------------------------------------------------------------- #
+def test_eb01_008_replace_ko_unpayable_when_no_event_or_stage_in_hand():
+    """EB01-008 リトルオーズJr.: 手札にイベント/ステージが無ければ KO を代替できない。
+
+    公式 (cardqa_eb_01, qid 33ece02d4726):
+      Q: 手札にイベントもステージカードも無い時、この【ターン1回】効果で このキャラが
+         効果によって KO されないことはできますか？
+      A: いいえ、できません。
+    置換コスト (イベント/ステージ 1 捨て) が払えない → 置換不成立 = 通常どおり KO。
+    """
+    from engine.effects import try_replace_ko
+    repo, overlay = _repo(), _overlay()
+
+    # (a) 手札に CHARACTER のみ (= コスト不可) → replaced False
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    c = InPlay.of(repo.get("EB01-008"), sickness=False)
+    me.characters = [c]
+    me.hand = [repo.get(_FILLER)]                       # CHARACTER = イベント/ステージでない
+    assert try_replace_ko(st, me, opp, c, overlay, by_opp_effect=True, leave_kind="ko") is False, \
+        "イベント/ステージが無いのに KO を代替できている (タダで KO 回避)"
+
+    # (b) 手札に EVENT があれば代替成立 (対照)
+    st2 = _state(repo, overlay)
+    me2, opp2 = st2.players[0], st2.players[1]
+    c2 = InPlay.of(repo.get("EB01-008"), sickness=False)
+    me2.characters = [c2]
+    me2.hand = [repo.get("EB01-009")]                   # EVENT
+    hb = len(me2.hand)
+    assert try_replace_ko(st2, me2, opp2, c2, overlay, by_opp_effect=True, leave_kind="ko") is True, \
+        "イベントを捨てられるのに KO 代替が成立していない"
+    assert len(me2.hand) == hb - 1, "代替コストのイベント 1 捨てが行われていない"
+
+
+def test_op04_111_activate_main_can_trash_the_other_copy():
+    """OP04-111 ヘラ: 同名 2 枚のうち一方の【起動メイン】がもう一方を コストで トラッシュにできる。
+
+    公式 (cardqa_op_04, qid 346402667b7a):
+      Q: 自分の場にこのカードが 2 枚あるとき、一方の【起動メイン】効果で もう一方を
+         トラッシュに置けますか？  A: はい、できます。
+    コストは 「このキャラ以外の《ホーミーズ》1 枚をトラッシュ」。 もう 1 枚の ヘラ は
+    《ホーミーズ》かつ自身でない → 正当な対象。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    h1 = InPlay.of(repo.get("OP04-111"), sickness=False)
+    h2 = InPlay.of(repo.get("OP04-111"), sickness=False)
+    me.characters = [h1, h2]
+    trash_before = len(me.trash)
+
+    opts = [o for o in list_activate_main_effects(st, me, overlay)
+            if o[0].card.card_id == "OP04-111"]
+    assert len(opts) == 2, "2 枚それぞれの起動メインが legal でない"
+    fire_activate_main(st, me, opp, *opts[0])
+    while st.pending_choice:
+        resolve_pending_choice(st, [0])
+
+    assert len(me.characters) == 1, "もう 1 枚をコストでトラッシュできていない"
+    assert len(me.trash) == trash_before + 1, "トラッシュに 1 枚移っていない"
+
+
+def test_op01_030_search_filter_has_no_color_restriction():
+    """OP01-030: 【メイン】の検索は 特徴《麦わらの一味》のみ、 色で絞らない。
+
+    公式 (cardqa_op_01, qid 34671783ab18):
+      Q: この【メイン】効果で、赤以外の 特徴《麦わらの一味》を持つ キャラカードを
+         手札に加えられますか？  A: はい、加えられます。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    src = InPlay.of(repo.get("OP01-030"), sickness=True)
+    me.characters = [src]
+    # デッキトップに 緑 (= 赤以外) の《麦わらの一味》キャラ (OP06-118 ゾロ)
+    me.deck = [repo.get("OP06-118")] + [repo.get(_FILLER)] * 10
+    assert "赤" not in (repo.get("OP06-118").color or ""), "前提が崩れている: OP06-118 が赤"
+    hb = len(me.hand)
+
+    eff = next(e for e in overlay.get("OP01-030").effects if e.get("when") == "main")
+    for prim in eff["do"]:
+        execute_effect(prim, st, me, opp, src)
+    while st.pending_choice:
+        resolve_pending_choice(st, [0])
+
+    assert any(c.card_id == "OP06-118" for c in me.hand), \
+        "赤以外の《麦わらの一味》が検索で手札に加わっていない (色で誤って絞っている)"
+    assert len(me.hand) == hb + 1
+
+
+def test_op07_107_trigger_draws_and_goes_to_trash_when_life_2():
+    """OP07-107 フランキー【トリガー】: ライフ 2 枚以上でも 1 ドローする (その後 登場は不成立)。
+
+    公式 (cardqa_op_07, qid 346e1e1ac578):
+      Q: 自分のライフが 2 枚以上の場合、この【トリガー】効果で カードを引くことは
+         できますか？
+      A: はい、この場合 カード 1 枚を引き、このカードをトラッシュに置きます。
+    do 順は draw → (自ライフ 1 以下なら) play_self。 ライフ 2 では条件不成立 = 登場せず。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.life = [repo.get(_FILLER)] * 2                   # ライフ 2
+    me.deck = [repo.get(_FILLER)] * 10
+    hb, cb = len(me.hand), len(me.characters)
+
+    eff = next(e for e in overlay.get("OP07-107").effects if e.get("when") == "trigger")
+    for prim in eff["do"]:
+        execute_effect(prim, st, me, opp, None)
+        while st.pending_choice:
+            resolve_pending_choice(st, [0])
+
+    assert len(me.hand) == hb + 1, "ライフ 2 でも 1 ドローするはず"
+    assert len(me.characters) == cb, "ライフ 2 で条件不成立なのに このキャラが登場している"
+    # 条件節の対照
+    assert eval_condition({"self_life_le": 1}, st, me, opp) is False, "ライフ 2 で self_life_le(1) が真"
+
+
+def test_op16_026_second_play_runs_even_when_search_adds_nothing():
+    """OP16-026 イワンコフ【登場時】: 検索で 0 枚しか加えなくても 後段の 手札からの登場は行える。
+
+    公式 (cardqa_op_16, qid 351b9ec7f7a5):
+      Q: この【登場時】効果で、特徴《インペルダウン》1 枚までを 手札に加えなかった場合、
+         自分の手札から コスト 2 以下のキャラ 1 枚までを登場させることはできますか？
+      A: はい、できます。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, human_idx=0)
+    me, opp = st.players[0], st.players[1]
+    src = InPlay.of(repo.get("OP16-026"), sickness=True)
+    me.characters = [src]
+    me.deck = [repo.get(_FILLER)] * 10                  # トップに《インペルダウン》なし
+    me.hand = [repo.get("OP01-016")]                    # cost1 キャラ = 後段の登場対象
+    cb = len(me.characters)
+
+    eff = next(e for e in overlay.get("OP16-026").effects if e.get("when") == "on_play")
+    for prim in eff["do"]:
+        execute_effect(prim, st, me, opp, src)
+        guard = 0
+        while st.pending_choice and guard < 6:
+            kind = st.pending_choice.get("kind")
+            if "search" in str(kind):
+                resolve_pending_choice(st, [])          # 手札に加えない
+            else:
+                resolve_pending_choice(st, [0])         # 手札から登場させる
+            guard += 1
+
+    assert len(me.characters) == cb + 1, \
+        "検索で 0 枚でも 後段の 「手札から登場」 が実行されるはず"
+
+
+def test_op14_041_leader_draws_per_simultaneous_chara_on_opp_turn():
+    """OP14-041 ハンコック: 相手ターン中に自キャラが複数 同時登場したら 枚数分ドローする。
+
+    公式 (cardqa_op_14, qid 35efcda7c42d):
+      Q: 相手のターン中、キャラを 2 枚以上登場させる効果で 自分のキャラが 2 枚以上同時に
+         登場した場合、このリーダーの効果で 何枚引きますか？
+      A: 同時登場したキャラ 1 枚ごとに発動 (3 枚同時なら 合計 3 ドロー)。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP14-041")
+    me, opp = st.players[0], st.players[1]
+    st.turn_player_idx = 1                              # 相手ターン
+    me.deck = [repo.get(_FILLER)] * 10
+    hb = len(me.hand)
+    for _ in range(2):                                  # 2 枚 同時登場を逐次で再現
+        c = InPlay.of(repo.get(_FILLER), sickness=True)
+        me.characters.append(c)
+        trigger_on_play(st, me, opp, c, overlay)
+        while st.pending_choice:
+            resolve_pending_choice(st, [0])
+    assert len(me.hand) == hb + 2, "2 枚同時登場で 2 ドローになっていない"
+
+    # 対照: 自ターンでは発動しない (【相手のターン中】)
+    st2 = _state(repo, overlay, leader0="OP14-041")
+    me2, opp2 = st2.players[0], st2.players[1]
+    st2.turn_player_idx = 0
+    me2.deck = [repo.get(_FILLER)] * 10
+    hb2 = len(me2.hand)
+    c2 = InPlay.of(repo.get(_FILLER), sickness=True)
+    me2.characters.append(c2)
+    trigger_on_play(st2, me2, opp2, c2, overlay)
+    while st2.pending_choice:
+        resolve_pending_choice(st2, [0])
+    assert len(me2.hand) == hb2, "自ターンなのにドローしている (【相手のターン中】ゲート漏れ)"
+
+
+def test_op07_095_counter_card_counts_toward_its_own_trash_condition():
+    """OP07-095 鉄塊【カウンター】: トラッシュ 9 枚で撃つと 鉄塊自身が 10 枚目になり +6000 総計。
+
+    公式 (cardqa_op_07, qid 35fd0c818381):
+      Q: 自分のトラッシュが 9 枚の時に この【カウンター】を発動しました。 この時、 リーダーか
+         キャラ 1 枚を 合計で パワー+6000 できますか？  A: はい、できます。
+    「+4000。 その後、 トラッシュが 10 以上なら +2000」。 カウンター解決時に 鉄塊が既に
+    トラッシュへ移り 9→10 になるため 後段も成立。 攻撃側 10000 vs 守備リーダー 5000 を、
+    +6000 (=11000) で耐えるかで判定する。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    atk = InPlay.of(repo.get(_FILLER), sickness=False)  # base 3000
+    atk.attached_dons = 7                               # 3000 + 7000 = 10000
+    me.characters = [atk]
+    opp.trash = [repo.get(_FILLER)] * 9                 # 発動前トラッシュ 9
+    opp.hand = [repo.get("OP07-095")]
+    opp.don_active = 5
+    life_before = len(opp.life)
+
+    apply_action(st, AttackLeader(attacker_iid=atk.instance_id, counter_event_idxs=(0,)))
+
+    assert len(opp.trash) >= 10, "前提が崩れている: 鉄塊がトラッシュに移っていない"
+    assert len(opp.life) == life_before, (
+        "+6000 (総計) が乗らず 守備リーダーが 10000 を耐えられていない"
+        " (鉄塊自身をトラッシュ枚数に数えていない)"
+    )
+
+
+def test_eb01_024_static_smile_buff_includes_self():
+    """EB01-024 ハムレット: 手札 4 枚以下で 自《SMILE》キャラ全員 +1000 = 自身も +1000。
+
+    公式 (cardqa_eb_01, qid 368229976579):
+      Q: 自分の手札が 4 枚以下の場合、このカードの効果で このカード自身のパワーは
+         +1000 されますか？  A: はい、されます。
+    ハムレット自身が 特徴《SMILE》を持つため 「自《SMILE》キャラすべて」 に含まれる。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    ham = InPlay.of(repo.get("EB01-024"), sickness=False)  # base power 4000
+    me.characters = [ham]
+
+    me.hand = [repo.get(_FILLER)] * 3                   # 手札 3 (≤4)
+    evaluate_static_effects(st, overlay)
+    assert ham.power == 5000, f"手札 4 以下で 自身に +1000 されていない (power={ham.power})"
+
+    me.hand = [repo.get(_FILLER)] * 5                   # 手札 5 (>4)
+    evaluate_static_effects(st, overlay)
+    assert ham.power == 4000, f"手札 5 で 静的バフが解けていない (power={ham.power})"
