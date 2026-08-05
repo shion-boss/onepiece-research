@@ -1525,9 +1525,9 @@
   "files": [
    "cardqa_st_26.json"
   ],
-  "note": "ST26-001 おそばマスク(印刷cost7)in_hand_cost_minus:5(元々P7000+サン五郎/サンジ存在時)で手札コスト2。OP01-047 ロー(play_from_hand cost_le:3)で登場可か→公式はい。手札コスト減算を play_from_hand の cost_le filter が honor するか(in-hand cost modifier × named-play filter の相互作用)の実測要。PlayEvent/登場経路の driving が非自明で単一回で確証できず、集中確認へ escalated。",
+  "note": "ST26-001 おそばマスク: 手札コスト-5(元々P7000以上のサンジ/サン五郎存在時)は OP01-047 ロー の play_from_hand cost_le:3 判定に反映され、印刷7が現在2で登場候補に載る。end-to-end 実測で play_from_hand_pick の候補に ST26-001 出現を確認(_compute_in_hand_cost_minus=5 + _matches_filter_hand True、既存 ST23-001 ウタ→ロー conform と同機構)。旧 escalated(実測未了)を解消。tests/test_effect_interactions.py::test_st26_001_in_hand_cost_minus_enables_law_summon。",
   "q": "自分の元々のパワー7000以上のキャラの、「サン五郎」か「サンジ」がいるときに、このキャラカードをコスト2として、「OP01-047 トラファルガー・ロー」の効果で登場させることはできますか？",
-  "status": "escalated"
+  "status": "conform"
  },
  "267feefbded8": {
   "a": "いいえ、されません。",

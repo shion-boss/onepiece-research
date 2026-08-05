@@ -2352,7 +2352,11 @@ EB03-055 ニコ・ロビン【相手のターン中】【KO時】= 「相手に1
   条件不成立=何も起きない。engine の event 発動順 (トラッシュ→効果) が公式どおり。
 - **op_11 系 refresh timing** (qid 260ac6c71ce0, n/a):「引く前か後か→引く前」。engine は REFRESH→DRAW の
   固定 phase 順で実装するが、フェイズ進行の定義説明で単一カードの盤面差分に落ちない=n/a。
-- **ST26-001 おそばマスク** (qid 267b1672f2c8, escalated): 印刷 cost7 が `in_hand_cost_minus:5`
-  (元々P7000+サン五郎/サンジ存在時) で手札コスト2。OP01-047 ロー (play_from_hand cost_le:3) で登場可か
-  →公式はい。**手札コスト減算を play_from_hand の cost_le filter が honor するか** (in-hand cost modifier
-  × named-play filter の相互作用) の実測を要し、登場経路の driving が非自明で単一回で確証できず escalated。
+- **ST26-001 おそばマスク** (qid 267b1672f2c8, ~~escalated~~ → **conform**、 2026-08-05 follow-up で解消):
+  印刷 cost7 が `in_hand_cost_minus:5` (元々P7000+サン五郎/サンジ存在時) で手札コスト2。OP01-047 ロー
+  (play_from_hand cost_le:3) で登場可か→公式はい。 **手札コスト減算を play_from_hand の cost_le filter が
+  honor するか** の実測を後続 run で実施し conform 確定: `_compute_in_hand_cost_minus`=5 かつ
+  `_matches_filter_hand(osoba, {cost_le:3}, 5)`=True、 さらに **end-to-end** で OP01-047 の play_from_hand
+  primitive を実行し `play_from_hand_pick` の候補に ST26-001 が載ることを実測。 既に conform 済の
+  ST23-001 ウタ→ロー (effects.py:5306 のコメント) と同一機構 = 登場経路は手札コスト現在値で判定する。
+  回帰: `tests/test_effect_interactions.py::test_st26_001_in_hand_cost_minus_enables_law_summon`。

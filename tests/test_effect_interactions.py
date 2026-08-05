@@ -3831,3 +3831,315 @@ def test_effect_damage_vanilla_life_goes_to_hand_no_trigger():
     assert len(opp.hand) == hand0 + 1, "バニラのライフ札が手札に加わっていない"
     assert len(opp.deck) == deck0, "トリガーが無いのに draw している"
     assert len(opp.life) == 2, "ライフが 1 枚減っていない"
+
+
+# =========================================================================== #
+#  公式 Q&A conformance (2026-08-05 batch) — 全件保証 routine で検査した 9 件。
+#  いずれも engine が公式裁定どおりに動くことを確認した conform ケースを
+#  回帰テストで固定する (原文を各テストにコメント引用)。
+# =========================================================================== #
+
+def test_op15_097_event_placed_in_trash_before_main_counts_itself():
+    """OP15-097 「人として恥ずかしいわ」 の【メイン】(トラッシュ10枚以上) は、
+    手札から使うと 自身が先にトラッシュへ入る (8-4-2) ので トラッシュ9枚でも成立する。
+
+    cardqa_op_15 (原文):
+      Q: 自分のトラッシュが9枚の時に、このイベントカードの【メイン】や【トリガー】の効果を
+         使うことはできますか？
+      A: この場合、このイベントを手札から使用して【メイン】効果を発動した場合は、…アタックできない。
+         を行うことができますが、この【トリガー】効果によって発動した場合はトラッシュがまだ9枚のため、
+         この【メイン】効果でなにも起こりません。
+
+    手札プレイ経路 (公開→コスト→トラッシュ→効果) が守られていないと、 効果解決時に
+    トラッシュ = 9 のままとなり cannot_attack が入らない = 公式違反。
+    """
+    from engine.game import PlayEvent
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.trash = [repo.get(_FILLER)] * 9          # トラッシュ = 9 (10 未満)
+    me.hand = [repo.get("OP15-097")]
+    me.don_active = 5
+    victim = InPlay.of(repo.get(_FILLER), sickness=False)   # OP01-013 = cost2 (<=5)
+    opp.characters = [victim]
+
+    apply_action(st, PlayEvent(hand_idx=0))
+
+    assert len(me.trash) == 10, "イベントが効果解決前にトラッシュへ置かれていない (8-4-2 違反)"
+    assert victim.cannot_attack_through_opp_turn, (
+        "トラッシュ9枚でも 手札から使えば 自身が10枚目に入り メイン が成立するはず"
+    )
+
+
+def test_op15_097_main_does_nothing_when_trash_below_threshold_without_self():
+    """対照: 自身がトラッシュに入らない文脈 (= トリガー解決時点) で トラッシュ9枚なら 不発。
+
+    上の cardqa_op_15 後段 (【トリガー】発動時は トラッシュ9枚のまま = 何も起こらない) を固定。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.trash = [repo.get(_FILLER)] * 9          # 自身を数えない = 9 のまま
+    victim = InPlay.of(repo.get(_FILLER), sickness=False)
+    opp.characters = [victim]
+
+    eff = next(e for e in overlay.get("OP15-097").effects if e.get("when") == "main")
+    assert eval_condition(eff.get("if"), st, me) is False, \
+        "トラッシュ9枚で メイン条件(>=10) が成立している"
+    if eval_condition(eff.get("if"), st, me):
+        for prim in eff["do"]:
+            execute_effect(prim, st, me, opp, None)
+    assert not victim.cannot_attack_through_opp_turn, \
+        "条件不成立なのに cannot_attack が入っている"
+
+
+def test_op09_037_end_of_turn_activates_only_itself():
+    """OP09-037 リム の【自分のターン終了時】は 「このキャラ」 1枚のみアクティブにする。
+
+    cardqa_op_09 (原文):
+      Q: 自分の場にレストのこのキャラが3枚あり、他に自分のキャラが無い場合、この
+         【自分のターン終了時】効果でこのキャラ3枚をアクティブにできますか？
+      A: いいえ、1枚のみアクティブにできます。
+
+    untap 対象が 「self」 でなく all_self 等に化けると 3枚とも起きる = 違反。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.characters = [InPlay.of(repo.get("OP09-037"), sickness=False) for _ in range(3)]
+    for c in me.characters:
+        c.rested = True
+    eff = next(e for e in overlay.get("OP09-037").effects if e.get("when") == "end_of_turn")
+    assert eval_condition(eff.get("if"), st, me), "レスト3枚 = 条件成立のはず"
+    for prim in eff["do"]:
+        execute_effect(prim, st, me, opp, me.characters[0])
+    active = [i for i, c in enumerate(me.characters) if not c.rested]
+    assert active == [0], f"発動元 1 枚のみ起きるはず (実際に起きた: {active})"
+
+
+def test_op05_008_don_attach_is_single_target_no_split():
+    """OP05-008 チャカ は 「リーダーかキャラ1枚」 に レストのドン2枚を付与 = 分配不可。
+
+    cardqa_op_05 (原文):
+      Q: 自分のリーダーとキャラに1枚ずつドン!!を付与できますか？
+      A: いいえ、できません。
+
+    単一 target に count 2 が入る = リーダー1 + キャラ1 の分配は起きない。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, human_idx=0)
+    me, opp = st.players[0], st.players[1]
+    me.don_active = 1
+    me.don_rested = 3
+    chaka = InPlay.of(repo.get("OP05-008"), sickness=False)
+    chaka.attached_dons = 1                     # gate self_attached_don_ge:1
+    other = InPlay.of(repo.get(_FILLER), sickness=False)
+    me.characters = [chaka, other]
+    opts = [o for o in list_activate_main_effects(st, me, overlay)
+            if o[0].card.card_id == "OP05-008"]
+    assert len(opts) == 1
+    fire_activate_main(st, me, opp, *opts[0])
+    pc = st.pending_choice
+    assert pc is not None and pc.get("kind") == "target_pick", "単一 target 選択が立たない"
+    resolve_pending_choice(st, [0])             # リーダーを選ぶ
+    assert me.leader.attached_dons == 2, "選んだ 1 対象に 2 枚まとめて付くはず"
+    assert chaka.attached_dons == 1 and other.attached_dons == 0, \
+        "他の対象にドンが漏れている (分配になっている)"
+
+
+def test_st17_002_bounce_cost_payable_without_shichibukai_leader():
+    """ST17-002 ロー の【登場時】は コロン前 (自キャラ1枚を手札に戻す) が発動コスト。
+    リーダーが《王下七武海》を持たなくても コストは支払える (コロン後だけ gate)。
+
+    cardqa_st_17 (原文):
+      Q: 自分のリーダーが特徴《王下七武海》を持たない場合、この【登場時】効果で
+         自分のキャラ1枚を手札に戻すことはできますか？
+      A: はい、できます。この場合、相手のコスト4以下のキャラ1枚を手札に戻すことはできません。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP01-001", human_idx=0)  # OP01-001 = 非・王下七武海
+    me, opp = st.players[0], st.players[1]
+    assert "王下七武海" not in (me.leader.card.features or ()), "前提: リーダーは非七武海"
+    opp.characters = [InPlay.of(repo.get(_FILLER), sickness=False)]   # cost2 (<=4)
+    src = InPlay.of(repo.get("ST17-002"), sickness=False)
+    me.characters = [src]
+    opp_before = len(opp.characters)
+
+    trigger_on_play(st, me, opp, src, overlay)
+    guard = 0
+    while st.pending_choice and guard < 8:
+        pc = st.pending_choice
+        guard += 1
+        raw = pc.get("cards") or pc.get("candidates") or []
+        if pc.get("kind") == "optional_cost_confirm":
+            resolve_pending_choice(st, [1])     # コスト支払いを承諾
+        elif raw:
+            resolve_pending_choice(st, [0])
+        else:
+            resolve_pending_choice(st, [])
+    # コストは支払えた (自キャラが場を離れて手札へ戻った)
+    assert src not in me.characters, "コスト (自キャラを手札に戻す) が支払えていない"
+    # コロン後 (相手コスト4以下を戻す) は 七武海でないので 発動しない
+    assert len(opp.characters) == opp_before, \
+        "リーダーが非七武海なのに 相手キャラが手札へ戻された (gate 漏れ)"
+
+
+def test_op16_115_search_excludes_yamimizu_by_name():
+    """OP16-115 闇水 の【メイン】は トラッシュから 「闇水」以外の【トリガー】持ちを手札へ。
+    別番号でも 名前が 「闇水」 のカード (OP09-097) は除外される。
+
+    cardqa_op_16 (原文):
+      Q: この【メイン】効果で、自分のトラッシュの「OP09-097 闇水」を手札に加えることは
+         できますか？
+      A: いいえ、できません。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP09-081", human_idx=0)   # 黒ひげ海賊団 リーダー
+    me, opp = st.players[0], st.players[1]
+    assert "黒ひげ海賊団" in (me.leader.card.features or ())
+    # トラッシュに 別番号の 「闇水」(OP09-097, トリガー持ち) と 別名のトリガー持ち (対照) を置く。
+    yami = repo.get("OP09-097")
+    import json as _json
+    cards = {c["card_id"]: c for c in _json.loads((ROOT / "db" / "cards.json").read_text("utf-8"))}
+    ctrl_id = next(cid for cid, c in cards.items()
+                   if c.get("trigger") and c["name"] != "闇水" and "_" not in cid)
+    ctrl = repo.get(ctrl_id)
+    me.trash = [yami, ctrl]
+
+    eff = next(e for e in overlay.get("OP16-115").effects if e.get("when") == "main")
+    assert eval_condition(eff.get("if"), st, me)
+    for prim in eff["do"]:
+        execute_effect(prim, st, me, opp, None)
+    # 有効候補は 対照1枚のみ (闇水は名前除外) → 自動で手札へ。 闇水はトラッシュに残る。
+    hand_names = [c.name for c in me.hand]
+    assert "闇水" not in hand_names, f"「闇水」が手札に加わった (名前除外が効いていない): {hand_names}"
+    assert ctrl.name in hand_names, f"別名のトリガー札が手札に加わっていない: {hand_names}"
+    assert yami in me.trash, "闇水が除外されずトラッシュから移動している"
+
+
+def test_op15_001_leader_debuff_not_applied_at_zero_characters():
+    """OP15-001 クリーク の【相手のターン中】(自キャラが《東の海》のみ) は、
+    自キャラ0枚では成立しない (vacuous-true にしない)。
+
+    cardqa_op_15 (原文):
+      Q: 自分のキャラが0枚の時、この【相手のターン中】効果で相手のキャラすべては
+         パワー-2000されますか？
+      A: いいえ、されません。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP15-001")
+    me, opp = st.players[0], st.players[1]
+    me.don_active = 1
+    st.turn_player_idx = 1                       # 相手のターン
+    eff = next(e for e in overlay.get("OP15-001").effects
+               if e.get("when") == "on_attached_don")
+    cond = eff.get("if")
+    me.characters = []
+    assert eval_condition(cond, st, me) is False, \
+        "自キャラ0枚で条件が成立している (vacuous-true バグ)"
+    # 対照: 東の海 キャラ 1 体なら成立
+    me.characters = [InPlay.of(repo.get("OP15-008"), sickness=False)]   # クリーク (東の海)
+    assert eval_condition(cond, st, me) is True
+
+
+def test_st24_004_stay_rested_can_target_already_rested_opponent():
+    """ST24-004 ロー&ベポ の【登場時】は 既にレストの相手キャラも対象にでき、
+    次の相手リフレッシュでアクティブにならない状態にできる。
+
+    cardqa_st_24 (原文):
+      Q: この【登場時】効果で相手のレストのキャラ1枚を選び、次の相手のリフレッシュ
+         フェイズでアクティブにならない状態にすることはできますか？
+      A: はい、できます。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, human_idx=0)
+    me, opp = st.players[0], st.players[1]
+    victim = InPlay.of(repo.get(_FILLER), sickness=False)
+    victim.rested = True                         # 既にレスト
+    opp.characters = [victim]
+    src = InPlay.of(repo.get("ST24-004"), sickness=False)
+    me.characters = [src]
+
+    trigger_on_play(st, me, opp, src, overlay)
+    guard = 0
+    while st.pending_choice and guard < 8:
+        pc = st.pending_choice
+        guard += 1
+        raw = pc.get("cards") or pc.get("candidates") or []
+        resolve_pending_choice(st, [0] if raw else [])
+    assert getattr(victim, "stay_rested_next_refresh", False), \
+        "既レストの相手キャラに 『次のリフレッシュで起きない』 が付与されていない"
+
+
+def test_st26_001_in_hand_cost_minus_enables_law_summon():
+    """ST26-001 おそばマスク の手札コスト-5 (元々パワー7000以上のサンジ/サン五郎が居る場合) は、
+    OP01-047 ロー の cost3以下 登場 filter に反映される (= 現在の手札コストで判定)。
+
+    cardqa_st_26 (原文):
+      Q: 自分の元々のパワー7000以上のキャラの、「サン五郎」か「サンジ」がいるときに、
+         このキャラカードをコスト2として、「OP01-047 トラファルガー・ロー」の効果で
+         登場させることはできますか？
+      A: はい、できます。
+    """
+    from engine.game import _compute_in_hand_cost_minus
+    from engine.effects import _matches_filter_hand
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    osoba = repo.get("ST26-001")                 # 印刷コスト 7
+    law_filter = {"category": "CHARACTER", "cost_le": 3}
+
+    # サンジ (印刷パワー7000) を置く → 手札コスト -5 = 2
+    me.characters = [InPlay.of(repo.get("OP09-065"), sickness=False)]
+    me.hand = [osoba]
+    ihm = _compute_in_hand_cost_minus(st, me, osoba)
+    assert ihm == 5, f"手札コスト -5 が効いていない (ihm={ihm})"
+    assert _matches_filter_hand(osoba, law_filter, ihm), \
+        "コスト2 (=7-5) なのに ロー の cost3以下 登場対象にならない"
+
+    # 対照: 7000以上のサンジ/サン五郎が居なければ 減額なし = コスト7 = 対象外
+    me.characters = []
+    ihm0 = _compute_in_hand_cost_minus(st, me, osoba)
+    assert ihm0 == 0 and not _matches_filter_hand(osoba, law_filter, ihm0), \
+        "条件を満たさないのに 手札コストが下がっている"
+
+    # end-to-end: OP01-047 ロー の play_from_hand (cost3以下 CHARACTER登場) の候補に
+    # おそばマスクが 実際に載る (= 登場経路が手札コスト減算を honor する)。
+    st.human_player_idx = 0
+    st.forced_human_actor_idx = 0
+    me.characters = [InPlay.of(repo.get("OP09-065"), sickness=False)]   # サンジ (P7000)
+    me.hand = [osoba, repo.get(_FILLER)]
+    me.don_active = 10
+    execute_effect({"play_from_hand": {"filter": law_filter, "limit": 1}},
+                   st, me, opp, me.characters[0])
+    pc = st.pending_choice
+    cands = (pc.get("candidates") or pc.get("cards") or []) if pc else []
+    assert any(c.get("card_id") == "ST26-001" for c in cands), \
+        "OP01-047 ロー の cost3以下 登場候補に おそばマスク(現在cost2) が載っていない"
+
+
+def test_op14_060_redirect_can_target_own_blocker():
+    """OP14-060 ドフラミンゴ の【相手のアタック時】redirect は 自分の【ブロッカー】キャラも
+    対象にできる (効果によるアタック対象変更は 「ブロック」 とは別物)。
+
+    cardqa_st_29 (原文):
+      Q: 【ブロック不可】を持つカードがキャラにアタックした場合、…OP14-060…の
+         【相手のアタック時】効果や…EB01-038 オカマ道…の【カウンター】効果で、そのアタックの
+         対象を【ブロッカー】を持つキャラに変更することはできますか？
+      A: はい、できます。効果によるアタック対象の変更は「【ブロッカー】によるブロック」とは
+         異なります。
+    """
+    from engine.effects import _resolve_target
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]   # me = 防御側 (OP14-060 保持)
+    st.turn_player_idx = 1                    # 相手のターン
+    dofla = InPlay.of(repo.get("OP14-060"), sickness=False)
+    blocker = InPlay.of(repo.get("OP09-031"), sickness=False)  # ブロッカー + ドンキホーテ海賊団
+    assert "ブロッカー" in (blocker.card.text or ""), "前提: OP09-031 はブロッカー"
+    me.characters = [dofla, blocker]
+    spec = {"type": "all_self_chara_filtered", "filter": {"feature": "ドンキホーテ海賊団"}}
+    targets = _resolve_target(spec, st, me, opp, dofla,
+                              outer_kind="redirect_attack", outer_value=spec)
+    assert any(t.instance_id == blocker.instance_id for t in targets), \
+        "ブロッカーが redirect の対象候補に入っていない (ブロックと混同している)"
