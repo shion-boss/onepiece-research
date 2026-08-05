@@ -4337,3 +4337,236 @@ def test_eb02_059_sanji_summon_respects_cost_and_color():
     assert "EB02-054" in _summon_ids("EB02-054"), (
         "黄・コスト5の「サンジ」が登場できていない (制約の掛けすぎ)"
     )
+
+
+# --------------------------------------------------------------------------- #
+#  FAQ 全件保証 2026-08-05 バッチ (cardqa 10 件、 うち 9 conform / 1 escalated)。
+#  各テストは 公式 Q&A 原文をコメントに引用し、 「違反していたら落ちる」 形で固定する。
+#  外部オラクル = 公式 Q&A のみ (Python/Rust 差分検証では原理的に沈黙する領域)。
+# --------------------------------------------------------------------------- #
+def _board_fi(repo, ov, mine, theirs, l0="OP01-001", l1="OP01-001", turn=0):
+    """簡易 board (両陣営キャラ + 空手札/ライフ)。 turn=1 で相手ターン。"""
+    import random
+    p0 = Player(name="P0", leader=InPlay.of(repo.get(l0), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get(l1), sickness=False))
+    p0.characters = [InPlay.of(repo.get(c), sickness=False) for c in mine]
+    p1.characters = [InPlay.of(repo.get(c), sickness=False) for c in theirs]
+    for p in (p0, p1):
+        p.deck = [repo.get(_FILLER)] * 15
+        p.life = [repo.get(_FILLER)] * 3
+        p.hand = []
+    st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                   rng=random.Random(1), effects_overlay=ov)
+    st.turn_player_idx, st.turn_number = turn, 9
+    return st, p0, p1
+
+
+def test_st03_016_counter_return_can_target_own_character():
+    """ST03-016 つっぱり圧力砲【カウンター】「コスト3以下のキャラ1枚までを、持ち主の手札に戻す」。
+
+    公式 (cardqa_st_03, qid 2f462b39833b):
+      Q: この【カウンター】効果で自分のキャラを手札に戻すことはできますか？
+      A: はい、戻すことができます。
+    → 「相手の」修飾が無い = 両陣営。 自陣限定なら 候補から自キャラが消える = 落ちる。
+    """
+    repo, ov = _repo(), _overlay()
+    st, p0, p1 = _board_fi(repo, ov, [_FILLER], [])  # 自キャラのみ、 相手場は空
+    st.human_player_idx = 0
+    execute_effect({"return_to_hand": "one_character_either_cost_le_3"}, st, p0, p1, None)
+    pc = st.pending_choice
+    assert pc is not None, "相手場が空でも自キャラが候補になるはず (modal が立たない)"
+    raw = pc.get("cards") or pc.get("candidates") or []
+    iids = {c.get("iid") if isinstance(c, dict) else c for c in raw}
+    assert p0.characters[0].instance_id in iids, (
+        "自分のキャラが候補に入っていない (公式: 自キャラも手札に戻せる)"
+    )
+
+
+def test_st03_004_search_excludes_same_named_card():
+    """ST03-004 ゲッコー・モリア【登場時】「トラッシュの『ゲッコー・モリア』以外のコスト4以下の
+    特徴《王下七武海》か《スリラーバーク海賊団》キャラ1枚を手札に加える」。
+
+    公式 (cardqa_st_03, qid 307eb466d570):
+      Q: 「ST03-004 ゲッコー・モリア」以外のカード名が「ゲッコー・モリア」のカードを手札に
+         加えられますか？
+      A: いいえ、できません。カード名が「ゲッコー・モリア」であるすべてのカードはこの効果で
+         手札に加えられません。
+    → exclude_name が効いていないと モリア (OP09-085) が手札に来て 落ちる。
+    """
+    repo, ov = _repo(), _overlay()
+    st, p0, p1 = _board_fi(repo, ov, [], [])
+    # トラッシュ: モリア (OP09-085, スリラーバーク c4 = cost/feature は適合) + 正当な非モリア (EB03-045 ペローナ)
+    p0.trash = [repo.get("OP09-085"), repo.get("EB03-045")]
+    src = InPlay.of(repo.get("ST03-004"), sickness=False)
+    p0.characters = [src]
+    trigger_on_play(st, p0, p1, src, ov)  # AI 経路 = 唯一の正当候補を auto-pick
+    hand_names = {c.name for c in p0.hand}
+    trash_names = [c.name for c in p0.trash]
+    assert "ゲッコー・モリア" not in hand_names, (
+        "同名『ゲッコー・モリア』が手札に加わった (公式: 加えられない)"
+    )
+    assert "ゲッコー・モリア" in trash_names, "モリアはトラッシュに残るはず"
+    assert "ペローナ" in hand_names, "正当な非モリア候補は手札に加わるはず (over-restriction でない)"
+
+
+def test_op12_046_discards_available_hand_when_fewer_than_two():
+    """OP12-046 ゼファー【登場時】「自分の手札2枚を捨てる」。
+
+    公式 (cardqa_op_12, qid 318a76562346):
+      Q: 自分の手札がこのカードを含めて2枚の状態でこれをプレイし登場させた場合、この【登場時】
+         効果で、1枚だけの手札は捨てますか？
+      A: はい、捨てます。
+    → プレイ後の手札は1枚。 2枚捨てを要求されても在る1枚は捨てる (捨てられる分だけ捨てる)。
+    """
+    repo, ov = _repo(), _overlay()
+    st, p0, p1 = _board_fi(repo, ov, [], [])
+    p0.hand = [repo.get(_FILLER)]  # 登場後の残り手札 = 1 枚
+    src = InPlay.of(repo.get("OP12-046"), sickness=False)
+    p0.characters = [src]
+    trigger_on_play(st, p0, p1, src, ov)
+    assert len(p0.hand) == 0, "在る1枚を捨てていない (公式: 捨てられる分は捨てる)"
+    assert len(p0.trash) == 1, "捨てた1枚がトラッシュに無い"
+
+
+def test_op15_100_declining_optional_cost_skips_whole_effect():
+    """OP15-100 カマキリ【登場時】「このキャラをトラッシュに置き、自分のライフの上から1枚を手札に
+    加えることができる：相手のコスト6以下のキャラ1枚までを、KOする」。
+
+    公式 (cardqa_op_15, qid 2f83f2adddb9):
+      Q: この【登場時】効果で、このキャラをトラッシュに置かないことはできますか？
+      A: はい、できます。この場合、自分のライフの上から1枚を手札に加えることはできず、相手の
+         コスト6以下のキャラをKOすることもできません。
+    → 任意コストを拒否したら ライフ移動も KO も起きず、 自身も場に残る。
+    """
+    repo, ov = _repo(), _overlay()
+    st, p0, p1 = _board_fi(repo, ov, [], ["OP01-016"])  # 相手にコスト6以下キャラ
+    life_before, opp_before = len(p0.life), len(p1.characters)
+    src = InPlay.of(repo.get("OP15-100"), sickness=False)
+    p0.characters = [src]
+    st.human_player_idx = 0
+    trigger_on_play(st, p0, p1, src, ov)
+    pc = st.pending_choice
+    assert pc is not None and pc.get("kind") == "optional_cost_confirm", (
+        "任意コストの可否が人間に問われていない"
+    )
+    resolve_pending_choice(st, [0])  # 0 = 拒否 (既存 test_optional_cost_is_declinable_by_human 準拠)
+    assert len(p0.life) == life_before, "拒否したのにライフが手札へ移った"
+    assert len(p1.characters) == opp_before, "拒否したのに相手キャラが KO された"
+    assert any(c.instance_id == src.instance_id for c in p0.characters), (
+        "拒否したのに自身がトラッシュへ置かれた (コスト未払いなら場に残る)"
+    )
+
+
+def test_st20_005_opp_choice_discards_the_choosing_players_own_hand():
+    """ST20-005 リンリン【登場時】「自分の手札1枚を捨てることができる：相手は以下から1つを選ぶ。
+    ・相手は自身の手札2枚を捨てる。・相手のライフの上から1枚をトラッシュに置く」。
+
+    公式 (cardqa qid 2f7c55e92f71):
+      Q: 自分がこの【登場時】効果を発動し、対戦相手が「相手は自身の手札2枚を捨てる。」を選んだ
+         場合、どちらのプレイヤーが手札を2枚捨てますか？
+      A: この【登場時】効果を発動していない側のプレイヤーが、そのプレイヤーの手札から2枚を
+         トラッシュに置きます。
+    → 選んだ側 (= 発動者の相手) が 自分の手札を 2 枚捨てる。 発動者は捨てない。
+    """
+    repo, ov = _repo(), _overlay()
+    st, p0, p1 = _board_fi(repo, ov, [], [])
+    p0.hand = [repo.get(_FILLER)]        # コスト discard_hand:1 用
+    p1.hand = [repo.get(_FILLER)] * 4    # 相手 (選ぶ側) の手札
+    src = InPlay.of(repo.get("ST20-005"), sickness=False)
+    p0.characters = [src]
+    trigger_on_play(st, p0, p1, src, ov)
+    guard = 0
+    while st.pending_choice is not None and guard < 8:
+        resolve_pending_choice(st, [0]); guard += 1
+    assert len(p1.hand) == 2, (
+        f"選んだ側の手札が 4→{len(p1.hand)} = 2枚捨てていない (捨てるのは発動者の相手)"
+    )
+    assert len(p1.trash) == 2, "相手のトラッシュに捨てた2枚が無い"
+    # 発動者 (p0) は コスト1枚のみ、 効果本体では捨てない
+    assert len(p0.trash) == 1, "発動者が本体効果で手札を捨てている (捨てるのは相手のみ)"
+
+
+def test_eb03_055_ko_damage_has_no_block_or_counter_window():
+    """EB03-055 ニコ・ロビン【相手のターン中】【KO時】「相手に1ダメージを与えてもよい」。
+
+    公式 (cardqa_eb_03, qid 30ac7cf8798c):
+      Q: 相手のこのカードの【KO時】効果に対して、自分は【ブロッカー】を発動したり、手札から
+         【カウンター】を発動するなどでダメージを防ぐことはできますか？
+      A: いいえ、できません。
+    → 【KO時】ダメージはバトルではない = 防御ウィンドウ (pending_choice) が一切立たず、
+      相手ライフが直接1減る。 防御選択が立ったら 落ちる。
+    """
+    repo, ov = _repo(), _overlay()
+    from engine.effects import trigger_on_ko
+    st, p0, p1 = _board_fi(repo, ov, [], [], turn=1)  # 相手 (p1) のターン = p0 視点で【相手のターン中】
+    opp_life_before = len(p1.life)
+    victim = InPlay.of(repo.get("EB03-055"), sickness=False)
+    trigger_on_ko(st, p0, p1, victim.card, ov, by_opp_effect=True,
+                  victim_attached_don=0, victim_effect_negated=False)
+    assert len(p1.life) == opp_life_before - 1, "KO時ダメージで相手ライフが1減っていない"
+    assert st.pending_choice is None, (
+        "KO時ダメージにブロック/カウンターの防御ウィンドウが立った (公式: 防げない)"
+    )
+
+
+def test_op01_051_two_copies_both_become_attack_taunts():
+    """OP01-051 ユースタス・キッド【ドン‼×1】【相手のターン中】「このキャラがレストの場合、相手は
+    キャラの『ユースタス・キッド』以外にアタックできない」。
+
+    公式 (cardqa_op_01, qid 30e46a63da7a):
+      Q: この【相手のターン中】効果を発動している「OP01-051 ユースタス・キッド」が相手の場に
+         2枚ある場合はどうなりますか？
+      A: 相手のキャラのうち、カード名が「ユースタス・キッド」であるキャラのいずれかにアタック
+         ができます。
+    → 2枚とも条件成立 (レスト + ドン付与) なら 両方が taunt = どちらの キッド にもアタック可、
+      リーダーには不可。 片方しか taunt にならなければ 落ちる。
+    """
+    repo, ov = _repo(), _overlay()
+    from engine.game import legal_actions
+    st, p0, p1 = _board_fi(repo, ov, [_FILLER], [])  # p0 の攻撃側キャラ、 p0 のターン
+    p0.characters[0].rested = False  # アクティブ攻撃可
+    kidd1 = InPlay.of(repo.get("OP01-051"), sickness=False)
+    kidd1.rested = True; kidd1.attached_dons = 1
+    kidd2 = InPlay.of(repo.get("OP01-051"), sickness=False)
+    kidd2.rested = True; kidd2.attached_dons = 1
+    p1.characters = [kidd1, kidd2]
+    evaluate_static_effects(st, ov)
+    assert kidd1.attack_taunt and kidd2.attack_taunt, "2枚とも taunt になっていない"
+    la = legal_actions(st)
+    assert not any(isinstance(a, AttackLeader) for a in la), (
+        "taunt がいるのにリーダーへアタックできる"
+    )
+    char_iids = {a.target_iid for a in la if isinstance(a, AttackCharacter)}
+    assert char_iids == {kidd1.instance_id, kidd2.instance_id}, (
+        "どちらの キッド にもアタックできる状態になっていない"
+    )
+
+
+def test_op15_098_simultaneous_leave_saves_both_sky_characters():
+    """OP15-098 モンキー・Ｄ・ルフィ (リーダー):「自分の元々のパワー6000以上の特徴《空島》を持つ
+    キャラが相手によって場を離れる場合、代わりに自分のライフの上から1枚を手札に加えることができる」。
+
+    公式 (cardqa_op_15, qid 2f50adf29553):
+      Q: 自分の元々のパワー6000以上の特徴《空島》を持つキャラが2枚同時に相手の効果で場を離れる
+         場合、代わりに自分のライフを手札に加えることはできますか？
+      A: はい、できます。（…）2枚をどちらも場に残すことができます。
+    → 置換効果は 離脱キャラごとに独立適用 (公式一般則)。 2枚同時離脱でも 両方が場に残る。
+      どちらかでも KO されたら 落ちる。
+    """
+    repo, ov = _repo(), _overlay()
+    st, p0, p1 = _board_fi(
+        repo, ov,
+        ["OP15-107", "OP15-099"],  # 空島 pow6000 / pow7000
+        [], l0="OP15-098", turn=1,  # リーダー = 置換元、 相手 (p1) のターン
+    )
+    life_before = len(p0.life)
+    # p1 (相手) が p0 のキャラ全てを KO (= 相手の効果で 2 枚同時離脱)。
+    execute_effect({"ko_multi": ["all_opponent_characters"]}, st, p1, p0, None)
+    guard = 0
+    while st.pending_choice is not None and guard < 10:
+        resolve_pending_choice(st, [0]); guard += 1
+    surviving = {c.card.card_id for c in p0.characters}
+    assert surviving == {"OP15-107", "OP15-099"}, (
+        f"空島キャラが両方残っていない (残: {surviving}) = 置換効果が両方に適用されていない"
+    )
+    assert len(p0.life) < life_before, "置換 (ライフ→手札) が発火していない (無償で残っている)"

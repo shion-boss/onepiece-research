@@ -2676,3 +2676,64 @@ Python/Rust とも同じ overlay を読むため **差分検証では原理的�
   = 定義質問。用語説明のため **n/a**。メカニクス自体は `_no_play_from_hand_via_effect` (overlay の
   `_no_play_via_effect:true` marker、OP12-036 ゾロ) で実装済 = play_from_hand 系が候補除外、通常プレイ
   とトラッシュ経由は可 = 公式説明どおり。
+
+## 公式どおりで **問題なかった** もの (2026-08-05 バッチ その6、 FAQ 全件保証 台帳より)
+
+10 件処理 (conform 9 / escalated 1)。 いずれも engine を実際に動かし盤面差分を assert して確認、
+回帰は `tests/test_effect_interactions.py` に固定 (下記テスト名)。
+
+- **ST03-016 つっぱり圧力砲【カウンター】は自分のキャラも手札に戻せる** (cardqa_st_03, `2f462b39833b`) —
+  「この【カウンター】効果で自分のキャラを手札に戻すことはできますか」→ **はい**。 overlay の
+  `return_to_hand: one_character_either_cost_le_3` は 「相手の」 修飾が無い = 両陣営。 human 経路で
+  自キャラが候補に入ることを実測。 `test_st03_016_counter_return_can_target_own_character`。
+- **ST03-004 ゲッコー・モリアのサーチは同名『ゲッコー・モリア』を除外** (cardqa_st_03, `307eb466d570`) —
+  「ST03-004 以外のカード名が『ゲッコー・モリア』のカードを手札に加えられますか」→ **いいえ**。 overlay の
+  `trash_to_hand.filter.exclude_name='ゲッコー・モリア'` が効き、 トラッシュにモリア(OP09-085,
+  スリラーバーク c4 = cost/feature 適合)+非モリア(EB03-045)を置くと非モリアのみ手札へ、 モリアのみだと
+  0 枚を実測。 `test_st03_004_search_excludes_same_named_card`。
+- **OP12-046 ゼファー【登場時】『手札2枚を捨てる』は在る分だけ捨てる** (cardqa_op_12, `318a76562346`) —
+  登場後の手札が1枚でも、 その1枚は捨てる→ **はい**。 `trash_self_hand_random:2` は手札1枚で 1→0 を実測
+  (捨てられる分だけ捨てる)。 `test_op12_046_discards_available_hand_when_fewer_than_two`。
+- **OP15-100 カマキリ 任意コストを拒否したら効果全体が不発** (cardqa_op_15, `2f83f2adddb9`) —
+  「このキャラをトラッシュに置かないことはできますか」→ **はい、その場合ライフ手札加えも相手KOもできない**。
+  `optional_cost_then` (cost=trash_self) を人間が拒否(idx0)するとライフ移動なし・相手キャラKOなし・自身は
+  場に残るを実測。 `test_op15_100_declining_optional_cost_skips_whole_effect`。
+- **ST20-005 リンリン系『相手は自身の手札2枚を捨てる』は選んだ側(発動者の相手)が捨てる** (cardqa,
+  `2f7c55e92f71`) — 発動していない側のプレイヤーが自分の手札を2枚捨てる。 overlay の `choice_effect`
+  actor='opp'、 option=`trash_opp_hand_random:2` (opp=発動者の相手)。 p1(選ぶ側)の手札 4→2・trash+2、
+  発動者p0 は本体で捨てないを実測。 `test_st20_005_opp_choice_discards_the_choosing_players_own_hand`。
+- **EB03-055 ロビン【KO時】のダメージはブロッカー/カウンターで防げない** (cardqa_eb_03, `30ac7cf8798c`) —
+  「【KO時】効果に対しブロッカー発動や手札からカウンターでダメージを防げるか」→ **いいえ**。
+  `deal_opp_leader_damage:1` は相手ライフを直接1減らし、 防御 `pending_choice` を一切立てない(=バトルで
+  はないので防御ステップが無い)を実測。 `test_eb03_055_ko_damage_has_no_block_or_counter_window`。
+- **アタック時効果はブロッカー/カウンターの発動より前** (cardqa_op_03, `30be7538d5d5`, OP03-001 エース系) —
+  → **はい**。 構造的順序: `game.py:apply_action` で `trigger_on_attack`(AttackLeader=line1521 /
+  AttackCharacter=line1932) が blocker 解決・`_fire_counter_events`(line1580/2024) より前に発火。 既存
+  `test_on_attack_removing_target_makes_attack_fizzle` も同順序に依存。 個別回帰は追加せず構造で担保。
+- **OP01-051 キッドが2枚あれば両方が taunt = どちらの キッド にもアタック可** (cardqa_op_01,
+  `30e46a63da7a`) — taunt は `set_attack_taunt:'self'`(自身にのみ付与)。 2枚とも条件成立(レスト+ドン×1)
+  なら `evaluate_static_effects` で両方 `attack_taunt=True` → `legal_actions` は両キッドのみ攻撃可・
+  リーダー不可を実測。 `test_op01_051_two_copies_both_become_attack_taunts`。
+  ⚠ 補足(Q&A対象外・未修正): 名前ベース制約(「『ユースタス・キッド』以外にアタックできない」)を
+  per-instance self-taunt で表現しているため、 **片方だけ条件成立** の場合は成立キッドのみが taunt になり
+  他方の同名キッドが攻撃対象から漏れる潜在乖離がある。 本Q&A(2枚とも成立)は conform。 単方成立ケースは
+  公式Q&A未確認のため深追いせず(要すれば `cannot_attack_target_except` 名前フィルタ化で対応可)。
+- **OP15-098 ルフィ(リーダー) の置換は離脱キャラごとに独立適用 = 2枚同時離脱でも両方残せる** (cardqa_op_15,
+  `2f50adf29553`) — 「元々のパワー6000以上《空島》が2枚同時に相手効果で場を離れる場合、代わりにライフを
+  手札に加えて両方残せるか」→ **はい**。 `try_replace_ko` は離脱キャラごとに呼ばれ、 `ko_multi[all_opponent]`
+  で2枚同時KOしても各々が独立に置換(life→hand)され両方残存(chars 2→2, life 3→1)を実測。 公式回答文の
+  「1枚を手札に加えることで2枚をどちらも残す」 の「1枚」 は 離脱キャラごとの置換コスト(=各1枚)を指す
+  読み(置換効果は対象ごと独立適用が一般則)。 `test_op15_098_simultaneous_leave_saves_both_sky_characters`。
+
+### escalated (アーキ変更につき自動修正の範囲外、 2026-08-05)
+
+- **『リーダーかキャラ1枚に持ち主のレストのドン1枚まで付与』は両陣営が対象** (cardqa_op_15,
+  `2f3620bfd8b9`, OP15-010 ネズミ / OP15-012 バギー / OP15-003 アルビダ・OP15-017 モーガンの コロン後段) —
+  「自分のリーダーやキャラに自分のレストのドンを、 相手のリーダーやキャラに相手のレストのドンを付与でき
+  ますか」→ **はい、どちらもできる**。 テキストに 「自分の」/「相手の」 修飾が無い = 両陣営(対象範囲監査の
+  一般則、 「持ち主の」 は根拠にならない)。 現 overlay は `attach_rested_don.target=one_self_team_any`
+  (自陣限定) で **公式違反**。 だが是正には ① リーダーを含む両陣営 target spec の新設(既存 either 系は
+  キャラのみ)② `attach_rested_don` の DON ソース(`don_owner`)を **対象の所有者ごと** に解決(現状は
+  `to_opp` flag で発動時に up-front 固定)—の2点が必要で、 primitive のデータの持ち方を変える**アーキ変更**。
+  実害は稀(自陣付与は既に正しく動作、 相手側に相手のレストドンを縛る非自明プレイのみが欠落)、 影響
+  4 枚。 規模の見極め(アーキ変更)により **escalated**。 是正時は per-target owner 解決 + 両エンジン同時。

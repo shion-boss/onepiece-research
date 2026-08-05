@@ -1913,90 +1913,90 @@
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-010/012系『リーダーかキャラ1枚に持ち主のレストのドン1枚までを付与』(自分の/相手の の修飾なし=両陣営、 持ち主=対象の所有者のレストのドン)。 公式: 自→自(自レストドン)も相手→相手(相手レストドン)も可。 現overlay=one_self_team_any(自陣限定)で違反だが、 是正には(1)リーダー含む両陣営 target spec 新設(2)attach_rested_don の don_owner を対象所有者ごとに解決(現状 to_opp flag で up-front固定)の2点=primitive のアーキ変更が必要。 実害は稀(相手側に相手のドンを縛る非自明プレイのみ、 自陣付与は既に正しく動く)。 影響4枚(OP15-003/010/012/017)。 規模の見極め#11(アーキ変更)によりescalated。 docs/official_rulings.md 記録済",
   "q": "この「リーダーかキャラ1枚に持ち主のレストのドン‼1枚までを、付与する。」の効果で、自分のリーダーやキャラに自分のレストのドン!!を付与することや、相手のリーダーやキャラに相手のレストのドン!!を付与することはできますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "2f462b39833b": {
   "a": "はい、戻すことができます。",
   "files": [
    "cardqa_st_03.json"
   ],
-  "note": "",
+  "note": "ST03-016 つっぱり圧力砲【カウンター】return_to_hand=one_character_either_cost_le_3(相手の修飾なし=両陣営)。 human経路で自キャラが候補に入ることを実測 = 自分のキャラも手札に戻せる(公式はい)。 test_st03_016_counter_return_can_target_own_character",
   "q": "この【カウンター】効果で自分のキャラを手札に戻すことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "2f50adf29553": {
   "a": "はい、できます。この場合、自分の上から1枚を手札に加えることで、元々のパワー6000以上の自分の特徴《空島》を持つキャラ2枚をどちらも場に残すことができます。",
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-098 ルフィ(リーダー) replace_leave(空島 truly_original_power_ge6000)。 try_replace_ko は離脱キャラごとに呼ばれ、 ko_multi[all_opponent]で2枚同時KOしても各々が独立に置換(life→hand)され両方残存を実測(chars2→2,life3→1)。 置換は離脱ごと独立適用=2枚どちらも残せる(公式はい)。 test_op15_098_simultaneous_leave_saves_both_sky_characters",
   "q": "自分の元々のパワー6000以上の特徴《空島》を持つキャラが2枚同時に相手の効果で場を離れる場合、代わりに自分のライフを手札に加えることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "2f7c55e92f71": {
   "a": "この【登場時】効果を発動していない側のプレイヤーが、そのプレイヤーの手札からカードを2枚選び、そのプレイヤーのトラッシュに置きます。",
   "files": [
    "cardqa_st_18.json"
   ],
-  "note": "",
+  "note": "ST20-005 リンリン系【登場時】choice_effect actor=opp、 option=trash_opp_hand_random:2。 選ぶ側(発動者の相手)が自分の手札を2枚捨てる(p1 hand4→2,trash+2)、 発動者は本体で捨てないを実測 = 発動していない側が捨てる(公式)。 test_st20_005_opp_choice_discards_the_choosing_players_own_hand",
   "q": "自分がこの【登場時】効果を発動し、対戦相手が「相手は自身の手札2枚を捨てる。」を選んだ場合、どちらのプレイヤーが手札を2枚捨てますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "2f83f2adddb9": {
   "a": "はい、できます。この場合、自分のライフの上から1枚を手札に加えることはできず、相手のコスト6以下のキャラをKOすることもできません。",
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-100 カマキリ【登場時】optional cost(trash_self)→life_to_hand+ko。 人間が任意コスト拒否(idx0)するとライフ移動なし・相手キャラKOなし・自身は場に残るを実測 = トラッシュに置かない選択可でその場合効果不発(公式はい)。 test_op15_100_declining_optional_cost_skips_whole_effect",
   "q": "この【登場時】効果で、このキャラをトラッシュに置かないことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "307eb466d570": {
   "a": "いいえ、できません。カード名が「ゲッコー・モリア」であるすべてのカードはこの効果で手札に加えられません。",
   "files": [
    "cardqa_st_03.json"
   ],
-  "note": "",
+  "note": "ST03-004 ゲッコー・モリア【登場時】trash_to_hand filter.exclude_name='ゲッコー・モリア'。 トラッシュにモリア(OP09-085)+非モリア(EB03-045)を置くとモリアは候補外・非モリアのみ手札へ、 モリアのみだと0枚を実測 = 同名は加えられない(公式いいえ)。 test_st03_004_search_excludes_same_named_card",
   "q": "「ST03-004 ゲッコー・モリア」以外のカード名が「ゲッコー・モリア」のカードを手札に加えられますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "30ac7cf8798c": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_eb_03.json"
   ],
-  "note": "",
+  "note": "EB03-055 ロビン【相手のターン中】【KO時】deal_opp_leader_damage:1。 相手ターンでKO時発火→相手ライフ直接-1・防御pending_choiceが一切立たないを実測 = KO時ダメージはバトルでなくブロッカー/カウンターで防げない(公式いいえ)。 test_eb03_055_ko_damage_has_no_block_or_counter_window",
   "q": "相手のこのカードの【KO時】効果に対して、自分は【ブロッカー】を発動したり、手札から【カウンター】を発動するなどでダメージを防ぐことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "30be7538d5d5": {
   "a": "はい、相手の【ブロッカー】やカウンターの発動より前です。",
   "files": [
    "cardqa_op_03.json"
   ],
-  "note": "",
+  "note": "OP03-001 エース系 on_attack 効果は game.py apply_action で trigger_on_attack(line1521) が blocker/counter解決(_fire_counter_events line1580)より前に発火。 アタック時効果はブロッカー/カウンターより前(公式はい)。 構造的順序(既存 test_on_attack_removing_target_makes_attack_fizzle も同順序に依存)",
   "q": "この「アタックした時」の効果の発動は、相手の【ブロッカー】やカウンターの発動より前ですか？",
-  "status": "pending"
+  "status": "conform"
  },
  "30e46a63da7a": {
   "a": "相手のキャラのうち、カード名が「ユースタス・キッド」であるキャラのいずれかにアタックができます。",
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-051 キッド taunt は set_attack_taunt:'self'(自身にのみ付与)。 2枚とも条件成立(レスト+ドン×1)なら evaluate_static_effects で両方 attack_taunt=True → legal_actions は両キッドのみ攻撃可・リーダー不可を実測 = いずれのキッドにもアタック可(公式)。 test_op01_051_two_copies_both_become_attack_taunts",
   "q": "この【相手のターン中】効果を発動している「OP01-051 ユースタス・キッド」が相手の場に2枚ある場合はどうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "318a76562346": {
   "a": "はい、捨てます。",
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "",
+  "note": "OP12-046 ゼファー【登場時】trash_self_hand_random:2。 登場後手札1枚の状態で発火 → 在る1枚を捨てる(hand1→0,trash+1)を実測 = 捨てられる分は捨てる(公式はい)。 test_op12_046_discards_available_hand_when_fewer_than_two",
   "q": "自分の手札がこのカードを含めて2枚の状態でこれをプレイし登場させた場合、この【登場時】効果で、1枚だけの手札は捨てますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "31c2d92dfcb1": {
   "a": "はい、発動できます。",
