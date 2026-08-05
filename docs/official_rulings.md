@@ -1757,3 +1757,121 @@ target と一致しているかは、 差分検証では見えない = 公式オ
   ST09-002 を手札に加えた後、 このキャラの【自分のターン中】効果は発動できるか→「いいえ」。 当DBの ST09-002 は
   text='-' で【自分のターン中】効果を **持たない** (効果は【トリガー】のみ) ため、 この特定カードの盤面差分に
   落ちない。 一般則 (手札のカードは場効果を発火しない = engine は me.characters のみ走査) は構造的に保証。 n/a。
+
+---
+
+## 「コストN以下」 の登場 filter は **手札での現在コスト** で判定する (2026-08-05 是正)
+
+**一次情報** (`db/faq/cardqa_st_23`, qid `1f516a199174`, ST23-001 ウタ):
+
+> 「自分のパワー10000以上のキャラがいるときに、このキャラをコスト2として、
+>   『OP01-047 トラファルガー・ロー』の効果で登場させることはできますか？」
+> → **「はい、できます」**
+
+ST23-001 ウタ = 「手札のこのカードは、自分のパワー10000以上のキャラがいる場合、コスト-4。」(印字コスト6)。
+OP01-047 ロー【登場時】= 「自キャラ1枚を戻す：手札から**コスト3以下**のキャラカード1枚を登場」。
+
+**是正前の挙動**: `play_from_hand` の候補抽出が `_matches_filter(card, filt)` = **CardDef の印字コスト固定**で
+`cost_le:3` を判定していた。 ウタは印字コスト6なので、 パワー10000+キャラが在場してコストが実質2でも、
+`6 > 3` で **候補から弾かれ登場できなかった** = 公式違反。 実測 (`scripts/scratchpad` 検証): 手札コスト-4 は
+`_compute_in_hand_cost_minus` で 4 と算出される (= 実質2) のに、 filter は印字6で拒否。
+
+公式は 素の「コストN以下」 = **効果修正後の現在コスト** (CLAUDE.md / 4-9)。 手札のカードの「現在コスト」には
+**手札コスト修正 (`in_hand_cost_minus`)** が乗る。 盤面 (InPlay) 版の `_matches_filter_ip` (現在コスト判定)
+の**手札版**が欠けていた。
+
+**実装**: `engine/effects.py` に `_matches_filter_hand(card, filt, in_hand_cost_minus)` を新設。 素の
+`cost_le/ge/eq` / `cost` を `max(0, 印字コスト − in_hand_cost_minus)` で判定し、 残りは `_matches_filter` に委譲
+(「元々のコスト」 = `truly_original_cost_*` は印字値のまま正しい)。 `play_from_hand` の候補ループで
+`_compute_in_hand_cost_minus` を計算して呼ぶ。 **in_hand_cost_minus<=0 (= 手札コスト修正を持たない大多数の
+カード) では `_matches_filter` と完全一致 = 挙動不変** — 影響は手札コスト修正を持つ 13 枚 (ST23-001 / EB04-061 /
+OP15-021 / OP07-064 / PRB02-014 / OP15-102 / OP11-023 / ST26-001 / OP15-013 / P-120 / OP16-005/015/082 /
+ST33-004、 パラレル別) に限定。
+
+Rust も同型に `matches_filter_hand` を新設し `play_from_hand` 候補ループで `in_hand_cost_minus` を計算して呼ぶ
+(effects.rs)。 Python/Rust の `in_hand_cost_minus` は同じ overlay を同じ条件評価で読むので bit 一致。
+`rust_parity_check --assert` MISMATCH=0 / `rust_effect_smoke_parity --assert` MISMATCH=0 維持。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+- `test_st23_001_hand_cost_reduction_counts_for_play_from_hand_cost_filter` (パワー10000+在場で ウタ登場可)
+- `test_st23_001_hand_cost_reduction_inactive_without_power10000_char` (条件不成立=印字6 で登場不可)
+- `test_st23_001_normal_hand_card_unaffected_by_cost_filter_fix` (回帰: 手札コスト修正なしの印字7は不変)
+
+⭐ **教訓**: `_matches_filter_ip` の docstring に 「手札/デッキ/トラッシュには使わない (= 修正が乗らず
+印字値=現在値)」 とあったが、 **手札には in_hand_cost_minus が乗る** ので この前提が破れていた。 「現在コスト」
+判定を場面 (盤面/手札/デッキ) ごとに正しい修正込みで行う必要がある。 Python/Rust とも同じ overlay を読むので
+差分検証では原理的に沈黙するクラス = 公式オラクルでのみ検出。
+
+---
+
+## OP15-109 ニコ・ロビン: `life_to_hand` が cost と do で **二重発火** していた (2026-08-05 是正)
+
+**一次情報** (`db/faq/cardqa_op_15`, qid `1f2da0ba1b42`, OP15-109):
+
+> 「自分のライフが0枚の場合、この【登場時】効果で『自分のデッキの上から1枚までを、ライフの上に加える。』や
+>   『自分の手札からコスト5以下の特徴《空島》を持つキャラカード1枚までを、登場させる。』を行うことは
+>   できますか？」 → **「いいえ、できません」**
+
+OP15-109【登場時】= 「自分のライフの上から1枚を手札に加えることができる**：**自分のリーダーが特徴
+《麦わらの一味》を持つ場合、自分のデッキの上から1枚までを、ライフの上に加える。その後、手札からコスト5以下
+《空島》キャラ1枚までを、登場させる。」
+
+**この Q&A の論点 (ライフ0) 自体は conform**: overlay の `cost: {life_to_hand: 1}` が gate になり、 ライフ0では
+コスト未払いで効果全体が不発 (実測: 空島登場せず・put_top_to_life も走らず)。
+
+**だが処理中に別バグを発見**: overlay の `do` 配列に `{"life_to_hand": 1}` が **cost フィールドと重複**して
+入っており、 コスト分 (1枚) と do 分 (1枚) で **ライフ2枚**が手札へ移っていた。 実測 (是正前): ライフ3
+(全マーカーA) → ライフ2 (マーカーA×1 + デッキ由来×1) / 手札にマーカーA×2 = 2枚がライフから手札へ。
+カードテキストは 「ライフの上から1枚を手札に加える」 = 1枚のみ。
+
+**実装** (overlay-only、 両エンジン共通データ): OP15-109 / OP15-109_p1 の `do` から重複 `life_to_hand` を除去
+(残 `do` = 麦わらの一味条件下で put_top_to_life + play_from_hand)。 `cost: {life_to_hand: 1}` は据置。
+是正後: ライフ −1 (cost) +1 (put_top_to_life) = 3 のまま / 手札のライフ由来カードは1枚。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+- `test_op15_109_moves_exactly_one_life_to_hand_not_two` (ライフが2枚移っていたら落ちる)
+- `test_op15_109_life_zero_blocks_whole_effect` (ライフ0で不発、 cardqa_op_15 直接検証)
+
+---
+
+## 公式どおりで **問題なかった** もの (2026-08-05 バッチ その5、 FAQ 全件保証 台帳より)
+
+- **付与系起動メインの pre-colon コストは対象不在で不発** (OP15-003 アルビダ / OP15-017 モーガン、 cardqa_op_15)
+  — 【起動メイン】「相手のキャラ1枚に相手のレストのドン1枚を付与できる**：**リーダーかキャラ1枚に持ち主の
+  レストのドン1枚までを付与」 で、 相手キャラ0枚時や相手のレストのドンが無い時に自分への付与だけ行えるか→
+  「いいえ」。 `attach_opp_don_to_opp_chara` (optional_cost_then の cost) は `can_pay` で
+  `if not opp.characters or avail_don < ad_n: can_pay=False` (effects.py:8919-8922) = コスト不能で効果全体
+  不発。 公式どおり。
+- **期間コスト+3 は発動時点の在場キャラのスナップショット** (OP14-098 三日月形砂丘、 cardqa_op_14) — 【メイン】
+  「コスト0か8以上のキャラがいる場合、自分の『B・W』キャラすべてを、次の相手のエンドフェイズ終了時まで、
+  コスト+3」 で 発動後に登場した B・W キャラも+3されるか→「いいえ」。 `set_base_cost_timed` は解決時点の各
+  InPlay に `next_opp_turn_end_base_cost_override` を書く = 後から登場した別 InPlay (override=None) は+3を
+  受けない。 公式どおり。
+- **選択肢内の『このキャラをレスト』は必須 (自レストを回避できない)** (OP03-028 ジャンゴ、 cardqa_op_03) —
+  【登場時】選択肢「・このキャラと相手のキャラ1枚までを、レストにする」 を選び 自分をレストしないことは
+  できるか→「いいえ」。 overlay の do=[{rest:self},{rest:one_opponent_character_any}]、 `{rest:self}` は
+  無条件で発動元をレスト (execute_effect 直接検証で jango.rested=True)。 相手キャラのみ『まで』=任意。 公式どおり。
+- **トラッシュ比例コスト増加に上限cap無し (コスト11可)** (ST27-004 サンファン・ウルフ、 cardqa_st_27) — 黒ひげ
+  リーダーで「トラッシュ4枚につきコスト+1」、 トラッシュ28枚で場のこのキャラのコストは11以上になるか→
+  「はい、+7でコスト11」。 `set_base_cost`(delta_per divisor4) → `InPlay.base_cost` に上限cap無し。 実測:
+  トラッシュ28で base_cost=11 (印字4+7)。 公式どおり。
+- **『2枚まで』は同一対象を2回選べない** (OP02-013 エース、 cardqa_op_02) — 【登場時】「相手のキャラ2枚までを、
+  パワー-3000」 で 同じキャラを2回選びパワー-6000できるか→「いいえ」。 target `all_opponent_chara_filtered`
+  limit2 は相手キャラから distinct に最大2体。 実測: 相手1体のみの時 -3000 が1回だけ (3000→0、 -6000でない)。 公式どおり。
+- **アタック時にライフから加えたカードは即 登場候補になる** (ST09-008 霜月牛マル、 cardqa_st_09) — 【アタック時】
+  「ライフ上/下1枚を手札へ**：**手札からコスト4以下の黄《ワノ国》キャラ1枚登場」 で、 加えたカードが
+  コスト4以下黄《ワノ国》だった場合その効果で登場できるか→「はい」。 `optional_cost_then` の cost
+  (life_top_or_bottom_to_hand) が先に解決し、 加えたカードは play_from_hand 実行時点で既に手札にある。 実測:
+  ライフ上に置いた黄ワノ国キャラが手札経由で登場。 公式どおり。
+- **登場効果のコスト制限は印字どおり (コスト1ちょうど)** (OP15-073 ヤマ、 cardqa_op_15) — 【登場時】「手札から
+  コスト1の『神兵』か《神官》キャラ1枚まで登場」 で コスト2以上を登場できるか→「いいえ」。 filter `cost_eq:1`。
+  実測: cost2 神官は登場せず / cost1 は登場。 公式どおり。 (本バッチの play_from_hand cost-filter 是正の回帰対象
+  として test_op15_073_summon_cost_restricted_to_exactly_one を追加)
+
+### engine 状態変化に落ちない (n/a、 2026-08-05 その2)
+
+- **『引いて見た後に対象を選ぶ』 は決定タイミングの確認** (OP09-089 ストロンガー、 cardqa_op_09) — 【起動メイン】
+  「…カード1枚を引く。その後、相手のキャラ1枚までを、このターン中、コスト-2」 で 引いたカードを見た後に
+  コスト-2する相手を選べるか→「はい」。 overlay do=[draw:1, cost_minus:…] は配列順で draw が完全解決してから
+  cost_minus の対象選択に入る (= 人間なら draw 後に pending target 選択) が、 これは意思決定/情報の順序確認で
+  盤面差分に落ちない = n/a。 順序自体は配列順で構造的に保証。

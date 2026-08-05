@@ -2166,6 +2166,47 @@ fn matches_filter_ip(ip: &InPlay, filt: Option<&Value>) -> bool {
     matches_filter(&ip.card, Some(&Value::Object(rest)))
 }
 
+/// **手札のカード** に対する filter 判定。 素の「コストN以下/以上/ぴったり」は 手札での
+/// 現在コスト (= 印字コスト − in_hand_cost_minus) で判定する。 Python `_matches_filter_hand` と対。
+/// (cardqa_st_23 ST23-001 ウタ 「手札のこのカードは…コスト-4」 → OP01-047 ロー cost3以下 で
+/// 登場可。 印字コスト固定だと弾かれ 公式違反)。 ihm<=0 (= 手札コスト修正なし) では
+/// matches_filter と完全一致 = 挙動不変。
+fn matches_filter_hand(card: &crate::state::CardDef, filt: Option<&Value>, ihm: i32) -> bool {
+    if ihm <= 0 {
+        return matches_filter(card, filt);
+    }
+    let Some(f) = filt.and_then(|x| x.as_object()) else { return true };
+    let eff = (card.cost - ihm).max(0) as i64;
+    if f.contains_key("or") || f.contains_key("or_clauses") {
+        for or_key in ["or", "or_clauses"] {
+            if let Some(subs) = f.get(or_key).and_then(|x| x.as_array()) {
+                if !subs.iter().any(|sub| matches_filter_hand(card, Some(sub), ihm)) {
+                    return false;
+                }
+            }
+        }
+        let mut rest = f.clone();
+        rest.remove("or");
+        rest.remove("or_clauses");
+        if rest.is_empty() {
+            return true;
+        }
+        return matches_filter_hand(card, Some(&Value::Object(rest)), ihm);
+    }
+    const PLAIN: [&str; 4] = ["cost_le", "cost_ge", "cost_eq", "cost"];
+    if !PLAIN.iter().any(|k| f.contains_key(*k)) {
+        return matches_filter(card, filt);
+    }
+    let gi = |k: &str| f.get(k).and_then(|x| x.as_i64());
+    if gi("cost_le").map_or(false, |n| eff > n) { return false; }
+    if gi("cost_ge").map_or(false, |n| eff < n) { return false; }
+    if gi("cost_eq").map_or(false, |n| eff != n) { return false; }
+    if gi("cost").map_or(false, |n| eff != n) { return false; }
+    let mut rest = f.clone();
+    for k in PLAIN { rest.remove(k); }
+    matches_filter(card, Some(&Value::Object(rest)))
+}
+
 fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
     let Some(f) = filt.and_then(|x| x.as_object()) else { return true };
     for (k, v) in f {
@@ -6875,7 +6916,10 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     if card_no_play_via_effect(&c.card_id) {
                         continue;
                     }
-                    if !matches_filter(c, filt) {
+                    // 「コストN以下」 は 手札での現在コスト で判定 (= ST23-001 ウタ、 cardqa_st_23)。
+                    // 手札コスト修正なし (ihm=0) のカードは matches_filter と完全一致 = 挙動不変。
+                    let ihm = in_hand_cost_minus(state, me_idx, c);
+                    if !matches_filter_hand(c, filt, ihm) {
                         continue;
                     }
                     cands.push((i, c.cost, c.power, c.name.clone()));
