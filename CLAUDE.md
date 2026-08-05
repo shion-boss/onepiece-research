@@ -21,7 +21,16 @@
 - 分散コンピューティング (= Phase 9 以降) でコミュニティ参加型に拡大
 
 **詳細ロードマップは [docs/ROADMAP.md](./docs/ROADMAP.md) を参照**。
-Phase 1-7 完了 (= 全カード公式準拠 100% + 配備AI = SmartOpponentAI→ExploitBeam)、 [[project_ai_strengthening_plan]] が現役プロジェクト。
+Phase 1-7 完了 (= 全カード実装済 + 配備AI = SmartOpponentAI→ExploitBeam)、 [[project_ai_strengthening_plan]] が現役プロジェクト。
+
+> ⚠ **「公式準拠 100%」 は 2026-08-05 時点で 達成していない (= 目標であって現状ではない)**。
+> 公式 Q&A 全 1,205 件の conformance ([[project_faq_conformance_routine]]) で **検査済 147 件
+> (n/a 除く) のうち 29 件 = 約 20% が違反**、 直近 2 日の是正で **379 枚 (8.4%) の効果が変わった**。
+> 壊れていたのは主に **カード個別の効果解釈** (コスト gate 欠落 = タダ撃ち / 対象範囲を片側限定 /
+> 印刷値と現在値の取り違え) で、 中核ルール (ターン進行・DON・ライフ・KO・攻防解決) は概ね正しい
+> (conform 118 件が多数派)。 中核の例外はバトル中断 1 件 (2026-08-04 是正)。
+> **未処理 1,042 件 = 全体の 86.5% は未検査**。 「100%」 と書けるのは台帳が全件 conform/fixed に
+> なった時だけ。
 
 ## アーキテクチャ
 
@@ -80,7 +89,15 @@ onepiece_research/
   - audit sev≥5 = 0、 sev=3-4 = 0 (R59) — `db/audit_acknowledged.json` で intrinsic 除外
   - engine 厳密化 audit 10/10 pass (`scripts/audit_engine_strictness.py`)
   - cardqa vs overlay 整合性 0 漏れ (X5、 `scripts/verify_overlay_vs_cardqa.py`)
-  - **全 4,518 カード 公式テキスト 100% 整合済** (2026-05-22 完了、 [[project_card_implementation_audit]] + [[project_dsl_jp_audit_complete]])
+  - 全 4,518 カード 公式テキストとの **突合作業は完了** (2026-05-22、 [[project_card_implementation_audit]] + [[project_dsl_jp_audit_complete]])
+    ⚠ **「整合 100%」 ではない**。 当時の監査は **すべて自己参照** だった:
+      overlay vs cardqa マーカー / overlay vs FAQ 要約 / engine 厳密化 audit /
+      **Python↔Rust 差分 (= 同じ overlay を読む 2 実装)** / **backfill テスト (= 現 overlay から生成)**。
+      どれも 「overlay 自身が公式テキストを読み違えている」 型を **構造的に検出できない**。
+      実際 backfill テストは バグを正解として固定しており、 2026-08-05 に 13 本が
+      「タダ撃ちできること」 を assert していたと判明した。
+    → **外部オラクルは公式 Q&A だけ**。 進捗は `db/faq_qa_status.json` を真とする
+      ([[project_faq_conformance_routine]])。
   - DSL 条件 (eval_condition): leader_feature/color, self/opp life/hand/don 各種, opp_turn/self_turn,
     self_rested, self_trash_count_ge, self_don_ge, victim_truly_original_power_ge,
     victim_feature_in, played_chara_truly_original_cost_ge, played_self_chara_has_no_effect,
