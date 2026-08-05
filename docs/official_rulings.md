@@ -11,6 +11,33 @@
 
 ---
 
+## ⛔ 最初に push 可否を確認する (cron 必読、 2026-08-05 追加)
+
+**セットアップ直後・作業を始める前に** 次を実行し、 **失敗したら即座に終了する**:
+
+```bash
+git push --dry-run origin feat/public-app-vscode-redesign 2>&1 | tail -3
+# 失敗し GH_PUSH_TOKEN があれば
+git push --dry-run "https://x-access-token:${GH_PUSH_TOKEN}@github.com/shion-boss/onepiece-research.git" \
+  feat/public-app-vscode-redesign 2>&1 | tail -3
+```
+
+両方失敗したら **10 件の処理に入らず、 「push 不可のため中止」 とだけ報告して終了する**。
+
+**なぜ**: 2026-08-05 に、 1 回 60〜90 分かけて 10 件を処理し公式違反まで是正した後で push が
+403 で弾かれ、 **成果がエフェメラルコンテナごと消えた** (commit `383502b`)。 作業前に 1 秒で
+判る確認を先にやれば、 計算も通知も無駄にならない。
+
+⚠ 症状の見分け方: `curl -H "Authorization: Bearer $GH_PUSH_TOKEN" https://api.github.com/user`
+が **200 を返すのに** `.../repos/shion-boss/onepiece-research` が
+「GitHub access is not enabled for this session. An org admin must connect the Claude GitHub App」
+という **合成メッセージ** を返す場合、 **トークンの問題ではない**。 環境のプロキシが GitHub の
+リポジトリ経路を GitHub App 連携の裏に置いている。 トークンを作り直しても直らないし、
+ネットワークを FULL にしても直らない (2026-08-05 に両方試して無効と確認済)。
+→ **人間が claude.ai で Claude GitHub App を接続し直す** しかない。 報告してすぐ終了すること。
+
+---
+
 ## 進行計画 (cron `optcg-faq-conformance`)
 
 **毎時 1 回 × 10 件 → 1 週間で全 1,205 件を網羅する** のが目標 (2026-08-04 決定)。
