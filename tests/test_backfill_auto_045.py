@@ -551,6 +551,7 @@ def test_op04_020_end_of_turn_untap_chara_ai():
     myc = InPlay.of(repo.get("OP01-016"), sickness=False)  # cost低め (<=5)
     myc.rested = True
     me.characters = [myc]
+    me.don_active = 1  # ➀ (= コロン前の発動コスト) を払える状態
 
     on_eot = _get_eff(overlay, "OP04-020", "end_of_turn")
     for prim in on_eot["do"]:
@@ -559,6 +560,31 @@ def test_op04_020_end_of_turn_untap_chara_ai():
 
     assert myc.rested is False, \
         "コスト5以下のキャラがアクティブにされていない"
+    assert me.don_active == 0, "➀ のドンがレストになっていない"
+
+
+def test_op04_020_end_of_turn_untap_not_free_without_active_don():
+    """⚠ 対照: アクティブドンが無ければ ➀ を払えず アクティブ化しない (= タダ撃ち禁止)。
+
+    公式: 「【自分のターン終了時】➀(コストエリアのドン!!を指定の数レストにできる)：
+    自分のコスト5以下のキャラ1枚までを、アクティブにする。」
+    = コロン前が発動コスト (cardqa_st_06)。
+    """
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, "OP04-020", overlay)
+    me, opp = st.players[0], st.players[1]
+    myc = InPlay.of(repo.get("OP01-016"), sickness=False)
+    myc.rested = True
+    me.characters = [myc]
+    me.don_active = 0
+
+    on_eot = _get_eff(overlay, "OP04-020", "end_of_turn")
+    for prim in on_eot["do"]:
+        execute_effect(prim, st, me, opp, me.leader)
+        _drain(st, [0])
+
+    assert myc.rested is True, "➀ を払えないのにアクティブにされている"
 
 
 def test_op04_020_end_of_turn_untap_human_target_pick():
@@ -570,9 +596,16 @@ def test_op04_020_end_of_turn_untap_human_target_pick():
     myc = InPlay.of(repo.get("OP01-016"), sickness=False)
     myc.rested = True
     me.characters = [myc]
+    me.don_active = 1
 
     on_eot = _get_eff(overlay, "OP04-020", "end_of_turn")
     execute_effect(on_eot["do"][0], st, me, opp, me.leader)
+
+    # ⚠ コロン前の ➀ は発動コストなので、 人間はまず 払う/見送る を選ぶ。
+    assert st.pending_choice is not None, "人間 + 任意コストで modal が立たない"
+    assert st.pending_choice.get("kind") == "optional_cost_confirm", \
+        f"任意コスト確認 modal が先に立たない: {st.pending_choice.get('kind')}"
+    resolve_pending_choice(st, [1])   # 払う
 
     assert st.pending_choice is not None, "人間 + 対象選択で target_pick modal が立たない"
     assert st.pending_choice.get("kind") == "target_pick", \

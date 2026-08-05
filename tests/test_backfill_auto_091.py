@@ -348,8 +348,15 @@ def test_op08_117_main_ko_ai():
     assert len(me.trash) == trash_before + 1, "トラッシュが1枚増えていない"
 
 
-def test_op08_117_trigger_life_to_hand_ai():
-    """トリガー: 自ライフ上1枚を手札に加える (AI)。 life-1 / hand+1。"""
+def test_op08_117_trigger_life_swap_ai():
+    """トリガー: **ライフ上1枚を手札に加えるのがコスト**、 効果は 手札1枚をライフの上へ。
+
+    公式: 「【トリガー】自分のライフの上から1枚を手札に加えることができる：
+    自分の手札1枚までを、ライフの上に加える。」
+    ⚠ 2026-08-05 まで overlay は **コスト側と同じ life_to_hand を効果にも書いており**
+    (= 効果 hand_to_self_life が欠落)、 さらにコスト gate も無かった。
+    ここでは 手札を 1 枚持たせて 「ライフ→手札」 + 「手札→ライフ」 の入れ替えを見る。
+    """
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, _LEADER_NEUTRAL, overlay)
@@ -362,8 +369,28 @@ def test_op08_117_trigger_life_to_hand_ai():
         execute_effect(prim, st, me, opp, None)
     _drain(st, pick=[0])
 
-    assert len(me.life) == life_before - 1, "ライフ上1枚が手札に加わっていない (life-1)"
-    assert len(me.hand) == 1, "ライフ上1枚が手札に加わっていない (hand+1)"
+    # コストで life-1 / hand+1 → 効果で hand-1 / life+1 (AI は 1 枚戻す)
+    assert len(me.life) + len(me.hand) == life_before, \
+        f"ライフ+手札 の総数が保存されていない: life={len(me.life)} hand={len(me.hand)}"
+    assert len(me.life) >= life_before - 1, \
+        f"コストが 2 回払われている疑い: life={len(me.life)}"
+
+
+def test_op08_117_trigger_not_free_without_life():
+    """⚠ 対照: ライフが無ければ コスト (ライフ上1枚→手札) を払えず 効果も起きない。"""
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, _LEADER_NEUTRAL, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.life = []
+    me.hand = [repo.get(_FILLER)]
+
+    for prim in _eff(overlay, "OP08-117", "trigger")["do"]:
+        execute_effect(prim, st, me, opp, None)
+    _drain(st, pick=[0])
+
+    assert not me.life, "ライフが無いのにライフが増えている"
+    assert len(me.hand) == 1, "コストを払えないのに手札が動いている"
 
 
 def test_op08_117_main_human_optional_confirm():

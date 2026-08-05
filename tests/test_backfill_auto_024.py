@@ -521,11 +521,17 @@ def test_op01_089_crescent_dune_counter_return_human_pick():
 #    レストで追加する
 # --------------------------------------------------------------------------- #
 def test_op01_093_ulti_on_play_add_rested_don_ai():
-    """登場時: ドンデッキからレストドン1枚をコストエリアに追加 (AI 自動)。"""
+    """登場時: ①(= アクティブドン1枚をレスト) を払って レストドン1枚を追加 (AI 自動)。
+
+    ⚠ 公式は 「【登場時】①(コストエリアのドン‼を指定の数レストにできる)：ドン‼デッキから
+    ドン‼1枚までを、レストで追加する。」 = **コロン前が発動コスト** (cardqa_st_06)。
+    払えなければ効果は発動しない。
+    """
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, "OP01-001", overlay)
     me, opp = st.players[0], st.players[1]
+    me.don_active = 1  # ① を払える状態
 
     rested_before = me.don_rested
     remaining_before = me.don_remaining_in_deck
@@ -534,6 +540,28 @@ def test_op01_093_ulti_on_play_add_rested_don_ai():
     for prim in do:
         execute_effect(prim, st, me, opp,
                        InPlay.of(repo.get("OP01-093"), sickness=True))
-    assert me.don_rested == rested_before + 1, "レストドンが1枚追加されていない"
+    # ① で 1 枚レストにし、 効果で 1 枚レストで追加 → don_rested は +2
+    assert me.don_rested == rested_before + 2, \
+        f"① 支払い + レストドン追加で +2 にならない: {me.don_rested}"
+    assert me.don_active == 0, "① のドンがレストになっていない"
     assert me.don_remaining_in_deck == remaining_before - 1, \
         "ドンデッキが1枚減っていない"
+
+
+def test_op01_093_ulti_on_play_not_free_without_active_don():
+    """⚠ 対照: アクティブドンが無ければ ① を払えず 効果は発動しない (= タダ撃ち禁止)。"""
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, "OP01-001", overlay)
+    me, opp = st.players[0], st.players[1]
+    me.don_active = 0  # ① を払えない
+
+    rested_before = me.don_rested
+    remaining_before = me.don_remaining_in_deck
+    do, _ = _do(overlay, "OP01-093", "on_play")
+    for prim in do:
+        execute_effect(prim, st, me, opp,
+                       InPlay.of(repo.get("OP01-093"), sickness=True))
+    assert me.don_rested == rested_before, "① を払えないのにドンが増えている"
+    assert me.don_remaining_in_deck == remaining_before, \
+        "① を払えないのにドンデッキが減っている"

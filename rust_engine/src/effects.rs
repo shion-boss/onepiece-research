@@ -2784,6 +2784,20 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
         // life_to_hand / life_top_or_bottom_to_hand cost: ライフ非空必要 (effects.py:8255)。
         "life_top_or_bottom_to_hand" | "life_to_hand" => Some(!me.life.is_empty()),
         // return_self_chara_to_hand cost: filter 一致の自キャラ ≥count 必要 (effects.py:8450)。
+        // rest_own_card: 自分のアクティブなカード N 枚をレスト (Python effects.py の
+        // payability と対)。 リーダー + キャラ + ステージ から filter 一致の **アクティブ** を数える。
+        // ⚠ 「レストにできない」 は レストを要するコストも払えなくする (公式、 2026-08-04)。
+        "rest_own_card" => {
+            let (n, filt) = count_and_filter(cv);
+            let mut cnt = 0usize;
+            if !me.leader.rested && matches_filter_ip(&me.leader, filt)
+                && !me.leader.cannot_be_rested_buff && !me.leader.static_cannot_be_rested { cnt += 1; }
+            for c in me.characters.iter().chain(me.stages.iter()) {
+                if !c.rested && matches_filter_ip(c, filt)
+                    && !c.cannot_be_rested_buff && !c.static_cannot_be_rested { cnt += 1; }
+            }
+            Some(cnt >= n)
+        }
         "return_self_chara_to_hand" => {
             let (count, filt) = count_and_filter(cv);
             Some(me.characters.iter().filter(|c| matches_filter_ip(&c, filt)).count() >= count)
@@ -2880,13 +2894,28 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
             } else {
                 (cv.as_i64().unwrap_or(1) as usize, None)
             };
-            Some(me.characters.iter().filter(|c| matches_filter_ip(&c, filt)).count() >= n)
+            // 公式 「**このキャラ以外**の自分のキャラ1枚を…できる」 (OP05-056)。
+            // 発動元を除外しないと、 他に自キャラが居ない盤面でも払えてしまう。
+            let _ex = cv.get("except_self").and_then(|x| x.as_bool()).unwrap_or(false);
+            let _si = if let Slot::Char(i) = src { Some(i) } else { None };
+            Some(me.characters.iter().enumerate()
+                .filter(|(i, c)| matches_filter_ip(c, filt)
+                        && !(_ex && Some(*i) == _si))
+                .count() >= n)
         }
         // ⚠ Python (effects.py:8637) は **filter 一致** の枚数で払えるか見る。 count だけ見ると
         //   「コスト1のステージ」 指定を無視して 別コストのステージで払えると誤判定する (OP06-102)。
         "stage_to_deck_bottom" => {
-            let (n, filt) = stage_count_and_filter(cv);
-            Some(me.stages.iter().filter(|s| matches_filter_ip(&s, filt.as_ref())).count() >= n)
+            let (n, filt, either) = stage_count_and_filter(cv);
+            let mut cnt = me.stages.iter().filter(|s| matches_filter_ip(s, filt.as_ref())).count();
+            if either {
+                cnt += state.players[1 - me_idx]
+                    .stages
+                    .iter()
+                    .filter(|s| matches_filter_ip(s, filt.as_ref()))
+                    .count();
+            }
+            Some(cnt >= n)
         }
         "attach_opp_don_to_opp_chara" => {
             let (n, from_cost) = if cv.is_object() {
@@ -2898,6 +2927,73 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
             let opp = &state.players[1 - me_idx];
             let avail = opp.don_rested + if from_cost { opp.don_active } else { 0 };
             Some(!opp.characters.is_empty() && avail >= n)
+        }
+        // 「自分の(filter)カード N 枚をレストにできる」 (effects.py の rest_self_cards payability)。
+        // ⚠ 2026-08-05 まで **両エンジンとも** payability を見ておらず、 レストにできる自カードが
+        //   0 でも効果が発火していた (= overlay 共通のため差分検証では沈黙するクラス)。
+        "rest_self_cards" | "rest_self_cards_filtered" => {
+            let (n, filt) = count_and_filter(cv);
+            let mut cnt = 0usize;
+            if !me.leader.rested
+                && matches_filter_ip(&me.leader, filt)
+                && !me.leader.cannot_be_rested_buff
+                && !me.leader.static_cannot_be_rested
+            {
+                cnt += 1;
+            }
+            for c in me.characters.iter() {
+                if !c.rested
+                    && matches_filter_ip(c, filt)
+                    && !c.cannot_be_rested_buff
+                    && !c.static_cannot_be_rested
+                {
+                    cnt += 1;
+                }
+            }
+            Some(cnt >= n)
+        }
+        "mill_self_top" => {
+            let n = if cv.is_object() {
+                cv.get("amount").or_else(|| cv.get("count")).and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                cv.as_i64().unwrap_or(1)
+            } as usize;
+            Some(me.deck.len() >= n)
+        }
+        "hand_to_deck_bottom" => {
+            let n = if cv.is_object() {
+                cv.get("count").or_else(|| cv.get("amount")).and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                cv.as_i64().unwrap_or(1)
+            } as usize;
+            Some(me.hand.len() >= n)
+        }
+        // 「自分の手札から『X』1枚を、登場できる：効果」 (OP05-111 ホトリ)。
+        "play_from_hand_named_set" => {
+            let names: Vec<&str> = cv
+                .get("names")
+                .and_then(|x| x.as_array())
+                .map(|a| a.iter().filter_map(|v| v.as_str()).collect())
+                .unwrap_or_default();
+            let n = cv.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
+            Some(me.hand.iter().filter(|c| names.contains(&c.name.as_str())).count() >= n)
+        }
+        // 「このキャラの付与ドン‼を…コストエリアにレストで戻すことができる」 (ST28-004)。
+        "return_attached_don_to_cost_rested" => {
+            let n = if cv.is_object() {
+                cv.get("count").or_else(|| cv.get("amount")).and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                cv.as_i64().unwrap_or(1)
+            } as i32;
+            let cur = match src {
+                Slot::Leader => me.leader.attached_dons,
+                Slot::Char(i) => me.characters.get(i).map(|c| c.attached_dons).unwrap_or(0),
+                Slot::Stage(i) => me.stages.get(i).map(|c| c.attached_dons).unwrap_or(0),
+                // 発動元が場を離れている。 Python の self_inplay は場外でも生きたオブジェクトを
+                // 読むので 0 と決め打つと乖離しうる → **bail** (黙って間違えない)。
+                Slot::Detached => return None,
+            };
+            Some(cur >= n)
         }
         // ここに無いキーは Python も payability を見ていない = 「払える」扱いで primitive に委譲。
         _ => {
@@ -2944,14 +3040,20 @@ fn count_and_filter(cv: &Value) -> (usize, Option<&Value>) {
 /// ⚠ この cost だけ **filter が兄弟キーとして直に書かれる** 形式で、 Python は
 ///   `{k: v for k, v in spec.items() if k != "count"}` を filter にしている
 ///   (effects.py:8633/9034)。 spec が数値なら count のみ・filter なし。
-fn stage_count_and_filter(cv: &Value) -> (usize, Option<Value>) {
+/// 戻り値の 3 番目 = side が "either" (= 両陣営) か。 既定 "self"。
+/// ⚠ 公式は **コスト節でも** 「自分の」/「相手の」/(修飾なし) を書き分ける (Python 側コメント参照)。
+fn stage_count_and_filter(cv: &Value) -> (usize, Option<Value>, bool) {
     if let Some(o) = cv.as_object() {
         let count = o.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
-        let filt: serde_json::Map<String, Value> =
-            o.iter().filter(|(k, _)| k.as_str() != "count").map(|(k, v)| (k.clone(), v.clone())).collect();
-        (count, if filt.is_empty() { None } else { Some(Value::Object(filt)) })
+        let either = o.get("side").and_then(|x| x.as_str()) == Some("either");
+        let filt: serde_json::Map<String, Value> = o
+            .iter()
+            .filter(|(k, _)| k.as_str() != "count" && k.as_str() != "side")
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        (count, if filt.is_empty() { None } else { Some(Value::Object(filt)) }, either)
     } else {
-        (cv.as_i64().unwrap_or(1) as usize, None)
+        (cv.as_i64().unwrap_or(1) as usize, None, false)
     }
 }
 
@@ -3178,18 +3280,30 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
         // 付与ドンは公式 6-5-5-4 と同じくレストでコストエリアへ (Python 同順)。
         // ⚠ これが未実装で OP06-102 カマキリの起動メインが bail していた (2026-08-04)。
         "stage_to_deck_bottom" => {
-            let (count, filt) = stage_count_and_filter(&cv);
-            let pl = &mut state.players[me_idx];
-            let stages = std::mem::take(&mut pl.stages);
+            let (count, filt, either) = stage_count_and_filter(&cv);
+            // side="either" は **相手側を先に** 走査 (Python の sb_owners と同順)。
+            // 持ち主のデッキに戻すので append 先は各 owner の deck。
+            let order: Vec<usize> = if either {
+                vec![1 - me_idx, me_idx]
+            } else {
+                vec![me_idx]
+            };
             let mut moved = 0usize;
-            for s in stages {
-                if moved < count && matches_filter_ip(&s, filt.as_ref()) {
-                    let don = s.attached_dons;
-                    pl.deck.push(s.card);
-                    pl.don_rested += don;
-                    moved += 1;
-                } else {
-                    pl.stages.push(s);
+            for pi in order {
+                if moved >= count {
+                    break;
+                }
+                let pl = &mut state.players[pi];
+                let stages = std::mem::take(&mut pl.stages);
+                for s in stages {
+                    if moved < count && matches_filter_ip(&s, filt.as_ref()) {
+                        let don = s.attached_dons;
+                        pl.deck.push(s.card);
+                        pl.don_rested += don;
+                        moved += 1;
+                    } else {
+                        pl.stages.push(s);
+                    }
                 }
             }
         }
@@ -3197,11 +3311,13 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
         // AI は power 昇順 (= 最も惜しくない) から。 deck append 順 = 元 character 順。
         "return_self_chara_to_deck_bottom" => {
             let (count, filt) = count_and_filter(&cv);
+            let _ex = cv.get("except_self").and_then(|x| x.as_bool()).unwrap_or(false);
+            let _si = if let Slot::Char(i) = src { Some(i) } else { None };
             let mut cands: Vec<(usize, i32)> = state.players[me_idx]
                 .characters
                 .iter()
                 .enumerate()
-                .filter(|(_, c)| matches_filter_ip(&c, filt))
+                .filter(|(i, c)| matches_filter_ip(c, filt) && !(_ex && Some(*i) == _si))
                 .map(|(i, c)| (i, c.power()))
                 .collect();
             cands.sort_by(|a, b| a.1.cmp(&b.1));
@@ -3219,6 +3335,38 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
                 } else {
                     me.characters.push(c);
                 }
+            }
+        }
+        // rest_own_card: AI は 非リーダー + power 昇順 (= リーダー/高power を温存、
+        // effects.py:13720 と同順)。 直接 rested = cascade 無し。
+        "rest_own_card" => {
+            let (n, filt) = count_and_filter(&cv);
+            let mut pool: Vec<(bool, i32, Slot)> = vec![];
+            {
+                let me = &state.players[me_idx];
+                if !me.leader.rested && matches_filter_ip(&me.leader, filt)
+                    && !me.leader.cannot_be_rested_buff && !me.leader.static_cannot_be_rested {
+                    pool.push((true, me.leader.power(), Slot::Leader));
+                }
+                for i in 0..me.characters.len() {
+                    let c = &me.characters[i];
+                    if !c.rested && matches_filter_ip(c, filt)
+                        && !c.cannot_be_rested_buff && !c.static_cannot_be_rested {
+                        pool.push((false, c.power(), Slot::Char(i)));
+                    }
+                }
+                for i in 0..me.stages.len() {
+                    let c = &me.stages[i];
+                    if !c.rested && matches_filter_ip(c, filt)
+                        && !c.cannot_be_rested_buff && !c.static_cannot_be_rested {
+                        pool.push((false, c.power(), Slot::Stage(i)));
+                    }
+                }
+            }
+            if pool.len() < n { return None; }
+            pool.sort_by(|a, b| (a.0, a.1).cmp(&(b.0, b.1)));
+            for (_, _, sl) in pool.into_iter().take(n) {
+                get_ip_mut(&mut state.players[me_idx], sl).rested = true;
             }
         }
         "return_self_chara_to_hand" => {
@@ -7427,9 +7575,15 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     Some(true) => {}
                 }
             }
-            // should_fire 追加条件 (effects.py:8551): effect に hand_to_self_life && 手札空 → 不発
+            // should_fire 追加条件 (effects.py:8948): effect に hand_to_self_life && 手札空 → 不発。
+            // ⚠ 判定はコスト支払い **前** なので、 コスト自身が手札を増やす型 (OP08-117 トリガー
+            //   「ライフの上から1枚を手札に加えることができる：手札1枚までをライフの上に加える」)
+            //   では guard を外す (支払い後は手札 1 枚 = 空回りしない)。
+            let cost_fills_hand = cost.iter().any(|cs| {
+                cs.get("life_to_hand").is_some() || cs.get("life_top_or_bottom_to_hand").is_some()
+            });
             let mut should_fire = can_pay;
-            if should_fire {
+            if should_fire && !cost_fills_hand {
                 for es in &effect {
                     if es.get("hand_to_self_life").is_some() && state.players[me_idx].hand.is_empty() {
                         should_fire = false;

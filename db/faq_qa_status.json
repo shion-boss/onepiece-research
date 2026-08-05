@@ -814,9 +814,9 @@
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "OP01-042 小紫【登場時】③(…できる)：光月おでんの場合。 コスト記号/括弧付き任意コスト形の top-level if は 2026-08-05 の素形変換 (できる[：:] 正規表現) が盲点で取りこぼし。 全走査で 37 base/62 entry、 配備AI無駄払いガード+matrix再計算が要り 30枚超 = escalated。 docs/official_rulings.md 参照",
+  "note": "OP01-042 小紫: コスト記号形 (③(…できる)：) の top-level if 取りこぼしをコロン基準の全走査で是正 (84 エントリ/55枚)。判定基準を cardqa_st_06「「：」以前が発動コスト」に合わせた。実測で人間に optional_cost_confirm が出る (条件不成立でもコストを払える)。",
   "q": "自分のリーダーが「光月おでん」ではない場合、このキャラを登場させることはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "12f6aa57ca5c": {
   "a": "はい、+2000されます。",
@@ -940,9 +940,9 @@
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "OP01-011 ゴードン: 【登場時】自分の手札1枚をデッキ下に置くことができる：1ドロー。overlay が flat [self_hand_to_deck_bottom:1, draw:1] で cost gating 無し → 手札0(このゴードンが最後の1枚)でも draw が発火=タダ撃ち(実測: hand0→1/deck-1)=公式違反(cardqa_op_01: はい登場可・効果は発動できない)。faithful fix = optional_cost_then で包む必要があるが、そのcost handler群に hand-to-deck-bottom が無い(stage_to_deck_bottom/return_self_chara_to_deck_bottom はあるが手札版は未実装)。追加は Python+Rust 両 optional_cost_then dispatch への cost handler 新設(payability=hand>=N / payment=既存 self_hand_to_deck_bottom effv 再利用)= dual-engine 変更 + rebuild + parity 要。conditional+self_hand_ge の overlay shortcut は「できる」の任意性を潰す=近似禁止に抵触。→ 範囲/リスクを見て escalated(fix recipe は official_rulings.md)。同型: OP05-056(return_self_chara_to_deck_bottom cost=overlay修正可)/OP06-114+variants(stage_to_deck_bottom cost=overlay修正可)も同じ ungated できる：cost クラス。cardqa_op_01。",
+  "note": "OP01-011 ゴードン: overlay が cost と効果を平坦配置していて gate されずタダ撃ちだった。optional_cost_then の cost へ移し、payability に self_hand_to_deck_bottom を追加 (両engine)。実測: 手札0なら何も起きない = 公式どおり。同型を全走査し 7 枚のコスト未実装も併せて実装 (OP01-093/OP02-036/OP04-020/OP05-056/OP08-117/OP14-036/EB01-039)。",
   "q": "自分の手札が他にない場合、このキャラを登場できますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "16f2556c451f": {
   "a": "いいえ、できません。",
@@ -1030,9 +1030,9 @@
   "files": [
    "cardqa_op_11.json"
   ],
-  "note": "",
+  "note": "対象カードを OP11-058 ルフィと特定 (OP11 で手札枚数条件を持つキャラは OP11-057/058 の2枚、うちアタック制限は 058 のみ)。公式が『いいえ』なのは OP08-043 の解釈ではなく **OP11-058 の『手札5枚以上ならアタックできない』が先に効く** ため = アタック可否はコスト支払い前の手札で判定する。実測で手札6=不可/手札4=可を確認 (OP08-043 効果の有無に関わらず)。engine は公式どおり。回帰テスト追加。",
   "q": "直前の相手のターンに相手が「OP08-043 エドワード・ニューゲート」の【登場時】効果を発動しており、次の自分のターン中に、自分の手札が6枚の場合、自分の手札2枚を捨ててこのキャラでアタックすることができますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1941777d5f2e": {
   "a": "はい、できます。",

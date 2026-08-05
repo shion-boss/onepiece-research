@@ -138,6 +138,15 @@ def test_op14_036_counter_pump_human_pick():
 
     do, _ = _do(overlay, "OP14-036", "counter", needle="power_pump")
     execute_effect(do[0], st, me, opp, None)
+    # ⚠ 公式 「自分のカード1枚をレストにできる：…パワー+4000。」 は コロン前が **発動コスト**
+    #   (cardqa_st_06)。 人間はまず 払う/見送る を選ぶ (2026-08-05 に cost 実装)。
+    assert st.pending_choice is not None, "人間 + 任意コストで modal が立たない"
+    assert st.pending_choice.get("kind") == "optional_cost_confirm", \
+        f"任意コスト確認 modal が先に立たない: {st.pending_choice.get('kind')}"
+    resolve_pending_choice(st, [1])   # 払う
+    while (st.pending_choice is not None
+           and st.pending_choice.get("kind") != "target_pick"):
+        resolve_pending_choice(st, [0])
     assert st.pending_choice is not None, "人間 + 複数候補で target_pick modal が立たない"
     assert st.pending_choice.get("kind") == "target_pick", \
         f"kind が target_pick でない: {st.pending_choice.get('kind')}"

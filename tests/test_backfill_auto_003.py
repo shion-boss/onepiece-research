@@ -366,6 +366,17 @@ def test_eb01_039_main_ko8_human_pick():
         if st.pending_choice is not None:
             break
 
+    # ⚠ 公式のコロン前 (= ドン!!-1) は **発動コスト** (cardqa_st_06) なので、 人間はまず
+    #   「払って発動するか」 を選ぶ (optional_cost_confirm)。 払う = picks[0]==1。
+    assert st.pending_choice is not None, "人間 + 任意コストで modal が立たない"
+    assert st.pending_choice.get("kind") == "optional_cost_confirm", \
+        f"任意コスト確認 modal が先に立たない: {st.pending_choice.get('kind')}"
+    resolve_pending_choice(st, [1])
+    # pay_don は返却元 (場のドン) の選択が連鎖することがある → target_pick まで進める
+    while (st.pending_choice is not None
+           and st.pending_choice.get("kind") != "target_pick"):
+        resolve_pending_choice(st, [0])
+
     assert st.pending_choice is not None, "人間 + 複数候補で modal が立たない"
     assert st.pending_choice.get("kind") == "target_pick", \
         f"kind が target_pick でない: {st.pending_choice.get('kind')}"

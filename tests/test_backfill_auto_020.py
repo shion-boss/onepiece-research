@@ -170,6 +170,13 @@ def test_op01_011_gordon_on_play_human_deck_pick():
     execute_effect(do[0], st, me, opp,
                    InPlay.of(repo.get("OP01-011"), sickness=True))
 
+    # ⚠ 公式 「自分の手札1枚をデッキの下に置くことができる：カード1枚を引く。」 は
+    #   コロン前が **発動コスト** (cardqa_st_06)。 人間はまず 払う/見送る を選ぶ。
+    assert st.pending_choice is not None, "人間 + 任意コストで modal が立たない"
+    assert st.pending_choice.get("kind") == "optional_cost_confirm", \
+        f"任意コスト確認 modal が先に立たない: {st.pending_choice.get('kind')}"
+    resolve_pending_choice(st, [1])   # 払う
+
     assert st.pending_choice is not None, "人間 + 複数候補で modal が立たない"
     assert st.pending_choice.get("kind") == "self_hand_to_deck_pick", \
         f"kind が self_hand_to_deck_pick でない: {st.pending_choice.get('kind')}"
@@ -177,6 +184,26 @@ def test_op01_011_gordon_on_play_human_deck_pick():
     assert len(cands) == 2, f"候補が2枚でない: {len(cands)}"
     resolve_pending_choice(st, [0])  # 先頭 (キャロット) をデッキ下へ
     assert me.deck[-1].card_id == "OP01-009", "人間が選んだ手札がデッキ下に置かれていない"
+
+
+def test_op01_011_gordon_on_play_declined_costs_nothing():
+    """⚠ 対照: 人間が任意コストを見送ったら 手札もデッキも動かない。"""
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, "OP01-001", overlay, human_idx=0)
+    me, opp = st.players[0], st.players[1]
+    me.hand = [repo.get("OP01-009"), repo.get("OP01-016")]
+    me.deck = [repo.get("OP01-020")] * 10
+
+    do, _ = _do(overlay, "OP01-011", "on_play")
+    execute_effect(do[0], st, me, opp,
+                   InPlay.of(repo.get("OP01-011"), sickness=True))
+    assert st.pending_choice.get("kind") == "optional_cost_confirm"
+    resolve_pending_choice(st, [0])   # 見送る
+
+    assert st.pending_choice is None, "見送り後に modal が残る"
+    assert len(me.hand) == 2, "見送ったのに手札が動いている"
+    assert len(me.deck) == 10, "見送ったのにデッキが動いている"
 
 
 # --------------------------------------------------------------------------- #

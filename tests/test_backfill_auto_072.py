@@ -389,6 +389,9 @@ def test_op06_114_on_play_search_shandra_ai():
     me, opp = st.players[0], st.players[1]
     me.deck = [repo.get(_SHANDRA)] + [repo.get(_FILLER)] * 10  # 上に シャンドラの戦士
     me.hand = []
+    # ⚠ 公式 「【登場時】コスト1のステージ1枚を持ち主のデッキの下に置くことができる：…」
+    #   = コロン前が発動コスト (cardqa_st_06)。 コスト1のステージが要る (2026-08-05 に実装)。
+    me.stages = [InPlay.of(repo.get("OP02-048"), sickness=False)]  # ワノ国 = cost1
     src = InPlay.of(repo.get("OP06-114"), sickness=True)
 
     for prim in _do(overlay, "OP06-114", "on_play"):
@@ -397,6 +400,47 @@ def test_op06_114_on_play_search_shandra_ai():
 
     assert any(c.card_id == _SHANDRA for c in me.hand), \
         f"デッキ上5枚から シャンドラの戦士 が手札に加わっていない: {[c.card_id for c in me.hand]}"
+    assert not me.stages, "コスト (コスト1のステージ) が支払われていない"
+
+
+def test_op06_114_on_play_not_free_without_cost1_stage():
+    """⚠ 対照: コスト1のステージが どちらの場にも無ければ サーチしない (= タダ撃ち禁止)。"""
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, _LEADER, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.deck = [repo.get(_SHANDRA)] + [repo.get(_FILLER)] * 10
+    me.hand = []
+    src = InPlay.of(repo.get("OP06-114"), sickness=True)
+
+    for prim in _do(overlay, "OP06-114", "on_play"):
+        execute_effect(prim, st, me, opp, src)
+    _drain(st)
+
+    assert not me.hand, "コストを払えないのにサーチが発動している"
+
+
+def test_op06_114_cost_can_use_opponent_stage():
+    """公式は 「コスト1のステージ1枚」 = 修飾なし = **両陣営**。 相手のステージでも払える。"""
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, _LEADER, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.deck = [repo.get(_SHANDRA)] + [repo.get(_FILLER)] * 10
+    me.hand = []
+    me.stages = []
+    opp.stages = [InPlay.of(repo.get("OP02-048"), sickness=False)]
+    src = InPlay.of(repo.get("OP06-114"), sickness=True)
+
+    for prim in _do(overlay, "OP06-114", "on_play"):
+        execute_effect(prim, st, me, opp, src)
+    _drain(st)
+
+    assert any(c.card_id == _SHANDRA for c in me.hand), \
+        "相手のステージをコストにしてサーチできていない"
+    assert not opp.stages, "相手のステージがコストとして支払われていない"
+    assert opp.deck[-1].card_id == "OP02-048", \
+        "相手のステージは **持ち主 (= 相手) の** デッキの下に置かれるべき"
 
 
 def test_op06_114_on_play_human_search_modal():
@@ -408,9 +452,15 @@ def test_op06_114_on_play_human_search_modal():
     me.deck = [repo.get(_SHANDRA), repo.get(_FILLER), repo.get(_SHANDRA)] \
         + [repo.get(_FILLER)] * 8
     me.hand = []
+    me.stages = [InPlay.of(repo.get("OP02-048"), sickness=False)]  # コスト1ステージ
     src = InPlay.of(repo.get("OP06-114"), sickness=True)
 
     execute_effect(_do(overlay, "OP06-114", "on_play")[0], st, me, opp, src)
+    # コロン前が発動コストなので、 人間はまず 払う/見送る を選ぶ
+    assert st.pending_choice is not None, "人間 + 任意コストで modal が立たない"
+    assert st.pending_choice.get("kind") == "optional_cost_confirm", \
+        f"任意コスト確認 modal が先に立たない: {st.pending_choice.get('kind')}"
+    resolve_pending_choice(st, [1])   # 払う
     assert st.pending_choice is not None, "人間 + 候補で search_top_n modal が立たない"
     assert "search_top_n" in st.pending_choice.get("kind", ""), \
         f"kind が search_top_n 系でない: {st.pending_choice.get('kind')}"

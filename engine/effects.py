@@ -8768,18 +8768,101 @@ def _execute_effect_body(
                     if len(matching) < r_count:
                         can_pay = False
                         break
+                elif "rest_self_cards" in cs or "rest_self_cards_filtered" in cs:
+                    # 公式 「自分の(特徴X)カード N 枚をレストにできる：効果」。
+                    # ⚠ 2026-08-05 まで payability handler が **無く**、 レストにできる自カードが
+                    #   0 でも効果が発火していた (実測: OP14-036 トリガーが自カード0で相手をレスト)。
+                    #   公式 (cardqa_st_06) は 「コストは一部だけ払うことができない」。
+                    _rc = cs.get("rest_self_cards", cs.get("rest_self_cards_filtered"))
+                    _rc_n = int(_rc.get("count", 1)) if isinstance(_rc, dict) else int(_rc)
+                    _rc_filt = _rc.get("filter", {}) if isinstance(_rc, dict) else {}
+                    _rc_pool = [
+                        ip for ip in ([me.leader] + list(me.characters))
+                        if ip is not None and not ip.rested
+                        and not getattr(ip, "cannot_be_rested_buff", False)
+                        and not getattr(ip, "static_cannot_be_rested", False)
+                        and _matches_filter_ip(ip, _rc_filt)
+                    ]
+                    if len(_rc_pool) < _rc_n:
+                        can_pay = False
+                        break
+                elif "mill_self_top" in cs:
+                    # 「自分のデッキの上から N 枚をトラッシュに置くことができる：効果」。
+                    _ms = cs["mill_self_top"]
+                    _ms_n = int(_ms.get("amount", _ms.get("count", 1))) if isinstance(_ms, dict) else int(_ms)
+                    if len(me.deck) < _ms_n:
+                        can_pay = False
+                        break
+                elif "hand_to_deck_bottom" in cs:
+                    # 「自分の手札 N 枚を好きな順番でデッキの下に置くことができる：効果」 (OP09-060)。
+                    _hb = cs["hand_to_deck_bottom"]
+                    _hb_n = int(_hb.get("count", _hb.get("amount", 1))) if isinstance(_hb, dict) else int(_hb)
+                    if len(me.hand) < _hb_n:
+                        can_pay = False
+                        break
+                elif "play_from_hand_named_set" in cs:
+                    # 「自分の手札から『X』1枚を、登場できる：効果」 (OP05-111 ホトリ)。
+                    # ⚠ 手札に該当カードが無ければ払えない (実測: 無くても効果が発火していた)。
+                    _pn = cs["play_from_hand_named_set"]
+                    _pn_names = _pn.get("names", []) if isinstance(_pn, dict) else [str(_pn)]
+                    _pn_n = int(_pn.get("count", 1)) if isinstance(_pn, dict) else 1
+                    _pn_hits = [c for c in me.hand if c.name in _pn_names]
+                    if len(_pn_hits) < _pn_n:
+                        can_pay = False
+                        break
+                elif "return_attached_don_to_cost_rested" in cs:
+                    # 「このキャラの付与ドン‼を…コストエリアにレストで戻すことができる：効果」 (ST28-004)。
+                    _ra = cs["return_attached_don_to_cost_rested"]
+                    _ra_n = int(_ra.get("count", _ra.get("amount", 1))) if isinstance(_ra, dict) else int(_ra)
+                    if self_inplay is None or self_inplay.attached_dons < _ra_n:
+                        can_pay = False
+                        break
+                elif "rest_own_card" in cs:
+                    # 公式 「自分のカード1枚をレストにできる：効果」 (OP14-036 等)。
+                    # ⚠ 2026-08-05 まで optional_cost_then に この cost handler が **無く**、
+                    #   payability も 支払いも 素通り = **コストがタダになっていた**
+                    #   (Rust だけ払うので effect_smoke_parity が MISMATCH で検出した)。
+                    # 対象は自分の場のカード (leader/character/stage) = アクティブが count 枚以上必要。
+                    # ⚠ 「レストにできない」 は レストを要するコストも払えなくする (公式、 2026-08-04)。
+                    _ro = cs["rest_own_card"]
+                    _ro_n = int(_ro.get("count", 1)) if isinstance(_ro, dict) else int(_ro)
+                    _ro_filt = _ro.get("filter", {}) if isinstance(_ro, dict) else {}
+                    _ro_pool = [
+                        ip for ip in ([me.leader] + list(me.characters) + list(me.stages))
+                        if ip is not None and not ip.rested
+                        and not getattr(ip, "cannot_be_rested_buff", False)
+                        and not getattr(ip, "static_cannot_be_rested", False)
+                        and _matches_filter_ip(ip, _ro_filt)
+                    ]
+                    if len(_ro_pool) < _ro_n:
+                        can_pay = False
+                        break
                 elif "stage_to_deck_bottom" in cs:
-                    # 公式 「自分のステージ1枚を持ち主のデッキの下に置くことができる：効果」 用 cost。
-                    # spec: {"stage_to_deck_bottom": {"cost_eq": N, "count": 1}} もしくは
-                    # spec: {"stage_to_deck_bottom": 1} (= cost 制約なし、 count=1)
+                    # 公式 「(自分の)ステージ1枚を持ち主のデッキの下に置くことができる：効果」 用 cost。
+                    # spec: {"stage_to_deck_bottom": {"cost_eq": N, "count": 1, "side": "either"}}
+                    # もしくは {"stage_to_deck_bottom": 1} (= cost 制約なし、 count=1、 自分のみ)
+                    #
+                    # ⚠ **コスト節も 公式は 「自分の」/「相手の」/(修飾なし) を書き分ける** (2026-08-05):
+                    #     自分のみ  OP05-104 コニス 「**自分の**ステージ1枚をデッキの下に置くことができる：」
+                    #     相手のみ  OP15-003 アルビダ 「**相手の**キャラ1枚に相手のレストのドン‼1枚を付与できる：」
+                    #     両陣営    OP06-102/111/114 「コスト1のステージ1枚を持ち主のデッキの下に置くことができる：」
+                    #   「相手の」 を明示するコストが実在する (= 41 件) ので、 修飾なしを自陣限定に
+                    #   すると **選択肢が丸ごと消える**。 side: "either" (既定 "self") で書き分ける。
+                    #   ⚠ 「持ち主の」 は根拠にならない (OP12-080 バラティエは自分のステージにも使う)。
                     sb_spec = cs["stage_to_deck_bottom"]
                     if isinstance(sb_spec, dict):
                         sb_count = int(sb_spec.get("count", 1))
-                        sb_filt = {k: v for k, v in sb_spec.items() if k != "count"}
+                        sb_side = str(sb_spec.get("side", "self"))
+                        sb_filt = {k: v for k, v in sb_spec.items()
+                                   if k not in ("count", "side")}
                     else:
                         sb_count = int(sb_spec)
+                        sb_side = "self"
                         sb_filt = {}
-                    matching = [s for s in me.stages if _matches_filter_ip(s, sb_filt)]
+                    sb_pool = list(me.stages) + (
+                        list(opp.stages) if sb_side == "either" else []
+                    )
+                    matching = [s for s in sb_pool if _matches_filter_ip(s, sb_filt)]
                     if len(matching) < sb_count:
                         can_pay = False
                         break
@@ -8795,9 +8878,25 @@ def _execute_effect_body(
                         rb_count = int(rb_spec)
                         rb_filt = {}
                     matching = [c for c in me.characters if _matches_filter_ip(c, rb_filt)]
+                    # 公式 「**このキャラ以外**の自分のキャラ1枚を…できる」 (OP05-056 等)。
+                    # 発動元を除外しないと、 他に自キャラが居ない盤面でも払えてしまう。
+                    if (isinstance(rb_spec, dict) and rb_spec.get("except_self")
+                            and self_inplay is not None):
+                        matching = [c for c in matching
+                                    if c.instance_id != self_inplay.instance_id]
                     if len(matching) < rb_count:
                         can_pay = False
                         break
+                elif "self_hand_to_deck_bottom" in cs:
+                    # 公式 「自分の手札N枚をデッキの下に置くことができる：効果」 用 cost
+                    # (OP01-011 ゴードン等)。 手札が N 枚未満なら払えない。
+                    # ⚠ 発動元自身が手札から場に出た後の判定なので、 「このカードが最後の1枚」
+                    #   だった場合 手札 0 = 払えない (cardqa_op_01「自分の手札が他にない場合、
+                    #   このキャラを登場できますか？」→ 登場はできるが 効果は起きない)。
+                    _hd = cs["self_hand_to_deck_bottom"]
+                    _hn = int(_hd.get("amount", _hd.get("count", 1))) if isinstance(_hd, dict) else int(_hd)
+                    if len(me.hand) < _hn:
+                        can_pay = False
                 elif "return_to_deck_bottom" in cs:
                     # 公式 「コスト4以下のキャラ1枚を、持ち主のデッキの下に置くことができる：効果」
                     # (OP04-055 疫災弾)。 **対象が 1 枚も居なければコストを払えない**。
@@ -8930,8 +9029,16 @@ def _execute_effect_body(
                         can_pay = False
                         break
             # effect が空回りするケースも skip (= 価値なし)
+            # ⚠ 判定は **コスト支払い前** の盤面で行うので、 コスト自身が手札を増やす型
+            #   (= 「自分のライフの上から1枚を手札に加えることができる：自分の手札1枚までを、
+            #     ライフの上に加える」 OP08-117 トリガー) では 「手札が空 = 空回り」 が成立しない。
+            #   支払い後は手札が 1 枚あるので効果は実際に働く。 コスト種別を見て guard を外す。
+            _cost_fills_hand = any(
+                ("life_to_hand" in cs or "life_top_or_bottom_to_hand" in cs)
+                for cs in cost_specs
+            )
             should_fire = can_pay
-            if should_fire:
+            if should_fire and not _cost_fills_hand:
                 for es in effect_specs:
                     if "hand_to_self_life" in es and not me.hand:
                         should_fire = False
@@ -9183,31 +9290,61 @@ def _execute_effect_body(
                             revealed.append(c.name)
                     state.push_log(f"  効果コスト: 手札公開 (実消費なし) → {revealed}")
                     continue
+                if "rest_own_card" in cs:
+                    # 公式 「自分のカード1枚をレストにできる：効果」 の支払い。
+                    # AI 順 = **非リーダー優先 + power 昇順** (= リーダー/高power を温存、
+                    # 起動メインコスト側 (effects.py の rest_own_card) と同順。 Rust も同順)。
+                    _ro = cs["rest_own_card"]
+                    _ro_n = int(_ro.get("count", 1)) if isinstance(_ro, dict) else int(_ro)
+                    _ro_filt = _ro.get("filter", {}) if isinstance(_ro, dict) else {}
+                    _ro_pool = [
+                        ip for ip in ([me.leader] + list(me.characters) + list(me.stages))
+                        if ip is not None and not ip.rested
+                        and not getattr(ip, "cannot_be_rested_buff", False)
+                        and not getattr(ip, "static_cannot_be_rested", False)
+                        and _matches_filter_ip(ip, _ro_filt)
+                    ]
+                    _ro_pool.sort(key=lambda ip: (0 if ip is not me.leader else 1, ip.power))
+                    for ip in _ro_pool[:_ro_n]:
+                        ip.rested = True
+                        state.push_log(f"  効果コスト: 自レスト {ip.card.name}")
+                    continue
                 if "stage_to_deck_bottom" in cs:
-                    # 公式: 自場のステージ N 枚を持ち主 (= me) のデッキの下へ。
+                    # 公式: ステージ N 枚を **持ち主の** デッキの下へ (= 相手のステージなら相手のデッキ)。
                     # AI 簡易: 該当する filter 一致の最初の N 枚 (= 任意選択は最古順) を取り出す。
+                    #   side="either" のときは **相手側を先に** 見る (= 両陣営 spec の既定選好、
+                    #   _either_pick_one と同順)。 コストで相手の場を削れるなら常にそちらが得。
                     sb_spec = cs["stage_to_deck_bottom"]
                     if isinstance(sb_spec, dict):
                         sb_count = int(sb_spec.get("count", 1))
-                        sb_filt = {k: v for k, v in sb_spec.items() if k != "count"}
+                        sb_side = str(sb_spec.get("side", "self"))
+                        sb_filt = {k: v for k, v in sb_spec.items()
+                                   if k not in ("count", "side")}
                     else:
                         sb_count = int(sb_spec)
+                        sb_side = "self"
                         sb_filt = {}
+                    sb_owners = (
+                        [(opp, "相手")] if sb_side == "either" else []
+                    ) + [(me, "自")]
                     moved = 0
-                    new_stages = []
-                    for s in me.stages:
-                        if moved < sb_count and _matches_filter_ip(s, sb_filt):
-                            me.deck.append(s.card)
-                            moved += 1
-                            state.push_log(
-                                f"  効果コスト: 自ステージ → デッキ下 ({s.card.name})"
-                            )
-                            # 付与ドンは公式 6-5-5-4 同様にレストでコストエリアへ戻す。
-                            if s.attached_dons > 0:
-                                me.don_rested += s.attached_dons
-                        else:
-                            new_stages.append(s)
-                    me.stages = new_stages
+                    for _owner, _label in sb_owners:
+                        if moved >= sb_count:
+                            break
+                        new_stages = []
+                        for s in _owner.stages:
+                            if moved < sb_count and _matches_filter_ip(s, sb_filt):
+                                _owner.deck.append(s.card)
+                                moved += 1
+                                state.push_log(
+                                    f"  効果コスト: {_label}ステージ → デッキ下 ({s.card.name})"
+                                )
+                                # 付与ドンは公式 6-5-5-4 同様にレストでコストエリアへ戻す。
+                                if s.attached_dons > 0:
+                                    _owner.don_rested += s.attached_dons
+                            else:
+                                new_stages.append(s)
+                        _owner.stages = new_stages
                     continue
                 if "return_self_chara_to_hand" in cs:
                     # 公式: 自キャラ N 枚を持ち主 (= me) の手札へ。
@@ -9254,6 +9391,10 @@ def _execute_effect_body(
                         rb_filt = {}
                     # AI 簡易: filter 一致の中から power 低い順 (= 最も惜しくないキャラ) を取り出す。
                     cands = [c for c in me.characters if _matches_filter_ip(c, rb_filt)]
+                    if (isinstance(rb_spec, dict) and rb_spec.get("except_self")
+                            and self_inplay is not None):
+                        cands = [c for c in cands
+                                 if c.instance_id != self_inplay.instance_id]
                     cands.sort(key=lambda c: c.power)
                     if _maybe_pick_self_chara_cost(state, me, self_inplay, cands, rb_count, "deck_bottom",
                                                    list(cost_specs[_ci + 1:]) + list(effect_specs)):

@@ -2664,3 +2664,426 @@ def test_optional_cost_is_not_trapped_inside_conditional():
         "optional_cost_then が conditional の内側にある = 条件不成立でコストを払えない:\n  "
         + "\n  ".join(sorted(set(bad))[:30])
     )
+
+
+def test_colon_prefix_cost_is_actually_gated():
+    """公式のコロン前 (= 発動コスト) が overlay に実装され、 払えなければ効果も起きない。
+
+    一次情報 (`cardqa_st_06`): 「「：」以前に表記されている指示はすべて "発動コスト" であり、
+    …その一部あるいは全部が支払えない場合、 その効果を発動することができません。」
+    一次情報 (`cardqa_op_01`, OP01-011 ゴードン): 「自分の手札が他にない場合、 このキャラを
+    登場できますか？」 → 登場はできるが 効果 (1ドロー) は起きない。
+
+    2026-08-05 是正前は overlay が **コストと効果を平坦に並べていて gate が効かず**、
+    コストを払えない盤面でも効果だけ起きていた (= タダ撃ち)。
+    """
+    from engine.core import InPlay
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, trigger_on_play
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def board(*, hand: int = 0, don: int = 0, mates: tuple = ()):
+        st, p0, p1 = _either_board(repo, ov, list(mates), [])
+        p0.hand = [repo.get("OP01-013")] * hand
+        p0.don_active = don
+        return st, p0, p1
+
+    # ① OP01-011 ゴードン: 手札0 (自分が最後の1枚だった) → コスト不能 → ドローしない
+    st, p0, p1 = board(hand=0)
+    src = InPlay.of(repo.get("OP01-011"), sickness=True)
+    p0.characters.append(src)
+    h0, d0 = len(p0.hand), len(p0.deck)
+    trigger_on_play(st, p0, p1, src, ov)
+    assert len(p0.hand) == h0 and len(p0.deck) == d0, \
+        "手札0でコストを払えないのにドローしている (タダ撃ち)"
+
+    # ② OP01-093: ① (ドン1レスト) を払えない → ドンが増えない
+    st, p0, p1 = board(don=0)
+    src = InPlay.of(repo.get("OP01-093"), sickness=True)
+    p0.characters.append(src)
+    tot0 = p0.don_active + p0.don_rested
+    trigger_on_play(st, p0, p1, src, ov)
+    assert p0.don_active + p0.don_rested == tot0, \
+        "アクティブドン0で ① を払えないのにドンが増えている"
+
+    # ③ OP05-056: 「**このキャラ以外**の」 自キャラが居ない → コスト不能 → ドローしない
+    st, p0, p1 = board()
+    src = InPlay.of(repo.get("OP05-056"), sickness=True)
+    p0.characters.append(src)
+    h0 = len(p0.hand)
+    trigger_on_play(st, p0, p1, src, ov)
+    assert len(p0.hand) == h0, \
+        "他の自キャラが居ないのにコストを払えている (except_self が効いていない)"
+
+
+def test_op11_058_attack_ban_uses_hand_before_paying_attack_cost():
+    """OP11-058: アタック可否は **コスト支払い前の手札** で判定する。
+
+    一次情報 (`cardqa_op_11`): 「直前の相手のターンに相手が「OP08-043 エドワード・ニューゲート」の
+    【登場時】効果を発動しており、 次の自分のターン中に、 自分の手札が6枚の場合、 自分の手札2枚を
+    捨ててこのキャラでアタックすることができますか？」 → **「いいえ、できません。」**
+
+    OP11-058 は 「自分の手札が5枚以上ある場合、 このキャラはアタックできない」。
+    手札 6 枚なら **アタック宣言自体ができない** ので、 「2枚捨てれば 4 枚になるから撃てる」
+    とはならない (= 制限の判定はコスト支払いより前)。
+    """
+    from engine.core import InPlay
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, evaluate_static_effects
+    from engine.game import legal_actions
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def board(hand_n: int, attack_cost: bool):
+        st, p0, p1 = _either_board(repo, ov, [], [])
+        luffy = InPlay.of(repo.get("OP11-058"), sickness=False)
+        if attack_cost:      # OP08-043 の効果 = アタック時に手札2枚を捨てる必要
+            luffy.attack_cost_discard_hand = 2
+        p0.characters = [luffy]
+        p0.hand = [repo.get("OP01-013")] * hand_n
+        st.turn_player_idx, st.turn_number = 0, 6
+        evaluate_static_effects(st, ov)
+        return st, p0, p1, luffy
+
+    def can_attack(st, luffy):
+        return any(type(a).__name__ in ("AttackLeader", "AttackCharacter")
+                   and getattr(a, "attacker_iid", None) == luffy.instance_id
+                   for a in legal_actions(st))
+
+    st, p0, p1, luffy = board(6, True)
+    assert not can_attack(st, luffy), (
+        "手札6枚なら OP11-058 はアタックできないはず "
+        "(2枚捨てて4枚になることを見越して撃つことはできない)"
+    )
+    st, p0, p1, luffy = board(4, True)
+    assert can_attack(st, luffy), "手札4枚なら制限外なのでアタックできるはず"
+
+
+# --------------------------------------------------------------------------- #
+#  コスト節の 対象範囲 (2026-08-05)
+#    公式は **コスト節でも** 「自分の」/「相手の」/(修飾なし) を書き分ける:
+#      自分のみ  OP05-104 コニス 「**自分の**ステージ1枚をデッキの下に置くことができる：」
+#      相手のみ  OP15-003 アルビダ 「**相手の**キャラ1枚に相手のレストのドン‼1枚を付与できる：」
+#      両陣営    OP06-102/111/114 「コスト1のステージ1枚を持ち主のデッキの下に置くことができる：」
+#    「相手の」 を明示するコストが 41 件 実在する = コストでも相手のカードは使える。
+#    ⚠ 「持ち主の」 は根拠にならない (OP12-080 バラティエは自分のステージにも使う)。
+#    ⚠ 対象範囲監査 (`audit_target_scope.py`) は **target spec しか見ない** ので、
+#      コスト spec のこのクラスは監査の穴だった。 下の全走査ガードで塞ぐ。
+# --------------------------------------------------------------------------- #
+def test_unqualified_stage_cost_can_use_opponent_stage():
+    """OP06-102: 「コスト1のステージ1枚を…」 は **相手のステージ** でも払える。"""
+    from engine.core import InPlay
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    st, p0, p1 = _either_board(repo, ov, [], ["OP01-013"])
+    # 自分にステージ無し / 相手にコスト1のステージ (OP02-048 ワノ国 = cost1)
+    stage = repo.get("OP02-048")
+    assert stage.cost == 1, f"テスト前提: OP02-048 は cost1 (実際 {stage.cost})"
+    p1.stages = [InPlay.of(stage, sickness=False)]
+    victim = p1.characters[0]
+
+    eff = next(e for e in ov.get("OP06-102").effects if e.get("when") == "activate_main")
+    src = InPlay.of(repo.get("OP06-102"), sickness=False)
+    p0.characters.append(src)
+    execute_effect(eff["do"][0], st, p0, p1, src)
+
+    assert not p1.stages, "相手のステージがコストとして支払われていない"
+    assert p1.deck[-1].card_id == "OP02-048", \
+        "相手のステージは **持ち主 (= 相手) の** デッキの下に置かれるべき"
+    assert victim not in p1.characters, "コストを払ったのに効果 (KO) が発動していない"
+
+
+def test_unqualified_stage_cost_is_not_free_without_any_stage():
+    """⚠ 対照: 両陣営どちらにもステージが無ければ 払えず 効果も発動しない。"""
+    from engine.core import InPlay
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    st, p0, p1 = _either_board(repo, ov, [], ["OP01-013"])
+    victim = p1.characters[0]
+
+    eff = next(e for e in ov.get("OP06-102").effects if e.get("when") == "activate_main")
+    src = InPlay.of(repo.get("OP06-102"), sickness=False)
+    p0.characters.append(src)
+    execute_effect(eff["do"][0], st, p0, p1, src)
+
+    assert victim in p1.characters, "ステージが無いのに KO が発動している (タダ撃ち)"
+
+
+def test_self_qualified_stage_cost_cannot_use_opponent_stage():
+    """⚠ 逆向き: OP05-104 コニスは 「**自分の**ステージ」 なので 相手のステージでは払えない。"""
+    from engine.core import InPlay
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    st, p0, p1 = _either_board(repo, ov, [], [])
+    p0.hand = [repo.get("OP01-013")]
+    p1.stages = [InPlay.of(repo.get("OP02-048"), sickness=False)]
+    deck_before = len(p0.deck)
+
+    eff = next(e for e in ov.get("OP05-104").effects if e.get("when") == "on_play")
+    src = InPlay.of(repo.get("OP05-104"), sickness=False)
+    p0.characters.append(src)
+    execute_effect(eff["do"][0], st, p0, p1, src)
+
+    assert len(p1.stages) == 1, "「自分の」 指定なのに相手のステージが払われている"
+    assert len(p0.deck) == deck_before, "払えないのにドローしている"
+
+
+def test_cost_clause_scope_matches_overlay_side_whole_corpus():
+    """⭐ 全走査: コスト節の修飾 と cost spec の side が corpus 全体で一致する。
+
+    対照テストだけでは 「別のカードに同じ取りこぼしが残っている」 を検出できない
+    (= 過去に コスト/パワー是正で 6 枚 + 2 枚 の取りこぼしが全走査でだけ出た)。
+    """
+    import json
+    import re
+
+    cards = {c["card_id"]: c
+             for c in json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+
+    def clauses(text: str) -> list[str]:
+        t = re.sub(r"[(（][^)）]*[)）]", "", text or "").replace("\n", "")
+        out, cur = [], ""
+        for p in re.split(r"(【[^】]+】)", t):
+            if p.startswith("【"):
+                if p.strip("【】").startswith(("ターン1回", "ドン‼")) or "ドン‼×" in p:
+                    cur += p
+                    continue
+                if cur.strip():
+                    out.append(cur)
+                cur = p
+            else:
+                cur += p
+        if cur.strip():
+            out.append(cur)
+        return out
+
+    bad: list[str] = []
+    for cid, effs in sorted(ov.items()):
+        if not isinstance(effs, list) or cid.startswith("_"):
+            continue
+        card = cards.get(cid)
+        if not card:
+            continue
+        for eff in effs:
+            if not isinstance(eff, dict):
+                continue
+            blob = json.dumps(eff, ensure_ascii=False)
+            if '"stage_to_deck_bottom"' not in blob:
+                continue
+            src = "trigger" if eff.get("when") == "trigger" else "text"
+            either_spec = '"side": "either"' in blob or '"side":"either"' in blob
+            for cl in clauses(card.get(src) or ""):
+                if "：" not in cl or "できる" not in cl.split("：", 1)[0]:
+                    continue
+                head = cl.split("：", 1)[0]
+                if "ステージ" not in head:
+                    continue
+                qualified = ("自分の" in head) or ("このステージ" in head)
+                if qualified and either_spec:
+                    bad.append(f"{cid}: 「自分の」 指定なのに side=either")
+                if not qualified and not either_spec:
+                    bad.append(f"{cid}: 修飾なし (= 両陣営) なのに自陣限定 — {head[-46:]}")
+                break
+
+    assert not bad, "コスト節の対象範囲が overlay と不一致:\n  " + "\n  ".join(bad)
+
+
+def test_eb03_054_trigger_plays_itself_after_paying_discard():
+    """EB03-054 トリガー: 手札1枚を捨てて **このカードを登場させる**。
+
+    公式: 「【トリガー】自分の手札1枚を捨てることができる：このカードを登場させる。」
+    ⚠ 2026-08-05 まで overlay は `do: [trash_self_hand_random]` だけで、
+      **コスト gate も無く、 効果 (登場) が丸ごと欠落** していた
+      (= 手札を 1 枚失うだけで何も起きない)。
+    """
+    from engine.core import InPlay
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    eff = next(e for e in ov.get("EB03-054").effects if e.get("when") == "trigger")
+
+    # 手札に (ライフから加わった) 自身 + 捨てる用の 1 枚 → コストを払って登場する
+    st, p0, p1 = _either_board(repo, ov, [], [])
+    p0.hand = [repo.get("EB03-054"), repo.get("OP01-013")]
+    st.current_source_card_id = "EB03-054"
+    execute_effect(eff["do"][0], st, p0, p1, None)
+    assert any(c.card.card_id == "EB03-054" for c in p0.characters), \
+        "コストを払ったのに 「このカードを登場させる」 が発動していない"
+    assert not any(c.card_id == "EB03-054" for c in p0.hand), \
+        "登場したのに手札に残っている"
+    # ⚠ 登場すると EB03-054 自身の【登場時】(ライフ→トラッシュ / デッキ→ライフ) も連鎖するので、
+    #   trash/life の枚数は 「捨てた1枚」 だけでは決まらない。 ここは登場したことのみを見る。
+
+    # 手札が自身のみ (= 捨てる札が無い) → 払えないので登場しない
+    st2, q0, q1 = _either_board(repo, ov, [], [])
+    q0.hand = []
+    st2.current_source_card_id = "EB03-054"
+    execute_effect(eff["do"][0], st2, q0, q1, None)
+    assert not q0.characters, "手札0でコストを払えないのに登場している (タダ撃ち)"
+
+
+def test_op12_017_search_filter_matches_official_or_clause():
+    """OP12-017: 「**赤のイベント**かコスト3以上の**キャラカード**」 の or を両方満たす。
+
+    ⚠ 2026-08-05 まで filter が `{"cost_ge": 3}` だけで、 赤のイベントが引けず
+      コスト3以上のイベント/ステージが誤って引けた。 コストも未実装 (タダ撃ち) だった。
+    """
+    import json
+    ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    eff = next(e for e in ov["OP12-017"] if e.get("when") == "main")
+    oct_ = eff["do"][0]["optional_cost_then"]
+
+    assert oct_["cost"] == [{"attach_active_don_to_named_chara":
+                             {"name": "シルバーズ・レイリー", "count": 1}}], \
+        f"コロン前 (= 発動コスト) が実装されていない: {oct_['cost']}"
+    filt = oct_["effect"][0]["search_top_n"]["filter"]
+    assert filt.get("or_clauses") == [
+        {"category": "EVENT", "color": "赤"},
+        {"category": "CHARACTER", "cost_ge": 3},
+    ], f"公式の 「赤のイベントか コスト3以上のキャラカード」 と一致しない: {filt}"
+
+
+def test_op12_017_not_free_without_rayleigh_or_active_don():
+    """⚠ 対照: レイリーが居ない / アクティブドンが無いと サーチは発動しない。"""
+    from engine.core import InPlay
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    eff = next(e for e in ov.get("OP12-017").effects if e.get("when") == "main")
+
+    # レイリー不在 → 払えない
+    st, p0, p1 = _either_board(repo, ov, [], [])
+    p0.hand, p0.don_active = [], 1
+    execute_effect(eff["do"][0], st, p0, p1, None)
+    assert not p0.hand, "レイリーが居ないのにサーチが発動している"
+
+    # レイリー居るがアクティブドン0 → 払えない
+    rayleigh = repo.get("OP09-005")
+    assert rayleigh.name == "シルバーズ・レイリー", "テスト前提: OP09-005 = シルバーズ・レイリー"
+    st2, q0, q1 = _either_board(repo, ov, [], [])
+    q0.hand, q0.don_active = [], 0
+    q0.characters = [InPlay.of(rayleigh, sickness=False)]
+    execute_effect(eff["do"][0], st2, q0, q1, None)
+    assert not q0.hand, "アクティブドンが無いのにサーチが発動している"
+
+
+# --------------------------------------------------------------------------- #
+#  optional_cost_then の payability 網羅 (2026-08-05)
+#    公式 (cardqa_st_06): 「「：」以前に表記されている指示はすべて "発動コスト"」 +
+#    「コストは一部だけ払うことはできない」。 = 払えないなら効果は発動しない。
+#    ⚠ payability handler が **無い** cost キーは 「払える」 扱いで素通りし、 資源が無くても
+#      効果が発火する。 しかも **Python も Rust も同じ overlay を読む** ので、
+#      差分検証 (MISMATCH) では永久に沈黙する。 公式 Q&A だけが検出できるクラス。
+# --------------------------------------------------------------------------- #
+def test_optional_cost_then_all_cost_keys_have_payability():
+    """⭐ 全走査: overlay が使う全 cost キーに payability handler がある。
+
+    2026-08-05 に この走査で **43 枚 / 7 キー** の抜けが出た
+    (rest_self_cards / rest_self_cards_filtered / mill_self_top / hand_to_deck_bottom /
+     play_from_hand_named_set / return_attached_don_to_cost_rested / rest_own_card)。
+    実測でも OP14-036 が 「レストにできる自カード 0」 で相手をレストできていた。
+    """
+    import json
+    import re
+
+    src = (ROOT / "engine" / "effects.py").read_text(encoding="utf-8")
+    i = src.index('k == "optional_cost_then"')
+    seg = src[i:i + 40000]
+    a = seg.index("for cs in cost_specs:")
+    b = seg.index("# effect が空回りするケース")
+    handled = set(re.findall(r'"([a-z_0-9]+)"\s+in\s+cs', seg[a:b]))
+
+    ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+
+    def walk(node, out):
+        if isinstance(node, dict):
+            oc = node.get("optional_cost_then")
+            if isinstance(oc, dict):
+                for c in oc.get("cost", []) or []:
+                    if isinstance(c, dict):
+                        out.update(c.keys())
+            for v in node.values():
+                walk(v, out)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v, out)
+
+    per_key: dict[str, list[str]] = {}
+    for cid, effs in ov.items():
+        if not isinstance(effs, list):
+            continue
+        keys: set[str] = set()
+        walk(effs, keys)
+        for k in keys:
+            per_key.setdefault(k, []).append(cid)
+
+    # {"rest": "self"} は 「このカードをレストにできる」 = 発動元レスト。 payability は
+    # rest primitive 側の no-op で担保済 (実測で 既レスト時に効果不発を確認)。
+    ACK = {"rest"}
+    missing = {k: v for k, v in per_key.items()
+               if not k.startswith("_") and k not in handled and k not in ACK}
+    assert not missing, (
+        "optional_cost_then の cost に payability handler が無い (= 資源不足でも発動する):\n  "
+        + "\n  ".join(f"{k}: {len(v)} 枚 例 {v[:5]}" for k, v in sorted(missing.items()))
+    )
+
+
+def test_rest_self_cards_cost_is_gated_when_nothing_can_rest():
+    """OP14-036 トリガー: レストにできる自カードが 0 なら 相手をレストできない。"""
+    from engine.core import InPlay
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    eff = next(e for e in ov.get("OP14-036").effects if e.get("when") == "trigger")
+
+    st, p0, p1 = _either_board(repo, ov, [], ["OP01-013"])
+    p0.leader.rested = True          # 自陣にアクティブなカードが無い
+    victim = p1.characters[0]
+    execute_effect(eff["do"][0], st, p0, p1, None)
+    assert not victim.rested, "コストを払えないのに相手をレストしている (タダ撃ち)"
+
+    # 対照: アクティブな自キャラが 1 枚あれば発動する
+    st2, q0, q1 = _either_board(repo, ov, ["OP01-013"], ["OP01-013"])
+    victim2 = q1.characters[0]
+    execute_effect(eff["do"][0], st2, q0, q1, None)
+    assert victim2.rested, "コストを払えるのに効果が発動していない"
+
+
+def test_play_from_hand_named_set_cost_is_gated_without_the_named_card():
+    """OP05-111 ホトリ: 手札に 「コトリ」 が無ければ 相手キャラをライフに送れない。"""
+    from engine.core import InPlay
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    eff = next(e for e in ov.get("OP05-111").effects if e.get("when") == "on_play")
+
+    st, p0, p1 = _either_board(repo, ov, [], ["OP01-013"])
+    p0.hand = []
+    victim = p1.characters[0]
+    src = InPlay.of(repo.get("OP05-111"), sickness=False)
+    p0.characters.append(src)
+    life_before = len(p1.life)
+    execute_effect(eff["do"][0], st, p0, p1, src)
+    assert victim in p1.characters, "「コトリ」 が無いのに相手キャラがライフへ送られている"
+    assert len(p1.life) == life_before, "コストを払えないのに相手ライフが増えている"

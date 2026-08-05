@@ -229,24 +229,56 @@ def test_op05_055_on_play_look_top_reorder_ai():
 #      カード1枚を引く。 (overlay do = draw 1)
 # --------------------------------------------------------------------------- #
 def test_op05_056_on_play_draw1():
-    """登場時: カード 1 枚を引く (手札 +1、 デッキ -1)。"""
+    """登場時: **このキャラ以外の自分のキャラ1枚をデッキの下に置いて** カード 1 枚を引く。
+
+    ⚠ 公式は 「【登場時】このキャラ以外の自分のキャラ1枚をデッキの下に置くことができる：
+    カード1枚を引く。」 = コロン前が発動コスト (cardqa_st_06)。 生贄が居なければ引けない。
+    """
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, _LEADER_NEUTRAL, overlay)
     me, opp = st.players[0], st.players[1]
     me.hand = []
+    src = InPlay.of(repo.get("OP05-056"), sickness=False)
+    fodder = InPlay.of(repo.get("ST01-004"), sickness=False)
+    me.characters = [src, fodder]   # コストに使える 「このキャラ以外」 が 1 枚
     hand_before = len(me.hand)
     deck_before = len(me.deck)
 
     for prim in _do(overlay, "OP05-056", "on_play"):
-        execute_effect(prim, st, me, opp,
-                       InPlay.of(repo.get("OP05-056"), sickness=False))
+        execute_effect(prim, st, me, opp, src)
     _drain(st)
 
     assert len(me.hand) == hand_before + 1, \
         f"カード 1 枚が引かれていない: {len(me.hand)}"
-    assert len(me.deck) == deck_before - 1, \
-        f"デッキが 1 枚減っていない: {len(me.deck)}"
+    assert len(me.deck) == deck_before - 1 + 1, \
+        f"デッキ枚数が (引く-1 + コストで戻る+1) になっていない: {len(me.deck)}"
+    assert [c.card.card_id for c in me.characters] == ["OP05-056"], \
+        "コストで 「このキャラ以外」 の自キャラがデッキ下に置かれていない"
+
+
+def test_op05_056_on_play_not_free_without_other_chara():
+    """⚠ 対照: 「このキャラ以外」 の自キャラが居なければ コストを払えずドローしない。
+
+    発動元自身を除外しないと 「自分だけの盤面」 でもタダでドローできてしまう
+    (= except_self、 2026-08-05 に是正)。
+    """
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, _LEADER_NEUTRAL, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.hand = []
+    src = InPlay.of(repo.get("OP05-056"), sickness=False)
+    me.characters = [src]           # 自分自身のみ = 払えない
+    deck_before = len(me.deck)
+
+    for prim in _do(overlay, "OP05-056", "on_play"):
+        execute_effect(prim, st, me, opp, src)
+    _drain(st)
+
+    assert not me.hand, "コストを払えないのにドローしている"
+    assert len(me.deck) == deck_before, "コストを払えないのにデッキが動いている"
+    assert len(me.characters) == 1, "発動元自身がコストに使われている"
 
 
 # --------------------------------------------------------------------------- #

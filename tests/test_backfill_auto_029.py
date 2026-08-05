@@ -271,6 +271,7 @@ def test_op02_036_nami_on_attack_search_film_ai():
     me, opp = st.players[0], st.players[1]
     me.hand = []
     me.deck = [repo.get("EB01-017")] + [repo.get("ST01-004")] * 29
+    me.don_active = 1  # ➀ (= コロン前の発動コスト) を払える状態
 
     do, _ = _do(overlay, "OP02-036", "on_attack")
     for prim in do:
@@ -280,6 +281,30 @@ def test_op02_036_nami_on_attack_search_film_ai():
 
     assert any(c.card_id == "EB01-017" for c in me.hand), \
         "アタック時に《FILM》カードが手札に加わっていない"
+    assert me.don_active == 0, "➀ のドンがレストになっていない"
+
+
+def test_op02_036_nami_on_attack_not_free_without_active_don():
+    """⚠ 対照: アクティブドンが無ければ ➀ を払えず サーチは発動しない (= タダ撃ち禁止)。
+
+    公式: 「【登場時】/【アタック時】➀(コストエリアのドン‼を指定の数レストにできる)：…」
+    = コロン前が発動コスト (cardqa_st_06)。
+    """
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.hand = []
+    me.deck = [repo.get("EB01-017")] + [repo.get("ST01-004")] * 29
+    me.don_active = 0
+
+    do, _ = _do(overlay, "OP02-036", "on_attack")
+    for prim in do:
+        execute_effect(prim, st, me, opp,
+                       InPlay.of(repo.get("OP02-036"), sickness=False))
+    _drain_choices(st)
+
+    assert not me.hand, "➀ を払えないのにサーチが発動している"
 
 
 def test_op02_036_nami_search_human_pick():

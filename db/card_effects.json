@@ -3687,14 +3687,22 @@
  ],
  "OP01-011": [
   {
-   "_text": "OP01-011 on_play: 自分の手札1枚をデッキの下に置くことができる：カード1枚を引く。",
+   "_text": "OP01-011 on_play: 自分の手札1枚をデッキの下に置くことができる：カード1枚を引く。 [cost-gated 2026-08-05] コロン前を optional_cost_then の cost へ (平坦配置で cost gating が効かずタダ撃ちだった、 cardqa_op_01)。",
    "when": "on_play",
    "do": [
     {
-     "self_hand_to_deck_bottom": 1
-    },
-    {
-     "draw": 1
+     "optional_cost_then": {
+      "cost": [
+       {
+        "self_hand_to_deck_bottom": 1
+       }
+      ],
+      "effect": [
+       {
+        "draw": 1
+       }
+      ]
+     }
     }
    ]
   }
@@ -3938,20 +3946,31 @@
  ],
  "OP02-036": [
   {
-   "_text": "OP02-036 on_attack: ➀(コストエリアのドン‼を指定の数レストにできる)：自分のデッキの上から3枚を見て、「ナミ」以外の特徴《FILM》を持つカード1枚までを公開し、手札に加える。そ",
+   "_text": "OP02-036 on_attack: ➀(コストエリアのドン‼を指定の数レストにできる)：自分のデッキの上から3枚を見て、「ナミ」以外の特徴《FILM》を持つカード1枚までを公開し、手札に加える。そ [cost-gated 2026-08-05] 公式のコロン前 (= 発動コスト、 cardqa_st_06) が overlay に 無く効果がタダ撃ちできた。 optional_cost_then の cost に実装。",
    "when": "on_attack",
    "do": [
     {
-     "search_top_n": {
-      "depth": 3,
-      "filter": {
-       "feature": "FILM",
-       "exclude_name": "ナミ"
-      },
-      "limit": 1,
-      "destination": "hand",
-      "rest_remain": "bottom",
-      "public": true
+     "optional_cost_then": {
+      "cost": [
+       {
+        "rest_self_don": 1
+       }
+      ],
+      "effect": [
+       {
+        "search_top_n": {
+         "depth": 3,
+         "filter": {
+          "feature": "FILM",
+          "exclude_name": "ナミ"
+         },
+         "limit": 1,
+         "destination": "hand",
+         "rest_remain": "bottom",
+         "public": true
+        }
+       }
+      ]
      }
     }
    ]
@@ -4754,11 +4773,25 @@
  ],
  "OP05-056": [
   {
-   "_text": "OP05-056 on_play: このキャラ以外の自分のキャラ1枚をデッキの下に置くことができる：カード1枚を引く。",
+   "_text": "OP05-056 on_play: このキャラ以外の自分のキャラ1枚をデッキの下に置くことができる：カード1枚を引く。 [cost-gated 2026-08-05] 公式のコロン前 (= 発動コスト、 cardqa_st_06) が overlay に 無く効果がタダ撃ちできた。 optional_cost_then の cost に実装。",
    "when": "on_play",
    "do": [
     {
-     "draw": 1
+     "optional_cost_then": {
+      "cost": [
+       {
+        "return_self_chara_to_deck_bottom": {
+         "count": 1,
+         "except_self": true
+        }
+       }
+      ],
+      "effect": [
+       {
+        "draw": 1
+       }
+      ]
+     }
     }
    ]
   }
@@ -16444,18 +16477,29 @@
  ],
  "OP04-020": [
   {
-   "_text": "OP04-020 【自分のターン終了時】➀(コストエリアのドン!!を指定の数レストにできる)：自分のコスト5以下のキャラ1枚までを、アクティブにする。",
+   "_text": "OP04-020 【自分のターン終了時】➀(コストエリアのドン!!を指定の数レストにできる)：自分のコスト5以下のキャラ1枚までを、アクティブにする。 [cost-gated 2026-08-05] 公式のコロン前 (= 発動コスト、 cardqa_st_06) が overlay に 無く効果がタダ撃ちできた。 optional_cost_then の cost に実装。",
    "when": "end_of_turn",
    "do": [
     {
-     "untap_chara": {
-      "target": {
-       "type": "one_self_chara_filtered",
-       "filter": {
-        "cost_le": 5
+     "optional_cost_then": {
+      "cost": [
+       {
+        "rest_self_don": 1
        }
-      },
-      "limit": 1
+      ],
+      "effect": [
+       {
+        "untap_chara": {
+         "target": {
+          "type": "one_self_chara_filtered",
+          "filter": {
+           "cost_le": 5
+          }
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ]
@@ -16480,18 +16524,29 @@
  ],
  "OP04-020_p1": [
   {
-   "_text": "OP04-020_p1 【自分のターン終了時】➀(コストエリアのドン!!を指定の数レストにできる)：自分のコスト5以下のキャラ1枚までを、アクティブにする。",
+   "_text": "OP04-020_p1 【自分のターン終了時】➀(コストエリアのドン!!を指定の数レストにできる)：自分のコスト5以下のキャラ1枚までを、アクティブにする。 [cost-gated 2026-08-05] 公式のコロン前 (= 発動コスト、 cardqa_st_06) が overlay に 無く効果がタダ撃ちできた。 optional_cost_then の cost に実装。",
    "when": "end_of_turn",
    "do": [
     {
-     "untap_chara": {
-      "target": {
-       "type": "one_self_chara_filtered",
-       "filter": {
-        "cost_le": 5
+     "optional_cost_then": {
+      "cost": [
+       {
+        "rest_self_don": 1
        }
-      },
-      "limit": 1
+      ],
+      "effect": [
+       {
+        "untap_chara": {
+         "target": {
+          "type": "one_self_chara_filtered",
+          "filter": {
+           "cost_le": 5
+          }
+         },
+         "limit": 1
+        }
+       }
+      ]
      }
     }
    ]
@@ -21567,26 +21622,41 @@
  ],
  "OP06-114": [
   {
-   "_text": "OP06-114 on_play: コスト1のステージ1枚を持ち主のデッキの下に置くことができる：自分のデッキの上から5枚を見て、「アッパーヤード」か特徴《シャンドラの戦士》を持つカード1枚までを",
+   "_text": "OP06-114 on_play: コスト1のステージ1枚を持ち主のデッキの下に置くことができる：自分のデッキの上から5枚を見て、「アッパーヤード」か特徴《シャンドラの戦士》を持つカード1枚までを [cost-gate]",
    "when": "on_play",
    "do": [
     {
-     "search_top_n": {
-      "depth": 5,
-      "filter": {
-       "or_clauses": [
-        {
-         "name": "アッパーヤード"
-        },
-        {
-         "feature": "シャンドラの戦士"
+     "optional_cost_then": {
+      "cost": [
+       {
+        "stage_to_deck_bottom": {
+         "cost_eq": 1,
+         "count": 1,
+         "side": "either"
         }
-       ]
-      },
-      "limit": 1,
-      "destination": "hand",
-      "rest_remain": "bottom",
-      "public": true
+       }
+      ],
+      "effect": [
+       {
+        "search_top_n": {
+         "depth": 5,
+         "filter": {
+          "or_clauses": [
+           {
+            "name": "アッパーヤード"
+           },
+           {
+            "feature": "シャンドラの戦士"
+           }
+          ]
+         },
+         "limit": 1,
+         "destination": "hand",
+         "rest_remain": "bottom",
+         "public": true
+        }
+       }
+      ]
      }
     }
    ]
@@ -22821,14 +22891,25 @@
  ],
  "OP14-036": [
   {
-   "_text": "OP14-036 counter: 自分のカード1枚をレストにできる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。",
+   "_text": "OP14-036 counter: 自分のカード1枚をレストにできる：自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。 [cost-gated 2026-08-05] 公式のコロン前 (= 発動コスト、 cardqa_st_06) が overlay に 無く効果がタダ撃ちできた。 optional_cost_then の cost に実装。",
    "when": "counter",
    "do": [
     {
-     "power_pump": {
-      "target": "self_inplay",
-      "amount": 4000,
-      "duration": "battle"
+     "optional_cost_then": {
+      "cost": [
+       {
+        "rest_own_card": 1
+       }
+      ],
+      "effect": [
+       {
+        "power_pump": {
+         "target": "self_inplay",
+         "amount": 4000,
+         "duration": "battle"
+        }
+       }
+      ]
      }
     }
    ]
@@ -33928,26 +34009,41 @@
  ],
  "OP06-114_p1": [
   {
-   "_text": "OP06-114_p1 on_play: コスト1のステージ1枚を持ち主のデッキの下に置くことができる：自分のデッキの上から5枚を見て、「アッパーヤード」か特徴《シャンドラの戦士》を持つカード1枚までを",
+   "_text": "OP06-114_p1 on_play: コスト1のステージ1枚を持ち主のデッキの下に置くことができる：自分のデッキの上から5枚を見て、「アッパーヤード」か特徴《シャンドラの戦士》を持つカード1枚までを [cost-gate]",
    "when": "on_play",
    "do": [
     {
-     "search_top_n": {
-      "depth": 5,
-      "filter": {
-       "or_clauses": [
-        {
-         "name": "アッパーヤード"
-        },
-        {
-         "feature": "シャンドラの戦士"
+     "optional_cost_then": {
+      "cost": [
+       {
+        "stage_to_deck_bottom": {
+         "cost_eq": 1,
+         "count": 1,
+         "side": "either"
         }
-       ]
-      },
-      "limit": 1,
-      "destination": "hand",
-      "rest_remain": "bottom",
-      "public": true
+       }
+      ],
+      "effect": [
+       {
+        "search_top_n": {
+         "depth": 5,
+         "filter": {
+          "or_clauses": [
+           {
+            "name": "アッパーヤード"
+           },
+           {
+            "feature": "シャンドラの戦士"
+           }
+          ]
+         },
+         "limit": 1,
+         "destination": "hand",
+         "rest_remain": "bottom",
+         "public": true
+        }
+       }
+      ]
      }
     }
    ]
@@ -33955,26 +34051,41 @@
  ],
  "OP06-114_p2": [
   {
-   "_text": "OP06-114_p2 on_play: コスト1のステージ1枚を持ち主のデッキの下に置くことができる：自分のデッキの上から5枚を見て、「アッパーヤード」か特徴《シャンドラの戦士》を持つカード1枚までを",
+   "_text": "OP06-114_p2 on_play: コスト1のステージ1枚を持ち主のデッキの下に置くことができる：自分のデッキの上から5枚を見て、「アッパーヤード」か特徴《シャンドラの戦士》を持つカード1枚までを [cost-gate]",
    "when": "on_play",
    "do": [
     {
-     "search_top_n": {
-      "depth": 5,
-      "filter": {
-       "or_clauses": [
-        {
-         "name": "アッパーヤード"
-        },
-        {
-         "feature": "シャンドラの戦士"
+     "optional_cost_then": {
+      "cost": [
+       {
+        "stage_to_deck_bottom": {
+         "cost_eq": 1,
+         "count": 1,
+         "side": "either"
         }
-       ]
-      },
-      "limit": 1,
-      "destination": "hand",
-      "rest_remain": "bottom",
-      "public": true
+       }
+      ],
+      "effect": [
+       {
+        "search_top_n": {
+         "depth": 5,
+         "filter": {
+          "or_clauses": [
+           {
+            "name": "アッパーヤード"
+           },
+           {
+            "feature": "シャンドラの戦士"
+           }
+          ]
+         },
+         "limit": 1,
+         "destination": "hand",
+         "rest_remain": "bottom",
+         "public": true
+        }
+       }
+      ]
      }
     }
    ]
@@ -41665,20 +41776,31 @@
  ],
  "OP02-036_p1": [
   {
-   "_text": "OP02-036_p1 on_attack: ➀(コストエリアのドン‼を指定の数レストにできる)：自分のデッキの上から3枚を見て、「ナミ」以外の特徴《FILM》を持つカード1枚までを公開し、手札に加える。そ",
+   "_text": "OP02-036_p1 on_attack: ➀(コストエリアのドン‼を指定の数レストにできる)：自分のデッキの上から3枚を見て、「ナミ」以外の特徴《FILM》を持つカード1枚までを公開し、手札に加える。そ [cost-gated 2026-08-05] 公式のコロン前 (= 発動コスト、 cardqa_st_06) が overlay に 無く効果がタダ撃ちできた。 optional_cost_then の cost に実装。",
    "when": "on_attack",
    "do": [
     {
-     "search_top_n": {
-      "depth": 3,
-      "filter": {
-       "feature": "FILM",
-       "exclude_name": "ナミ"
-      },
-      "limit": 1,
-      "destination": "hand",
-      "rest_remain": "bottom",
-      "public": true
+     "optional_cost_then": {
+      "cost": [
+       {
+        "rest_self_don": 1
+       }
+      ],
+      "effect": [
+       {
+        "search_top_n": {
+         "depth": 3,
+         "filter": {
+          "feature": "FILM",
+          "exclude_name": "ナミ"
+         },
+         "limit": 1,
+         "destination": "hand",
+         "rest_remain": "bottom",
+         "public": true
+        }
+       }
+      ]
      }
     }
    ]
@@ -46022,20 +46144,31 @@
  ],
  "OP02-036_p3": [
   {
-   "_text": "OP02-036_p3 on_attack: ➀(コストエリアのドン‼を指定の数レストにできる)：自分のデッキの上から3枚を見て、「ナミ」以外の特徴《FILM》を持つカード1枚までを公開し、手札に加える。そ",
+   "_text": "OP02-036_p3 on_attack: ➀(コストエリアのドン‼を指定の数レストにできる)：自分のデッキの上から3枚を見て、「ナミ」以外の特徴《FILM》を持つカード1枚までを公開し、手札に加える。そ [cost-gated 2026-08-05] 公式のコロン前 (= 発動コスト、 cardqa_st_06) が overlay に 無く効果がタダ撃ちできた。 optional_cost_then の cost に実装。",
    "when": "on_attack",
    "do": [
     {
-     "search_top_n": {
-      "depth": 3,
-      "filter": {
-       "feature": "FILM",
-       "exclude_name": "ナミ"
-      },
-      "limit": 1,
-      "destination": "hand",
-      "rest_remain": "bottom",
-      "public": true
+     "optional_cost_then": {
+      "cost": [
+       {
+        "rest_self_don": 1
+       }
+      ],
+      "effect": [
+       {
+        "search_top_n": {
+         "depth": 3,
+         "filter": {
+          "feature": "FILM",
+          "exclude_name": "ナミ"
+         },
+         "limit": 1,
+         "destination": "hand",
+         "rest_remain": "bottom",
+         "public": true
+        }
+       }
+      ]
      }
     }
    ]
@@ -56067,26 +56200,41 @@
  ],
  "OP06-114_r1": [
   {
-   "_text": "OP06-114_r1 on_play: コスト1のステージ1枚を持ち主のデッキの下に置くことができる：自分のデッキの上から5枚を見て、「アッパーヤード」か特徴《シャンドラの戦士》を持つカード1枚までを",
+   "_text": "OP06-114_r1 on_play: コスト1のステージ1枚を持ち主のデッキの下に置くことができる：自分のデッキの上から5枚を見て、「アッパーヤード」か特徴《シャンドラの戦士》を持つカード1枚までを [cost-gate]",
    "when": "on_play",
    "do": [
     {
-     "search_top_n": {
-      "depth": 5,
-      "filter": {
-       "or_clauses": [
-        {
-         "name": "アッパーヤード"
-        },
-        {
-         "feature": "シャンドラの戦士"
+     "optional_cost_then": {
+      "cost": [
+       {
+        "stage_to_deck_bottom": {
+         "cost_eq": 1,
+         "count": 1,
+         "side": "either"
         }
-       ]
-      },
-      "limit": 1,
-      "destination": "hand",
-      "rest_remain": "bottom",
-      "public": true
+       }
+      ],
+      "effect": [
+       {
+        "search_top_n": {
+         "depth": 5,
+         "filter": {
+          "or_clauses": [
+           {
+            "name": "アッパーヤード"
+           },
+           {
+            "feature": "シャンドラの戦士"
+           }
+          ]
+         },
+         "limit": 1,
+         "destination": "hand",
+         "rest_remain": "bottom",
+         "public": true
+        }
+       }
+      ]
      }
     }
    ]
@@ -59002,11 +59150,22 @@
    ]
   },
   {
-   "_text": "EB03-054 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。",
+   "_text": "EB03-054 trigger: 自分の手札1枚を捨てることができる：このカードを登場させる。 [cost-gate+play_self]",
    "when": "trigger",
    "do": [
     {
-     "trash_self_hand_random": 1
+     "optional_cost_then": {
+      "cost": [
+       {
+        "trash_self_hand_random": 1
+       }
+      ],
+      "effect": [
+       {
+        "play_self": true
+       }
+      ]
+     }
     }
    ]
   }
@@ -60978,14 +61137,22 @@
  ],
  "EB01-039": [
   {
-   "_text": "降三世 引奈落 メイン: ドン-1 → 相手コスト8以下キャラKO",
+   "_text": "降三世 引奈落 メイン: ドン-1 → 相手コスト8以下キャラKO [cost-gated 2026-08-05] 公式のコロン前 (= 発動コスト、 cardqa_st_06) が overlay に 無く効果がタダ撃ちできた。 optional_cost_then の cost に実装。",
    "when": "main",
    "do": [
     {
-     "pay_don": 1
-    },
-    {
-     "ko": "one_opponent_character_cost_le_8"
+     "optional_cost_then": {
+      "cost": [
+       {
+        "pay_don": 1
+       }
+      ],
+      "effect": [
+       {
+        "ko": "one_opponent_character_cost_le_8"
+       }
+      ]
+     }
     }
    ]
   },
@@ -65335,19 +65502,42 @@
  ],
  "OP12-017": [
   {
-   "_text": "OP12-017 main: 自分の「シルバーズ・レイリー」1枚にアクティブのドン‼1枚を付与することができる：自分のデッキの上から4枚を見て、赤のイベントかコスト3以上のキャラカード1枚ま",
+   "_text": "OP12-017 main: 自分の「シルバーズ・レイリー」1枚にアクティブのドン‼1枚を付与することができる：自分のデッキの上から4枚を見て、赤のイベントかコスト3以上のキャラカード1枚ま [cost-gate+filter是正]",
    "when": "main",
    "do": [
     {
-     "search_top_n": {
-      "depth": 4,
-      "filter": {
-       "cost_ge": 3
-      },
-      "limit": 1,
-      "destination": "hand",
-      "rest_remain": "bottom",
-      "public": true
+     "optional_cost_then": {
+      "cost": [
+       {
+        "attach_active_don_to_named_chara": {
+         "name": "シルバーズ・レイリー",
+         "count": 1
+        }
+       }
+      ],
+      "effect": [
+       {
+        "search_top_n": {
+         "depth": 4,
+         "filter": {
+          "or_clauses": [
+           {
+            "category": "EVENT",
+            "color": "赤"
+           },
+           {
+            "category": "CHARACTER",
+            "cost_ge": 3
+           }
+          ]
+         },
+         "limit": 1,
+         "destination": "hand",
+         "rest_remain": "bottom",
+         "public": true
+        }
+       }
+      ]
      }
     }
    ]
@@ -72875,11 +73065,22 @@
    ]
   },
   {
-   "_text": "OP08-117 trigger: 自分のライフの上から1枚を手札に加えることができる：自分の手札1枚までを、ライフの上に加える。",
+   "_text": "OP08-117 trigger: 自分のライフの上から1枚を手札に加えることができる：自分の手札1枚までを、ライフの上に加える。 [cost-gate + 効果是正 2026-08-05] コロン前 (= 発動コスト) が overlay に無く タダ撃ちできた上、 **効果側もコストと同じ life_to_hand を書いていた** (公式の効果は hand_to_self_life)。",
    "when": "trigger",
    "do": [
     {
-     "life_to_hand": 1
+     "optional_cost_then": {
+      "cost": [
+       {
+        "life_to_hand": 1
+       }
+      ],
+      "effect": [
+       {
+        "hand_to_self_life": 1
+       }
+      ]
+     }
     }
    ]
   }
@@ -75874,7 +76075,8 @@
        {
         "stage_to_deck_bottom": {
          "cost_eq": 1,
-         "count": 1
+         "count": 1,
+         "side": "either"
         }
        }
       ],
@@ -75996,7 +76198,8 @@
        {
         "stage_to_deck_bottom": {
          "cost_eq": 1,
-         "count": 1
+         "count": 1,
+         "side": "either"
         }
        }
       ],
@@ -83514,22 +83717,44 @@
  ],
  "OP01-093": [
   {
-   "_text": "OP01-093 on_play: ①(コストエリアのドン‼を指定の数レストにできる)：ドン‼デッキからドン‼1枚までを、レストで追加する。",
+   "_text": "OP01-093 on_play: ①(コストエリアのドン‼を指定の数レストにできる)：ドン‼デッキからドン‼1枚までを、レストで追加する。 [cost-gated 2026-08-05] 公式のコロン前 (= 発動コスト、 cardqa_st_06) が overlay に 無く効果がタダ撃ちできた。 optional_cost_then の cost に実装。",
    "when": "on_play",
    "do": [
     {
-     "add_rested_don": 1
+     "optional_cost_then": {
+      "cost": [
+       {
+        "rest_self_don": 1
+       }
+      ],
+      "effect": [
+       {
+        "add_rested_don": 1
+       }
+      ]
+     }
     }
    ]
   }
  ],
  "OP01-093_p1": [
   {
-   "_text": "OP01-093_p1 on_play: ①(コストエリアのドン‼を指定の数レストにできる)：ドン‼デッキからドン‼1枚までを、レストで追加する。",
+   "_text": "OP01-093_p1 on_play: ①(コストエリアのドン‼を指定の数レストにできる)：ドン‼デッキからドン‼1枚までを、レストで追加する。 [cost-gated 2026-08-05] 公式のコロン前 (= 発動コスト、 cardqa_st_06) が overlay に 無く効果がタダ撃ちできた。 optional_cost_then の cost に実装。",
    "when": "on_play",
    "do": [
     {
-     "add_rested_don": 1
+     "optional_cost_then": {
+      "cost": [
+       {
+        "rest_self_don": 1
+       }
+      ],
+      "effect": [
+       {
+        "add_rested_don": 1
+       }
+      ]
+     }
     }
    ]
   }

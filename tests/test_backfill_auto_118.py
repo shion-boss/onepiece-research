@@ -410,12 +410,61 @@ def test_op12_017_main_search_ai():
     me, opp = st.players[0], st.players[1]
     me.hand = []
     me.deck = [repo.get(_RAYLEIGH)] + [repo.get(_FILLER)] * 20  # 上に cost4 キャラ
+    # ⚠ 公式 「【メイン】自分の「シルバーズ・レイリー」1枚にアクティブのドン‼1枚を付与する
+    #   ことができる：…」 = コロン前が発動コスト (cardqa_st_06、 2026-08-05 に実装)。
+    rayleigh = InPlay.of(repo.get(_RAYLEIGH), sickness=False)
+    me.characters = [rayleigh]
+    me.don_active = 1
 
     for prim in _eff(overlay, "OP12-017", "main")["do"]:
         execute_effect(prim, st, me, opp, None)
     _drain(st, [0])
     assert any(c.card_id == _RAYLEIGH for c in me.hand), \
         "デッキ上4枚から コスト3以上キャラが手札に加わっていない"
+    assert rayleigh.attached_dons == 1, "コスト (レイリーにアクティブドン1枚付与) が払われていない"
+    assert me.don_active == 0, "アクティブドンが消費されていない"
+
+
+def test_op12_017_main_not_free_without_rayleigh():
+    """⚠ 対照: 「シルバーズ・レイリー」 が場に無ければ サーチしない (= タダ撃ち禁止)。"""
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, _LEADER_GENERIC, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.hand = []
+    me.deck = [repo.get(_RAYLEIGH)] + [repo.get(_FILLER)] * 20
+    me.don_active = 1   # ドンはあるがレイリーが居ない
+
+    for prim in _eff(overlay, "OP12-017", "main")["do"]:
+        execute_effect(prim, st, me, opp, None)
+    _drain(st, [0])
+    assert not me.hand, "レイリーが居ないのにサーチが発動している"
+
+
+def test_op12_017_search_filter_excludes_non_red_event():
+    """公式 filter = 「**赤の**イベント か コスト3以上の**キャラカード**」。
+
+    是正前は `{"cost_ge": 3}` だけで、 コスト3以上の **イベント/ステージ** も引けていた。
+    """
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, _LEADER_GENERIC, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.hand = []
+    # デッキ上に 「コスト3以上のイベント (赤以外)」 だけ → 公式 filter では引けない
+    non_red_event = repo.get("OP06-058")   # 青 EVENT cost7
+    assert non_red_event.category.value == "EVENT" and "赤" not in non_red_event.color \
+        and int(non_red_event.cost) >= 3, \
+        f"テスト前提: OP06-058 は コスト3以上の非赤イベント (実際 {non_red_event.color}/{non_red_event.cost})"
+    me.deck = [repo.get(non_red_event.card_id)] * 4 + [repo.get(_FILLER)] * 16
+    me.characters = [InPlay.of(repo.get(_RAYLEIGH), sickness=False)]
+    me.don_active = 1
+
+    for prim in _eff(overlay, "OP12-017", "main")["do"]:
+        execute_effect(prim, st, me, opp, None)
+    _drain(st, [0])
+    assert not any(c.card_id == non_red_event.card_id for c in me.hand), \
+        f"赤でないイベント ({non_red_event.card_id}) が引けてしまっている"
 
 
 def test_op12_017_main_search_human_pick():
@@ -426,8 +475,15 @@ def test_op12_017_main_search_human_pick():
     me, opp = st.players[0], st.players[1]
     me.hand = []
     me.deck = [repo.get(_RAYLEIGH), repo.get(_FILLER_P1000)] + [repo.get(_FILLER)] * 15
+    me.characters = [InPlay.of(repo.get(_RAYLEIGH), sickness=False)]
+    me.don_active = 1
 
     execute_effect(_eff(overlay, "OP12-017", "main")["do"][0], st, me, opp, None)
+    # コロン前が発動コストなので、 人間はまず 払う/見送る を選ぶ
+    assert st.pending_choice is not None, "人間 + 任意コストで modal が立たない"
+    assert st.pending_choice.get("kind") == "optional_cost_confirm", \
+        f"任意コスト確認 modal が先に立たない: {st.pending_choice.get('kind')}"
+    resolve_pending_choice(st, [1])   # 払う
     assert st.pending_choice is not None, "人間 + 候補で search_top_n modal が立たない"
     assert st.pending_choice.get("kind") == "search_top_n", \
         f"kind が search_top_n でない: {st.pending_choice.get('kind')}"
