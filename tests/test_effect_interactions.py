@@ -2377,3 +2377,55 @@ def test_character_removed_by_opponent_event_does_not_draw():
         "前提が崩れた: ウソップが KO されていない"
     assert len(p0.hand) == hand_before, \
         "相手イベントで場を離れたのにドローしている (公式: いいえ)"
+
+
+def test_op08_079_kaido_activate_main_only_on_summon_turn():
+    """OP08-079 カイドウ: 【起動メイン】は **登場したターンのみ** 効果が起きる。
+
+    一次情報 (`cardqa_op_08`): 「このキャラが登場したターンの次以降のターンに、この
+    【起動メイン】効果を発動し自分の手札を捨てることはできますか？」 →
+    **「はい、できます。この場合、自分の手札1枚を捨てた後、何も起こりません。」**
+
+    是正前の overlay には 3 重の違反があった (2026-08-05):
+      (1) 「このキャラが登場したターンの場合」 条件が **欠落** → 登場ターン外でも発動していた
+      (2) 相手手札破棄が **2 回** → 公式は 1 回
+      (3) 順序が逆 → 公式は 「キャラをトラッシュ → **その後** 相手手札1枚を捨てる」
+    ⚠ コロン後の条件なので **任意コスト (自分の手札1枚を捨てる) は条件不成立でも払える**。
+    """
+    from engine.core import InPlay
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    eff = next(e for e in ov.get("OP08-079").effects if e.get("when") == "activate_main")
+
+    def board(played_this_turn: bool):
+        st, p0, p1 = _either_board(repo, ov, [], [])
+        kaido = InPlay.of(repo.get("OP08-079"), sickness=played_this_turn)
+        p0.characters = [kaido]
+        p0.hand = [repo.get("OP01-013")] * 2
+        p1.hand = [repo.get("OP01-013")] * 4
+        p1.characters = [InPlay.of(repo.get("OP01-013"), sickness=False)]   # cost2 ≤ 7
+        return st, p0, p1, kaido
+
+    # 登場したターン → キャラ 1 トラッシュ + 相手手札 1 捨て (各 1 回ずつ)
+    st, p0, p1, kaido = board(True)
+    mh, oh, oc = len(p0.hand), len(p1.hand), len(p1.characters)
+    for prim in eff["do"]:
+        execute_effect(prim, st, p0, p1, kaido)
+    assert len(p0.hand) == mh - 1, "任意コスト (自分の手札1枚) が払われていない"
+    assert len(p1.characters) == oc - 1, "相手キャラがトラッシュされていない"
+    assert len(p1.hand) == oh - 1, (
+        f"相手の手札破棄が 1 回でない: {oh} → {len(p1.hand)} (是正前は 2 回捨てていた)"
+    )
+
+    # 次以降のターン → コストは払えるが **何も起こらない**
+    st, p0, p1, kaido = board(False)
+    mh, oh, oc = len(p0.hand), len(p1.hand), len(p1.characters)
+    for prim in eff["do"]:
+        execute_effect(prim, st, p0, p1, kaido)
+    assert len(p0.hand) == mh - 1, "コストは払えるはず (公式: はい、できます)"
+    assert len(p1.characters) == oc and len(p1.hand) == oh, (
+        "登場ターン外なのに効果が起きている (公式: 何も起こりません)"
+    )

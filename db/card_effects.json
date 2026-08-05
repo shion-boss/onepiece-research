@@ -71673,7 +71673,7 @@
  ],
  "OP08-079": [
   {
-   "_text": "OP08-079 activate_main: 【ターン1回】自分の手札1枚を捨てることができる：このキャラが登場したターンの場合、相手のコスト7以下のキャラ1枚までを、トラッシュに置く。その後、相手は自身の [dd-fix]",
+   "_text": "OP08-079 activate_main: 【ターン1回】自分の手札1枚を捨てることができる：このキャラが登場したターンの場合、相手のコスト7以下のキャラ1枚までを、トラッシュに置く。その後、相手は自身の [fixed 2026-08-05] 「このキャラが登場したターンの場合」条件が欠落 / 相手手札破棄が2回 / 順序逆 の3点を是正 (cardqa_op_08)。",
    "when": "activate_main",
    "do": [
     {
@@ -71685,13 +71685,19 @@
       ],
       "effect": [
        {
-        "trash_opp_hand_random": 1
-       },
-       {
-        "trash_opp_hand_random": 1
-       },
-       {
-        "chara_to_trash": "one_opponent_character_cost_le_7"
+        "conditional": {
+         "if": {
+          "self_summoning_sickness": true
+         },
+         "do": [
+          {
+           "chara_to_trash": "one_opponent_character_cost_le_7"
+          },
+          {
+           "trash_opp_hand_random": 1
+          }
+         ]
+        }
        }
       ]
      }
@@ -71704,7 +71710,7 @@
  ],
  "OP08-079_p1": [
   {
-   "_text": "OP08-079_p1 activate_main: 【ターン1回】自分の手札1枚を捨てることができる：このキャラが登場したターンの場合、相手のコスト7以下のキャラ1枚までを、トラッシュに置く。その後、相手は自身の [dd-fix]",
+   "_text": "OP08-079_p1 activate_main: 【ターン1回】自分の手札1枚を捨てることができる：このキャラが登場したターンの場合、相手のコスト7以下のキャラ1枚までを、トラッシュに置く。その後、相手は自身の [fixed 2026-08-05] 「このキャラが登場したターンの場合」条件が欠落 / 相手手札破棄が2回 / 順序逆 の3点を是正 (cardqa_op_08)。",
    "when": "activate_main",
    "do": [
     {
@@ -71716,13 +71722,19 @@
       ],
       "effect": [
        {
-        "trash_opp_hand_random": 1
-       },
-       {
-        "trash_opp_hand_random": 1
-       },
-       {
-        "chara_to_trash": "one_opponent_character_cost_le_7"
+        "conditional": {
+         "if": {
+          "self_summoning_sickness": true
+         },
+         "do": [
+          {
+           "chara_to_trash": "one_opponent_character_cost_le_7"
+          },
+          {
+           "trash_opp_hand_random": 1
+          }
+         ]
+        }
        }
       ]
      }
