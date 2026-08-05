@@ -2599,3 +2599,80 @@ overlay は Python/Rust 共通なので、 この種の誤りは **差分検証 
   【ブロッカー】発動不可」: アタック時に3000以上→その後2000以下になったキャラは【ブロッカー】できるか →
   **できます**。 `disable_blocker` は解決時の現在パワーで対象を確定 (per-instance flag、 スナップショット)。
   3000のキャラは非対象=後で降下してもブロック可 / 2000は対象、 を実測。
+
+---
+
+## EB02-059「お前がいねェと…!!」 のサンジ登場は **コスト5以下・黄** も掛かる (2026-08-05 是正)
+
+**一次情報** (`db/faq/cardqa_eb_02`, qid `2e22721f266c`):
+
+> 「この【カウンター】効果で、コスト6以上の「サンジ」や黄以外の色の「サンジ」を
+>  登場できますか？」 → **「いいえ、できません」**
+
+**公式テキスト**: 「…自分のライフが1枚以下の場合、自分の手札から**コスト5以下の黄の**、
+特徴《麦わらの一味》を持つキャラカードか「サンジ」1枚までを、登場させる。」
+= 修飾「コスト5以下の黄の」 は **《麦わらの一味》キャラと「サンジ」の両方** に分配される。
+
+**是正前の挙動**: overlay の `play_from_hand.filter.or` の第2ブランチが `{"name": "サンジ"}` のみで、
+コスト/色の制約が抜けていた。実測で **コスト9・青の「サンジ」(OP06-119)** や
+**コスト6・黄の「サンジ」(P-120)** が登場できた (= 大型サンジのタダ踏み倒し)。非黄/コスト6以上の
+「サンジ」は現状 **25 種以上** 存在 (OP06-119 青9 / OP09-065 紫7 / OP16-086 黒8 等) = 実効的なバグ。
+Python/Rust とも同じ overlay を読むため **差分検証では原理的に沈黙**。
+
+**是正**: 第2ブランチを `{"color": "黄", "name": "サンジ", "cost_le": 5}` に修正 (overlay-only =
+両エンジン共通データ。Rust は `load_overlay` で JSON を実行時読込 = リビルド不要、parity MISMATCH=0)。
+
+**恒久ガード**: `tests/test_effect_interactions.py::test_eb02_059_sanji_summon_respects_cost_and_color`
+(OP06-119 青9 / P-120 黄6 は登場不可、EB02-054 黄5 は登場可 = over/under 両側を固定)。
+
+---
+
+## 公式どおりで **問題なかった** もの (2026-08-05 追加分、 FAQ 全件保証 台帳より)
+
+- **cardqa_op_06 (2de2cc6f1c63)** 「【起動メイン】で効果を無効にしたこのキャラを、その後そのターン中に
+  他のカードで効果の対象に選べるか」→ **はい**。「効果無効」(`granted_keywords`「効果無効」/
+  `effect_disabled_through_opp_turn`) は **当該キャラ自身の効果発動を gate するだけ**で、対象選択
+  (`_matches_filter_ip`) には作用しない。opp キャラを効果無効化しても `rest one_opp_chara_filtered`
+  で rested=True になる (= 対象に選べる) を実測。
+
+- **cardqa_op_13 (2e032cbb6a84)** OP13-108 ジュエリー・ボニー 【登場時】「自分のリーダーが《エッグヘッド》を
+  持つ場合、【速攻】を得る。その後、相手はライフの上から1枚を手札に加える」: リーダーが《エッグヘッド》
+  **非所持なら相手はライフを加えない** → **はい (加えない)**。overlay `if{leader_feature:エッグヘッド}` が
+  `give_keyword(速攻)` と `mill_opp_life_to_hand` を **両方** gate。非エッグヘッド leader → opp life 3→3 /
+  エッグヘッド leader (EB04-001) → 3→2、を `trigger_on_play` で実測。
+
+- **cardqa_op_01/op_04 (2e0aca0b3ea6)** OP04-053 ページワン 【ドン!!×1】「自分がイベントを発動した時、
+  1ドロー」(= `on_self_event_played`): **イベントの【トリガー】発動時には引けない** → **いいえ**。
+  `trigger_lifecard_trigger` は `on_self_trigger_fired` と `opp_event_or_trigger_fired` のみ発火し、
+  `on_self_event_played` は発火しない (= `trigger_main_event`/`trigger_counter_event` = 実際のイベント
+  発動経路だけが `trigger_self_event_played` を呼ぶ)。「【トリガー】の発動はイベントの発動と異なる」
+  = 公式どおり。
+
+- **cardqa_op_12 (2e2c941323b6)** OP12-081 コアラ 【ターン1回】「相手が元々のコスト8以上のキャラを
+  登場させた時、相手はライフの上から1枚を手札に加える」: **2枚加えさせられない** → **いいえ (1枚だけ)**。
+  overlay は `mill_opp_life_to_hand:1` = 固定1枚。実行で opp life 3→2 (ちょうど1枚) を実測。
+
+- **cardqa_eb_03 (2eadc6f67936)** EB03-006 ナミ 【登場時】「自分のアクティブのリーダーをパワー-5000
+  することができる：1ドロー」: リーダーがアクティブで **現在パワー0以下でも -5000 して引ける** → **はい**。
+  パワーは0未満可 (下限なし) で `power_pump -5000` コストは常に払える。leader power_mod=-6000
+  (現在パワー≤0) で `optional_cost_then` 実行 → hand 0→1 (draw 発火 = コスト成立) を実測。
+
+- **cardqa_st_33 (2eafbc8b627c)** ST33-001 コビー 【登場時】「自分の手札1枚を捨てることができる：1ドロー」:
+  手札がこのカード1枚のみ (登場後0枚) だと **捨てずに引くことはできない** → **いいえ**。
+  `optional_cost_then` の cost=`discard_hand_with_filter count1` が draw の必須コスト。手札0 → draw 不発
+  (0→0) / 手札1 → 捨てて draw (1→1) を実測。
+
+- **cardqa_op_09 (2ed197b131f5)** 「効果を無効にされたキャラがKOされた場合、【KO時】は発動できるか」→
+  **いいえ**。既記 (「効果を無効にされたキャラの【KO時】は発動しない」節)。`_ip_effect_negated` を
+  KO直前に読んで `trigger_on_ko(victim_effect_negated=)` に渡し gate。既存テスト
+  `test_negated_character_ko_does_not_fire_on_ko` (+ 対照) pass を確認。
+
+- **cardqa_op_05 (2e99b843797f) [n/a]** 「デッキ上5枚から『ホーリー』を公開しなかった場合、手札から
+  『ホーリー』を登場できるか」→ はい。効果 (reveal 系) は通常の手札プレイに制約を課さず、空振り
+  サーチが手札プレイをロックする primitive は存在しない。engine の状態変化に落ちるカード固有挙動が
+  無い (通常 PlayCharacter は base play system で常に合法) ため **n/a**。
+
+- **cardqa_op_12 (2f1219a3256c) [n/a]** 「『手札のこのカードは、効果で登場できない』とはどういう効果か」
+  = 定義質問。用語説明のため **n/a**。メカニクス自体は `_no_play_from_hand_via_effect` (overlay の
+  `_no_play_via_effect:true` marker、OP12-036 ゾロ) で実装済 = play_from_hand 系が候補除外、通常プレイ
+  とトラッシュ経由は可 = 公式説明どおり。

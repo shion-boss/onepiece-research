@@ -1822,18 +1822,18 @@
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "",
+  "note": "OP06 系「効果を無効にしたこのキャラを他カードの効果で対象に選べるか」→はい。effects.py の効果無効(granted_keywords「効果無効」/effect_disabled_through_opp_turn)は当該キャラ自身の効果発動を gate するだけで、対象選択(_matches_filter_ip)には作用しない。実測: opp キャラを効果無効にしても rest one_opp_chara_filtered で rested=True = 対象に選べる = 公式どおり",
   "q": "この【起動メイン】で効果を無効にしたこのキャラを、その後そのターン中に他のカードで効果の対象に選ぶことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "2e032cbb6a84": {
   "a": "いいえ、この場合、相手はライフの一番上を手札に加えません。",
   "files": [
    "cardqa_op_13.json"
   ],
-  "note": "",
+  "note": "OP13-108 ボニー 登場時: overlay if{leader_feature:エッグヘッド} が give_keyword(速攻)+mill_opp_life_to_hand を両方 gate。実測 trigger_on_play: 非エッグヘッド leader→opp life 3→3 (加えない) / エッグヘッド leader(EB04-001)→3→2 = 公式どおり(いいえ、加えません)",
   "q": "【登場時】自分のリーダーが特徴《エッグヘッド》を持たない場合、相手は自身のライフの上から1枚を手札に加えますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "2e0aca0b3ea6": {
   "a": "いいえ、【トリガー】の発動はイベントの発動と異なります。",
@@ -1841,72 +1841,72 @@
    "cardqa_op_01.json",
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-053 ページワン【ドン!!×1】自分がイベントを発動した時ドロー = when:on_self_event_played。trigger_lifecard_trigger は on_self_trigger_fired と opp_event_or_trigger_fired のみ発火、on_self_event_played は発火しない(trigger_main_event/trigger_counter_event = 実際のイベント発動経路だけが trigger_self_event_played を呼ぶ)。= 公式どおり(いいえ、トリガー発動はイベント発動と異なる)。docs/official_rulings.md 既記載",
   "q": "自分のイベントの【トリガー】効果を発動した時、この【ドン!!×1】効果でカードを引くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "2e22721f266c": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_eb_02.json"
   ],
-  "note": "",
+  "note": "EB02-059 その後 play_from_hand filter の or ブランチ2が {name:サンジ} のみでコスト/色制約が抜けており、コスト9青(OP06-119)等の違反サンジが登場できた。公式(cardqa_eb_02:コスト6以上や黄以外のサンジは登場不可)に合わせ {color:黄,name:サンジ,cost_le:5} へ是正。overlay-only(Python/Rust 共通データ)。回帰テスト test_eb02_059_sanji_summon_respects_cost_and_color 追加。parity MISMATCH=0",
   "q": "この【カウンター】効果で、コスト6以上の「サンジ」や黄以外の色の「サンジ」を登場できますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "2e2c941323b6": {
   "a": "いいえ、相手が手札に加えるライフは1枚だけです。",
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "",
+  "note": "OP12-081 コアラ 【ターン1回】相手が元々のコスト8以上のキャラを登場させた時 = mill_opp_life_to_hand:1 (amount 固定1)。実測: 実行で opp life 3→2 = ちょうど1枚。同 trigger が2回発動して2枚加えることはない = 公式どおり(いいえ、1枚だけ)",
   "q": "相手が、元々のコスト8以上のキャラカードを、他のキャラの効果で登場させた時、この【ターン1回】効果で相手に自身のライフの上から2枚を手札に加えさせることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "2e99b843797f": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "",
+  "note": "OP05 系「デッキ上5枚からホーリーを公開しなかった場合、手札からホーリーを登場できるか」→はい。これは効果(reveal 系)が通常の手札プレイに制約を課さないことの確認で、engine の状態変化に落ちるカード固有挙動がない(通常 PlayCharacter は常に合法で base play system 側でカバー)。空振りサーチが手札プレイをロックする primitive は存在しない = 構造的に公式どおりだが assert 対象が無いため n/a",
   "q": "デッキの上から5枚の中から「ホーリー」を公開しなかった場合、自分の手札から「ホーリー」を登場できますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "2eadc6f67936": {
   "a": "はい、できます。",
   "files": [
    "cardqa_eb_03.json"
   ],
-  "note": "",
+  "note": "EB03-006 ナミ 登場時 = optional_cost_then{cost:[power_pump self_leader -5000 turn], effect:[draw 1]}。リーダーがアクティブで現在パワー0以下でも -5000 コストは払える(パワーは0未満可、下限なし)。実測: leader power_mod=-6000(現在パワー<=0) で実行 → hand 0→1 = draw 発火 = コスト成立 = 公式どおり(はい、できます)",
   "q": "自分のリーダーがアクティブで現在のパワーが0以下の場合、この【登場時】効果でリーダーのパワーを-5000してカード1枚を引くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "2eafbc8b627c": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_st_33.json"
   ],
-  "note": "",
+  "note": "ST33-001 コビー 登場時 = optional_cost_then{cost:[discard_hand_with_filter count1], effect:[draw 1]}。手札1枚を捨てるのは draw の必須コスト。実測: 手札0→ draw 起きず(0→0)/ 手札1(filler)→ 捨てて draw(1→1)= 手札このカード1枚のみ(登場後0枚)では捨てられず引けない = 公式どおり(いいえ、できません)",
   "q": "自分の手札がこのカード1枚のみの状態で、手札のこのカードを登場し【登場時】効果を発動した場合、自分の手札1枚を捨てずにカード1枚を引くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "2ed197b131f5": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_09.json"
   ],
-  "note": "",
+  "note": "OP09 系(闇穴道/闇水等で効果無効→KO)「効果を無効にされたキャラがKOされた場合、【KO時】は発動できるか」→いいえ。engine は _ip_effect_negated(KO直前の無効状態)を trigger_on_ko(victim_effect_negated=) に渡し【KO時】を gate。docs/official_rulings.md 既記載 + 既存テスト test_negated_character_ko_does_not_fire_on_ko / test_non_negated_character_ko_does_fire_on_ko pass 確認 = 公式どおり",
   "q": "このカードの効果によって効果を無効にされたキャラがKOされた場合、そのキャラの持つ【KO時】効果は発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "2f1219a3256c": {
   "a": "たとえば「ST12-003 ジュラキュール・ミホーク」の【登場時】など、手札から登場させるカードの効果でこのカードを登場させることはできない、という効果です。手札からコストを支払って通常通り登場させることはできます。また、トラッシュなど手札ではない場所からは、効果で登場させることができます。",
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "",
+  "note": "「手札のこのカードは、効果で登場できない」とはどういう効果ですか = 定義質問(「〜とはどういう効果ですか」)。engine の状態変化に落ちるカード固有シナリオでなく用語説明。当該メカニクス自体は _no_play_from_hand_via_effect(overlay _no_play_via_effect:true marker、OP12-036 ゾロ)で実装済で play_from_hand 系が候補除外・通常プレイとトラッシュ経由は可 = 公式説明どおりだが、この Q 自体は定義説明のため n/a",
   "q": "「手札のこのカードは、効果で登場できない」とは、どういう効果ですか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "2f3620bfd8b9": {
   "a": "はい、できます。",

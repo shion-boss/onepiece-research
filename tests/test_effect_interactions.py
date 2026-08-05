@@ -4297,3 +4297,43 @@ def test_event_or_trigger_reactive_still_fires_on_life_trigger():
     assert len(p0.life) == self_life0 - 1 and len(p1.life) == opp_life0 - 1, (
         "ケイミー (イベントか【トリガー】を発動した時: 両者ライフ-1) が ライフ【トリガー】で発火していない"
     )
+
+
+# --------------------------------------------------------------------------- #
+#  EB02-059 「お前がいねェと…!!」 【カウンター】 の「その後」 登場 filter
+#     公式一次情報 (cardqa_eb_02):
+#       「この【カウンター】効果で、コスト6以上の「サンジ」や黄以外の色の「サンジ」を
+#        登場できますか？」 → 「いいえ、できません」
+#     公式テキスト: 「…自分の手札からコスト5以下の黄の、特徴《麦わらの一味》を持つ
+#       キャラカードか「サンジ」1枚までを、登場させる。」
+#     = 「コスト5以下の黄の」 は 麦わらの一味キャラ **と サンジ の両方** に掛かる。
+#     是正前は overlay の or ブランチが {"name":"サンジ"} のみで、 cost/color 制約が抜けており
+#       コスト9・青の「サンジ」(OP06-119) 等が登場できた (= タダで大型サンジを踏み倒す違反)。
+# --------------------------------------------------------------------------- #
+def test_eb02_059_sanji_summon_respects_cost_and_color():
+    repo, overlay = _repo(), _overlay()
+    play_eff = next(e for e in overlay.get("EB02-059").effects
+                    if e.get("if", {}).get("self_life_le") == 1)
+    prims = play_eff["do"]
+    assert any("play_from_hand" in p for p in prims)
+
+    def _summon_ids(hand_card_id):
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        me.life = [repo.get(_FILLER)]           # self_life <= 1 (その後 の発動条件)
+        me.hand = [repo.get(hand_card_id)]
+        for p in prims:
+            execute_effect(p, st, me, opp, None)
+        return [ip.card.card_id for ip in me.characters]
+
+    # 違反サンジは登場できない
+    assert "OP06-119" not in _summon_ids("OP06-119"), (
+        "コスト9・青の「サンジ」が登場した (公式違反: 黄・コスト5以下でない)"
+    )
+    assert "P-120" not in _summon_ids("P-120"), (
+        "コスト6・黄の「サンジ」が登場した (公式違反: コスト5以下でない)"
+    )
+    # 黄・コスト5以下の正当な「サンジ」は登場できる (over-restriction でないことの対照)
+    assert "EB02-054" in _summon_ids("EB02-054"), (
+        "黄・コスト5の「サンジ」が登場できていない (制約の掛けすぎ)"
+    )
