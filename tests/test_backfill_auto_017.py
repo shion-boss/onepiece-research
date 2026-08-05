@@ -63,8 +63,22 @@ def _do(overlay, cid, when, needle=None):
     if not matches:
         raise AssertionError(f"{cid} に when={when} の効果がない")
     if needle is not None:
+        # ⚠ 2026-08-05: コロン後の条件を conditional / optional_cost_then の中へ移したため、
+        #   目的の primitive が入れ子になっている。 平坦化して探す。
+        def _flat(arr):
+            out = []
+            for _p in arr or []:
+                if not isinstance(_p, dict):
+                    continue
+                if "conditional" in _p:
+                    out += _flat((_p["conditional"] or {}).get("do"))
+                elif "optional_cost_then" in _p:
+                    out += _flat((_p["optional_cost_then"] or {}).get("effect"))
+                else:
+                    out.append(_p)
+            return out
         for e in matches:
-            if any(needle in prim for prim in e["do"]):
+            if any(needle in prim for prim in _flat(e["do"])):
                 return e["do"], e
         raise AssertionError(f"{cid} when={when} に {needle} を含む効果がない")
     return matches[0]["do"], matches[0]
@@ -496,7 +510,12 @@ def test_eb04_033_groggy_on_play_ko_human_pick():
     st = _state(repo, "OP07-059", overlay, human_idx=0)
     me, opp = st.players[0], st.players[1]
     groggy = InPlay.of(repo.get("EB04-033"), sickness=False)
-    me.characters = [groggy]
+    # ⚠ 2026-08-05: 公式は 「ドン‼-1：**自分の特徴《フォクシー海賊団》を持つキャラが3枚以上いる
+    #   場合**、…KOする」。 コロン後の条件は効果のみを gate するので overlay では conditional の中。
+    #   条件を満たさないと何も起きない (以前は top-level if が entry ごと skip していて露見しなかった)。
+    me.characters = [groggy,
+                     InPlay.of(repo.get("EB04-036"), sickness=False),   # フォクシー
+                     InPlay.of(repo.get("EB04-037"), sickness=False)]   # ポルチェ = 計3枚
     a = InPlay.of(repo.get("OP01-016"), sickness=False)  # power2000
     b = InPlay.of(repo.get("OP01-013"), sickness=False)  # power3000
     opp.characters = [a, b]

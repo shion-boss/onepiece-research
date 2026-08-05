@@ -374,6 +374,8 @@ def test_op03_020_striker_activate_main_search_event_ai():
 
 def test_op03_020_striker_activate_main_gated_by_non_ace_leader():
     """自リーダーが非エースなら if 不成立 → 起動メインが legal に出ない。"""
+    # ⚠ 2026-08-05: コロン後の条件は効果のみを gate する (cardqa_st_06「「：」以前が発動コスト」)。
+    #   任意コストは条件不成立でも払えるので legal には残る。
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, "OP01-001", overlay)  # ゾロ (非エース)
@@ -384,7 +386,8 @@ def test_op03_020_striker_activate_main_gated_by_non_ace_leader():
 
     opts = [o for o in list_activate_main_effects(st, me, overlay)
             if o[0].card.card_id == "OP03-020"]
-    assert len(opts) == 0, "非エースリーダーで OP03-020 起動メインが出てはいけない"
+    assert len(opts) == 1, \
+        "任意コストは条件不成立でも払えるので legal に残るべき (cardqa_st_06)"
 
 
 # --------------------------------------------------------------------------- #

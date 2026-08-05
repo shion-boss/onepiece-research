@@ -31,6 +31,31 @@ from engine.effects import (
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` / optional_cost_then 内 の三形対応)。
+
+    ⚠ 2026-08-05: 公式は 「「：」以前が発動コスト」 (cardqa_st_06)。 コロン後の条件は **効果のみ**
+    を gate するので、 overlay ではその条件を `conditional` の中へ移した。
+    `optional_cost_then` を持つ効果では **cost を条件の外に出す** 必要があるため、
+    conditional は `effect` 配列の中に入る。 条件自体は変わっていないので、
+    テストはどの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    def _dig(arr):
+        for _p in arr or []:
+            if not isinstance(_p, dict):
+                continue
+            if "conditional" in _p:
+                return (_p.get("conditional") or {}).get("if") or {}
+            if "optional_cost_then" in _p:
+                got = _dig((_p["optional_cost_then"] or {}).get("effect") or [])
+                if got:
+                    return got
+        return {}
+    return _dig(eff.get("do") or [])
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -220,7 +245,7 @@ def test_op08_053_leader_feature_gate():
     """overlay の 発動条件が 自リーダー『白ひげ海賊団』(leader_features_any) である。"""
     overlay = _overlay()
     eff = next(e for e in overlay.get("OP08-053").effects if e["when"] == "main")
-    assert "白ひげ海賊団" in eff.get("if", {}).get("leader_features_any", []), \
+    assert "白ひげ海賊団" in _cond_of(eff).get("leader_features_any", []), \
         "OP08-053 の main に 自リーダー白ひげ海賊団 条件が無い"
 
 
@@ -507,7 +532,7 @@ def test_op08_060_don_gate_and_opp_don_condition():
                    if e["when"] == "on_play")
     assert on_play.get("cost", {}).get("pay_don") == 1, \
         "OP08-060 の ドン‼-1 ゲート (pay_don=1) が無い"
-    assert on_play.get("if", {}).get("opp_don_count_ge") == 5, \
+    assert _cond_of(on_play).get("opp_don_count_ge") == 5, \
         "OP08-060 の 相手ドン5以上 条件 (opp_don_count_ge=5) が無い"
 
 

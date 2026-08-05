@@ -1489,13 +1489,23 @@ def test_no_optional_cost_remains_gated_by_post_colon_condition():
                 continue
             if not eff.get("cost"):
                 continue          # 任意コスト未実装 = 別 issue (下のテストで数を固定)
+            # ⚠ replace_* / 静的 when の `if` は **構造的な対象指定** (target / by_opp_effect 等)
+            #   であってコロン後の条件ではない。 節マーカーも無く全文照合になるため除外する
+            #   (2026-08-05 に OP05-032 を誤変換した)。
+            if eff.get("when") not in _WHEN_MARK and eff.get("when") != "trigger":
+                continue
             src = "trigger" if eff.get("when") == "trigger" else "text"
             # ⚠ **その効果の節だけ** で判定する。 カード全体の text を見ると別の節の
             #   「できる：」 を拾う (EB03-006 で実際に誤変換した)。
             clause = _clause_for(card.get(src) or "", eff.get("when"))
             if not clause:
                 continue
-            m = re.search(r"できる[：:]", clause)
+            # ⚠ 目印は 「できる」 ではなく **「：」** (cardqa_st_06:「「：」以前に表記されている
+            #   指示はすべて "発動コスト"」)。 「できる[：:]」 で探すと **コスト記号形**
+            #   (「③(…できる)：」「ドン!!-1：」) を取りこぼす — 注釈括弧を除去すると
+            #   「③：」 になり 「できる」 が消えるため。 2026-08-05 に 84 エントリ / 55 枚を
+            #   この盲点で見落としていた (cron が検出)。
+            m = re.search(r"[：:]", clause)
             if not m or "場合" not in clause[m.end():]:
                 continue
             if "場合" in clause[:m.start()]:
@@ -1751,9 +1761,11 @@ def test_converted_cost_not_gated_entries_really_have_optional_cost():
             if clause is None:
                 bad.append(f"{cid}[{when}]: 該当節が見つからない")
                 continue
-            m = re.search(r"できる[：:]", clause)
+            # ⚠ 目印は 「できる」 ではなく **「：」** (cardqa_st_06)。 コスト記号形
+            #   (「③(…できる)：」「ドン!!-1：」) は注釈括弧を除去すると 「できる」 が消える。
+            m = re.search(r"[：:]", clause)
             if not m or "場合" not in clause[m.end():]:
-                bad.append(f"{cid}[{when}]: 自分の節に 「できる：<条件>」 が無い — {clause[:70]}")
+                bad.append(f"{cid}[{when}]: 自分の節にコロン後の条件が無い — {clause[:70]}")
     assert not bad, (
         "別の節の 「できる：」 を拾って誤変換している (発動条件を効果側へ移すと "
         "条件不成立でも発動できてしまう):\n  " + "\n  ".join(bad[:30])
@@ -2623,3 +2635,32 @@ def test_op16_103_trigger_ko_effect_gated_by_opp_turn():
     execute_effect({"fire_self_effect": {"when_kind": "on_ko"}}, st2, me2, opp2,
                    InPlay.of(repo.get("OP16-103")))
     assert len(me2.hand) == hand_before2 + 1, "相手のターン中は【KO時】が発動するはず"
+
+
+def test_optional_cost_is_not_trapped_inside_conditional():
+    """`optional_cost_then` の **cost が conditional の内側に入っていない**。
+
+    ⚠ 2026-08-05 に実際にやらかした形: top-level `if` を `conditional` へ移す際、
+    `do` 全体を包むと `optional_cost_then` ごと条件の内側に入り、
+    **条件不成立でコストを払えなくなる** (= 直そうとした違反そのものを再現してしまう)。
+    正しい形は cost はそのまま、 `effect` 配列だけを `conditional` で包む。
+    """
+    ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    bad = []
+    for cid, effs in sorted(ov.items()):
+        if not isinstance(effs, list):
+            continue
+        for eff in effs:
+            if not isinstance(eff, dict):
+                continue
+            do = eff.get("do")
+            if not (isinstance(do, list) and len(do) == 1 and "conditional" in do[0]):
+                continue
+            inner_do = (do[0]["conditional"] or {}).get("do")
+            if (isinstance(inner_do, list) and len(inner_do) == 1
+                    and isinstance(inner_do[0], dict) and "optional_cost_then" in inner_do[0]):
+                bad.append(cid)
+    assert not bad, (
+        "optional_cost_then が conditional の内側にある = 条件不成立でコストを払えない:\n  "
+        + "\n  ".join(sorted(set(bad))[:30])
+    )

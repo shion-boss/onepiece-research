@@ -31,6 +31,31 @@ from engine.effects import (
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` / optional_cost_then 内 の三形対応)。
+
+    ⚠ 2026-08-05: 公式は 「「：」以前が発動コスト」 (cardqa_st_06)。 コロン後の条件は **効果のみ**
+    を gate するので、 overlay ではその条件を `conditional` の中へ移した。
+    `optional_cost_then` を持つ効果では **cost を条件の外に出す** 必要があるため、
+    conditional は `effect` 配列の中に入る。 条件自体は変わっていないので、
+    テストはどの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    def _dig(arr):
+        for _p in arr or []:
+            if not isinstance(_p, dict):
+                continue
+            if "conditional" in _p:
+                return (_p.get("conditional") or {}).get("if") or {}
+            if "optional_cost_then" in _p:
+                got = _dig((_p["optional_cost_then"] or {}).get("effect") or [])
+                if got:
+                    return got
+        return {}
+    return _dig(eff.get("do") or [])
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -303,7 +328,7 @@ def test_op08_077_leader_feature_gate_in_overlay():
     """overlay の 発動条件に 自リーダー《百獣海賊団》/《ビッグ・マム海賊団》(leader_features_any) がある。"""
     overlay = _overlay()
     eff = next(e for e in overlay.get("OP08-077").effects if e["when"] == "main")
-    feats = eff.get("if", {}).get("leader_features_any", [])
+    feats = _cond_of(eff).get("leader_features_any", [])
     assert "百獣海賊団" in feats and "ビッグ・マム海賊団" in feats, \
         f"OP08-077 の leader_features_any 条件が不足: {feats}"
 
@@ -539,7 +564,7 @@ def test_op08_085_don_gate_and_self_cost8_condition_in_overlay():
     """overlay の 発動条件に ドン‼×1 (self_attached_don_ge) と 自コスト8以上キャラ存在がある。"""
     overlay = _overlay()
     eff = next(e for e in overlay.get("OP08-085").effects if e["when"] == "on_attack")
-    cond = eff.get("if", {})
+    cond = _cond_of(eff)
     assert cond.get("self_attached_don_ge") == 1, \
         "OP08-085 の ドン‼×1 ゲート (self_attached_don_ge=1) が無い"
     filt = cond.get("self_chara_filtered_count_ge", {})
@@ -597,7 +622,7 @@ def test_op08_086_cond_opp_cost0_in_overlay():
     """overlay の 発動条件に 相手コスト0キャラ存在 (exists_opp_chara_cost_le=0) がある。"""
     overlay = _overlay()
     eff = next(e for e in overlay.get("OP08-086").effects if e["when"] == "on_play")
-    assert eff.get("if", {}).get("exists_opp_chara_cost_le") == 0, \
+    assert _cond_of(eff).get("exists_opp_chara_cost_le") == 0, \
         "OP08-086 の 相手コスト0キャラ存在条件が無い"
 
 

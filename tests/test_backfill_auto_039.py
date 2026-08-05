@@ -30,6 +30,31 @@ from engine.effects import (
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` / optional_cost_then 内 の三形対応)。
+
+    ⚠ 2026-08-05: 公式は 「「：」以前が発動コスト」 (cardqa_st_06)。 コロン後の条件は **効果のみ**
+    を gate するので、 overlay ではその条件を `conditional` の中へ移した。
+    `optional_cost_then` を持つ効果では **cost を条件の外に出す** 必要があるため、
+    conditional は `effect` 配列の中に入る。 条件自体は変わっていないので、
+    テストはどの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    def _dig(arr):
+        for _p in arr or []:
+            if not isinstance(_p, dict):
+                continue
+            if "conditional" in _p:
+                return (_p.get("conditional") or {}).get("if") or {}
+            if "optional_cost_then" in _p:
+                got = _dig((_p["optional_cost_then"] or {}).get("effect") or [])
+                if got:
+                    return got
+        return {}
+    return _dig(eff.get("do") or [])
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -106,7 +131,7 @@ def test_op03_051_bellemere_life_taken_mill7_ai():
     trash_before = len(me.trash)
 
     eff = _get_eff(overlay, "OP03-051", "on_opp_life_taken")
-    assert eff.get("if", {}).get("self_attached_don_ge") == 1, \
+    assert _cond_of(eff).get("self_attached_don_ge") == 1, \
         "overlay の ドン!!×1 ゲート self_attached_don_ge=1 が無い"
     for prim in eff["do"]:
         execute_effect(prim, st, me, opp, src)
@@ -476,9 +501,9 @@ def test_op03_063_zambai_on_play_draw_when_w7_leader_ai():
     hand_before = len(me.hand)
 
     on_play = _get_eff(overlay, "OP03-063", "on_play")
-    assert on_play.get("if", {}).get("leader_feature") == "W7", \
+    assert _cond_of(on_play).get("leader_feature") == "W7", \
         "overlay の リーダー特徴 W7 条件が無い"
-    assert eval_condition(on_play["if"], st, me) is True, \
+    assert eval_condition(_cond_of(on_play), st, me) is True, \
         "テスト前提: リーダーが W7 で条件成立していない"
     for prim in on_play["do"]:
         execute_effect(prim, st, me, opp,
@@ -494,7 +519,7 @@ def test_op03_063_zambai_condition_false_when_not_w7():
     st = _state(repo, "OP01-001", overlay)  # ゾロ (W7でない)
     me, opp = st.players[0], st.players[1]
     on_play = _get_eff(overlay, "OP03-063", "on_play")
-    assert eval_condition(on_play["if"], st, me) is False, \
+    assert eval_condition(_cond_of(on_play), st, me) is False, \
         "リーダーが W7 でないのに条件が成立している"
 
 
@@ -512,9 +537,9 @@ def test_op03_064_tilestone_on_ko_add_rested_don_when_gc_ai():
     deck_don_before = me.don_remaining_in_deck
 
     eff = _get_eff(overlay, "OP03-064", "on_ko")
-    assert eff.get("if", {}).get("leader_feature") == "GC", \
+    assert _cond_of(eff).get("leader_feature") == "GC", \
         "overlay の リーダー特徴 GC 条件が無い"
-    assert eval_condition(eff["if"], st, me) is True, \
+    assert eval_condition(_cond_of(eff), st, me) is True, \
         "テスト前提: リーダーが GC で条件成立していない"
     for prim in eff["do"]:
         execute_effect(prim, st, me, opp,
@@ -533,7 +558,7 @@ def test_op03_064_tilestone_condition_false_when_not_gc():
     st = _state(repo, "OP01-001", overlay)  # ゾロ (GCでない)
     me, opp = st.players[0], st.players[1]
     eff = _get_eff(overlay, "OP03-064", "on_ko")
-    assert eval_condition(eff["if"], st, me) is False, \
+    assert eval_condition(_cond_of(eff), st, me) is False, \
         "リーダーが GC でないのに条件が成立している"
 
 

@@ -33,6 +33,31 @@ ROOT = Path(__file__).resolve().parent.parent
 DOFLA_LEADER = "OP04-019"
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` / optional_cost_then 内 の三形対応)。
+
+    ⚠ 2026-08-05: 公式は 「「：」以前が発動コスト」 (cardqa_st_06)。 コロン後の条件は **効果のみ**
+    を gate するので、 overlay ではその条件を `conditional` の中へ移した。
+    `optional_cost_then` を持つ効果では **cost を条件の外に出す** 必要があるため、
+    conditional は `effect` 配列の中に入る。 条件自体は変わっていないので、
+    テストはどの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    def _dig(arr):
+        for _p in arr or []:
+            if not isinstance(_p, dict):
+                continue
+            if "conditional" in _p:
+                return (_p.get("conditional") or {}).get("if") or {}
+            if "optional_cost_then" in _p:
+                got = _dig((_p["optional_cost_then"] or {}).get("effect") or [])
+                if got:
+                    return got
+        return {}
+    return _dig(eff.get("do") or [])
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -313,10 +338,10 @@ def test_op04_026_on_attack_condition_dofla_leader():
     overlay = _overlay()
     eff = _get_eff(overlay, "OP04-026", "on_attack")
     st_ok = _state(repo, DOFLA_LEADER, overlay)
-    assert eval_condition(eff["if"], st_ok, st_ok.players[0]) is True, \
+    assert eval_condition(_cond_of(eff), st_ok, st_ok.players[0]) is True, \
         "ドフラリーダーで条件成立しない"
     st_ng = _state(repo, "OP01-001", overlay)
-    assert eval_condition(eff["if"], st_ng, st_ng.players[0]) is False, \
+    assert eval_condition(_cond_of(eff), st_ng, st_ng.players[0]) is False, \
         "非ドフラリーダーで条件が成立している"
 
 
@@ -358,7 +383,7 @@ def test_op04_027_end_of_turn_untap_self_with_don_gate_ai():
     me.characters = [daddy]
 
     eff = _get_eff(overlay, "OP04-027", "end_of_turn")
-    assert eval_condition(eff["if"], st, me, daddy) is True, \
+    assert eval_condition(_cond_of(eff), st, me, daddy) is True, \
         "付与ドン1で【ドン!!×1】条件が成立しない"
     for prim in eff["do"]:
         execute_effect(prim, st, me, opp, daddy)
@@ -378,7 +403,7 @@ def test_op04_027_don_gate_false_without_don():
     me.characters = [daddy]
 
     eff = _get_eff(overlay, "OP04-027", "end_of_turn")
-    assert eval_condition(eff["if"], st, me, daddy) is False, \
+    assert eval_condition(_cond_of(eff), st, me, daddy) is False, \
         "付与ドン0なのに【ドン!!×1】条件が成立している"
 
 
@@ -400,7 +425,7 @@ def test_op04_028_end_of_turn_untap_self_when_active_don_ge_2_ai():
     me.don_active = 2  # アクティブドン2枚以上
 
     eff = _get_eff(overlay, "OP04-028", "end_of_turn")
-    assert eval_condition(eff["if"], st, me, diamante) is True, \
+    assert eval_condition(_cond_of(eff), st, me, diamante) is True, \
         "アクティブドン2 + 付与ドン1 で条件が成立しない"
     for prim in eff["do"]:
         execute_effect(prim, st, me, opp, diamante)
@@ -421,7 +446,7 @@ def test_op04_028_condition_false_when_active_don_lt_2():
     me.don_active = 1  # 2枚未満
 
     eff = _get_eff(overlay, "OP04-028", "end_of_turn")
-    assert eval_condition(eff["if"], st, me, diamante) is False, \
+    assert eval_condition(_cond_of(eff), st, me, diamante) is False, \
         "アクティブドン1枚なのに条件が成立している"
 
 
@@ -583,10 +608,10 @@ def test_op04_033_on_play_condition_dofla_leader():
     overlay = _overlay()
     eff = _get_eff(overlay, "OP04-033", "on_play")
     st_ok = _state(repo, DOFLA_LEADER, overlay)
-    assert eval_condition(eff["if"], st_ok, st_ok.players[0]) is True, \
+    assert eval_condition(_cond_of(eff), st_ok, st_ok.players[0]) is True, \
         "ドフラリーダーで条件成立しない"
     st_ng = _state(repo, "OP01-001", overlay)
-    assert eval_condition(eff["if"], st_ng, st_ng.players[0]) is False, \
+    assert eval_condition(_cond_of(eff), st_ng, st_ng.players[0]) is False, \
         "非ドフラリーダーで条件が成立している"
 
 

@@ -28,6 +28,31 @@ from engine.effects import (
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` / optional_cost_then 内 の三形対応)。
+
+    ⚠ 2026-08-05: 公式は 「「：」以前が発動コスト」 (cardqa_st_06)。 コロン後の条件は **効果のみ**
+    を gate するので、 overlay ではその条件を `conditional` の中へ移した。
+    `optional_cost_then` を持つ効果では **cost を条件の外に出す** 必要があるため、
+    conditional は `effect` 配列の中に入る。 条件自体は変わっていないので、
+    テストはどの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    def _dig(arr):
+        for _p in arr or []:
+            if not isinstance(_p, dict):
+                continue
+            if "conditional" in _p:
+                return (_p.get("conditional") or {}).get("if") or {}
+            if "optional_cost_then" in _p:
+                got = _dig((_p["optional_cost_then"] or {}).get("effect") or [])
+                if got:
+                    return got
+        return {}
+    return _dig(eff.get("do") or [])
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -59,8 +84,22 @@ def _do(overlay, cid, when, needle=None):
     if not matches:
         raise AssertionError(f"{cid} に when={when} の効果がない")
     if needle is not None:
+        # ⚠ 2026-08-05: コロン後の条件を conditional / optional_cost_then の中へ移したため、
+        #   目的の primitive が入れ子になっている。 平坦化して探す。
+        def _flat(arr):
+            out = []
+            for _p in arr or []:
+                if not isinstance(_p, dict):
+                    continue
+                if "conditional" in _p:
+                    out += _flat((_p["conditional"] or {}).get("do"))
+                elif "optional_cost_then" in _p:
+                    out += _flat((_p["optional_cost_then"] or {}).get("effect"))
+                else:
+                    out.append(_p)
+            return out
         for e in matches:
-            if any(needle in prim for prim in e["do"]):
+            if any(needle in prim for prim in _flat(e["do"])):
                 return e["do"], e
         raise AssertionError(f"{cid} when={when} に {needle} を含む効果がない")
     return matches[0]["do"], matches[0]
@@ -108,7 +147,7 @@ def test_op01_094_kaido_ko_all_others_ai():
                       InPlay.of(repo.get("OP01-016"), sickness=False)]
 
     _, eff = _do(overlay, "OP01-094", "on_play")
-    assert eff.get("if", {}).get("leader_feature") == "百獣海賊団", \
+    assert _cond_of(eff).get("leader_feature") == "百獣海賊団", \
         "overlay の リーダー条件 leader_feature=百獣海賊団 が無い"
     for prim in eff["do"]:
         execute_effect(prim, st, me, opp, src)
@@ -226,7 +265,7 @@ def test_op01_101_sasaki_attack_optional_cost_then_ai():
     hand_before = len(me.hand)
     rested_before = me.don_rested
     do, eff = _do(overlay, "OP01-101", "on_attack")
-    assert eff.get("if", {}).get("self_attached_don_ge") == 1, \
+    assert _cond_of(eff).get("self_attached_don_ge") == 1, \
         "overlay の ドンゲート self_attached_don_ge=1 が無い"
     for prim in do:
         execute_effect(prim, st, me, opp, attacker)

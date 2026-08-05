@@ -31,6 +31,31 @@ from engine.effects import (
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` / optional_cost_then 内 の三形対応)。
+
+    ⚠ 2026-08-05: 公式は 「「：」以前が発動コスト」 (cardqa_st_06)。 コロン後の条件は **効果のみ**
+    を gate するので、 overlay ではその条件を `conditional` の中へ移した。
+    `optional_cost_then` を持つ効果では **cost を条件の外に出す** 必要があるため、
+    conditional は `effect` 配列の中に入る。 条件自体は変わっていないので、
+    テストはどの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    def _dig(arr):
+        for _p in arr or []:
+            if not isinstance(_p, dict):
+                continue
+            if "conditional" in _p:
+                return (_p.get("conditional") or {}).get("if") or {}
+            if "optional_cost_then" in _p:
+                got = _dig((_p["optional_cost_then"] or {}).get("effect") or [])
+                if got:
+                    return got
+        return {}
+    return _dig(eff.get("do") or [])
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -130,7 +155,7 @@ def test_op12_059_main_draw_when_sanji_leader():
     me.hand = []
 
     _, entry = _do(overlay, "OP12-059", "main")
-    assert entry.get("if", {}).get("leader_name") == "サンジ", \
+    assert _cond_of(entry).get("leader_name") == "サンジ", \
         "overlay のメイン条件 leader_name=サンジ が無い"
     deck_before = len(me.deck)
     for prim in entry["do"]:
@@ -149,7 +174,7 @@ def test_op12_059_counter_pump_leader_when_4_events_in_trash():
     me.trash = [repo.get(_EVENT)] * 4  # イベント 4 枚 = 条件成立
 
     entry = _entry(overlay, "OP12-059", "counter", needle="power_pump")
-    assert entry.get("if", {}).get("self_trash_event_count_ge") == 4, \
+    assert _cond_of(entry).get("self_trash_event_count_ge") == 4, \
         "overlay のカウンター条件 self_trash_event_count_ge=4 が無い"
     power_before = me.leader.power
     for prim in entry["do"]:
@@ -176,7 +201,7 @@ def test_op12_060_main_choice_bounce_ai():
     opp.characters = [victim]
 
     _, entry = _do(overlay, "OP12-060", "main")
-    assert entry.get("if", {}).get("leader_color_multi") is True, \
+    assert _cond_of(entry).get("leader_color_multi") is True, \
         "overlay のメイン条件 leader_color_multi=true が無い"
     opp_hand_before = len(opp.hand)
     for prim in entry["do"]:
@@ -355,9 +380,11 @@ def test_op12_066_carne_no_blocker_when_few_events():
 # --------------------------------------------------------------------------- #
 def test_op12_069_crocodile_opp_attack_pump_ai():
     """【相手のアタック時】 do の power_pump で 自陣キャラ1体が このバトル中 +2000 (AI)。"""
+    # ⚠ 公式は 「ドン‼-1：自分のリーダーが『B・W』を含む特徴を持つ場合、…」。
+    #   条件は conditional の中なので、 満たさないリーダーだと何も起きない。
     repo = _repo()
     overlay = _overlay()
-    st = _state(repo, _NEUTRAL, overlay)
+    st = _state(repo, "OP14-079", overlay)
     me, opp = st.players[0], st.players[1]
     ally = InPlay.of(repo.get(_FILLER), sickness=False)  # サンジ pow3000
     me.characters = [ally]
@@ -381,9 +408,11 @@ def test_op12_069_crocodile_opp_attack_pump_ai():
 
 def test_op12_069_crocodile_opp_attack_human_pick():
     """人間 + 自リーダー/キャラ複数 → target_pick modal が立ち、 選んだ1体に +2000。"""
+    # ⚠ 公式は 「ドン‼-1：自分のリーダーが『B・W』を含む特徴を持つ場合、…」。
+    #   条件は conditional の中なので、 満たさないリーダーだと何も起きない。
     repo = _repo()
     overlay = _overlay()
-    st = _state(repo, _NEUTRAL, overlay, human_idx=0)
+    st = _state(repo, "OP14-079", overlay, human_idx=0)
     me, opp = st.players[0], st.players[1]
     ally = InPlay.of(repo.get(_FILLER), sickness=False)
     me.characters = [ally]
@@ -522,7 +551,7 @@ def test_op12_072_zeff_gains_rush_on_don_returned_when_sanji():
     me.characters = [zeff]
 
     do, entry = _do(overlay, "OP12-072", "on_self_don_returned_to_deck")
-    assert entry.get("if", {}).get("leader_name") == "サンジ", \
+    assert _cond_of(entry).get("leader_name") == "サンジ", \
         "overlay の条件 leader_name=サンジ が無い"
     for prim in do:
         execute_effect(prim, st, me, opp, zeff)

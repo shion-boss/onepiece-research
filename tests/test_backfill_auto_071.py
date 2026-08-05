@@ -37,6 +37,28 @@ _STAGE1 = "EB02-041"           # コスト1 ステージ (cost_eq:1 コスト用
 _WANO = "OP01-036"             # cost1 power3000 バニラ 特徴《ワノ国》 (対象ヘルパー)
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` / optional_cost_then 内 の三形対応)。
+
+    ⚠ 2026-08-05: 公式は 「「：」以前が発動コスト」 (cardqa_st_06)。 コロン後の条件は効果のみを
+    gate するので overlay ではその条件を `conditional` の中へ移した。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    def _dig(arr):
+        for _p in arr or []:
+            if not isinstance(_p, dict):
+                continue
+            if "conditional" in _p:
+                return (_p.get("conditional") or {}).get("if") or {}
+            if "optional_cost_then" in _p:
+                got = _dig((_p["optional_cost_then"] or {}).get("effect") or [])
+                if got:
+                    return got
+        return {}
+    return _dig(eff.get("do") or [])
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -174,7 +196,7 @@ def test_op06_098_condition_requires_thriller_leader():
     """if 条件: リーダーが《スリラーバーク海賊団》の時だけ成立。"""
     repo = _repo()
     overlay = _overlay()
-    cond = _eff(overlay, "OP06-098", "activate_main")["if"]
+    cond = _cond_of(_eff(overlay, "OP06-098", "activate_main"))
 
     st_ok = _state(repo, _LEADER_THRILLER, overlay)
     assert eval_condition(cond, st_ok, st_ok.players[0]) is True, \

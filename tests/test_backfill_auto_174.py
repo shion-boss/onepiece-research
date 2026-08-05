@@ -36,6 +36,31 @@ SANJI = "OP01-013"      # サンジ (cost2 power3000 麦わらの一味) フィ�
 LEADER = "OP01-001"     # ロロノア・ゾロ (LEADER)
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` / optional_cost_then 内 の三形対応)。
+
+    ⚠ 2026-08-05: 公式は 「「：」以前が発動コスト」 (cardqa_st_06)。 コロン後の条件は **効果のみ**
+    を gate するので、 overlay ではその条件を `conditional` の中へ移した。
+    `optional_cost_then` を持つ効果では **cost を条件の外に出す** 必要があるため、
+    conditional は `effect` 配列の中に入る。 条件自体は変わっていないので、
+    テストはどの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    def _dig(arr):
+        for _p in arr or []:
+            if not isinstance(_p, dict):
+                continue
+            if "conditional" in _p:
+                return (_p.get("conditional") or {}).get("if") or {}
+            if "optional_cost_then" in _p:
+                got = _dig((_p["optional_cost_then"] or {}).get("effect") or [])
+                if got:
+                    return got
+        return {}
+    return _dig(eff.get("do") or [])
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -115,7 +140,7 @@ def test_st10_008_on_play_add_rested_don_ai():
     me.don_remaining_in_deck = 8
 
     eff = _eff(overlay, "ST10-008", "on_play")
-    assert eff.get("if", {}).get("self_don_le") == 3, \
+    assert _cond_of(eff).get("self_don_le") == 3, \
         "overlay の 条件 self_don_le=3 が無い"
     for prim in eff["do"]:
         execute_effect(prim, st, me, opp,
@@ -188,7 +213,7 @@ def test_st10_010_on_play_trash_opp_hand_ai():
     opp.hand = [repo.get(SANJI) for _ in range(7)]  # 7 枚 (= 条件成立)
 
     eff = _eff(overlay, "ST10-010", "on_play")
-    assert eff.get("if", {}).get("opp_hand_count_ge") == 7, \
+    assert _cond_of(eff).get("opp_hand_count_ge") == 7, \
         "overlay の 条件 opp_hand_count_ge=7 が無い"
     assert eff.get("cost", {}).get("pay_don") == 1, \
         "overlay の コスト pay_don=1 が無い"

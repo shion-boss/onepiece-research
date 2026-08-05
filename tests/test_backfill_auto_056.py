@@ -39,6 +39,31 @@ _DONQ_C2 = "OP05-024"          # キュイーン cost2 power2000 ドンキホー
 _DONQ_C1 = "OP10-065"          # シュガー cost1 power1000 ドンキホーテ海賊団
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` / optional_cost_then 内 の三形対応)。
+
+    ⚠ 2026-08-05: 公式は 「「：」以前が発動コスト」 (cardqa_st_06)。 コロン後の条件は **効果のみ**
+    を gate するので、 overlay ではその条件を `conditional` の中へ移した。
+    `optional_cost_then` を持つ効果では **cost を条件の外に出す** 必要があるため、
+    conditional は `effect` 配列の中に入る。 条件自体は変わっていないので、
+    テストはどの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    def _dig(arr):
+        for _p in arr or []:
+            if not isinstance(_p, dict):
+                continue
+            if "conditional" in _p:
+                return (_p.get("conditional") or {}).get("if") or {}
+            if "optional_cost_then" in _p:
+                got = _dig((_p["optional_cost_then"] or {}).get("effect") or [])
+                if got:
+                    return got
+        return {}
+    return _dig(eff.get("do") or [])
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -332,7 +357,7 @@ def test_op05_031_on_attack_untap_rested_cost1_ai():
     me.characters = [buffalo, ally]
 
     on_attack_eff = overlay.get("OP05-031").effects[0]
-    assert on_attack_eff.get("if", {}).get("self_rested_chara_count_ge") == 2, \
+    assert _cond_of(on_attack_eff).get("self_rested_chara_count_ge") == 2, \
         "overlay の レスト2枚条件 self_rested_chara_count_ge=2 が無い"
     for prim in on_attack_eff["do"]:
         execute_effect(prim, st, me, opp, buffalo)

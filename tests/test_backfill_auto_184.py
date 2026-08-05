@@ -72,19 +72,28 @@ _CG_C = "ST25-005"            # モージ cost4 クロスギルド (手札から
 
 
 def _cond_of(eff: dict) -> dict:
-    """効果の発動条件を取り出す (top-level `if` / `conditional` の両対応)。
+    """効果の発動条件を取り出す (top-level `if` / `conditional` / optional_cost_then 内 の三形対応)。
 
-    ⚠ 2026-08-05: 公式は 「〜できる：<条件>の場合、<効果>」 のコロン後の条件を **効果のみ** の
-    gate とする (cardqa_op_02 / cardqa_st_04)。 top-level `if` に置くと **任意コストの支払いごと
-    消える** ので、 overlay ではこの形の条件を `conditional` の中に移した。
-    条件そのものは変わっていないので、 テストはどちらの位置でも読めればよい。
+    ⚠ 2026-08-05: 公式は 「「：」以前が発動コスト」 (cardqa_st_06)。 コロン後の条件は **効果のみ**
+    を gate するので、 overlay ではその条件を `conditional` の中へ移した。
+    `optional_cost_then` を持つ効果では **cost を条件の外に出す** 必要があるため、
+    conditional は `effect` 配列の中に入る。 条件自体は変わっていないので、
+    テストはどの位置でも読めればよい。
     """
     if isinstance(eff.get("if"), dict):
         return eff["if"]
-    for _prim in eff.get("do") or []:
-        if isinstance(_prim, dict) and "conditional" in _prim:
-            return (_prim.get("conditional") or {}).get("if") or {}
-    return {}
+    def _dig(arr):
+        for _p in arr or []:
+            if not isinstance(_p, dict):
+                continue
+            if "conditional" in _p:
+                return (_p.get("conditional") or {}).get("if") or {}
+            if "optional_cost_then" in _p:
+                got = _dig((_p["optional_cost_then"] or {}).get("effect") or [])
+                if got:
+                    return got
+        return {}
+    return _dig(eff.get("do") or [])
 
 
 def _repo() -> CardRepository:

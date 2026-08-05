@@ -32,6 +32,31 @@ from engine.effects import (
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` / optional_cost_then 内 の三形対応)。
+
+    ⚠ 2026-08-05: 公式は 「「：」以前が発動コスト」 (cardqa_st_06)。 コロン後の条件は **効果のみ**
+    を gate するので、 overlay ではその条件を `conditional` の中へ移した。
+    `optional_cost_then` を持つ効果では **cost を条件の外に出す** 必要があるため、
+    conditional は `effect` 配列の中に入る。 条件自体は変わっていないので、
+    テストはどの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    def _dig(arr):
+        for _p in arr or []:
+            if not isinstance(_p, dict):
+                continue
+            if "conditional" in _p:
+                return (_p.get("conditional") or {}).get("if") or {}
+            if "optional_cost_then" in _p:
+                got = _dig((_p["optional_cost_then"] or {}).get("effect") or [])
+                if got:
+                    return got
+        return {}
+    return _dig(eff.get("do") or [])
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -88,16 +113,19 @@ def test_all_wave3_cards_have_overlay():
 # --------------------------------------------------------------------------- #
 def test_eb01_034_wednesday_opp_attack_add_don_ai():
     """AI: 相手アタック時 do → ドンデッキからドン!!1枚をアクティブ追加。"""
+    # ⚠ 2026-08-05: コロン後の条件は効果のみを gate するため overlay では conditional の中。
+    #   条件を満たさない盤面で do を直接実行すると何も起きない (以前は top-level if が
+    #   skip していたので露見しなかった)。 条件を満たすリーダーを使う。
     repo = _repo()
     overlay = _overlay()
-    st = _state(repo, "OP02-071", overlay)  # マゼラン (B・W ではないが do を直接検証)
+    st = _state(repo, "OP14-079", overlay)  # マゼラン (B・W ではないが do を直接検証)
     me, opp = st.players[0], st.players[1]
     me.don_active = 2
     me.don_remaining_in_deck = 8
 
     do, eff = _do(overlay, "EB01-034", "opp_attack")
     # overlay 条件: リーダー『B・W』/ ターン1回 / ドン-1
-    assert "B・W" in eff.get("if", {}).get("leader_features_any", []), \
+    assert "B・W" in _cond_of(eff).get("leader_features_any", []), \
         "overlay の条件 leader_features_any=B・W が無い"
     assert eff.get("cost", {}).get("once_per_turn") is True, "ターン1回 制約が無い"
     assert eff.get("cost", {}).get("pay_don") == 1, "ドン-1 コストが無い"
@@ -125,7 +153,7 @@ def test_eb01_035_monday_on_play_pump_ai():
     leader_before = me.leader.power
 
     do, eff = _do(overlay, "EB01-035", "on_play")
-    assert "B・W" in eff.get("if", {}).get("leader_features_any", []), \
+    assert "B・W" in _cond_of(eff).get("leader_features_any", []), \
         "overlay の条件 leader_features_any=B・W が無い"
     for prim in do:
         execute_effect(prim, st, me, opp,
@@ -176,7 +204,7 @@ def test_eb01_036_minochihuahua_on_ko_add_rested_don_ai():
     me.don_remaining_in_deck = 8
 
     do, eff = _do(overlay, "EB01-036", "on_ko")
-    assert eff.get("if", {}).get("leader_feature") == "インペルダウン", \
+    assert _cond_of(eff).get("leader_feature") == "インペルダウン", \
         "overlay の条件 leader_feature=インペルダウン が無い"
     for prim in do:
         execute_effect(prim, st, me, opp,
@@ -243,15 +271,18 @@ def test_eb01_037_mr9_opp_attack_ko_human_pick():
 # --------------------------------------------------------------------------- #
 def test_eb01_038_okamamichi_counter_redirect_human_pick():
     """人間: カウンター do → redirect_attack target_pick modal が自キャラで立つ。"""
+    # ⚠ 2026-08-05: コロン後の条件は効果のみを gate するため overlay では conditional の中。
+    #   条件を満たさない盤面で do を直接実行すると何も起きない (以前は top-level if が
+    #   skip していたので露見しなかった)。 条件を満たすリーダーを使う。
     repo = _repo()
     overlay = _overlay()
-    st = _state(repo, "OP02-071", overlay, human_idx=0)  # マゼラン
+    st = _state(repo, "OP14-079", overlay, human_idx=0)  # マゼラン
     me, opp = st.players[0], st.players[1]
     ch = InPlay.of(repo.get("OP01-016"), sickness=False)
     me.characters = [ch]
 
     do, eff = _do(overlay, "EB01-038", "counter")
-    assert "B・W" in eff.get("if", {}).get("leader_features_any", []), \
+    assert "B・W" in _cond_of(eff).get("leader_features_any", []), \
         "overlay の条件 leader_features_any=B・W が無い"
     execute_effect(do[0], st, me, opp, None)
 

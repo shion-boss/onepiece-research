@@ -31,6 +31,31 @@ from engine.deck import CardRepository
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` / optional_cost_then 内 の三形対応)。
+
+    ⚠ 2026-08-05: 公式は 「「：」以前が発動コスト」 (cardqa_st_06)。 コロン後の条件は **効果のみ**
+    を gate するので、 overlay ではその条件を `conditional` の中へ移した。
+    `optional_cost_then` を持つ効果では **cost を条件の外に出す** 必要があるため、
+    conditional は `effect` 配列の中に入る。 条件自体は変わっていないので、
+    テストはどの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    def _dig(arr):
+        for _p in arr or []:
+            if not isinstance(_p, dict):
+                continue
+            if "conditional" in _p:
+                return (_p.get("conditional") or {}).get("if") or {}
+            if "optional_cost_then" in _p:
+                got = _dig((_p["optional_cost_then"] or {}).get("effect") or [])
+                if got:
+                    return got
+        return {}
+    return _dig(eff.get("do") or [])
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -63,8 +88,22 @@ def _do(overlay, cid, when, needle=None):
     if not matches:
         raise AssertionError(f"{cid} に when={when} の効果がない")
     if needle is not None:
+        # ⚠ 2026-08-05: コロン後の条件を conditional / optional_cost_then の中へ移したため、
+        #   目的の primitive が入れ子になっている。 平坦化して探す。
+        def _flat(arr):
+            out = []
+            for _p in arr or []:
+                if not isinstance(_p, dict):
+                    continue
+                if "conditional" in _p:
+                    out += _flat((_p["conditional"] or {}).get("do"))
+                elif "optional_cost_then" in _p:
+                    out += _flat((_p["optional_cost_then"] or {}).get("effect"))
+                else:
+                    out.append(_p)
+            return out
         for e in matches:
-            if any(needle in prim for prim in e["do"]):
+            if any(needle in prim for prim in _flat(e["do"])):
                 return e["do"], e
         raise AssertionError(f"{cid} when={when} に {needle} を含む効果がない")
     return matches[0]["do"], matches[0]
@@ -230,11 +269,11 @@ def test_st17_002_leader_feature_gate():
     # 王下七武海 リーダー (ST03-001 クロコダイル) で条件成立
     st = _state(repo, "ST03-001", overlay)
     _, eff = _do(overlay, "ST17-002", "on_play")
-    assert eval_condition(eff.get("if", {}), st, st.players[0]) is True, \
+    assert eval_condition(_cond_of(eff), st, st.players[0]) is True, \
         "王下七武海 リーダーで on_play 条件が成立していない"
     # 非王下七武海 リーダー (OP01-001 ゾロ) で不成立
     st2 = _state(repo, "OP01-001", overlay)
-    assert eval_condition(eff.get("if", {}), st2, st2.players[0]) is False, \
+    assert eval_condition(_cond_of(eff), st2, st2.players[0]) is False, \
         "非王下七武海 リーダーで条件が成立してはいけない"
 
 
@@ -366,9 +405,9 @@ def test_st18_002_on_play_discard_draw_ai():
     me.deck = [repo.get("OP01-016")] * 10
 
     do, eff = _do(overlay, "ST18-002", "on_play")
-    assert eff.get("if", {}).get("self_don_ge") == 8, \
+    assert _cond_of(eff).get("self_don_ge") == 8, \
         "overlay の 場ドン8以上 (self_don_ge=8) ゲートが無い"
-    assert eval_condition(eff.get("if", {}), st, me) is True, \
+    assert eval_condition(_cond_of(eff), st, me) is True, \
         "場ドン8で 登場時条件が成立していない"
     hand_before = len(me.hand)
     for prim in do:
@@ -389,7 +428,7 @@ def test_st18_002_condition_false_few_don():
     me = st.players[0]
     me.don_active = 5  # 8 未満
     _, eff = _do(overlay, "ST18-002", "on_play")
-    assert eval_condition(eff.get("if", {}), st, me) is False, \
+    assert eval_condition(_cond_of(eff), st, me) is False, \
         "場ドン5で条件が成立してはいけない"
 
 
@@ -410,9 +449,9 @@ def test_st18_003_on_attack_draw_ai():
     me.deck = [repo.get("OP01-016")] * 10
 
     do, eff = _do(overlay, "ST18-003", "on_attack")
-    assert eff.get("if", {}).get("self_don_ge") == 8, \
+    assert _cond_of(eff).get("self_don_ge") == 8, \
         "overlay の 場ドン8以上 ゲートが無い"
-    assert eval_condition(eff.get("if", {}), st, me) is True, \
+    assert eval_condition(_cond_of(eff), st, me) is True, \
         "場ドン8で アタック時条件が成立していない"
     deck_before = len(me.deck)
     for prim in do:
@@ -430,7 +469,7 @@ def test_st18_003_condition_false_few_don():
     me = st.players[0]
     me.don_active = 7
     _, eff = _do(overlay, "ST18-003", "on_attack")
-    assert eval_condition(eff.get("if", {}), st, me) is False, \
+    assert eval_condition(_cond_of(eff), st, me) is False, \
         "場ドン7で条件が成立してはいけない"
 
 

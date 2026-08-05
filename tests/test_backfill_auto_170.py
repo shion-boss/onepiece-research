@@ -37,6 +37,31 @@ _BM_LEADER = "ST07-001"       # シャーロット・リンリン (四皇/ビッ
 _LINLIN_CHARA = "ST07-010"    # シャーロット・リンリン (CHARACTER cost7)
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` / optional_cost_then 内 の三形対応)。
+
+    ⚠ 2026-08-05: 公式は 「「：」以前が発動コスト」 (cardqa_st_06)。 コロン後の条件は **効果のみ**
+    を gate するので、 overlay ではその条件を `conditional` の中へ移した。
+    `optional_cost_then` を持つ効果では **cost を条件の外に出す** 必要があるため、
+    conditional は `effect` 配列の中に入る。 条件自体は変わっていないので、
+    テストはどの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    def _dig(arr):
+        for _p in arr or []:
+            if not isinstance(_p, dict):
+                continue
+            if "conditional" in _p:
+                return (_p.get("conditional") or {}).get("if") or {}
+            if "optional_cost_then" in _p:
+                got = _dig((_p["optional_cost_then"] or {}).get("effect") or [])
+                if got:
+                    return got
+        return {}
+    return _dig(eff.get("do") or [])
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -187,7 +212,7 @@ def test_st07_001_on_attack_life_cycle_ai():
     me.hand = [distinct]
 
     eff = _eff(overlay, "ST07-001", "on_attack")
-    assert eff.get("if", {}).get("self_attached_don_ge") == 2, \
+    assert _cond_of(eff).get("self_attached_don_ge") == 2, \
         "overlay の ドンゲート self_attached_don_ge=2 が無い"
     for prim in eff["do"]:
         execute_effect(prim, st, me, opp, me.leader)
@@ -229,7 +254,7 @@ def test_st07_003_on_play_condition_flag():
     repo = _repo()
     overlay = _overlay()
     eff = _eff(overlay, "ST07-003", "on_play")
-    assert eff.get("if", {}).get("self_life_lt_opp") is True, \
+    assert _cond_of(eff).get("self_life_lt_opp") is True, \
         "overlay の 条件 self_life_lt_opp が無い"
 
     st = _state(repo, _NEUTRAL_LEADER, overlay)
@@ -262,7 +287,7 @@ def test_st07_004_on_attack_banish_and_pump_ai():
     me.characters = [attacker]
 
     eff = _eff(overlay, "ST07-004", "on_attack")
-    assert eff.get("if", {}).get("self_attached_don_ge") == 1, \
+    assert _cond_of(eff).get("self_attached_don_ge") == 1, \
         "overlay の ドンゲート self_attached_don_ge=1 が無い"
     life_before = len(me.life)
     power_before = attacker.power
@@ -314,7 +339,7 @@ def test_st07_005_on_attack_life_swap_ai():
     me.characters = [attacker]
 
     eff = _eff(overlay, "ST07-005", "on_attack")
-    assert eff.get("if", {}).get("self_attached_don_ge") == 1, \
+    assert _cond_of(eff).get("self_attached_don_ge") == 1, \
         "overlay の ドンゲート self_attached_don_ge=1 が無い"
     life_before = len(me.life)
     deck_before = len(me.deck)

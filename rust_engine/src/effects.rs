@@ -9638,7 +9638,24 @@ pub fn try_replace_ko(
             }
             let dos: Vec<Value> =
                 eff.get("do").and_then(|v| v.as_array()).cloned().unwrap_or_default();
-            for prim in &dos {
+            // ⭐ `conditional` は 「コロン後の条件は効果のみを gate」 の是正 (2026-08-05) で
+            //   replace の do にも現れるようになった。 中身は普通の primitive 列なので、
+            //   **入れ子を平坦化してから** 同じ allow-list で検査する (中に危険な prim が
+            //   隠れていたら従来どおり bail する = 安全性は変わらない)。
+            let mut flat: Vec<&Value> = Vec::new();
+            fn _flatten<'a>(arr: &'a [Value], out: &mut Vec<&'a Value>) {
+                for p in arr {
+                    if let Some(c) = p.get("conditional") {
+                        if let Some(inner) = c.get("do").and_then(|x| x.as_array()) {
+                            _flatten(inner, out);
+                            continue;
+                        }
+                    }
+                    out.push(p);
+                }
+            }
+            _flatten(&dos, &mut flat);
+            for prim in flat {
                 let pk = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("");
                 // rest_self_cards / return_self_don_to_deck = 非re-leave・非victim参照の safe do (holder=src)。
                 // return_to_deck_bottom (OP15-052 = one_self_character_any を deck へ) = 自 char の return =

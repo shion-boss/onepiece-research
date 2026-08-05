@@ -31,6 +31,31 @@ from engine.effects import (
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` / optional_cost_then 内 の三形対応)。
+
+    ⚠ 2026-08-05: 公式は 「「：」以前が発動コスト」 (cardqa_st_06)。 コロン後の条件は **効果のみ**
+    を gate するので、 overlay ではその条件を `conditional` の中へ移した。
+    `optional_cost_then` を持つ効果では **cost を条件の外に出す** 必要があるため、
+    conditional は `effect` 配列の中に入る。 条件自体は変わっていないので、
+    テストはどの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    def _dig(arr):
+        for _p in arr or []:
+            if not isinstance(_p, dict):
+                continue
+            if "conditional" in _p:
+                return (_p.get("conditional") or {}).get("if") or {}
+            if "optional_cost_then" in _p:
+                got = _dig((_p["optional_cost_then"] or {}).get("effect") or [])
+                if got:
+                    return got
+        return {}
+    return _dig(eff.get("do") or [])
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -263,7 +288,7 @@ def test_eb01_028_counter_pump_and_bounce_ai():
 
     power_before = me.leader.power
     do, eff = _do(overlay, "EB01-028", "counter")
-    assert eff.get("if", {}).get("leader_feature") == "インペルダウン", \
+    assert _cond_of(eff).get("leader_feature") == "インペルダウン", \
         "overlay の条件 leader_feature=インペルダウン が無い"
     for prim in do:
         execute_effect(prim, st, me, opp, None)
@@ -387,7 +412,7 @@ def test_eb01_031_kalifa_on_play_trash_to_hand_ai():
     hand_before = len(me.hand)
 
     do, eff = _do(overlay, "EB01-031", "on_play")
-    assert eff.get("if", {}).get("leader_feature") == "W7", \
+    assert _cond_of(eff).get("leader_feature") == "W7", \
         "overlay の条件 leader_feature=W7 が無い"
     for prim in do:
         execute_effect(prim, st, me, opp,

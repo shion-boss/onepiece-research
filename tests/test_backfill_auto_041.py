@@ -31,6 +31,31 @@ from engine.effects import (
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` / optional_cost_then 内 の三形対応)。
+
+    ⚠ 2026-08-05: 公式は 「「：」以前が発動コスト」 (cardqa_st_06)。 コロン後の条件は **効果のみ**
+    を gate するので、 overlay ではその条件を `conditional` の中へ移した。
+    `optional_cost_then` を持つ効果では **cost を条件の外に出す** 必要があるため、
+    conditional は `effect` 配列の中に入る。 条件自体は変わっていないので、
+    テストはどの位置でも読めればよい。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    def _dig(arr):
+        for _p in arr or []:
+            if not isinstance(_p, dict):
+                continue
+            if "conditional" in _p:
+                return (_p.get("conditional") or {}).get("if") or {}
+            if "optional_cost_then" in _p:
+                got = _dig((_p["optional_cost_then"] or {}).get("effect") or [])
+                if got:
+                    return got
+        return {}
+    return _dig(eff.get("do") or [])
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -276,9 +301,9 @@ def test_op03_086_spandam_on_play_search_cp_to_hand_ai():
     me.hand = []
 
     on_play = _get_eff(overlay, "OP03-086", "on_play")
-    assert on_play.get("if", {}).get("leader_feature_contains") == "CP", \
+    assert _cond_of(on_play).get("leader_feature_contains") == "CP", \
         "overlay の リーダー特徴 CP 条件が無い"
-    assert eval_condition(on_play["if"], st, me) is True, \
+    assert eval_condition(_cond_of(on_play), st, me) is True, \
         "テスト前提: リーダーが CP で条件成立していない"
     for prim in on_play["do"]:
         execute_effect(prim, st, me, opp,
@@ -295,7 +320,7 @@ def test_op03_086_spandam_condition_false_when_not_cp_leader():
     st = _state(repo, "OP01-001", overlay)  # ゾロ (CPでない)
     me, opp = st.players[0], st.players[1]
     on_play = _get_eff(overlay, "OP03-086", "on_play")
-    assert eval_condition(on_play["if"], st, me) is False, \
+    assert eval_condition(_cond_of(on_play), st, me) is False, \
         "リーダーが CP でないのに条件が成立している"
 
 
@@ -547,9 +572,9 @@ def test_op03_093_wanze_on_play_discard_cost_ko_ai():
     hand_before = len(me.hand)
 
     on_play = _get_eff(overlay, "OP03-093", "on_play")
-    assert on_play.get("if", {}).get("leader_feature_contains") == "CP", \
+    assert _cond_of(on_play).get("leader_feature_contains") == "CP", \
         "overlay の リーダー特徴 CP 条件が無い"
-    assert eval_condition(on_play["if"], st, me) is True, \
+    assert eval_condition(_cond_of(on_play), st, me) is True, \
         "テスト前提: リーダーが CP で条件成立していない"
     for prim in on_play["do"]:
         execute_effect(prim, st, me, opp,
@@ -566,7 +591,7 @@ def test_op03_093_wanze_condition_false_when_not_cp_leader():
     st = _state(repo, "OP01-001", overlay)  # ゾロ (CPでない)
     me, opp = st.players[0], st.players[1]
     on_play = _get_eff(overlay, "OP03-093", "on_play")
-    assert eval_condition(on_play["if"], st, me) is False, \
+    assert eval_condition(_cond_of(on_play), st, me) is False, \
         "リーダーが CP でないのに条件が成立している"
 
 

@@ -46,6 +46,29 @@ _OPP_C2 = "OP01-013"         # サンジ cost2 (相手の cost<=3/<=2 対象)
 _OPP_C1 = "OP06-025"         # ケイミー cost1 (相手の cost<=3/<=2 対象 2 体目)
 
 
+def _cond_of(eff: dict) -> dict:
+    """効果の発動条件を取り出す (top-level `if` / `conditional` / optional_cost_then 内 の三形対応)。
+
+    ⚠ 2026-08-05: 公式は 「「：」以前が発動コスト」 (cardqa_st_06)。 コロン後の条件は効果のみを
+    gate するので overlay ではその条件を `conditional` の中へ移した。 `optional_cost_then` を
+    持つ効果では cost を条件の外に出す必要があるため conditional は `effect` の中に入る。
+    """
+    if isinstance(eff.get("if"), dict):
+        return eff["if"]
+    def _dig(arr):
+        for _p in arr or []:
+            if not isinstance(_p, dict):
+                continue
+            if "conditional" in _p:
+                return (_p.get("conditional") or {}).get("if") or {}
+            if "optional_cost_then" in _p:
+                got = _dig((_p["optional_cost_then"] or {}).get("effect") or [])
+                if got:
+                    return got
+        return {}
+    return _dig(eff.get("do") or [])
+
+
 def _repo() -> CardRepository:
     return CardRepository.from_json(ROOT / "db" / "cards.json")
 
@@ -517,7 +540,7 @@ def test_op07_061_leader_feature_condition():
     """条件: リーダーが《ヴィンスモーク家》で成立、 そうでなければ不成立。"""
     repo = _repo()
     overlay = _overlay()
-    cond = _eff(overlay, "OP07-061", "on_play").get("if")
+    cond = _cond_of(_eff(overlay, "OP07-061", "on_play"))
     assert cond is not None, "OP07-061 に leader_feature 条件がない"
     st_ok = _state(repo, _VIN_LEADER, overlay)
     assert eval_condition(cond, st_ok, st_ok.players[0]) is True, \
