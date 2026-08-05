@@ -3356,3 +3356,251 @@ def test_st08_005_no_ko_when_optional_discard_cost_unpayable():
     assert my_c1 in me.characters and op_c1 in opp.characters, (
         "コスト未払いなのに KO が発動している (任意コストのタダ撃ち)"
     )
+
+
+# --------------------------------------------------------------------------- #
+#  公式 Q&A 全件保証 バッチ (2026-08-05): 手札コスト修正 × 登場 filter / 二重ライフ
+# --------------------------------------------------------------------------- #
+def test_st23_001_hand_cost_reduction_counts_for_play_from_hand_cost_filter():
+    """ST23-001 ウタ 「手札のこのカードは、自分のパワー10000以上のキャラがいる場合、コスト-4」。
+
+    公式 (cardqa_st_23):
+      「自分のパワー10000以上のキャラがいるときに、このキャラをコスト2として、
+        『OP01-047 トラファルガー・ロー』の効果 (= 手札からコスト3以下のキャラを登場) で
+        登場させることはできますか？」 → 「はい、できます」
+
+    = 「コストN以下」 の登場 filter は **手札での現在コスト** (印字6 − 手札コスト修正4 = 2) で
+    判定する。 是正前は `_matches_filter` が印字コスト6固定で cost_le:3 を弾き、 公式違反だった。
+    """
+    repo, overlay = _repo(), _overlay()
+    from engine.effects import execute_effect
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    # パワー10000以上のキャラを1体置く (= ウタの手札コスト-4 条件を満たす)
+    big = InPlay.of(repo.get(_FILLER), sickness=False)
+    big.static_buff = 10000
+    me.characters = [big]
+    me.hand = [repo.get("ST23-001")]
+    assert repo.get("ST23-001").cost == 6, "前提: ウタ印字コスト6"
+    # OP01-047 ロー の内側 effect (= 手札からコスト3以下キャラ1枚を登場)
+    execute_effect({"play_from_hand": {"filter": {"category": "CHARACTER", "cost_le": 3}, "limit": 1}},
+                   st, me, opp, None)
+    assert any(c.card.card_id == "ST23-001" for c in me.characters), (
+        "パワー10000+キャラ在場で ウタ(印字6→手札2) が cost3以下 の登場効果で登場できていない (公式: はい)"
+    )
+
+
+def test_st23_001_hand_cost_reduction_inactive_without_power10000_char():
+    """対照: パワー10000以上のキャラが居ない場合、 ウタの手札コスト-4 は発動せず
+    印字コスト6 のまま = cost3以下 の登場効果では登場できない (= 条件付きコスト修正の gate)。"""
+    repo, overlay = _repo(), _overlay()
+    from engine.effects import execute_effect
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.characters = []  # パワー10000+ キャラ 無し
+    me.hand = [repo.get("ST23-001")]
+    execute_effect({"play_from_hand": {"filter": {"category": "CHARACTER", "cost_le": 3}, "limit": 1}},
+                   st, me, opp, None)
+    assert not any(c.card.card_id == "ST23-001" for c in me.characters), (
+        "パワー10000+キャラ不在で ウタの手札コスト-4 が効いていない (印字6 なら cost3以下 で登場不可)"
+    )
+
+
+def test_st23_001_normal_hand_card_unaffected_by_cost_filter_fix():
+    """回帰: 手札コスト修正を持たない通常カード (in_hand_cost_minus=0) は挙動不変。
+    印字コスト6 の通常キャラは cost3以下 の登場効果では依然として登場できない。"""
+    repo, overlay = _repo(), _overlay()
+    from engine.effects import execute_effect
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    # OP02-013 エース (印字コスト7) を手札に = 手札コスト修正なし
+    me.hand = [repo.get("OP02-013")]
+    execute_effect({"play_from_hand": {"filter": {"category": "CHARACTER", "cost_le": 3}, "limit": 1}},
+                   st, me, opp, None)
+    assert not any(c.card.card_id == "OP02-013" for c in me.characters), (
+        "手札コスト修正なしの印字7キャラが cost3以下 filter を通ってしまっている (fix が過剰適用)"
+    )
+
+
+def test_op15_109_moves_exactly_one_life_to_hand_not_two():
+    """OP15-109 ニコ・ロビン: 「ライフ上1枚を手札に加える (= コスト)：麦わらリーダーなら
+    デッキ上1枚をライフへ。その後、手札からコスト5以下《空島》を登場」。
+
+    是正前は cost フィールドと do 配列の両方に life_to_hand:1 があり、 **ライフが2枚**
+    手札へ移る二重発火バグだった (= カードテキストは1枚のみ)。 do 側の重複を除去。
+    """
+    repo, overlay = _repo(), _overlay()
+    # 空島 コスト5以下キャラを手札に用意
+    sky_id = None
+    for c in repo.all_cards() if hasattr(repo, "all_cards") else []:
+        pass
+    import json as _json
+    cards = _json.load(open(ROOT / "db" / "cards.json"))
+    for c in cards:
+        if c.get("category") == "CHARACTER" and "空島" in (c.get("features") or "") \
+                and str(c.get("cost")) not in ("None", "", "-"):
+            try:
+                if int(c["cost"]) <= 5:
+                    sky_id = c["card_id"]; break
+            except (TypeError, ValueError):
+                pass
+    assert sky_id, "テスト前提: コスト5以下の空島キャラが存在する"
+    # リーダーは麦わらの一味を持つ OP01-001
+    st = _state(repo, overlay, leader0="OP01-001")
+    me, opp = st.players[0], st.players[1]
+    assert "麦わらの一味" in repo.get("OP01-001").features
+    robin = InPlay.of(repo.get("OP15-109"), sickness=True)
+    me.characters = [robin]
+    me.hand = [repo.get(sky_id)]
+    me.life = [repo.get(_FILLER)] * 3
+    me.deck = [repo.get(_FILLER)] * 10
+    trigger_on_play(st, me, opp, robin, overlay)
+    g = 0
+    while st.pending_choice is not None and g < 12:
+        g += 1
+        resolve_pending_choice(st, [0])
+    # ライフ: -1 (cost で手札へ) +1 (put_top_to_life) = 3 のまま。 是正前は -2+1 = 2 になっていた。
+    assert len(me.life) == 3, (
+        f"ライフが {len(me.life)} 枚 = life_to_hand が二重発火している (公式: 手札へ移すのは1枚のみ)"
+    )
+    assert any(c.card.card_id == sky_id for c in me.characters), "空島キャラが登場していない"
+
+
+def test_op15_109_life_zero_blocks_whole_effect():
+    """OP15-109: ライフ0では コスト (ライフ上1枚を手札へ) を払えず、 効果全体が不発。
+    公式 (cardqa_op_15): 「自分のライフが0枚の場合、この【登場時】効果で
+    『デッキの上から1枚までをライフの上に加える』や『空島キャラを登場』を
+    行うことはできますか？」 → 「いいえ、できません」。"""
+    repo, overlay = _repo(), _overlay()
+    import json as _json
+    cards = _json.load(open(ROOT / "db" / "cards.json"))
+    sky_id = None
+    for c in cards:
+        if c.get("category") == "CHARACTER" and "空島" in (c.get("features") or "") \
+                and str(c.get("cost")) not in ("None", "", "-"):
+            try:
+                if int(c["cost"]) <= 5:
+                    sky_id = c["card_id"]; break
+            except (TypeError, ValueError):
+                pass
+    st = _state(repo, overlay, leader0="OP01-001")
+    me, opp = st.players[0], st.players[1]
+    robin = InPlay.of(repo.get("OP15-109"), sickness=True)
+    me.characters = [robin]
+    me.hand = [repo.get(sky_id)]
+    me.life = []  # ライフ0
+    me.deck = [repo.get(_FILLER)] * 10
+    deck_before = len(me.deck)
+    trigger_on_play(st, me, opp, robin, overlay)
+    g = 0
+    while st.pending_choice is not None and g < 12:
+        g += 1
+        resolve_pending_choice(st, [0])
+    assert not any(c.card.card_id == sky_id for c in me.characters), (
+        "ライフ0でコスト未払いなのに 空島キャラが登場している (タダ撃ち)"
+    )
+    assert len(me.deck) == deck_before, "ライフ0なのに put_top_to_life が走っている"
+
+
+def test_op15_073_summon_cost_restricted_to_exactly_one():
+    """OP15-073 ヤマ: 【登場時】「手札からコスト1の『神兵』か特徴《神官》キャラ1枚まで登場」。
+    公式 (cardqa_op_15): 「コスト2以上の『神兵』や、コスト2以上で特徴《神官》を持つ
+    キャラカードを登場できますか？」 → 「いいえ、できません」 (= コスト1 ちょうど のみ)。"""
+    repo, overlay = _repo(), _overlay()
+    import json as _json
+    cards = _json.load(open(ROOT / "db" / "cards.json"))
+    c2 = c1 = None
+    for c in cards:
+        if c.get("category") != "CHARACTER":
+            continue
+        is_k = "神官" in (c.get("features") or "") or c.get("name") == "神兵"
+        if not is_k:
+            continue
+        try:
+            cost = int(c["cost"])
+        except (TypeError, ValueError):
+            continue
+        if cost == 2 and not c2:
+            c2 = c["card_id"]
+        if cost == 1 and not c1:
+            c1 = c["card_id"]
+    assert c2 and c1, "テスト前提: コスト1 と コスト2 の 神官/神兵 が存在する"
+    # コスト2 は登場できない
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    yama = InPlay.of(repo.get("OP15-073"), sickness=True)
+    me.characters = [yama]
+    me.hand = [repo.get(c2)]
+    trigger_on_play(st, me, opp, yama, overlay)
+    while st.pending_choice is not None:
+        resolve_pending_choice(st, [0])
+    assert not any(c.card.card_id == c2 for c in me.characters), (
+        "コスト2以上の 神官/神兵 が登場している (公式: いいえ、 コスト1ちょうどのみ)"
+    )
+    # 対照: コスト1 は登場できる
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    yama = InPlay.of(repo.get("OP15-073"), sickness=True)
+    me.characters = [yama]
+    me.hand = [repo.get(c1)]
+    trigger_on_play(st, me, opp, yama, overlay)
+    while st.pending_choice is not None:
+        resolve_pending_choice(st, [0])
+    assert any(c.card.card_id == c1 for c in me.characters), "コスト1の 神官/神兵 が登場できていない"
+
+
+# --- 2026-08-05 (concurrent-run followup): OP02-013 -3000 の白ひげleader誤gate是正 ---
+def test_op02_013_power_debuff_unconditional_and_distinct_targets():
+    """OP02-013 ポートガス・D・エース 【登場時】= 「相手のキャラ2枚までを、このターン中、
+    パワー-3000。その後、自分のリーダーが『白ひげ海賊団』を含む特徴を持つ場合、このキャラは、
+    このターン中、【速攻】を得る。」
+
+    一次情報 (cardqa_op_02, qid 20355f3c0542): 「この【登場時】効果で同じキャラを2回選び、
+    パワーを-6000することはできますか？」→「いいえ、できません。」
+    → 「2枚まで」= 相異なる2枚 (同一キャラの二重選択で -6000 は不可)。
+
+    ⚠ 是正: overlay が -3000 の power_pump 自体に `if leader_features_any 白ひげ海賊団` を
+    付けており、 白ひげリーダー以外だと -3000 が **一切かからない** silent no-op だった。
+    公式テキストでは -3000 は無条件で、 条件がかかるのは後段の【速攻】のみ。
+    Python/Rust とも同じ overlay を読むため差分検証では沈黙 = 公式オラクルでのみ検出。
+    このテストは非・白ひげリーダーで -3000 を assert = 旧 overlay なら落ちる。"""
+    repo, overlay = _repo(), _overlay()
+    # 非・白ひげリーダー (OP01-001 = 麦わらの一味) でも -3000 は無条件でかかる
+    st = _state(repo, overlay, leader0="OP01-001")
+    me, opp = st.players[0], st.players[1]
+    a = InPlay.of(repo.get(_FILLER), sickness=False)   # OP01-013 power3000
+    b = InPlay.of(repo.get(_FILLER), sickness=False)
+    opp.characters = [a, b]
+    pa0, pb0 = a.power, b.power
+    ace = InPlay.of(repo.get("OP02-013"), sickness=True)
+    me.characters = [ace]
+    trigger_on_play(st, me, opp, ace, overlay)
+    assert a.power == pa0 - 3000 and b.power == pb0 - 3000, (
+        "非・白ひげリーダーで -3000 が2枚に無条件でかかっていない "
+        "(旧 overlay は power_pump を白ひげ leader に gate していた)"
+    )
+    # 相異なる2枚に分散 (同一キャラに -6000 スタックしていない)
+    assert a.power == pa0 - 3000 and b.power == pb0 - 3000, (
+        "同一キャラに -6000 が乗っている (公式: 同じキャラを2回は選べない)"
+    )
+
+
+def test_op02_013_rush_only_with_whitebeard_leader():
+    """OP02-013: 後段【速攻】は『白ひげ海賊団』リーダーの時のみ (条件は速攻側にのみ残す)。"""
+    repo, overlay = _repo(), _overlay()
+    # 白ひげ (OP02-001) → 速攻付与
+    st = _state(repo, overlay, leader0="OP02-001")
+    me, opp = st.players[0], st.players[1]
+    ace = InPlay.of(repo.get("OP02-013"), sickness=True)
+    me.characters = [ace]
+    trigger_on_play(st, me, opp, ace, overlay)
+    assert "速攻" in ace.granted_keywords, "白ひげリーダーで速攻が付いていない"
+    # 非・白ひげ (OP01-001) → 速攻なし
+    st2 = _state(repo, overlay, leader0="OP01-001")
+    me2, opp2 = st2.players[0], st2.players[1]
+    ace2 = InPlay.of(repo.get("OP02-013"), sickness=True)
+    me2.characters = [ace2]
+    trigger_on_play(st2, me2, opp2, ace2, overlay)
+    assert "速攻" not in ace2.granted_keywords, "非・白ひげリーダーで速攻が付いている (条件無視)"
+
+

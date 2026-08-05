@@ -5299,13 +5299,19 @@ def _execute_effect_body(
             if isinstance(v, dict) and "_picks_idx" in v:
                 picks_idx = list(v["_picks_idx"])
             # 候補抽出
+            # ⚠ 「コストN以下」 の登場 filter は **手札での現在コスト** で判定する
+            #   (= ST23-001 ウタ 「手札のこのカードは…コスト-4」 → OP01-047 ロー cost3以下 で
+            #   登場可、 cardqa_st_23)。 手札コスト修正 (in_hand_cost_minus) を持たない大多数の
+            #   カードは in_hand_cost_minus=0 → `_matches_filter` と完全一致 = 挙動不変。
+            from .game import _compute_in_hand_cost_minus as _pfh_ihm
             candidates: list[tuple[int, CardDef]] = []
             for i, card in enumerate(me.hand):
                 if card.category != Category.CHARACTER:
                     continue
                 if _no_play_from_hand_via_effect(card, state.effects_overlay):
                     continue   # OP12-036: 効果で登場できないカードは候補外
-                if not _matches_filter(card, filt):
+                _ihm = _pfh_ihm(state, me, card)
+                if not _matches_filter_hand(card, filt, _ihm):
                     continue
                 if filt.get("no_effect") and not _card_has_no_effect(card, state):
                     continue
@@ -11153,6 +11159,55 @@ def _matches_filter_ip(ip: Any, filt: dict[str, Any]) -> bool:
         return False
     rest = {k: v for k, v in filt.items() if k not in plain}
     return _matches_filter(ip.card, rest)
+
+
+def _matches_filter_hand(
+    card: CardDef, filt: dict[str, Any], in_hand_cost_minus: int
+) -> bool:
+    """**手札のカード** に対する filter 判定。 素の 「コストN以下/以上/ぴったり」 は
+    手札での **現在コスト** (= 印刷コスト − in_hand_cost_minus) で判定する。
+
+    公式 (cardqa_st_23, ST23-001 ウタ 「手札のこのカードは、 自分のパワー10000以上の
+    キャラがいる場合、 コスト-4」): 「自分のパワー10000以上のキャラがいるときに、 この
+    キャラをコスト2として、 『OP01-047 ロー』 の効果 (= 手札からコスト3以下のキャラを登場)
+    で登場させることはできますか？」 → **「はい、 できます」**。
+    = 「コストN以下」 の登場 filter は 手札での現在コスト (= 印字コストに手札コスト修正を
+    反映した値) で判定する。 `_matches_filter` (= 印字コスト固定) だと ウタ (印字6) は
+    cost_le:3 で弾かれ 公式違反になる。
+
+    `_matches_filter_ip` (= 盤面 InPlay の現在コスト判定) の手札版。 「元々のコスト」 =
+    `truly_original_cost_*` は 印字コスト固定なので 委譲側 (`_matches_filter`) でそのまま正しい。
+    in_hand_cost_minus<=0 (= 手札コスト修正を持たない大多数のカード) では `_matches_filter`
+    と完全一致 = 挙動不変。
+    """
+    if in_hand_cost_minus <= 0 or not filt:
+        return _matches_filter(card, filt)
+    eff = max(0, card.cost - in_hand_cost_minus)
+    # OR 節も現在コストで判定 (経路依存を避ける、 _matches_filter_ip と同型)
+    if "or" in filt or "or_clauses" in filt:
+        for or_key in ("or", "or_clauses"):
+            subs = filt.get(or_key)
+            if subs is not None and not any(
+                _matches_filter_hand(card, sub, in_hand_cost_minus) for sub in subs
+            ):
+                return False
+        rest_or = {k: v for k, v in filt.items() if k not in ("or", "or_clauses")}
+        if not rest_or:
+            return True
+        return _matches_filter_hand(card, rest_or, in_hand_cost_minus)
+    plain = ("cost_le", "cost_ge", "cost_eq", "cost")
+    if not any(k in filt for k in plain):
+        return _matches_filter(card, filt)
+    if "cost_le" in filt and eff > int(filt["cost_le"]):
+        return False
+    if "cost_ge" in filt and eff < int(filt["cost_ge"]):
+        return False
+    if "cost_eq" in filt and eff != int(filt["cost_eq"]):
+        return False
+    if "cost" in filt and eff != int(filt["cost"]):
+        return False
+    rest = {k: v for k, v in filt.items() if k not in plain}
+    return _matches_filter(card, rest)
 
 
 def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:

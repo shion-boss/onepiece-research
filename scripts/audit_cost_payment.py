@@ -151,9 +151,15 @@ def _unpaid_keys(cost, b, a):
         u.append("trash_self/self_ko")
     if cost.get("return_self_to_hand") and b["src_in_field"] and a["src_in_field"]:
         u.append("return_self_to_hand")
-    # life 系: ライフ → 手札。 ライフが減っていなければ未払い (do の life 増は稀)。
+    # life 系: ライフ → 手札。 ライフが減っておらず **かつ** 手札も増えていなければ未払い。
+    # ⚠ do が同ターンにライフを補充する (put_top_to_life / hand_to_self_life 等) と life 数は
+    #   純変化 0 になり source 側 (life 減) では判定できない。 その場合 destination = 手札 の
+    #   増加で payment を確認する (= 関数冒頭の destination ベース原則どおり)。 do の draw で
+    #   手札が増えるケースは false negative (見逃し) となるが、 false positive は出さない方針
+    #   (docstring)。 実例: OP15-109 ニコ・ロビン (cost=life_to_hand → do=put_top_to_life で
+    #   ライフ補充 = life 純変化0 だが 手札はライフ由来カードで +1)。
     if (int(cost.get("life_to_hand", 0)) > 0 or int(cost.get("life_top_or_bottom_to_hand", 0)) > 0) \
-            and a["life"] >= b["life"]:
+            and a["life"] >= b["life"] and a["hand"] <= b["hand"]:
         u.append("life_cost")
     # trash_to_deck: trash → デッキ。 trash が減っていなければ未払い。
     if int(cost.get("trash_to_deck", 0)) > 0 and a["trash"] >= b["trash"]:

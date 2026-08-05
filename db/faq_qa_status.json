@@ -1183,90 +1183,90 @@
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-003/017 アルビダ/モーガン 起動メイン。 attach_opp_don_to_opp_chara の pre-colon cost は optional_cost_then の can_pay で gate (effects.py:8919 'if not opp.characters or avail_don < ad_n: can_pay=False') = 相手キャラ0 or 相手レストドン無しでは効果全体が不発。 公式どおり。",
   "q": "相手のキャラが0枚のときや、相手のレストのドン!!が相手のコストエリアに無い時に、この【起動メイン】効果で自分のリーダーやキャラに自分のレストのドン!!を付与することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1f2da0ba1b42": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-109 ニコ・ロビン。 ライフ0で不発 (cost life_to_hand gate) は元々 conform。 だが処理中に do 内 life_to_hand が cost と二重発火し ライフ2枚が手札へ移る別バグを発見・是正 (do から重複除去、 overlay-only)。 test_op15_109_moves_exactly_one_life_to_hand_not_two / _life_zero_blocks_whole_effect。",
   "q": "自分のライフが0枚の場合、この【登場時】効果で「自分のデッキの上から1枚までを、ライフの上に加える。」や「自分の手札からコスト5以下の特徴《空島》を持つキャラカード1枚までを登場させる。」を行うことはできますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "1f516a199174": {
   "a": "はい、できます。",
   "files": [
    "cardqa_st_23.json"
   ],
-  "note": "",
+  "note": "ST23-001 ウタ 手札コスト-4 (パワー10000+キャラ在場)。 play_from_hand の cost_le filter が _matches_filter=印字コスト6固定で cost3以下(OP01-047ロー)を弾いていた=公式違反。 _matches_filter_hand を新設し手札現在コスト(印字-in_hand_cost_minus)で判定、 Python/Rust両engine是正。 test_st23_001_hand_cost_reduction_counts_for_play_from_hand_cost_filter。",
   "q": "自分のパワー10000以上のキャラがいるときに、このキャラをコスト2として、「OP01-047 トラファルガー・ロー」の効果で登場させることはできますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "1f839950d379": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_14.json"
   ],
-  "note": "",
+  "note": "OP14-098 三日月形砂丘 メイン: B・Wキャラ全体を次の相手エンドフェイズ終了時までコスト+3。 set_base_cost_timed は解決時点の各 InPlay に next_opp_turn_end_base_cost_override を書く=スナップショット。 発動後に登場した新キャラ(別InPlay, override=None)は+3を受けない。 公式『いいえ』どおり。",
   "q": "この【メイン】効果を発動した後で、次の相手のエンドフェイズ終了時までに自分の『B・W』を含む特徴を持つキャラが登場した場合、そのキャラのコストは+3できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1fb3d610bf9f": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_03.json"
   ],
-  "note": "",
+  "note": "OP03-028 ジャンゴ 登場時 choice: rest option の do=[{rest:self},{rest:one_opponent_character_any}]。 {rest:self} は無条件で発動元をレスト(execute_effect直接検証で jango.rested=True)、 このキャラをレストしない選択肢は無い。 相手キャラのみ『まで』=任意。 公式『いいえ(自レスト必須)』どおり。",
   "q": "この【登場時】効果を発動し、「・このキャラと相手のキャラ1枚までを、レストにする。」を選び、このキャラをレストにしないことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1fe12ce972a2": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_09.json"
   ],
-  "note": "",
+  "note": "OP09-089 ストロンガー 起動メイン: 1枚引く→その後 相手キャラ1をコスト-2。 overlay do=[draw:1, cost_minus:...] は配列順で draw が先に完全解決してから cost_minus の対象選択に入る=構造的に『引いて見た後に選ぶ』。 これは意思決定/情報タイミングの確認 (人間なら draw 後に pending target 選択) で engine の盤面差分に落ちない=n/a。 順序は配列順で保証済。",
   "q": "この【起動メイン】効果は、カード1枚を引きそのカードを見た後に、コストを-2するキャラを選ぶことができますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "1ffe65736392": {
   "a": "はい、11以上になります。自分のトラッシュが28枚の場合、このキャラのコストは+7されてコスト11です。",
   "files": [
    "cardqa_st_27.json"
   ],
-  "note": "",
+  "note": "ST27-004 サンファン・ウルフ: 黒ひげleaderで トラッシュ4枚につきコスト+1 (set_base_cost delta_per divisor4)。 base_cost に上限cap無し。 実測: トラッシュ28枚で base_cost=11 (印字4+7)。 公式『はい、11以上になる』どおり。",
   "q": "このキャラの効果で、場のこのキャラのコストは11以上になりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "20355f3c0542": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "qid論点(OP02-013 同一キャラ2回選択で-6000)は元々conform(2枚まで=相異なる2枚)。並行cron(5bbbbbf)はconformとしたが、検証中に別の公式違反を発見・是正: overlay が -3000 power_pump 自体に if:leader白ひげ を付け、非該当leaderで -3000 が一切かからない silent no-op だった。公式は -3000 無条件/【速攻】のみ白ひげ条件。overlay-only 是正(6 variant: base/_p1/_p2/_p3/_p5/_r1)。回帰 test_op02_013_power_debuff_unconditional_and_distinct_targets(旧overlayで落ちる)+ test_op02_013_rush_only_with_whitebeard_leader。",
   "q": "この【登場時】効果で同じキャラを2回選び、パワーを-6000することはできますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "20b418e26a6d": {
   "a": "はい、できます。",
   "files": [
    "cardqa_st_09.json"
   ],
-  "note": "",
+  "note": "ST09-008 霜月牛マル アタック時: ライフ上/下1枚を手札へ(cost)→手札からコスト4以下黄《ワノ国》1枚登場。 optional_cost_then で cost(life_top_or_bottom_to_hand)が先に解決し 加えたカードは既に手札にある→play_from_hand の候補になる。 実測: ライフ上に置いたワノ国キャラが手札経由で登場。 公式『はい』どおり。",
   "q": "この【アタック時】効果でライフから手札に加えたカードが「コスト4以下の黄の特徴《ワノ国》を持つキャラカード」だった場合、そのカードをこの効果で登場させることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "212e601f9dd0": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-073 ヤマ 登場時: 手札からコスト1の『神兵』か《神官》1枚登場 (filter cost_eq:1)。 コスト2以上は登場不可。 実測: cost2 神官は登場せず / cost1 は登場 = 公式『いいえ』どおり conform (engine既に正しい)。 本バッチの play_from_hand cost-filter 是正の回帰テスト対象として test_op15_073_summon_cost_restricted_to_exactly_one を追加。",
   "q": "この【登場時】効果でコスト2以上の「神兵」や、コスト2以上で特徴《神官》を持つキャラカードを登場できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "219039261625": {
   "a": "この場合、パワー-3000することはできません。",
