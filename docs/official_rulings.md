@@ -2508,3 +2508,94 @@ OP15-022 ブルックは「ルール上、自分はデッキが0枚でも敗北�
   `1000 * attached_dons` を所有者ターン中に動的加算 (core.py:534-541、 6-5-5)。 実測: 所有者ターンの
   リーダーに attached_dons を 0→1 で power 5000→6000。 power は property = ダメージ比較時に常に最新値。
   公式どおり。
+
+## 「相手がイベントを発動した時」 は イベント発動のみ、 ライフ【トリガー】では発火しない (2026-08-05 是正)
+
+**一次情報 (cardqa_op_11)**:
+> Q: 自分のターン中に、相手がイベントの【トリガー】効果を発動した時、このキャラの効果を発動できますか？
+> A: いいえ、できません。
+
+**何が壊れていたか**: 「相手がイベントを発動した時」 (= イベントカードの **発動** に反応、
+手札プレイ / カウンター) の reactive を持つカードが、 OP11-102 ケイミー
+(「相手がイベントか**【トリガー】**を発動した時」) と **同じ** `opp_event_or_trigger_fired`
+when に配線されていた。 この when は event-play (`trigger_main_event` / `trigger_counter_event`)
+と **ライフ【トリガー】発動** (`trigger_lifecard_trigger`) の両方から発火するため、
+「イベントを発動した時」 だけのカードが 相手のライフ【トリガー】発動でも **誤って発火** していた
+(公式 = いいえ)。
+
+overlay は Python/Rust 共通なので、 この種の誤りは **差分検証 (rust_parity) では永久に沈黙** する。
+外部オラクル (公式 Q&A) でしか見つからないクラス。
+
+**影響カード (5 base + パラレル = 11 entry、 30 未満 = 自動修正範囲内)**:
+- OP06-044 ギオン 「相手がイベントを発動した時、相手は手札1枚をデッキ下」
+- OP01-004 ウソップ 「相手がイベントを発動した時、1ドロー」
+- OP11-012 フランキー 「相手がイベントを発動した時、自キャラすべて+2000」
+- OP15-119 ルフィ 「相手がイベントか【ブロッカー】を発動した時、…」 (【トリガー】ではない)
+- OP06-048 ゼフ 「相手が【ブロッカー】かイベントを発動した時、…」 (【トリガー】ではない)
+
+> ⚠ コード comment 「OP06-044 ギオン系: 【トリガー】効果は reactive より先に解決」 は
+> **ギオンがトリガーに反応する前提** で書かれていたが、 ギオンの公式テキストは
+> 「相手が**イベント**を発動した時」 のみ = トリガー反応しない。 comment の前提が誤り。
+
+**是正**: 新 when `opp_event_played` を追加。
+- Python: `trigger_opp_event_played` (= `_enqueue_field_when(opp, "opp_event_played")`) を
+  event-play 経路 (`trigger_main_event` / `trigger_counter_event`) でのみ、
+  `trigger_opp_event_or_trigger_fired` の直前に撃つ。 ライフ【トリガー】経路
+  (`trigger_lifecard_trigger`) は `opp_event_or_trigger_fired` のみ (= ケイミー系だけ反応)。
+  `_FIELD_WHEN_ONCE_MIRROR` と cost-gate list に `opp_event_played` を追加
+  (影響カードは【ターン1回】持ちで canonical once mirror が必要)。
+- Rust: `field_when_once_mirrored` に `opp_event_played` を追加。 `execute_main_event` と
+  counter loop で `fire_field_when(opp, "opp_event_played")` を opp_event_or_trigger_fired
+  の直前に撃つ。 life-trigger site (10263) は据置。
+- overlay: 上記 5 base + パラレル 11 entry を `opp_event_or_trigger_fired` → `opp_event_played`。
+  OP11-102 ケイミー (「イベントか【トリガー】」) は `opp_event_or_trigger_fired` のまま。
+
+**回帰 (tests/test_effect_interactions.py)**:
+`test_opp_event_only_reactive_fires_on_event_play` (フランキーはイベント発動で+2000) /
+`test_opp_event_only_reactive_does_not_fire_on_life_trigger` (ライフ【トリガー】では不発、 是正前は落ちる) /
+`test_event_or_trigger_reactive_still_fires_on_life_trigger` (ケイミーはライフ【トリガー】で発火 = 巻き添え無し)。
+検証: rust_parity MISMATCH=0 / smoke_parity MISMATCH=0 / sonogo 0 / pytest green。
+
+## 公式どおりで **問題なかった** もの (2026-08-05 バッチ その9、 FAQ 全件保証 台帳より)
+
+いずれも engine が既に公式どおり (= 再調査回避のため記録)。 最小シナリオを実測して確認。
+
+- **cardqa_eb_01 (2bba718d26a2)** OP04-082 キュロス 【登場時】「相手のコスト1以下のキャラ1枚までをKO」:
+  相手キャラを効果でコスト-2 (印字3→現在1) した後、 このKOで除去できるか → **はい**。
+  素の 「コストN以下」 は現在コストで判定 (既存則、 `one_opponent_character_cost_le_1cost`)。
+  印字3のキャラに -2 を与えてKO成立、 無修正では非対象、 を実測。
+
+- **cardqa_op_01 (2c33ea4117c5)** OP01-095 狂死郎 「場のドン8枚以上ある場合1ドロー」:
+  8枚未満でも **登場できる** → はい。 登場可否は登場時効果の条件で gate されない。
+  DON7で登場成功&ドローなし / DON8でドロー、 を実測。
+
+- **cardqa_op_01 (2c42dfdbc2c3)** OP01-070/071 「コストN以下のキャラ1枚まで持ち主のデッキ下」:
+  **自分のキャラ** も置ける → はい。 「相手の」 無し = 両陣営 (`one_character_either_cost_le_N`)。
+  既存 `test_unqualified_character_target_can_hit_own_board` が人間経路で自陣候補を確認済。
+
+- **cardqa_st_04 (2c95896468db)** ST04-003 カイドウ 「相手コスト6以下1枚までKOし、速攻を得る」:
+  KO対象が居なくても速攻を得られる → はい (「~枚まで」 = 0枚可、 後段は 「可能な限り」 実行)。
+  opp 空で give_keyword 速攻が付くのを実測 (既存 「その後 tail」 則と同系)。
+
+- **cardqa_op_15 (2ca8c4aee3fb)** OP15-093 リスキー兄弟 【起動メイン】「このキャラをトラッシュ：
+  トラッシュ15枚以上ならルフィに速攻:キャラ+属性斬」: トラッシュ14枚で発動できるか → **はい**。
+  コスト (このキャラ→トラッシュ) を払った **後** に条件 (trash≥15) を判定する。
+  trash14→cost後15で付与 / trash13→14で不発、 を実測。
+
+- **cardqa_op_09 (2cd669be7d77)** OP09-068 チョッパー等: ターン終了時効果で得た【ブロッカー】は
+  「効果を無効にする」 で無効化できるか → **いいえ**。 `is_blocker_now` は effect-negate フラグを
+  見ず granted_keywords のみ参照。 negate_effect / disable_effect 後も is_blocker_now=True を実測。
+
+- **cardqa_op_12 (2d70036a304c)** アクティブのドン0で DONコスト【メイン】効果を発動できるか →
+  **いいえ**。 rest_self_don / pay_don は `_can_pay` (active_don 不足で不可) で gate。
+  OP12-041 (pay_don1) が active_don0 で候補に出ず / 1で出る、 を実測。
+
+- **cardqa_op_08 (2d8cc0616fb0)** OP08-063 カタクリ 【登場時】「ライフの上から1枚を裏向きにできる：
+  ドン1枚アクティブ追加」: ライフの1番上が裏向きの場合発動できるか → **いいえ**。
+  cost `flip_life_face_down` は表向きライフ1枚以上が必要 (`_can_pay`: face_up_life_count<1で不可)。
+  face_up=0 で add_don 不発 / face_up=1 で発火、 を実測。
+
+- **cardqa_op_11 (2dd95d70c825)** OP11-013 プリンス・グルス 【アタック時】「相手パワー2000以下すべて
+  【ブロッカー】発動不可」: アタック時に3000以上→その後2000以下になったキャラは【ブロッカー】できるか →
+  **できます**。 `disable_blocker` は解決時の現在パワーで対象を確定 (per-instance flag、 スナップショット)。
+  3000のキャラは非対象=後で降下してもブロック可 / 2000は対象、 を実測。

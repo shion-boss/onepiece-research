@@ -11339,6 +11339,9 @@ fn field_when_once_mirrored(when: &str) -> bool {
             | "on_self_hand_discarded" | "on_self_don_returned_to_deck" | "on_self_event_played"
             // ⚠ 実キーは on_ 無しの "opp_event_or_trigger_fired" (Python の綴り違いを修正済)。
             | "opp_event_or_trigger_fired" | "on_opp_event_or_trigger_fired"
+            // 「相手がイベントを発動した時」 (= イベント発動のみ、 ライフ【トリガー】では発火せず、
+            //  cardqa_op_11 = OP11-012 フランキー / OP06-044 ギオン 等)。 event-play 経路のみ enqueue。
+            | "opp_event_played"
             | "on_self_chara_leave_by_self_effect" | "on_self_rested"
             | "on_self_trigger_fired" | "on_life_zero" | "on_play" | "on_block"
             // end_of_turn / opp_end_of_turn は _pay_end_of_turn_cost が mark_event_once で
@@ -11527,6 +11530,9 @@ pub fn execute_main_event(state: &mut GameState, me_idx: usize, card_id: &str) -
     //   ③ opp_event_or_trigger_fired(opp)。 各段 fire は fidelity 保証 (未対応 cost/once/prim は Err bail)。
     execute_card_effects(state, me_idx, card_id, "main", Slot::Detached)?;
     fire_field_when(state, me_idx, "on_self_event_played")?;
+    // 「相手がイベントを発動した時」 (OP11-012 フランキー 等) は event-play 経路のみ。
+    // opp_event_or_trigger_fired の直前に撃つ (Python: trigger_opp_event_played → …_or_trigger_fired)。
+    fire_field_when(state, opp, "opp_event_played")?;
     fire_field_when(state, opp, "opp_event_or_trigger_fired")?;
     Ok(())
 }
@@ -11569,6 +11575,8 @@ pub fn fire_counter_events(
         // trigger_counter_event 順 (effects.py:12875): counter 効果 → opp_event_or_trigger_fired(attacker)
         //   → on_self_event_played(defender)。 各 counter event 毎に発火 (per-event、 Python enqueue+drain 準拠)。
         execute_card_effects(state, defender_idx, &cid, "counter", Slot::Detached)?;
+        // カウンターも event-play 経路 = 「相手がイベントを発動した時」 を撃つ (ライフ【トリガー】は別)。
+        fire_field_when(state, attacker_idx, "opp_event_played")?;
         fire_field_when(state, attacker_idx, "opp_event_or_trigger_fired")?;
         fire_field_when(state, defender_idx, "on_self_event_played")?;
     }

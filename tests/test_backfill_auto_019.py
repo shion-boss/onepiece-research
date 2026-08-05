@@ -495,7 +495,7 @@ def test_op01_004_usopp_draw_on_opp_event_ai():
     hand_before = len(me.hand)
     deck_before = len(me.deck)
 
-    do, _ = _do(overlay, "OP01-004", "opp_event_or_trigger_fired")
+    do, _ = _do(overlay, "OP01-004", "opp_event_played")
     for prim in do:
         execute_effect(prim, st, me, opp,
                        InPlay.of(repo.get("OP01-004"), sickness=False))

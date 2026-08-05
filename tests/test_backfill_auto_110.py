@@ -11,7 +11,7 @@ OP11-018 / OP11-019 / OP11-020 / OP11-023 の 10 枚。
   OP11-010 ひばり (CHARACTER 赤) = 【登場時】相手キャラ1枚 -2000 /【アタック時】自身 +1000。
      その後 自海軍リーダー1枚まで アクティブキャラにもアタック可 (give_attack_active_chara)
   OP11-012 フランキー (CHARACTER 赤) = 【自分のターン中】【ターン1回】相手がイベントを発動した時
-     自分のキャラすべて このターン中 +2000 (opp_event_or_trigger_fired, all_self_characters)
+     自分のキャラすべて このターン中 +2000 (opp_event_played, all_self_characters)
   OP11-014 ボルサリーノ (CHARACTER 赤) = 【ブロッカー】【起動メイン】自レスト：自海軍のリーダーか
      キャラ1枚まで アクティブキャラにもアタック可 (activate_main, cost rest_self, filter feature=海軍)
   OP11-016 ロロノア・ゾロ (CHARACTER 赤) = 【起動メイン】【ターン1回】自リーダーかキャラ1枚に
@@ -267,7 +267,7 @@ def test_op11_012_all_self_characters_pump_ai():
     me.characters = [c1, c2]
 
     b1, b2 = c1.power, c2.power
-    eff = _eff(overlay, "OP11-012", "opp_event_or_trigger_fired")
+    eff = _eff(overlay, "OP11-012", "opp_event_played")
     assert eff.get("if", {}).get("self_turn") is True, \
         "overlay の 自ターン中条件 self_turn=true が無い"
     for prim in eff["do"]:

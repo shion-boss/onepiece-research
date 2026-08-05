@@ -641,7 +641,7 @@ def test_op06_044_opp_event_hand_to_deck_bottom():
     opp_hand_before = len(opp.hand)
     opp_deck_before = len(opp.deck)
 
-    eff = _eff(overlay, "OP06-044", "opp_event_or_trigger_fired")
+    eff = _eff(overlay, "OP06-044", "opp_event_played")
     assert eff.get("if", {}).get("self_turn") is True, \
         "overlay の【自分のターン中】条件 (self_turn) が無い"
     for prim in eff["do"]:

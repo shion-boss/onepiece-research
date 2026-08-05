@@ -4212,3 +4212,88 @@ def test_op02_025_filtered_turn_cost_reduction_applies_at_payment():
     assert plays, "2ドンでワノ国コスト3が legal になっていない"
     apply_action(st, plays[0])  # 是正前は not enough don で ValueError
     assert any(c.card.card_id == wano3 for c in me.characters), "ワノ国コスト3が登場していない"
+
+
+# --------------------------------------------------------------------------- #
+#  「相手がイベントを発動した時」 は イベント **発動** のみ、 ライフ【トリガー】発動では発火しない
+#  (2026-08-05 是正、 cardqa_op_11)
+#     公式 (cardqa_op_11): 「自分のターン中に、 相手がイベントの【トリガー】効果を発動した時、
+#                          このキャラの効果を発動できますか？」 →「いいえ、 できません。」
+#     = 「相手がイベントを発動した時」 (OP11-012 フランキー / OP06-044 ギオン / OP01-004 ウソップ)
+#       は 相手が **イベントカードを発動** (手札/カウンター) した時のみ。 ライフに置かれた
+#       イベントの【トリガー】キーワードを発動しても発火しない。
+#     ⚠ 是正前は フランキー等も OP11-102 ケイミー (「イベントか【トリガー】」) と同じ
+#       `opp_event_or_trigger_fired` に配線され、 ライフ【トリガー】でも誤発火していた。
+#       overlay は Python/Rust 共通 = 差分検証では永久に沈黙するクラスのバグ。
+# --------------------------------------------------------------------------- #
+def _event_react_board(repo, ov, reactor_id):
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    for p in (p0, p1):
+        p.deck = [repo.get(_FILLER)] * 10
+        p.life = [repo.get(_FILLER)] * 3
+    st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                   rng=random.Random(1), effects_overlay=ov)
+    st.turn_player_idx, st.turn_number = 0, 9
+    reactor = InPlay.of(repo.get(reactor_id), sickness=False)
+    ally = InPlay.of(repo.get(_FILLER), sickness=False)   # 印字パワー 3000
+    p0.characters = [reactor, ally]
+    return st, p0, p1, reactor, ally
+
+
+def test_opp_event_only_reactive_fires_on_event_play():
+    """OP11-012 フランキー 「相手がイベントを発動した時」 は 相手のイベント発動で発火する。"""
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, trigger_main_event
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    # OP08-036 = 【トリガー】を持つイベント (= 発動対象カードとして使う)
+    st, p0, p1, franky, ally = _event_react_board(repo, ov, "OP11-012")
+    before = ally.power
+    # p1 (=相手) がイベントを発動 → p0 (=フランキー所有) の opp_event_played が発火
+    trigger_main_event(st, p1, p0, repo.get("OP08-036"), ov)
+    assert ally.power == before + 2000, (
+        "相手のイベント発動でフランキー (相手がイベントを発動した時: 自キャラ+2000) が発火していない"
+    )
+
+
+def test_opp_event_only_reactive_does_not_fire_on_life_trigger():
+    """OP11-012 フランキー は ライフの【トリガー】発動では発火しない (公式 cardqa_op_11 = いいえ)。
+
+    是正前は `opp_event_or_trigger_fired` 配線で ライフ【トリガー】でも誤って +2000 していた。
+    """
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, trigger_lifecard_trigger
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    st, p0, p1, franky, ally = _event_react_board(repo, ov, "OP11-012")
+    before = ally.power
+    # p0 のターン中に p1 のライフ【トリガー】(OP08-036) が発動する状況
+    trigger_lifecard_trigger(st, p1, p0, repo.get("OP08-036"), ov)
+    assert ally.power == before, (
+        "ライフ【トリガー】発動なのにフランキーが発火している "
+        "(公式 cardqa_op_11: イベントの【トリガー】発動では発火しない)"
+    )
+
+
+def test_event_or_trigger_reactive_still_fires_on_life_trigger():
+    """OP11-102 ケイミー 「イベントか【トリガー】を発動した時」 は ライフ【トリガー】でも発火する。
+
+    フランキー 是正が「トリガー反応」 まで巻き添えにしていないことの対照 (回帰ガード)。
+    """
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, trigger_lifecard_trigger
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    st, p0, p1, kaimi, ally = _event_react_board(repo, ov, "OP11-102")
+    p1.life = [repo.get(_FILLER)] * 3        # opp_life_ge 2 を満たす
+    self_life0, opp_life0 = len(p0.life), len(p1.life)
+    trigger_lifecard_trigger(st, p1, p0, repo.get("OP08-036"), ov)
+    assert len(p0.life) == self_life0 - 1 and len(p1.life) == opp_life0 - 1, (
+        "ケイミー (イベントか【トリガー】を発動した時: 両者ライフ-1) が ライフ【トリガー】で発火していない"
+    )

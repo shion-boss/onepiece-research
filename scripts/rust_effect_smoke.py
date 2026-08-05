@@ -51,7 +51,8 @@ FIELD_WHENS = {
     "on_opp_event_or_trigger_fired", "on_self_chara_leave_by_self_effect",
     "on_self_don_returned_to_deck", "on_opp_blocker_use", "on_life_zero",
     # 2026-08-02: Rust 実装済になった field-when 群 (execute_one_effect が同経路で扱える)
-    "opp_event_or_trigger_fired", "on_self_chara_rested_by_self_effect", "on_self_battled",
+    "opp_event_or_trigger_fired", "opp_event_played",
+    "on_self_chara_rested_by_self_effect", "on_self_battled",
     "on_self_chara_leave_by_opp_effect", "on_self_don_attached", "on_self_battle_ko",
     "on_opp_chara_returned_to_hand_by_self_effect", "on_self_draw_non_draw_phase",
     "game_start",

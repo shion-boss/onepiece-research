@@ -104,7 +104,7 @@ def test_op06_048_includes_blocker_trigger_and_mills():
     = ブロッカー反応 (on_opp_blocker_use) も含む (注記「含まず」は stale)。 mill も発火。"""
     ov = _overlay()
     whens = {c.get("when") for c in _raw("OP06-048")}
-    assert "on_opp_blocker_use" in whens and "opp_event_or_trigger_fired" in whens, \
+    assert "on_opp_blocker_use" in whens and "opp_event_played" in whens, \
         f"OP06-048 は両 trigger を持つべき: {whens}"
     repo = _repo()
     st, me, opp = _state(repo)

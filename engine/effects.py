@@ -383,6 +383,7 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
                 "on_self_rested", "on_self_chara_rested_by_self_effect",
                 "on_self_hand_discarded", "on_self_don_returned_to_deck",
                 "on_self_event_played", "on_opp_event_or_trigger_fired",
+                "opp_event_played",
                 "on_self_life_taken", "on_opp_life_taken",
                 "on_self_life_to_hand", "on_self_life_to_trash",
                 "on_self_draw_non_draw_phase", "on_life_zero",
@@ -1044,6 +1045,10 @@ _FIELD_WHEN_ONCE_MIRROR = frozenset({
     # 旧 "on_opp_event_or_trigger_fired" は綴り違いで一度も一致せず mirror されていなかった
     # (= Rust が「ターン1回」を追跡できず該当効果が丸ごと bail、 2026-08-02 修正)。 両方載せる。
     "opp_event_or_trigger_fired", "on_opp_event_or_trigger_fired",
+    # 「相手がイベントを発動した時」 (= イベント発動のみ、 ライフ【トリガー】発動では発火しない、
+    #  cardqa_op_11 = OP11-012 フランキー / OP06-044 ギオン 等)。 opp_event_or_trigger_fired とは
+    #  別 when で、 event-play 経路のみ enqueue する (trigger_opp_event_played)。
+    "opp_event_played",
     "on_self_chara_leave_by_self_effect", "on_self_rested",
     "on_self_trigger_fired",
     # ライフ 0 トリガー (OP05-098 紫エネル)。 source はリーダー (= 永続 InPlay) なので mirror 可能。
@@ -12906,6 +12911,31 @@ def trigger_opp_event_or_trigger_fired(
     _maybe_resolve(state)
 
 
+def trigger_opp_event_played(
+    state: GameState,
+    opp_player: Player,
+    actor_player: Player,
+    effects_overlay: dict[str, CardEffectBundle],
+) -> None:
+    """「相手がイベントを発動した時」 (opp_event_played)。 opp_event_or_trigger_fired との違いは
+    **ライフの【トリガー】発動では発火しない** こと。
+
+    公式 (cardqa_op_11 = OP11-012 フランキー / OP06-044 ギオン / OP01-004 ウソップ 等):
+      「自分のターン中に、 相手がイベントの【トリガー】効果を発動した時、 このキャラの効果を
+        発動できますか？」 → 「いいえ、 できません」。
+      = 「相手がイベントを発動した時」 は 相手が **イベントカードを発動** した時のみ (手札/カウンター)
+        であり、 ライフに置かれたイベントの【トリガー】キーワードを発動しても発火しない。
+
+    したがって呼び出しは event-play 経路 (trigger_main_event / trigger_counter_event) のみ。
+    ライフ【トリガー】経路 (trigger_lifecard_trigger) は opp_event_or_trigger_fired だけを撃つ
+    (= OP11-102 ケイミー のように 「イベントか【トリガー】」 と書かれたカードだけが反応する)。
+    """
+    if not effects_overlay:
+        return
+    _enqueue_field_when(state, opp_player, "opp_event_played", effects_overlay)
+    _maybe_resolve(state)
+
+
 def trigger_self_event_played(
     state: GameState,
     actor_player: Player,
@@ -13741,8 +13771,10 @@ def trigger_main_event(
         # reactive より **先** に解決する。 counter 経路と同じ理由 (turn 優先で reactive が
         # 先取りされる) で、 main 効果を先に drain してから reactive を積む。
         _maybe_resolve(state)
-    # イベント発動そのもの (= bundle 有無に関わらず) で相手側の opp_event_or_trigger_fired を発火。
-    # 公式 「相手がイベントか【トリガー】を発動した時」 (OP11-102 ケイミー 等)。
+    # イベント発動そのもの (= bundle 有無に関わらず) で相手側の反応を発火。
+    # ① 「相手がイベントを発動した時」 (OP11-012 フランキー 等、 event-play 経路のみ)。
+    trigger_opp_event_played(state, opp, me, effects_overlay)
+    # ② 「相手がイベントか【トリガー】を発動した時」 (OP11-102 ケイミー 等)。
     trigger_opp_event_or_trigger_fired(state, opp, me, effects_overlay)
     # 同イベント発動で自分側の on_self_event_played を発火。
     # 公式 「自分がイベントを発動した時」 (OP04-053 ページワン 等)。
@@ -13776,6 +13808,8 @@ def trigger_counter_event(
         # 非turn) と reactive (=攻撃側=turn) を同時にキューへ積むと reactive が先に pop され順序が逆転
         # していた。 counter を先に drain してから reactive を積む。
         _maybe_resolve(state)
+    # カウンターイベント発動も event-play 経路 = 「相手がイベントを発動した時」 を撃つ。
+    trigger_opp_event_played(state, opp, me, effects_overlay)
     trigger_opp_event_or_trigger_fired(state, opp, me, effects_overlay)
     trigger_self_event_played(state, me, opp, effects_overlay)
     # 防御中 (= AI ターン中) でも defender が human なら user pick を 有効化 する 為、

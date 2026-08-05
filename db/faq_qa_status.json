@@ -1732,90 +1732,90 @@
   "files": [
    "cardqa_eb_01.json"
   ],
-  "note": "",
+  "note": "OP04-082 キュロス 登場時 KO(コスト1以下)は現在コストで判定。相手キャラをコスト-2した後(印字3→現在1)にKO可能を実測(tests/test_effect_interactions.py の現在コスト則と同系)。公式=はい",
   "q": "この【起動メイン】効果で、自分の手札から「OP04-082 キュロス」を登場させ、その後相手のコスト3のキャラのコストを-2しました。この時、登場した「OP04-082 キュロス」の【登場時】効果で、この相手のコスト-2されたキャラをKOできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "2c04d7cfdd6a": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_11.json"
   ],
-  "note": "",
+  "note": "「相手がイベントを発動した時」(OP11-012 フランキー/OP06-044 ギオン/OP01-004 ウソップ/OP15-119/OP06-048)は event-play のみで発火し、ライフの【トリガー】発動では発火しない様に是正。新 when=opp_event_played を追加(event-play 経路 trigger_main_event/counter のみ enqueue、lifecard_trigger は opp_event_or_trigger_fired のみ)。是正前は全て opp_event_or_trigger_fired 配線で誤発火。OP11-102 ケイミー(イベントか【トリガー】)は据置。Python+Rust 両是正+回帰3本。公式=いいえ",
   "q": "自分のターン中に、相手がイベントの【トリガー】効果を発動した時、このキャラの効果を発動できますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "2c33ea4117c5": {
   "a": "はい、登場できます。",
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-095 狂死郎: 登場時ドロー条件(self_don_ge8)は登場可否を gate しない。DON7で登場成功&ドローなし/DON8でドロー、を実測。公式=はい登場できる",
   "q": "自分の場にドン!!が8枚以上ない場合、このキャラを登場できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "2c42dfdbc2c3": {
   "a": "はい、置くことができます。",
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-070/071: 「相手の」無しの「キャラ1枚まで」は両陣営(one_character_either_*)。自分のキャラも対象可(既存 test_unqualified_character_target_can_hit_own_board で人間経路に自陣候補が入る)。公式=はい",
   "q": "この【登場時】効果で自分のキャラをデッキの下に置けますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "2c95896468db": {
   "a": "はい、できます。”~枚まで”と表記されている場合、0枚を選ぶことができます。",
   "files": [
    "cardqa_st_04.json"
   ],
-  "note": "",
+  "note": "ST04-003 カイドウ 登場時「相手コスト6以下1枚までKOし速攻」: KO対象0でも(「~枚まで」=0枚可)後段の速攻付与は実行。opp空でrush付与を実測。公式=はい",
   "q": "KOできるキャラが居ない場合、【登場時】効果で速攻を得ることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "2ca8c4aee3fb": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-093 リスキー兄弟: cost(このキャラをトラッシュ)を払った後に条件(trash>=15)を判定。trash14→cost後15で速攻:キャラ+属性斬を付与/trash13→14で不発、を実測。公式=はい",
   "q": "自分のトラッシュが14枚の時に、この【起動メイン】効果でこのキャラをトラッシュに置き、自分のキャラの「モンキー・Ｄ・ルフィ」1枚までが【速攻：キャラ】と属性(斬)を得ることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "2cd669be7d77": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_09.json"
   ],
-  "note": "",
+  "note": "OP09-068 チョッパー等: 付与済【ブロッカー】は「効果を無効にする」で消えない。is_blocker_now は 効果無効/effect_disabled フラグを見ず granted_keywords のみ参照。negate_effect/disable_effect 後も is_blocker_now=True を実測。公式=いいえ無効化できない",
   "q": "この【自分のターン終了時】効果で得た【ブロッカー】効果は、他のカードの「効果を無効にする」と書かれた効果で無効にすることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "2d70036a304c": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "",
+  "note": "アクティブDON0で DONコスト起動メイン発動不可。OP12-041(pay_don1)がactive_don0で list_activate_main_effects に出ず/1で出る、を実測。rest_self_don/pay_don payability(_can_pay)で gate。公式=いいえ",
   "q": "自分のアクティブのドン!!が0枚の場合、この【メイン】効果を発動することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "2d8cc0616fb0": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_08.json"
   ],
-  "note": "",
+  "note": "OP08-063 カタクリ: 登場時コスト flip_life_face_down はライフ表向き1枚以上が必要(_can_pay: face_up_life_count<1で不可)。face_up=0(上が裏向き)でadd_don不発/face_up=1で発火、を実測。公式=いいえ発動できない",
   "q": "自分のライフの1番上が裏向きの場合、この【登場時】効果は発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "2dd95d70c825": {
   "a": "この場合、【ブロッカー】を発動できます。",
   "files": [
    "cardqa_op_11.json"
   ],
-  "note": "",
+  "note": "OP11-013 プリンス・グルス アタック時「相手パワー2000以下すべて【ブロッカー】不可」: 解決時の現在パワーで対象確定(スナップショット)。3000のキャラは非対象=後で2000に下がってもブロック可/2000は対象、を実測。公式=できます",
   "q": "この【アタック時】効果を発動した時にはパワーが3000以上で、その後パワーが2000以下になった相手のキャラは、そのターン中【ブロッカー】を発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "2de2cc6f1c63": {
   "a": "はい、できます。",

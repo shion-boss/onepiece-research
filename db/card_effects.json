@@ -10288,7 +10288,7 @@
   },
   {
    "_text": "OP15-119 ルフィ 相手イベント/トリガー発動時: 自ライフ上1公開、 コスト1につき自身 +1000 turn",
-   "when": "opp_event_or_trigger_fired",
+   "when": "opp_event_played",
    "do": [
     {
      "reveal_self_life_top_pump_per_cost": {
@@ -36194,7 +36194,7 @@
   },
   {
    "_text": "OP15-119 相手イベント/ブロッカー発動時:自ライフ上1公開、コスト1につき+1000",
-   "when": "opp_event_or_trigger_fired",
+   "when": "opp_event_played",
    "do": [
     {
      "reveal_self_life_top_pump_per_cost": {
@@ -82598,7 +82598,7 @@
  "OP01-004": [
   {
    "_text": "OP01-004 opp_event_or_trigger_fired: ドン!!×1 + 自ターン + 1回 + 相手イベント発動時 → 1ドロー",
-   "when": "opp_event_or_trigger_fired",
+   "when": "opp_event_played",
    "conditions": [
     {
      "self_turn": true
@@ -92138,7 +92138,7 @@
  "OP01-004_p2": [
   {
    "_text": "OP01-004 opp_event_or_trigger_fired: ドン!!×1 + 自ターン + 1回 + 相手イベント発動時 → 1ドロー",
-   "when": "opp_event_or_trigger_fired",
+   "when": "opp_event_played",
    "conditions": [
     {
      "self_turn": true
@@ -99656,7 +99656,7 @@
  "OP06-044_p1": [
   {
    "_text": "OP06-044_p1 【自分のターン中】【ターン1回】相手がイベントを発動した時、相手は自身の手札1枚をデッキの下に置く。",
-   "when": "opp_event_or_trigger_fired",
+   "when": "opp_event_played",
    "if": {
     "self_turn": true
    },
@@ -99673,7 +99673,7 @@
  "OP06-044_r1": [
   {
    "_text": "OP06-044_r1 【自分のターン中】【ターン1回】相手がイベントを発動した時、相手は自身の手札1枚をデッキの下に置く。",
-   "when": "opp_event_or_trigger_fired",
+   "when": "opp_event_played",
    "if": {
     "self_turn": true
    },
@@ -101720,7 +101720,7 @@
  "OP11-012": [
   {
    "_text": "OP11-012 【自分のターン中】【ターン1回】相手がイベントを発動した時、自分のキャラすべてを、このターン中、パワー+2000。",
-   "when": "opp_event_or_trigger_fired",
+   "when": "opp_event_played",
    "if": {
     "self_turn": true
    },
@@ -102883,7 +102883,7 @@
  "OP06-044": [
   {
    "_text": "OP06-044 【自分のターン中】【ターン1回】相手がイベントを発動した時、相手は自身の手札1枚をデッキの下に置く。",
-   "when": "opp_event_or_trigger_fired",
+   "when": "opp_event_played",
    "if": {
     "self_turn": true
    },
@@ -102900,7 +102900,7 @@
  "OP06-048": [
   {
    "_text": "OP06-048 【自分のターン中】相手が【ブロッカー】かイベントを発動した時、自分のリーダーが特徴《東の海》を持つ場合、自分のデッキの上から4枚をトラッシュに置いてもよい。",
-   "when": "opp_event_or_trigger_fired",
+   "when": "opp_event_played",
    "if": {
     "self_turn": true,
     "leader_feature": "東の海"
@@ -104878,7 +104878,7 @@
  "OP11-012_p1": [
   {
    "_text": "OP11-012_p1 【自分のターン中】【ターン1回】相手がイベントを発動した時、自分のキャラすべてを、このターン中、パワー+2000。",
-   "when": "opp_event_or_trigger_fired",
+   "when": "opp_event_played",
    "if": {
     "self_turn": true
    },
@@ -110809,7 +110809,7 @@
  "OP11-012_r1": [
   {
    "_text": "OP11-012 【自分のターン中】【ターン1回】相手がイベントを発動した時、自分のキャラすべてを、このターン中、パワー+2000。",
-   "when": "opp_event_or_trigger_fired",
+   "when": "opp_event_played",
    "if": {
     "self_turn": true
    },
