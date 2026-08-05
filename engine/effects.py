@@ -11838,15 +11838,25 @@ def _enqueue_field_when(
     owner: Player,
     when: str,
     effects_overlay: dict[str, CardEffectBundle],
+    only_iids: Optional[set[int]] = None,
 ) -> None:
     """owner の場 (leader + characters + stages) のうち、 指定 when を持つ全ての InPlay を enqueue。
     複数効果がある場合でもイベントは「カード単位」で 1 つ (= _execute_event が when 一致を全実行)。
     ⚠ 2026-07-24 修正: 従来 stages を除外しており、 ステージの field-when トリガー
     (on_self_chara_ko / on_self_chara_leave_by_opp_effect 等、 OP09-080 サニー号) が発火しなかった。
+
+    only_iids: 指定時、 その instance_id 集合に含まれる InPlay のみ enqueue する。
+      = 「発火の起点となる事象の **前** に場に居たカードだけ反応させる」 スナップショット用。
+      OP13-106 コニー: 自身の【トリガー】(このカードを登場させる) で登場した時、 その同じ
+      【トリガー】発動を自身の【相手のターン中】(【トリガー】発動時ブロッカー) で拾わない
+      (公式 cardqa_op_13: 「いいえ、できません。この効果は、このキャラが場にある間に
+      【トリガー】効果を発動した際に発動できる効果です」)。
     """
     candidates: list[InPlay] = [owner.leader] + list(owner.characters) + list(owner.stages)
     owner_idx = state.players.index(owner)
     for ip in candidates:
+        if only_iids is not None and ip.instance_id not in only_iids:
+            continue
         bundle = effects_overlay.get(ip.card.card_id)
         if bundle is None:
             continue
@@ -13619,6 +13629,14 @@ def trigger_lifecard_trigger(
         return False
     state.push_log(f"  TRIGGER: {card.name}")
     defender_idx = state.players.index(defender)
+    # 【トリガー】解決 (play_self 等) の **前** に場に居た自軍カードを snapshot する。
+    # OP13-106 コニー: 【トリガー】で自身を登場させた場合、 その同じ【トリガー】発動を
+    # 自身の【相手のターン中】(on_self_trigger_fired) で拾ってはならない (= 公式 いいえ)。
+    # 登場は trigger 解決中に起きるので、 snapshot 後の新 iid は除外される。
+    pre_trigger_field_iids = {
+        ip.instance_id
+        for ip in ([defender.leader] + list(defender.characters) + list(defender.stages))
+    }
     enqueue_event(
         state,
         when="trigger",
@@ -13637,8 +13655,12 @@ def trigger_lifecard_trigger(
     )
     # 「自分の【トリガー】が発動した時」 (OP13-106 コニー 等)。
     # defender = トリガー発火側 (= 自分視点)。 defender の 場 で when="on_self_trigger_fired"
-    # を 持つ カード を enqueue。
-    _enqueue_field_when(state, defender, "on_self_trigger_fired", effects_overlay)
+    # を 持つ カード を enqueue。 ⚠ この【トリガー】自身が登場させたカード (= snapshot 後の
+    # 新 iid) は除外する (公式: 登場元の【トリガー】発動では自身の反応は発動しない)。
+    _enqueue_field_when(
+        state, defender, "on_self_trigger_fired", effects_overlay,
+        only_iids=pre_trigger_field_iids,
+    )
     _maybe_resolve(state)
     return True
 

@@ -2089,3 +2089,139 @@ Python/Rust とも同じ overlay を読むため差分検証では原理的に�
 ⭐ **教訓**: 「その後、〜場合」 の条件は **後段のみ** を gate する。前段の効果に条件を付けると
 「条件を満たさない時に前段まで消える」 silent no-op になる。overlay 追加時は「条件がテキストの
 どこから始まるか」を厳密に読む。
+
+---
+
+## OP13-106 コニー: 自身の【トリガー】で登場した時、その同じ【トリガー】発動を自身の【相手のターン中】が拾ってはならない (2026-08-05 是正)
+
+**一次情報** (`db/faq/cardqa_op_13`, qid `22e6d4bdc2bc`):
+
+> 「このキャラが【トリガー】効果で登場した時、このキャラ自身の【相手のターン中】効果で
+>   【ブロッカー】を得ることはできますか？」
+> → **「いいえ、できません。この【相手のターン中】効果は、このキャラが場にある間に
+>     【トリガー】効果を発動した際に発動できる効果です。」**
+
+OP13-106 コニー = `text`:「【相手のターン中】【トリガー】が発動した時、このキャラは、このターン中、
+【ブロッカー】を得る。」 / `trigger`:「【トリガー】このカードを登場させる。」
+= コニーは (a) 自身を登場させる【トリガー】 と (b) 【トリガー】発動時に自身へブロッカーを付与する
+【相手のターン中】場効果 を持つ。 コニーを **自身の【トリガー】で登場させた** 場合、 その登場の
+きっかけとなった【トリガー】発動では (b) は発動しない (= 発動時点でコニーはまだ場に居ない)。
+
+**是正前バグ 2 点** (Python/Rust **同一 overlay + 同一発火順** = 差分検証では原理的に沈黙):
+1. overlay に `when:"trigger"` で自身へ【ブロッカー】を付与する **誤エントリ** があった
+   (= コニーのライフトリガー解決中に直接ブロッカーが付く)。 コニーの【トリガー】は
+   「このカードを登場させる」 のみで、 ブロッカー付与は【相手のターン中】場効果由来 = このエントリは
+   カードテキストに根拠が無い mis-encoding。
+2. engine が `on_self_trigger_fired` (= 【相手のターン中】場効果の発火) を **play_self 解決の後** に
+   場を走査して積むため、 自身を登場させた【トリガー】発動を **登場後のコニー** が拾って
+   ブロッカーを得ていた。 実測 (是正前): 相手ターンにライフからコニーを【トリガー】登場させると
+   `granted_keywords={'ブロッカー'}` = 公式違反。
+
+**実装**:
+- overlay-only: 誤エントリ (1) を削除 (OP13-106 は パラレル無し、 base 1 枚)。
+- engine (Python `effects.py`): `trigger_lifecard_trigger` で【トリガー】解決の **前** に
+  `pre_trigger_field_iids = {leader+characters+stages の iid}` を snapshot し、
+  `_enqueue_field_when(..., "on_self_trigger_fired", only_iids=pre_trigger_field_iids)` で
+  **snapshot に居たカードだけ** 反応させる (= play_self で登場した新 iid は除外)。
+  `_enqueue_field_when` に `only_iids` パラメータを追加。
+- Rust は **無変更で invariant 維持**: `fire_life_trigger` は `play_self` (source-gone) を
+  再現できず **明示 bail** するため、 コニーの【トリガー】経路には到達しない (= その action は
+  Python 委譲)。 `on_self_trigger_fired` を使うカードは **OP13-106 のみ**、 かつ登場は
+  自身の play_self トリガーだけなので、 成功する (bail しない) 全トリガーでは登場カードが
+  場に追加されず、 Rust の `fire_field_when(on_self_trigger_fired)` は登場元を含みえない
+  = 「bit 一致 or bail」 が保たれる。 `rust_parity_check --assert` MISMATCH=0 /
+  `rust_effect_smoke_parity --assert` MISMATCH=0 維持。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+`test_op13_106_connie_no_blocker_when_played_by_own_trigger` (自身の【トリガー】登場→ブロッカー無、
+旧 overlay+engine で落ちる) + `test_op13_106_connie_gets_blocker_when_already_on_field`
+(対照: 既に場のコニーは別カードの【トリガー】発動でブロッカーを得る)。
+
+⭐ **教訓**: 「〜が発動した時」 系の反応 (field-when) は、 **発火の起点となる事象の前に場に居た**
+カードだけが拾える。 起点となる効果 (ここでは play_self) が反応主体自身を場に出す場合、
+発火順 (事象→登場→反応enqueue) のままだと登場したてのカードが自分の起点を拾ってしまう。
+snapshot で 「事象前の在場集合」 に閉じるのが正しい。
+
+---
+
+## OP03-095 石鹼羊: 「2枚まで」 は同一キャラに重ねられない (2026-08-05 conform、 distinct-target 則の追加確認)
+
+**一次情報** (`cardqa_op_03`, qid `21b57cd57c91`): 「この【メイン】効果で、相手のキャラ1枚のコストを
+-4することはできますか？」→ **「いいえ、できません。」** OP03-095【メイン】= 「相手のキャラ2枚までを、
+このターン中、コスト-2。」 = 相手キャラ 2 枚 (相異なる) にそれぞれ -2。 同一キャラに -2 を 2 回重ねて
+-4 にはできない。 overlay = `cost_minus target all_opponent_chara_filtered limit2` = distinct 2 体。
+実測: 相手キャラ 1 体のみの局面で発動 → base_cost -2 が 1 回だけ (= -4 でない)。 OP02-013 エース
+(2枚まで -3000 → -6000 不可) と同型 = 公式どおり。
+
+---
+
+## 2026-08-05 batch (cron optcg-faq-conformance) 追加分の conform / n/a (再調査回避)
+
+いずれも engine を実際に動かして盤面差分を実測。
+
+- **OP12-078 串焼き: `don_diff_le:0` は draw と -3000 の両方を entry-level `if` で gate** (cardqa_op_12,
+  qid 219039261625) — 「自分の場のドン‼が相手の場のドン‼より多い場合、-3000 の効果はどうなりますか？」→
+  「-3000 することはできません」。 overlay の `if: {don_diff_le: 0}` (自ドン総数 ≤ 相手ドン総数) は
+  entry 全体 (draw + power_pump) を gate。 自ドン > 相手ドン (条件 false) なら **draw も -3000 も不発**。
+  実測: 自ドン5>相手2 で victim power 不変・draw 無 / 自ドン2≤5 で victim -3000 + draw1 = 公式どおり。
+- **OP11-119 コビー: 『アクティブのキャラにもアタックできる』付与でも召喚酔いのキャラはアタック不可**
+  (cardqa_op_11, qid 23171f061fd1) — 【登場時】で「このターンに登場した自分のキャラ」を選んでも、
+  そのキャラはアクティブのキャラにアタックできるか→「いいえ」。 `give_attack_active_chara` は
+  `アクティブアタック可` を付与するだけで召喚酔いを解かない。 `legal_actions` (game.py:997) は
+  召喚酔い (非・速攻) を attackers から除外するので、 付与を受けてもアタック宣言自体ができない。
+  実測: sick+付与で当該キャラの attack action 0 / 非sick+付与で相手アクティブキャラに attack 可。
+- **ST19-005 ガープ: トラッシュ空なら【起動メイン】のコスト-1 は不発** (cardqa_st_19, qid 231a13ef49b2) —
+  「自分のトラッシュのカードが無い場合、相手のキャラをコスト-1できるか」→「いいえ」。 overlay は
+  `optional_cost_then{cost:[trash_to_deck limit1], effect:[cost_minus one_opponent -1]}`。 トラッシュ空で
+  コスト (トラッシュ1枚→デッキ下) が払えず cost_minus 不発。 実測: trash空で victim base_cost 不変 /
+  trash1で -1 = 公式どおり。
+- **OP14-041 ボア・ハンコック(leader): 【相手のターン中】自キャラ登場時の draw は強制** (cardqa_op_14,
+  qid 238f1bb7f753) — 「引かないことはできますか」→「いいえ、必ず引く」。 overlay は mandatory
+  (『できる』でない) draw1 + `if: {opp_turn: true}`。 実測: 相手ターンで on_self_chara_played → hand+1・
+  pending_choice=None (発動可否の選択は無い) / 自ターンは if opp_turn 不成立で draw 無 = 公式どおり。
+- **EB01-001 光月おでん(leader): 【アタック時】+1000 は条件消失後も持続** (cardqa_eb_01, qid 23f214079c1e) —
+  「アタック時に自ワノ国cost5以上キャラがいて +1000 した後、 次の相手ターン中にそのキャラが居なくなっても
+  +1000 されているか」→「はい」。 overlay = `power_pump self_leader +1000 duration:next_self_turn_start`
+  (`if` は自ワノ国cost5+存在 ∧ 付与ドン≥1、 **アタック時に1回評価**)。 一度付与された `next_turn_buff` は
+  REFRESH (次自ターン開始) まで保持され、 `_recompute_static` で再評価しない。 実測: next_turn_buff=1000 が
+  ワノ国離脱後も持続。 ⚠ 相手ターン中に power の見かけが下がるのは DON+1000 が rule 6-5-5 で相手ターン中は
+  0 になるだけで、 アタック効果由来の +1000 (next_turn_buff) は残る (両立)。
+- **ST35-003 カラス: 『どちらが選んで捨てるか』 は選択者帰属 = n/a** (cardqa_st_35, qid 22e17e11de25) —
+  「捨てるカードはどちらのプレイヤーが選ぶか」→「発動プレイヤーの相手が自身の手札から選ぶ」。 engine は
+  `trash_opp_hand_random` (相手手札から random) で **side (相手手札) は正しい** が、 「相手が選ぶ」 の
+  選択者は未モデル (random)。 選択者の帰属は盤面差分に落ちない (どの札が捨てられるかの結果分布のみ) = n/a。
+- **OP04-090 ルフィ: トラッシュ7枚デッキ下の公開/順序 = 可視性モデル外 = n/a** (cardqa_op_04, qid
+  23719402b202) — 「戻すカードとその順番は相手に公開するか」→「明らかにした後、順番は見えないよう並べ替えて
+  置く」。 engine はデッキ順の可視性・公開知識をモデル化しないので盤面差分に落ちない = n/a。
+
+---
+
+## escalated: 効果ダメージ (deal_opp_leader_damage) がライフカードの【トリガー】を発動しない (2026-08-05、 EB03-055 / OP06-116)
+
+**一次情報** (`cardqa_eb_03`, qid `23d714a028b5`):
+
+> 「相手のこのカードの【KO時】効果で自分がダメージを受け、ライフから【トリガー】を持つカードを
+>   手札に加える場合、その【トリガー】効果を発動することはできますか？」
+> → **「はい、できます。」**
+
+EB03-055 ニコ・ロビン【相手のターン中】【KO時】= 「相手に1ダメージを与えてもよい」
+(overlay `deal_opp_leader_damage:1`)。 公式ルール (skill 7-1-4-1-1-2 / 10-1-5): **ダメージを受けると**
+ライフ上1枚を確認し【トリガー】があれば発動を選べる。 効果ダメージも戦闘ダメージ同様に **ダメージ** =
+ライフカードの【トリガー】が発動できる (⚠ 「効果でライフを手札に移動」 (mill/life_to_hand) はダメージで
+ないので【トリガー】不発 = 10-1-5、 は **別物**。 「ダメージを与える」 は発動する)。
+
+**確認した違反**: `deal_opp_leader_damage` (effects.py:5629) は `opp.life.pop→hand.append` のみで
+コメントに **「トリガー判定は省略」** と明記 = 意図的な近似が公式違反を隠している典型。 combat の
+ライフ処理 (`game.py:_resolve_life_taken`) は `trigger_lifecard_trigger` を呼ぶが、 効果ダメージ経路は
+これを通らない。 Python/Rust とも同じ overlay + 同じ省略 = 差分検証では沈黙。
+
+**escalated の理由** (rule 11 = アーキ変更):
+- faithful fix は効果ダメージを `_resolve_life_taken` (game.py) 相当に通してライフカードの【トリガー】を
+  発火させること。 だが (1) **効果解決の途中** で人間 defender に 「トリガーを使うか」 の pause が要る。
+  combat の pause 機構 (`pending_attack_hits`) は **アタック境界専用** で、 効果 do-list の途中で中断・
+  再開する機構が engine に無い (= AI は `should_fire_trigger` で自動判定できるが、 人間の選択権を
+  faithful に出すには effect-suspension の新機構)。 (2) Rust mirror + rebuild + 配備影響 (matrix 再計算)。
+- 影響カードは **2 枚のみ** (EB03-055(+_p1/_p2) / OP06-116) と小さいが、 人間 pause mid-effect が
+  architecture-touching。 単一 primitive の局所修正を超えるため人間レビュー / 集中回へ。
+- ⚠ **conform にしてはいけない (違反が確定している)**。 AI 経路 (self-play/matrix/corpus) だけなら
+  auto-fire で正せるが、 人間対戦の選択権を潰す近似は 公式テキスト忠実主義に抵触するため保留。

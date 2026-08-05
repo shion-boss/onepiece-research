@@ -3604,3 +3604,56 @@ def test_op02_013_rush_only_with_whitebeard_leader():
     assert "速攻" not in ace2.granted_keywords, "非・白ひげリーダーで速攻が付いている (条件無視)"
 
 
+
+
+# --------------------------------------------------------------------------- #
+#  OP13-106 コニー: 自身の【トリガー】(このカードを登場させる) で登場した時、
+#  その **同じ【トリガー】発動** を自身の【相手のターン中】(【トリガー】発動時
+#  【ブロッカー】を得る) で拾ってはならない。
+#
+#  一次情報 (db/faq/cardqa_op_13):
+#    「このキャラが【トリガー】効果で登場した時、このキャラ自身の【相手のターン中】
+#      効果で【ブロッカー】を得ることはできますか？」
+#    → 「いいえ、できません。この【相手のターン中】効果は、このキャラが場にある間に
+#        【トリガー】効果を発動した際に発動できる効果です。」
+#
+#  是正前バグ (Python/Rust 同一 overlay = 差分検証では沈黙):
+#    (1) overlay に `when:"trigger"` で自身へ【ブロッカー】を付与する誤エントリがあり、
+#        コニー自身のライフトリガー解決中に直接ブロッカーが付いていた。
+#    (2) engine が `on_self_trigger_fired` を play_self 解決の **後** に発火するため、
+#        自身を登場させたトリガー発動を登場後のコニーが拾ってブロッカーを得ていた。
+#  是正: (1) 誤 overlay エントリを削除。 (2) trigger 解決の前に場の iid を snapshot し、
+#        その集合に居るカードだけ on_self_trigger_fired を発火する (登場元は除外)。
+# --------------------------------------------------------------------------- #
+def test_op13_106_connie_no_blocker_when_played_by_own_trigger():
+    """コニーを自身の【トリガー】で登場させても【ブロッカー】は得ない (公式: いいえ)。"""
+    from engine.game import _resolve_life_taken
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    st.turn_player_idx = 1  # 相手(P1)のターン = コニー所有者(P0)から見て「相手のターン中」
+    defender, attacker = st.players[0], st.players[1]
+    # ライフ札としてコニーを引かれ、 【トリガー】(このカードを登場させる) を発動。
+    _resolve_life_taken(st, attacker, defender, repo.get("OP13-106"), use_trigger=True)
+    on_field = [c for c in defender.characters if c.card.card_id == "OP13-106"]
+    assert len(on_field) == 1, "コニーが【トリガー】で登場していない (前提が崩れている)"
+    assert "ブロッカー" not in on_field[0].granted_keywords, (
+        "自身の【トリガー】で登場したコニーが【ブロッカー】を得ている (公式: いいえ)"
+    )
+
+
+def test_op13_106_connie_gets_blocker_when_already_on_field():
+    """対照: 既に場にいるコニーは、別のカードの【トリガー】発動でブロッカーを得る (公式: はい)。"""
+    from engine.game import _resolve_life_taken
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    st.turn_player_idx = 1
+    defender, attacker = st.players[0], st.players[1]
+    connie = InPlay.of(repo.get("OP13-106"), sickness=False)
+    defender.characters = [connie]
+    # 別の【トリガー】持ちカード (EB02-018 バギー) をライフから発動させる。
+    _resolve_life_taken(st, attacker, defender, repo.get("EB02-018"), use_trigger=True)
+    still = [c for c in defender.characters if c.card.card_id == "OP13-106"]
+    assert len(still) == 1, "場のコニーが消えている (前提が崩れている)"
+    assert "ブロッカー" in still[0].granted_keywords, (
+        "場にいたコニーが【トリガー】発動でブロッカーを得ていない (公式: はい)"
+    )

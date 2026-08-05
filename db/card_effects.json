@@ -64544,23 +64544,6 @@
  ],
  "OP13-106": [
   {
-   "_text": "OP13-106 trigger: が発動した時、このキャラは、このターン中、【ブロッカー】を得る。",
-   "when": "trigger",
-   "do": [
-    {
-     "give_keyword": {
-      "target": "self",
-      "keyword": "ブロッカー"
-     }
-    }
-   ],
-   "conditions": [
-    {
-     "opp_turn": true
-    }
-   ]
-  },
-  {
    "_text": "OP13-106 trigger: このカードを登場させる。",
    "when": "trigger",
    "do": [
