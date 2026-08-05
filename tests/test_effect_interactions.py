@@ -2203,3 +2203,177 @@ def test_st33_002_optional_cost_payable_when_opp_hand_le_5():
     resolve_pending_choice(st, [1])  # 任意コストを払う
     assert len(me.hand) == 0, "自分の手札1枚を捨てられる"
     assert len(opp.hand) == 5, "相手手札は6枚以上でないので減らない"
+
+
+# ---------------------------------------------------------------------------
+# escalated だった 4 件の決着 (2026-08-05)
+# ---------------------------------------------------------------------------
+
+def test_opp_life_leaving_by_effect_fires_on_opp_life_taken():
+    """「相手のライフが離れた時」 は **効果経由でも** 発火する (OP08-105 ボニー)。
+
+    一次情報 (`cardqa_op_08`): 「相手のライフが**相手の効果によって**手札やトラッシュに
+    移動した時、 この【自分のターン中】効果でカード2枚を引き手札1枚を捨てることは
+    できますか？」 → **「はい、できます。」**
+
+    是正前は `trigger_on_opp_life_taken` が **アタックダメージ経路にしか配線されておらず**、
+    効果によるライフ除去では発火しなかった。
+    """
+    from engine.core import InPlay
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    for prim in ({"mill_opp_life_to_hand": 1}, {"mill_opp_life_to_trash": 1},
+                 {"deal_opp_leader_damage": 1}):
+        st, p0, p1 = _either_board(repo, ov, [], [])
+        bonney = InPlay.of(repo.get("OP08-105"), sickness=False)
+        bonney.attached_dons = 1                  # 【ドン‼×1】
+        p0.characters = [bonney]
+        p0.hand = [repo.get("OP01-013")] * 2
+        st.turn_player_idx, st.turn_number = 0, 6   # 【自分のターン中】
+        hand_before, life_before = len(p0.hand), len(p1.life)
+        execute_effect(prim, st, p0, p1, None)
+        assert len(p1.life) == life_before - 1, f"{prim}: 相手ライフが減っていない"
+        # ボニー = 2 ドロー + 1 捨て = net +1
+        assert len(p0.hand) == hand_before + 1, (
+            f"{prim}: 効果で相手ライフが離れたのに 「相手のライフが離れた時」 が発火していない"
+        )
+
+
+def test_optional_cost_cannot_be_partially_paid():
+    """任意コストは **一部だけ払えない** (OP04-055 疫災弾)。
+
+    一次情報 (`cardqa_op_04`): 「この【メイン】効果を発動し、 コスト4以下のキャラをデッキの下に
+    置かずに、 自分の手札から「氷鬼」1枚を捨てることや、 自分のトラッシュから「氷鬼」1枚を
+    登場させることはできますか？」 → **「いいえ、できません。」**
+    定義 (`cardqa_st_06`): 「「：」以前に表記されている指示はすべて "発動コスト" であり、
+    "発動コスト" はその一部のみを支払うことはできません。」
+
+    是正前は コスト4以下キャラが不在でも 氷鬼 を捨てて登場できていた (= 部分支払い)。
+    """
+    import json as _json
+    from engine.core import InPlay
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    hyouki = next(c["card_id"] for c in
+                  _json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+                  if c["name"] == "氷鬼" and "_" not in c["card_id"])
+    eff = next(e for e in ov.get("OP04-055").effects if e.get("when") == "main")
+
+    def board(opp_has_target: bool):
+        st, p0, p1 = _either_board(repo, ov, [], [])
+        p0.hand = [repo.get(hyouki)]
+        p0.trash = [repo.get(hyouki)]
+        p0.don_active = 10
+        if opp_has_target:
+            p1.characters = [InPlay.of(repo.get("OP01-013"), sickness=False)]  # cost2
+        return st, p0, p1
+
+    # 対象不在 → コスト全体が払えない = 氷鬼も捨てないし登場もしない
+    st, p0, p1 = board(False)
+    h0, c0 = len(p0.hand), len(p0.characters)
+    for prim in eff["do"]:
+        execute_effect(prim, st, p0, p1, None)
+    assert len(p0.hand) == h0 and len(p0.characters) == c0, (
+        "コスト4以下のキャラが不在なのに 氷鬼を捨てて登場できている (= 部分支払い)"
+    )
+
+    # 対照: 対象が居れば通常どおり発動する
+    st, p0, p1 = board(True)
+    h0, c0 = len(p0.hand), len(p0.characters)
+    for prim in eff["do"]:
+        execute_effect(prim, st, p0, p1, None)
+    assert len(p0.hand) < h0 and len(p0.characters) > c0, "対象が居るのに発動していない"
+
+
+def test_replacement_sacrifice_does_not_cancel_battled_trigger():
+    """身代わり置換でバトル当事者以外が離れても 「バトルした場合」 は発動する。
+
+    一次情報 (`cardqa_op_05`): 「このキャラと相手の「ST02-010 バジル・ホーキンス」がバトルした時、
+    この【相手のターン中】効果で代わりにトラッシュに置いた場合、 相手の「ST02-010」の
+    【自分のターン中】効果を発動できますか？」 → **「はい、できます。」**
+
+    OP05-030 ロシナンテが身代わりでトラッシュへ行っても、 **バトルの当事者は場に残る** ので
+    バトルは中断されず、 ホーキンスの `on_self_battled` (untap) が発動する。
+    (= 2026-08-04 の 「バトル中断」 是正が過剰適用されていないことの確認でもある)
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay
+    from engine.game import legal_actions, apply_action
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    p0 = Player(name="HAWK", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1 = Player(name="ROSI", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    hawk = InPlay.of(repo.get("ST02-010"), sickness=False)
+    hawk.attached_dons = 1
+    p0.characters = [hawk]
+    victim = InPlay.of(repo.get("OP01-013"), sickness=False)
+    victim.rested = True
+    rosi = InPlay.of(repo.get("OP05-030"), sickness=False)
+    p1.characters = [victim, rosi]
+    for p in (p0, p1):
+        p.deck = [repo.get("OP01-013")] * 25
+        p.life = [repo.get("OP01-013")] * 3
+        p.hand = []
+    st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                   rng=random.Random(1), effects_overlay=ov)
+    st.turn_player_idx, st.turn_number = 0, 6
+
+    acts = [a for a in legal_actions(st)
+            if type(a).__name__ == "AttackCharacter"
+            and getattr(a, "target_iid", None) == victim.instance_id]
+    assert acts, "レストキャラへのアタックが legal に出ない"
+    apply_action(st, acts[0])
+
+    alive = {c.instance_id for c in p1.characters}
+    assert victim.instance_id in alive, "身代わりが働いたのに victim が KO されている"
+    assert rosi.instance_id not in alive, "ロシナンテが身代わりになっていない"
+    assert not hawk.rested, (
+        "身代わり置換でバトルが中断扱いになり `on_self_battled` (untap) が発動していない"
+    )
+
+
+def test_character_removed_by_opponent_event_does_not_draw():
+    """相手イベントで場を離れたキャラの reactive ドローは発動しない (OP01-004 ウソップ)。
+
+    一次情報 (`cardqa_op_01`): 「相手が使用したイベントによってこのキャラがバトルエリアを
+    離れた場合、 このキャラの効果でカードを引けますか？」 → **「いいえ、できません。」**
+
+    = reactive (「相手がイベントを発動した時」) は **反応対象の効果を処理した後** に解決する。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, trigger_counter_event
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    p0 = Player(name="ME", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1 = Player(name="OPP", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    usopp = InPlay.of(repo.get("OP01-004"), sickness=False)   # 元々のパワー 3000
+    usopp.attached_dons = 1                                    # 【ドン‼×1】
+    p0.characters = [usopp]
+    for p in (p0, p1):
+        p.deck = [repo.get("OP01-013")] * 25
+        p.life = [repo.get("OP01-013")] * 3
+    p1.hand = [repo.get("EB01-010")]      # 【カウンター】元々のパワー6000以下を KO
+    p1.don_active = 5
+    st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                   rng=random.Random(1), effects_overlay=ov)
+    st.turn_player_idx, st.turn_number = 0, 6
+
+    hand_before = len(p0.hand)
+    trigger_counter_event(st, p1, p0, repo.get("EB01-010"), ov)
+    assert usopp.instance_id not in {c.instance_id for c in p0.characters}, \
+        "前提が崩れた: ウソップが KO されていない"
+    assert len(p0.hand) == hand_before, \
+        "相手イベントで場を離れたのにドローしている (公式: いいえ)"

@@ -499,9 +499,9 @@
   "files": [
    "cardqa_op_08.json"
   ],
-  "note": "OP08-105 ボニー on_opp_life_taken(相手ライフ離脱時 draw2 discard1)。公式: 相手の効果で相手ライフが手札/トラッシュへ移動した時も発動する(はい)。だが engine は trigger_on_opp_life_taken を **アタックダメージ経路(game.py:2272)のみ** に配線しており、効果経由の相手ライフ除去(effects.py の life_to_hand/mill_opp_life 等 5556/5575/5614/7196)では発火しない=gap。修正は両engineの複数除去経路への配線(13カード影響/二重発火・went_to_hand の慎重扱い要)=アーキ寄り→escalated",
+  "note": "OP08-105 ボニー: 「相手のライフが離れた時」を効果経由の除去にも配線 (mill_opp_life_to_hand / _to_trash / deal_opp_leader_damage の3経路、Python _fire_opp_life_left_by_effect + Rust 同等)。⚠ライフカードの【トリガー】は発動させない(10-1-5) / on_self_life_taken は戦闘ダメージ専用なので発火させない。回帰テスト追加。",
   "q": "相手のライフが相手の効果によって手札やトラッシュに移動した時、この【自分のターン中】効果でカード2枚を引き手札1枚を捨てることはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "0cbfaa2acbef": {
   "a": "いいえ、できません。",
@@ -661,9 +661,9 @@
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "OP05-030 ロシナンテ replace_ko × ST02-010 ホーキンス on_self_battled untap の多カード battle 相互作用。(1) ホーキンス untap が対戦相手を replacement で除去された後も発火するか (battle-abort 是正と絡む) (2) OP05-030 overlay if.target=other_self_chara が自身のKOを含むかで Q の『このキャラ』解釈が割れる。一次ソース cardqa_op_05.json がリポジトリ不在で原文確認不能。多カード full-battle テスト+解釈確定が要るため rule 11 で人間レビューへ。",
+  "note": "OP05-030×ST02-010: 実測で公式どおりと確認。身代わり(replace_ko)でロシナンテがトラッシュへ行っても**バトル当事者は場に残る**ため中断されず、ホーキンスの on_self_battled(untap)が発動する。⚠escalated note の「一次ソース cardqa_op_05.json 不在」は誤りで、リポジトリに存在し原文を確認済。回帰テスト追加。",
   "q": "このキャラと相手の「ST02-010 バジル・ホーキンス」がバトルした時、この【相手のターン中】効果で代わりにトラッシュに置いた場合、相手の「ST02-010 バジル・ホーキンス」の【自分のターン中】効果を発動できますか？",
-  "status": "escalated"
+  "status": "conform"
  },
  "0fcbdc022af6": {
   "a": "はい、できます。",
@@ -796,18 +796,18 @@
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "OP01 相手イベントでバトルエリアを離れたキャラの効果ドロー不発(公式いいえ)。card_number 不在(一次 cardqa_*.json 遮断で snapshot fallback、Q は『このキャラ』総称)で対象カードを一意特定できず。候補 OP01-078/OP01-052 は【アタック時】/【ブロック時】=宣言時発火のドローで『バトル離場でドロー不可』の答え(いいえ)と整合しない=別カード(バトル完了条件のドロー)の可能性。答え自体は既是正の battle-abort 裁定と整合。人間レビューで対象カード特定を要す。",
+  "note": "対象カードを OP01-004 ウソップと特定 (「相手がイベントを発動した時ドロー」を持つ CHARACTER は全弾でこの1枚のみ)。相手カウンターイベントで KO される盤面を実測し、ドローしないことを確認 = 公式どおり。67065f4 の reactive 解決順の是正で解消済。回帰テスト追加。",
   "q": "相手が使用したイベントによってこのキャラがバトルエリアを離れた場合、このキャラの効果でカードを引けますか？",
-  "status": "escalated"
+  "status": "conform"
  },
  "12b008cd3609": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "OP04-055 疫災弾【メイン】: 確定違反だが要 focused 実装。cost=optional_cost_then[discard_hand_with_filter(氷鬼), return_to_deck_bottom(コスト4以下キャラ)]。実測: コスト4以下キャラが不在でも 氷鬼 を捨て トラッシュから登場してしまう(部分支払い)。公式(cardqa_op_04)『コスト4以下のキャラをデッキの下に置かずに氷鬼を捨てる/登場できるか』→いいえ(コストは一部だけ払えない)。是正には optional_cost_then の payability に targeted-removal(return_to_deck_bottom)の候補存在チェックを両engineで追加要(現状 payability loop に未対応=唯一の unhandled targeted-removal cost)。加えて『持ち主のデッキの下』=両陣営スコープ疑い(overlay は one_opponent、直接 Q&A 無し)。target 解決を cost-check に持ち込む新機構+スコープ確定=単一カードの局所 patch を超える。docs/official_rulings.md に失敗シナリオ記録済。",
+  "note": "OP04-055 疫災弾: optional_cost_then の payability に return_to_deck_bottom (targeted removal) の候補存在チェックを両engineで追加。対象不在なら部分支払い不可 (cardqa_st_06「発動コストは一部のみ支払えない」)。回帰テスト追加。",
   "q": "この【メイン】効果を発動し、コスト4以下のキャラをデッキの下に置かずに、自分の手札から「氷鬼」1枚を捨てることや、自分のトラッシュから「氷鬼」1枚を登場させることはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "12b45617c5f6": {
   "a": "はい、登場できます。【登場時】効果のコストは支払うことも支払わないこともできますが、効果は何も起きません。",

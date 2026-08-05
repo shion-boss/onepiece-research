@@ -5565,12 +5565,15 @@ def _execute_effect_body(
             # 公式: ヒット時にトリガー判定するが、 「効果で」 ライフを取る場合は trigger は発動しない (10-1-5)。
             # 簡略実装: ライフ上から取り出して相手手札に入れるだけ (トリガー判定なし)
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            _moved = 0
             for _ in range(n):
                 if not opp.life:
                     break
                 taken = opp.life.pop(0)
                 opp.hand.append(taken)
+                _moved += 1
             state.push_log(f"  効果: 相手ライフ上 {n} 枚を相手手札へ")
+            _fire_opp_life_left_by_effect(state, me, opp, _moved, "hand")
         elif k == "mill_self_life_to_trash":
             # 自分のライフ上から N 枚をトラッシュへ (= 自害効果)
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
@@ -5584,12 +5587,15 @@ def _execute_effect_body(
             # 公式 「相手のライフの上から N 枚をトラッシュに置く」 (OP11-102 ケイミー等)。
             # mill_self_life_to_trash と対称。 ライフトリガーは発動しない (= 効果でのライフ移動 10-1-5)。
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            _moved = 0
             for _ in range(n):
                 if not opp.life:
                     break
                 taken = opp.life.pop(0)
                 opp.trash.append(taken)
+                _moved += 1
             state.push_log(f"  効果: 相手ライフ上 {n} 枚をトラッシュへ")
+            _fire_opp_life_left_by_effect(state, me, opp, _moved, "trash")
         elif k == "return_self_don_to_deck":
             # 自分の場のドン (active 優先 → rested) を N 枚ドンデッキに戻す
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
@@ -5617,6 +5623,7 @@ def _execute_effect_body(
             # (旧実装は `if not opp.life: break` で 0ライフ相手を詰められない bug、
             #  7ロビン EB03-055 の『相手ライフ0でKOされると即敗北』が機能しなかった)
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            _moved = 0
             for _ in range(n):
                 if not opp.life:
                     if state.effects_overlay:
@@ -5628,7 +5635,9 @@ def _execute_effect_body(
                     continue
                 taken = opp.life.pop(0)
                 opp.hand.append(taken)
+                _moved += 1
             state.push_log(f"  効果: 相手リーダーに {n} ダメージ")
+            _fire_opp_life_left_by_effect(state, me, opp, _moved, "hand")
         elif k == "force_opp_play_from_hand":
             # OP13-119: 「相手は自身の手札から (cost_le) キャラ1枚までを登場させる」 (opp 報酬)。
             # = 相手プレイヤーの行動。 AI opp / 人間 opp いずれも「無料でキャラを出せる」ので最善は
@@ -8785,6 +8794,19 @@ def _execute_effect_body(
                     if len(matching) < rb_count:
                         can_pay = False
                         break
+                elif "return_to_deck_bottom" in cs:
+                    # 公式 「コスト4以下のキャラ1枚を、持ち主のデッキの下に置くことができる：効果」
+                    # (OP04-055 疫災弾)。 **対象が 1 枚も居なければコストを払えない**。
+                    # 一次情報 (cardqa_st_06): 「「：」以前に表記されている指示はすべて "発動コスト"
+                    # であり、 "発動コスト" はその一部のみを支払うことはできません。 また "発動コスト"
+                    # の一部あるいは全部が支払えない場合、 その効果を発動することができません。」
+                    # 実測 (2026-08-05 是正前): コスト4以下キャラが不在でも 氷鬼 を捨てて
+                    # トラッシュから登場できていた = 部分支払い = 公式違反。
+                    # ⚠ outer_kind を渡さない (= 人間 modal を立てずに候補数だけ見る)。
+                    if not _resolve_target(
+                        cs["return_to_deck_bottom"], state, me, opp, self_inplay
+                    ):
+                        can_pay = False
                 elif "return_self_chara_to_hand" in cs:
                     # 公式 「自分のキャラ1枚を持ち主の手札に戻すことができる：効果」 用 cost。
                     # OP01-047 トラファルガー・ロー 等。
@@ -11182,6 +11204,34 @@ def fire_self_life_to_hand(state: GameState, me: Player) -> None:
     if not overlay:
         return
     _enqueue_field_when(state, me, "on_self_life_to_hand", overlay)
+    _maybe_resolve(state)
+
+
+def _fire_opp_life_left_by_effect(
+    state: GameState, me: Player, opp: Player, n: int, dest: str
+) -> None:
+    """**効果で** 相手のライフが離れた時のトリガー発火 (2026-08-05 是正)。
+
+    公式 (`cardqa_op_08`, OP08-105 ボニー): 「相手のライフが相手の効果によって手札やトラッシュに
+    移動した時、 この【自分のターン中】効果でカード2枚を引き手札1枚を捨てることはできますか？」
+    → **「はい、できます。」**
+    = 「相手のライフが離れた時」 は **離れ方を問わない**。 アタックダメージ経路だけに配線して
+    いると、 効果によるライフ除去で発火せず公式違反になる。
+
+    ⚠ **ライフカードの【トリガー】は発動しない** (公式 10-1-5 = 効果でのライフ移動)。
+      ここで発火するのは **場のキャラ/リーダーの when トリガー** だけ。
+    ⚠ `on_self_life_taken` (= 「ダメージを受けた時」) は **戦闘ダメージ専用** なので
+      ここでは発火しない (`trigger_on_opp_life_taken` の docstring 参照)。
+
+    dest: "hand" / "trash" / "other" (= デッキ等。 owner 側トリガーは無し)
+    """
+    if n <= 0 or not state.effects_overlay:
+        return
+    _enqueue_field_when(state, me, "on_opp_life_taken", state.effects_overlay)
+    if dest == "hand":
+        _enqueue_field_when(state, opp, "on_self_life_to_hand", state.effects_overlay)
+    elif dest == "trash":
+        _enqueue_field_when(state, opp, "on_self_life_to_trash", state.effects_overlay)
     _maybe_resolve(state)
 
 

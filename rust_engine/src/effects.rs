@@ -2783,6 +2783,17 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
             let (count, filt) = count_and_filter(cv);
             Some(me.characters.iter().filter(|c| matches_filter_ip(&c, filt)).count() >= count)
         }
+        // ⭐ targeted-removal を **コスト** に持つ形 (OP04-055 疫災弾:
+        //   「コスト4以下のキャラ1枚を、持ち主のデッキの下に置くことができる：…」)。
+        //   対象が 1 枚も居なければ払えない。 一次情報 (cardqa_st_06):
+        //   「"発動コスト" はその一部のみを支払うことはできません。 …一部あるいは全部が
+        //    支払えない場合、 その効果を発動することができません。」
+        //   Python `optional_cost_then` の payability と対 (2026-08-05 是正)。
+        "return_to_deck_bottom" => {
+            let opp_idx = 1 - me_idx;
+            Some(resolve_target(Some(cv), me_idx, opp_idx, src, state)
+                .map_or(false, |t| !t.is_empty()))
+        }
         // trash_self_named_hand_or_field cost: 手札か自ステージに該当名が必要 (effects.py:8464、 OP06-033)。
         "trash_self_named_hand_or_field" => {
             let name = if cv.is_object() {
@@ -6589,12 +6600,28 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             } else {
                 v.as_i64().unwrap_or(1)
             };
+            let mut moved = 0;
             for _ in 0..n {
                 if state.players[opp_idx].life.is_empty() {
                     break;
                 }
                 let c = state.players[opp_idx].life.remove(0);
                 state.players[opp_idx].trash.push(c);
+                moved += 1;
+            }
+            // ⭐ 効果で相手ライフが離れた時も 「相手のライフが離れた時」 は発火する
+            // (cardqa_op_08 / OP08-105 ボニー: 「相手の効果によって手札やトラッシュに移動した時…
+            //  できますか？」→「はい、できます」)。 Python `_fire_opp_life_left_by_effect` と対。
+            // ⚠ ライフカードの【トリガー】は発動しない (公式 10-1-5) / `on_self_life_taken`
+            //   (= ダメージを受けた時) は戦闘ダメージ専用なのでここでは発火しない。
+            if moved > 0 {
+                // ⚠ execute_effect は bool を返すので ? は使えない。 発火に失敗したら
+                //   黙って進めず **false = 明示 bail** に落とす (不変条件: 黙って間違えない)。
+                if fire_field_when(state, me_idx, "on_opp_life_taken").is_err()
+                    || fire_field_when(state, opp_idx, "on_self_life_to_trash").is_err()
+                {
+                    return false;
+                }
             }
             true
         }
@@ -6605,12 +6632,26 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             } else {
                 v.as_i64().unwrap_or(1)
             };
+            let mut moved = 0;
             for _ in 0..n {
                 if state.players[opp_idx].life.is_empty() {
                     break;
                 }
                 let c = state.players[opp_idx].life.remove(0);
                 state.players[opp_idx].hand.push(c);
+                moved += 1;
+            }
+            // ⭐ 効果で相手ライフが離れた時も 「相手のライフが離れた時」 は発火する
+            // (cardqa_op_08 / OP08-105 ボニー: 「相手の効果によって手札やトラッシュに移動した時…
+            //  できますか？」→「はい、できます」)。 Python `_fire_opp_life_left_by_effect` と対。
+            // ⚠ ライフカードの【トリガー】は発動しない (公式 10-1-5) / `on_self_life_taken`
+            //   (= ダメージを受けた時) は戦闘ダメージ専用なのでここでは発火しない。
+            if moved > 0 {
+                if fire_field_when(state, me_idx, "on_opp_life_taken").is_err()
+                    || fire_field_when(state, opp_idx, "on_self_life_to_hand").is_err()
+                {
+                    return false;
+                }
             }
             true
         }
@@ -8278,6 +8319,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             } else {
                 v.as_i64().unwrap_or(1)
             };
+            let mut moved = 0;
             for _ in 0..n {
                 if state.players[opp_idx].life.is_empty() {
                     // on_life_zero (回復効果) を持つ相手は cascade 再現不能 → bail。
@@ -8293,6 +8335,19 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 }
                 let taken = state.players[opp_idx].life.remove(0);
                 state.players[opp_idx].hand.push(taken);
+                moved += 1;
+            }
+            // ⭐ 効果で相手ライフが離れた時も 「相手のライフが離れた時」 は発火する
+            // (cardqa_op_08 / OP08-105 ボニー: 「相手の効果によって手札やトラッシュに移動した時…
+            //  できますか？」→「はい、できます」)。 Python `_fire_opp_life_left_by_effect` と対。
+            // ⚠ ライフカードの【トリガー】は発動しない (公式 10-1-5) / `on_self_life_taken`
+            //   (= ダメージを受けた時) は戦闘ダメージ専用なのでここでは発火しない。
+            if moved > 0 {
+                if fire_field_when(state, me_idx, "on_opp_life_taken").is_err()
+                    || fire_field_when(state, opp_idx, "on_self_life_to_hand").is_err()
+                {
+                    return false;
+                }
             }
             true
         }
