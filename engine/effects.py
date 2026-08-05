@@ -7025,8 +7025,15 @@ def _execute_effect_body(
             state.push_log(f"  効果: 属性({attr}) 付与")
         elif k == "grant_turn_battle_ko_save_discard":
             # 「自分のキャラすべては、 このターン中、 バトルでKOされる場合、 代わりに手札1捨て」 (EB02-030)。
-            me.turn_battle_ko_save_discard = True
-            state.push_log("  効果: このターン中 自キャラ バトルKO 代替(手札1捨て)")
+            # ⚠ 「自分のキャラすべて」 は **発動時点で場にいるキャラ** のスナップショット。
+            #   公式 cardqa_eb_02: 発動後に登場したキャラは対象外なので、 player 単位 turn フラグ
+            #   ではなく 現在の各キャラに per-InPlay フラグを付与する (後から登場する InPlay には
+            #   付かない = 救済されない)。
+            n = 0
+            for ch in me.characters:
+                ch.battle_ko_save_discard_until_turn_end = True
+                n += 1
+            state.push_log(f"  効果: このターン中 自キャラ{n}体 バトルKO 代替(手札1捨て)")
         elif k == "opp_may_return_active_don_else_debuff":
             # OP15-059: 「相手は自身のアクティブのドン1枚をドンデッキに戻してもよい。 そうしなかった
             # 場合、 (target) を このターン中 -N」。 opp の意思決定を モデル化: 攻撃資源(ドン)より

@@ -545,6 +545,7 @@ def _reset_turn_buff(state: GameState) -> None:
             ip.granted_attributes = set()
             ip.ko_immune_until_turn_end = False
             ip.battle_ko_immune_until_turn_end = False
+            ip.battle_ko_save_discard_until_turn_end = False
             ip.blocker_disabled_until_turn_end = False
             ip.cannot_attack_until_turn_end = False
             ip.cost_minus_until_turn_end = 0
@@ -559,7 +560,6 @@ def _reset_turn_buff(state: GameState) -> None:
         player.block_self_draw_until_turn_end = False
         player.block_chara_effect_untap_don_until_turn_end = False
         player.cannot_attack_leader_until_turn_end = False
-        player.turn_battle_ko_save_discard = False
         player.life_lost_this_turn = False
         player.chara_ko_taken_this_turn = 0
         player.block_chara_play_cost_ge_threshold = -1
@@ -1684,9 +1684,20 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 state.push_log(f"  blocker: {blocker.card.name}")
                 if state.effects_overlay:
                     from .effects import trigger_on_block, trigger_on_opp_blocker_use
-                    trigger_on_block(state, opp, me, blocker, state.effects_overlay)
-                    # アタッカー側 (me) の「相手が【ブロッカー】を発動した時」 効果 (OP09-118 等)
+                    # 公式: 同時に発動する誘発効果は **ターンプレイヤーの効果を先に処理** する
+                    # (ルール処理 > 効果の同時解決)。 ブロッカー宣言はアタッカーの手番中なので、
+                    # ① アタッカー (= ターンプレイヤー, me) の「相手が【ブロッカー】を発動した時」
+                    #    (on_opp_blocker_use、 OP09-118 等) → ② ブロッカー (= 非ターンプレイヤー,
+                    #    opp) の【ブロック時】(on_block) の順で解決する。
+                    # ⚠ cardqa_op_09 (OP09-118 ロジャー): 「お互いのライフが1枚の時、 このキャラで
+                    #    アタックし、 相手が『ST09-007 しのぶ』でブロック → しのぶの【ブロック時】で
+                    #    ライフが0枚になった場合、 このキャラの効果で勝利しますか？」→ 「いいえ」。
+                    #    = ロジャーの勝利判定 (ターンプレイヤー) が先に解決し、 その時点では相手
+                    #    ライフは 1 枚 (しのぶの【ブロック時】は後) なので勝利条件を満たさない。
+                    #    是正前は on_block を先に処理していた (= しのぶが自ライフ0にした後に判定 →
+                    #    誤って勝利) = Python/Rust 共有バグ (差分検証では沈黙)。
                     trigger_on_opp_blocker_use(state, me, opp, blocker, state.effects_overlay)
+                    trigger_on_block(state, opp, me, blocker, state.effects_overlay)
                 # ブロック時効果で blocker が KO されている可能性 → 場から消えていれば fallback
                 if blocker not in opp.characters:
                     state.push_log(
@@ -1753,7 +1764,8 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     and attacker is me.leader
                 )
                 # EB02-030: 自キャラ全体 バトルKO 代替で手札1捨て (= 防御側 opp の救済)。
-                if (opp.turn_battle_ko_save_discard and opp.hand
+                # ⚠ per-InPlay フラグ (= 効果発動時に場にいたキャラのみ、 cardqa_eb_02)。
+                if (actual_target.battle_ko_save_discard_until_turn_end and opp.hand
                         and not actual_target.ko_immune_until_turn_end):
                     opp.hand.sort(key=lambda c: (c.power, c.cost))
                     opp.trash.append(opp.hand.pop(0))
@@ -2043,6 +2055,16 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     )
                 if replaced:
                     state.push_log(f"  KO 置換適用: {actual_target.card.name}")
+                elif (actual_target.battle_ko_save_discard_until_turn_end
+                      and opp.hand):
+                    # EB02-030: 「バトルでKOされる場合、 代わりに手札1枚を捨てる」。
+                    # char-vs-char バトルKO でも救済 (= 「バトルでKO」 の忠実な範囲)。
+                    # per-InPlay フラグ = 効果発動時に場にいたキャラのみ (cardqa_eb_02)。
+                    opp.hand.sort(key=lambda c: (c.power, c.cost))
+                    opp.trash.append(opp.hand.pop(0))
+                    state.push_log(
+                        f"  バトルKO代替: 手札1捨てで {actual_target.card.name} 生存"
+                    )
                 else:
                     opp.characters.remove(actual_target)
                     opp.trash.append(actual_target.card)

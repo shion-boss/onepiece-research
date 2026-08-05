@@ -322,18 +322,27 @@ def test_eb02_028_ace_on_play_human_search_modal():
 #           バトルKO代替で手札1捨て / 【トリガー】1 ドロー
 # --------------------------------------------------------------------------- #
 def test_eb02_030_yume_counter_grant_ko_save_ai():
-    """カウンター: 自キャラ全体に「このターン中 バトルKO代替で手札1捨て」flag を付与。"""
+    """カウンター: **発動時に場にいる各キャラ** に「このターン中 バトルKO代替で手札1捨て」
+    per-InPlay flag を付与する (発動後登場は対象外 = cardqa_eb_02、 2026-08-05 是正)。"""
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, "OP01-001", overlay)
     me, opp = st.players[0], st.players[1]
-    assert getattr(me, "turn_battle_ko_save_discard", False) is False
+    present = InPlay.of(repo.get("ST01-004"), sickness=False)  # 発動時に場にいるキャラ
+    me.characters = [present]
+    assert present.battle_ko_save_discard_until_turn_end is False
 
     do, _ = _do(overlay, "EB02-030", "counter")
     for prim in do:
         execute_effect(prim, st, me, opp, None)
-    assert me.turn_battle_ko_save_discard is True, \
-        "カウンターで バトルKO代替 flag が付与されていない"
+    assert present.battle_ko_save_discard_until_turn_end is True, \
+        "カウンターで 場にいたキャラに バトルKO代替 flag が付与されていない"
+
+    # 発動 **後** に登場したキャラには付かない (= 救済対象外)
+    later = InPlay.of(repo.get("ST01-004"), sickness=False)
+    me.characters.append(later)
+    assert later.battle_ko_save_discard_until_turn_end is False, \
+        "発動後に登場したキャラに flag が付いている (cardqa_eb_02: 対象外)"
 
 
 def test_eb02_030_yume_trigger_draw1():

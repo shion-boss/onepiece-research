@@ -3657,3 +3657,113 @@ def test_op13_106_connie_gets_blocker_when_already_on_field():
     assert "ブロッカー" in still[0].granted_keywords, (
         "場にいたコニーが【トリガー】発動でブロッカーを得ていない (公式: はい)"
     )
+
+
+# --------------------------------------------------------------------------- #
+#  OP09-118 ゴール・D・ロジャー vs ST09-007 しのぶ — ブロッカー宣言時トリガーの
+#  同時解決順 (= ターンプレイヤー先)。
+#
+#  一次情報 (db/faq/cardqa_op_09.json、 OP09-118):
+#    「お互いのライフが1枚の時、 自分がこのキャラでアタックし、 相手が『ST09-007 しのぶ』で
+#      ブロックしました。 この時、 相手が『ST09-007 しのぶ』の【ブロック時】効果を発動し
+#      ライフが0枚になった場合、 このキャラの効果で自分はゲームに勝利しますか？」
+#    → 「いいえ、 勝利しません。」
+#
+#  ロジャーの【相手が【ブロッカー】を発動した時】(= アタッカー = ターンプレイヤー) の勝利判定は
+#  しのぶの【ブロック時】(= ブロッカー = 非ターンプレイヤー) より **先に** 解決する。 その時点で
+#  相手ライフは 1 枚なので勝利条件 (自分か相手のライフ0) を満たさない。
+#  是正前は on_block を先に処理していた (= しのぶが自ライフを0にした後にロジャーが判定 → 誤って
+#  勝利)。 Python/Rust 共有バグ (= 差分検証では原理的に沈黙する)。
+# --------------------------------------------------------------------------- #
+def test_blocker_declaration_triggers_resolve_turn_player_first():
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP01-001", leader1="OP01-001")
+    me, opp = st.players[0], st.players[1]
+    me.life = [repo.get(_FILLER)] * 1          # 自分のライフ 1
+    opp.life = [repo.get(_FILLER)] * 1          # 相手のライフ 1
+    roger = InPlay.of(repo.get("OP09-118"), sickness=False)   # 速攻・勝利効果
+    me.characters = [roger]
+    shinobu = InPlay.of(repo.get("ST09-007"), sickness=False)  # ブロッカー + 自ライフ→手札
+    opp.characters = [shinobu]
+    opp.don_active = 5
+
+    apply_action(
+        st,
+        AttackLeader(attacker_iid=roger.instance_id, blocker_iid=shinobu.instance_id),
+    )
+
+    # ロジャーの勝利判定が先 → その時点で相手ライフ 1 = 勝利しない。
+    assert not st.game_over and st.winner is None, (
+        "しのぶの【ブロック時】(非ターンプレイヤー) がロジャーの勝利判定 (ターンプレイヤー) より "
+        "先に解決し、 誤って勝利している (公式 cardqa_op_09: いいえ)"
+    )
+    # 前提が崩れていない (= しのぶが実際に自ライフを0にした = テストが空回りでない) ことを確認。
+    assert len(opp.life) == 0, "しのぶの【ブロック時】が発動していない (テストの妥当性が崩れている)"
+
+
+# --------------------------------------------------------------------------- #
+#  EB02-030 「仲間の夢を笑われた時だ!!!!」 — 「自分のキャラすべては…バトルでKOされる場合、
+#  代わりに手札1枚を捨てる」 の範囲 = **発動時点で場にいるキャラのみ**。
+#
+#  一次情報 (db/faq/cardqa_eb_02.json、 EB02-030):
+#    「相手のターン中、 この【カウンター】効果を発動した後に登場した自分のキャラは、 バトルで
+#      KOされる場合に代わりに手札1枚を捨てることはできますか？」
+#    → 「いいえ、 できません。」
+#
+#  是正前は player 単位の turn フラグ (turn_battle_ko_save_discard) で救済しており、 発動後に
+#  登場したキャラも救済していた (= 違反)。 per-InPlay フラグに変更し、 発動時に場にいた各キャラ
+#  だけに付与する。 Python/Rust 共有バグ。
+# --------------------------------------------------------------------------- #
+def _eb02_setup(repo, overlay):
+    # P1 (index1) がターンプレイヤー (アタッカー)、 P0 が EB02-030 を撃った防御側。
+    st = _state(repo, overlay, leader0="OP01-001", leader1="OP01-001")
+    st.turn_player_idx = 1
+    st.turn_number = 8
+    p0, p1 = st.players[0], st.players[1]
+    p1.don_active = 5
+    atk = InPlay.of(repo.get(_FILLER), sickness=False)   # 元々パワー3000
+    atk.attached_dons = 2                                 # → 現在 5000 (3000 の防御キャラを KO)
+    p1.characters = [atk]
+    return st, p0, p1, atk
+
+
+def test_eb02_030_saves_character_present_at_activation():
+    """発動時に場にいたキャラは バトルKO 代替で 手札1捨てて生存する (= テスト妥当性 + 救済の実在)。"""
+    repo, overlay = _repo(), _overlay()
+    st, p0, p1, atk = _eb02_setup(repo, overlay)
+    c_old = InPlay.of(repo.get(_FILLER), sickness=False)  # 現在 3000 (rested = 直接アタック可)
+    c_old.rested = True
+    p0.characters = [c_old]
+    p0.hand = [repo.get(_FILLER)] * 2
+    # EB02-030 の【カウンター】救済を発動 (発動時 c_old が場にいる)
+    grant = next(e for e in overlay.get("EB02-030").effects if e.get("when") == "counter")
+    for prim in grant["do"]:
+        execute_effect(prim, st, p0, p1, None)
+    hand_before = len(p0.hand)
+    apply_action(st, AttackCharacter(attacker_iid=atk.instance_id,
+                                     target_iid=c_old.instance_id))
+    assert c_old in p0.characters, "発動時に居たキャラが バトルKO 代替で救済されていない"
+    assert len(p0.hand) == hand_before - 1, "救済の手札1捨てが起きていない"
+
+
+def test_eb02_030_does_not_save_character_played_after_activation():
+    """発動 **後** に登場したキャラは救済されず、 通常どおり バトルKO される (公式: いいえ)。"""
+    repo, overlay = _repo(), _overlay()
+    st, p0, p1, atk = _eb02_setup(repo, overlay)
+    c_old = InPlay.of(repo.get(_FILLER), sickness=False)
+    p0.characters = [c_old]
+    p0.hand = [repo.get(_FILLER)] * 2
+    grant = next(e for e in overlay.get("EB02-030").effects if e.get("when") == "counter")
+    for prim in grant["do"]:
+        execute_effect(prim, st, p0, p1, None)
+    # 救済 発動 **後** に登場したキャラ
+    c_new = InPlay.of(repo.get(_FILLER), sickness=False)
+    c_new.rested = True
+    p0.characters.append(c_new)
+    hand_before = len(p0.hand)
+    apply_action(st, AttackCharacter(attacker_iid=atk.instance_id,
+                                     target_iid=c_new.instance_id))
+    assert c_new not in p0.characters, (
+        "発動後に登場したキャラが バトルKO 代替で救済されている (公式 cardqa_eb_02: いいえ)"
+    )
+    assert len(p0.hand) == hand_before, "救済されないはずなのに手札を捨てている"

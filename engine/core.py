@@ -266,6 +266,12 @@ class InPlay:
     blocker_disabled_until_turn_end: bool = False
     # ターン中 KO 耐性 (prevent_ko で True)。Phase.END でクリア
     ko_immune_until_turn_end: bool = False
+    # 「バトルでKOされる場合、 代わりに手札1枚を捨てる」 の救済対象フラグ (EB02-030)。
+    # ⚠ 効果発動時に **場にいたキャラだけ** に付与する (= その後登場したキャラは対象外)。
+    #   公式 cardqa_eb_02: 「【カウンター】効果を発動した後に登場した自分のキャラは、
+    #   バトルでKOされる場合に代わりに手札1枚を捨てることはできますか？」→ 「いいえ」。
+    #   以前は player 単位の turn フラグで、 発動後に登場したキャラも救済していた (= 違反)。
+    battle_ko_save_discard_until_turn_end: bool = False
     # ターン中アタック不可 (set_cannot_attack で True)。Phase.END でクリア
     cannot_attack_until_turn_end: bool = False
     # 「このターン終了時、 このキャラを持ち主のデッキの下に置く」 (= OP11-092 ヘルメッポ の
@@ -678,9 +684,6 @@ class Player:
     # 「自分は、 このターン中、 キャラの効果でドン‼をアクティブにできない」 (EB04-016 トリ /
     # OP10-030 スモーカー)。 公式はこの自己ロックで 起動メインの無限ループを防いでいる。
     block_chara_effect_untap_don_until_turn_end: bool = False
-    # 「自分のキャラすべては、 このターン中、 バトルでKOされる場合、 代わりに手札1捨て」
-    # (EB02-030)。 バトルKO時に手札があれば1捨てで救済。 ターン終了でクリア。
-    turn_battle_ko_save_discard: bool = False
     # このターン中にライフを失ったか (P-120 「相手のライフが離れているターン中」)。 refreshでクリア。
     life_lost_this_turn: bool = False
     # このターン中に この player のキャラが KO された 回数 (OP16-100 氷諸斬り

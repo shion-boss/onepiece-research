@@ -5247,9 +5247,13 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             true
         }
         // 「自分のキャラすべてはこのターン中、 バトルKO される場合代わりに手札1捨て」
-        // (effects.py:6784、 EB02-030)。
+        // (effects.py:grant_turn_battle_ko_save_discard、 EB02-030)。
+        // ⚠ 「自分のキャラすべて」 は発動時点で場にいるキャラのスナップショット。 発動後に
+        //   登場したキャラは対象外 (cardqa_eb_02) なので per-InPlay フラグを現在の各キャラに付与。
         "grant_turn_battle_ko_save_discard" => {
-            state.players[me_idx].turn_battle_ko_save_discard = true;
+            for ch in state.players[me_idx].characters.iter_mut() {
+                ch.battle_ko_save_discard_until_turn_end = true;
+            }
             true
         }
         // 「デッキ上 N 枚をトラッシュ。 (filter) だった場合 then」 (effects.py:6180、 OP08-096)。

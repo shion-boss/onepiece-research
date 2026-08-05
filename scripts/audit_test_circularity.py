@@ -38,7 +38,7 @@ STATE = re.compile(
     r"chara_ko_taken|stay_rested_next_refresh|scheduled_at_self_turn_end|battle_buff|"
     r"ko_immune|cannot_attack|cost_minus|power_buff|known_hand_card_ids|known_bottom_card_ids|"
     r"event_once_used|once_shared_used|don_remaining_in_deck|face_up_life_count|"
-    r"blocker_disabled|attack_taunt|base_power_override|reduction|turn_battle_ko_save_discard|opp_on_play_disabled|block_chara_play|block_self_draw)"
+    r"blocker_disabled|attack_taunt|base_power_override|reduction|battle_ko_save_discard_until_turn_end|opp_on_play_disabled|block_chara_play|block_self_draw)"
     r"|\.power\b|\bleader\."
 )
 # engine の「判断」に触れている印 (状態は変わらないが engine の実装を検証している)。

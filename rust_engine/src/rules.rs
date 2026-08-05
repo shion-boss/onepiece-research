@@ -193,6 +193,16 @@ fn do_battle_ko(
     if crate::effects::try_replace_ko(state, victim_owner, victim_idx, false, "ko")? {
         return Ok(());
     }
+    // EB02-030: 「バトルでKOされる場合、 代わりに手札1枚を捨てる」 (per-InPlay フラグ = 効果
+    //   発動時に場にいたキャラのみ、 cardqa_eb_02)。 手札があれば KO の代わりに 1 捨てで生存。
+    //   ⚠ Rust は discard-save の実行を未実装 = 該当時は明示 bail (silent divergence を防ぐ)。
+    //   Python は game.py で実装済 (survive)。 = 発動後登場キャラは per-InPlay フラグが無いので
+    //   両エンジンとも通常 KO へ進む (bit 一致)。
+    if state.players[victim_owner].characters[victim_idx].battle_ko_save_discard_until_turn_end
+        && !state.players[victim_owner].hand.is_empty()
+    {
+        return Err("battle_ko_save_discard 未対応".into());
+    }
     // 【このキャラのバトルによって相手のキャラをKOした時】は KO 実行の **前** に発火する
     // (game.py:1591 は KO 判定直後 = victim 除去前ではないが、 Python の呼出順に合わせる)。
     let pending_battle_ko: Option<crate::effects::Slot> =
@@ -258,6 +268,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
             ip.granted_attributes.clear();
             ip.ko_immune_until_turn_end = false;
             ip.battle_ko_immune_until_turn_end = false;
+            ip.battle_ko_save_discard_until_turn_end = false;
             ip.blocker_disabled_until_turn_end = false;
             ip.cannot_attack_until_turn_end = false;
             ip.cost_minus_until_turn_end = 0;
@@ -272,7 +283,6 @@ pub fn reset_turn_buff(state: &mut GameState) {
         p.block_self_draw_until_turn_end = false;
         p.block_chara_effect_untap_don_until_turn_end = false;
         p.cannot_attack_leader_until_turn_end = false;
-        p.turn_battle_ko_save_discard = false;
         p.life_lost_this_turn = false;
         p.chara_ko_taken_this_turn = 0;
         p.block_chara_play_cost_ge_threshold = -1;
@@ -904,14 +914,19 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     state.players[opp].characters[bi].rested = true;
                     is_blocked = true;
                     blk_idx = bi;
-                    // game.py:1627 順: ① blocker の【ブロック時】(on_block、 defender=opp 視点、
-                    //   source=blocker slot) → ② attacker (me) の【相手がブロッカー発動時】(on_opp_blocker_use)。
+                    // 公式: 同時発動の誘発は **ターンプレイヤー先** (game.py:1685 と対)。
+                    //   ① attacker (= ターンプレイヤー, me) の【相手がブロッカー発動時】
+                    //      (on_opp_blocker_use、 OP09-118 等) → ② blocker (= 非ターンプレイヤー,
+                    //      opp) の【ブロック時】(on_block、 source=blocker slot)。
+                    //   cardqa_op_09: ロジャーの勝利判定が しのぶの【ブロック時】より先に解決 →
+                    //   その時点で相手ライフ 1 枚 = 勝利しない。 是正前は on_block 先で誤って勝利
+                    //   していた (= Python/Rust 共有バグ)。
+                    crate::effects::fire_field_when(state, me, "on_opp_blocker_use")?;
                     if crate::effects::card_has_when(&bcid, "on_block") {
                         crate::effects::execute_card_effects(
                             state, opp, &bcid, "on_block", crate::effects::Slot::Char(bi),
                         )?;
                     }
-                    crate::effects::fire_field_when(state, me, "on_opp_blocker_use")?;
                     // game.py:1632 fizzle: blocker が【ブロック時】等で場から消えた → アタック不発。
                     // (Rust は iid 無しなので slot 位置 + card_id 一致で blocker 残存を近似。 win_game で
                     //  game_over でも Python は battle を継続する = 早期 return しない。)
@@ -964,12 +979,7 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     (ap, dp, imm)
                 };
                 if atk_power >= def_power && !immune {
-                    // EB02-030: バトルKO 代替で手札1捨てて生存 (= 該当時 bail)
-                    if state.players[opp].turn_battle_ko_save_discard
-                        && !state.players[opp].hand.is_empty()
-                    {
-                        return Err("battle_ko_save_discard 未対応".into());
-                    }
+                    // EB02-030 の バトルKO 代替救済 (per-InPlay) は do_battle_ko 内で判定 (両経路統一)。
                     do_battle_ko(state, opp, blk_idx, me, &atk_cid, true, Some(if is_leader { crate::effects::Slot::Leader } else { crate::effects::Slot::Char(atk_idx) }))?;
                 }
                 reset_battle_buffs(state);

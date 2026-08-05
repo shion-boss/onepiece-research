@@ -168,6 +168,9 @@ pub struct InPlay {
     // turn 限定フラグ 群
     pub blocker_disabled_until_turn_end: bool,
     pub ko_immune_until_turn_end: bool,
+    /// 「バトルでKOされる場合、 代わりに手札1枚を捨てる」 救済対象 (EB02-030、 core.py と同名)。
+    /// ⚠ 効果発動時に場にいたキャラだけに付与 (cardqa_eb_02: 発動後登場は対象外)。
+    pub battle_ko_save_discard_until_turn_end: bool,
     pub cannot_attack_until_turn_end: bool,
     pub return_to_deck_bottom_at_turn_end: bool,
     pub played_from_trash: bool,
@@ -416,7 +419,6 @@ pub struct Player {
     /// (EB04-016 トリ / OP10-030 スモーカー)。 公式はこの自己ロックで 【ターン1回】 の
     /// 無い起動メインの無限ループを防いでいる (core.py と同名 field)。
     pub block_chara_effect_untap_don_until_turn_end: bool,
-    pub turn_battle_ko_save_discard: bool,
     pub life_lost_this_turn: bool,
     pub chara_ko_taken_this_turn: i32,
     pub deck_out_wins: bool,
