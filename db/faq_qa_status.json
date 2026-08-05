@@ -1003,90 +1003,90 @@
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "",
+  "note": "OP16-040 条件 self_field_named_all_with_power は自分の場のみ数える。相手の Mr.3 では条件不成立=効果不可。test_op16_040_condition_counts_only_own_field で実測 (自Luffyのみ+相手Mr.3→False、自に両方→True)。",
   "q": "相手の場にのみ「Mr.3(ギャルディーノ)」があり、自分の場に「モンキー・Ｄ・ルフィ」がある場合、この【メイン】効果で、「相手のレストのコスト6以下のキャラ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。」を行うことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "185d21c3c2e5": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "",
+  "note": "OP16-045 クロコダイル 登場時: コスト『自分のコスト2以上のキャラ1枚を戻す』の候補は me.characters 全体=自身(cost4≥2)も含む。自身を戻し手札のインペルダウンcost2を登場可。test_op16_045_self_bounce_cost_can_target_source_itself で実測。",
   "q": "この【登場時】効果で、このキャラ自身を手札に戻し、自分の手札からコスト2以下の特徴《インペルダウン》を持つキャラカード1枚を登場させることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "18cbf71ad63a": {
   "a": "はい、カードを1枚引く効果も発動します。イベントカードの発動時、そのカードはトラッシュに置かれ、手札の枚数には含まれません。",
   "files": [
    "cardqa_st_03.json"
   ],
-  "note": "",
+  "note": "ST03-017 メロメロ甘風 カウンター: イベントは発動時 _fire_counter_events が hand.pop→trash してから効果解決するので、自身を含め4枚→発動後3枚→self_hand_count_le:3 成立→draw。test_st03_017_event_leaves_hand_before_self_hand_count_check で実測+対照(5枚→draw無)。",
   "q": "このカードを合わせて手札が4枚の場合、この効果でカードは引けますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "18ccfd26c59a": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_11.json"
   ],
-  "note": "",
+  "note": "OP08-043 白ひげ の『相手キャラすべて 次の相手ターン終了時まで アタック時 手札2枚捨てなければアタック不可』と、直前相手ターン発動→自ターン中に手札6枚で attack 可否(公式=いいえ)。engine は set_attack_cost_discard_hand duration:next_opp_turn_end で実装済だが、公式が NO とする理由(cross-turn duration の解釈 + Q&A が指す OP11 の『このキャラ』が未特定)が一意に定まらず。ターン跨ぎ duration 意味論の要人間確認。",
   "q": "直前の相手のターンに相手が「OP08-043 エドワード・ニューゲート」の【登場時】効果を発動しており、次の自分のターン中に、自分の手札が6枚の場合、自分の手札2枚を捨ててこのキャラでアタックすることができますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "1941777d5f2e": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "",
+  "note": "OP06-065 ヴィンスモーク・ニジ: 手札戻し選択肢はコスト4以下対象なのでコスト2キャラも当然含む。one_opponent_character_cost_le_4cost が cost2 に一致。test_op06_065_cost_le_4_return_option_can_target_cost2_char で実測。",
   "q": "この【登場時】効果で、相手のコスト2以下のキャラを相手の手札に戻すことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "197c26eeb0a4": {
   "a": "はい、発動できます。",
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-054 X・ドレーク 登場時KO『1枚まで』は0〜1枚。対象丁度1枚でも発動しKO。test_op01_054_ko_up_to_one_activates_with_exactly_one_target で実測。",
   "q": "この【登場時】効果でKOできるキャラが1枚の場合、この効果を発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "19a6fe8c9b5f": {
   "a": "いいえ、元の値に戻りません。",
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "",
+  "note": "OP06-083 オーズ 起動メイン『効果無効』は自己効果のみ抑止し外部 turn_buff(+1000) は残る。test_op06_083_self_negate_does_not_strip_external_power_buff で実測 (power 8000維持)。OP06-074 と同原則。",
   "q": "このキャラが、他のカードやドン!!カードによって「このターン中、パワー+1000。」などの効果を受けている場合、この【起動メイン】効果でパワーは元の値に戻りますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1a2eda8b6e9b": {
   "a": "はい、できます。",
   "files": [
    "cardqa_.json"
   ],
-  "note": "",
+  "note": "OP06-016 レイズ・マックス 起動メイン: 相手キャラ0でもコスト(自身デッキ下)を払って発動可(1枚まで=0可)。test_op06_016_activate_main_pays_cost_with_zero_opp_targets で実測。",
   "q": "この【起動メイン】効果で相手のキャラをパワー-3000せずに、このキャラをデッキの下に置くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1a3098230031": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_st_33.json"
   ],
-  "note": "",
+  "note": "ST33-002 サカズキ アタック時: 手札0でコロン前コスト(手札1捨て)払えず効果(相手discard)不発。test_st33_002_attack_effect_no_op_when_cost_unpayable_at_zero_hand で実測+対照。",
   "q": "自分の手札が0枚のときに、この【アタック時】で自分の手札1枚を捨てずに相手の手札を捨てさせることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1ac4cb7272bb": {
   "a": "はい。発動できます。手札を1枚捨てた後、何も起きません。",
   "files": [
    "cardqa_st_04.json"
   ],
-  "note": "",
+  "note": "ST04-008 ジャック: ドンデッキ空でも発動、コスト(手札1捨て)は払われ追加ドン0(何も起きない)。add_don は min(n, don_remaining_in_deck)。test_st04_008_activates_with_empty_don_deck_cost_still_paid で実測。",
   "q": "ドン!!デッキにカードがない場合も効果は発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "1ae60b481aab": {
   "a": "はい、発動できます。自分のデッキを見た後、なにも登場させずにデッキをシャッフルします。",
