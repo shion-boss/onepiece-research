@@ -355,13 +355,14 @@
    ]
   },
   {
-   "_text": "【アタック時】リーダーかキャラ1枚に持ち主のレストのドン‼1枚までを、付与する。",
+   "_text": "【アタック時】リーダーかキャラ1枚に持ち主のレストのドン‼1枚までを、付与する。 [両陣営是正 2026-08-06: 「リーダーかキャラ1枚」修飾なし=両陣営 / 「持ち主の」レストドン (cardqa_op_15)]",
    "when": "on_attack",
    "do": [
     {
      "attach_rested_don": {
-      "target": "one_self_team_any",
-      "count": 1
+      "target": "one_team_any_either",
+      "count": 1,
+      "owner_of_target": true
      }
     }
    ]
@@ -960,7 +961,7 @@
  ],
  "OP06-051": [
   {
-   "_text": "OP06-051 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を持ち主の手札に戻す。 [dd-fix]",
+   "_text": "OP06-051 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を持ち主の手札に戻す。 [dd-fix] [chooser是正 2026-08-06: 公式「相手は自身の…」= 選ぶのは相手 (cardqa_op_09)]",
    "when": "on_play",
    "do": [
     {
@@ -972,7 +973,10 @@
       ],
       "effect": [
        {
-        "return_to_hand": "one_opponent_character_any"
+        "return_to_hand": {
+         "type": "one_opponent_character_any",
+         "chooser": "opp"
+        }
        }
       ]
      }
@@ -11180,7 +11184,7 @@
  ],
  "OP15-017": [
   {
-   "_text": "モーガン (赤 cost5) ブロッカー+起動メイン: 自リーダー ドン1付与",
+   "_text": "モーガン (赤 cost5) ブロッカー+起動メイン: 自リーダー ドン1付与 [両陣営是正 2026-08-06: 効果側「リーダーかキャラ1枚に持ち主のレストのドン」= 両陣営 (cardqa_op_15)]",
    "when": "activate_main",
    "cost": {
     "once_per_turn": true
@@ -11198,8 +11202,9 @@
       "effect": [
        {
         "attach_rested_don": {
-         "target": "self_inplay_choice",
-         "count": 1
+         "target": "one_team_any_either",
+         "count": 1,
+         "owner_of_target": true
         }
        }
       ]
@@ -12255,11 +12260,11 @@
  ],
  "OP15-032": [
   {
-   "_text": "OP15-032 on_play: 相手のカード1枚までを、レストにする。",
+   "_text": "OP15-032 on_play: 相手のカード1枚までを、レストにする。 [対象範囲是正 2026-08-06: 相手の「カード」= リーダー/キャラ/ステージ/ドン (cardqa_op_14)]",
    "when": "on_play",
    "do": [
     {
-     "rest": "one_opponent_inplay_any"
+     "rest": "one_opp_card_any"
     }
    ]
   },
@@ -12489,7 +12494,7 @@
    "optional": true
   },
   {
-   "_text": "OP15-003 アルビダ 起動メイン: ターン1回 自リーダー/キャラ1にレストドン1付与",
+   "_text": "OP15-003 アルビダ 起動メイン: ターン1回 自リーダー/キャラ1にレストドン1付与 [両陣営是正 2026-08-06: 効果側「リーダーかキャラ1枚に持ち主のレストのドン」= 両陣営 (cardqa_op_15)]",
    "when": "activate_main",
    "cost": {
     "once_per_turn": true
@@ -12507,8 +12512,9 @@
       "effect": [
        {
         "attach_rested_don": {
-         "target": "self_inplay_choice",
-         "count": 1
+         "target": "one_team_any_either",
+         "count": 1,
+         "owner_of_target": true
         }
        }
       ]
@@ -13794,6 +13800,16 @@
  ],
  "OP15-022": [
   {
+   "_text": "OP15-022 常在(ルール): 「ルール上、自分はデッキが0枚でも敗北せず、デッキが0枚になったターン終了時に敗北する」 [2026-08-06 実装]",
+   "when": "on_attached_don",
+   "do": [
+    {
+     "set_deck_out_defer": true
+    }
+   ],
+   "n": 0
+  },
+  {
    "_text": "OP15-022 起動メイン(ターン1):デッキ上4枚トラッシュ、その後デッキ0枚なら自キャラ1枚アクティブ",
    "when": "activate_main",
    "cost": {
@@ -13821,6 +13837,16 @@
   }
  ],
  "OP15-022_p1": [
+  {
+   "_text": "OP15-022 常在(ルール): 「ルール上、自分はデッキが0枚でも敗北せず、デッキが0枚になったターン終了時に敗北する」 [2026-08-06 実装]",
+   "when": "on_attached_don",
+   "do": [
+    {
+     "set_deck_out_defer": true
+    }
+   ],
+   "n": 0
+  },
   {
    "_text": "OP15-022 起動メイン(ターン1):デッキ上4枚トラッシュ、その後デッキ0枚なら自キャラ1枚アクティブ",
    "when": "activate_main",
@@ -25816,11 +25842,14 @@
  ],
  "OP09-058": [
   {
-   "_text": "OP09-058 main: 相手は自身のコスト6以下のキャラ1枚を、持ち主の手札に戻す。",
+   "_text": "OP09-058 main: 相手は自身のコスト6以下のキャラ1枚を、持ち主の手札に戻す。 [chooser是正 2026-08-06: 公式「相手は自身の…」= 選ぶのは相手 (cardqa_op_09)]",
    "when": "main",
    "do": [
     {
-     "return_to_hand": "one_opponent_character_cost_le_6cost"
+     "return_to_hand": {
+      "type": "one_opponent_character_cost_le_6cost",
+      "chooser": "opp"
+     }
     }
    ]
   },
@@ -35560,7 +35589,7 @@
    "optional": true
   },
   {
-   "_text": "【起動メイン】【ターン1回】相手のキャラ1枚に相手のレストのドン‼1枚を付与できる：リーダーかキャラ1枚に持ち主のレストのドン‼1枚までを、付与する。",
+   "_text": "【起動メイン】【ターン1回】相手のキャラ1枚に相手のレストのドン‼1枚を付与できる：リーダーかキャラ1枚に持ち主のレストのドン‼1枚までを、付与する。 [両陣営是正 2026-08-06: 効果側「リーダーかキャラ1枚に持ち主のレストのドン」= 両陣営 (cardqa_op_15)]",
    "when": "activate_main",
    "cost": {
     "once_per_turn": true
@@ -35578,8 +35607,9 @@
       "effect": [
        {
         "attach_rested_don": {
-         "target": "self_inplay_choice",
-         "count": 1
+         "target": "one_team_any_either",
+         "count": 1,
+         "owner_of_target": true
         }
        }
       ]
@@ -35680,11 +35710,11 @@
  ],
  "OP15-032_p1": [
   {
-   "_text": "OP15-032_p1 on_play: 相手のカード1枚までを、レストにする。",
+   "_text": "OP15-032_p1 on_play: 相手のカード1枚までを、レストにする。 [対象範囲是正 2026-08-06: 相手の「カード」= リーダー/キャラ/ステージ/ドン (cardqa_op_14)]",
    "when": "on_play",
    "do": [
     {
-     "rest": "one_opponent_inplay_any"
+     "rest": "one_opp_card_any"
     }
    ]
   },
@@ -44169,7 +44199,7 @@
  ],
  "OP06-051_p2": [
   {
-   "_text": "OP06-051_p2 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を持ち主の手札に戻す。 [dd-fix]",
+   "_text": "OP06-051_p2 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を持ち主の手札に戻す。 [dd-fix] [chooser是正 2026-08-06: 公式「相手は自身の…」= 選ぶのは相手 (cardqa_op_09)]",
    "when": "on_play",
    "do": [
     {
@@ -44181,7 +44211,10 @@
       ],
       "effect": [
        {
-        "return_to_hand": "one_opponent_character_any"
+        "return_to_hand": {
+         "type": "one_opponent_character_any",
+         "chooser": "opp"
+        }
        }
       ]
      }
@@ -56349,7 +56382,7 @@
  ],
  "P-055_p2": [
   {
-   "_text": "P-055 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を、持ち主のデッキの下に置く。",
+   "_text": "P-055 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を、持ち主のデッキの下に置く。 [chooser是正 2026-08-06: 公式「相手は自身の…」= 選ぶのは相手 (cardqa_op_09)]",
    "when": "on_play",
    "do": [
     {
@@ -56364,7 +56397,10 @@
       ],
       "effect": [
        {
-        "return_to_deck_bottom": "one_opponent_character_any"
+        "return_to_deck_bottom": {
+         "type": "one_opponent_character_any",
+         "chooser": "opp"
+        }
        }
       ]
      }
@@ -56374,7 +56410,7 @@
  ],
  "P-055_p3": [
   {
-   "_text": "P-055 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を、持ち主のデッキの下に置く。",
+   "_text": "P-055 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を、持ち主のデッキの下に置く。 [chooser是正 2026-08-06: 公式「相手は自身の…」= 選ぶのは相手 (cardqa_op_09)]",
    "when": "on_play",
    "do": [
     {
@@ -56389,7 +56425,10 @@
       ],
       "effect": [
        {
-        "return_to_deck_bottom": "one_opponent_character_any"
+        "return_to_deck_bottom": {
+         "type": "one_opponent_character_any",
+         "chooser": "opp"
+        }
        }
       ]
      }
@@ -56399,7 +56438,7 @@
  ],
  "P-055_r1": [
   {
-   "_text": "P-055 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を、持ち主のデッキの下に置く。",
+   "_text": "P-055 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を、持ち主のデッキの下に置く。 [chooser是正 2026-08-06: 公式「相手は自身の…」= 選ぶのは相手 (cardqa_op_09)]",
    "when": "on_play",
    "do": [
     {
@@ -56414,7 +56453,10 @@
       ],
       "effect": [
        {
-        "return_to_deck_bottom": "one_opponent_character_any"
+        "return_to_deck_bottom": {
+         "type": "one_opponent_character_any",
+         "chooser": "opp"
+        }
        }
       ]
      }
@@ -60877,7 +60919,7 @@
  ],
  "EB01-028": [
   {
-   "_text": "EB01-028 counter: 自分のリーダーが特徴《インペルダウン》を持つ場合、自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、相手は自身のアクティブのキャラ1枚を",
+   "_text": "EB01-028 counter: 自分のリーダーが特徴《インペルダウン》を持つ場合、自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、相手は自身のアクティブのキャラ1枚を [chooser是正 2026-08-06: 公式「相手は自身の…」= 選ぶのは相手 (cardqa_op_09)]",
    "when": "counter",
    "do": [
     {
@@ -60892,7 +60934,8 @@
       "type": "one_opponent_character_filtered",
       "filter": {
        "rested": false
-      }
+      },
+      "chooser": "opp"
      }
     }
    ],
@@ -61525,13 +61568,14 @@
  ],
  "OP15-010": [
   {
-   "_text": "OP15-010 activate_main: 【ターン1回】リーダーかキャラ1枚に持ち主のレストのドン‼1枚までを、付与する。",
+   "_text": "OP15-010 activate_main: 【ターン1回】リーダーかキャラ1枚に持ち主のレストのドン‼1枚までを、付与する。 [両陣営是正 2026-08-06: 「リーダーかキャラ1枚」修飾なし=両陣営 / 「持ち主の」レストドン (cardqa_op_15)]",
    "when": "activate_main",
    "do": [
     {
      "attach_rested_don": {
-      "target": "one_self_team_any",
-      "count": 1
+      "target": "one_team_any_either",
+      "count": 1,
+      "owner_of_target": true
      }
     }
    ],
@@ -62889,11 +62933,11 @@
    ]
   },
   {
-   "_text": "OP14-024 on_ko: 相手のカード1枚までを、レストにする。",
+   "_text": "OP14-024 on_ko: 相手のカード1枚までを、レストにする。 [対象範囲是正 2026-08-06: 相手の「カード」= リーダー/キャラ/ステージ/ドン (cardqa_op_14)]",
    "when": "on_ko",
    "do": [
     {
-     "rest": "one_opponent_inplay_any"
+     "rest": "one_opp_card_any"
     }
    ]
   }
@@ -64048,14 +64092,14 @@
  ],
  "OP13-033": [
   {
-   "_text": "OP13-033 on_ko: 相手のカード2枚までを、レストにする。",
+   "_text": "OP13-033 on_ko: 相手のカード2枚までを、レストにする。 [対象範囲是正 2026-08-06: 相手の「カード」= リーダー/キャラ/ステージ/ドン (cardqa_op_14)]",
    "when": "on_ko",
    "do": [
     {
-     "rest": "one_opp_chara_or_don"
+     "rest": "one_opp_card_any"
     },
     {
-     "rest": "one_opp_chara_or_don"
+     "rest": "one_opp_card_any"
     }
    ]
   }
@@ -94332,7 +94376,7 @@
  ],
  "P-055": [
   {
-   "_text": "P-055 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を、持ち主のデッキの下に置く。",
+   "_text": "P-055 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を、持ち主のデッキの下に置く。 [chooser是正 2026-08-06: 公式「相手は自身の…」= 選ぶのは相手 (cardqa_op_09)]",
    "when": "on_play",
    "do": [
     {
@@ -94347,7 +94391,10 @@
       ],
       "effect": [
        {
-        "return_to_deck_bottom": "one_opponent_character_any"
+        "return_to_deck_bottom": {
+         "type": "one_opponent_character_any",
+         "chooser": "opp"
+        }
        }
       ]
      }
@@ -97307,7 +97354,7 @@
  ],
  "P-055_p1": [
   {
-   "_text": "P-055 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を、持ち主のデッキの下に置く。",
+   "_text": "P-055 on_play: 自分の手札2枚を捨てることができる：相手は自身のキャラ1枚を、持ち主のデッキの下に置く。 [chooser是正 2026-08-06: 公式「相手は自身の…」= 選ぶのは相手 (cardqa_op_09)]",
    "when": "on_play",
    "do": [
     {
@@ -97322,7 +97369,10 @@
       ],
       "effect": [
        {
-        "return_to_deck_bottom": "one_opponent_character_any"
+        "return_to_deck_bottom": {
+         "type": "one_opponent_character_any",
+         "chooser": "opp"
+        }
        }
       ]
      }
@@ -105829,11 +105879,11 @@
  ],
  "OP16-035": [
   {
-   "_text": "OP16-035 【登場時】相手のカード1枚までをレスト。その後、手札1枚を捨ててもよい：自分のリーダーにレストのドン!!3枚までを付与。",
+   "_text": "OP16-035 【登場時】相手のカード1枚までをレスト。その後、手札1枚を捨ててもよい：自分のリーダーにレストのドン!!3枚までを付与。 [対象範囲是正 2026-08-06: 相手の「カード」= リーダー/キャラ/ステージ/ドン (cardqa_op_14)]",
    "when": "on_play",
    "do": [
     {
-     "rest": "one_opponent_inplay_any"
+     "rest": "one_opp_card_any"
     },
     {
      "optional_cost_then": {

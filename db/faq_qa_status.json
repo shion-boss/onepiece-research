@@ -1606,9 +1606,9 @@
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "OP15-022 ブルック: 『デッキ0でも敗北せず、デッキ0のターン終了時に敗北』の遅延デッキアウト敗北ルールが未実装(engineはDRAWフェイズ空引きで即敗北 game.py:739)。双方ブルック同時デッキアウト=同時敗北も未対応。敗北タイミングのアーキ変更(deck_out_defer flag+ターン終了時敗北判定+同時敗北)が必要でescalated。対象1カード(OP15-022)",
+  "note": "OP15-022 ブルック 遅延デッキアウト (cardqa_op_15: 両者デッキ0なら同時敗北)。Player.deck_out_defer を新設し 静的 primitive set_deck_out_defer (when=on_attached_don n=0、OP03-040 set_deck_out_wins と同形) で付与。DRAWフェイズの空引きは即敗北させず DON へ進み、ターン終了時 (Phase.END) に deck0 の該当プレイヤーを敗北。2人該当なら winner=None の引き分け=同時敗北。実測: 両者ブルック→引き分け / 片方のみ→相手の勝ち。",
   "q": "自分と相手がこのリーダーを使用していて、自分のターン中に自分と相手のデッキがどちらも0枚になった場合、このターンの終了時にどのプレイヤーが敗北しますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "2834981585da": {
   "a": "はい、アタックできます。",
@@ -1633,9 +1633,9 @@
   "files": [
    "cardqa_op_14.json"
   ],
-  "note": "OP14-024 錦えもん等【KO時】『相手のカード1枚をレスト』の対象範囲。公式=リーダー/キャラ/ステージ/ドンのうち1枚。engineの one_opponent_inplay_any は leader+キャラのみ(ステージ/ドン欠落)。対象4カード(OP13-033/OP14-024/OP15-032/OP16-035)。ドン/ステージを含む異種targetresolver+rest primitive分岐=アーキ変更でescalated",
+  "note": "OP14-024系【KO時】「相手のカード1枚をレスト」の対象を リーダー/キャラ/ステージ/ドン の4ゾーンへ拡張 (cardqa_op_14)。新 spec one_opp_card_any を rest primitive 内に実装 (ドンは InPlay でないので one_opp_chara_or_don と同じ分岐方式)。AI順=キャラ(脅威降順)→リーダー→ドン→ステージ で従来の キャラ→リーダー を保持。対象4枚 OP13-033/OP14-024/OP15-032/OP16-035。実測: ステージのみ/ドンのみ の盤面で選べることを確認。",
   "q": "この【KO時】効果の「相手のカード1枚を、レストにする」とは、どのカードをレストにする効果ですか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "2958c31c263d": {
   "a": "はい、できます。この場合、表向きのカードを見た後、その見たカードをライフの上か下に表向きのまま置くことができます。",
@@ -1913,9 +1913,9 @@
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "OP15-010/012系『リーダーかキャラ1枚に持ち主のレストのドン1枚までを付与』(自分の/相手の の修飾なし=両陣営、 持ち主=対象の所有者のレストのドン)。 公式: 自→自(自レストドン)も相手→相手(相手レストドン)も可。 現overlay=one_self_team_any(自陣限定)で違反だが、 是正には(1)リーダー含む両陣営 target spec 新設(2)attach_rested_don の don_owner を対象所有者ごとに解決(現状 to_opp flag で up-front固定)の2点=primitive のアーキ変更が必要。 実害は稀(相手側に相手のドンを縛る非自明プレイのみ、 自陣付与は既に正しく動く)。 影響4枚(OP15-003/010/012/017)。 規模の見極め#11(アーキ変更)によりescalated。 docs/official_rulings.md 記録済",
+  "note": "OP15-010/012系「リーダーかキャラ1枚に持ち主のレストのドン1枚まで付与」= 修飾なし=両陣営 (cardqa_op_15)。新 target spec one_team_any_either (両陣営 leader+chara、人間modalは両陣営・AIは自陣=従来挙動維持) + attach_rested_don に owner_of_target を追加しドン源を対象の所有者で解決 (to_opp の up-front固定では両陣営を表現できない)。対象4枚 OP15-003/010/012/017。実測: 人間modalに owner=opp 候補が出ることを確認。",
   "q": "この「リーダーかキャラ1枚に持ち主のレストのドン‼1枚までを、付与する。」の効果で、自分のリーダーやキャラに自分のレストのドン!!を付与することや、相手のリーダーやキャラに相手のレストのドン!!を付与することはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "2f462b39833b": {
   "a": "はい、戻すことができます。",
@@ -2012,9 +2012,9 @@
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "OP15-012 バギー 【アタック時】『リーダーかキャラ1枚に持ち主のレストのドン1枚まで付与』の対象で相手のOP11-041ナミ(0ドン)にドン付与→ナミの【ドン×1】【相手のアタック時】は発動不可(公式=いいえ)。この Q は 既 escalated 2f3620bfd8b9(バギー系の両陣営 target scope=one_self_team_any で自陣限定=違反、 primitive アーキ変更要)の下流。現engineは そもそも相手ナミを対象化できずシナリオ再現不可。正しい是正には 2f3620bfd8b9 の両陣営付与に加え【相手のアタック時】【ドン×1】gate を『アタック宣言時点』評価(=攻撃側【アタック時】のドン付与解決前)にする必要。engine の宣言時発火順は trigger_on_attack→trigger_on_opp_attack(game.py:1521-1526)で 付与が先に走る為 gate タイミング検証は 2f3620bfd8b9 修正時に併せて要確認。単独では検証不能=escalated",
+  "note": "OP15-012 バギー×OP11-041 ナミ。公式=いいえ。原因は 2f3620bfd8b9 の下流ではなく **【ドン‼×N】gate の判定時点**。どの効果が発動するかは トリガー事象(=アタック宣言)時点で決まり、攻撃側【アタック時】の解決で後からドンを付与しても遡って発動可能にならない。engine の発火順 trigger_on_attack→trigger_on_opp_attack では付与が先に走るため、宣言時に defender の付与ドン総数を state._opp_attack_don_snapshot へ退避し、_enqueue_opp_attack_with_cost の gate 評価中のみ self_attached_don_ge がそれを参照するよう是正。",
   "q": "この【アタック時】効果で、相手のドン!!が付与されていない「OP11-041 ナミ」にドン!!を付与した場合、相手は「ナミ」の【相手のアタック時】効果を発動することはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "3200dcd72841": {
   "a": "いいえ、できません。この効果は、選んだリーダーやキャラによるアタックの宣言をする時、アタックの対象にアクティブのキャラも選べるようにする効果です。キャラが登場したターンは、そのキャラはアタックの宣言ができないため、アクティブのキャラにアタックできません。",
@@ -2156,9 +2156,9 @@
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "OP12-075 ミス・オールサンデー: 相手はドン追加してもよい=相手が決める。overlay は actor:opp+optional だが _execute_event が bundle 直下の actor/optional を無視し DON を発動者(自分)に追加+非任意化=二重違反。actor:opp は本カード1枚のみだが、修正は core event dispatch 変更(actor swap+相手所有 pending_choice)+Rust mirror 要につき escalated。docs 記録",
+  "note": "OP12-075 ミス・オールサンデー「相手はドン1枚を追加してもよい」(cardqa_op_12: 決めるのは相手)。bundle 直下の actor/optional が event resolver で完全に無視され、ドンが発動者(自分)に追加され かつ 任意でもなかった=二重違反。actor:'opp' で me/opp を入替えて解決し、modal 宛先も相手へ切替。optional は 相手が人間なら option_pick / AI なら行使。実測: 自分 don_active 不変・相手 +1 を確認。",
   "q": "自分がこの【登場時】効果を発動した時、相手がドン!!を追加するかどうかを決めるのは自分ですか？相手ですか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "33c1d8c18e2e": {
   "a": "はい、6000になります。",
@@ -2228,9 +2228,9 @@
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "OP15-090 ペローナ replace_leave(元々パワー7000以下が相手効果で離脱→手札1捨てで代替)。公式=2枚同時離脱でも手札1捨てで両方残す(2枚捨て不可)or何もせず両方離脱。engine実測=ko_multiがtry_replace_koをvictim毎に呼び手札2捨て(2victim=2discard)=違反。修正は同時離脱のバッチ化(1holderの置換を全victim分1回・単一コストで適用)=アーキ変更、OP15置換サイクル(ペローナ/ボニー/ノラ/レオ/ラブーン等)横断。escalated",
+  "note": "OP15-090 ペローナ 同時離脱 (cardqa_op_15: 手札1枚で2枚とも残すか、何もせず2枚とも離れるか)。ko_multi 等が victim 毎に try_replace_ko を呼び victim 数だけコストを払っていた。同時離脱を1事象とする _LeaveBatch を execute_effect に配線 (対象 primitive: ko_multi/ko_all_others/ko_total_power_le/return_to_hand_multi/return_to_deck_bottom_multi) し、holder×when 単位で 払う/払わない を1度だけ決定・以降は無償適用。実測: 2victim で手札-1・2枚とも生存を確認。",
   "q": "自分の元々のパワー7000以下のキャラが2枚同時に相手の効果で場を離れる場合、代わりに自分の手札2枚を捨てることはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "35efcda7c42d": {
   "a": "この場合、同時に登場したキャラ1枚ごとにこの効果が発動します。例として、「OP16-105 ゲッコー・モリア」の【トリガー】効果で3枚のキャラを同時に登場させた場合、合計で3枚のカードを引きます。",
@@ -2318,9 +2318,9 @@
   "files": [
    "cardqa_op_09.json"
   ],
-  "note": "OP09-058 特製マギー玉「相手は自身のコスト6以下キャラ1枚を戻す」=相手(所有者)が選ぶ。engineはoverlay return_to_hand:one_opponent_character_cost_le_6cost=行動側が選ぶ(実測: 強キャラをbounce)。chooser帰属の相違。18枚「相手は自身の…戻す/捨てる/デッキ戻す」に及ぶアーキ変更(target選択にchooser次元追加+AIは自損最小で選ぶ)=自動修正範囲超。docs記載。",
+  "note": "OP09-058等「相手は自身の…キャラ1枚を戻す」= 選ぶのは相手 (cardqa_op_09)。target spec に chooser:'opp' 次元を新設し、入口で分岐: 候補を any_ 形で全解決 → 人間が相手側なら その人に modal (forced_human_actor_idx を対象所有者へ切替) / AI は自分の損害最小 = _opp_value 昇順で1枚。cron note の「18枚」は手札系を含む過大見積で、盤面 chooser の実クラスは 4枚/9エントリ (EB01-028/OP06-051/OP09-058/P-055)。実測: chooser有=弱い方が戻る / 無=強い方が戻る の対照を確認。",
   "q": "この【メイン】効果で手札に戻すキャラはどちらのプレイヤーが選びますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "37c3a1f9cb07": {
   "a": "いいえ、できません。この場合は「カウンター+2000」として使用します。",
@@ -2363,9 +2363,9 @@
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "OP12 起動メイン ドン付与系。「このキャラ自身に付与されていたドンを、効果で付与するドンとして選べるか=はい」。OP12の起動メインドン付与(013はっちゃん/044サカズキ/014ハンコック/026くいな)は全て「レストのドン」(コストエリアのレストプール)を源とし、キャラに付与済のドンを源にする経路が存在しない(既記: attach_rested_don source=me.don_rested のみ、付与済ドンは移せない=ST01-001/007)。公式が付与済ドンを付与源に選べると裁定するなら、attach源に「対象/自身の attached_dons」を含める必要=データの持ち方(don_rested vs attached_dons)を跨ぐアーキ変更。対象カード一意特定も未確定(card_number無し)。rule 11によりescalated。",
+  "note": "対象を OP12-014 ボア・ハンコック と特定 (OP12 の起動メインドン付与のうち **コストで自身が場を離れる** のはこれ)。公式が『はい』なのは attach 源に attached_dons を含める必要があるからではなく、**コストを先に払う→自身がトラッシュ→付与ドンが公式6-5-5-4でコストエリアにレストで戻る→その『レストのドン』が効果の源になる** ため。engine は既に正しい。実測: 付与済2枚・コストエリアのレストドン0 の盤面で 起動メイン → リーダーに2枚付与を確認。cron note の『アーキ変更が必要』は誤診断。",
   "q": "このキャラにドン!!が付与されている状態で、この【起動メイン】効果を発動した場合、このキャラ自身に付与されていたドン!!を、効果で付与するドン!!として選ぶことはできますか？",
-  "status": "escalated"
+  "status": "conform"
  },
  "389e67d4644e": {
   "a": "この効果を発動したプレイヤーが、相手のコストエリアにあるレストのドン!!を選びます。",

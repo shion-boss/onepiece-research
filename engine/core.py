@@ -691,6 +691,9 @@ class Player:
     chara_ko_taken_this_turn: int = 0
     # 「デッキが0で敗北の代わりに勝利」 (OP03-040)。 leader静的でセット、 非reset。
     deck_out_wins: bool = False
+    # 公式 「ルール上、 自分はデッキが0枚でも敗北せず、 デッキが0枚になったターン終了時に
+    # 敗北する」 (OP15-022 ブルック リーダー)。 デッキ切れ敗北を **そのターンの終了時** へ遅延。
+    deck_out_defer: bool = False
     # 「自分は、 このターン中、 自分の効果でライフを手札に加えられない」 (OP02-023 等)。
     # _reset_turn_buff で False に。 life_to_hand / life_top_or_bottom_to_hand (owner=self) が抑制される。
     prevent_self_life_to_hand_until_turn_end: bool = False

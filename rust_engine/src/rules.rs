@@ -458,8 +458,17 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
             if !(state.turn_number == 1 && state.turn_player_idx == 0) {
                 let p = &mut state.players[me];
                 if p.deck.is_empty() {
-                    let win_self = p.deck_out_wins;
-                    declare_winner(state, if win_self { me } else { 1 - me });
+                    if p.deck_out_wins {
+                        declare_winner(state, me);
+                        return Ok(());
+                    }
+                    // OP15-022 ブルック: デッキ0 でも即敗北せず、 そのターン終了時に敗北
+                    // (game.py の deck_out_defer と同じ。 引けずに DON へ進む)。
+                    if p.deck_out_defer {
+                        state.phase = Phase::Don;
+                        return Ok(());
+                    }
+                    declare_winner(state, 1 - me);
                     return Ok(());
                 }
                 let card = p.deck.remove(0);
@@ -492,6 +501,20 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
             state.phase = Phase::End;
         }
         Phase::End => {
+            // ⭐ 遅延デッキアウト敗北 (OP15-022): 「デッキが0枚になったターン終了時に敗北」。
+            //   両者該当なら **同時敗北** = 引き分け (cardqa_op_15、 game.py と同順)。
+            let deck_out: Vec<usize> = (0..state.players.len())
+                .filter(|&i| state.players[i].deck_out_defer && state.players[i].deck.is_empty())
+                .collect();
+            if !deck_out.is_empty() && !state.game_over {
+                if deck_out.len() == 2 {
+                    state.game_over = true;
+                    state.winner = None;
+                } else {
+                    declare_winner(state, 1 - deck_out[0]);
+                }
+                return Ok(());
+            }
             // ターン終了時処理 (trigger_end_of_turn 前半、 effects.py:11414)。 Python 順: 予約効果 flush →
             // return_to_deck → trash → (下の) end_of_turn トリガー。
             // 1. scheduled_at_self_turn_end flush (source-gone、 safe prim のみ = fire_gated_do、 未対応は bail)。

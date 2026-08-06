@@ -323,12 +323,15 @@ def audit_card(repo, overlay, card_id):
         opp_leave_n = _opp_leave_count(eff, state, me, opp, src_inplay) if has_opp_leave else 0
         rest_iids = _rest_opp_active_iids(eff, state, me, opp, src_inplay) if has_rest else set()
         pp_targets = _power_pump_targets(eff, state, me, opp, src_inplay) if has_pp else []
-        b = costoracle._snap(me, opp, src_inplay)
+        # ⚠ 公式 「**相手は**…する」 (bundle 直下 actor:"opp") は **相手の側** に作用する
+        #   (cardqa_op_12、 OP12-075)。 me 基準で測ると 「空振り」 と誤判定するので陣営を入替える。
+        _snap_me, _snap_opp = (opp, me) if eff.get("actor") == "opp" else (me, opp)
+        b = costoracle._snap(_snap_me, _snap_opp, src_inplay)
         try:
             smoke.fire_one_effect(state, card, src_inplay, eff, repo)
         except Exception:
             continue
-        a = costoracle._snap(me, opp, src_inplay)
+        a = costoracle._snap(_snap_me, _snap_opp, src_inplay)
         for k, _amt in modeled:
             miss = _missing(k, b, a)
             if miss:

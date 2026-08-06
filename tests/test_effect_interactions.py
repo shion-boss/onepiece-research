@@ -5521,3 +5521,252 @@ def test_op01_052_attacker_counts_in_self_rested_chara_count():
     attacker.rested = True  # アタック宣言でレスト
     me.characters = [attacker, other]
     assert eval_condition({"self_rested_chara_count_ge": 2}, st, me, attacker) is True
+
+
+# =========================================================================== #
+#  人間レビュー行き (escalated) 8 件の是正 — 2026-08-06
+#  いずれも 「アーキ変更が要る」 として自動修正を見送られていたもの。
+# =========================================================================== #
+def _tb(repo, ov, leader_a="OP01-001", leader_b="OP01-001"):
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    p0 = Player(name="P0", leader=InPlay.of(repo.get(leader_a), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get(leader_b), sickness=False))
+    for p in (p0, p1):
+        p.deck = [repo.get("OP01-013")] * 10
+        p.life = [repo.get("OP01-013")] * 3
+    st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                   rng=random.Random(1), effects_overlay=ov)
+    st.turn_player_idx, st.turn_number = 0, 5
+    return st, p0, p1
+
+
+def _eff_of(ov, cid, when):
+    return next(e for e in ov.get(cid).effects if e.get("when") == when)
+
+
+def test_opp_card_rest_covers_stage_and_don():
+    """OP14-024: 「相手の**カード**1枚をレスト」 は リーダー/キャラ/ステージ/ドン の 4 ゾーン。
+
+    一次情報 (cardqa_op_14): 「この効果は、 相手の場にある、 **リーダー、 キャラ、 ステージ、
+    ドン!!のうち1枚**をアクティブからレストにします。」
+    ⚠ 是正前は one_opponent_inplay_any (= リーダー+キャラのみ) で ステージ/ドンが選べなかった。
+    """
+    from engine.core import InPlay
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    eff = _eff_of(ov, "OP14-024", "on_ko")
+
+    # ステージしか残っていない盤面 → ステージがレストされる
+    st, p0, p1 = _tb(repo, ov)
+    p1.characters, p1.don_active = [], 0
+    p1.leader.rested = True
+    stage = InPlay.of(repo.get("OP02-048"), sickness=False)
+    p1.stages = [stage]
+    execute_effect(eff["do"][0], st, p0, p1, None)
+    assert stage.rested, "相手ステージがレストされていない (対象範囲が狭い)"
+
+    # ドンしか無い盤面 → アクティブドンが 1 枚レストへ
+    st, p0, p1 = _tb(repo, ov)
+    p1.characters, p1.stages = [], []
+    p1.leader.rested = True
+    p1.don_active, p1.don_rested = 3, 0
+    execute_effect(eff["do"][0], st, p0, p1, None)
+    assert (p1.don_active, p1.don_rested) == (2, 1), \
+        f"相手のドンがレストされていない: active={p1.don_active} rested={p1.don_rested}"
+
+
+def test_opponent_chooses_which_of_their_own_characters_leaves():
+    """OP09-058: 「**相手は**自身のコスト6以下のキャラ1枚を戻す」 = **選ぶのは相手**。
+
+    一次情報 (cardqa_op_09): 「このカードを使用したプレイヤーの**対戦相手が**、 自身の場の
+    コスト6以下のキャラの中から1枚を選び、 手札に戻します。」
+    ⚠ 是正前は行動側が選んでおり **相手の最強キャラを bounce できた** (= 除去として過大)。
+    """
+    from engine.core import InPlay
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    eff = _eff_of(ov, "OP09-058", "main")
+
+    lo, hi = "EB01-015", "OP08-099"          # cost1/power1000, cost6/power8000
+    st, p0, p1 = _tb(repo, ov)
+    L = InPlay.of(repo.get(lo), sickness=False)
+    H = InPlay.of(repo.get(hi), sickness=False)
+    p1.characters = [H, L]                    # 強い方を先頭 = 順序に釣られないことも見る
+    execute_effect(eff["do"][0], st, p0, p1, None)
+    assert H in p1.characters and L not in p1.characters, \
+        "相手が選ぶなら 最も惜しくない (低価値の) キャラが戻るはず"
+
+    # 対照: chooser 指定が無ければ 行動側が選ぶ = 高価値が戻る (= 分岐が効いている証拠)
+    st, p0, p1 = _tb(repo, ov)
+    L2 = InPlay.of(repo.get(lo), sickness=False)
+    H2 = InPlay.of(repo.get(hi), sickness=False)
+    p1.characters = [L2, H2]
+    execute_effect({"return_to_hand": "one_opponent_character_cost_le_6cost"},
+                   st, p0, p1, None)
+    assert H2 not in p1.characters, "chooser 無しでは行動側が高価値を選ぶはず (対照)"
+
+
+def test_don_attach_target_covers_both_sides():
+    """OP15-012: 「リーダーかキャラ1枚に**持ち主の**レストのドン‼」 = 修飾なし = 両陣営。
+
+    一次情報 (cardqa_op_15): 「…自分のリーダーやキャラに自分のレストのドン!!を付与することや、
+    **相手のリーダーやキャラに相手のレストのドン!!を付与すること**はできますか？」 → 「はい」。
+    """
+    from engine.core import InPlay
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    st, p0, p1 = _tb(repo, ov)
+    st.human_player_idx = 0
+    st.forced_human_actor_idx = 0
+    p0.don_rested = p1.don_rested = 2
+    p1.characters = [InPlay.of(repo.get("OP01-013"), sickness=False)]
+    execute_effect(_eff_of(ov, "OP15-012", "on_attack")["do"][0], st, p0, p1, None)
+
+    pc = st.pending_choice
+    assert pc is not None, "人間 acting なのに対象選択 modal が立たない"
+    owners = {c.get("owner") for c in pc.get("candidates", [])}
+    assert "opp" in owners and "self" in owners, \
+        f"両陣営が候補に出ていない: {owners}"
+
+
+def test_actor_opp_effect_resolves_on_the_opponent_side():
+    """OP12-075: 「その後、 **相手は**ドン‼…を追加してもよい」 = 相手の側で解決し相手が決める。
+
+    一次情報 (cardqa_op_12): 「相手がドン!!を追加するかどうかを決めるのは自分ですか？
+    相手ですか？」 → 「この場合、 **相手が**ドン!!を追加するかどうかを決めます。」
+    ⚠ 是正前は bundle 直下の actor/optional が無視され、 **発動者にドンが追加され**
+      しかも **任意でもなかった** (二重違反)。
+    """
+    from engine.core import InPlay
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, trigger_on_play
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    st, p0, p1 = _tb(repo, ov)
+    src = InPlay.of(repo.get("OP12-075"), sickness=True)
+    p0.characters = [src]
+    a0, a1 = p0.don_active, p1.don_active
+    trigger_on_play(st, p0, p1, src, ov)
+    assert p0.don_active == a0, "発動者にドンが追加されている (actor が反転していない)"
+    assert p1.don_active == a1 + 1, "相手にドンが追加されていない"
+
+
+def test_simultaneous_leave_pays_replacement_cost_only_once():
+    """OP15-090 ペローナ: 2 枚同時離脱でも 置換コストは **手札1枚**、 2 枚とも残る。
+
+    一次情報 (cardqa_op_15): 「自分の元々のパワー7000以下のキャラが2枚同時に相手の効果で
+    場を離れる場合、 代わりに自分の手札2枚を捨てることはできますか？」 →
+    「自分の手札**1枚**を捨てることで場を離れるキャラを**2枚とも**場に残すか、 何もせず
+     キャラ2枚が場を離れるかを選びます。」
+    ⚠ 是正前は ko_multi が victim 毎に置換を呼び **手札 2 枚** 捨てていた。
+    """
+    from engine.core import InPlay
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    st, p0, p1 = _tb(repo, ov)
+    perona = InPlay.of(repo.get("OP15-090"), sickness=False)
+    v1 = InPlay.of(repo.get("OP01-013"), sickness=False)
+    v2 = InPlay.of(repo.get("OP01-013"), sickness=False)
+    p1.characters = [perona, v1, v2]
+    p1.hand = [repo.get("OP01-013")] * 4
+    src = InPlay.of(repo.get("OP01-016"), sickness=False)
+    p0.characters = [src]
+    hand_before = len(p1.hand)
+
+    execute_effect({"ko_multi": ["one_opponent_character_power_le_3000",
+                                 "one_opponent_character_power_le_3000"]},
+                   st, p0, p1, src)
+
+    assert hand_before - len(p1.hand) == 1, \
+        f"置換コストが victim 数だけ払われている: 手札 -{hand_before - len(p1.hand)}"
+    assert v1 in p1.characters and v2 in p1.characters, \
+        "1 枚のコストで 2 枚とも残っていない"
+
+
+def test_deferred_deck_out_loses_at_end_of_turn_and_can_be_simultaneous():
+    """OP15-022 ブルック: デッキ0 でも即敗北せず、 そのターン終了時に敗北 (両者なら同時敗北)。
+
+    一次情報 (cardqa_op_15): 「自分と相手がこのリーダーを使用していて、 自分のターン中に
+    自分と相手のデッキがどちらも0枚になった場合、 このターンの終了時にどのプレイヤーが
+    敗北しますか？」 → 「**どちらのプレイヤーも同時にゲームに敗北します。**」
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, evaluate_static_effects
+    from engine.game import advance_phase
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def mk(both: bool):
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP15-022"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(
+            repo.get("OP15-022" if both else "OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.life = [repo.get("OP01-013")] * 3
+            p.deck = []
+        st = GameState(players=[p0, p1], phase=Phase.END,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 0, 5
+        evaluate_static_effects(st, ov)
+        return st, p0, p1
+
+    st, p0, p1 = mk(True)
+    assert p0.deck_out_defer and p1.deck_out_defer, "常在ルール改変が付いていない"
+    advance_phase(st)
+    assert st.game_over and st.winner is None, \
+        f"両者デッキ0 は同時敗北 (引き分け) のはず: winner={st.winner}"
+
+    st, p0, p1 = mk(False)
+    p1.deck = [repo.get("OP01-013")] * 5
+    advance_phase(st)
+    assert st.game_over and st.winner == 1, \
+        f"片方だけデッキ0 なら相手の勝ち: winner={st.winner}"
+
+
+def test_attached_don_returns_rested_and_can_fuel_the_same_effect():
+    """OP12-014: コストで自身がトラッシュ → 付与ドンがレストで戻り、 その効果の源になる。
+
+    一次情報 (cardqa_op_12): 「このキャラにドン!!が付与されている状態で、 この【起動メイン】
+    効果を発動した場合、 **このキャラ自身に付与されていたドン!!を、 効果で付与するドン!!と
+    して選ぶことはできますか？**」 → 「はい、 できます。」
+    ⭐ これは attach 源に attached_dons を含める必要があるという話ではなく、
+      **コストを先に払う → 自身がトラッシュ → 付与ドンが公式 6-5-5-4 でコストエリアに
+      レストで戻る → その「レストのドン」が効果の源になる** という順序の帰結。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay
+    from engine.game import legal_actions, apply_action
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    st, p0, p1 = _tb(repo, ov)
+    h = InPlay.of(repo.get("OP12-014"), sickness=False)
+    h.attached_dons = 2
+    p0.characters = [h]
+    p0.don_rested = p0.don_active = 0     # コストエリアにレストのドンは無い
+
+    acts = [a for a in legal_actions(st) if type(a).__name__ == "ActivateMain"]
+    assert acts, "起動メインが legal に出ていない"
+    apply_action(st, acts[0])
+    assert p0.leader.attached_dons == 2, (
+        "自身の付与ドンがコストエリアにレストで戻って効果の源になっていない: "
+        f"leader.attached={p0.leader.attached_dons} don_rested={p0.don_rested}"
+    )

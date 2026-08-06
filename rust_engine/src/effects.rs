@@ -851,6 +851,49 @@ fn resolve_target(
     src: Slot,
     state: &GameState,
 ) -> Option<Vec<(usize, Slot)>> {
+    // ⭐ 公式 「**相手は**自身の…キャラ1枚を…」 = **選ぶのは相手** (cardqa_op_09)。
+    //   相手は自分の損害が最小になる 1 枚を選ぶ = opp_value 昇順。
+    //   (Python effects.py:_resolve_target 入口の _chooser_opp と同順)
+    if let Some(o) = spec.and_then(|v| v.as_object()) {
+        if o.get("chooser").and_then(|x| x.as_str()) == Some("opp") {
+            let t = o.get("type").or_else(|| o.get("target")).and_then(|x| x.as_str());
+            let mut cands: Vec<(usize, Slot)> = vec![];
+            if let Some(ts) = t {
+                let any_t = if ts.starts_with("one_opponent_") {
+                    format!("any_{}", &ts["one_".len()..])
+                } else {
+                    ts.to_string()
+                };
+                let mut any_spec = o.clone();
+                any_spec.remove("chooser");
+                any_spec.insert("type".into(), Value::String(any_t));
+                any_spec.remove("target");
+                let sv = Value::Object(any_spec);
+                cands = resolve_target(Some(&sv), me_idx, opp_idx, src, state).unwrap_or_default();
+                if cands.is_empty() {
+                    // `any_` 版が無い spec (one_opponent_character_filtered 等) の保険:
+                    // 相手キャラ全体を filter で絞る (Python 側と同じ fallback)。
+                    let filt = o.get("filter").cloned();
+                    let opp = &state.players[opp_idx];
+                    cands = (0..opp.characters.len())
+                        .filter(|&i| matches_filter_ip(&opp.characters[i], filt.as_ref()))
+                        .map(|i| (opp_idx, Slot::Char(i)))
+                        .collect();
+                }
+            }
+            if cands.is_empty() {
+                return Some(vec![]);
+            }
+            // opp_value 昇順 (tie は board 順 = Python の instance_id 昇順と同じ並び)
+            cands.sort_by(|a, b| {
+                let va = opp_value(get_ip(&state.players[a.0], a.1));
+                let vb = opp_value(get_ip(&state.players[b.0], b.1));
+                va.partial_cmp(&vb).unwrap_or(std::cmp::Ordering::Equal)
+            });
+            return Some(vec![cands[0]]);
+        }
+    }
+
     let s = match spec {
         Some(v) if v.is_string() => v.as_str().unwrap().to_string(),
         None => "self".to_string(),
@@ -1214,6 +1257,17 @@ fn resolve_target(
             cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
         }
         // 自分のリーダー or キャラ 1 枚 (effects.py:one_self_team_any、 power 降順)
+        // 公式 「リーダーかキャラ1枚に持ち主のレストのドン‼」 = 修飾なし = **両陣営** (cardqa_op_15)。
+        // AI は自陣を選ぶ (= 従来 one_self_team_any と同挙動を維持)。 Python と同順。
+        "one_team_any_either" => {
+            let me = &state.players[me_idx];
+            let mut cands: Vec<(Slot, i32)> = vec![(Slot::Leader, me.leader.power())];
+            for (i, c) in me.characters.iter().enumerate() {
+                cands.push((Slot::Char(i), c.power()));
+            }
+            cands.sort_by(|a, b| b.1.cmp(&a.1));
+            vec![(me_idx, cands[0].0)]
+        }
         "one_self_team_any" => {
             let me = &state.players[me_idx];
             let mut cands: Vec<(Slot, i32)> = vec![(Slot::Leader, me.leader.power())];
@@ -2747,6 +2801,11 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
         "set_deck_out_wins" => {
             state.players[me_idx].deck_out_wins = true;
         }
+        // 公式 (OP15-022 ブルック リーダー): 「ルール上、 自分はデッキが0枚でも敗北せず、
+        // デッキが0枚になったターン終了時に敗北する」 (effects.py:set_deck_out_defer)。
+        "set_deck_out_defer" => {
+            state.players[me_idx].deck_out_defer = true;
+        }
         // 「手札の (filter) カードのカウンター +N」 静的 (effects.py:11138、 OP16-118)。
         "set_hand_counter_boost" => {
             state.players[me_idx].hand_counter_boost = Some(spec.clone());
@@ -3725,6 +3784,49 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             // 相手アクティブキャラ (power 降順) 優先 → 無ければ opp.don_active 1 枚 → 無ければ no-op。
             // ドンは Slot でないので resolve_target を通さず inline。 no-op でも true (Python は return False
             // だが do-loop は返値無視 = 実質 no-op、 bail にしない)。 cost_le filter (dict form)。
+            // 公式 「相手の**カード**1枚をレスト」 = リーダー/キャラ/ステージ/ドン (cardqa_op_14)。
+            // AI 順は Python (effects.py の one_opp_card_any) と同じ:
+            //   キャラ (power 降順) → リーダー → ドン → ステージ。
+            let is_opp_card_any = v.as_str() == Some("one_opp_card_any")
+                || v.get("type").and_then(|x| x.as_str()) == Some("one_opp_card_any");
+            if is_opp_card_any {
+                let restable = |ip: &InPlay| {
+                    !ip.rested && !ip.cannot_be_rested_buff && !ip.static_cannot_be_rested
+                };
+                let mut chosen: Option<usize> = None;
+                {
+                    let opp = &state.players[opp_idx];
+                    let mut cands: Vec<usize> = (0..opp.characters.len())
+                        .filter(|&i| restable(&opp.characters[i]))
+                        .collect();
+                    cands.sort_by(|&a, &b| {
+                        opp.characters[b].power().cmp(&opp.characters[a].power())
+                    });
+                    chosen = cands.first().copied();
+                }
+                if let Some(i) = chosen {
+                    if let Err(e) = rest_char_with_cascade(state, me_idx, opp_idx, i, src) {
+                        note_prim_err(&e);
+                        return false;
+                    }
+                    return true;
+                }
+                if restable(&state.players[opp_idx].leader) {
+                    state.players[opp_idx].leader.rested = true;
+                    return true;
+                }
+                if state.players[opp_idx].don_active > 0 {
+                    state.players[opp_idx].don_active -= 1;
+                    state.players[opp_idx].don_rested += 1;
+                    return true;
+                }
+                let si = (0..state.players[opp_idx].stages.len())
+                    .find(|&i| restable(&state.players[opp_idx].stages[i]));
+                if let Some(i) = si {
+                    state.players[opp_idx].stages[i].rested = true;
+                }
+                return true;
+            }
             let is_chara_or_don = v.as_str() == Some("one_opp_chara_or_don")
                 || v.get("type").and_then(|x| x.as_str()) == Some("one_opp_chara_or_don");
             if is_chara_or_don {
@@ -3865,6 +3967,13 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         //   ここは「素の除去」だけを Python と同順で再現する。 spec 毎に現盤面へ解決 = Python の逐次除去と同義。
         //   KO 耐性判定は Python の ko_multi と同じ 3 種のみ (ko と違い source power/attribute 耐性は見ない)。
         "ko_multi" => {
+            // 同時離脱の置換コストは holder ごとに 1 回 (cardqa_op_15)。 Rust 未実装 → bail。
+            if board_has_replace_holder(state, 1 - me_idx)
+                || board_has_replace_holder(state, me_idx)
+            {
+                note_unknown_key("simultaneous_leave", "ko_multi");
+                return false;
+            }
             let Some(list) = v.as_array() else { return true }; // Python: 非 list は continue = no-op
             let mut kom_any = false;
             for spec in list {
@@ -3957,6 +4066,13 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         // マルチターゲット版 (effects.py:return_to_deck_bottom_multi)。 spec リストを順に解決 → 除去。
         // dedup は「除去済は board から消える」で自然に成立する (cascade 無しの前提)。
         "return_to_deck_bottom_multi" => {
+            // 同時離脱の置換コストは holder ごとに 1 回 (cardqa_op_15)。 Rust 未実装 → bail。
+            if board_has_replace_holder(state, 1 - me_idx)
+                || board_has_replace_holder(state, me_idx)
+            {
+                note_unknown_key("simultaneous_leave", "return_to_deck_bottom_multi");
+                return false;
+            }
             let Some(list) = v.as_array() else { return true };
             let mut any_removed = false;
             // Python (effects.py:7555) は spec ごとに現盤面へ解決し、 対象を 1 体ずつ即座に処理する
@@ -5029,6 +5145,13 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
         }
         // マルチターゲット bounce (effects.py:7530、 OP04-044)。 spec ごとに現盤面へ解決し逐次処理。
         "return_to_hand_multi" => {
+            // 同時離脱の置換コストは holder ごとに 1 回 (cardqa_op_15)。 Rust 未実装 → bail。
+            if board_has_replace_holder(state, 1 - me_idx)
+                || board_has_replace_holder(state, me_idx)
+            {
+                note_unknown_key("simultaneous_leave", "return_to_hand_multi");
+                return false;
+            }
             let Some(list) = v.as_array() else { return true };
             let mut any = false;
             for spec in list {
@@ -5509,6 +5632,13 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
         // Python の順: 自陣 (発動元を除く) → 相手陣、 各 victim ごとに耐性/置換/KO時トリガー、
         // 最後に on_self_chara_leave_by_self_effect を 1 回。 タグ追跡で盤面ずれを吸収する。
         "ko_all_others" => {
+            // 同時離脱の置換コストは holder ごとに 1 回 (cardqa_op_15)。 Rust 未実装 → bail。
+            if board_has_replace_holder(state, 1 - me_idx)
+                || board_has_replace_holder(state, me_idx)
+            {
+                note_unknown_key("simultaneous_leave", "ko_all_others");
+                return false;
+            }
             let src_idx = if let Slot::Char(i) = src { Some(i) } else { None };
             let mut toks: Vec<(usize, Option<u64>)> = vec![];
             for i in 0..state.players[me_idx].characters.len() {
@@ -5858,6 +5988,13 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
         // 「相手のキャラ N 枚までを、 パワー合計が X 以下になるように KO」 (effects.py:ko_total_power_le)。
         // AI = 合計 <= cap の組合せのうち (除去 power 合計, 枚数) 最大。 ⚠ KO cascade 盤面は bail。
         "ko_total_power_le" => {
+            // 同時離脱の置換コストは holder ごとに 1 回 (cardqa_op_15)。 Rust 未実装 → bail。
+            if board_has_replace_holder(state, 1 - me_idx)
+                || board_has_replace_holder(state, me_idx)
+            {
+                note_unknown_key("simultaneous_leave", "ko_total_power_le");
+                return false;
+            }
             let max_count = v.get("max_count").and_then(|x| x.as_i64()).unwrap_or(2) as usize;
             let cap = v.get("total_power_le").and_then(|x| x.as_i64()).unwrap_or(4000) as i32;
             let pool: Vec<usize> = (0..state.players[opp_idx].characters.len())
@@ -8126,14 +8263,18 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             let to_opp = v.get("to_opp").and_then(|x| x.as_bool()).unwrap_or(false);
             let from_cost_area = v.get("from_cost_area").and_then(|x| x.as_bool()).unwrap_or(false);
             let per_target = v.get("per_target").and_then(|x| x.as_bool()).unwrap_or(false);
+            // 公式 「**持ち主の**レストのドン‼」 = ドン源は **対象カードの所有者** (cardqa_op_15)。
+            // to_opp は片側に up-front 固定する旧 flag なので両陣営 target では使えない。
+            let owner_of_target = v.get("owner_of_target").and_then(|x| x.as_bool()).unwrap_or(false);
             let owner = if to_opp { opp_idx } else { me_idx };
             let target_val = v.get("target").cloned().unwrap_or(Value::String("self_leader".into()));
             let Some(targets) = resolve_target(Some(&target_val), me_idx, opp_idx, src, state) else { return false };
             if targets.is_empty() {
                 return true;
             }
-            let mut take_from_owner = |state: &mut GameState, k: i32| -> i32 {
-                let p = &mut state.players[owner];
+            let mut take_from_owner = |state: &mut GameState, k: i32, pi_of_target: usize| -> i32 {
+                let src_owner = if owner_of_target { pi_of_target } else { owner };
+                let p = &mut state.players[src_owner];
                 let mut taken = k.min(p.don_rested);
                 p.don_rested -= taken;
                 if from_cost_area && taken < k {
@@ -8152,16 +8293,16 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     None => targets,
                 };
                 for (pi, sl) in targets {
-                    let give = take_from_owner(state, count);
+                    let give = take_from_owner(state, count, pi);
                     if give <= 0 {
                         break;
                     }
                     get_ip_mut(&mut state.players[pi], sl).attached_dons += give;
                 }
             } else {
-                let give = take_from_owner(state, count);
+                let (pi, sl) = targets[0];
+                let give = take_from_owner(state, count, pi);
                 if give > 0 {
-                    let (pi, sl) = targets[0];
                     get_ip_mut(&mut state.players[pi], sl).attached_dons += give;
                 }
             }
@@ -8943,6 +9084,10 @@ pub fn execute_card_effects(
     if src_effect_negated(state, me_idx, src, when) {
         return Ok(());
     }
+    // ⚠ 公式 「**相手は**…してもよい」 (bundle 直下 actor:"opp" / optional) は
+    //   **相手の側で解決し、 相手が決める** (cardqa_op_12、 OP12-075 ミス・オールサンデー)。
+    //   Rust は未実装なので **bail** する。 素通りさせると Rust だけ発動者側に解決して黙って乖離。
+
     // 発火追跡 (診断時のみ)。 「デッキに入っている」≠「効果が実行された」を区別する。
     if effs.iter().any(|e| e.get("when").and_then(|v| v.as_str()) == Some(when)) {
         crate::selfplay::note_fired(card_id);
@@ -9002,6 +9147,22 @@ pub fn execute_card_effects(
                 Some(false) => continue,   // cost 払えない = Python も skip
                 None => return Err(format!("{when} cost 未対応 ({card_id})")),
             }
+        }
+        // ⭐ 公式 「**相手は**…してもよい」 (bundle 直下 actor:"opp") = **相手の側で解決する**
+        //   (cardqa_op_12、 OP12-075 ミス・オールサンデー: 「相手がドン!!を追加するかどうかを
+        //   決めます」)。 効果の 「自分」 は相手プレイヤー。 発動元は相手の場に無いので
+        //   src は使わない (Python も self_inplay=None で実行)。 AI は 「してもよい」 を行使する。
+        if eff.get("actor").and_then(|v| v.as_str()) == Some("opp") {
+            if let Some(dos) = eff.get("do").and_then(|v| v.as_array()) {
+                for prim in dos.iter() {
+                    if !execute_effect(prim, state, 1 - me_idx, Slot::Detached) {
+                        let k = prim.as_object().and_then(|o| o.keys().next())
+                            .map(|s| s.as_str()).unwrap_or("?");
+                        return Err(format!("{when} actor:opp primitive 未対応: {k} ({card_id})"));
+                    }
+                }
+            }
+            continue;
         }
         if let Some(dos) = eff.get("do").and_then(|v| v.as_array()) {
             if effect_cascade_blocked(dos, state, me_idx) {
@@ -9673,6 +9834,29 @@ fn replace_ko_match(
 /// Ok(true)=置換発動 (KO/離脱を阻止= victim 残存)、 Ok(false)=該当なし (通常 KO 続行)、 Err=再現不能 bail。
 /// ⚠ Phase A: 対象一致した replace は cost/do 未実装で bail。 不一致 (by_opp_effect 相違 / filter 外) だけ
 ///   Ok(false) で通常 KO へ流す (battle KO=by_opp_effect false のカードが大半なので大量に解決)。
+/// ⚠ **同時離脱** (= 1 つの効果で複数キャラが同時に場を離れる) の置換コストは、 公式では
+/// holder ごとに **1 回だけ** (cardqa_op_15、 OP15-090 ペローナ: 「手札1枚で2枚とも残すか、
+/// 何もせず2枚とも離れるか」)。 Python は _LeaveBatch でこれを実装している。
+/// Rust は victim ごとに try_replace_ko を呼ぶ実装のままなので、 **置換 holder が場に居る
+/// 盤面では bail** して黙った乖離 (= コストの二重払い) を作らない。
+fn board_has_replace_holder(state: &GameState, owner_idx: usize) -> bool {
+    let Some(ov) = overlay() else { return false };
+    let pl = &state.players[owner_idx];
+    std::iter::once(&pl.leader)
+        .chain(pl.characters.iter())
+        .chain(pl.stages.iter())
+        .any(|ip| {
+            ov.get(&ip.card.card_id).map_or(false, |effs| {
+                effs.iter().any(|e| {
+                    matches!(
+                        e.get("when").and_then(|v| v.as_str()),
+                        Some("replace_ko") | Some("replace_leave")
+                    )
+                })
+            })
+        })
+}
+
 pub fn try_replace_ko(
     state: &mut GameState,
     victim_owner: usize,

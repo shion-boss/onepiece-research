@@ -153,7 +153,10 @@ def test_op13_033_rest_human_pick():
     assert st.pending_choice.get("kind") == "target_pick", \
         f"kind が target_pick でない: {st.pending_choice.get('kind')}"
     cands = st.pending_choice.get("candidates", [])
-    assert len(cands) == 2, f"候補が2体でない: {len(cands)}"
+    # ⚠ 公式 (cardqa_op_14): 「相手の**カード**」 = リーダー/キャラ/ステージ/ドン。
+    #   2026-08-06 の対象範囲是正で **相手リーダーも候補に入る** (キャラ2 + リーダー1 = 3)。
+    assert len(cands) == 3, f"候補が リーダー+キャラ2 の 3 件でない: {len(cands)}"
+    assert any(c.get("is_leader") for c in cands), "相手リーダーが候補に入っていない"
     b_idx = next(i for i, c in enumerate(cands) if c["iid"] == b.instance_id)
     resolve_pending_choice(st, [b_idx])
     assert b.rested is True, "人間が選んだ相手キャラがレストにされていない"

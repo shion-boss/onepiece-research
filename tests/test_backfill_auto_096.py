@@ -130,15 +130,15 @@ def test_op09_058_main_bounce_human_pick():
 
     prim = _eff(overlay, "OP09-058", "main")["do"][0]
     execute_effect(prim, st, me, opp, None)
-    assert st.pending_choice is not None, "人間 + 複数候補で target_pick modal が立たない"
-    assert st.pending_choice.get("kind") == "target_pick", \
-        f"kind が target_pick でない: {st.pending_choice.get('kind')}"
-    cands = st.pending_choice.get("candidates", [])
-    bi = next(i for i, c in enumerate(cands) if c["iid"] == b.instance_id)
-    resolve_pending_choice(st, [bi])
-    _drain(st, [bi])
-    assert b not in opp.characters, "人間が選んだ相手キャラが戻っていない"
-    assert a in opp.characters, "選ばなかった相手キャラは場に残るべき"
+    # ⚠ 公式 (cardqa_op_09): 「このカードを使用したプレイヤーの**対戦相手が**、 自身の場の
+    #   コスト6以下のキャラの中から1枚を選び、 手札に戻します。」
+    #   → 行動側 (= この人間) には modal は立たない。 相手 (= AI) が最も惜しくない 1 枚を戻す。
+    assert st.pending_choice is None, (
+        "相手が選ぶ効果なのに行動側に modal が立っている: "
+        f"{st.pending_choice.get('kind') if st.pending_choice else None}"
+    )
+    assert len(opp.characters) == 1, "相手が 1 枚戻していない"
+    assert len(opp.hand) == 1, "戻したキャラが相手の手札に無い"
 
 
 def test_op09_058_trigger_bounce_opp_cost3_ai():

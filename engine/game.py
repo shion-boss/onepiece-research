@@ -735,8 +735,15 @@ def advance_phase(state: GameState) -> None:
                 # OP03-040: デッキ0 で 敗北の代わりに勝利。
                 if getattr(me, "deck_out_wins", False):
                     state.declare_winner(state.turn_player_idx, f"{me.name} deckout-win")
-                else:
-                    state.declare_winner(1 - state.turn_player_idx, f"{me.name} deckout")
+                    return
+                # OP15-022 ブルック: デッキ0 でも即敗北せず、 **そのターン終了時** に敗北。
+                # (公式テキスト 「ルール上、 自分はデッキが0枚でも敗北せず、 デッキが0枚に
+                #  なったターン終了時に敗北する」)。 引けなかっただけで進行を続ける。
+                if getattr(me, "deck_out_defer", False):
+                    state.push_log("draw: デッキ0 (敗北はターン終了時に遅延)")
+                    state.phase = Phase.DON
+                    return
+                state.declare_winner(1 - state.turn_player_idx, f"{me.name} deckout")
                 return
             # 1 snapshot = 1 行動 の原則: deck → hand を明示 (アニメ分離用)。
             state.push_log(f"draw: +1 → hand ({len(me.hand)})")
@@ -805,6 +812,26 @@ def advance_phase(state: GameState) -> None:
         # pending_choice が 立った 場合 は phase を END で 据え置き、 user 入力 待ち。
         # resolve_pending_choice → human_session.advance_until_pause が この 関数 を 再 呼出。
         if state.pending_choice is not None:
+            return
+        # ⭐ 遅延デッキアウト敗北 (OP15-022 ブルック): 「デッキが0枚になったターン終了時に敗北」。
+        #   一次情報 (cardqa_op_15): Q「自分と相手がこのリーダーを使用していて、 自分のターン中に
+        #   自分と相手のデッキがどちらも0枚になった場合、 このターンの終了時にどのプレイヤーが
+        #   敗北しますか？」 → A「**どちらのプレイヤーも同時にゲームに敗北します。**」
+        #   → 両者該当なら引き分け (= winner=None / 両者敗北)。
+        _deck_out = [
+            i for i, p in enumerate(state.players)
+            if getattr(p, "deck_out_defer", False) and not p.deck
+        ]
+        if _deck_out and not state.game_over:
+            if len(_deck_out) == 2:
+                state.game_over = True
+                state.winner = None
+                state.push_log("GAME OVER (draw): 両者 デッキ0 → 同時敗北 (OP15-022)")
+            else:
+                state.declare_winner(
+                    1 - _deck_out[0],
+                    f"{state.players[_deck_out[0]].name} deckout (ターン終了時、 OP15-022)",
+                )
             return
         # 公式ルール上、手札上限はない (3-4)。ターン終了時の discard は不要。
         _reset_turn_buff(state)
@@ -1517,6 +1544,13 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
             opp_pre_fired = getattr(state, "_opp_attack_pre_fired_id", None) == id(attacker)
             if not opp_pre_fired:
                 from .effects import trigger_on_attack, trigger_on_opp_attack, trigger_on_opp_attack_on_leader
+                # ⭐ 【相手のアタック時】の 【ドン‼×N】 gate は **アタック宣言時点** で判定する
+                # (cardqa_op_15: 攻撃側【アタック時】で相手にドンを付与しても、 相手の
+                #  【ドン‼×1】【相手のアタック時】は発動できない = 「いいえ」)。
+                # trigger_on_attack が先に走るので、 その前に defender 側の付与ドン総数を退避する。
+                state._opp_attack_don_snapshot = (
+                    opp.leader.attached_dons + sum(c.attached_dons for c in opp.characters)
+                )
                 # 7-1-1-3: 【アタック時】と【相手のアタック時】が同時に発動可
                 trigger_on_attack(state, me, opp, attacker, state.effects_overlay)
                 # defended_target = 攻撃されている opp のリーダー (= 過剰防御判定用)
@@ -1928,6 +1962,13 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 # defended_target = 攻撃されている opp のキャラ (= 過剰防御判定用)
                 _def_chara = next(
                     (c for c in opp.characters if c.instance_id == action.target_iid), None
+                )
+                # ⭐ 【相手のアタック時】の 【ドン‼×N】 gate は **アタック宣言時点** で判定する
+                # (cardqa_op_15: 攻撃側【アタック時】で相手にドンを付与しても、 相手の
+                #  【ドン‼×1】【相手のアタック時】は発動できない = 「いいえ」)。
+                # trigger_on_attack が先に走るので、 その前に defender 側の付与ドン総数を退避する。
+                state._opp_attack_don_snapshot = (
+                    opp.leader.attached_dons + sum(c.attached_dons for c in opp.characters)
                 )
                 trigger_on_attack(state, me, opp, attacker, state.effects_overlay)
                 trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay,

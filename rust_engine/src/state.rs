@@ -422,6 +422,10 @@ pub struct Player {
     pub life_lost_this_turn: bool,
     pub chara_ko_taken_this_turn: i32,
     pub deck_out_wins: bool,
+    /// 公式 (OP15-022 ブルック リーダー): 「ルール上、 自分はデッキが0枚でも敗北せず、
+    /// デッキが0枚になったターン終了時に敗北する」 (core.py Player.deck_out_defer のミラー)。
+    #[serde(default)]
+    pub deck_out_defer: bool,
     pub prevent_self_life_to_hand_until_turn_end: bool,
     pub hand_discarded_by_effect_this_turn: bool,
     pub delayed_at_opp_main_phase_start: Vec<serde_json::Value>,

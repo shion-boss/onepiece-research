@@ -477,6 +477,47 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
                             return  # optional_cost_confirm 待ち (= resume は resolve_pending_choice)
                         continue  # 効果は optional_cost_then が解決済 → run_do_array skip
                     _pay_counter_cost(state, me, opp, self_inplay, real_cost)
+            # ⭐ 公式 「**相手は**…してもよい」 = **相手の側で解決し、 相手が決める**。
+            #   一次情報 (cardqa_op_12、 OP12-075 ミス・オールサンデー
+            #     「その後、 相手はドン‼デッキからドン‼1枚を、 アクティブで追加してもよい。」):
+            #     Q「自分がこの【登場時】効果を発動した時、 相手がドン!!を追加するかどうかを
+            #       決めるのは自分ですか？相手ですか？」 → A「この場合、 **相手が**…決めます。」
+            #   ⚠ 2026-08-06 まで bundle 直下の `actor` / `optional` が **完全に無視** されており、
+            #     ドンが **発動者 (自分) に追加され**、 しかも **任意でもなかった** = 二重違反。
+            if eff.get("actor") == "opp":
+                _a_me, _a_opp = opp, me          # 効果の「自分」= 相手プレイヤー
+                _a_idx = state.players.index(_a_me)
+                _prev_f = getattr(state, "forced_human_actor_idx", None)
+                # modal の宛先も相手に切り替える (相手が AI なら modal を出さない)
+                state.forced_human_actor_idx = (
+                    state.human_player_idx
+                    if (state.human_player_idx is not None
+                        and _a_idx == state.human_player_idx)
+                    else -1
+                )
+                try:
+                    if bool(eff.get("optional")) and _should_human_pick(state):
+                        state.pending_choice = {
+                            "kind": "option_pick",
+                            "optional": True,
+                            "options": [{"idx": 0, "label": "発動する"}],
+                            "_full_options": [
+                                {"label": "発動する", "do": eff.get("do", [])}
+                            ],
+                            "_self_inplay_iid": None,
+                            "_actor_idx": _a_idx,
+                            "description": (
+                                f"{evt.source_card_id}: 相手の効果 — 発動しますか？ "
+                                "(発動しない場合は skip)"
+                            ),
+                        }
+                        state.push_log(f"  {when} 効果: 相手 (人間) が任意発動を判断 待ち")
+                        return
+                    # 相手が AI: 自分に利する効果なので発動する (= 「してもよい」 を行使)
+                    run_do_array(eff.get("do", []), state, _a_me, _a_opp, None)
+                finally:
+                    state.forced_human_actor_idx = _prev_f
+                continue
             run_do_array(eff.get("do", []), state, me, opp, self_inplay)
             if state.pending_choice is not None:
                 # 同 bundle の 残り matching entry (= 別 counter/trigger entry) を、
@@ -1775,6 +1816,19 @@ def eval_condition(
                 return False
         elif k == "self_attached_don_ge":
             # 自分のリーダー or キャラに合計 N 枚以上のドンが付与されている
+            # ⭐ 【相手のアタック時】の 【ドン‼×N】 gate は **アタック宣言時点** で判定する。
+            #   一次情報 (cardqa_op_15、 OP15-012 バギー): 「この【アタック時】効果で、 相手の
+            #   ドン!!が付与されていない「OP11-041 ナミ」にドン!!を付与した場合、 相手は
+            #   「ナミ」の【相手のアタック時】効果を発動することはできますか？」 → 「いいえ」。
+            #   = どの効果が発動するかは トリガー事象 (= アタック宣言) の時点で決まり、
+            #     攻撃側の【アタック時】解決で後から付与しても遡って発動可能にはならない。
+            #   engine の発火順は trigger_on_attack → trigger_on_opp_attack なので、
+            #   宣言時スナップショットを使わないと付与が先に効いてしまう (2026-08-06 是正)。
+            _snap = getattr(state, "_opp_attack_don_snapshot", None)
+            if getattr(state, "_opp_attack_don_gate_active", False) and _snap is not None:
+                if int(_snap) < int(v):
+                    return False
+                continue
             total = me.leader.attached_dons + sum(c.attached_dons for c in me.characters)
             # 【ドン‼×N】【KO時】 等、 source が場を離れた後 (self_inplay=None) は その付与ドンが
             # sum に含まれない → KO 時に退避した枚数を足し戻す (= 常に False になるバグ修正、
@@ -2116,6 +2170,21 @@ def _resolve_target(
     #   spec 名に `_truly_original_cost_` が入っていれば印刷コスト、 それ以外は現在コスト。
     #   ⚠ 分岐ごとに regex を増やすと保守が破綻するので **入口で正規化** し、 各分岐は
     #     `_cost_of(ip)` を通す (= どちらのコストを見るかは 1 箇所で決まる)。
+    # ⭐ 公式は 「**相手は** 自身の…キャラ1枚を…」 と書いた時、 **選ぶのは相手 (= 所有者)**。
+    #   一次情報 (cardqa_op_09、 OP09-058 特製マギー玉):
+    #     Q「この【メイン】効果で手札に戻すキャラはどちらのプレイヤーが選びますか？」
+    #     A「このカードを使用したプレイヤーの**対戦相手が**、自身の場のコスト6以下のキャラの
+    #       中から1枚を選び、手札に戻します。」
+    #   ⚠ 2026-08-06 まで engine は行動側が選んでおり、 **相手の最強キャラを bounce できた**
+    #     (= 除去効果として過大)。 正しくは相手が自分の損害を最小化する = **最も惜しくない
+    #     1 枚** を選ぶ。 spec に `chooser: "opp"` を付けて入口で分岐する。
+    _chooser_opp = (
+        isinstance(target_spec, dict) and target_spec.get("chooser") == "opp"
+    )
+    if _chooser_opp:
+        target_spec = {k: v for k, v in target_spec.items() if k != "chooser"}
+        if set(target_spec) == {"type"}:
+            target_spec = target_spec["type"]
     _use_printed_cost = False
     if isinstance(target_spec, str) and "_truly_original_cost_" in target_spec:
         _use_printed_cost = True
@@ -2163,6 +2232,54 @@ def _resolve_target(
         except Exception:
             pass
         return val
+
+    if _chooser_opp:
+        # 「相手が選ぶ」 経路。 候補を **全部** 集める形に正規化してから、
+        #   - 人間が **相手側** なら その人間に modal を出す (= 選択肢の平等)
+        #   - AI なら **自分の損害が最小** = _opp_value 最小 の 1 枚
+        # を選ぶ。 (行動側の都合で最強を選ぶ従来挙動が公式違反だった)
+        _cs = target_spec
+        if isinstance(_cs, dict):
+            _t = _cs.get("type") or _cs.get("target")
+        else:
+            _t = _cs
+        _any_t = _t
+        if isinstance(_t, str) and _t.startswith("one_opponent_"):
+            _any_t = "any_" + _t[len("one_"):]
+        _any_spec: Any = _any_t
+        if isinstance(_cs, dict):
+            _any_spec = {k: v for k, v in _cs.items() if k not in ("type", "target")}
+            _any_spec["type"] = _any_t
+        cands = _resolve_target(_any_spec, state, me, opp, self_inplay)
+        if not cands and isinstance(_t, str) and _t.startswith("one_opponent_character"):
+            # `any_` 版が存在しない spec (= one_opponent_character_filtered 等) の保険。
+            # 相手キャラ全体から filter で絞る (= 「相手が自身のキャラから選ぶ」 の候補集合)。
+            _f = _cs.get("filter", {}) if isinstance(_cs, dict) else {}
+            cands = [c for c in opp.characters if _matches_filter_ip(c, _f)]
+        if not cands:
+            return []
+        # modal の宛先を **対象の所有者 (= opp)** に切り替える。
+        # forced_human_actor_idx: human なら その idx / それ以外は -1 (= modal を出さない)。
+        _prev_forced = getattr(state, "forced_human_actor_idx", None)
+        _opp_idx = next(
+            (i for i, p in enumerate(state.players) if p is opp), None
+        )
+        state.forced_human_actor_idx = (
+            state.human_player_idx
+            if (state.human_player_idx is not None and _opp_idx == state.human_player_idx)
+            else -1
+        )
+        try:
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, 1, outer_kind, outer_value, self_inplay,
+                description="相手が選ぶ: 自分のキャラ 1 枚",
+            ):
+                return []
+        finally:
+            state.forced_human_actor_idx = _prev_forced
+        # AI (= 相手側) は 自分の損害が最小 になる 1 枚を選ぶ = _opp_value 昇順
+        cands.sort(key=lambda c: (_opp_value(c), c.instance_id))
+        return cands[:1]
 
     def _either_pick_one(
         opp_cands: list, self_cands: list, description: str
@@ -2735,6 +2852,25 @@ def _resolve_target(
         return [c for c in me.characters if _cost_of(c) <= cap]
     if target_spec == "all_self_team":
         return [me.leader] + list(me.characters)
+    if target_spec == "one_team_any_either":
+        # 公式 「**リーダーかキャラ1枚**に持ち主のレストのドン‼1枚までを、 付与する」 =
+        # 「自分の」/「相手の」 の修飾が無い = **両陣営** (自分にも相手にも付与できる)。
+        # 一次情報 (cardqa_op_15、 OP15-010/012 系):
+        #   Q「…自分のリーダーやキャラに自分のレストのドン!!を付与することや、 相手のリーダーや
+        #     キャラに相手のレストのドン!!を付与することはできますか？」 → A「はい、 できます。」
+        # ⚠ 2026-08-06 まで one_self_team_any (= 自陣限定) を当てており、 相手側に付与して
+        #   相手のレストドンを縛るプレイが engine から丸ごと消えていた。
+        # AI: 付与は **利する** 効果なので自陣を選ぶ (= 従来挙動を維持し matrix を動かさない)。
+        #     相手側に付与する tempo 妨害は人間の判断に委ねる (modal に両陣営を出す)。
+        cands_self = [me.leader] + list(me.characters)
+        cands_all = cands_self + [opp.leader] + list(opp.characters)
+        if outer_kind and _maybe_request_target_pick(
+            state, cands_all, 1, outer_kind, outer_value, self_inplay,
+            description="リーダー or キャラ から 1 枚 選択 (両陣営、 ドンは持ち主のものを使う)",
+        ):
+            return []
+        cands_self.sort(key=lambda ip: -ip.power)
+        return cands_self[:1]
     if target_spec == "one_self_team_any":
         # 自分のリーダー or キャラ 1 枚 (power 高い順、 human は modal で選択)。
         # 公式: 「自分のリーダーかキャラ1枚まで」 用。 OP11-119 コビー 等。
@@ -3224,6 +3360,37 @@ def _audit_snapshot(state: "GameState") -> dict:
     return out
 
 
+# 1 つの効果で **複数のキャラが同時に場を離れる** primitive。 置換効果 (replace_ko /
+# replace_leave) のコストを holder ごとに 1 回だけにするためのバッチ境界 (cardqa_op_15)。
+_SIMULTANEOUS_LEAVE_PRIMS = frozenset({
+    "ko_multi", "ko_all_others", "ko_total_power_le",
+    "return_to_hand_multi", "return_to_deck_bottom_multi",
+})
+
+
+class _LeaveBatch:
+    """**同時離脱** (= 1 つの効果で複数のキャラが同時に場を離れる) のスコープ。
+
+    公式は同時離脱を 1 つの事象として扱うので、 置換効果 (replace_ko / replace_leave) の
+    コストは holder ごとに **1 回だけ** 払う (cardqa_op_15、 OP15-090 ペローナ)。
+    ネストしても最外側のバッチだけが有効 (= 内側で開き直して決定を捨てない)。
+    """
+
+    def __init__(self, state):
+        self.state = state
+        self.outer = getattr(state, "_leave_batch_decision", None)
+
+    def __enter__(self):
+        if self.outer is None:
+            self.state._leave_batch_decision = {}
+        return self
+
+    def __exit__(self, *exc):
+        if self.outer is None:
+            self.state._leave_batch_decision = None
+        return False
+
+
 def execute_effect(
     spec: EffectSpec,
     state: GameState,
@@ -3290,7 +3457,15 @@ def execute_effect(
     # hand_or_trash で検出、 同根が summon/play_from_trash/play_from_hand に潜在)。 identity 比較で
     # 「この body が立てた新規 choice」 のみ対象 + 既 _actor_idx は尊重 (= 内側 actor 優先)。
     _pc_before = state.pending_choice
+    # ⭐ **同時離脱** primitive は 1 事象として扱う (= 置換コストは holder ごとに 1 回)。
+    #   cardqa_op_15 / OP15-090 ペローナ。 詳細は try_replace_ko のバッチ判定を参照。
+    _need_batch = isinstance(spec, dict) and any(
+        k in _SIMULTANEOUS_LEAVE_PRIMS for k in spec
+    )
     try:
+        if _need_batch:
+            with _LeaveBatch(state):
+                return _execute_effect_body(spec, state, me, opp, self_inplay)
         return _execute_effect_body(spec, state, me, opp, self_inplay)
     finally:
         _pc_after = state.pending_choice
@@ -3997,6 +4172,87 @@ def _execute_effect_body(
                 else:
                     state.push_log(f"  効果: レスト → 対象なし (不発)")
                     return False
+                return True
+            # 公式 「相手の**カード**1枚までを、 レストにする」 = リーダー / キャラ / ステージ /
+            # ドン‼ の **4 ゾーンのうち 1 枚**。
+            # 一次情報 (cardqa_op_14): 「この効果は、 相手の場にある、 リーダー、 キャラ、
+            #   ステージ、 ドン!!のうち1枚をアクティブからレストにします。」
+            # ⚠ 2026-08-06 まで one_opponent_inplay_any (= リーダー+キャラのみ) を当てており
+            #   **ステージとドンが選べなかった** (対象 4 枚: OP13-033/OP14-024/OP15-032/OP16-035)。
+            # ドンは InPlay ではないので one_opp_chara_or_don と同じく primitive 内で分岐する。
+            is_opp_card_any = (
+                v == "one_opp_card_any"
+                or (isinstance(v, dict) and v.get("type") == "one_opp_card_any")
+            )
+            if is_opp_card_any:
+                iid_picks = v.get("_iid_picks") if isinstance(v, dict) else None
+
+                def _restable(ip) -> bool:
+                    return (
+                        ip is not None and not ip.rested
+                        and not ip.cannot_be_rested_buff
+                        and not ip.static_cannot_be_rested
+                    )
+
+                # 盤面 (= InPlay) 候補: キャラ → リーダー → ステージ。 ドンだけ別枠。
+                ip_cands = (
+                    [c for c in opp.characters if _restable(c)]
+                    + ([opp.leader] if _restable(opp.leader) else [])
+                    + [s for s in opp.stages if _restable(s)]
+                )
+                # 人間 acting: 盤面候補から選ばせ、 skip (= 空 picks) で ドンへ回す
+                # (one_opp_chara_or_don と同じ modal 契約)。
+                if iid_picks is None and ip_cands and (opp.don_active > 0 or len(ip_cands) > 1):
+                    if _maybe_request_target_pick(
+                        state, ip_cands, 1, "rest",
+                        {"type": "one_opp_card_any"}, self_inplay,
+                        description="相手のカード から 1 枚 レスト (skip で 相手ドン 1 枚 レスト)",
+                    ):
+                        return False
+                if iid_picks is not None and iid_picks:
+                    target = next(
+                        (c for c in ip_cands if c.instance_id in iid_picks), None
+                    )
+                    if target is not None:
+                        target.rested = True
+                        state.push_log(f"  効果: レスト → 相手 {target.card.name}")
+                        return True
+                    # iid mismatch は fallthrough (AI 順で解決)
+                if iid_picks is not None and not iid_picks:
+                    if opp.don_active > 0:
+                        opp.don_active -= 1
+                        opp.don_rested += 1
+                        state.push_log("  効果: レスト → 相手アクティブドン 1 枚")
+                        return True
+                    state.push_log("  効果: レスト → 対象なし (不発)")
+                    return False
+                # AI 優先順位: 脅威の高いキャラ → リーダー → ドン → ステージ。
+                # (= 従来 one_opponent_inplay_any の 「キャラ→リーダー」 順を保ったまま、
+                #    新たに選べるようになった ドン/ステージ を末尾に足す = 挙動差を最小化)
+                # ⚠ _opp_value は _resolve_target 内のクロージャなのでここでは使えない。
+                #   隣接する one_opp_chara_or_don と同じ **power 降順** で揃える。
+                charas = sorted(
+                    [c for c in opp.characters if _restable(c)],
+                    key=lambda ip: -ip.power,
+                )
+                if charas:
+                    charas[0].rested = True
+                    state.push_log(f"  効果: レスト → 相手キャラ {charas[0].card.name}")
+                elif _restable(opp.leader):
+                    opp.leader.rested = True
+                    state.push_log(f"  効果: レスト → 相手リーダー {opp.leader.card.name}")
+                elif opp.don_active > 0:
+                    opp.don_active -= 1
+                    opp.don_rested += 1
+                    state.push_log("  効果: レスト → 相手アクティブドン 1 枚")
+                else:
+                    _stages = [s for s in opp.stages if _restable(s)]
+                    if _stages:
+                        _stages[0].rested = True
+                        state.push_log(f"  効果: レスト → 相手ステージ {_stages[0].card.name}")
+                    else:
+                        state.push_log("  効果: レスト → 対象なし (不発)")
+                        return False
                 return True
             # {"target": T, "count": N} 形式 = 「(範囲)のキャラ N 枚まで を レスト」
             # (OP14-031 ナミ / ST05-011_r1 等)。 plain `rest` に この dict を 渡すと
@@ -6095,15 +6351,27 @@ def _execute_effect_body(
             # ソースは相手のドン (= opp)、 target も相手キャラ。 相手のドンを拘束する tempo 妨害。
             to_opp = bool(spec.get("to_opp", False))
             from_cost_area = bool(spec.get("from_cost_area", False))
+            # 公式 「**持ち主の**レストのドン‼」 = ドン源は **対象カードの所有者**。
+            # to_opp は up-front で片側に固定する旧 flag なので、 両陣営 target では使えない
+            # (自分に付与するなら自分のレストドン、 相手に付与するなら相手のレストドン)。
+            # owner_of_target=true で 対象ごとに所有者を解決する (2026-08-06、 cardqa_op_15)。
+            owner_of_target = bool(spec.get("owner_of_target", False))
             don_owner = opp if to_opp else me
 
-            def _take_rested(k):
+            def _owner_of(ip):
+                """対象カードの所有者 (= 「持ち主」)。 owner_of_target 時のみ使う。"""
+                if ip is opp.leader or any(ip is c for c in opp.characters):
+                    return opp
+                return me
+
+            def _take_rested(k, _owner=None):
                 # コストエリア指定なら active も使う (= rested 優先)。
-                taken = min(k, don_owner.don_rested)
-                don_owner.don_rested -= taken
+                src = _owner if _owner is not None else don_owner
+                taken = min(k, src.don_rested)
+                src.don_rested -= taken
                 if from_cost_area and taken < k:
-                    more = min(k - taken, don_owner.don_active)
-                    don_owner.don_active -= more
+                    more = min(k - taken, src.don_active)
+                    src.don_active -= more
                     taken += more
                 return taken
 
@@ -6164,17 +6432,17 @@ def _execute_effect_body(
                     targets = targets[: int(mt)]
                 attached_log: list[str] = []
                 for t in targets:
-                    give = _take_rested(n)
+                    give = _take_rested(n, _owner_of(t) if owner_of_target else None)
                     if give <= 0:
                         break
                     t.attached_dons += give
                     attached_log.append(f"{t.card.name}+{give}")
                 state.push_log(f"  効果: レストドン付与 (per_target) → {attached_log}")
             else:
-                give = _take_rested(n)
+                target = targets[0]
+                give = _take_rested(n, _owner_of(target) if owner_of_target else None)
                 if give <= 0:
                     continue
-                target = targets[0]
                 target.attached_dons += give
                 state.push_log(f"  効果: レストドン{give}付与 → {target.card.name}")
         elif k == "power_pump_per_target_attached_don":
@@ -11659,6 +11927,11 @@ def evaluate_static_effects(
                     if "set_deck_out_wins" in primitive:
                         me.deck_out_wins = True
                         continue
+                    # 公式 (OP15-022 ブルック リーダー): 「ルール上、 自分はデッキが0枚でも
+                    # 敗北せず、 デッキが0枚になったターン終了時に敗北する」。
+                    if "set_deck_out_defer" in primitive:
+                        me.deck_out_defer = True
+                        continue
                     if "set_cannot_attack_filtered_static" in primitive:
                         spec = primitive["set_cannot_attack_filtered_static"]
                         filt = spec.get("filter", {})
@@ -12469,7 +12742,15 @@ def _enqueue_opp_attack_with_cost(
                 source_inplay._opp_attack_opt_skipped = _skipped
                 eff_indexes_to_fire.append(idx)
                 continue
-            if not eval_all_conditions(eff, state, me, source_inplay):
+            # ⭐ 【ドン‼×N】 gate は **アタック宣言時点** のスナップショットで評価する
+            # (cardqa_op_15、 詳細は eval_condition の self_attached_don_ge 参照)。
+            _prev_gate = getattr(state, "_opp_attack_don_gate_active", False)
+            state._opp_attack_don_gate_active = True
+            try:
+                _cond_ok = eval_all_conditions(eff, state, me, source_inplay)
+            finally:
+                state._opp_attack_don_gate_active = _prev_gate
+            if not _cond_ok:
                 continue
             if cost.get("once_per_turn") and idx in source_inplay.attack_once_used:
                 continue
@@ -13017,6 +13298,8 @@ def trigger_on_block(
     _maybe_resolve(state)
 
 
+
+
 def try_replace_ko(
     state: GameState,
     owner: Player,
@@ -13144,10 +13427,27 @@ def try_replace_ko(
             # spec: {"cost": [<primitive>...]} を payability check で消費する。
             cost_specs = eff.get("cost", [])
             holder_card_id = inplay.card.card_id
-            if cost_specs:
+            # ⭐ **同時離脱** は 1 つの離脱事象。 同じ holder の置換コストは **1 回だけ**。
+            #   一次情報 (cardqa_op_15、 OP15-090 ペローナ):
+            #     Q「自分の元々のパワー7000以下のキャラが2枚同時に相手の効果で場を離れる場合、
+            #       代わりに自分の手札2枚を捨てることはできますか？」
+            #     A「この場合、 自分の手札**1枚**を捨てることで場を離れるキャラを**2枚とも**
+            #       場に残すか、 何もせずキャラ2枚が場を離れるかを選びます。」
+            #   ⚠ 2026-08-06 まで ko_multi 等が victim ごとに try_replace_ko を呼び、
+            #     **victim の数だけコストを払っていた** (2 victim = 手札 2 枚捨て) = 違反。
+            #   バッチ (= _leave_batch_decision) が開いている間は holder×when 単位で
+            #   「払った / 払わない」 を 1 度だけ決め、 以降の victim には無償で適用する。
+            _batch = getattr(state, "_leave_batch_decision", None)
+            _bkey = (inplay.instance_id, when)
+            if _batch is not None and _batch.get(_bkey) is False:
+                continue  # このバッチでは 「代替しない」 と決定済 → 通常どおり離脱させる
+            _batch_already_paid = _batch is not None and _batch.get(_bkey) is True
+            if cost_specs and not _batch_already_paid:
                 if not _can_pay_replace_cost(state, owner, cost_specs, holder_card_id, inplay):
                     continue
                 _pay_replace_cost(state, owner, cost_specs, holder_card_id, inplay)
+            if _batch is not None:
+                _batch[_bkey] = True
             state.push_log(
                 f"  離脱置換 ({when}): {victim.card.name} → {inplay.card.name} の効果で代替"
             )

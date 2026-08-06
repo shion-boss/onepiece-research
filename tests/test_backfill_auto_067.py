@@ -295,7 +295,16 @@ def test_op06_051_on_play_human_optional_confirm():
         f"kind が optional_cost_confirm でない: {st.pending_choice.get('kind')}"
     resolve_pending_choice(st, [1])  # 承諾 (= 任意コストを払う)
 
-    # コスト支払い後、 相手キャラを戻す target_pick が立つ
+    # ⚠ 公式 「**相手は**自身のキャラ1枚を持ち主の手札に戻す」 = **選ぶのは相手**
+    #   (cardqa_op_09、 2026-08-06 是正)。 行動側 (= この人間) には target_pick は立たず、
+    #   相手 (= AI) が自分の損害最小のキャラを戻す。
+    assert st.pending_choice is None, (
+        "相手が選ぶ効果なのに行動側に modal が立っている: "
+        f"{st.pending_choice.get('kind') if st.pending_choice else None}"
+    )
+    assert len(opp.characters) == 1, "相手が 1 枚戻していない"
+    assert len(opp.hand) == 1, "戻したキャラが相手の手札に無い"
+    return
     assert st.pending_choice is not None and \
         st.pending_choice.get("kind") == "target_pick", \
         "承諾後に相手キャラを戻す target_pick modal が立たない"

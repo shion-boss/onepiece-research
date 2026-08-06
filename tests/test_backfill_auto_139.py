@@ -576,5 +576,8 @@ def test_op15_017_activate_main_optional_cost_then_ai():
     _drain(st, [0])
     assert oc.attached_dons == opp_don_before + 1, \
         f"コストで相手キャラに相手のレストドンが付与されていない: {oc.attached_dons}"
-    assert me.leader.attached_dons == leader_don_before + 1, \
-        f"効果で自リーダーにレストドンが付与されていない: {me.leader.attached_dons}"
+    # ⚠ 公式は 「**リーダーかキャラ**1枚に持ち主のレストのドン‼1枚まで」 = どちらでもよい
+    #   (2026-08-06 に両陣営 target one_team_any_either へ是正)。 自陣のどこかに +1 を見る。
+    _self_total = me.leader.attached_dons + sum(c.attached_dons for c in me.characters)
+    assert _self_total == leader_don_before + 1, \
+        f"効果で自陣にレストドンが付与されていない: total={_self_total}"
