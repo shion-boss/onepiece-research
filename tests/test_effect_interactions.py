@@ -5389,3 +5389,135 @@ def test_op16_118_counter_boost_is_set_not_add():
     me2.hand = [repo.get(cid)]
     evaluate_static_effects(st2, overlay)
     assert _spend_counters(me2, (0,)) == 1000, "boost 不在なのに値が変わっている"
+
+
+# ============================================================================
+# 公式 Q&A conformance バッチ (2026-08-06 #2、 cron optcg-faq-conformance)
+# 20 件処理 = conform 16 / n-a 2 / escalated 1 / (1 は他バッチ既記)。
+# engine/overlay は無変更。 下記は conform を将来の黙った回帰から守る lock。
+# 一次情報は各 cardqa。 いずれも engine 実測で公式どおりを確認済。
+# ============================================================================
+
+def test_op01_091_don_count_includes_attached_dons():
+    # cardqa_op_01 3953d4e2f831: 「場のドン10枚ある場合」はリーダー/キャラ付与ドンも数える→はい
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    me.don_active = 6
+    me.leader.attached_dons = 2
+    me.characters = [InPlay.of(repo.get("OP01-016"), sickness=False)]
+    me.characters[0].attached_dons = 2  # active6 + leader2 + char2 = 10
+    assert eval_condition({"self_don_ge": 10}, st, me) is True
+    me.characters[0].attached_dons = 1  # total 9
+    assert eval_condition({"self_don_ge": 10}, st, me) is False
+
+
+def test_eb02_047_discarded_cp_char_is_summonable_from_trash():
+    # cardqa_eb_02 39e61328cfc5: 起動メインのコストで捨てたコスト5以下CPキャラを登場できる→はい
+    repo, overlay = _repo(), _overlay()
+    cand = None
+    for c in json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8")):
+        cd = repo.get(c["card_id"])
+        cat = getattr(cd.category, "name", str(cd.category))
+        feats = getattr(cd, "features", []) or []
+        if isinstance(feats, str):
+            feats = [feats]
+        if (cat == "CHARACTER" and any("CP" in (f or "") for f in feats)
+                and int(cd.cost or 99) <= 5 and cd.name != "ブルーノ"
+                and "_p" not in c["card_id"] and "_r" not in c["card_id"]):
+            cand = c["card_id"]
+            break
+    assert cand is not None
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    bruno = InPlay.of(repo.get("EB02-047"), sickness=False)
+    me.characters = [bruno]
+    me.hand = [repo.get(cand)]  # 唯一の手札 = discard コストで捨てられる CP キャラ
+    me.trash = []
+    effs = list_activate_main_effects(st, me, overlay)
+    te = [(i, e) for (i, e) in effs if i.instance_id == bruno.instance_id]
+    assert te
+    fire_activate_main(st, me, opp, te[0][0], te[0][1])
+    assert any(c.card.card_id == cand for c in me.characters), \
+        "コストで捨てた CP キャラがトラッシュから登場していない"
+
+
+def test_op07_119_rush_when_life_le_2_and_no_card_added():
+    # cardqa_op_07 3a5a9f89ea9a: ライフ2以下で登場、ライフに加えなかった場合も速攻を得る→はい
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.deck = []          # デッキ空 → put_top_to_life は 0 枚
+    me.life = [repo.get(_FILLER)] * 2
+    e = InPlay.of(repo.get("OP07-119"), sickness=True)
+    me.characters = [e]
+    trigger_on_play(st, me, opp, e, overlay)
+    assert "速攻" in e.granted_keywords
+    # 対照: 1 枚加えて life 3 → 速攻なし
+    st2 = _state(repo, overlay)
+    me2, opp2 = st2.players[0], st2.players[1]
+    me2.deck = [repo.get(_FILLER)] * 3
+    me2.life = [repo.get(_FILLER)] * 2
+    e2 = InPlay.of(repo.get("OP07-119"), sickness=True)
+    me2.characters = [e2]
+    trigger_on_play(st2, me2, opp2, e2, overlay)
+    assert "速攻" not in e2.granted_keywords
+
+
+def test_op07_017_kos_character_even_without_stage_target():
+    # cardqa_op_07 3b18e4e32dda: 相手にコスト1以下ステージが無くてもパワー3000以下キャラをKO→はい
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    opp.characters = [InPlay.of(repo.get("OP01-013"), sickness=False)]  # power 3000
+    opp.stages = []
+    bundle = overlay.get("OP07-017")
+    entries = bundle.effects if hasattr(bundle, "effects") else bundle
+    for entry in entries:
+        if (entry.get("when") if isinstance(entry, dict) else getattr(entry, "when", None)) == "main":
+            for prim in (entry.get("do") if isinstance(entry, dict) else entry.do):
+                execute_effect(prim, st, me, opp, None)
+    assert len(opp.characters) == 0, "ステージ不在で chara KO が空振りしている"
+
+
+def test_op16_111_trigger_life_condition_true_after_life_card_popped():
+    # cardqa_op_15/16 3b8f66194c5f: このカードを含めライフ3枚でも【トリガー】で登場できる→はい
+    # トリガー発火時、このライフ札は既に pop 済 (3→2) なので self_life_le:2 が成立する。
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    me.life = [repo.get(_FILLER)] * 2  # 3 枚のうち発火札を pop した後の状態
+    assert eval_condition({"self_life_le": 2}, st, me) is True
+
+
+def test_st06_016_prevent_ko_is_snapshot_at_activation():
+    # cardqa_st_06 3bc4ddb9257c: 【トリガー】後に登場した自キャラはKOされない効果を受けない→いいえ
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    present = InPlay.of(repo.get("OP01-016"), sickness=False)
+    me.characters = [present]
+    bundle = overlay.get("ST06-016")
+    entries = bundle.effects if hasattr(bundle, "effects") else bundle
+    trig = [e for e in entries
+            if (e.get("when") if isinstance(e, dict) else getattr(e, "when", None)) == "trigger"][0]
+    for prim in (trig.get("do") if isinstance(trig, dict) else trig.do):
+        execute_effect(prim, st, me, opp, None)
+    assert getattr(present, "ko_immune_until_turn_end", False) is True
+    later = InPlay.of(repo.get("OP01-013"), sickness=False)
+    me.characters.append(later)
+    assert getattr(later, "ko_immune_until_turn_end", False) is False, \
+        "発動後に登場したキャラが KO 耐性を得ている (スナップショット違反)"
+
+
+def test_op01_052_attacker_counts_in_self_rested_chara_count():
+    # cardqa_op_01 3c4617bee1c1: アタック中のこのキャラを含めレストキャラ2枚で引ける→はい
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    attacker = InPlay.of(repo.get("OP01-052"), sickness=False)
+    other = InPlay.of(repo.get("OP01-016"), sickness=False)
+    other.rested = True
+    attacker.rested = True  # アタック宣言でレスト
+    me.characters = [attacker, other]
+    assert eval_condition({"self_rested_chara_count_ge": 2}, st, me, attacker) is True

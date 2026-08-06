@@ -3055,3 +3055,89 @@ OP09-058 = 「相手は自身のコスト6以下のキャラ1枚を、 持ち主
 変える必要があり **アーキ変更**。 30枚未満だが構造変更を伴うため自動修正の範囲を超える。
 ドン戻し系 (OP16-074/OP14-065 等) は全ドン同一で盤面差が出ないが、 キャラ bounce (OP09-058/
 OP06-051/EB01-028後段) と手札選択捨ては chooser で結果が変わる。 統一設計での対応が必要。
+
+## 公式 Q&A conformance バッチ (2026-08-06 #2、 cron `optcg-faq-conformance`)
+
+20 件処理 = **conform 16 / n/a 2 / escalated 1**（+1 は他バッチで既記の qid）。engine/overlay は
+無変更。conform は `tests/test_effect_interactions.py` の「2026-08-06 #2」節で lock（board-diff を
+持つ 7 件に回帰テスト、残りは構造ガード済）。いずれも engine 実測 or コード経路で公式どおりを確認。
+
+### conform（実測確認、再調査回避のため記録）
+
+- **OP01-091 キング「場のドン10枚ある場合」は付与ドンも数える** (cardqa_op_01 `3953d4e2f831`) —
+  `self_don_ge:10` = `don_active + don_rested + 付与ドン(leader+全キャラ)` 合算 (effects.py:600)。
+  実測 active6+leader2+char2=10 で成立、9 で不成立 = 全エリア数える公式どおり。
+- **EB02-047 ブルーノ: コストで捨てたコスト5以下CPキャラをトラッシュから登場できる** (cardqa_eb_02
+  `39e61328cfc5`) — 起動メイン cost=`{trash_self, discard_hand:1}`。discard コストは効果解決前に手札→
+  トラッシュへ移るので、捨てた CP キャラが `play_from_hand_or_trash` のトラッシュ源になる。実測 EB04-042
+  をコストで捨て→場に登場。
+- **OP07-119 エース: ライフ2以下でライフに加えなくても速攻を得る** (cardqa_op_07 `3a5a9f89ea9a`) —
+  on_play=[put_top_to_life:1], then if `self_life_le:2` give 速攻(turn)。デッキ空でライフ加え0→life2
+  維持→速攻付与。対照: 1枚加えて life3 → 速攻なし。put_top は「1枚まで」で加えない経路が正しく速攻を残す。
+- **OP07-017 竜の息吹: コスト1以下ステージ不在でもパワー3000以下キャラをKO** (cardqa_op_07
+  `3b18e4e32dda`) — main do=[ko(相手power3000以下1枚まで), ko_opp_stage(cost1以下1枚まで)] の 2 独立 do。
+  ステージ不在でも前段の chara KO は独立実行。実測 stage無しで power3000 キャラ KO 成立。
+- **OP12-041 サンジ: 起動メインでのイベント発動はカード左上コストを払わない** (cardqa_op_12
+  `3b380e5c6539`) — cost=pay_don:1, do=play_event_from_hand。実測 don1 のみで cost1 麦わらイベント発動成功・
+  don1→0（カード cost を加算するなら don2 必要で発動不能のはず = 加算なしを確認）。発動コスト=pay_don のみ。
+- **OP16-111 サンダーソニア / OP15-103 ゲンボウ:【トリガー】自身を含めライフ3枚でも登場できる**
+  (cardqa_op_15/16 `3b8f66194c5f`) — trigger if `self_life_le:2` → play_self。トリガー発火時この
+  ライフ札は既に pop 済 (3→2) なので条件成立。実測 life2 で `self_life_le:2`=True = 登場可。
+- **ST06-016 ホワイト・アウト:【トリガー】のKO耐性は発動時点のキャラのみ（スナップショット）**
+  (cardqa_st_06 `3bc4ddb9257c`) — trigger do=[draw:1, prevent_ko: all_self_characters]。prevent_ko は
+  解決時点の在場キャラにのみ `ko_immune_until_turn_end` を付与。実測 在場キャラ=immune / 後から登場した
+  キャラ=非immune = 公式「発動時点のキャラのみ」。
+- **OP01-052 雷ぞう:【アタック時】レストキャラ数にアタッカー自身を含める** (cardqa_op_01
+  `3c4617bee1c1`) — if `self_rested_chara_count_ge:2`。アタック宣言でアタッカーが rested になり on_attack
+  条件評価時に自身を数える。実測 アタッカー(rested)+他レスト1=2 で成立→引ける。
+- **OP09-001 シャンクス「相手がアタックした時」はリーダー攻撃でもキャラ攻撃でも合計ターン1回**
+  (cardqa_op_09 `38bbc8781ced`) — opp_attack はリーダー攻撃 (game.py:1523) もキャラ攻撃 (1933) も
+  `trigger_on_opp_attack` を呼ぶ。`once_per_turn` は source InPlay の cost flag = 両攻撃で共有 = 構造的に
+  公式どおり。
+- **OP13-001 ルフィ(leader)【相手のアタック時】はカウンターより前に発動** (cardqa_op_13 `38fec029562e`)
+  — opp_attack はアタック宣言時 (1523) に `_fire_counter_events` より前に発火・条件評価。if
+  `self_don_active_le:5`、ドン6アクティブで宣言→条件false→不発、カウンターでドン5化しても window は
+  閉鎖済で再発火不可 = 公式いいえ。OP03-001「アタックされた時」是前と同型（構造的）。
+- **OP06 起動メイン（トットムジカ等）: 登場ターンに起動メインを撃ってもアタック不可** (cardqa_op_06
+  `3958e569698d`) — 起動メイン発動は召喚酔いを解かない。legal_actions (game.py:997) が
+  `summoning_sickness`（非 is_rush）を attacker から除外 = 速攻を得ない限り登場ターンはアタック不可。構造的。
+- **OP02-064 Mr.2:【アタック時】バトル中にこのキャラが場を離れたらバトル終了時のデッキ下送りは起きない**
+  (cardqa_op_02 `39f7d4d5abe4`) — `schedule_self_return_to_deck_bottom_at_battle_end`。バトル終了フック
+  (game.py:523) は `player.characters` に残る InPlay のみ処理。手札/トラッシュへ移動したら characters から
+  消え=別 iid=デッキ下に置かれない = 公式「別カード扱いで置かない」。構造的。
+- **OP02-025 錦えもん: 非マッチのキャラ登場を挟んでも次のワノ国コスト3に-1が残る** (cardqa_op_02
+  `3933b0092f33`) — フィルタ付きターンコスト減 (`reduce_play_cost_filtered_turn`) は非マッチ登場では
+  消費されず温存 = 公式はい。既是正 (qid `27f57268a683`、支払経路の合算修正) と同カードで、この論点は conform。
+- **OP09-032 ロシナンテ:【相手のアタック時】でアクティブにしたこのキャラはそのアタックをブロックできる**
+  (cardqa_op_09 `3c7cabf59950`) — opp_attack はブロックステップ (game.py:1636) より前 (1523) に発火し
+  untap:self。ブロッカー適格判定 (1653) は現在の rested を見る → untap 済で rested=False + is_blocker_now
+  → ブロック可 = 公式はい（【カウンター】で登場したキャラがブロック不可（docs 別項）とは逆で、こちらは
+  untap タイミングがブロックステップより前）。
+- **【速攻：キャラ】でも登場ターンにアクティブのキャラへはアタックできない** (cardqa_eb_04/st_29
+  `3c2f52bc33f2`) — legal_actions の速攻:キャラ専用 attacker (game.py:1030-1042) は `tgt.rested or
+  アクティブアタック可` を要求。速攻:キャラ単体は「アクティブアタック可」を付与しないので、通常アタック則
+  どおりレストのキャラのみが対象 = 公式いいえ。
+- **【カウンター】で登場したキャラは同バトルでブロッカー発動不可** (cardqa_op_01 `3c4115c3d001`) — docs
+  既記（line 155-158）。`blocker_iid` はアタック宣言時に確定し、カウンターステップはその後に解決される
+  ので、そこから新規ブロッカーになる経路が構造的に存在しない = 公式いいえ。
+
+### n/a（engine 状態変化に一意に落ちない）
+
+- **相手のレストのドンを付与する時どちらが選ぶか** (cardqa_op_15 `389e67d4644e`) → 発動プレイヤーが選ぶ。
+  ドンは fungible でどれを選んでも盤面状態は不変 = chooser 帰属の手続きで盤面差に落ちない。既記の
+  付与 chooser n/a と同型。
+- **「相手のキャラがKOされた時、自分の手札2枚を捨てる」のコスト支払いタイミング** (cardqa_op_03
+  `3a2a2be0ead7`) → KO された時。on_opp_chara_ko トリガー解決時にコストを払う手続きの「いつ」を問う
+  定義質問で、発火の有無とは別の timing 確認 = 盤面差に一意に落ちない。
+- **相手の手札2枚を選ぶ時、1枚ずつ公開でなく同時に選び同時公開** (cardqa_op_01 `3be060e3dcc0`) →
+  はい。選択の同時性/秘匿情報の手続きで盤面差に落ちない（trash_opp_hand は同時解決）。
+
+### escalated（自動修正の範囲外）
+
+- **OP12 起動メインのドン付与で「このキャラ自身に付与済のドン」を付与源に選べる** (cardqa_op_12
+  `389d322a85e6`) → はい。OP12 の起動メインドン付与 (013はっちゃん/044サカズキ/014ハンコック/026くいな) は
+  すべて「レストのドン」（コストエリアのレストプール）を源とし、キャラに付与済のドンを源にする経路が
+  存在しない（既記: `attach_rested_don` source = `me.don_rested` のみ、付与済ドンは移せない = ST01-001/007）。
+  公式が付与済ドンを付与源に選べると裁定するなら、attach 源に「対象/自身の `attached_dons`」を含める必要 =
+  `don_rested` と `attached_dons` を跨ぐデータの持ち方のアーキ変更。対象カードの一意特定も card_number 不在で
+  未確定。rule 11 により escalated（誤った conform/誤修正を避ける）。
