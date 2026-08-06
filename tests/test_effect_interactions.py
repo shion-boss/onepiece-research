@@ -5521,3 +5521,120 @@ def test_op01_052_attacker_counts_in_self_rested_chara_count():
     attacker.rested = True  # アタック宣言でレスト
     me.characters = [attacker, other]
     assert eval_condition({"self_rested_chara_count_ge": 2}, st, me, attacker) is True
+
+
+# --------------------------------------------------------------------------- #
+#  2026-08-06 batch (cron optcg-faq-conformance)
+# --------------------------------------------------------------------------- #
+def test_op10_098_kaihou_ko_uses_printed_cost():
+    """OP10-098 解放【メイン】「相手の**元々の**、コスト6以下…とコスト4以下…をKO」。
+
+    一次情報 (cardqa_op_10 3cba8f85f333):
+      「この【メイン】効果で、元々のコストが7以上で他の効果によってコストが下がっている
+        相手のキャラをKOできますか？」→「いいえ、できません。…元々のコストが6以下…と
+        元々のコストが4以下…を、それぞれ1枚までKOする効果です」
+
+    是正前は ko_multi target が現在コスト spec (one_opponent_character_cost_le_6/4) で、
+    元々コスト7を効果で6に下げるとKOできてしまっていた (公式違反)。
+    truly_original_cost_le_6/4 (= 印刷コスト判定) に是正済。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    # 印刷コスト7 のキャラを効果で現在6に下げる → 元々(印刷)7 なので KO されないはず。
+    victim7 = InPlay.of(repo.get("OP01-067"), sickness=False)   # 印刷コスト 7
+    victim7.cost_minus_until_turn_end = 1                        # 現在コスト 6
+    victim4 = InPlay.of(repo.get("OP01-005"), sickness=False)   # 印刷コスト 4
+    opp.characters = [victim7, victim4]
+    me.characters = []   # 自キャラ0 vs 相手2 → chara_diff = -2 ≤ -2 (if 成立)
+
+    assert victim7.base_cost == 6 and victim7.card.cost == 7
+    bundle = overlay.get("OP10-098")
+    entries = bundle.effects if hasattr(bundle, "effects") else bundle
+    main = [e for e in entries
+            if (e.get("when") if isinstance(e, dict) else getattr(e, "when", None)) == "main"][0]
+    for prim in (main.get("do") if isinstance(main, dict) else main.do):
+        execute_effect(prim, st, me, opp, None)
+
+    assert victim7 in opp.characters, \
+        "元々コスト7(現在6)が KO された = 現在コスト判定の違反 (truly_original でないと落ちる)"
+    assert victim4 not in opp.characters, "元々コスト4 は KO されるはず (対照)"
+
+
+def test_original_cost_wording_uses_truly_original_spec_fullscan():
+    """全走査ガード: overlay entry の `_text` が 「元々の…コスト」 を含むなら、
+    その entry の target spec は truly_original_cost_* でなければならない
+    (素の *_cost_le/ge/eq_N は現在コスト判定 = 「元々の」 の公式意味に反する)。"""
+    import re as _re
+    ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    bad = []
+    for cid, entries in ov.items():
+        if cid == "_meta" or not isinstance(entries, list):
+            continue
+        for e in entries:
+            if not isinstance(e, dict):
+                continue
+            txt = e.get("_text", "")
+            if "元々の" not in txt or "コスト" not in txt:
+                continue
+            blob = json.dumps(e, ensure_ascii=False)
+            plain = [p for p in _re.findall(r'"[a-z_]*_cost_(?:le|ge|eq)_\d+(?:cost)?"', blob)
+                     if "truly_original" not in p]
+            if plain:
+                bad.append((cid, set(plain)))
+    assert not bad, f"「元々の…コスト」なのに現在コスト spec を使う entry: {bad}"
+
+
+def test_st22_016_reveal_returns_card_to_top():
+    """ST22-016【カウンター】: デッキ上1枚を公開 (移動指示テキストなし)。
+
+    一次情報 (cardqa_st_22 4033ff7d15df):
+      「この【カウンター】効果で、自分のデッキの上から公開したカードはどうなりますか？」
+      →「この場合、そのまま公開したカードをデッキの一番上に裏向きで戻します。」
+
+    是正前は rest_remain:bottom でデッキ下送りしていた (公式違反)。top に是正済。
+    マッチ (白ひげ) / 非マッチ どちらでも公開札はデッキトップに残る。
+    """
+    repo, overlay = _repo(), _overlay()
+    bundle = overlay.get("ST22-016")
+    entries = bundle.effects if hasattr(bundle, "effects") else bundle
+    counter = [e for e in entries
+               if (e.get("when") if isinstance(e, dict) else getattr(e, "when", None)) == "counter"][0]
+    do = counter.get("do") if isinstance(counter, dict) else counter.do
+
+    for top_id, label in (("ST22-002", "マッチ(白ひげ)"), ("OP01-013", "非マッチ")):
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        me.deck = [repo.get(top_id)] + [repo.get(_FILLER)] * 10
+        deck_len = len(me.deck)
+        for prim in do:
+            execute_effect(prim, st, me, opp, None)
+        assert len(me.deck) == deck_len, f"{label}: デッキ枚数が変化 (公開札が消えた/移動した)"
+        assert me.deck[0].card_id == top_id, \
+            f"{label}: 公開札がデッキトップに戻っていない (rest_remain=bottom 違反)"
+
+
+def test_reveal_top_then_no_bottom_text_returns_to_top_fullscan():
+    """全走査ガード: reveal_top_then で、カードテキストに 「デッキの下」/「下に置く」 の
+    移動指示が **無い** entry は rest_remain=bottom にしてはならない (= 公開札はトップに戻る)。"""
+    cards = {c["card_id"]: c for c in
+             json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    bad = []
+    for cid, entries in ov.items():
+        if cid == "_meta" or not isinstance(entries, list):
+            continue
+        x = cards.get(cid) or cards.get(cid.split("_")[0])
+        if not x:
+            continue
+        t = (x.get("text") or "") + " " + (x.get("trigger") or "")
+        has_bottom = ("デッキの下" in t) or ("下に置" in t)
+        for e in entries:
+            if not isinstance(e, dict):
+                continue
+            for d in (e.get("do") or []):
+                if isinstance(d, dict) and "reveal_top_then" in d:
+                    rr = d["reveal_top_then"].get("rest_remain", "bottom")
+                    if rr == "bottom" and not has_bottom:
+                        bad.append((cid, rr))
+    assert not bad, f"移動指示テキスト無しなのに rest_remain=bottom: {bad}"

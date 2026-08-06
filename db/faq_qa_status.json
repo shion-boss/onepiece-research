@@ -2556,180 +2556,180 @@
   "files": [
    "cardqa_st_07.json"
   ],
-  "note": "",
+  "note": "ST07-010/ST07-015 相手ライフ0時のchoice_effect(actor:opp)「相手ライフ上1枚トラッシュ」option。各optionはifのみでprune、この選択肢はif無しでライフ0でも valid_options に残り選択可(no-op)。ST20-005リンリン一般則と同型。",
   "q": "対戦相手のライフが0枚のときに、自分はこの【メイン】効果を発動しました。対戦相手は「・相手のライフの上から1枚をトラッシュに置く。」を選ぶことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "3cba8f85f333": {
   "a": "いいえ、できません。この効果は、元々のコストが6以下の相手のキャラと、元々のコストが4以下の相手のキャラを、それぞれ1枚までKOする効果です。",
   "files": [
    "cardqa_op_10.json"
   ],
-  "note": "",
+  "note": "OP10-098 解放【メイン】: 「相手の元々の、コスト6以下…とコスト4以下…をKO」の ko_multi target が現在コスト spec (one_opponent_character_cost_le_6/4) で、元々コスト7以上でも効果でコストが下がればKOできてしまう違反。両targetを truly_original_cost_le_6/4 に是正 (印刷コスト判定)。全走査で同型は OP10-098 のみ (OP11-061 は既に main=truly_original/trigger=素コストで正)。",
   "q": "この【メイン】効果で、元々のコストが7以上で他の効果によってコストが下がっている相手のキャラをKOできますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "3d4935c81331": {
   "a": "いいえ、できません。「クザン」の効果でカードを引くのは、「ガープ」の効果が全て解決し終わった後です。",
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "",
+  "note": "OP12-056ガープ登場時(手札1捨てcost:海軍登場)+leader OP12-040クザン(海軍効果で手札捨てられた時ドロー)。engine enqueueアーキ: trigger_on_playはevent enqueue後resolve_triggers(resolving=True)で実行。cost discardがtrigger_on_self_hand_discarded→_enqueue_field_when+_maybe_resolveするが resolving中はnested resolve skip=クザンdrawはガープon_play全解決後にqueue処理。=ガープのplay_from_handは引いた札を使えない=公式どおり(構造保証)。※Q文はleaderをOP12-043と誤記だが実体はOP12-040。",
   "q": "自分のリーダーが「OP12-043 クザン」のとき、この【登場時】効果で手札1枚を捨てた後、「クザン」の効果で引いたキャラカードを登場させることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "3d64a977dd5f": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-003アルビダ起動メイン effect「リーダーかキャラ1枚に持ち主のレストのドン1まで付与」。公式=自陣なら自ドン/相手陣なら相手ドンを両陣営に付与可。overlay target=self_inplay_choice(自陣限定)で違反だが、相手のカードに相手のレストドンを付与する経路が無い(attach_rested_don source=me.don_rested固定、docs既記ST01-001/007/OP12 389d322a85e6と同族)。両陣営付与+don_rested跨ぎ=アーキ変更につき escalated。",
   "q": "この【起動メイン】効果で自分のリーダーやキャラに自分のレストのドン!!を付与することや、相手のリーダーやキャラに相手のレストのドン!!を付与することはできますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "3d97937d9858": {
   "a": "はい、発動できます。",
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "このターン登場キャラをレストにして【メイン】発動可否→はい。召喚酔い(summoning_sickness)はlegal_actionsでアタック宣言のみ弾く(game.py:997)。レスト(効果コスト/rest_self)は酔い無関係=登場ターンでもレスト可。構造的conform。",
   "q": "このターンに登場したキャラをレストにし、この【メイン】効果を発動することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "3e0731bfb1de": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_13.json"
   ],
-  "note": "",
+  "note": "OP13-119エース登場時: 相手cost5以下を手札に戻した場合『相手は自身の手札からcost4以下キャラ1枚までを登場させる』。公式=相手は登場させない(0枚)ことも可(1枚まで=任意)。engine force_opp_play_from_hand(effects.py:5659)は候補があれば相手に最善(power最大)を強制登場させ、辞退経路が無い=違反。是正には発動者ターン中に非手番(相手)所有のoptional pending_choiceを渡す機構が必要=OP12-075(33a5b522ef88)と同一アーキ制約につき escalated。",
   "q": "この【登場時】効果で相手のコスト5以下のキャラ1枚を手札に戻した場合、相手は自身の手札からコスト4以下のキャラカードを登場させないことはできますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "3e07bb95c65e": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-079/OP04-039系【起動メイン】「自分のデッキのカードをトラッシュに置く」は非任意(できる無し)。mill_self_top / search_top_n rest_remain:trash はいずれも必須実行でopt-out経路無し=公式「置かないことはできない」と整合。",
   "q": "この【起動メイン】効果を発動し、自分のデッキのカードをトラッシュに置かないことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "3e083438ec24": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "【ドン!!×1】効果で登場ターンにアタック可否→いいえ。ドン×1は速攻/rushを付与しない限りアタック宣言不可(legal_actions summoning_sickness弾き game.py:997)。give_attack_active(cardqa 3200dcd72841)/OP06起動メイン(3958e569698d)と同一般則。構造的conform。",
   "q": "このキャラが登場したターンに【ドン!!×1】効果でアタックできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "3e22df9ac3ae": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "",
+  "note": "OP05-005カラス【アタック時】(if self_power_ge:7000のみ、革命軍gate無し)。登場時のみleader_feature:革命軍 gate。公式「リーダーが革命軍を持たなくても【アタック時】発動可→はい」=overlayのアタック時にleader gate無しで整合。",
   "q": "自分のリーダーが特徴《革命軍》を持たない場合、この【アタック時】を発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "3e59e3aa0bf9": {
   "a": "いいえ、できません。この【登場時】効果によるイベントの【メイン】効果の発動は、イベントの発動とは異なります。",
   "files": [
    "cardqa_eb_03.json"
   ],
-  "note": "",
+  "note": "EB03-031レイジュ登場時 fire_event_main_from_trash: トラッシュのcost7以下イベントのmain do primを直接execute(effects.py:6665-8)。trigger_self_event_played を一切呼ばない=「イベントを発動した時」(OP04-053ページワン等)は発火しない=公式「イベント発動とは異なる」と整合。",
   "q": "この【登場時】効果でイベントの【メイン】効果を発動したとき、「OP04-053 ページワン」などの「イベントを発動した時」の効果は発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "3ef553eb6b41": {
   "a": "いいえ、できません。コストが3ちょうどのキャラをライフに加えます。",
   "files": [
    "cardqa_st_07.json"
   ],
-  "note": "",
+  "note": "ST07-017クイーン・ママ・シャンテ号 起動メイン: chara_to_self_life target=one_self_chara_filtered filter cost_eq:3。コスト3ちょうどのみ対象(cost2以下は除外)=公式「コスト2以下は加えられない、コスト3ちょうど」と整合。",
   "q": "この【起動メイン】効果で、自分のコスト2以下のキャラをライフに加えることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "3f83a5d773a6": {
   "a": "いいえ、この場合は使用するドン!!カードは6枚で問題ありません。",
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15リーダーのドン枚数(6枚か10枚か)はデッキ構築/ゲーム準備の質問。engineの盤面状態変化に落ちない=n/a。",
   "q": "このリーダーを使用する場合、ドン!!カードは10枚用意して対戦する必要がありますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "3fb9363e42ca": {
   "a": "はい、できます。",
   "files": [
    "cardqa_st_14.json"
   ],
-  "note": "",
+  "note": "ST14-012ルフィ 常在(on_attached_don n0) if self_chara_filtered_count_ge{cost_ge:10}。count=me.characters走査で発動元自身も含む(effects.py:1619)。ルフィ自身のcurrent costが10以上なら自身1枚でcount>=1成立=速攻。公式「自身のコスト10以上でも速攻を得る→はい」と整合。",
   "q": "このキャラ自身のコストが10以上の場合、このキャラは【速攻】を得ることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "3fed0569138a": {
   "a": "はい、発動できます。",
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "【トリガー】で【登場時】持ちキャラを登場させたら、その【登場時】は発動するか→はい。play_self/summon経由の登場もtrigger_on_playをenqueue=on_play発火。OP01-009/037/071/082/104等の一般則。構造的conform。",
   "q": "この【トリガー】効果で【登場時】効果を持つカードを登場させた場合、その【登場時】効果は発動しますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "400027f946e1": {
   "a": "はい、できます。",
   "files": [
    "cardqa_st_18.json"
   ],
-  "note": "",
+  "note": "ST18-002おナミ登場時(if self_don_ge:8): do=[trash_self_hand_random:1, draw:2]の独立2節。手札0では捨ては no-op、draw:2は独立実行=公式「手札0でも2枚引ける→はい」と整合。",
   "q": "自分の手札が0枚で、自分の場のドン!!が8枚以上ある場合、この【登場時】効果でカード2枚を引くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "4033ff7d15df": {
   "a": "この場合、そのまま公開したカードをデッキの一番上に裏向きで戻します。",
   "files": [
    "cardqa_st_22.json"
   ],
-  "note": "",
+  "note": "ST22-016【カウンター】: デッキ上1枚を公開し白ひげ特徴なら+4000。公開札の行き先は公式=「そのままデッキの一番上に裏向きで戻す」(移動指示テキストなし=公開は元の位置に戻る一般則)。overlay は rest_remain:bottom で下送りしていた違反。top に是正。全走査で同型 bottom 誤りを ST22-006/007/012(+_p1)/ST17-001 でも発見し同時是正(計8 entry)。正しい top 例=ST22-003/OP14-044/OP15-065 と一致させた。",
   "q": "この【カウンター】効果で、自分のデッキの上から公開したカードはどうなりますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "4043dd5fddf1": {
   "a": "はい、できます。この場合、相手のキャラ1枚までのパワーを-1000しつつ、ライフを手札に加えないことが可能です。",
   "files": [
    "cardqa_eb_04.json"
   ],
-  "note": "",
+  "note": "EB04-001ボニー起動メイン: do=[power_pump相手-1000, conditional{if self_life_ge:2, do:[life_to_hand:1]}]。公式=ライフ2以上でも『ライフ上1枚を手札に加えない』ことが可(-1000はしつつ辞退)。life_to_handはoptional_cost_thenでなく素のconditional doで、辞退経路が無く強制実行(human modalも無い)=違反。単一do節を発動者optionalにする汎用機構が無く、『その後…できる』効果節の辞退は他カードにも横断=単発overlay修正の範囲を超えるアーキ課題につき escalated。",
   "q": "自分のライフが2枚以上ある時、この【起動メイン】効果で自分のライフの上1枚を手札に加えないことはできますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "4045853545c9": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_14.json"
   ],
-  "note": "",
+  "note": "OP14-080モリア起動メイン: power_pump target=all_self_team duration:turn。発動時点の自リーダー+全キャラに一度だけ+1000付与(current board走査)。後から登場するキャラには再適用されない=公式「発動後に登場したキャラは+1000できない→いいえ」と整合。ST06-016スナップショット則と同型。",
   "q": "この【起動メイン】効果を発動した後で、このターン中に自分のキャラが登場した場合、そのキャラのパワーは+1000できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "405a06e1db87": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP02-110ヒナ【ブロック時】set_cannot_attack(one_opponent_character_cost_le_6, duration turn)。cannot_attackはターン持続フラグでrest/active状態と独立。選ばれたキャラが他効果でアクティブになってもアタック不可持続=公式いいえ。OP06-023アーロン(38196a26cbc1)と同機構。",
   "q": "この【ブロック時】効果で選ばれたレストのキャラが他の効果でアクティブになった場合、そのキャラはアタックすることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "4060748732a4": {
   "a": "この場合、このリーダーの【相手のターン中】効果と「OP05-107 シュラ」の【登場時】効果を、効果を発動するプレイヤーが自身の望む順で発動できます。",
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "",
+  "note": "OP05-107シュラ絡みの同時トリガー(リーダー【相手のターン中】とシュラ【登場時】)の発動順→発動プレイヤーが望む順で発動可。同一プレイヤーの複数トリガーの解決順序選択は手続きで、どちらを先にしても最終盤面は同じ(両方解決される)=engine盤面差に一意に落ちない=n/a。既記405a06e1db87型の順序選択と同型。",
   "q": "自分のライフが1枚の時にダメージを受け、そのライフが「OP05-107 シュラ」だった時、その【トリガー】効果を発動しました。この場合、このリーダーの【相手のターン中】効果と「OP05-107 シュラ」の【登場時】効果はどちらが先に発動しますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "40dc5ecb0da6": {
   "a": "はい、できます。",

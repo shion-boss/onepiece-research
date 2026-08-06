@@ -3141,3 +3141,101 @@ OP06-051/EB01-028後段) と手札選択捨ては chooser で結果が変わる�
   公式が付与済ドンを付与源に選べると裁定するなら、attach 源に「対象/自身の `attached_dons`」を含める必要 =
   `don_rested` と `attached_dons` を跨ぐデータの持ち方のアーキ変更。対象カードの一意特定も card_number 不在で
   未確定。rule 11 により escalated（誤った conform/誤修正を避ける）。
+
+## 公式 Q&A conformance バッチ (2026-08-06 #3、 cron `optcg-faq-conformance`)
+
+20 件処理 = **fixed 2 (+全走査で co-fix 1) / conform 13 / n/a 2 / escalated 3**。engine コードは無変更、
+`db/card_effects.json` overlay のみ是正。回帰テスト + 全走査ガードを `tests/test_effect_interactions.py`
+の「2026-08-06 batch」節に追加。差分検証 (rust_parity_check / rust_effect_smoke_parity /
+audit_sonogo_order) 全 MISMATCH=0、フル pytest green。
+
+### fixed 1: OP10-098 解放【メイン】「相手の元々の、コスト6以下…とコスト4以下…をKO」は印刷コスト判定
+
+**一次情報** (`db/faq/cardqa_op_10.json`、 qid `3cba8f85f333`):
+> 「この【メイン】効果で、元々のコストが7以上で他の効果によってコストが下がっている相手のキャラを
+>  KOできますか？」→「いいえ、できません。…元々のコストが6以下…と元々のコストが4以下…を、
+>  それぞれ1枚までKOする効果です」
+
+「相手の**元々の**、コスト6以下…とコスト4以下」= 読点で 「元々の」 が両方に係る (印刷コスト)。
+overlay の ko_multi target が現在コスト spec (`one_opponent_character_cost_le_6/4`) で、元々コスト7を
+効果で6に下げるとKOできてしまっていた (公式違反)。両 target を `truly_original_cost_le_6/4` に是正。
+overlay-only (Python/Rust とも `_truly_original_cost_` を印刷コスト判定に正規化、2026-08-04 追加済)。
+
+**全走査 co-fix**: 同型 (entry `_text` が 「元々の…コスト」 なのに現在コスト spec) を全走査ガードで
+検出したところ **EB03-021** (「相手の元々の、パワー4000以下のキャラ…とコスト3以下のキャラ…をデッキ下」)
+が同じ取りこぼし。パワー側は `truly_original_power_le` 済だがコスト側が `one_opponent_character_cost_le_3`
+のままだった。`truly_original_cost_le_3` に是正。ガード `test_original_cost_wording_uses_truly_original_spec_fullscan`
+で恒久固定 (現状この2枚で残0)。OP11-061 は main=truly_original / trigger=素コスト(素の「コスト1以下」)で正。
+
+### fixed 2: 「デッキ上1枚を公開」 で移動指示テキストが無い効果は 公開札をデッキ**トップ**に戻す
+
+**一次情報** (`db/faq/cardqa_st_22.json`、 ST22-016 取り消せよ……!!!今の言葉……!!!、 qid `4033ff7d15df`):
+> 「この【カウンター】効果で、自分のデッキの上から公開したカードはどうなりますか？」
+> →「この場合、そのまま公開したカードをデッキの一番上に裏向きで戻します。」
+
+ST22-016 = 「デッキ上1枚を公開し、白ひげ特徴なら+4000」。公開札の移動指示テキストが無い ⇒ 公式は
+「そのままデッキの一番上に裏向きで戻す」(公開は元位置に留まる一般則)。overlay は `rest_remain:bottom` で
+デッキ下送りしていた違反。`top` に是正。**全走査で同型 bottom 誤り**を発見し同時是正:
+**ST22-006 / ST22-007 / ST22-012 (+各 _p1) / ST17-001** (いずれも 「公開し、〜の場合、効果」 で移動指示なし)。
+計 8 entry を bottom→top。正しい top 例 (ST22-003 / OP14-044 / OP15-065、同一 「公開し…場合」 パターン) と
+一致。ガード `test_reveal_top_then_no_bottom_text_returns_to_top_fullscan` で恒久固定 (テキストに
+「デッキの下」/「下に置く」 がある OP08-049 / OP04-011 / EB01-029 は bottom 正当につき除外)。
+
+### conform (実測 or 構造で公式どおり確認、 2026-08-06 #3)
+
+- **ST07-010/ST07-015 相手ライフ0でも choice の「相手ライフ上1枚トラッシュ」option を選べる** (`3ca69114e115`)
+  — choice_effect(actor:opp) の option は `if` のみで prune、この選択肢は if 無しでライフ0でも valid_options
+  に残る (選んでも no-op)。ST20-005 リンリンと同一般則。
+- **OP12-056 ガープ + leader OP12-040 クザン: クザンのドローはガープ全解決後** (`3d4935c81331`) — Q文はleaderを
+  「OP12-043」 と誤記だが実体は OP12-040 クザン (海軍効果で手札が捨てられた時、捨てた枚数分ドロー)。ガープ登場時
+  cost=手札1捨て。engine の enqueue アーキ: `trigger_on_play` は event を enqueue し `resolve_triggers`
+  (resolving=True) 内で実行。cost discard が `trigger_on_self_hand_discarded`→`_enqueue_field_when`+
+  `_maybe_resolve` するが resolving 中は nested resolve が skip = クザン draw はガープ on_play を **全解決後**
+  に queue 処理。ガープの play_from_hand は引いた札を使えない = 公式どおり (構造保証)。
+- **このターン登場キャラをレストにして【メイン】発動可** (`3d97937d9858`) — 召喚酔いは legal_actions で
+  アタック宣言のみ弾く。レスト (効果コスト) は酔い無関係。
+- **OP04-079/039 系「デッキのカードをトラッシュ」は非任意** (`3e07bb95c65e`) — mill_self_top / search
+  rest_remain:trash は必須実行で opt-out 経路なし。
+- **【ドン!!×1】効果は登場ターンのアタックを許さない** (`3e083438ec24`) — 速攻/rush を得ない限り
+  summoning_sickness で宣言不可。
+- **OP05-005 カラス【アタック時】は革命軍リーダーでなくても発動** (`3e22df9ac3ae`) — on_attack の gate は
+  `self_power_ge:7000` のみ、革命軍 gate は登場時だけ。
+- **EB03-031 レイジュ: イベントの【メイン】効果発動は「イベント発動」ではない** (`3e59e3aa0bf9`) —
+  `fire_event_main_from_trash` はトラッシュのイベントの main do prim を直接 execute し
+  `trigger_self_event_played` を呼ばない = 「イベントを発動した時」(OP04-053 等) は不発 = 公式どおり。
+- **ST07-017 クイーン・ママ・シャンテ号: コスト3ちょうどのキャラをライフへ** (`3ef553eb6b41`) —
+  chara_to_self_life filter `cost_eq:3` でコスト2以下は除外 = 公式どおり。
+- **ST14-012 ルフィ: 自身のコストが10以上なら自身1枚で速攻条件成立** (`3fb9363e42ca`) —
+  `self_chara_filtered_count_ge{cost_ge:10}` の count は me.characters 走査で発動元自身を含む。
+- **【トリガー】で登場させたキャラの【登場時】は発動する** (`3fed0569138a`) — play_self/summon 経由も
+  trigger_on_play を enqueue = on_play 発火。
+- **ST18-002 おナミ: 手札0でも 2枚引ける** (`400027f946e1`) — do=[trash_self_hand_random:1, draw:2] の
+  独立2節。手札0では捨て no-op、draw は独立実行。
+- **OP14-080 モリア【起動メイン】+1000 は発動時点のキャラのみ (スナップショット)** (`4045853545c9`) —
+  power_pump target=all_self_team duration:turn は current board を一度走査。後から登場したキャラは
+  再適用されない。ST06-016 と同型。
+- **OP02-110 ヒナ【ブロック時】cannot_attack は rest/active 状態と独立に持続** (`405a06e1db87`) —
+  set_cannot_attack(duration turn)。選ばれたキャラが他効果でアクティブになってもアタック不可。
+  OP06-023 アーロンと同機構。
+
+### n/a (engine 盤面差に一意に落ちない、 2026-08-06 #3)
+
+- **OP15 リーダーのドン枚数 (6 か 10 か)** (`3f83a5d773a6`) — デッキ構築/準備の質問。
+- **OP05-107 シュラ絡みの同時トリガー発動順 (発動プレイヤーが望む順)** (`4060748732a4`) — 同一プレイヤーの
+  複数トリガーの解決順序選択は手続きで、どちらを先にしても両方解決され最終盤面は同じ。
+
+### escalated (自動修正の範囲外 = アーキ変更、 2026-08-06 #3)
+
+- **OP15-003 アルビダ【起動メイン】effect「リーダーかキャラ1枚に持ち主のレストのドン付与」の両陣営対応**
+  (`3d64a977dd5f`) — 公式=自陣なら自ドン/相手陣なら相手ドンを両陣営に付与可。overlay target=
+  `self_inplay_choice` (自陣限定) で違反だが、相手のカードに相手のレストドンを付与する経路が無い
+  (`attach_rested_don` source=me.don_rested 固定、既記 ST01-001/007 / OP12 `389d322a85e6` と同族)。
+  両陣営付与 + don_rested 跨ぎ = アーキ変更。
+- **OP13-119 エース: bounce 後「相手は自身の手札から cost4 以下 1枚まで登場」の辞退経路** (`3e0731bfb1de`)
+  — 公式=相手は登場させない(0枚)ことも可。engine `force_opp_play_from_hand` は候補があれば相手に最善を
+  強制登場させ辞退経路が無い。是正には発動者ターン中に非手番(相手)所有の optional pending_choice を渡す
+  機構が必要 = OP12-075 (`33a5b522ef88`) と同一アーキ制約。
+- **EB04-001 ボニー【起動メイン】「その後…ライフ上1枚を手札に加えることができる」の辞退** (`4043dd5fddf1`)
+  — 公式=ライフ2以上でも -1000 はしつつライフ加えないことが可。overlay は素の conditional do で
+  `life_to_hand:1` を強制実行 (辞退経路も human modal も無い)。単一 do 節を発動者 optional にする汎用機構が
+  無く、「その後…できる」効果節の辞退は他カードにも横断。単発 overlay 修正の範囲を超える。
