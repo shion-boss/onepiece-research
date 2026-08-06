@@ -5235,3 +5235,157 @@ def test_eb01_024_static_smile_buff_includes_self():
     me.hand = [repo.get(_FILLER)] * 5                   # 手札 5 (>4)
     evaluate_static_effects(st, overlay)
     assert ham.power == 4000, f"手札 5 で 静的バフが解けていない (power={ham.power})"
+
+
+def test_op11_001_replace_leave_requires_3_trash():
+    """OP11-001 コビー: トラッシュが 3 枚未満なら 「代わりにトラッシュから 3 枚をデッキ下」
+    の離脱置換は行えない (= 通常どおり場を離れる)。
+
+    一次情報 (cardqa_op_11, qid 36f9b12bb5f4):
+      Q: 自分のトラッシュが2枚以下の時に、自分の元々のパワー7000以下の特徴《海軍》を持つ
+         キャラが場を離れる場合、このリーダーの【ターン1回】効果で代わりに場を離れない
+         ことはできますか？  A: いいえ、できません。
+
+    是正前 (2026-08-06): 置換の「トラッシュから 3 枚」が do 側にあり payability gate が無く、
+    トラッシュ 0-2 でも置換が成立してキャラを保護していた (さらに int 形 `trash_to_deck: 3`
+    が do primitive では dict 既定 limit=1 に化けて 1 枚しか動かなかった)。
+    `if.self_trash_count_ge: 3` を追加し、 do を dict 形 {"limit": 3} に是正。
+    """
+    from engine.effects import try_replace_ko
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP11-001")
+    st.turn_player_idx = 1  # 相手のターン (by_opp_effect の KO)
+    me, opp = st.players[0], st.players[1]
+    kaigun = InPlay.of(repo.get("OP05-030_r1"), sickness=False)  # 特徴《海軍》base power 1000
+    me.characters = [kaigun]
+
+    # トラッシュ 2 枚 → 置換できない
+    me.trash = [repo.get(_FILLER)] * 2
+    replaced = try_replace_ko(st, me, opp, kaigun, overlay, by_opp_effect=True, leave_kind="ko")
+    assert replaced is False, "トラッシュ2枚 (≤2) で置換が成立してはいけない (cardqa_op_11)"
+
+    # トラッシュ 3 枚 → 置換成立、 ちょうど 3 枚がデッキ下へ
+    me.trash = [repo.get(_FILLER)] * 3
+    replaced = try_replace_ko(st, me, opp, kaigun, overlay, by_opp_effect=True, leave_kind="ko")
+    assert replaced is True, "トラッシュ3枚あれば置換成立"
+    assert kaigun in me.characters, "置換成立でキャラは場に残る"
+    assert len(me.trash) == 0, f"トラッシュから 3 枚が動くべき (残り={len(me.trash)})"
+
+
+def test_eb04_043_kaku_replace_ko_requires_3_trash():
+    """EB04-043 カク: 同型 (元々コスト5以下の黒キャラが相手効果でKO → 代わりにトラッシュ3枚を
+    デッキ下)。 トラッシュ<3 では置換不成立 (= OP11-001 と同じ一般則)。"""
+    from engine.effects import try_replace_ko
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP01-002", leader1="OP01-001")
+    st.turn_player_idx = 1
+    me, opp = st.players[0], st.players[1]
+    kaku = InPlay.of(repo.get("EB04-043"), sickness=False)  # holder
+    victim = InPlay.of(repo.get("PRB02-015"), sickness=False)  # 黒 CHARACTER 元々コスト4
+    assert victim.card.color and "黒" in victim.card.color
+    me.characters = [kaku, victim]
+
+    me.trash = [repo.get(_FILLER)] * 2
+    replaced = try_replace_ko(st, me, opp, victim, overlay, by_opp_effect=True, leave_kind="ko")
+    assert replaced is False, "トラッシュ2枚で置換が成立してはいけない"
+
+    me.trash = [repo.get(_FILLER)] * 3
+    replaced = try_replace_ko(st, me, opp, victim, overlay, by_opp_effect=True, leave_kind="ko")
+    assert replaced is True and len(me.trash) == 0, "トラッシュ3枚で置換成立し 3 枚がデッキ下へ"
+
+
+def test_op14_092_mr3_replace_ko_requires_3_trash():
+    """OP14-092 Mr.3: 同型 (このキャラがKO → 代わりにトラッシュ3枚をデッキ下、 相手ターン中)。
+    トラッシュ<3 では置換不成立。"""
+    from engine.effects import try_replace_ko
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    st.turn_player_idx = 1  # 相手ターン (opp_turn)
+    me, opp = st.players[0], st.players[1]
+    mr3 = InPlay.of(repo.get("OP14-092"), sickness=False)
+    me.characters = [mr3]
+
+    me.trash = [repo.get(_FILLER)] * 2
+    replaced = try_replace_ko(st, me, opp, mr3, overlay, by_opp_effect=True, leave_kind="ko")
+    assert replaced is False, "トラッシュ2枚で置換が成立してはいけない"
+
+    me.trash = [repo.get(_FILLER)] * 3
+    replaced = try_replace_ko(st, me, opp, mr3, overlay, by_opp_effect=True, leave_kind="ko")
+    assert replaced is True and len(me.trash) == 0, "トラッシュ3枚で置換成立し 3 枚がデッキ下へ"
+
+
+def test_replace_trash_to_deck_do_is_payability_gated_fullscan():
+    """全走査ガード: replace_ko / replace_leave の do に 「トラッシュから N 枚をデッキ下」
+    (trash_to_deck) を持つ効果は、 必ず `if.self_trash_count_ge >= N` の payability gate を
+    持たねばならない。 gate が無いと 「N 枚払えないのに置換が成立してキャラを保護」 する
+    タダ撃ちになる (cardqa_op_11 qid 36f9b12bb5f4 が禁じる挙動)。
+
+    同型が OP11-001 / EB04-043 / OP14-092 の 3 種で見つかった (2026-08-06)。 将来 同じ型の
+    取りこぼしが overlay に混入したら ここで落ちる。 int 形 `trash_to_deck: N` は do primitive
+    では dict 既定 limit=1 に化けるので、 do 側では dict 形のみ許す。
+    """
+    overlay_path = ROOT / "db" / "card_effects.json"
+    ov = json.loads(overlay_path.read_text(encoding="utf-8"))
+    offenders = []
+    for cid, effs in ov.items():
+        if cid == "_meta" or not isinstance(effs, list):
+            continue
+        for e in effs:
+            if e.get("when") not in ("replace_ko", "replace_leave"):
+                continue
+            for d in e.get("do", []):
+                if not isinstance(d, dict) or "trash_to_deck" not in d:
+                    continue
+                v = d["trash_to_deck"]
+                # do 側では int 形 (silently limit=1) を禁止
+                assert isinstance(v, dict), (
+                    f"{cid}: replace の do の trash_to_deck は dict 形にすること "
+                    f"(int 形は limit=1 に化ける): {d}"
+                )
+                need = int(v.get("limit", 0))
+                gate = int((e.get("if") or {}).get("self_trash_count_ge", 0))
+                if gate < need:
+                    offenders.append((cid, need, gate))
+    assert not offenders, (
+        "replace do の trash_to_deck に self_trash_count_ge gate が不足 "
+        f"(タダ撃ち): {offenders}"
+    )
+
+
+def test_op16_118_counter_boost_is_set_not_add():
+    """OP16-118 エース: 「パワー8000キャラは カウンター+2000 になる」 は印刷 counter を置換 (SET)。
+
+    一次情報 (cardqa_op_16, qid 37c3a1f9cb07):
+      Q: 手札の「カウンター+1000」を持ちパワー8000のキャラを「カウンター+1000」として
+         使用できますか？  A: いいえ。この場合は「カウンター+2000」として使用します。
+
+    印刷 +1000 の札でも使用値は +2000 (= +3000 ではない)。 是正前は `base += 2000` で 3000 に
+    なっていた (公式違反)。 対照: パワー8000でない札 / OP16-118 不在では素の印刷 counter。
+    """
+    from engine.game import _spend_counters
+    repo, overlay = _repo(), _overlay()
+    # 印刷 counter 1000・パワー8000 の CHARACTER を探す
+    cid = None
+    for c in json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8")):
+        cd = repo.get(c["card_id"])
+        cat = getattr(cd.category, "name", str(cd.category))
+        if cat == "CHARACTER" and int(cd.power or 0) == 8000 and int(cd.counter or 0) == 1000:
+            cid = c["card_id"]
+            break
+    assert cid is not None, "テスト前提の 8000/counter1000 キャラが見つからない"
+
+    st = _state(repo, overlay)
+    st.turn_player_idx = 1
+    me, opp = st.players[0], st.players[1]
+    me.characters = [InPlay.of(repo.get("OP16-118"), sickness=False)]
+    me.hand = [repo.get(cid)]
+    evaluate_static_effects(st, overlay)
+    assert _spend_counters(me, (0,)) == 2000, "SET (置換) されず +3000 になっている (公式違反)"
+
+    # 対照: OP16-118 不在なら素の 1000
+    st2 = _state(repo, overlay)
+    st2.turn_player_idx = 1
+    me2 = st2.players[0]
+    me2.hand = [repo.get(cid)]
+    evaluate_static_effects(st2, overlay)
+    assert _spend_counters(me2, (0,)) == 1000, "boost 不在なのに値が変わっている"

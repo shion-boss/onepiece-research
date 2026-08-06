@@ -145,7 +145,9 @@ fn spend_counters(p: &mut Player, idxs: &[i64]) -> i32 {
                 let bcat = b.get("category").and_then(|v| v.as_str()).unwrap_or(cat);
                 let bpow = b.get("power_eq").and_then(|v| v.as_i64()).unwrap_or(card.power as i64) as i32;
                 if cat == bcat && card.power == bpow {
-                    base += b.get("amount").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                    // 公式 (cardqa_op_16, OP16-118、 qid 37c3a1f9cb07): 「カウンター+2000 になる」
+                    // = 印刷 counter を置換 (SET)。 加算だと印刷 +1000 の札が +3000 になり公式違反。
+                    base = b.get("amount").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
                 }
             }
             total += base;

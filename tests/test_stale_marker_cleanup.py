@@ -368,22 +368,35 @@ def _pow8000_counter_char(repo):
 
 
 def test_op16_118_hand_power8000_counter_plus_2000():
-    """OP16-118 エース: 自分の手札のパワー8000のキャラカードすべては、カウンター+2000。
-    = set_hand_counter_boost 静的 + _spend_counters が適用。 OP16-118 不在なら非適用。"""
+    """OP16-118 エース: 自分の手札のパワー8000のキャラカードすべては、カウンター+2000 になる。
+
+    一次情報 (cardqa_op_16, qid 37c3a1f9cb07):
+      Q: このキャラが自分の場にある時に、自分の手札の「カウンター+1000」を持ちパワーが8000の
+         キャラカードを、相手がアタックした際に「カウンター+1000」として使用することは
+         できますか？  A: いいえ、できません。この場合は「カウンター+2000」として使用します。
+
+    = 「カウンター+2000 になる」 は印刷 counter を **置換 (SET)** する。 印刷 +1000 の札でも
+    使用値は +2000 (= +3000 ではない)。 是正前 (2026-08-06) は `base += 2000` で印刷 +1000 の
+    札が +3000 になっていた (= 公式違反)。 テスト札 (_pow8000_counter_char) は印刷 counter 1000。
+    """
     from engine.game import _spend_counters
     repo = _repo()
     ov = _overlay()
     c8 = _pow8000_counter_char(repo)
     assert c8 is not None
     base_counter = int(c8.counter or 0)
-    # (1) OP16-118 が場 → +2000
+    assert base_counter > 0, "テスト前提: 印刷 counter > 0 の 8000 キャラで SET 挙動を検証する"
+    # (1) OP16-118 が場 → 使用値は 2000 に置換 (印刷 counter に依らず)
     me = Player(name="me", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
     opp = Player(name="opp", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
     st = GameState(players=[me, opp], turn_player_idx=1, phase=Phase.MAIN, rng=random.Random(0))
     me.characters = [InPlay.of(repo.get("OP16-118"), sickness=False)]
     me.hand = [c8]
     evaluate_static_effects(st, ov)
-    assert _spend_counters(me, (0,)) == base_counter + 2000
+    assert _spend_counters(me, (0,)) == 2000, (
+        "「カウンター+2000 になる」 は SET (置換)。 印刷 +1000 + 2000 = 3000 は公式違反 "
+        "(cardqa_op_16 qid 37c3a1f9cb07)"
+    )
     # (2) OP16-118 不在 → 素の counter (boost なし)
     me2 = Player(name="me2", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
     opp2 = Player(name="opp2", leader=InPlay.of(repo.get("OP01-001"), sickness=False))

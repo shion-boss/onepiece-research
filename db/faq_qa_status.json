@@ -2273,90 +2273,90 @@
   "files": [
    "cardqa_op_11.json"
   ],
-  "note": "",
+  "note": "OP11-001 コビー replace_leave: 「トラッシュから3枚をデッキ下」の払能gate欠落でtrash≤2でも置換成立していた(タダ撃ち)。if.self_trash_count_ge:3追加+do int形→dict形{limit:3}是正。同型EB04-043/OP14-092も同時是正(全走査でこの3種のみ)。overlay-only。",
   "q": "自分のトラッシュが2枚以下の時に、自分の元々のパワー7000以下の特徴《海軍》を持つキャラが場を離れる場合、このリーダーの【ターン1回】効果で代わりに場を離れないことはできますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "372d462a3f3f": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "",
+  "note": "OP16-073 ボルサリーノ 【自ターン終了時】untap_chara(self)+give_keyword(ブロッカー,next_opp_turn_end)。give_keywordはrested状態を要求しない=既にアクティブでもブロッカー付与される(granted_keywords_through_opp_turn)。実測: active char→blocker付与OK。",
   "q": "このキャラがアクティブの場合、この【自分のターン終了時】効果でこのキャラが【ブロッカー】を得ることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "3772fee0cfc9": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_11.json"
   ],
-  "note": "",
+  "note": "OP11-018 実直拳骨 【メイン】power_pump(one_opponent_character_any,-4000)とko(one_opponent_character_power_le_6000)は独立した2つのtarget spec=別々に対象選択可能。実測で別対象選択が成立。",
   "q": "この【メイン】効果で、パワー-4000するキャラと、KOするキャラを別々に選ぶことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "37741769182c": {
   "a": "はい、できます。この場合、トラッシュに置くことができるライフがないため、何も起きません。",
   "files": [
    "cardqa_st_20.json"
   ],
-  "note": "",
+  "note": "ST20-005 リンリン choice_effect(actor:opp)の各optionはif条件のみでfilter。mill_opp_life_to_trashにif無し=相手ライフ0でも選択肢は残る(pruneされない)。実測: opp life0でchoice解決OK=公式「選べる。何も起きない」と整合。",
   "q": "対戦相手のライフが0枚のときに、自分はこの【登場時】効果を発動し、自分の手札1枚を捨てました。対戦相手は「・相手のライフの上から1枚をトラッシュに置く。」を選ぶことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "37b2db8eb471": {
   "a": "はい、7000になります。",
   "files": [
    "cardqa_op_13.json"
   ],
-  "note": "",
+  "note": "OP13-084 シェパード set_base_power(五老星filter,7000)。trash10+&自ターンでOP13-082五老星(印刷12000)の元々パワーが7000に。実測: goro.power=7000。set_base_power=印刷値上書き=公式どおり。",
   "q": "この【自分のターン中】効果で、「OP13-082 五老星」の元々のパワーは12000から7000になりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "37c0578840ab": {
   "a": "この場合、このカードを使用したプレイヤーの対戦相手が、自身の場のコスト6以下のキャラの中から1枚を選び、手札に戻します。",
   "files": [
    "cardqa_op_09.json"
   ],
-  "note": "",
+  "note": "OP09-058 特製マギー玉「相手は自身のコスト6以下キャラ1枚を戻す」=相手(所有者)が選ぶ。engineはoverlay return_to_hand:one_opponent_character_cost_le_6cost=行動側が選ぶ(実測: 強キャラをbounce)。chooser帰属の相違。18枚「相手は自身の…戻す/捨てる/デッキ戻す」に及ぶアーキ変更(target選択にchooser次元追加+AIは自損最小で選ぶ)=自動修正範囲超。docs記載。",
   "q": "この【メイン】効果で手札に戻すキャラはどちらのプレイヤーが選びますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "37c3a1f9cb07": {
   "a": "いいえ、できません。この場合は「カウンター+2000」として使用します。",
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "",
+  "note": "OP16-118 エース「パワー8000キャラはカウンター+2000になる」。_spend_counters/_boostedがbase+=amount(印刷1000+2000=3000)で公式違反。「になる」=SET(置換)に是正(base=amount)。印刷+1000札の使用値=+2000。Python(game.py)+Rust(rules.rs)両直し。既存backfillテスト(3000をassert=旧バグ固定)を2000に書換。該当カードはOP16-118のみ。",
   "q": "このキャラが自分の場にある時に、自分の手札の「カウンター+1000」を持ちパワーが8000のキャラカードを、相手がアタックした際に「カウンター+1000」として使用することはできますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "37fe4f92fd4e": {
   "a": "いいえ、そのバトル中はパワーが1000になります。",
   "files": [
    "cardqa_op_07.json"
   ],
-  "note": "",
+  "note": "OP07-012/OP07-005系 パワー0のキャラにカウンター+1000使用→そのバトル中1000。engine: power_pumpで印刷値まで-してcurrent=0、+1000でcurrent=1000。実測: base1000→-1000=0→+1000=1000。過剰な負値のbank無し=公式どおり。",
   "q": "このキャラの【登場時】効果でパワーが0になっている相手のキャラに自分のリーダーがアタックしたとき、相手がそのキャラに「カウンター+1000」を使用した場合、そのパワーは0のままになりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "3815868fd121": {
   "a": "いいえ、デッキに戻した枚数が0枚のため、カードを引く枚数も0枚です。",
   "files": [
    "cardqa_.json"
   ],
-  "note": "",
+  "note": "P-046 ヤマト等 draw_per_hand_to_deck_bottom。手札0(発動札以外なし)→デッキ戻し0→ドロー0。実測: hand空でhand0/deckΔ0。",
   "q": "発動したこのカード以外の手札がない場合、カードを引くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "38196a26cbc1": {
   "a": "はい、アクティブになりますが、そのリーダーはそのターン中アタックできません。",
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "",
+  "note": "OP06-023 アーロン set_cannot_attack(one_opponent_leader,next_opp_turn_end)。相手レストリーダーに付与→cannot_attack_through_opp_turn=True。リフレッシュでアクティブ化はengine既定で妨げず、cannot_attackはnext_opp_turn_end迄持続=公式「アクティブになるがそのターン攻撃不可」と整合。",
   "q": "この【登場時】効果で選んだ相手のレストのリーダーは、次の相手のリフレッシュフェイズにアクティブになりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "389d322a85e6": {
   "a": "はい、できます。",

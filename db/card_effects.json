@@ -2104,7 +2104,8 @@
     "target": "any_self_chara",
     "target_feature": "海軍",
     "by_opp_effect": true,
-    "target_truly_original_power_le": 7000
+    "target_truly_original_power_le": 7000,
+    "self_trash_count_ge": 3
    },
    "cost": [
     {
@@ -2113,7 +2114,10 @@
    ],
    "do": [
     {
-     "trash_to_deck": 3
+     "trash_to_deck": {
+      "limit": 3,
+      "to": "bottom"
+     }
     }
    ],
    "optional": true
@@ -19336,7 +19340,8 @@
     "target": "any_self_chara",
     "target_feature": "海軍",
     "by_opp_effect": true,
-    "target_truly_original_power_le": 7000
+    "target_truly_original_power_le": 7000,
+    "self_trash_count_ge": 3
    },
    "cost": [
     {
@@ -19345,7 +19350,10 @@
    ],
    "do": [
     {
-     "trash_to_deck": 3
+     "trash_to_deck": {
+      "limit": 3,
+      "to": "bottom"
+     }
     }
    ],
    "optional": true
@@ -57777,7 +57785,8 @@
     "target": "any_self_chara",
     "target_color": "黒",
     "by_opp_effect": true,
-    "target_truly_original_cost_le": 5
+    "target_truly_original_cost_le": 5,
+    "self_trash_count_ge": 3
    },
    "cost": [
     {
@@ -57812,7 +57821,8 @@
     "target": "any_self_chara",
     "target_color": "黒",
     "by_opp_effect": true,
-    "target_truly_original_cost_le": 5
+    "target_truly_original_cost_le": 5,
+    "self_trash_count_ge": 3
    },
    "cost": [
     {
@@ -101172,7 +101182,8 @@
    "when": "replace_ko",
    "if": {
     "target": "self",
-    "opp_turn": true
+    "opp_turn": true,
+    "self_trash_count_ge": 3
    },
    "cost": [
     {

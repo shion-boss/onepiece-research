@@ -2197,7 +2197,11 @@ def _spend_counters(p: Player, idxs: tuple[int, ...]) -> int:
             cat = getattr(card.category, "name", str(card.category))
             if (cat == boost.get("category", cat)
                     and int(card.power or 0) == int(boost.get("power_eq", card.power or 0))):
-                base += int(boost.get("amount", 0))
+                # 公式 (cardqa_op_16, OP16-118 エース、 qid 37c3a1f9cb07):
+                #   「カウンター+1000」 を持つパワー8000キャラは 「カウンター+2000」 として使用する
+                #   (= +3000 ではない)。 カード文面 「カウンター+2000 になる」 = 印刷 counter を
+                #   置換 (SET)。 加算 (+=) だと印刷 +1000 の札が +3000 になり公式違反。
+                base = int(boost.get("amount", 0))
         return base
 
     total = 0
