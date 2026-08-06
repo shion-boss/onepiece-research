@@ -3058,7 +3058,7 @@ OP06-051/EB01-028後段) と手札選択捨ては chooser で結果が変わる�
 
 ## 公式 Q&A conformance バッチ (2026-08-06 #2、 cron `optcg-faq-conformance`)
 
-20 件処理 = **conform 16 / n/a 2 / escalated 1**（+1 は他バッチで既記の qid）。engine/overlay は
+20 件処理 = **conform 16 / n/a 3 / escalated 1**。engine/overlay は
 無変更。conform は `tests/test_effect_interactions.py` の「2026-08-06 #2」節で lock（board-diff を
 持つ 7 件に回帰テスト、残りは構造ガード済）。いずれも engine 実測 or コード経路で公式どおりを確認。
 
