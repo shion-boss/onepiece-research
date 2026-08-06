@@ -2424,6 +2424,30 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
                 }
             }
         }
+        // 「このキャラの元々のパワーは、 選んだキャラと同じパワーになる」 の静的版 (effects.py:4998、
+        //   OP14-053 ビスタ等)。 duration="static" が既定 → base_power_override。
+        //   ⚠ 以前は execute_effect (動的 context) にしか実装が無く、 ここ (静的 context、
+        //   on_attached_don 経由) は catch-all `_ => {}` で黙って no-op していた
+        //   (MISMATCH、 2026-08-06 parity sweep で検出)。
+        "set_base_power_copy" => {
+            let from_spec = spec.get("from_target").cloned()
+                .unwrap_or_else(|| Value::String("one_opponent_character_any".into()));
+            let to_spec = spec.get("to_target").cloned()
+                .unwrap_or_else(|| Value::String("self".into()));
+            let duration = spec.get("duration").and_then(|v| v.as_str()).unwrap_or("turn").to_string();
+            let Some(from_c) = resolve_target(Some(&from_spec), me_idx, opp_idx, src, state) else { return };
+            let Some(&(fp, fs)) = from_c.first() else { return };
+            let copied = get_ip(&state.players[fp], fs).power();
+            let Some(to_c) = resolve_target(Some(&to_spec), me_idx, opp_idx, src, state) else { return };
+            for (pi, sl) in to_c {
+                let ip = get_ip_mut(&mut state.players[pi], sl);
+                match duration.as_str() {
+                    "turn" => ip.turn_base_power_override = Some(copied),
+                    "next_self_turn_start" => ip.next_turn_base_power_override = Some(copied),
+                    _ => ip.base_power_override = Some(copied),
+                }
+            }
+        }
         "set_protect_from_opp_effect_static" => {
             let Some(targets) = resolve_target(spec.get("target"), me_idx, opp_idx, src, state) else { return };
             for (pi, sl) in targets {
@@ -2662,6 +2686,24 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
             if let Some(ts) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) {
                 for (pi, sl) in ts {
                     get_ip_mut(&mut state.players[pi], sl).static_ko_immune_from_source_power_le = thr;
+                }
+            }
+        }
+        // KO 耐性 (期限付き、 effects.py:7287 set_ko_immune_timed)。 duration="next_opp_turn_end" →
+        //   ko_immune_through_opp_turn / それ以外 (既定 "turn") → ko_immune_until_turn_end。
+        //   ⚠ execute_effect (動的) には既に実装済だったが、 静的 context (on_attached_don 経由、
+        //   ST14-009 ビッグ・マム海賊団) はここに無く catch-all `_ => {}` で無反応だった
+        //   (set_base_power_copy と同型の穴、 2026-08-06)。
+        "set_ko_immune_timed" => {
+            let duration = spec.get("duration").and_then(|x| x.as_str()).unwrap_or("next_opp_turn_end").to_string();
+            if let Some(ts) = resolve_target(spec.get("target"), me_idx, opp_idx, src, state) {
+                for (pi, sl) in ts {
+                    let ip = get_ip_mut(&mut state.players[pi], sl);
+                    if duration == "next_opp_turn_end" {
+                        ip.ko_immune_through_opp_turn = true;
+                    } else {
+                        ip.ko_immune_until_turn_end = true;
+                    }
                 }
             }
         }
@@ -10175,6 +10217,11 @@ pub fn fire_life_trigger(
     // キャラの on_play は enqueue されるだけで後回しになる。 Rust も同じ文脈を作る。
     let prev_resolving = state.rust_resolving;
     state.rust_resolving = true;
+    // ⚠ on_self_trigger_fired 除外の snapshot (effects.py:trigger_lifecard_trigger の
+    //   pre_trigger_field_iids と同じ役目)。 【トリガー】解決 (play_self 等) の **前** に場に
+    //   居たカードだけを対象にする — この trigger 自身で登場したカードは、 その同じ発火を
+    //   自身の on_self_trigger_fired で拾わない (公式: OP13-106 コニー cardqa、 「いいえ」)。
+    let pre_trigger_toks = snapshot_field_toks(state, defender_idx);
     let mut kept_in_hand = false;
     for (eff_idx, eff) in effs.iter().enumerate() {
         if eff.get("when").and_then(|v| v.as_str()) != Some("trigger") {
@@ -10261,7 +10308,7 @@ pub fn fire_life_trigger(
     // Python の enqueue 順: ① trigger 本体 → ② attacker の opp_event_or_trigger_fired
     //   → ③ defender の on_self_trigger_fired。 FIFO drain なのでこの順で発火する。
     fire_field_when(state, attacker_idx, "opp_event_or_trigger_fired")?;
-    fire_field_when(state, defender_idx, "on_self_trigger_fired")?;
+    fire_field_when_with_toks(state, defender_idx, "on_self_trigger_fired", pre_trigger_toks)?;
     // resolving を戻し、 外側に居なければ溜まった on_play 等をここで drain する。
     state.rust_resolving = prev_resolving;
     if !prev_resolving {
@@ -10740,24 +10787,47 @@ fn ai_should_fire_opp_attack_cost(
 /// の自己完結版)。 costless + 条件成立 + 再現可能 prim のみ発火。 cost/once_per_turn/条件unknown/未対応prim は
 /// Err で bail。 source は場のカード (= self_inplay 有、 on_ko と違い src target 解決可)。 cascade nesting は
 /// 発火 prim が更に enqueue しない前提 (allow-list が cascade prim を除外)。
-pub fn fire_field_when(state: &mut GameState, owner_idx: usize, when: &str) -> Result<(), String> {
-    let Some(ov) = overlay() else { return Ok(()) };
+/// `fire_field_when` の対象走査集合を **今の盤面** から作る (leader + characters + stages に
+/// 一意トークンを打つ)。 呼出タイミングを分離できるよう `fire_field_when_with_toks` と分けてある
+/// (= 「do 実行前の盤面」 を snapshot してから do を実行し、 その後で snapshot 済トークンだけを
+/// 対象に発火したいケース、 例: `fire_life_trigger` の on_self_trigger_fired 除外、 のため)。
+pub(crate) fn snapshot_field_toks(state: &mut GameState, owner_idx: usize) -> Vec<(Option<u64>, String)> {
     let n_char = state.players[owner_idx].characters.len();
     let n_stage = state.players[owner_idx].stages.len();
     let mut slots: Vec<Slot> = vec![Slot::Leader];
     slots.extend((0..n_char).map(Slot::Char));
     slots.extend((0..n_stage).map(Slot::Stage));
-    // ⚠ Python は走査対象を loop 開始前にリスト化する (= 途中で盤面が動いても元の集合を回す)。
-    //   Rust は位置 index なので、 効果/コストが盤面を動かすと後続 slot が別カードを指す or 範囲外
-    //   (= index out of bounds で panic していた、 EB01-021 の end_of_turn cost で検出)。
-    //   一意トークンで各 source を追跡し、 場を離れたものは明示 bail する。
-    let toks: Vec<(Option<u64>, String)> = slots
+    slots
         .iter()
         .map(|&sl| {
             let cid = get_ip(&state.players[owner_idx], sl).card.card_id.clone();
             (tag_src(state, owner_idx, sl), cid)
         })
-        .collect();
+        .collect()
+}
+
+pub fn fire_field_when(state: &mut GameState, owner_idx: usize, when: &str) -> Result<(), String> {
+    if overlay().is_none() {
+        return Ok(());
+    }
+    // ⚠ Python は走査対象を loop 開始前にリスト化する (= 途中で盤面が動いても元の集合を回す)。
+    //   Rust は位置 index なので、 効果/コストが盤面を動かすと後続 slot が別カードを指す or 範囲外
+    //   (= index out of bounds で panic していた、 EB01-021 の end_of_turn cost で検出)。
+    //   一意トークンで各 source を追跡し、 場を離れたものは明示 bail する。
+    let toks = snapshot_field_toks(state, owner_idx);
+    fire_field_when_with_toks(state, owner_idx, when, toks)
+}
+
+/// `fire_field_when` の本体だが、 走査対象トークンを呼出側から受け取る版。
+/// `snapshot_field_toks` を **いつ** 呼ぶかを呼出側が選べる (= "before" some other do-list を
+/// 実行して盤面が変わった後でも、 変化前の集合だけを対象にできる)。
+pub(crate) fn fire_field_when_with_toks(
+    state: &mut GameState,
+    owner_idx: usize,
+    when: &str,
+    toks: Vec<(Option<u64>, String)>,
+) -> Result<(), String> {
+    let Some(ov) = overlay() else { return Ok(()) };
     for (tok, cid) in toks {
         // 先行 source の効果/コストがこの source を場から除いた場合、 Python は場外オブジェクトの
         // まま処理を続ける (bundle は card_id 引き)。 Rust は Slot::Detached で続行する
