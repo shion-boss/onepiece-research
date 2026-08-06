@@ -1755,7 +1755,11 @@ def eval_condition(
             spec_val = v if isinstance(v, dict) else {}
             cost_ge = int(spec_val.get("cost_ge", 0))
             n_req = int(spec_val.get("n", 1))
-            count = sum(1 for c in me.characters if c.card.cost >= cost_ge)
+            # 素の 「コストN以上」 = 現在コスト (= base_cost、 コスト修正込み)。 発動元キャラ
+            # 自身も me.characters に含まれるので、 コスト+1 で 6 になった自身を数える
+            # (cardqa st_14: ST14-009 フランキー / ST14-003 サンジ 「このキャラ自身のコストが
+            #  6以上の場合」 → はい)。 印刷コスト (c.card.cost) だと buff 分を見落とす。
+            count = sum(1 for c in me.characters if c.base_cost >= cost_ge)
             if count < n_req:
                 return False
         elif k == "self_chara_power_ge_count_le":

@@ -583,7 +583,9 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             "self_chara_cost_ge_count" => {
                 let cg = v.get("cost_ge").and_then(|x| x.as_i64()).unwrap_or(0);
                 let need = v.get("n").and_then(|x| x.as_i64()).unwrap_or(1);
-                me.characters.iter().filter(|c| c.card.cost as i64 >= cg).count() as i64 >= need
+                // 素の 「コストN以上」 = 現在コスト (base_cost、 修正込み)。 印刷 c.card.cost だと
+                // buff で 6 になった自身を見落とす (cardqa st_14: ST14-009/ST14-003)。
+                me.characters.iter().filter(|c| c.base_cost() as i64 >= cg).count() as i64 >= need
             }
             // 自リーダーの特徴に v を含むものがある (部分一致)
             "leader_feature_contains" => {

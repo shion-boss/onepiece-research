@@ -2764,27 +2764,27 @@
    "cardqa_op_09.json",
    "cardqa_op_10.json"
   ],
-  "note": "",
+  "note": "「お互いのライフの合計枚数が5枚以下の場合、このカードを登場させる」 は自身を含めない。 engine は life card を opp.life.pop(0) してから trigger 条件 (total_life_le) を評価する (game.py:1875)ので、 残りライフのみ数える = 公式どおり。",
   "q": "この【トリガー】効果の「お互いのライフの合計枚数が5枚以下の場合、このカードを登場させる。」は、このカード自身を含めて5枚以下である場合に登場させる効果ですか？",
-  "status": "pending"
+  "status": "conform"
  },
  "4272558500b8": {
   "a": "この【アタック時】効果を発動したプレイヤーが選びます。",
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "手札に戻すかデッキ下に戻すかを選ぶのは効果を発動したプレイヤー、 という chooser 帰属の確認。 engine は選択を常に効果コントローラ視点で解決するが、 state-diff としての検証対象にならない。",
   "q": "この【アタック時】効果で選んだキャラを手札に戻すかデッキの下に戻すかを選ぶのは、どちらのプレイヤーですか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "42836f731af2": {
   "a": "はい、されます。",
   "files": [
    "cardqa_st_14.json"
   ],
-  "note": "",
+  "note": "ST14-009 フランキー/ST14-003 サンジ 「自分のコスト6以上のキャラがいる場合」 は現在コスト(base_cost)で発動元自身も数える。 self_chara_cost_ge_count が印刷コスト(c.card.cost)を見ていた為、 コスト+1 で 6 になった自身を見落としていた。 Python/Rust 両方 base_cost へ是正 (7カード影響: OP13-004/OP12-081/EB04-045/ST14-009 等 全て素の コスト以上)。",
   "q": "このキャラ自身のコストが6以上の場合、このキャラの【相手のターン中】効果によって、このキャラは相手の効果でKOされずパワー+2000されますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "433f3f7c1411": {
   "a": "はい、できます。",
@@ -2818,9 +2818,9 @@
   "files": [
    "cardqa_op_14.json"
   ],
-  "note": "",
+  "note": "OP14-080 ゲッコー・モリア 起動メイン (自KO cost → 全体+1000)。 公式: 「パワー+1000を実行した後で、そのキャラの【KO時】効果が発動」。 実測は逆順 (KO時 draw が先、 +1000 が後)。 原因: fire_activate_main が cost 支払い時に trigger_on_ko→_maybe_resolve を即ドレインし、 do (activate_main event) の enqueue より前に KO時 を解決してしまう。 cost 由来の trigger は現行効果 (do) の解決後に drain すべき = resolution ordering のアーキ問題。 blast radius = activate_main/end_of_turn の全 cost-KO (+battle/counter cost も同型の可能性) で systemic、 Python/Rust 両方の drain 順序変更が要る為 escalate。 修正案: do を先に enqueue、 cost 支払い中は resolving guard で on_ko 即ドレインを抑止。",
   "q": "この【起動メイン】効果でKOした自分のキャラが【KO時】効果を持っていた場合、それは発動できますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "43cf88652828": {
   "a": "いいえ、できません。",
@@ -2845,27 +2845,27 @@
   "files": [
    "cardqa_st_14.json"
   ],
-  "note": "",
+  "note": "ST14-001 「自分のキャラすべてをコスト+1」 は場のキャラのみ (手札/トラッシュは対象外)。 set_base_cost_filtered_static は targets_pool=me.characters (場) にしか適用しない (effects.py:12146)。",
   "q": "この【ドン!!×1】効果で、自分の手札やトラッシュのキャラカードのコストは+1されますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "44ae9559144a": {
   "a": "はい、パワー5000になります。",
   "files": [
    "cardqa_st_14.json"
   ],
-  "note": "",
+  "note": "ST14-001 【ドン‼×1】条件付きリーダー+1000 (自分のコスト8以上のキャラがいる場合) は静的効果で毎 recompute 再評価。 コスト8キャラが場を離れると条件不成立→+1000剥落 (実測: 7000→6000)。 DON passive の owner-turn gate は core 既検証。",
   "q": "相手のターン中に、自分のリーダーがドン!!1枚を付与された「ST14-001 モンキー・D・ルフィ」で、自分の場にコスト8のキャラ1枚があり、このリーダーは【ドン!!×1】効果によってパワーが6000となっている状態です。このターンの間に、自分の場にコスト8以上のキャラがいない状態になった場合、このリーダーのパワーは5000になりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "44e6eb3cb5b1": {
   "a": "いいえ、できません。現在のパワーが6000以下のキャラをKOできます。",
   "files": [
    "cardqa_st_01.json"
   ],
-  "note": "",
+  "note": "「元々のパワー6000以下が効果で7000以上の場合KOできない、現在パワー6000以下をKOできる」 = 素のパワーN以下は現在パワー。 _matches_filter_ip が ip.power (バフ込み現在値) で判定する既確立ルール (docs official_rulings.md line 407)。",
   "q": "元々のパワーが6000以下のキャラが効果で7000以上となっている場合、この【メイン】効果でKOできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "455af7f1daf3": {
   "a": "はい、できます。",
@@ -2881,18 +2881,18 @@
   "files": [
    "cardqa_op_13.json"
   ],
-  "note": "",
+  "note": "「相手のカード」=相手の場のリーダー/キャラ/ドン/ステージ、 という用語定義の確認。 engine 状態変化に落ちない定義質問。",
   "q": "この効果の「相手のカード」とは何ですか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "45b008151937": {
   "a": "いいえ、相手に公開せず裏向きでライフの上に置きます。",
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "",
+  "note": "手札からライフに加えるカードを相手に公開するか=いいえ裏向き。 engine はカードの表裏/公開可視性をモデル化しないため検証不能。",
   "q": "この【登場時】効果で手札からライフに加えるカードは、相手に公開する必要がありますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "45d338757d7e": {
   "a": "はい、必要です。",
@@ -2908,9 +2908,9 @@
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "",
+  "note": "OP16-079 ヤマト 「トラッシュから登場したワノ国キャラに【速攻】付与」。 give_rush は summoning_sickness=False を直接セットする永続的な状態変更 (effects.py:5141)。 その後キャラの効果が無効化されても、 外部から付与された速攻状態は剥がれずアタック可能 = 公式どおり。",
   "q": "自分のターン中に、自分のトラッシュから特徴《ワノ国》を持つキャラが登場し、その後そのキャラが他の「効果を無効にする」などの効果を受けた場合、そのキャラはこのターン中アタックできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "4681197f01df": {
   "a": "はい、できます。",

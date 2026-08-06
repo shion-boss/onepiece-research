@@ -6007,3 +6007,60 @@ def test_costless_optional_sweep_has_no_forced_follow_up_clause():
         "公式が 「その後、…できる」 と書くのに overlay に任意表現が無い:\n  "
         + "\n  ".join(bad)
     )
+
+
+def test_self_chara_cost_ge_count_uses_current_cost_and_includes_source():
+    """「自分のコストN以上のキャラがいる場合」 は **現在コスト** (= base_cost、 コスト修正込み)
+    で判定し、 発動元キャラ自身も数える。
+
+    一次情報 (db/cardqa_tagged.json series=st_14):
+      Q: 「このキャラ自身のコストが6以上の場合、このキャラの【相手のターン中】効果によって、
+          このキャラは相手の効果でKOされずパワー+2000されますか？」 → A: 「はい、されます。」
+      (ST14-009 フランキー / ST14-003 サンジ = 印刷コスト5。 コスト+1 修正で現在コスト6 の時、
+       自分自身を 「コスト6以上のキャラ」 として数える)
+
+    是正前 (self_chara_cost_ge_count が c.card.cost = 印刷コストを見ていた) は、 base_cost を
+    6 に上げても印刷5のままで False = 違反。 現在は c.base_cost で判定する為 True になる。
+    """
+    repo = _repo()
+    ov = _overlay()
+    st = _state(repo, ov, leader0="ST14-001")
+    frank = InPlay.of(repo.get("ST14-009"), sickness=False)  # 印刷コスト5
+    st.players[0].characters = [frank]
+    cond = {"self_chara_cost_ge_count": {"cost_ge": 6, "n": 1}}
+    # 印刷コスト5 のまま = 条件不成立 (自身もコスト6未満)
+    assert frank.base_cost == 5
+    assert eval_condition(cond, st, st.players[0]) is False
+    # コスト+1 修正で現在コスト6 = 発動元自身を数えて条件成立
+    frank.base_cost_override = 6
+    assert frank.base_cost == 6
+    assert eval_condition(cond, st, st.players[0]) is True
+
+
+def test_self_chara_cost_ge_count_overlays_are_plain_cost_not_printed():
+    """全走査ガード: self_chara_cost_ge_count を使う overlay は すべて 素の 「コスト以上」
+    (= 現在コスト判定が正しい) であり、 「元々のコスト」 (= 印刷コスト) を意図した節は無い。
+
+    素の 「コストN以上」 は現在コストで見る (docs/official_rulings.md)。 もし将来 「元々の
+    コストN以上」 のカードが self_chara_cost_ge_count を使うよう追加されたら、 現在コスト判定は
+    そのカードにとって誤りになる為、 このガードで気付けるようにする。
+    """
+    import json as _json
+    ov = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    # ⚠ 判定は カード全体でなく **primitive を含む効果エントリ単位** で行う。 同じカードの
+    #   別エントリ (例: OP12-081 コアラ の 「元々のコスト8以上のキャラを登場させた時」 の
+    #   reactive) を巻き込むと誤検出する (docs/official_rulings.md の記録どおり entry 粒度が正しい)。
+    entries = []
+    for cid, effs in ov.items():
+        if not isinstance(effs, list) or cid.startswith("_"):
+            continue
+        for e in effs:
+            if isinstance(e, dict) and "self_chara_cost_ge_count" in _json.dumps(e, ensure_ascii=False):
+                entries.append((cid, e))
+    assert entries, "self_chara_cost_ge_count を使う overlay entry が 0 = テストが空回り"
+    bad = [f"{cid}: {e.get('_text','')[:60]}"
+           for cid, e in entries if "元々" in _json.dumps(e, ensure_ascii=False)]
+    assert not bad, (
+        "self_chara_cost_ge_count (= 現在コスト判定) の効果エントリが 「元々の」 を意図:\n  "
+        + "\n  ".join(bad)
+    )

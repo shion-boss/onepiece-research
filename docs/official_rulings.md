@@ -3375,3 +3375,55 @@ picks 空 = 辞退)。 AI 相手は 「無料でキャラを出せる = 出す�
  **overlay 側の切り出し単位** で同じ罠を踏んだ)
 
 該当は **EB04-001 / OP12-075 / OP13-119 の 3 枚のみ** (OP12-075 は前日の `actor:"opp"` で解決済)。
+
+## 「自分のコストN以上のキャラがいる場合」 は **現在コスト** で発動元自身も数える (2026-08-06 是正)
+
+**一次情報** (`db/cardqa_tagged.json` series=st_14):
+
+> Q: 「このキャラ自身のコストが6以上の場合、このキャラの【相手のターン中】効果によって、
+>     このキャラは相手の効果でKOされずパワー+2000されますか？」 → A: 「はい、されます。」
+> (同型: ST14-003 サンジ 【登場時】 でも 「このキャラ自身のコストが6以上の場合… KOできますか」→ はい)
+
+対象カード = ST14-009 フランキー / ST14-003 サンジ (いずれも印刷コスト5)。 ST14-001 leader の
+「自分のキャラすべてコスト+1」 等で **現在コスト6** になった時、 自身を 「コスト6以上のキャラ」
+として数える。
+
+**是正前**: 条件 primitive `self_chara_cost_ge_count` が `c.card.cost` = **印刷コスト** を見ていた為、
+base_cost が 6 でも印刷5のままで False = 発動元を数え落として KO免除+2000 が発動しない (公式違反)。
+素の 「コストN以上」 は現在コスト (docs 上記のコスト書き分けルール)。 兄弟 primitive
+`self_chara_filtered_count_ge` (= ST14-003 サンジが使用) は `_matches_filter_ip` 経由で正しく
+現在コスト判定していたので、 **同じ裁定が primitive によって効いたり効かなかったりする** 状態だった。
+
+**実装**: `self_chara_cost_ge_count` を `c.card.cost` → `c.base_cost` へ (Python effects.py / Rust
+effects.rs 両方、 後者は `c.base_cost()`)。 全走査で本 primitive を使う overlay = 7 カード
+(OP13-004 サボ / OP12-081 コアラ / EB04-045 ジニー / ST14-009 フランキー 系)、 いずれも素の
+「コスト以上」 で 「元々のコスト」 表記なし = 全件 現在コスト判定が正しい。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+- `test_self_chara_cost_ge_count_uses_current_cost_and_includes_source` — 印刷5で False / base_cost6 で True
+- `test_self_chara_cost_ge_count_overlays_are_plain_cost_not_printed` — 全走査で 「元々のコスト」 カードが
+  本 primitive を使っていないことを固定 (将来 印刷コスト意図の追加を検出)
+
+## escalated: cost 由来の【KO時】は 現行効果 (do) の解決 **後** に drain すべき (2026-08-06)
+
+**一次情報** (`db/cardqa_tagged.json` series=op_14、 OP14-080 ゲッコー・モリア):
+
+> Q: 「この【起動メイン】効果でKOした自分のキャラが【KO時】効果を持っていた場合、それは
+>     発動できますか？」
+> A: 「はい、できます。この場合、『自分のリーダーとキャラすべてを、このターン中、パワー+1000。』
+>     を実行した後で、そのキャラの【KO時】効果が発動します。」
+
+= コスト (自KO) で KO したキャラの【KO時】は、 **起動メインの効果 (パワー+1000) を実行した後** に
+発動する。
+
+**engine の挙動 (実測)**: 逆順。 ホグバック (KO時=ドロー) を cost で KO → **ドロー1 が先** →
+パワー+1000 が後。 `fire_activate_main` が cost 支払い中に `trigger_on_ko` → `_maybe_resolve` を
+即ドレインし (`state.resolving=False` の為)、 do (activate_main event) を enqueue する前に KO時 を
+解決してしまう。
+
+**escalate 理由**: resolution ordering (= トリガー drain タイミング) のアーキ問題。 修正には
+「do を先に enqueue し、 cost 支払い中は resolving guard で cost 由来 trigger の即ドレインを抑止」
+する再構成が要り、 blast radius が systemic (activate_main / end_of_turn の全 cost-KO、 battle/counter
+cost も同型の可能性) で Python/Rust 両方の drain 順序を揃える必要がある為、 単発バッチでは直さず
+専用対応に回す。 ⚠ 残件は本カード 1 件だけでなく **cost-KO で KO時 を持つ全カード** に及ぶ =
+全走査で影響枚数を数えてから着手すること。
