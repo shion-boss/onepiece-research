@@ -2583,9 +2583,9 @@
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "OP15-003アルビダ起動メイン effect「リーダーかキャラ1枚に持ち主のレストのドン1まで付与」。公式=自陣なら自ドン/相手陣なら相手ドンを両陣営に付与可。overlay target=self_inplay_choice(自陣限定)で違反だが、相手のカードに相手のレストドンを付与する経路が無い(attach_rested_don source=me.don_rested固定、docs既記ST01-001/007/OP12 389d322a85e6と同族)。両陣営付与+don_rested跨ぎ=アーキ変更につき escalated。",
+  "note": "OP15-003 アルビダ 起動メイン effect「リーダーかキャラ1枚に持ち主のレストのドン1まで付与」= 両陣営 (cardqa_op_15)。2026-08-06 の escalated#3 (2f3620bfd8b9) 是正で導入した one_team_any_either + attach_rested_don の owner_of_target により **既に解決済**。cron note の「相手のカードに相手のレストドンを付与する経路が無い」は当時の状態。実測: 人間 modal に owner=opp 候補が出て、対象所有者のレストドンが源になることを確認。",
   "q": "この【起動メイン】効果で自分のリーダーやキャラに自分のレストのドン!!を付与することや、相手のリーダーやキャラに相手のレストのドン!!を付与することはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "3d97937d9858": {
   "a": "はい、発動できます。",
@@ -2601,9 +2601,9 @@
   "files": [
    "cardqa_op_13.json"
   ],
-  "note": "OP13-119エース登場時: 相手cost5以下を手札に戻した場合『相手は自身の手札からcost4以下キャラ1枚までを登場させる』。公式=相手は登場させない(0枚)ことも可(1枚まで=任意)。engine force_opp_play_from_hand(effects.py:5659)は候補があれば相手に最善(power最大)を強制登場させ、辞退経路が無い=違反。是正には発動者ターン中に非手番(相手)所有のoptional pending_choiceを渡す機構が必要=OP12-075(33a5b522ef88)と同一アーキ制約につき escalated。",
+  "note": "OP13-119 エース「そうした場合、相手は自身の手札からコスト4以下キャラ1枚**まで**を登場させる」= 相手が 0枚(辞退)も選べ、どれを出すかも相手が決める (公式「まで」)。force_opp_play_from_hand が候補あれば最善を強制登場させ辞退経路が無かった。相手が人間なら opp_optional_play_from_hand modal を相手に出し (actor_idx=相手)、picks 空=辞退。AI は「無料でキャラを出せる=出すのが最善」なので従来どおり自動 (挙動不変=matrix 不変)。実測: 辞退=0枚/承諾=1枚 を相手が選べることを確認。",
   "q": "この【登場時】効果で相手のコスト5以下のキャラ1枚を手札に戻した場合、相手は自身の手札からコスト4以下のキャラカードを登場させないことはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "3e07bb95c65e": {
   "a": "いいえ、できません。",
@@ -2700,9 +2700,9 @@
   "files": [
    "cardqa_eb_04.json"
   ],
-  "note": "EB04-001ボニー起動メイン: do=[power_pump相手-1000, conditional{if self_life_ge:2, do:[life_to_hand:1]}]。公式=ライフ2以上でも『ライフ上1枚を手札に加えない』ことが可(-1000はしつつ辞退)。life_to_handはoptional_cost_thenでなく素のconditional doで、辞退経路が無く強制実行(human modalも無い)=違反。単一do節を発動者optionalにする汎用機構が無く、『その後…できる』効果節の辞退は他カードにも横断=単発overlay修正の範囲を超えるアーキ課題につき escalated。",
+  "note": "EB04-001 ボニー 起動メイン「その後、自分のライフが2枚以上の場合、自分のライフの上から1枚を手札に加えることが**できる**」= 辞退可。conditional の do に素の life_to_hand を置いており強制実行だった。**空コストの optional_cost_then** (cost:[]) で表現 = 新機構を足さずに「コスト無しの任意効果」を表せる (payability 常真 → 人間は optional_cost_confirm、AI は従来どおり発動)。modal 文言も cost 空なら「効果を発動しますか？」に分岐。全走査 (「その後、…できる」パターン) で該当は EB04-001/OP12-075/OP13-119 の 3 枚のみと確認。実測: 人間が辞退してライフが減らないことを確認。",
   "q": "自分のライフが2枚以上ある時、この【起動メイン】効果で自分のライフの上1枚を手札に加えないことはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "4045853545c9": {
   "a": "いいえ、できません。",

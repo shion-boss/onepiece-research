@@ -5885,3 +5885,125 @@ def test_reveal_top_then_no_bottom_text_returns_to_top_fullscan():
                     if rr == "bottom" and not has_bottom:
                         bad.append((cid, rr))
     assert not bad, f"移動指示テキスト無しなのに rest_remain=bottom: {bad}"
+
+
+# =========================================================================== #
+#  「〜できる」 = **コスト無しの任意効果** の辞退経路 (2026-08-07、 escalated 3 件)
+#  公式は 文末の 「できる」 / 「してもよい」 / 「N枚まで」 で **辞退できる** ことを示す。
+#  ⚠ engine は 「コロン前のできる：」 (= 発動コスト) だけを任意扱いしており、
+#    **効果側の 「できる」 に辞退経路が無かった**。
+# =========================================================================== #
+def test_costless_optional_effect_can_be_declined():
+    """EB04-001: 「その後、…ライフの上から1枚を手札に加えることが**できる**」 は辞退できる。
+
+    空コストの `optional_cost_then` (cost: []) で表現する = 新機構を足さずに
+    「コスト無しの任意効果」 を表せる (payability 常真 → 人間は確認 modal / AI は発動)。
+    """
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect, resolve_pending_choice
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    eff = _eff_of(ov, "EB04-001", "activate_main")
+
+    st, p0, p1 = _tb(repo, ov, leader_a="EB04-001")
+    st.human_player_idx = 0
+    st.forced_human_actor_idx = 0
+    from engine.core import InPlay
+    p1.characters = [InPlay.of(repo.get("OP01-013"), sickness=False)]
+    life_before = len(p0.life)
+    for prim in eff["do"]:
+        execute_effect(prim, st, p0, p1, p0.leader)
+
+    pc = st.pending_choice
+    assert pc is not None and pc.get("kind") == "optional_cost_confirm", \
+        f"任意効果の確認 modal が立たない: {pc.get('kind') if pc else None}"
+    assert "任意コスト" not in (pc.get("prompt") or ""), \
+        f"コスト無しなのに 「任意コスト」 と表示している: {pc.get('prompt')}"
+    resolve_pending_choice(st, [0])          # 辞退
+    assert len(p0.life) == life_before, "辞退したのにライフが減っている"
+
+
+def test_opponent_can_decline_forced_play_from_hand():
+    """OP13-119: 「相手は自身の手札から…キャラカード1枚**まで**を、 登場させる」。
+
+    「まで」 = **0 枚 (= 登場させない) も選べる**し、 **どれを出すかも相手が決める**。
+    ⚠ 是正前は候補があれば最善を強制登場させており辞退経路が無かった。
+    AI 相手は 「無料でキャラを出せる = 出すのが最善」 なので自動 (= 挙動不変)。
+    """
+    from engine.core import InPlay
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect, resolve_pending_choice
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    eff = next(e for e in ov.get("OP13-119").effects
+               if e.get("when") == "on_play" and e.get("optional"))
+
+    def run(picks):
+        st, p0, p1 = _tb(repo, ov)
+        st.human_player_idx = 1                      # 相手が人間
+        p1.characters = [InPlay.of(repo.get("OP01-013"), sickness=False)]
+        p1.hand = [repo.get("OP01-013"), repo.get("OP01-016")]
+        for prim in eff["do"]:
+            execute_effect(prim, st, p0, p1, None)
+            if st.pending_choice:
+                break
+        pc = st.pending_choice
+        assert pc is not None and pc.get("kind") == "opp_optional_play_from_hand", \
+            f"相手に選択 modal が立たない: {pc.get('kind') if pc else None}"
+        assert pc.get("actor_idx") == 1, "modal の actor が相手になっていない"
+        resolve_pending_choice(st, picks)
+        return len(p1.characters), len(p1.hand)
+
+    c_no, h_no = run([])          # 辞退 (= 0 枚)
+    c_yes, h_yes = run([0])       # 1 枚 登場
+    # bounce で 1 枚が手札へ戻る → 辞退なら 場 0 / 手札 3、 登場なら 場 1 / 手札 2
+    assert (c_no, h_no) == (0, 3), f"辞退できていない: chars={c_no} hand={h_no}"
+    assert (c_yes, h_yes) == (1, 2), f"承諾で 1 枚登場していない: chars={c_yes} hand={h_yes}"
+
+
+def test_costless_optional_sweep_has_no_forced_follow_up_clause():
+    """⭐ 全走査: 公式が 「その後、…できる/してもよい」 と書くカードに **任意表現がある**。
+
+    ⚠ 判定は **カード単位**。 1 枚のカードは複数の effect entry を持ち、 どの entry が
+      どの節に対応するかは overlay からは一意に決まらない (= entry 単位で見ると
+      静的効果 entry まで巻き込んで誤検出する。 2026-08-07 に実際に踏んだ)。
+      「この節を表現しうる entry がカード内に 1 つでもあるか」 を見るのが正しい粒度。
+    ⚠ 「代わりに…できる」 (置換 = replace_* の optional) と
+      「アタック/ブロックできる」 (= 能力付与であって任意行動ではない) は除外する。
+    """
+    import json
+    import re
+
+    cards = {c["card_id"]: c
+             for c in json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    rx = re.compile(r"その後、([^。]*?(?:できる|してもよい))。")
+    # 任意性を表す表現 (いずれかがカード内にあれば その節は表現済とみなす)
+    OPTIONAL_MARKS = ("optional_cost_then", "force_opp_play_from_hand",
+                      '"optional": true', '"optional":true', '"actor": "opp"', '"actor":"opp"')
+
+    bad: list[str] = []
+    for cid, effs in sorted(ov.items()):
+        if not isinstance(effs, list) or cid.startswith("_"):
+            continue
+        card = cards.get(cid)
+        if not card:
+            continue
+        text = re.sub(r"\s+", "", (card.get("text") or "") + (card.get("trigger") or ""))
+        clauses = [m.group(1) for m in rx.finditer(text)]
+        clauses = [c for c in clauses
+                   if "代わりに" not in c and "アタックできる" not in c
+                   and "ブロックできる" not in c]
+        if not clauses:
+            continue
+        blob = json.dumps(effs, ensure_ascii=False)
+        if any(mk in blob for mk in OPTIONAL_MARKS):
+            continue
+        bad.append(f"{cid}: その後、{clauses[0][:52]}")
+
+    assert not bad, (
+        "公式が 「その後、…できる」 と書くのに overlay に任意表現が無い:\n  "
+        + "\n  ".join(bad)
+    )

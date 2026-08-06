@@ -5928,6 +5928,40 @@ def _execute_effect_body(
                      if c.category == Category.CHARACTER
                      and (_cle is None or int(getattr(c, "cost", 0) or 0) <= int(_cle))]
             cands.sort(key=lambda ic: -(int(getattr(ic[1], "power", 0) or 0)))
+            # ⭐ 公式は 「相手は自身の手札から…キャラカード1枚**まで**を、 登場させる」 =
+            #   **登場させない (0 枚) ことも選べる** し、 **どれを出すかも相手が決める**。
+            #   ⚠ 2026-08-07 まで 「候補があれば最善を強制登場」 で辞退経路が無かった。
+            #   相手が人間ならその人に modal を出す (= 選択肢の平等)。 AI は 「無料でキャラを
+            #   出せる」 = 出すのが最善なので従来どおり自動 (挙動不変)。
+            _fp = v if isinstance(v, dict) else {}
+            _picks = _fp.get("_opp_hand_picks")
+            if _picks is None and cands and state.human_player_idx is not None:
+                _opp_idx = next((i for i, pl in enumerate(state.players) if pl is opp), None)
+                if _opp_idx == state.human_player_idx:
+                    state.pending_choice = {
+                        "kind": "opp_optional_play_from_hand",
+                        "primitive_kind": "force_opp_play_from_hand",
+                        "primitive_value": dict(_fp),
+                        "actor_idx": _opp_idx,
+                        "_actor_idx": _opp_idx,
+                        "optional": True,
+                        "limit": _cnt,
+                        "candidates": [
+                            {"hand_idx": i, "card_id": c.card_id, "name": c.name,
+                             "cost": int(getattr(c, "cost", 0) or 0),
+                             "power": int(getattr(c, "power", 0) or 0)}
+                            for i, c in cands
+                        ],
+                        "description": (
+                            f"相手の効果: 手札からコスト{_cle}以下のキャラを "
+                            f"{_cnt} 枚まで登場させる (0 枚も可)"
+                        ),
+                    }
+                    state.push_log("  効果: 相手 (人間) が登場させるか選択 待ち")
+                    return True
+            if _picks is not None:
+                _want = set(_picks)
+                cands = [(i, c) for i, c in cands if i in _want]
             picked_idxs, played = set(), 0
             for i, c in cands:
                 if played >= _cnt or not opp.can_play_character():
@@ -9347,7 +9381,12 @@ def _execute_effect_body(
                         self_inplay.instance_id if self_inplay is not None else None
                     ),
                     "source_name": src_name,
-                    "prompt": f"{src_name}: 任意コストを払って効果を発動しますか？",
+                    # cost 空 = 「(コスト無しで) 〜できる」 の任意効果 (公式の文末 「できる」)。
+                    # cost 有り = 「〜できる：効果」 の発動コスト。 文言を分ける。
+                    "prompt": (
+                        f"{src_name}: 効果を発動しますか？" if not cost_specs
+                        else f"{src_name}: 任意コストを払って効果を発動しますか？"
+                    ),
                 }
                 return False
             for _ci, cs in enumerate(cost_specs):
@@ -10300,6 +10339,27 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         execute_effect({target_primitive: new_spec}, state, me, opp, self_inplay)
         return
 
+    if kind == "opp_optional_play_from_hand":
+        # ⭐ 公式 「相手は自身の手札から…キャラカード1枚**まで**を、 登場させる」 の相手側判断。
+        #   picks が空 = **登場させない** (= 「まで」 なので 0 枚が正当)。
+        #   ⚠ 発動者 (= turn player) ではなく **相手** の zone を操作するので、
+        #     me/opp を choice の actor_idx で解決し直す。
+        candidates = choice.get("candidates", [])
+        actor_idx = int(choice.get("actor_idx", state.turn_player_idx))
+        a_me = state.players[actor_idx]
+        a_opp = state.players[1 - actor_idx]
+        valid = [i for i in picks if 0 <= i < len(candidates)]
+        hand_idxs = [int(candidates[i]["hand_idx"]) for i in valid]
+        state.pending_choice = None
+        if not hand_idxs:
+            state.push_log("  効果: 相手は登場させないことを選択 (0 枚)")
+            return
+        spec = dict(choice.get("primitive_value") or {})
+        spec["_opp_hand_picks"] = hand_idxs
+        # primitive は 「me が発動 / opp が登場」 の視点で書かれているので、
+        # a_me (= 選択した相手) が opp 側に来るよう a_opp/a_me を入れ替えて渡す。
+        execute_effect({"force_opp_play_from_hand": spec}, state, a_opp, a_me, None)
+        return
     if kind == "self_hand_discard_pick":
         # trash_self_hand_random 人間 pick: picks = candidates idx list。
         # candidates[i]["hand_idx"] = me.hand 内 の 実 index。

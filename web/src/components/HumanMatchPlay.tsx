@@ -2450,6 +2450,17 @@ export function HumanMatchPlay({
             onHover={setHovered}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "opp_optional_play_from_hand" ? (
+          // 相手 (= このプレイヤー) の効果由来の任意登場。 公式 「相手は自身の手札から
+          // …キャラカード1枚**まで**を、 登場させる」 = **0 枚 (辞退) も選べる**
+          // (OP13-119 エース、 2026-08-07)。 候補は hand_idx ベースで discard 系と同形、
+          // 0 枚 送信を許す点で OptionalDiscardBuffPickModal と同じ契約。
+          <OptionalDiscardBuffPickModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
         ) : state.pending_payload.kind === "optional_discard_buff_pick" ? (
           // optional_discard_hand_for_battle_buff の 人間 選択 (= OP15-002 ルーシー
           // 【アタック時】/【相手アタック時】 イベント/ステージ を 捨てて パワー pump。
