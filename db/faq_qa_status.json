@@ -3387,18 +3387,18 @@
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "再アクティブ化したキャラは再度アタック可 (legal_actions は not rested で判定、 docs line 2471 の一般則)。cardqa_op_01",
   "q": "この【メイン】効果でアクティブになったキャラは、もう1度アタックできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "4ffe2e837201": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "",
+  "note": "OP06-080 モリア: optional_cost_then で cost(手札1捨て=ローラをトラッシュへ)を先に払い、 effect の play_from_trash(スリラーバーク cost4以下)が捨てたローラを対象にできる=公式『はい』。cardqa_op_06",
   "q": "この【アタック時】効果で手札の「OP06-094 ローラ」を捨て、その捨てたカードを登場させることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "50025ae8efdb": {
   "a": "この場合、ライフの一番上の表向きのカードは【バニッシュ】によってトラッシュに置かれます。",
@@ -3423,18 +3423,18 @@
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "",
+  "note": "置換コスト (replace_leave) の手札捨てが on_self_hand_discarded / hand_discarded_by_effect_this_turn を発火していなかった。OP12-053 ボルサリーノ離脱の手札1捨てで リーダー OP12-040 クザン (海軍) がドローできない違反。Python _pay_replace_cost + Rust try_replace_ko の discard_hand/trash_self_hand_random/discard_hand_with_filter 3経路で trigger_on_self_hand_discarded を発火。旧テスト(フラグ立たない)は circularity で誤り→書換。cardqa_op_12",
   "q": "相手のカードの効果で自分の場のこのキャラが場を離れるときに、この【ターン1回】効果で代わりに自分の手札1枚を捨てました。この時、自分のリーダー「OP12-040 クザン」の効果でカードを引くことはできますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "50bba9d43e7d": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "",
+  "note": "相手効果で自ドンがデッキに戻された時も on_self_don_returned_to_deck 発火 (docs line 162、 本Qは cardqa_op_06 の引用実例そのもの)。実装済",
   "q": "自分のターン中に、相手のカードの効果で自分のドン!!がドン!!デッキに戻された時、この【自分のターン中】効果を発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "50c0559a6d15": {
   "a": "いいえ、できません。",
@@ -3450,9 +3450,9 @@
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "バトルでKOされたキャラの行き先は常にトラッシュ (do_battle_ko、 効果由来のデッキ下はカード自身の別効果でありバトルKOには適用されない)=公式『いいえ、トラッシュ』。cardqa_op_04",
   "q": "このキャラでアタックし、相手のキャラにバトルで勝利しました。この場合、バトルでKOされたキャラは、バトル終了時に持ち主のデッキの下に置かれますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "5119dbe099b2": {
   "a": "はい、発動できません。\nこの効果は、アタックや【ブロッカー】の発動などの、レストにすることが必要な行動をできない状態にする効果です。",
@@ -3479,27 +3479,27 @@
   "files": [
    "cardqa_op_13.json"
   ],
-  "note": "",
+  "note": "OP13-042 白ひげ等『リーダーとキャラ1枚にレストのドン』= キャラ側は one_self_character_any (単一)。キャラ2枚には付与不可=公式『いいえ』。cardqa_op_13",
   "q": "この【登場時】効果でレストのドン!!を付与する時、自分のキャラ2枚にドン!!を付与できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "5169a10c49ac": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_03.json"
   ],
-  "note": "",
+  "note": "元々のパワー3000以下はドン付与で4000+でも印刷値で対象可 (truly_original_power、 docs line 417 の対照実例そのもの)。cardqa_op_03",
   "q": "この【アタック時】効果で、元々のパワーが3000以下で、ドン!!の付与などによってパワー4000以上になったキャラをトラッシュに置くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "5199c44b9de3": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP02-089等『相手のリーダーかキャラ合計2枚まで』= any_opp_inplay_n_2、 リーダーとキャラを混ぜて選択可 (両方 opp inplay)。cardqa_op_02",
   "q": "「相手のリーダーかキャラ合計2枚まで」でリーダー1枚とキャラ1枚を選ぶことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "52548cf2fd9a": {
   "a": "この場合、ドン!!をアクティブにすることはできません。",
@@ -3515,9 +3515,9 @@
   "files": [
    "cardqa_eb_02.json"
   ],
-  "note": "",
+  "note": "EB02-019 ロロノア・ゾロ『相手のキャラが2枚以上いる場合、登場したターンにキャラへアタックできる』= 条件付き部分速攻(キャラ限定)が overlay 未実装 (SWORD特徴版 static_swords_attack_chara しか無い)。新 static primitive + アタック時再評価 + Rust 追従が必要=アーキ追加。設問(相手1枚→不可)は現状(常に召喚酔い)で偶然満たされるが 相手2枚以上でアタック不可=別方向の欠陥。cardqa_eb_02",
   "q": "自分のターン中、相手のキャラが2枚いるときにこのキャラを登場し、その後他の効果で相手のキャラが1枚になりました。この場合、このキャラは相手のキャラにアタックできますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "52c406ba1a7b": {
   "a": "いいえ、できません。",
@@ -3533,9 +3533,9 @@
   "files": [
    "cardqa_eb_03.json"
   ],
-  "note": "",
+  "note": "EB03-025 ヒナ: 元々のパワー6000のキャラを手札に戻す = truly_original_power_eq_6000 (印刷値)。パワー6000より低いキャラは対象外=公式『いいえ』と一致 (docs パワー書き分け則)。cardqa_eb_03",
   "q": "この【登場時】効果で、元々のパワーが6000より低いキャラを手札に戻すことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "53c7c89d6dca": {
   "a": "いいえ、できません。",
@@ -3552,9 +3552,9 @@
    "cardqa_eb_02.json",
    "cardqa_op_09.json"
   ],
-  "note": "",
+  "note": "EB02-035/OP09-061『ドン2枚以上戻された時』= returned_don_count_ge:2 (last_returned_don_count=単一イベントの枚数)。ドン-1を2回=各count1でイベント別→発火せず=公式『いいえ』。cardqa_eb_02/op_09",
   "q": "自分のターンの間に「ドン!!-1」の効果を2回発動した時、この【自分のターン中】効果を発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "543c777ec406": {
   "a": "はい、できます。",
@@ -3570,9 +3570,9 @@
   "files": [
    "cardqa_st_14.json"
   ],
-  "note": "",
+  "note": "ST14-003 サンジ『自分のコスト6以上のキャラがいる場合』= self_chara_filtered_count_ge (_matches_filter_ip=現在コスト, 発動元自身も数える)。docs line 3379/3385 で本カード明示・2026-08-06 是正済。cardqa_st_14",
   "q": "このキャラ自身のコストが6以上の場合、このキャラの【登場時】効果で相手のコスト5以下のキャラ1枚をKOできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "54ecb7fc268a": {
   "a": "この場合、【トリガー】効果を発動するかを選び、発動する場合はその効果を処理したあと、この【相手のターン中】効果が発動します。",

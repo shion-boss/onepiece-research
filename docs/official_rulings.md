@@ -3942,3 +3942,70 @@ OP04-111 / OP05-087 / OP06-015 / OP06-083 / OP07-085 / OP13-053 / OP16-008 ほ�
 効果KO免疫キャラは 35 枚。 単一 primitive 経路の是正で全組合せをカバー (per-card overlay
 変更なし)。 source-scoped 免疫 (パワー/属性条件付き) は自KOでは source=自身の効果で判定が
 割れうるため今回は無条件免疫フラグのみに限定 (Q&A は フクロウ = 静的無条件のみを問う)。
+
+## 置換コスト (replace_ko / replace_leave) の手札捨ても 「効果で手札が捨てられた」 (2026-08-07 是正)
+
+**一次情報** (`db/cardqa_tagged.json` series=op_12、 card_id 明示):
+
+> Q: 「相手のカードの効果で自分の場の『OP12-053 ボルサリーノ』が場を離れるときに、
+>     『ボルサリーノ』の効果で代わりに自分の手札1枚を捨てました。この時、自分のリーダー
+>     『OP12-040 クザン』の効果でカードを引くことはできますか？」 → A: 「はい、できます。」
+
+OP12-053 ボルサリーノ (海軍) の【ターン1回】replace_leave 「代わりに自分の手札1枚を捨てる」の
+手札捨てで、 リーダー OP12-040 クザン 「自分の特徴《海軍》を持つカードの効果で自分の手札から
+カードが捨てられた時、 捨てた枚数分カードを引く」 (`on_self_hand_discarded` +
+`actor_source_feature_contains: 海軍`) が発火する = **置換コストの捨ても 「手札が捨てられた」**。
+
+**是正前の挙動**: `_pay_replace_cost` の `discard_hand` / `trash_self_hand_random` /
+`discard_hand_with_filter` の 3 経路は手札を trash へ移すだけで、 `trigger_on_self_hand_discarded`
+を呼ばず `hand_discarded_by_effect_this_turn` も立てなかった。 実測: クザン leader + ボルサリーノ
+離脱で deck 25→25 (ドローせず)。 公式は 25→24。 Python/Rust とも同じ (Rust は Python 準拠で
+意図的に非発火に揃えていた) ため **差分検証では原理的に沈黙**。 counter コストの捨ては既に発火
+していた (= **一部だけ実装** = 最も見つけにくい形)。
+
+**旧テストが誤りを固定していた**: `test_replace_ko_cost_discard_does_not_set_hand_discarded_flag`
+が 「フラグは立たない」 を assert していた (= backfill が当時の engine 挙動をそのまま正解に
+していた circularity)。 外部オラクル (公式 Q&A) で初めて誤りと判明。 → 書き換えた。
+
+**実装**: 選び方 (random/worst/filter) は 「捨てられた」 事実に無関係なので 3 経路すべてで発火。
+- Python `engine/effects.py:_pay_replace_cost` — 各 discard 分岐の末尾で
+  `trigger_on_self_hand_discarded(state, me, opp, holder_inplay, actual, overlay)` (source=holder)。
+- Rust `rust_engine/src/effects.rs:try_replace_ko` — 各 discard 適用後に
+  `fire_hand_discarded_n(state, victim_owner, hslot, n)?` (cascade 再現不能なら Err bail=安全)。
+
+対象カード (overlay 全走査、 手札捨てを replace コストに持つ) = **EB03-001 ビビ / OP12-048
+ロシナンテ / OP12-053 ボルサリーノ** のみ (いずれも discard と順序依存の他コストを併用しない)。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+- `test_replace_ko_cost_discard_sets_hand_discarded_flag` (旧テストを是正)
+- `test_replace_leave_cost_discard_fires_kuzan_leader_draw` (対照: クザン発火)
+- `test_replace_leave_cost_discard_no_draw_for_non_navy_leader` (対照: 非海軍は不発)
+- `test_all_replace_cost_hand_discards_fire_the_trigger` (overlay 全走査で 「一部だけ実装」 を防止)
+
+---
+
+## escalated: target-scope 監査が `optional_cost_then` 内の spec を見ておらず 両陣営漏れが隠れている (2026-08-07)
+
+`scripts/audit_target_scope.py` は 効果の **top-level do の primitive** しか走査しないため、
+`optional_cost_then` / cost 節の中に入れ子になった target spec を検査していない。 このため
+「修飾なし (相手のが無い) = 両陣営」 なのに overlay が `one_opponent_*` になっているカードが
+監査 0 件をすり抜けて残っている (= 監査の盲点。 [[project_faq_conformance_routine]] が警告する
+「検査が空でないか」 と同型の カバレッジ穴)。
+
+**全走査で判明した候補 (nested `one_opponent_*` かつ本文に 「相手」 修飾なし)**: 実体 ~11 base
+(パラレル込み 15 エントリ)。 明確に 両陣営 であるべき (公式が 「持ち主の手札/デッキ」 と所有者を
+書き分け、 「相手の」 無し):
+
+- **EB03-025 ヒナ** — 「元々のパワー6000のキャラ1枚まで…持ち主の手札に戻す」 (兄弟 EB03-027
+  マーガレットは同型で正しく `one_character_either_truly_original_power_eq_7000`)
+- **ST17-002 / OP08-047 / OP13-059** — 「コストN以下のキャラ1枚まで…持ち主の手札に戻す」
+- **OP02-064** — 「コスト2以下のキャラ1枚まで…持ち主のデッキの下に置く」
+- **OP06-081** — 「コスト2以下のキャラ1枚まで…KOする」 (⚠ 自キャラ KO は稀 = 要個別確認)
+- **OP12-117 / OP11-050 / OP08-055** — 「コストN以下のキャラ1枚…」 (要個別確認)
+- **OP04-055 疫災弾** — 既 escalated (複合コスト atomic 問題、 docs 別項)
+
+**なぜ escalated**: (1) `audit_target_scope.py` を入れ子 spec まで再帰させる監査拡張が要る
+(= 検査の改修)、 (2) 各カードの公式テキスト個別確認 (KO 自キャラ等 例外の見極め)、
+(3) 対応する `one_character_either_*` spec が全 spec 形について両エンジンに在るかの確認、
+が必要で、 20 件バッチ内での一括是正はリスクが高い。 **是正時は監査拡張 → 全走査再カウント →
+効果エントリ単位で移行** の順で行うこと (カード単位 blob 置換は別節を巻き込む、 docs 冒頭の規律 3)。

@@ -14030,23 +14030,49 @@ def _pay_replace_cost(
                 else:
                     new_hand.append(c)
             me.hand = new_hand
+            # filter 指定の手札捨ても 「効果で手札が捨てられた」 (cardqa_op_12 の一般則。
+            # 選び方 (random/worst/filter) は 「捨てられた」 事実に無関係)。
+            if discarded > 0 and state.effects_overlay:
+                _opp = state.players[1 - state.players.index(me)]
+                trigger_on_self_hand_discarded(
+                    state, me, _opp, holder_inplay, discarded, state.effects_overlay
+                )
         elif "trash_self_hand_random" in cs:
             n = int(cs["trash_self_hand_random"])
+            actual = 0
             for _ in range(n):
                 if not me.hand:
                     break
                 # 自手札の discard はプレイヤーが選ぶ(公式)。 AI は最悪札から(random で value を薄めない)。
                 me.trash.append(me.hand.pop(_worst_hand_idx(me.hand, me.known_hand_card_ids)))
+                actual += 1
                 state.push_log(f"  離脱置換コスト: 手札ランダム1枚捨て")
+            # 置換コストで手札を捨てる = 「効果で手札が捨てられた」 (公式 cardqa_op_12、
+            # OP12-053 ボルサリーノ が場を離れる際の手札1枚捨てで リーダー OP12-040 クザン の
+            # on_self_hand_discarded が発火し ドロー可能)。 発動元 (holder) が 捨てを起こした
+            # 効果の source なので actor_source_feature_contains 判定に holder_inplay を渡す。
+            if actual > 0 and state.effects_overlay:
+                _opp = state.players[1 - state.players.index(me)]
+                trigger_on_self_hand_discarded(
+                    state, me, _opp, holder_inplay, actual, state.effects_overlay
+                )
         elif "discard_hand" in cs:
             n = int(cs["discard_hand"])
+            actual = 0
             for _ in range(n):
                 if not me.hand:
                     break
                 # AI 簡易: power 低 → cost 低い順に捨てる (最も惜しくない)
                 me.hand.sort(key=lambda c: (c.power, c.cost))
                 me.trash.append(me.hand.pop(0))
+                actual += 1
                 state.push_log(f"  離脱置換コスト: 手札 1 枚捨て")
+            # 置換コストの手札捨ても 「効果で手札が捨てられた」 (上記 cardqa_op_12 と同則)。
+            if actual > 0 and state.effects_overlay:
+                _opp = state.players[1 - state.players.index(me)]
+                trigger_on_self_hand_discarded(
+                    state, me, _opp, holder_inplay, actual, state.effects_overlay
+                )
         elif "rest_self_leader_or_stage_filtered" in cs:
             rl_spec = cs["rest_self_leader_or_stage_filtered"]
             rl_filt = rl_spec.get("filter", {}) if isinstance(rl_spec, dict) else {}

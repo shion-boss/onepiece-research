@@ -183,17 +183,24 @@ def test_don_return_cascade_is_deferred_until_do_completes():
 
 
 # --------------------------------------------------------------------------- #
-#  D. 置換効果 (replace_ko) のコスト手札捨ては 「効果で捨てた」 扱いにしない
-#     ⚠ hand_discarded_by_effect_this_turn を立てず on_self_hand_discarded も発火しない。
+#  D. 置換効果 (replace_ko / replace_leave) のコスト手札捨ても 「効果で手札が捨てられた」
+#     ⚠ 公式 cardqa_op_12 (2026-08-07 是正):
+#       「相手のカードの効果で自分の場の『OP12-053 ボルサリーノ』が場を離れるときに、
+#         『ボルサリーノ』の効果で代わりに自分の手札1枚を捨てました。この時、自分のリーダー
+#         『OP12-040 クザン』の効果でカードを引くことはできますか？」 → 「はい、できます。」
+#     = 置換コストの手札捨ても on_self_hand_discarded を発火し、 hand_discarded_by_effect_this_turn
+#       を立てる (選び方=random/worst/filter は 「捨てられた」 事実に無関係)。
+#     旧テストは「フラグは立たない」と誤って固定していた (= backfill が engine の当時挙動をそのまま
+#     正解にしていた circularity。 外部オラクル=公式 Q&A で初めて誤りと判明)。
 # --------------------------------------------------------------------------- #
-def test_replace_ko_cost_discard_does_not_set_hand_discarded_flag():
-    """KO 置換のコストで手札を捨てても 「効果で手札を捨てた」 フラグは立たない。"""
+def test_replace_ko_cost_discard_sets_hand_discarded_flag():
+    """KO 置換のコストで手札を捨てたら 「効果で手札を捨てた」 フラグが立つ (公式 cardqa_op_12)。"""
     from engine.effects import try_replace_ko
 
     repo, overlay = _repo(), _overlay()
     st = _state(repo, overlay)
     me, opp = st.players[0], st.players[1]
-    # OP15-003 アルビダ: KO されそうな時、 手札のパワー6000以下キャラ1枚を捨てて KO を代替。
+    # OP15-003 アルビダ: KO されそうな時、 手札のパワー6000以下キャラ1枚を捨てて KO を代替 (filter discard)。
     albida = InPlay.of(repo.get("OP15-003"), sickness=False)
     me.characters = [albida]
     me.hand = [repo.get(_FILLER)]           # power3000 CHARACTER = コストに使える
@@ -203,10 +210,96 @@ def test_replace_ko_cost_discard_does_not_set_hand_discarded_flag():
 
     assert replaced is True, "コストを払えるのに KO 置換が成立していない"
     assert len(me.hand) == hand_before - 1, "置換コストの手札捨てが行われていない"
-    assert getattr(me, "hand_discarded_by_effect_this_turn", False) is False, (
-        "置換コストの手札捨てで hand_discarded_by_effect_this_turn が立ってはいけない"
-        " (Python _pay_replace_cost はフラグを立てない)"
+    assert getattr(me, "hand_discarded_by_effect_this_turn", False) is True, (
+        "置換コストの手札捨てでも hand_discarded_by_effect_this_turn が立つべき (公式 cardqa_op_12)"
     )
+
+
+def test_replace_leave_cost_discard_fires_kuzan_leader_draw():
+    """OP12-053 ボルサリーノが相手効果で場を離れる際の手札1捨てで、 リーダー OP12-040 クザン
+    (自海軍カードの効果で手札が捨てられた時ドロー) が発火する (公式 cardqa_op_12)。"""
+    from engine.effects import try_replace_ko
+
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP12-040")   # クザン
+    me, opp = st.players[0], st.players[1]
+    bors = InPlay.of(repo.get("OP12-053"), sickness=False)   # ボルサリーノ = 海軍
+    me.characters = [bors]
+    me.hand = [repo.get(_FILLER)]
+    deck_before = len(me.deck)
+
+    replaced = try_replace_ko(st, me, opp, bors, overlay, by_opp_effect=True, leave_kind="ko")
+
+    assert replaced is True, "ボルサリーノの離脱置換 (手札1捨て) が成立していない"
+    assert len(me.deck) == deck_before - 1, (
+        "クザンの on_self_hand_discarded がドローしていない (公式は『はい、引ける』)"
+    )
+
+
+def test_replace_leave_cost_discard_no_draw_for_non_navy_leader():
+    """対照: リーダーが海軍でなければ (actor_source_feature_contains 海軍 が偽) ドローしない。"""
+    from engine.effects import try_replace_ko
+
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP01-001")   # 麦わらの一味 (海軍でない)
+    me, opp = st.players[0], st.players[1]
+    bors = InPlay.of(repo.get("OP12-053"), sickness=False)
+    me.characters = [bors]
+    me.hand = [repo.get(_FILLER)]
+    deck_before = len(me.deck)
+
+    try_replace_ko(st, me, opp, bors, overlay, by_opp_effect=True, leave_kind="ko")
+
+    assert len(me.deck) == deck_before, "海軍でないリーダーでドローしてはいけない"
+
+
+def test_all_replace_cost_hand_discards_fire_the_trigger():
+    """overlay 全走査: replace_* コストに手札捨て (discard_hand / trash_self_hand_random /
+    discard_hand_with_filter) を持つ全カードで、 その捨てが hand_discarded_by_effect_this_turn
+    を立てる (= 「一部だけ実装」 の防波堤)。 現状の対象は EB03-001 / OP12-048 / OP12-053。"""
+    from engine.effects import try_replace_ko
+
+    repo, overlay = _repo(), _overlay()
+    raw = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    targets = []
+    for cid, effs in raw.items():
+        if not isinstance(effs, list):
+            continue
+        for e in effs:
+            if e.get("when") not in ("replace_ko", "replace_leave", "replace_rest"):
+                continue
+            cost = e.get("cost", [])
+            cost = cost if isinstance(cost, list) else [cost]
+            keys = set()
+            for cs in cost:
+                if isinstance(cs, dict):
+                    keys |= set(cs.keys())
+            if keys & {"discard_hand", "trash_self_hand_random", "discard_hand_with_filter"}:
+                targets.append(cid)
+                break
+    assert targets, "前提が崩れている: 手札捨て replace コストのカードが 1 枚も無い"
+
+    for cid in targets:
+        # パラレル (_p1) 等は base の overlay を継承。 base_id で試験。
+        base = cid.split("_")[0]
+        try:
+            card = repo.get(base)
+        except Exception:
+            continue
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        holder = InPlay.of(card, sickness=False)
+        me.characters = [holder]
+        # 捨てるコストを払えるだけの手札を積む (CHARACTER power低め、 filter 適合)。
+        me.hand = [repo.get(_FILLER)] * 3
+        me.hand_discarded_by_effect_this_turn = False
+        replaced = try_replace_ko(st, me, opp, holder, overlay, by_opp_effect=True, leave_kind="ko")
+        if not replaced:
+            # このカードは KO 置換対象条件を満たさない構成 (target=self 以外等) → skip
+            continue
+        assert getattr(me, "hand_discarded_by_effect_this_turn", False) is True, (
+            f"{cid}: replace コストの手札捨てが hand_discarded フラグを立てていない"
+        )
 
 
 # --------------------------------------------------------------------------- #

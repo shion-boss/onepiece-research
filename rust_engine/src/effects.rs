@@ -10347,11 +10347,19 @@ pub fn try_replace_ko(
             }
             // trash_self_hand_random 支払い (effects.py:12662)。 ⚠ 名前に反して AI は
             // worst_hand_idx (= 最悪札) を捨てる (rng は消費しない)。
+            let mut rand_actual = 0i32;
             for _ in 0..rand_discard {
                 let pl = &mut state.players[victim_owner];
                 let Some(i) = worst_hand_idx(&pl.hand, &pl.known_hand_card_ids) else { break };
                 let c = pl.hand.remove(i);
                 pl.trash.push(c);
+                rand_actual += 1;
+            }
+            // 置換コストの手札捨ても 「効果で手札が捨てられた」 (cardqa_op_12、 OP12-053 ボルサリーノ
+            // → リーダー OP12-040 クザン の on_self_hand_discarded 発火 + flag)。 発動元 = holder。
+            // cascade 再現不能なら Err bail (Python は必ず解決するので bail は「未追従」= 安全)。
+            if rand_actual > 0 {
+                fire_hand_discarded_n(state, victim_owner, hslot, rand_actual)?;
             }
             // trash_self 支払い: holder を場からトラッシュへ (effects.py:12622)。 付与ドンはレストへ。
             // ⚠ victim == holder のケース (if.target=self) では victim が場から消えるので、
@@ -10396,11 +10404,12 @@ pub fn try_replace_ko(
                     }
                 }
             }
-            // discard_hand 支払い (AI は worst_hand_idx から。 on_self_hand_discarded cascade は
-            // 該当 when が場にあれば再現不能 → bail)。
-            // ⚠ Python (effects.py:12670) は毎回 hand を (power, cost) 昇順で **in-place ソート** して
-            //    先頭を捨てる = 手札の並び順そのものが変わる (digest に効く)。 同じ手順を再現する。
-            //    hand_discarded flag は立てない (Python も立てない)。
+            // discard_hand 支払い (AI は worst_hand_idx から)。
+            // ⚠ Python (effects.py:_pay_replace_cost) は毎回 hand を (power, cost) 昇順で **in-place
+            //    ソート** して先頭を捨てる = 手札の並び順そのものが変わる (digest に効く)。 同じ手順を再現。
+            //    捨て後は on_self_hand_discarded cascade + flag を発火 (cardqa_op_12 の一般則、
+            //    cascade 再現不能なら Err bail)。
+            let mut plain_actual = 0i32;
             for _ in 0..discard_plain {
                 let pl = &mut state.players[victim_owner];
                 if pl.hand.is_empty() {
@@ -10409,6 +10418,10 @@ pub fn try_replace_ko(
                 pl.hand.sort_by(|a, b| (a.power, a.cost).cmp(&(b.power, b.cost)));
                 let c = pl.hand.remove(0);
                 pl.trash.push(c);
+                plain_actual += 1;
+            }
+            if plain_actual > 0 {
+                fire_hand_discarded_n(state, victim_owner, hslot, plain_actual)?;
             }
             // rest_self_leader_or_stage_filtered 支払い (effects.py:12664)。 ⚠ ステージ優先で rest
             // (リーダー温存)、 1 枚のみ (Python は break)。
@@ -10428,11 +10441,8 @@ pub fn try_replace_ko(
                 }
             }
             // discard_hand_with_filter cost 支払い (Python _pay_replace_cost、 do 前)。 先頭 cnt 個の matching を
-            // ⚠ Python (_pay_replace_cost、 effects.py:12846) は hand を **昇順に走査して
-            //   trash へ append** するだけで、 `hand_discarded_by_effect_this_turn` を立てず
-            //   `on_self_hand_discarded` も発火しない。 Rust は両方やっていて false MISMATCH に
-            //   なっていた (OP15-003 アルビダの KO 置換、 2026-08-04 掃引)。 Python に合わせる。
-            //   置換コストは 「捨てる」 が通常の効果ドロップと別扱い = 公式挙動の解釈は Python が正。
+            //   trash へ。 捨て後は on_self_hand_discarded cascade + flag を発火 (cardqa_op_12 の一般則。
+            //   選び方=filter でも 「手札が捨てられた」 事実は同じ。 cascade 再現不能なら Err bail)。
             if let Some((filt, cnt)) = discard_cost {
                 let pl = &mut state.players[victim_owner];
                 let hand = std::mem::take(&mut pl.hand);
@@ -10444,6 +10454,9 @@ pub fn try_replace_ko(
                     } else {
                         pl.hand.push(c);
                     }
+                }
+                if discarded > 0 {
+                    fire_hand_discarded_n(state, victim_owner, hslot, discarded as i32)?;
                 }
             }
             // once_per_turn 使用済マーク (Python _pay_replace_cost、 do 前)。 canonical sorted。
