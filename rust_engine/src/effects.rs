@@ -2119,7 +2119,14 @@ fn walk_prim_names(node: &Value, out: &mut std::collections::BTreeSet<String>) {
 /// effects.py:_option_score — choice_effect 選択肢を局面 (相手/自キャラ数・自ライフ) で採点。
 /// do 空 = -1.0。 prim 集合を走査し効果種別で加点 (順不同 = 和なので順序非依存)。 スコア自体は digest
 /// に載らず「どの option を選ぶか」のみ決める (float 順序差は max 選択に無関係、 tie は Python 同様 first)。
-fn option_score(opt: &Value, n_opp: usize, n_me: usize, my_life: usize) -> f64 {
+fn option_score(
+    opt: &Value,
+    n_opp: usize,
+    n_me: usize,
+    my_life: usize,
+    opp_life: usize,
+    opp_hand: usize,
+) -> f64 {
     let do_val = opt.get("do");
     let empty = match do_val {
         Some(Value::Array(a)) => a.is_empty(),
@@ -2148,7 +2155,13 @@ fn option_score(opt: &Value, n_opp: usize, n_me: usize, my_life: usize) -> f64 {
             "put_top_to_life" | "hand_to_self_life" | "life_to_hand" => {
                 if my_life <= 2 { 2.5 } else { 0.8 }
             }
-            "trash_opp_hand_random" => 1.2,
+            // ⚠ 相手の手札が空なら空振り (Python _option_score と同順)。
+            "trash_opp_hand_random" | "opp_discard_own_choice" | "force_opp_discard"
+            | "opp_hand_to_deck_bottom" => if opp_hand > 0 { 1.2 } else { -0.5 },
+            // 相手ライフ削り。 ライフ 0 なら空振り (cardqa_st_20: 空振り選択肢も選べる)。
+            "mill_opp_life_to_trash" | "mill_opp_life_to_hand" | "deal_opp_leader_damage" => {
+                if opp_life > 0 { 2.0 } else { -0.5 }
+            }
             _ => 0.3,
         };
     }
@@ -3702,15 +3715,24 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             if valid.is_empty() {
                 return true; // 発動可能 option 無し = 不発 (Python continue)
             }
-            // 局面採点で最良 option (tie は first = Python max 準拠)。
+            // 局面採点で最良 option (tie は first = Python max/min 準拠)。
+            // ⭐ 「**相手は**以下から1つを選ぶ」 (actor="opp") は **相手が選ぶ** ので、
+            //   発動者視点スコアの **最小** = 相手にとって最も損の小さい選択肢を取る
+            //   (Python effects.py の _pick と同じ。 2026-08-07 是正)。
+            let actor_is_opp =
+                spec.get("actor").and_then(|x| x.as_str()) == Some("opp");
             let n_opp = state.players[opp_idx].characters.len();
             let n_me = state.players[me_idx].characters.len();
             let my_life = state.players[me_idx].life.len();
+            let opp_life = state.players[opp_idx].life.len();
+            let opp_hand = state.players[opp_idx].hand.len();
             let mut best = valid[0];
-            let mut best_s = option_score(&options[valid[0]], n_opp, n_me, my_life);
+            let mut best_s =
+                option_score(&options[valid[0]], n_opp, n_me, my_life, opp_life, opp_hand);
             for &i in &valid[1..] {
-                let s = option_score(&options[i], n_opp, n_me, my_life);
-                if s > best_s {
+                let s = option_score(&options[i], n_opp, n_me, my_life, opp_life, opp_hand);
+                let better = if actor_is_opp { s < best_s } else { s > best_s };
+                if better {
                     best_s = s;
                     best = i;
                 }
@@ -4224,13 +4246,16 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             } else {
                 v.as_i64().unwrap_or(1)
             } as i32;
+            // ⭐ 公式 「**相手は**自身の場のドン‼N枚を…戻す」 = **相手が選ぶ** ので
+            //   **レストのドンから** 返す (アクティブはこのターンまだ使える)。
+            //   2026-08-07 まで active 優先 = 行動側に都合のよい選択だった (Python と同時是正)。
             let o = &mut state.players[opp_idx];
-            let a = n.min(o.don_active);
-            o.don_active -= a;
-            o.don_remaining_in_deck += a;
-            let r = (n - a).min(o.don_rested);
+            let r = n.min(o.don_rested);
             o.don_rested -= r;
             o.don_remaining_in_deck += r;
+            let a = (n - r).min(o.don_active);
+            o.don_active -= a;
+            o.don_remaining_in_deck += a;
             true
         }
         // このキャラ以外の自キャラ全てをデッキ下へ (effects.py:other_self_charas_to_deck_bottom)。
@@ -4664,17 +4689,38 @@ if me_board_has_when(state, opp_idx, "on_self_don_returned_to_deck") {
             } else {
                 (v.as_i64().unwrap_or(1) as usize, None)
             };
+            // ⭐ 「**相手は**…好きな順番でデッキの下に置く」 = **相手が選ぶ**。
+            //   相手は最も惜しくない札 (cost 低 → power 低 → 元の順) から出す
+            //   (Python effects.py:_worst_trash_order と同順)。
+            //   ⚠ worst_hand_idx (counter 基準) は **トラッシュには使えない**
+            //     (トラッシュからカウンターは切れない)。
             let opp = &mut state.players[opp_idx];
+            let mut cand: Vec<usize> = (0..opp.trash.len())
+                .filter(|&i| matches_filter(&opp.trash[i], filt.as_ref()))
+                .collect();
+            cand.sort_by(|&a, &b| {
+                let ca = (opp.trash[a].cost, opp.trash[a].power, a);
+                let cb = (opp.trash[b].cost, opp.trash[b].power, b);
+                ca.cmp(&cb)
+            });
+            let order: Vec<usize> = cand.into_iter().take(count).collect();
+            if order.is_empty() {
+                // Python は該当 0 で return False だが、 Rust の false は **bail** を意味する。
+                // 状態は不変なので no-op = true が正しい (旧実装と同じ扱い)。
+                return true;
+            }
+            // ⚠ デッキ下へ積む順は **選んだ順 (= 惜しくない順)**。 Python の
+            //   `picked = [trash[i] for i in _order[:count]]` と一致させる
+            //   (元のトラッシュ順で積むと count>1 でデッキ底の並びがズレて MISMATCH)。
+            let chosen: std::collections::HashSet<usize> = order.iter().copied().collect();
+            let picked: Vec<crate::state::CardDef> =
+                order.iter().map(|&i| opp.trash[i].clone()).collect();
             let old = std::mem::take(&mut opp.trash);
-            let mut picked: Vec<crate::state::CardDef> = vec![];
-            for c in old {
-                if picked.len() < count && matches_filter(&c, filt.as_ref()) {
-                    picked.push(c);
-                } else {
+            for (i, c) in old.into_iter().enumerate() {
+                if !chosen.contains(&i) {
                     opp.trash.push(c);
                 }
             }
-            // Python は該当 0 で return False (= 忠実な no-op)。
             opp.deck.extend(picked);
             true
         }

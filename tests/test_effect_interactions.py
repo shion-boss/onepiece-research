@@ -6149,3 +6149,174 @@ def test_hand_chooser_attribution_matches_official_wording_whole_corpus():
             bad.append(f"{cid}: 「相手の手札…捨てる」 (裏向き) なのに相手選択になっている")
 
     assert not bad, "手札 chooser の書き分けが overlay と不一致:\n  " + "\n  ".join(bad)
+
+
+def test_opponent_returns_rested_don_not_active():
+    """「**相手は**自身の場のドン‼1枚をドン‼デッキに戻す」 = **相手が選ぶ** → レストから返す。
+
+    ⚠ 是正前は **アクティブ優先** = 行動側に都合のよい選択だった。 相手は当然
+    アクティブ (= このターンまだ使える。 こちらのターンならカウンターイベントの支払いに要る)
+    を残し、 レストのドンから返す。 対象 5 枚 (OP02-085/089/090/091 / OP14-065)。
+    ⚠ 「相手の**アクティブの**ドン」 と明示するカード (OP15-059 / PRB02-005) は別 primitive。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    for p in (p0, p1):
+        p.deck = [repo.get("OP01-013")] * 10
+        p.life = [repo.get("OP01-013")] * 3
+    st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                   rng=random.Random(1), effects_overlay=ov)
+    st.turn_player_idx, st.turn_number = 0, 5
+    p1.don_active, p1.don_rested = 3, 2
+
+    execute_effect({"return_opp_don": 1}, st, p0, p1, None)
+    assert (p1.don_active, p1.don_rested) == (3, 1), (
+        "相手はレストのドンから返すはず (アクティブを温存): "
+        f"active={p1.don_active} rested={p1.don_rested}"
+    )
+    # レストが尽きたらアクティブから (= 枚数は必ず満たす)
+    p1.don_active, p1.don_rested = 2, 0
+    execute_effect({"return_opp_don": 1}, st, p0, p1, None)
+    assert (p1.don_active, p1.don_rested) == (1, 0), \
+        "レストが無いときにアクティブから返せていない"
+
+
+def test_opponent_picks_the_least_bad_option_including_a_no_op():
+    """「**相手は**以下から1つを選ぶ」 (actor="opp") は **相手が選ぶ** = 損の小さい方。
+
+    一次情報 (cardqa_st_20): 「対戦相手のライフが0枚のときに、 自分はこの【登場時】効果を
+    発動し…対戦相手は『・相手のライフの上から1枚をトラッシュに置く。』を選ぶことは
+    できますか？」 → 「**はい、 できます。** この場合、 トラッシュに置くことができる
+    ライフがないため、 **何も起きません。**」
+    ⚠ 是正前は actor に関わらず発動者視点の max = **発動者に最も都合のよい選択肢** を
+      選んでおり、 相手が選ぶはずの不利益を発動者が決めていた。 対象 3 枚。
+    """
+    import json
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    eff = next(x for x in ov.get("ST20-005").effects
+               if "choice_effect" in json.dumps(x, ensure_ascii=False))
+
+    def run(opp_life_n: int):
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 10
+        p0.life = [repo.get("OP01-013")] * 3
+        p1.life = [repo.get("OP01-013")] * opp_life_n
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 0, 5
+        p1.hand = [repo.get("OP01-013")] * 4
+        for prim in eff["do"]:
+            execute_effect(prim, st, p0, p1, None)
+        return len(p1.hand), len(p1.life)
+
+    # 相手ライフ 0 → 「ライフをトラッシュ」 は空振り。 相手はそれを選べる (= 手札は減らない)
+    hand_after, life_after = run(0)
+    assert hand_after == 4 and life_after == 0, (
+        "相手が空振りの選択肢を選べていない (= 発動者最適のまま): "
+        f"hand={hand_after} life={life_after}"
+    )
+
+
+def test_opponent_chooses_which_trash_cards_go_to_deck_bottom():
+    """「**相手は**自身のトラッシュからカードN枚を…デッキの下に置く」 = **相手が選ぶ**。
+
+    ⚠ 是正前は **トラッシュ順の先頭** から取っており相手の選択になっていなかった
+      (= 蘇生の的になる高コスト札が先に抜けうる)。
+    ⚠ `_worst_hand_idx` (counter 基準) は流用できない — **トラッシュからカウンターは切れない**
+      ので counter は価値と無関係。 cost 低 → power 低 が正しい基準 (_worst_trash_order)。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    for p in (p0, p1):
+        p.deck = [repo.get("OP01-013")] * 10
+        p.life = [repo.get("OP01-013")] * 3
+    st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                   rng=random.Random(1), effects_overlay=ov)
+    st.turn_player_idx, st.turn_number = 0, 5
+
+    big, small = repo.get("OP08-099"), repo.get("EB01-015")   # cost6 / cost1
+    assert int(big.cost) > int(small.cost), "テスト前提: cost が異なる"
+    p1.trash = [big, small]          # **高コストを先頭** に置く (= 順序に釣られないか)
+
+    execute_effect({"opp_trash_to_deck_bottom": 1}, st, p0, p1, None)
+    assert p1.deck[-1].card_id == small.card_id, (
+        "相手は最も惜しくない (低コストの) 札を出すはず: "
+        f"deck底={p1.deck[-1].card_id}"
+    )
+    assert [c.card_id for c in p1.trash] == [big.card_id], \
+        "高コスト札 (蘇生の的) がトラッシュに残っていない"
+
+
+def test_human_opponent_gets_the_choice_when_official_says_they_choose():
+    """「**相手は**以下から1つを選ぶ」 で **相手が人間** ならその人に modal が立つ。
+
+    ⚠ 選択肢の文面は **発動者視点** (「相手は自身の手札2枚を捨てる」 = 選ぶ人自身のこと)。
+      したがって **do は発動者フレームで実行** する必要があり、 pending_choice の
+      `_actor_idx` には **発動者** の index を入れる。 modal を出す相手と do のフレームは別物。
+    """
+    import json
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect, resolve_pending_choice
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    eff = next(x for x in ov.get("ST20-005").effects
+               if "choice_effect" in json.dumps(x, ensure_ascii=False))
+
+    def run(human_idx, picks=None):
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 10
+        p0.life = [repo.get("OP01-013")] * 3
+        p1.life = [repo.get("OP01-013")] * 2
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 0, 5
+        st.human_player_idx = human_idx
+        p1.hand = [repo.get("OP01-013")] * 4
+        for prim in eff["do"]:
+            execute_effect(prim, st, p0, p1, None)
+            if st.pending_choice:
+                break
+        pc = st.pending_choice
+        if pc is not None and picks is not None:
+            resolve_pending_choice(st, picks)
+        return pc, len(p1.hand), len(p1.life)
+
+    # 相手 (P1) が人間 → その人に modal。 _actor_idx は **発動者 (P0)**
+    pc, hand, life = run(1, [1])       # option 1 = ライフをトラッシュ
+    assert pc is not None and pc.get("kind") == "option_pick", \
+        f"相手が人間なのに modal が立たない: {pc.get('kind') if pc else None}"
+    assert pc.get("_actor_idx") == 0, \
+        f"do の実行フレームが発動者になっていない: _actor_idx={pc.get('_actor_idx')}"
+    assert (hand, life) == (4, 1), \
+        f"人間が選んだ選択肢どおりに解決していない: hand={hand} life={life}"
+
+    # 発動者が人間 = 相手は AI → modal は立たず AI が相手最適で選ぶ
+    pc2, _, _ = run(0)
+    assert pc2 is None, "相手が AI なのに発動者へ modal が立っている"

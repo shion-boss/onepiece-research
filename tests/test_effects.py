@@ -1849,7 +1849,13 @@ def test_fire_self_effect_recursion_limit():
 
 
 def test_return_opp_don_primitive():
-    """return_opp_don: 相手の場ドンをドンデッキに戻す"""
+    """return_opp_don: 「**相手は**自身の場のドン‼N枚を戻す」 = **相手が選ぶ** → レスト優先。
+
+    ⚠ 2026-08-07 まで **アクティブ優先** で返していた (= 行動側に都合のよい選択)。
+    公式は 「相手は」 = 手札/盤面と同じ chooser 帰属なので、 相手はアクティブ
+    (= このターンまだ使える。 こちらのターンならカウンターイベントの支払いに要る) を残し、
+    レストのドンから返す。
+    """
     from engine.effects import execute_effect
     repo = _repo()
     state = _make_state(repo, "OP01-001", overlay={})
@@ -1859,14 +1865,14 @@ def test_return_opp_don_primitive():
     opp.don_rested = 2
     opp.don_remaining_in_deck = 3
     execute_effect({"return_opp_don": 4}, state, me, opp, None)
-    # active 5 → 1 (4 戻る)、 残 don_remaining_in_deck = 3+4 = 7
-    assert opp.don_active == 1
-    assert opp.don_rested == 2  # active で足りたので rested 触らず
+    # rested 2 → 0 (2 戻る)、 足りない 2 を active 5 → 3 から。 残 3+4 = 7
+    assert opp.don_rested == 0
+    assert opp.don_active == 3
     assert opp.don_remaining_in_deck == 7
 
 
-def test_return_opp_don_falls_back_to_rested():
-    """return_opp_don: active で足りなければ rested から差し引く"""
+def test_return_opp_don_falls_back_to_active():
+    """return_opp_don: **レストで足りなければ** active から差し引く (枚数は必ず満たす)。"""
     from engine.effects import execute_effect
     repo = _repo()
     state = _make_state(repo, "OP01-001", overlay={})
@@ -1876,8 +1882,9 @@ def test_return_opp_don_falls_back_to_rested():
     opp.don_rested = 5
     opp.don_remaining_in_deck = 4
     execute_effect({"return_opp_don": 3}, state, me, opp, None)
-    assert opp.don_active == 0
-    assert opp.don_rested == 3  # 5 → 3 (2 戻る)
+    # rested 5 → 2 (3 戻る) で足りるので active は無傷
+    assert opp.don_rested == 2
+    assert opp.don_active == 1
     assert opp.don_remaining_in_deck == 7
 
 
