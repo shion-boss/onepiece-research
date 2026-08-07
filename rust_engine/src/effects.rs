@@ -7325,12 +7325,18 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             let limit = spec.and_then(|o| o.get("limit")).and_then(|x| x.as_i64()).unwrap_or(1) as usize;
             let rested = spec.and_then(|o| o.get("rested")).and_then(|x| x.as_bool()).unwrap_or(false);
             let unique = spec.and_then(|o| o.get("unique_name")).and_then(|x| x.as_bool()).unwrap_or(false);
+            // 公式が 素の 「カード…登場させる」 (= ST31-002 ジンベエ) は ステージも 対象。 opt-in flag、
+            // 既定 false = 従来どおり CHARACTER 専用。 cardqa_st_31 で サニー号 (STAGE) 登場が 「はい」。
+            let include_stage =
+                spec.and_then(|o| o.get("include_stage")).and_then(|x| x.as_bool()).unwrap_or(false);
             // 候補抽出: (hand_idx, cost, power, name)
             let mut cands: Vec<(usize, i32, i32, String)> = vec![];
             {
                 let me = &state.players[me_idx];
                 for (i, c) in me.hand.iter().enumerate() {
-                    if c.category != crate::state::Category::Character {
+                    let cat_ok = c.category == crate::state::Category::Character
+                        || (include_stage && c.category == crate::state::Category::Stage);
+                    if !cat_ok {
                         continue;
                     }
                     if card_no_play_via_effect(&c.card_id) {
@@ -7405,6 +7411,27 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 return true;
             }
             for card in cards {
+                // include_stage で STAGE を選んだ場合は play_stage_from_hand と同じ 置換 + on_play。
+                if card.category == crate::state::Category::Stage {
+                    let ctx_card = card.clone();
+                    let old = std::mem::take(&mut state.players[me_idx].stages);
+                    for s in old {
+                        let ad = s.attached_dons;
+                        state.players[me_idx].trash.push(s.card);
+                        if ad > 0 {
+                            state.players[me_idx].don_rested += ad;
+                        }
+                    }
+                    let ip = InPlay::of(card, false); // sickness=false (ステージ)
+                    state.players[me_idx].stages.push(ip);
+                    let played_idx = state.players[me_idx].stages.len() - 1;
+                    state.last_self_chara_played_card = Some(ctx_card);
+                    state.last_self_chara_played_from_trash = false;
+                    if execute_stage_on_play(state, me_idx, played_idx).is_err() {
+                        return false;
+                    }
+                    continue;
+                }
                 trash_weakest_for_field_full(state, me_idx); // 場5枚は最弱trash (3-7-6-1、 KO無)
                 let mut ip = InPlay::of(card.clone(), true); // sickness=true
                 ip.rested = rested;

@@ -1305,6 +1305,11 @@ def eval_condition(
         elif k == "self_trash_count_ge":
             if len(me.trash) < int(v):
                 return False
+        elif k == "self_trash_count_le":
+            # 自トラッシュ N 枚以下 (Rust rules.rs:769 と対称)。 OP04-094 雷の破壊剣 の
+            # 「トラッシュ15枚以上なら cost6、 それ未満なら cost4」 の下限側 分岐で使う。
+            if len(me.trash) > int(v):
+                return False
         elif k == "self_event_cost_used_ge":
             # このターン中に自分がコスト N 以上のイベントを使用していたか (= OP15-002 ルーシー)。
             if getattr(me, "max_event_cost_this_turn", 0) < int(v):
@@ -5638,6 +5643,12 @@ def _execute_effect_body(
             filt = _resolve_dynamic_filter(spec.get("filter", {}), state, me, opp)
             limit = int(spec.get("limit", 1))
             rested = bool(spec.get("rested", False))
+            # 公式が 「キャラカード」 でなく 素の 「カード」 を 登場 対象にする 効果 (= ST31-002
+            # ジンベエ 「コスト1の特徴《麦わらの一味》を持つカード1枚まで…登場させる」) は
+            # ステージも 対象。 opt-in flag。 既定 False = 従来どおり CHARACTER 専用 (無回帰)。
+            # 一次情報: cardqa_st_31 「この【登場時】効果で『ST31-005 サウザンド・サニー号』を
+            # 登場させることはできますか？」 → 「はい、できます。」
+            include_stage = bool(spec.get("include_stage", False)) if isinstance(spec, dict) else False
             # 既 解決 picks (= resolve_pending_choice 経由) の場合 は直接実行
             picks_idx: Optional[list[int]] = None
             if isinstance(v, dict) and "_picks_idx" in v:
@@ -5650,7 +5661,11 @@ def _execute_effect_body(
             from .game import _compute_in_hand_cost_minus as _pfh_ihm
             candidates: list[tuple[int, CardDef]] = []
             for i, card in enumerate(me.hand):
-                if card.category != Category.CHARACTER:
+                if card.category == Category.CHARACTER:
+                    pass
+                elif include_stage and card.category == Category.STAGE:
+                    pass
+                else:
                     continue
                 if _no_play_from_hand_via_effect(card, state.effects_overlay):
                     continue   # OP12-036: 効果で登場できないカードは候補外
@@ -5717,6 +5732,20 @@ def _execute_effect_body(
                 for idx in chosen_indexes:
                     chosen_cards.append(me.hand.pop(idx))
                 for card in chosen_cards:
+                    if include_stage and card.category == Category.STAGE:
+                        # ステージは 1 枚まで (公式 3-8-3) → 既存ステージをトラッシュへ置換。
+                        # play_stage_from_hand と 同じ 置換 + on_play 発火。
+                        for s in list(me.stages):
+                            me.stages.remove(s)
+                            me.trash.append(s.card)
+                            if s.attached_dons > 0:
+                                me.don_rested += s.attached_dons
+                        ip = InPlay.of(card, sickness=False)
+                        me.stages.append(ip)
+                        state.push_log(f"  効果: 手札からステージ登場 → {card.name}")
+                        if state.effects_overlay:
+                            trigger_on_play(state, me, opp, ip, state.effects_overlay)
+                        continue
                     if not me.can_play_character():
                         me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                     ip = InPlay.of(card, rested=rested, sickness=True)

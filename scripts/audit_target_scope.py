@@ -44,7 +44,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # 片側に限定している spec の目印 (これが出ていたら 「相手のみ」 / 「自分のみ」)
 OPP_ONLY = re.compile(r"\bone_opponent|\ball_opponent|\bopp_character|\ball_opp_chara")
-SELF_ONLY = re.compile(r"\bone_self_character|\ball_self_chara|\bself_character_")
+SELF_ONLY = re.compile(r"\bone_self_character|\bone_self_chara|\ball_self_chara|\bself_character_")
 # 両陣営を返す spec (= これを使っていれば OK)
 EITHER = re.compile(r"either|one_inplay|_any_char")
 

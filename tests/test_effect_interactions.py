@@ -6320,3 +6320,183 @@ def test_human_opponent_gets_the_choice_when_official_says_they_choose():
     # 発動者が人間 = 相手は AI → modal は立たず AI が相手最適で選ぶ
     pc2, _, _ = run(0)
     assert pc2 is None, "相手が AI なのに発動者へ modal が立っている"
+def test_st31_002_include_stage_summons_a_stage_card():
+    """ST31-002 ジンベエ 【登場時】: 素の 「カード…登場させる」 は ステージも 対象。
+
+    一次情報 (db/faq/cardqa_st_31): 「この【登場時】効果で『ST31-005 サウザンド・サニー号』を
+    登場させることはできますか？」 → 「はい、できます。」
+    公式テキストは 「コスト1の特徴《麦わらの一味》を持つ**カード**1枚まで」 = キャラ限定でない為
+    STAGE の サニー号 (ST31-005、 cost1・麦わらの一味) も 登場できる。
+
+    是正前: play_from_hand が CHARACTER のみを候補にしていたので STAGE は silent no-op で
+    登場できなかった (公式違反)。 include_stage flag で STAGE も候補+登場に含める。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.hand = [repo.get("ST31-005")]  # STAGE、 cost1、 麦わらの一味
+    jinbe = InPlay.of(repo.get("ST31-002"), sickness=True)
+    me.characters.append(jinbe)
+    trigger_on_play(st, me, opp, jinbe, overlay)
+    assert [s.card.card_id for s in me.stages] == ["ST31-005"], (
+        "ST31-002 の【登場時】で STAGE の サニー号 が 登場できていない "
+        f"(stages={[s.card.card_id for s in me.stages]})"
+    )
+    # サニー号 は 手札から 場へ移った (draw:1 で引いた別カードは手札に残る)
+    assert "ST31-005" not in [c.card_id for c in me.hand], "登場した サニー号 が 手札に残っている"
+
+
+def test_eb03_048_places_dressrosa_stage_from_hand():
+    """EB03-048 【登場時】後段: 「ステージカード1枚まで…登場させる」 は STAGE を 場に置く。
+
+    是正前: overlay が play_from_hand (= CHARACTER 専用) を使っていたので STAGE が
+    silent no-op で 置けなかった。 play_stage_from_hand へ是正。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    # search 段が引く先 (デッキ上) と、 play 段が置く手札 の両方に ドレスローザ stage を置く
+    me.deck = [repo.get("OP04-096")] + [repo.get(_FILLER)] * 24
+    me.hand = [repo.get("OP04-096")]  # コリーダコロシアム、 ドレスローザ、 cost1
+    eb = InPlay.of(repo.get("EB03-048"), sickness=True)
+    me.characters.append(eb)
+    trigger_on_play(st, me, opp, eb, overlay)
+    assert [s.card.card_id for s in me.stages] == ["OP04-096"], (
+        "EB03-048 が ドレスローザ stage を 場に置けていない "
+        f"(stages={[s.card.card_id for s in me.stages]})"
+    )
+
+
+def test_play_from_hand_bare_card_summon_can_place_stage():
+    """全走査ガード: 公式テキストが 素の 「…カード1枚まで(を)…登場させる」 (= キャラ限定でない)
+    で、 かつ その filter に STAGE が一致しうる overlay は、 include_stage を持つ か
+    play_stage_from_hand を使うこと (= STAGE を silent drop しない)。
+
+    play_from_hand は CHARACTER 専用。 公式が 「キャラカード」 でなく 素の 「カード」 と書く
+    登場効果 (= ST31-002 ジンベエ、 cardqa_st_31 で サニー号 STAGE 登場が 「はい」) は STAGE も
+    対象なので、 include_stage 無しの play_from_hand だと STAGE が黙って登場できず違反になる。
+    「キャラカード」 と書く効果は CHARACTER 専用が正しいので、 **公式テキスト** を判別子にする。
+    """
+    import json as _json
+    import re as _re
+    ov = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    cards = {c["base_id"]: c for c in
+             _json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    repo = _repo()
+    from engine.effects import _matches_filter
+    stages = []
+    seen = set()
+    for c in cards.values():
+        if c["category"] != "STAGE" or c["base_id"] in seen:
+            continue
+        seen.add(c["base_id"]); stages.append(repo.get(c["base_id"]))
+
+    def _bare_card_summon(txt: str) -> bool:
+        # 「…を、登場させる」 の直前の節に 「カード」 が有り 「キャラ」 が無い (= 素のカード)
+        for m in _re.finditer(r"([^。]*?)を、?登場させる", txt or ""):
+            seg = m.group(1)
+            if "カード" in seg and "キャラ" not in seg:
+                return True
+        return False
+
+    checked = 0
+    bad = []
+    for cid, effs in ov.items():
+        if not isinstance(effs, list) or cid.startswith("_"):
+            continue
+        txt = (cards.get(cid, {}) or {}).get("text") or ""
+        for e in effs:
+            for prim in e.get("do", []) or []:
+                if not (isinstance(prim, dict) and "play_from_hand" in prim):
+                    continue
+                spec = prim["play_from_hand"]
+                if not isinstance(spec, dict):
+                    continue
+                checked += 1
+                if spec.get("include_stage"):
+                    continue
+                if not _bare_card_summon(txt):
+                    continue  # 「キャラカード」 = CHARACTER 専用が正しい
+                filt = spec.get("filter", {}) or {}
+                if any(isinstance(vv, str) and vv.endswith("_dynamic") for vv in filt.values()):
+                    continue
+                hit = next((s.card_id for s in stages if _matches_filter(s, filt)), None)
+                if hit:
+                    bad.append(f"{cid}: 素の「カード」登場 + filter={filt} が STAGE {hit} に一致 "
+                               f"(include_stage 未指定 = STAGE を silent drop)")
+    assert checked, "play_from_hand を持つ overlay が 0 = テストが空回り"
+    assert not bad, (
+        "公式が 素の「カード」登場 なのに STAGE を silent drop する play_from_hand:\n  "
+        + "\n  ".join(bad)
+    )
+
+
+def test_st03_001_return_can_target_opponent_character():
+    """ST03-001 クロコダイル 【起動メイン】: 「コスト5以下のキャラ1枚まで…**持ち主の**手札に
+    戻す」 は 相手のキャラも 対象 (= 両陣営、 docs/official_rulings.md 「相手のなし=両陣営」)。
+
+    一次情報 (db/faq/cardqa_st_03): 「この【起動メイン】効果で自分のキャラを手札に戻すことが
+    できますか？」 → 「はい、戻すことができます。」 = 自分側も対象 = 修飾なし = 両陣営。
+    「持ち主の手札に戻す」 と所有者を明示するのは どちらの側も対象になりうる為。
+
+    是正前: overlay が `one_self_chara_filtered` (= 自分のみ) で、 除去カードなのに 相手キャラを
+    バウンスできなかった (公式違反)。 `one_character_either_filtered` へ是正 (EB02-024 / OP05-059 /
+    ST03-001 の 3 枚。 全走査ガード = scripts/audit_target_scope.py、 SELF_ONLY 正規表現に
+    one_self_chara を追加して chara/character 綴りの穴を塞いだ)。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    src = InPlay.of(repo.get("ST03-001"), sickness=False)
+    me.characters.append(src)
+    opp.characters.append(InPlay.of(repo.get("OP01-013"), sickness=False))  # 相手 cost2 キャラ
+    from engine.effects import execute_effect
+    execute_effect(
+        {"return_to_hand": {"type": "one_character_either_filtered", "filter": {"cost_le": 5}}},
+        st, me, opp, src,
+    )
+    assert len(opp.characters) == 0, "ST03-001 が 相手キャラを 手札に戻せていない (= 自分限定のまま)"
+    assert len(opp.hand) == 1, "戻した相手キャラが 相手の手札に入っていない"
+
+
+def test_op04_094_ko_cost_threshold_upgrades_with_trash_and_counts_self():
+    """OP04-094 雷の破壊剣: 「コスト4以下をKO。 自分のトラッシュが15枚以上なら 代わりに
+    コスト6以下を選ぶ」。 イベント自身も 発動時には トラッシュ済 (公式 8-4-2 の順)。
+
+    一次情報 (db/faq/cardqa_op_04): 「自分のトラッシュが14枚の時にこの【メイン】効果を発動
+    しました。 コスト6のキャラを選ぶことはできますか？」 → 「このカードを含めてトラッシュが
+    15枚になり、 コスト6以下のキャラを選ぶことができます。」
+
+    是正前: overlay が `do:[ko cost_le_4], if: trash>=15` = (a) trash<15 で 何もKOしない
+    (base 効果消失) (b) trash>=15 でも cost6 でなく cost4 しかKOできない = 二重の公式違反。
+    """
+    import random
+    import json as _json
+    from engine.game import PlayEvent, apply_action
+    repo, overlay = _repo(), _overlay()
+    allc = [repo.get(c["base_id"]) for c in
+            _json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+            if c["category"] == "CHARACTER"]
+    c6 = next(c for c in allc if c.cost == 6)
+    c4 = next(c for c in allc if c.cost == 4)
+
+    def _play(hand_trash_n, opp_char):
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        me.don_active = 10
+        me.trash = [repo.get(_FILLER)] * hand_trash_n
+        me.hand = [repo.get("OP04-094")]
+        opp.characters = [InPlay.of(opp_char, sickness=False)]
+        apply_action(st, PlayEvent(hand_idx=0))
+        return len(opp.characters), len(me.trash)
+
+    # Q シナリオ: 手札発動前トラッシュ14 → イベント自身で15 → cost6 KO 可
+    remain6, trash_after = _play(14, c6)
+    assert trash_after == 15, f"イベント自身が トラッシュに入っていない (trash={trash_after})"
+    assert remain6 == 0, "trash 14→15 で コスト6キャラを KO できていない (= 15以上upgrade 未動作)"
+    # base 効果: trash<15 でも コスト4以下は KO できる
+    remain4, _ = _play(5, c4)  # 発動後 trash=6 (<15)
+    assert remain4 == 0, "trash<15 で コスト4キャラを KO できていない (= base 効果が消えている)"
+    # trash<15 で コスト6キャラは 対象外
+    remain6b, _ = _play(5, c6)  # 発動後 trash=6 (<15)
+    assert remain6b == 1, "trash<15 なのに コスト6キャラを KO している (= upgrade が誤発火)"

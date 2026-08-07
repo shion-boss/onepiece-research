@@ -415,15 +415,23 @@ def test_op05_058_trigger_sweep_cost_le_2_ai():
 #      コスト5以下のキャラ1枚までを、持ち主の手札に戻す。
 #    【トリガー】自分のリーダーが多色の場合、カード2枚を引く。
 # --------------------------------------------------------------------------- #
-def test_op05_059_main_draw_and_return_self_ai():
-    """メイン (多色リーダー、 AI): 1 枚引き、 自分のコスト5以下キャラ 1 枚を手札に戻す。"""
+def test_op05_059_main_draw_and_return_ai_prefers_opponent():
+    """メイン (多色リーダー、 AI): 1 枚引き、 コスト5以下キャラ 1 枚を手札に戻す。
+
+    「コスト5以下のキャラ1枚まで…**持ち主の**手札に戻す」 は 修飾なし = 両陣営が対象
+    (docs/official_rulings.md、 cardqa_st_03 系一般則)。 AI は 除去として 相手キャラを優先し、
+    自分のキャラは巻き込まない (one_character_either_filtered = _either_pick_one)。
+    ⚠ 是正前は self 限定 (one_self_chara_filtered) で 自分のキャラしか戻せなかった。
+    """
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, _LEADER_MULTI, overlay)  # 多色リーダー
     me, opp = st.players[0], st.players[1]
     me.hand = []
-    friend = InPlay.of(repo.get(_RED_C2), sickness=False)  # cost2 (<=5)
+    friend = InPlay.of(repo.get(_RED_C2), sickness=False)  # 自分 cost2 (<=5)
     me.characters = [friend]
+    foe = InPlay.of(repo.get("OP01-013"), sickness=False)  # 相手 cost2 (<=5)
+    opp.characters = [foe]
 
     eff = _eff(overlay, "OP05-059", "main")
     assert eff.get("if", {}).get("leader_multicolor") is True, \
@@ -433,11 +441,10 @@ def test_op05_059_main_draw_and_return_self_ai():
                        InPlay.of(repo.get("OP05-059"), sickness=False))
     _drain(st, pick=[0])
 
-    assert friend not in me.characters, "自分のコスト5以下キャラが手札に戻されていない"
-    # draw1 (+1) と 手札に戻った friend (+1) で 手札 2 枚
-    assert any(c.card_id == _RED_C2 for c in me.hand), \
-        "戻したキャラが手札に入っていない"
-    assert len(me.hand) == 2, f"draw1 + 戻し1 で手札 2 枚のはず: {len(me.hand)}"
+    assert foe not in opp.characters, "AI が 相手のコスト5以下キャラを手札に戻していない"
+    assert friend in me.characters, "AI が 相手より 自分のキャラを戻してしまっている"
+    assert any(c.card_id == "OP01-013" for c in opp.hand), "戻した相手キャラが 相手の手札にない"
+    assert len(me.hand) == 1, f"draw1 のみ (bounce は相手の手札へ) のはず: {len(me.hand)}"
 
 
 def test_op05_059_main_human_pick():
