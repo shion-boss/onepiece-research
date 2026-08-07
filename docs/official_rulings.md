@@ -3818,3 +3818,65 @@ escalate されていたが、 **`db/faq/cardqa_eb_01.json` は存在した**。
 
 ⭐ **昨日の OP11-058、 今日の OP12-014 に続き 3 度目**: escalate の note にある
 「特定できない / 難しい論点」 は **着手前に自分で確かめる**。
+
+---
+
+## OP14-080 コスト由来トリガー順 — 3 度目の試行 (2026-08-07)。 **第三要因は解消、 残件を特定**
+
+前回 「第三の要因が残る」 とした点は **解消した**。 必要だったのは次の 3 点セット:
+
+1. **Python**: `_cost_trigger_buffer` — コスト支払い中の `enqueue_event` を退避し、
+   効果本体を enqueue した **後で** キューへ流す。
+2. **Rust**: `__cost_on_ko` という pending 種別を新設して **on_ko を queue 化**
+   (`fire_field_when` では場を離れた victim の効果を拾えないため専用種別が要る)。
+3. **Rust**: `do` を `rust_resolving = true` の文脈で実行して、 do 由来トリガーを
+   キュー末尾へ回す。 併せて `fire_on_ko` を 「被KO数の加算」 と 「本体」 に分離し、
+   queue 経由の解決で **二重加算しない** ようにする。
+
+これで **`test_rust_apply_don_fidelity` は通る** (card_id 粒度 diff で不一致 0 を確認)。
+
+### 残件 — 16 デッキ差分の ActivateMain 9 件だけ
+
+具体差分 (再現可能):
+- **OP14-079 クロコダイル leader** の起動メイン (`ko_self_with_filter`) で不一致。
+- Python は victim の【KO時】(例 OP14-085 = draw2 + discard2) を発動するが、 Rust と
+  `cards_drawn_count` / `deck` / `hand` / `trash` が食い違う
+  (Python が 2 枚多く引き `hand_discarded_by_effect_this_turn=True`)。
+
+= キューの順序は揃ったが、 次のどちらかが残っている:
+- **`on_self_chara_ko` の enqueue 粒度**: Python の `trigger_on_self_chara_ko` は
+  board の各カードを個別に enqueue するが、 Rust の `fire_field_when` は 1 件で board を走査する。
+- **早期 return 経路** (`src_effect_negated` / 条件不成立) で Rust がキューを drain せず
+  次 action へ持ち越す。
+
+### ⭐ 再現手順 (次に着手する人へ)
+
+`scripts/rust_parity_check.py` の MISMATCH 記録箇所に **card_id 粒度の diff** を仕込み、
+`PARITY_DIFF=1` で実行する。 ⚠ blob は Rust=str / Python=dict なので **card_id へ畳んでから**
+比較しないと全カードが差分に見えて埋もれる (この正規化が無くて 2 度遠回りした)。
+
+### 4 度目の試行 (2026-08-07) — さらに 1 つ潰したが未収束
+
+追加で分かったこと:
+- **第4の要因を発見・修正した**: `trigger_on_ko` / `trigger_on_self_chara_ko` は
+  `_maybe_resolve(state)` の **直後に `last_chara_ko_victim_card = None` で victim 文脈を
+  消す**。 バッファ有効時は `_maybe_resolve` が no-op なので、 **イベントが解決する前に
+  文脈が消える** → `victim_*` 条件が空振りする。 → バッファ中は消さないようガードした。
+- Rust の早期 return 経路 (`src_effect_negated` / 条件不成立) でも `maybe_resolve` を
+  呼んでキューを次 action へ持ち越さないようにした。
+
+それでも **16 デッキ差分の ActivateMain 9 件が残る**。 具体差分 (OP14-079 クロコダイル leader):
+- 多くは 「どのカードを捨てたか」 の違い。 例: Rust は OP14-085 (counter2000) を捨て
+  OP14-084 (counter0) を残す / Python は逆。 `_worst_hand_idx` は counter 昇順なので
+  **Python が正しい** → Rust は **discard 時点の手札が違う**。
+- 1 例は `cards_drawn_count` rust=12 / py=14、 `hand_discarded_by_effect_this_turn`
+  rust=False / py=True = **Rust 側で victim の【KO時】が発火していない**。
+
+→ 残る仮説: **Rust の queue に積んだ `__cost_on_ko` が一部経路で解決されない**
+  (`pop_next_event` は turn player 優先で取り出すが、 それ自体は同 owner なら影響しない。
+   `maybe_resolve` が `rust_resolving` 中で no-op になり、 外側の drain 主体が
+   別の順序で回している可能性)。
+
+⭐ **4 回とも 「差分ハーネスの一部だけ通る」 状態で止まっている**。 この項目は
+  **KO トリガーの解決モデルを両エンジンで揃える設計** から入るべきで、
+  パッチ的な順序合わせでは収束しない、 というのが 4 回の結論。
