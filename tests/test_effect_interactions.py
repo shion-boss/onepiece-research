@@ -6546,3 +6546,67 @@ def test_play_by_field_character_effect_vs_trigger_effect():
     assert run(True), "場のキャラの効果による登場で発動していない (= 分岐が未実装)"
     assert not run(False), \
         "【トリガー】効果による登場で発動している (公式=いいえ、 cardqa_op_12)"
+
+
+def test_once_per_turn_is_not_consumed_when_the_optional_cost_is_declined():
+    """⭐ **【ターン1回】は 「実際に発動した」 時だけ消費される**。
+
+    一次情報 (cardqa_op_03): 「…手札2枚を捨てずにこの【自分のターン中】【ターン1回】効果を
+    **発動しないことを選びました**。 そのターン中、 次に相手のキャラがKOされた時、
+    この効果を発動することはできますか？」 → 「**はい、 できます。**」
+
+    対照 (cardqa_op_02): 「できる」 が無い = **必ず発動** する効果は 「発動しないこと」 を
+    選べない → 「いいえ、 可能な限り必ず発動します」。
+    対照 (cardqa_prb02 / PRB02-004): 「N枚まで」 で 0 枚を選んでも **効果自体は発動している**
+    ので 【ターン1回】 は消費される (= engine は元から conform)。
+
+    ⚠ engine は **発動前に** 消費しており、 見送ると 1 回分を失っていた。 対象 59 枚
+      (optional_cost_then + 【ターン1回】)。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, resolve_pending_choice
+    from engine.game import legal_actions, apply_action
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def board():
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-002"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 10
+            p.life = [repo.get("OP01-013")] * 3
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 0, 5
+        st.human_player_idx = 0
+        st.forced_human_actor_idx = 0
+        p0.hand = [repo.get("OP01-013")] * 3
+        p0.don_active = 5
+        return st, p0, p1
+
+    def n_acts(st):
+        return len([a for a in legal_actions(st) if type(a).__name__ == "ActivateMain"])
+
+    # 見送り → 消費されない
+    st, _, _ = board()
+    acts = [a for a in legal_actions(st) if type(a).__name__ == "ActivateMain"]
+    assert acts, "起動メインが legal に出ていない"
+    apply_action(st, acts[0])
+    assert st.pending_choice is not None and \
+        st.pending_choice.get("kind") == "optional_cost_confirm", \
+        f"任意コスト確認 modal が立たない: {st.pending_choice}"
+    resolve_pending_choice(st, [0])          # 見送る
+    assert n_acts(st) >= 1, \
+        "見送ったのに【ターン1回】が消費された (cardqa_op_03 違反)"
+
+    # 承諾 → 消費される (= 対照。 これが崩れると 1 ターンに複数回撃ててしまう)
+    st, _, _ = board()
+    acts = [a for a in legal_actions(st) if type(a).__name__ == "ActivateMain"]
+    apply_action(st, acts[0])
+    resolve_pending_choice(st, [1])          # 払う
+    while st.pending_choice is not None:
+        resolve_pending_choice(st, [0])
+    assert n_acts(st) == 0, "発動したのに【ターン1回】が消費されていない"

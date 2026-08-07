@@ -9586,6 +9586,13 @@ def _execute_effect_body_inner(
                     "self_inplay_iid": (
                         self_inplay.instance_id if self_inplay is not None else None
                     ),
+                    # 見送り時に 【ターン1回】 を戻すべきか (= この起動メインで立てた分か)。
+                    "_once_was_set": bool(
+                        self_inplay is not None
+                        and getattr(self_inplay, "_act_used", False)
+                        and getattr(state, "_act_used_set_by_current_fire", None)
+                        == getattr(self_inplay, "instance_id", None)
+                    ),
                     "source_name": src_name,
                     # cost 空 = 「(コスト無しで) 〜できる」 の任意効果 (公式の文末 「できる」)。
                     # cost 有り = 「〜できる：効果」 の発動コスト。 文言を分ける。
@@ -10330,6 +10337,20 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         state.pending_choice = None
         if not (picks and picks[0] == 1):
             state.push_log(f"  効果: 任意コスト 見送り ({choice.get('source_name', '')})")
+            # ⭐ **【ターン1回】は 「実際に発動した」 時だけ消費される**。 任意コストを
+            #   見送った = 発動していないので、 そのターン中まだ使える。
+            #   一次情報 (cardqa_op_03): 「…手札2枚を捨てずにこの【自分のターン中】
+            #     【ターン1回】効果を発動しないことを選びました。 そのターン中、 次に
+            #     相手のキャラがKOされた時、 この効果を発動することはできますか？」
+            #     → 「**はい、 できます。**」
+            #   (対照 cardqa_op_02: 「できる」 が無い = **必ず発動** する効果は発動しない
+            #    ことを選べない。 PRB02-004 のように 「N枚まで」 で 0 枚を選んでも
+            #    効果自体は発動しているので消費される。)
+            #   ⚠ engine は発動前に消費していた (= 見送ると 1 回分を失う)。 起動メインの
+            #     _act_used を戻す。 対象 59 枚 (optional_cost_then + 【ターン1回】)。
+            if self_inplay is not None and choice.get("_once_was_set"):
+                setattr(self_inplay, "_act_used", False)
+                state.push_log("  効果: 【ターン1回】 は未使用のまま (発動しなかったため)")
             return
         spec["_cost_confirmed"] = True
         # ⭐ pay_don コストで「場のドン」(area active/rested + 各キャラ/リーダーの付与ドン)の返却元を
@@ -15398,6 +15419,9 @@ def fire_activate_main(
     # once_per_turn フラグ (明示指定時のみ。 既定 True の近似は 2026-08-04 に撤去)
     if cost.get("once_per_turn", False):
         setattr(inplay, "_act_used", True)
+        # 見送り時に戻せるよう 「この起動で立てた」 ことを記録 (= 別の起動の分を誤って
+        # 戻さないためのタグ。 action 境界で自然に上書きされる transient)。
+        state._act_used_set_by_current_fire = inplay.instance_id
     # effect 本体は enqueue (= 集中ドレインで実行)。 bundle 内 effect index を解決して payload に。
     # （header の push_log は関数冒頭で実施済み = cost 支払い前に観戦者へ何の起動メインか示す）
     bundle = state.effects_overlay.get(inplay.card.card_id) if state.effects_overlay else None
