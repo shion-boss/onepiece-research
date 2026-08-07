@@ -3470,3 +3470,100 @@ cost も同型の可能性) で Python/Rust 両方の drain 順序を揃える�
   (engine だけ直すと **人間が操作できない** = UnknownPendingChoiceModal 行き)。
   ⭐ 今回のセッションで **2 回連続** これに助けられた (前は `opp_optional_play_from_hand`)。
   **非 actor 側に modal を出す機構を足したら UI 配線までがワンセット**。
+## 公式 Q&A conformance バッチ (2026-08-07 #1、 cron `optcg-faq-conformance`): 3 fixed + 14 conform + 2 n/a + 1 escalated
+
+台帳 20 件を処理。 3 件の公式違反を是正 (いずれも overlay/engine を実際に動かして盤面差分で確認)。
+
+### fixed 1: 素の 「カード…登場させる」 は STAGE も対象 — `play_from_hand` の include_stage (ST31-002)
+
+**一次情報** (`db/faq/cardqa_st_31`): 「この【登場時】効果で『ST31-005 サウザンド・サニー号』を
+登場させることはできますか？」 → 「はい、できます。」
+
+ST31-002 ジンベエ 【登場時】 は 「コスト1の特徴《麦わらの一味》を持つ**カード**1枚まで…登場させる」
+= 「キャラカード」 でなく 素の 「カード」 なので STAGE (サニー号 = cost1・麦わらの一味) も対象。
+**是正前**: `play_from_hand` は CHARACTER 専用 (`card.category != CHARACTER: continue`) で STAGE を
+silent no-op で 落としていた。 → opt-in `include_stage` flag を追加 (Python `engine/effects.py` +
+Rust `rust_engine/src/effects.rs`、 既定 false = 従来どおり CHARACTER 専用 = 無回帰)。 STAGE 選択時は
+play_stage_from_hand と同じ 置換 + on_play + `last_self_chara_played_card` 更新。
+
+⭐ **全走査で見つけた 2 枚目**: EB03-048 は 「ステージカード1枚まで…登場させる」 で STAGE 専用なのに
+overlay が `play_from_hand` を使い、 やはり STAGE を 落としていた。 → `play_stage_from_hand` へ是正。
+残りの 6 枚 (OP10-008/OP08-070/OP07-070/OP01-044/OP01-050/OP01-074) は filter に STAGE が一致しないか
+category:CHARACTER 明示 = 従来どおりで正しい。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+`test_st31_002_include_stage_summons_a_stage_card` / `test_eb03_048_places_dressrosa_stage_from_hand` /
+`test_play_from_hand_bare_card_summon_can_place_stage` (= 全走査: 公式が 素の「カード」登場 なのに
+STAGE が filter 一致する play_from_hand は include_stage を持つこと)。
+
+### fixed 2: 「持ち主の手札に戻す」 (修飾なし) は 両陣営 — 自分限定 spec の 3 枚を是正
+
+**一次情報** (`db/faq/cardqa_st_03`): 「この【起動メイン】効果で自分のキャラを手札に戻すことが
+できますか？」 → 「はい、戻すことができます。」 = 修飾なし = 両陣営 (docs 上記 「相手のなし」 則)。
+
+2026-08-04 の 「相手のなし=両陣営」 是正は `one_opponent_*` (相手限定) → either だけを直し、
+**対称の `one_self_chara_filtered` (自分限定) を見落としていた**。 除去カードなのに相手キャラを
+バウンスできない状態だった。 該当 **3 枚**: EB02-024 そげキング / OP05-059 / ST03-001 クロコダイル
+(いずれも 「コストN以下のキャラ1枚まで…**持ち主の**手札に戻す」)。 → `one_character_either_filtered`
+へ是正 (spec は 2026-08-04 追加済 = engine 変更不要、 return_to_hand で 5 枚が既に使用)。
+
+⭐ **audit の綴りの穴**: `scripts/audit_target_scope.py` の `SELF_ONLY` 正規表現が
+`one_self_character` しか見ておらず、 実 spec の `one_self_chara`(= chara 綴り)を取りこぼしていた。
+→ 正規表現に `one_self_chara` を追加。 是正後 全走査 0 件。
+
+**恒久ガード**: `test_st03_001_return_can_target_opponent_character` + 上記 audit(--assert)。
+
+### fixed 3: OP04-094 雷の破壊剣 — トラッシュ枚数による KO コスト閾値の swap が壊れていた
+
+**一次情報** (`db/faq/cardqa_op_04`): 「自分のトラッシュが14枚の時にこの【メイン】効果を発動
+しました。 コスト6のキャラを選ぶことはできますか？」 → 「このカードを含めてトラッシュが15枚になり、
+コスト6以下のキャラを選ぶことができます。」
+
+公式テキスト: 「コスト4以下のキャラをKO。 トラッシュ15枚以上なら 代わりに コスト6以下を選ぶ」。
+**是正前** overlay = `do:[ko cost_le_4], if: trash>=15` = 二重の誤り: (a) trash<15 では 何も
+KOしない (base 効果が消失) (b) trash>=15 でも cost4 しかKOできず cost6 を選べない。 →
+`conditional` 2 分岐 (trash>=15 → cost6 / trash<=14 → cost4) へ是正。 イベント自身は 発動前に
+トラッシュ済 (公式 8-4-2 「公開→コスト→トラッシュ→効果発動」、 game.py:1446 が 1454 の前) なので
+手札発動時 trash14 → 15 で cost6 が選べる。 Python に `self_trash_count_le` を追加 (Rust
+`rules.rs:769` に既存 = 片側非対称を解消、 dict-target ko は両エンジンで 58 枚が既に使用)。
+
+**恒久ガード**: `test_op04_094_ko_cost_threshold_upgrades_with_trash_and_counts_self`
+(trash14→15 で cost6 KO / trash<15 で cost4 KO / trash<15 で cost6 は対象外)。
+
+### conform (問題なし、 再調査回避) 14 件
+
+- **411b** OP12-014/006: search `or_clauses=[{name:モンキー・Ｄ・ルフィ},{EVENT,赤}]`。 name 節に
+  色制限なし → 赤以外の同名も手札に加えられる。
+- **433f** OP07: 【相手のアタック時】で【ブロッカー】獲得 → その同じアタックにブロック可。 block 適格は
+  block step (opp_attack 発火の後) で `is_blocker_now` を動的判定 (game.py:1688)。
+- **4342** OP01-016 ナミ: search filter に `exclude_name:ナミ` → ST01-007 ナミ は対象外 (いいえ)。
+- **4373** OP15-025 等: `attach_rested_don from_cost_area:true` は `don_active` も pool に含む
+  (effects.py:6453) = 相手のドンが アクティブ/レスト いずれでも付与できる。
+- **43cf** OP12-059 粗砕: `if leader_name:サンジ`。 `leader_name` は正規化後 exact 一致 (substring 非対応)
+  → ST12-001「ロロノア・ゾロ＆サンジ」≠「サンジ」 で 引けない (いいえ)。
+- **446d** OP01【ドン!!×2】: battle-only KO耐性は game.py:492-497 (バトルKO経路) のみ参照。 効果KO
+  (打属性キャラの効果) は素通り = KOされる。
+- **455af** OP13-119 エース: don付与 (entry1) と 相手戻し→`force_opp_play_from_hand`
+  (entry3, `require_prior_bounce`) は独立 on_play。 don を 0 枚付与でも 戻せば 相手は cost4 登場
+  (実測: 相手 board OP01-016→hand、 hand OP01-013→board)。
+- **45d3** OP09-077 ゴムゴムの雷: `play_event_from_hand` 経由の発動でも 本体の `cost pay_don:2` を実行
+  (実測 don 5→3 + 相手キャラ KO)。
+- **4681** 【カウンター】: 手札が発動カード1枚だけでも発動可 (手札枚数 gate なし)。
+- **46e5** 「元々の効果がないキャラ」 = `_card_has_no_effect` (overlay 空)。 カウンター+1000 のみのバニラは
+  overlay=[] → True = 含む。
+- **4748** OP10: 「パワー6000以上のキャラ」 条件は現在パワー (ドン込 = InPlay.power) + 発動元自身も数える。
+- **47a8** OP06: 「トラッシュに置く」 は KO でない → 置かれたキャラの【KO時】は発動しない (既存一般則)。
+- **47d3** ST35-003 カラス: `optional_cost_then` の mill2 は cost。 「相手手札7以上」 gate はコロン後=効果のみ。
+  相手手札 6 以下でも cost (mill2) は支払える。
+- **4828** OP11: 【カウンター】でトラッシュから cost3以下 黒を手札。 トラッシュ枚数 gate なし = 9枚でも可。
+
+### n/a 2 件
+- **476d** ST01: 付与ドンの向き (縦/横) は engine 状態に無関係 (公式「向きを問わない」)。
+- **484e** ST12: 「残りをデッキの上か下に置く」 は 公開したカードに対する処理という 語義確認 = engine
+  状態変化に落ちない。
+
+### escalated 1 件
+- **47e2** OP12 リーダー【ターン1回】reactive: 「場にあるキャラの効果」 以外 (=【トリガー】効果) による
+  登場では発動しない、 という source 帰属の裁定。 対象リーダーの特定が困難 (「元々のコスト7以下」 の
+  閾値表記が card テキストと一致せず grep で 一意化できない) + reactive の source 属性 (character-effect
+  vs trigger) を engine が正しく区別するかの精査が必要。 次バッチへ。

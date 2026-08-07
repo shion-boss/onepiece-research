@@ -506,7 +506,7 @@
     },
     {
      "return_to_hand": {
-      "type": "one_self_chara_filtered",
+      "type": "one_character_either_filtered",
       "filter": {
        "cost_le": 1
       }
@@ -18528,7 +18528,7 @@
    "do": [
     {
      "return_to_hand": {
-      "type": "one_self_chara_filtered",
+      "type": "one_character_either_filtered",
       "filter": {
        "cost_le": 5
       }
@@ -22098,13 +22098,12 @@
      }
     },
     {
-     "play_from_hand": {
+     "play_stage_from_hand": {
       "filter": {
        "category": "STAGE",
        "feature": "ドレスローザ",
        "cost_eq": 1
-      },
-      "limit": 1
+      }
      }
     }
    ]
@@ -27869,7 +27868,7 @@
     },
     {
      "return_to_hand": {
-      "type": "one_self_chara_filtered",
+      "type": "one_character_either_filtered",
       "filter": {
        "cost_le": 5
       }
@@ -28329,16 +28328,38 @@
  ],
  "OP04-094": [
   {
-   "_text": "OP04-094 main: 相手のコスト4以下のキャラ1枚までを選び、KOする。自分のトラッシュが15枚以上ある場合、相手のコスト4以下のキャラの代わりに相手のコスト6以下のキャラを選ぶ。",
+   "_text": "OP04-094 main: 相手のコスト4以下のキャラ1枚までを選び、KOする。自分のトラッシュが15枚以上ある場合、相手のコスト4以下のキャラの代わりに相手のコスト6以下のキャラを選ぶ。 [trash>=15: cost6]",
    "when": "main",
-   "do": [
-    {
-     "ko": "one_opponent_character_cost_le_4"
-    }
-   ],
    "if": {
     "self_trash_count_ge": 15
-   }
+   },
+   "do": [
+    {
+     "ko": {
+      "type": "one_opponent_character_filtered",
+      "filter": {
+       "cost_le": 6
+      }
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP04-094 main: 相手のコスト4以下のキャラ1枚までを選び、KOする。自分のトラッシュが15枚以上ある場合、相手のコスト4以下のキャラの代わりに相手のコスト6以下のキャラを選ぶ。 [trash<=14: cost4]",
+   "when": "main",
+   "if": {
+    "self_trash_count_le": 14
+   },
+   "do": [
+    {
+     "ko": {
+      "type": "one_opponent_character_filtered",
+      "filter": {
+       "cost_le": 4
+      }
+     }
+    }
+   ]
   },
   {
    "_text": "OP04-094 trigger: 自分のリーダーをレストにできる：相手のコスト5以下のキャラ1枚までを、KOする。 [r2]",
@@ -108666,7 +108687,8 @@
        "cost_eq": 1,
        "feature": "麦わらの一味"
       },
-      "limit": 1
+      "limit": 1,
+      "include_stage": true
      }
     }
    ]
