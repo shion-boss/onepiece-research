@@ -6610,3 +6610,81 @@ def test_once_per_turn_is_not_consumed_when_the_optional_cost_is_declined():
     while st.pending_choice is not None:
         resolve_pending_choice(st, [0])
     assert n_acts(st) == 0, "発動したのに【ターン1回】が消費されていない"
+
+
+# --------------------------------------------------------------------------- #
+#  公式 Q&A 全件保証 (2026-08-07): 効果KO免疫のキャラは 自KOコストの弾にできない
+# --------------------------------------------------------------------------- #
+def test_ko_self_chara_cost_excludes_effect_ko_immune_char():
+    """OP05-087 ハクバ 【アタック時】「このキャラ以外の自分のキャラ1枚をKOできる：
+    相手のキャラ1枚までを、このターン中、コスト-5。」
+
+    一次情報 (cardqa_op_05, qid 4c7f708a98f4):
+      Q「この【アタック時】効果で自分のキャラ1枚をKOするとき、自分の
+        『OP03-088 フクロウ』(= このキャラは効果でKOされない) を選んだ場合はどうなりますか？」
+      A「この場合、自分の『OP03-088 フクロウ』はKOされず、この【アタック時】効果で
+        相手のキャラ1枚をコスト-5することはできません。」
+
+    = 効果でKOされないキャラは 自KO **コスト** の弾にできない。 弾が居なければコスト未払い
+      → 後段の -5 は起きない。 退行前は cost ループが免疫を無視して フクロウ をトラッシュ送りし、
+      -5 も適用していた (Python/Rust とも同じ overlay を読むため差分検証では沈黙、公式オラクル
+      でのみ検出)。 通常の ko primitive (effects.py:~3833) と同じ免疫則を cost 側にも適用。
+    """
+    repo, overlay = _repo(), _overlay()
+    # (1) 弾が フクロウ (免疫) だけ → コスト払えず -5 も起きない
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    hakuba = InPlay.of(repo.get("OP05-087"), sickness=False)
+    hakuba.attached_dons = 1                                   # if: self_attached_don_ge 1
+    fukurou = InPlay.of(repo.get("OP03-088"), sickness=False)  # 効果でKOされない
+    me.characters = [hakuba, fukurou]
+    victim = InPlay.of(repo.get(_FILLER), sickness=False)
+    opp.characters = [victim]
+    evaluate_static_effects(st, overlay)
+    assert fukurou.static_ko_immune is True, "フクロウの静的KO耐性が立っていない (前提)"
+    trigger_on_attack(st, me, opp, hakuba, overlay)
+    assert fukurou in me.characters, "免疫の フクロウ が自KOコストで KO された (cardqa_op_05 違反)"
+    assert not any(c.card_id == "OP03-088" for c in me.trash), "フクロウ がトラッシュに送られている"
+    assert victim.cost_minus_until_turn_end == 0, \
+        "弾が免疫キャラだけでコスト未払いなのに -5 が適用された (タダ撃ち)"
+
+    # (2) 対照: 免疫でないキャラが弾なら KO され -5 も適用される
+    st2 = _state(repo, overlay)
+    me2, opp2 = st2.players[0], st2.players[1]
+    hakuba2 = InPlay.of(repo.get("OP05-087"), sickness=False)
+    hakuba2.attached_dons = 1
+    fodder = InPlay.of(repo.get(_FILLER), sickness=False)      # 免疫なし
+    me2.characters = [hakuba2, fodder]
+    victim2 = InPlay.of(repo.get(_FILLER), sickness=False)
+    opp2.characters = [victim2]
+    evaluate_static_effects(st2, overlay)
+    trigger_on_attack(st2, me2, opp2, hakuba2, overlay)
+    assert fodder not in me2.characters, "免疫でない弾が KO されていない (対照が壊れている)"
+    assert victim2.cost_minus_until_turn_end == 5, "コストを払ったのに -5 が適用されていない"
+
+    # 全走査: ko_self_chara を **コスト** に持つカードの網羅 (この修正の適用範囲を固定)。
+    import json as _json
+    ov = _json.load(open(ROOT / "db" / "card_effects.json"))
+    def _walk(o):
+        if isinstance(o, dict):
+            yield o
+            for vv in o.values():
+                yield from _walk(vv)
+        elif isinstance(o, list):
+            for vv in o:
+                yield from _walk(vv)
+    cost_cards = set()
+    for cid, node in ov.items():
+        for d in _walk(node):
+            oct_ = d.get("optional_cost_then")
+            if isinstance(oct_, dict):
+                for c in (oct_.get("cost") or []):
+                    if isinstance(c, dict) and "ko_self_chara" in c:
+                        cost_cards.add(cid)
+            c2 = d.get("cost")
+            if isinstance(c2, list):
+                for x in c2:
+                    if isinstance(x, dict) and "ko_self_chara" in x:
+                        cost_cards.add(cid)
+    assert "OP05-087" in cost_cards and len(cost_cards) >= 10, \
+        f"ko_self_chara-as-cost の網羅が想定外 (現状 {len(cost_cards)} 件): {sorted(cost_cards)}"

@@ -3911,3 +3911,34 @@ inline 発火ブロックを置換する際、 **`assert old in s` を付け忘�
 
 **この項目は 「KO トリガーと field-when の解決モデルを両エンジンで揃える」 という
 独立したリファクタとして扱うべきで、 conformance バッチの片手間では終わらない。**
+
+## 効果でKOされないキャラは 自KO **コスト** の弾にできない (2026-08-07 是正、 cardqa_op_05)
+
+一次情報 (cardqa_op_05, qid 4c7f708a98f4):
+  Q「この【アタック時】効果で自分のキャラ1枚をKOするとき、自分の『OP03-088 フクロウ』を
+    選んだ場合はどうなりますか？」(フクロウ = 「このキャラは効果でKOされない」)
+  A「この場合、自分の『OP03-088 フクロウ』はKOされず、この【アタック時】効果で相手の
+    キャラ1枚をコスト-5することはできません。」
+
+**違反していた点**: OP05-087 ハクバ 【アタック時】「このキャラ以外の自分のキャラ1枚を
+KOできる：相手のキャラ1枚を、このターン中、コスト-5」の `ko_self_chara` **コスト経路** が
+効果KO免疫 (`static_ko_immune` 等) を無視し、 免疫の フクロウ を弾に選べて (a) フクロウ を
+トラッシュ送りにし (b) 弾が免疫キャラだけでも can_pay=True → -5 を適用していた。 通常の `ko`
+primitive (effects.py の opp KO 分岐) は免疫を尊重するのに、 **自KOコスト経路にだけ免疫則が
+無かった** = 経路非対称。 Python/Rust とも同じ overlay を読むため差分検証では原理的に沈黙、
+公式 Q&A オラクルでのみ検出。
+
+**是正**: `ko_self_chara` の payability 判定と実行候補の両方から、 `static_ko_immune` /
+`ko_immune_until_turn_end` / `ko_immune_through_opp_turn` のいずれかを持つキャラを除外
+(通常 `ko` primitive と同じ無条件免疫フラグ)。 免疫キャラは弾にできず、 弾が居なければコスト
+未払い → 後段効果も不発。 Python (`engine/effects.py` cost ループの payability + 実行) と
+Rust (`rust_engine/src/effects.rs` の `cost_payable_one` + `pay_cost_one` の ko_self_chara 分岐)
+を同一意味で是正。 回帰テスト `tests/test_effect_interactions.py::
+test_ko_self_chara_cost_excludes_effect_ko_immune_char` (ハクバ×フクロウ + 免疫なし弾の対照 +
+ko_self_chara-as-cost 全走査)。
+
+**適用範囲**: `ko_self_chara` をコストに持つカードは 13 枚 (EB04-048 / OP03-012 / OP04-073 /
+OP04-111 / OP05-087 / OP06-015 / OP06-083 / OP07-085 / OP13-053 / OP16-008 ほか paralel)、
+効果KO免疫キャラは 35 枚。 単一 primitive 経路の是正で全組合せをカバー (per-card overlay
+変更なし)。 source-scoped 免疫 (パワー/属性条件付き) は自KOでは source=自身の効果で判定が
+割れうるため今回は無条件免疫フラグのみに限定 (Q&A は フクロウ = 静的無条件のみを問う)。

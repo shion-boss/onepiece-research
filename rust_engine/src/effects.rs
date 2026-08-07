@@ -3037,8 +3037,16 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
                 (cv.as_i64().unwrap_or(1) as usize, None, false)
             };
             let src_idx = if let Slot::Char(i) = src { Some(i) } else { None };
+            // 効果でKOされないキャラ (フクロウ OP03-088 等) は 自KOコストの弾にできない
+            // (公式 cardqa_op_05)。 通常の ko primitive と同じ免疫則 (Python effects.py 参照)。
             let cnt = (0..me.characters.len())
-                .filter(|&i| matches_filter_ip(&me.characters[i], filt) && !(excl && Some(i) == src_idx))
+                .filter(|&i| {
+                    let c = &me.characters[i];
+                    matches_filter_ip(c, filt)
+                        && !(excl && Some(i) == src_idx)
+                        && !(c.static_ko_immune || c.ko_immune_until_turn_end
+                             || c.ko_immune_through_opp_turn)
+                })
                 .count();
             Some(cnt >= n)
         }
@@ -3629,8 +3637,12 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
             let src_idx = if let Slot::Char(i) = src { Some(i) } else { None };
             let mut cands: Vec<usize> = (0..state.players[me_idx].characters.len())
                 .filter(|&i| {
-                    matches_filter_ip(&state.players[me_idx].characters[i], filt.as_ref())
+                    let c = &state.players[me_idx].characters[i];
+                    matches_filter_ip(c, filt.as_ref())
                         && !(excl && Some(i) == src_idx)
+                        // 効果KO免疫のキャラは自KOコストの対象外 (payability と同則、cardqa_op_05)
+                        && !(c.static_ko_immune || c.ko_immune_until_turn_end
+                             || c.ko_immune_through_opp_turn)
                 })
                 .collect();
             cands.sort_by_key(|&i| state.players[me_idx].characters[i].power());

@@ -9474,6 +9474,11 @@ def _execute_effect_body_inner(
                         if _matches_filter_ip(c, kc_filt)
                         and not (kc_excl and self_inplay is not None
                                  and c.instance_id == self_inplay.instance_id)
+                        # 効果でKOされないキャラ (フクロウ OP03-088 等) は 自KOコストの弾に
+                        # できない (公式 cardqa_op_05: フクロウを選んでもKOされず、後段の効果も
+                        # 起きない = コスト未払い)。 通常の ko primitive (line ~3833) と同じ免疫則。
+                        and not (c.static_ko_immune or c.ko_immune_until_turn_end
+                                 or c.ko_immune_through_opp_turn)
                     ]
                     if len(matching) < kc_count:
                         can_pay = False
@@ -9975,6 +9980,9 @@ def _execute_effect_body_inner(
                         if _matches_filter_ip(c, kc_filt)
                         and not (kc_excl and self_inplay is not None
                                  and c.instance_id == self_inplay.instance_id)
+                        # 効果KO免疫のキャラは自KOコストの対象外 (payability と同則、上記参照)
+                        and not (c.static_ko_immune or c.ko_immune_until_turn_end
+                                 or c.ko_immune_through_opp_turn)
                     ]
                     cands.sort(key=lambda c: c.power)  # AI 簡易: power 低い順を犠牲
                     if _maybe_pick_self_chara_cost(state, me, self_inplay, cands, kc_count, "ko",
