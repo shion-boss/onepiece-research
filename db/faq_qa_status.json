@@ -2818,7 +2818,7 @@
   "files": [
    "cardqa_op_14.json"
   ],
-  "note": "OP14-080: コスト由来トリガーの解決順 (cardqa_op_14)。**2026-08-07 に 4 度実装を試み、いずれも差し戻し**。到達点: (1) Python=_cost_trigger_buffer / Rust=__cost_on_ko queue 化 / do を rust_resolving=true で実行 / fire_on_ko を 加算・本体 に分離 / **victim 文脈 (last_chara_ko_victim_card) をバッファ中は消さない** / Rust 早期 return でも drain、 の 5 点で **test_rust_apply_don_fidelity は通る**。(2) 残るは 16デッキ差分の ActivateMain 9 件のみ (OP14-079 クロコダイル leader)。差分の実体は『どのカードを捨てたか』の違いで、_worst_hand_idx は counter 昇順ゆえ **Python が正しく Rust の discard 時点の手札が違う**。1 例は Rust 側で victim の【KO時】が発火していない (cards_drawn_count rust=12/py=14)。残仮説= Rust の queue に積んだ __cost_on_ko が一部経路で解決されない。⭐ 4 回とも『差分ハーネスの一部だけ通る』で止まった = **KO トリガーの解決モデルを両エンジンで揃える設計から入るべき**で、パッチ的な順序合わせでは収束しないというのが結論。再現: rust_parity_check.py の MISMATCH 箇所に card_id 粒度 diff を仕込み PARITY_DIFF=1 (blob は Rust=str/Python=dict なので card_id へ畳んでから比較)。",
+  "note": "OP14-080: コスト由来トリガーの解決順 (cardqa_op_14)。**2026-08-07 に 5 度実装を試み、いずれも差し戻し**。5度目は結論どおり『解決モデルを揃える設計』で入り、Rust の fire_activate_main を『コスト払い→効果を enqueue→drain』に分割 (__activate_main pending 種別 + run_activate_main_do 新設、PendingTrigger に eff_idx 追加、rust_cost_trigger_buffer 新設) = Python と同モデルにした。⚠ その過程で **自分の patch script が silent no-op** していた (assert 省略 + 同じキーが _pay_end_of_turn_cost 側にもあり別関数を書き換えていた)。正しい箇所に当て直すと **MISMATCH 9→13 に悪化**。残る乖離の主因は **_enqueue_field_when の粒度差**: Python は『カード単位で enqueue 時にスナップショット』、Rust は『drain 時に場を走査』。cost→do→drain の間に盤面が動くと反応集合が変わる。揃えるには Rust の field-when も enqueue 時スナップショット化が要り fire_field_when は 10 箇所以上から呼ばれる=さらに広い変更。⭐ **この項目は『KO トリガーと field-when の解決モデルを両エンジンで揃える』独立リファクタとして扱うべきで、conformance バッチの片手間では終わらない**。",
   "q": "この【起動メイン】効果でKOした自分のキャラが【KO時】効果を持っていた場合、それは発動できますか？",
   "status": "escalated"
  },

@@ -3880,3 +3880,34 @@ escalate されていたが、 **`db/faq/cardqa_eb_01.json` は存在した**。
 ⭐ **4 回とも 「差分ハーネスの一部だけ通る」 状態で止まっている**。 この項目は
   **KO トリガーの解決モデルを両エンジンで揃える設計** から入るべきで、
   パッチ的な順序合わせでは収束しない、 というのが 4 回の結論。
+
+### 5 度目の試行 (2026-08-07) — モデル整合まで到達。 ⚠ **自分の patch が silent no-op していた**
+
+今回は結論どおり **解決モデルを揃える設計** で入った:
+- Rust の `fire_activate_main` を **「コスト払い → 効果を enqueue → drain」** に分割
+  (`__activate_main` pending 種別 + `run_activate_main_do` を新設)。
+  = Python の `enqueue_event` → `_maybe_resolve` と同じモデル。
+- `PendingTrigger` に `eff_idx` を追加 (内部キューは `#[serde(skip)]` なので digest 不変)。
+- `rust_cost_trigger_buffer` を新設し、 コスト由来トリガーを効果の **後ろ** に流す。
+
+⚠ **ここで自分の patch script が silent no-op していた**。 `ko_self_with_filter` の
+inline 発火ブロックを置換する際、 **`assert old in s` を付け忘れ**、 しかも同じキーが
+`_pay_end_of_turn_cost` 側にもあったため **別の関数を書き換えて成功したつもりになっていた**。
+差分が 4 度目とまったく同一だったことで気付いた。
+⭐ **engine で潰してきた 「silent no-op」 を自分の作業スクリプトでやった**。
+  patch script は必ず `assert old in s` を付ける (同じ文字列が複数箇所にある前提で数も確認する)。
+
+正しい箇所に当て直した結果は **MISMATCH 9 → 13 で悪化**。 モデルは揃ったが別の乖離が出る。
+→ 5 度目も差し戻し。 engine のコードは緑のまま。
+
+### この項目の扱い
+
+5 回の試行で分かったこと:
+- 順序モデルを揃えるだけでは足りない。 **`_enqueue_field_when` の粒度差** が残る —
+  Python は **カード単位で enqueue 時にスナップショット**、 Rust は **drain 時に場を走査**。
+  cost → do → drain の間に盤面が動くと反応集合が変わる。
+- ここを揃えるには Rust の field-when も **enqueue 時スナップショット** にする必要があり、
+  `fire_field_when` は 10 箇所以上から呼ばれる = さらに広い変更。
+
+**この項目は 「KO トリガーと field-when の解決モデルを両エンジンで揃える」 という
+独立したリファクタとして扱うべきで、 conformance バッチの片手間では終わらない。**
