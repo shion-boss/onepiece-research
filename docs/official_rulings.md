@@ -3674,8 +3674,21 @@ KOしない (base 効果が消失) (b) trash>=15 でも cost4 しかKOできず 
   `test_rust_apply_don_fidelity` の EndPhase digest が不一致になった
   (cardrush_1385 ミラー、 OP14-079 クロコダイルの起動メイン = `ko_self_with_filter` で再現)。
 
-根治には **Rust 側も on_ko を queue 化** する必要があり、 `fire_on_ko` は 10 箇所以上から
-inline 前提で呼ばれる = アーキ変更。 → escalated に戻した。
+**その後 2 度目の試行** (2026-08-07): Rust も `__cost_on_ko` として **queue 化** し、
+do を `rust_resolving=true` で実行して nested トリガーをキュー末尾へ回し、
+`fire_on_ko` を 「被KO数の加算」 と 「本体」 に分離して二重カウントも避けた。
+キューの順序は Python と一致させたが **それでも digest 不一致** = **第三の要因が残る**。
+
+候補 (次に着手する人向け):
+- `ko_victim_effect_negated` / `last_chara_ko_victim_card` の **set と consume のタイミング**
+  (コスト時に set → drain 時に読むので、 間に別の KO が挟まると壊れる)
+- `on_self_chara_ko` の enqueue 粒度 (Python は `trigger_on_self_chara_ko`、 Rust は
+  `fire_field_when` で走査範囲が微妙に違う可能性)
+- `fast_clone` と `full_dump` が運ぶ transient の差
+
+⭐ **着手手順**: いきなり設計せず、 まず `test_rust_apply_don_fidelity` の EndPhase で
+**両エンジンの状態を card_id 粒度で diff** して第三要因を特定すること
+(今回は blob の型差 (Rust=str / Python=dict) で diff が埋もれ、 特定に時間を要した)。
 
 ⚠ 再実装時の注意 (実装して分かったこと):
 - Python 側は **人間 modal の早期 return 5 箇所でバッファを閉じないと `_maybe_resolve` が

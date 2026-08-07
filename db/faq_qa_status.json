@@ -2818,7 +2818,7 @@
   "files": [
    "cardqa_op_14.json"
   ],
-  "note": "OP14-080: コスト由来トリガーの解決順 (cardqa_op_14「『パワー+1000』を実行した後で【KO時】が発動」)。engine は即ドレインで逆順。**一度実装したが差し戻した (2026-08-07)**。診断: Python は event_queue 方式なので『効果を先に enqueue → コスト由来を後で流す』で順序を作れるが、**Rust は fire_on_ko を inline 実行する**ため『do を回してから発火』しかできない。この違いにより **do が誘発する入れ子トリガーの相対順序が両エンジンで食い違う** (rust_parity_check/effect_smoke は通るが test_rust_apply_don_fidelity の EndPhase digest が不一致。cardrush_1385 ミラーの OP14-079 クロコダイル起動メイン=ko_self_with_filter で再現)。根治には Rust 側も on_ko を queue 化する必要があり、fire_on_ko は 10 箇所以上から inline 前提で呼ばれる=アーキ変更。⚠ 実装時の注意: Python 側は人間 modal の早期 return 5 箇所でバッファを閉じないと _maybe_resolve が永久 no-op になり全トリガーが止まる。",
+  "note": "OP14-080: コスト由来トリガーの解決順 (cardqa_op_14「『パワー+1000』を実行した後で【KO時】が発動」)。engine は即ドレインで逆順。**2026-08-07 に 2 度実装を試みたが いずれも差し戻した**。試行1(Python=event_queue バッファ / Rust=deferred_ko inline): 差分ハーネス(rust_parity_check/effect_smoke)は MISMATCH=0 を通ったが test_rust_apply_don_fidelity の EndPhase digest が不一致。原因は Rust が do を inline 実行するため do 由来トリガーが先に解決される点。試行2(Rust も __cost_on_ko として queue 化 + do を rust_resolving=true で実行 + fire_on_ko を 加算/本体 に分離して二重カウント回避): キュー順は Python と一致させたが **なお digest 不一致** = 第三の要因が残る(候補: ko_victim_effect_negated / last_chara_ko_victim_card の set-consume タイミング、 on_self_chara_ko の enqueue 粒度、 fast_clone と full_dump の transient 差)。着手する場合は **まず test_rust_apply_don_fidelity の EndPhase で両エンジンの状態を card_id 粒度で diff** して第三要因を特定してから設計すること。⚠ 実装知見: Python 側は人間 modal の早期 return 7 箇所でバッファを閉じないと _maybe_resolve が永久 no-op になり全トリガーが止まる。",
   "q": "この【起動メイン】効果でKOした自分のキャラが【KO時】効果を持っていた場合、それは発動できますか？",
   "status": "escalated"
  },
