@@ -5806,6 +5806,47 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             me.deck.push(removed.card);
             true
         }
+        // ⭐ 公式 「**相手は**(自身の)手札N枚を捨てる」 = **手札の持ち主 (相手) が選ぶ**
+        // (cardqa_op_01「手札の持ち主である相手が選びます」/ cardqa_st_18)。
+        // ⚠ 対照: 「**相手の**手札N枚を捨てる」 は発動者が **裏向きで** 選ぶ (cardqa_op_03/st_10)
+        //   = ランダムが忠実なモデル → そちらは trash_opp_hand_random のまま。
+        // AI は worst_hand_idx (= counter 低 → cost 低 → power 低。 防御札を温存)。
+        "opp_discard_own_choice" => {
+            let n = if v.is_object() {
+                v.get("amount").or_else(|| v.get("count")).and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            };
+            // 人間相手の pick は Python が pending_choice で halt するので、 ここには
+            // AI 経路 (= 選択の余地なし or AI 所有) だけが来る。 picks 注入経路も同順で処理。
+            if let Some(picks) = v.get("_opp_hand_picks").and_then(|x| x.as_array()) {
+                let mut idxs: Vec<usize> = picks
+                    .iter()
+                    .filter_map(|x| x.as_i64())
+                    .map(|i| i as usize)
+                    .collect();
+                idxs.sort_unstable();
+                idxs.dedup();
+                let o = &mut state.players[opp_idx];
+                for i in idxs.into_iter().rev() {
+                    if i < o.hand.len() {
+                        let c = o.hand.remove(i);
+                        o.trash.push(c);
+                    }
+                }
+                return true;
+            }
+            for _ in 0..n {
+                let o = &mut state.players[opp_idx];
+                if o.hand.is_empty() {
+                    break;
+                }
+                let Some(i) = worst_hand_idx(&o.hand, &o.known_hand_card_ids) else { break };
+                let c = o.hand.remove(i);
+                o.trash.push(c);
+            }
+            true
+        }
         // 相手は自身の手札 N 枚をデッキ下へ (effects.py:opp_hand_to_deck_bottom)。 AI は worst_hand_idx。
         "opp_hand_to_deck_bottom" => {
             let n = if v.is_object() {
@@ -9524,7 +9565,8 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "chara_to_trash" | "chara_to_self_life" | "scry_life" | "scry_all_life_one_to_deck"
             | "mill_self_life_until_n" | "set_base_cost_timed" | "give_ko_immune_through_opp_turn"
             | "to_hand_self_trigger" | "rest_multi" | "ko_total_power_le" | "ko_multi"
-            | "opp_hand_to_deck_bottom" | "opp_hand_to_deck_then_draw" | "extra_turn"
+            | "opp_hand_to_deck_bottom" | "opp_discard_own_choice"
+            | "opp_hand_to_deck_then_draw" | "extra_turn"
             | "disable_blocker" | "disable_opp_on_play_through_opp_turn" | "set_battle_ko_immune"
             | "rest_self_cards_filtered" | "ko_self_chara" | "fire_self_main"
             | "replace_ko_complex" | "draw_per_self_hand_discarded"

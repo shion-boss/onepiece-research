@@ -7831,6 +7831,59 @@ def _execute_effect_body(
                 opp.don_remaining_in_deck += take_r
                 removed += take_r
             state.push_log(f"  効果: 相手ドン {removed} 枚をドンデッキへ戻す")
+        elif k == "opp_discard_own_choice":
+            # ⭐ 公式 「**相手は**(自身の)手札N枚を捨てる」 = **手札の持ち主 (相手) が選ぶ**。
+            #   一次情報:
+            #     cardqa_op_01「この【登場時】効果で捨てるカードは相手が選びますか？」
+            #       → 「はい、 **手札の持ち主である相手が選びます**。」
+            #     cardqa_st_18「…どちらのプレイヤーが手札を2枚捨てますか？」 → 「この【登場時】
+            #       効果を発動していない側のプレイヤーが、 そのプレイヤーの手札から2枚選び…」
+            #   ⚠ 対照: 「**相手の**手札N枚を捨てる」 は **発動者が裏向きで選ぶ**
+            #     (cardqa_op_03 / cardqa_st_10) = ランダムが忠実なモデル。
+            #     → そちらは trash_opp_hand_random のままでよい。 書き分けを潰さないこと。
+            #   ⚠ 2026-08-07 まで両方を trash_opp_hand_random (= ランダム) にしており、
+            #     「相手が選ぶ」 型が **本来より強く** なっていた (相手は最も惜しくない札を
+            #     捨てられるはずが、 キーカードがランダムで飛んでいた)。 対象 20 枚。
+            _od_n = int(v) if not isinstance(v, dict) else int(v.get("amount", v.get("count", 1)))
+            _od_picks = v.get("_opp_hand_picks") if isinstance(v, dict) else None
+            _opp_idx = next((i for i, pl in enumerate(state.players) if pl is opp), None)
+            if (_od_picks is None and opp.hand and len(opp.hand) > _od_n
+                    and state.human_player_idx is not None
+                    and _opp_idx == state.human_player_idx):
+                # 相手が人間 → 本人に選ばせる (= 選択肢の平等)。 捨てるのは強制なので optional 無し。
+                state.pending_choice = {
+                    "kind": "opp_discard_own_choice_pick",
+                    "primitive_kind": "opp_discard_own_choice",
+                    "primitive_value": (dict(v) if isinstance(v, dict) else {"amount": _od_n}),
+                    "actor_idx": _opp_idx,
+                    "_actor_idx": _opp_idx,
+                    "limit": _od_n,
+                    "candidates": [
+                        {"hand_idx": i, "card_id": c.card_id, "name": c.name,
+                         "cost": int(c.cost) if c.cost is not None else 0,
+                         "power": int(c.power) if c.power is not None else 0}
+                        for i, c in enumerate(opp.hand)
+                    ],
+                    "description": f"相手の効果: 自分の手札から {_od_n} 枚を選んで捨てる",
+                }
+                state.push_log("  効果: 相手 (人間) が捨てる手札を選択 待ち")
+                return True
+            if _od_picks is not None:
+                for i in sorted(set(_od_picks), reverse=True):
+                    if 0 <= i < len(opp.hand):
+                        opp.trash.append(opp.hand.pop(i))
+                state.push_log(f"  効果: 相手が自身の手札 {len(set(_od_picks))} 枚を選んで捨てた")
+            else:
+                # AI (または候補 <= N で選択の余地なし): 最も惜しくない札を捨てる
+                _moved = 0
+                for _ in range(_od_n):
+                    if not opp.hand:
+                        break
+                    opp.trash.append(
+                        opp.hand.pop(_worst_hand_idx(opp.hand, opp.known_hand_card_ids))
+                    )
+                    _moved += 1
+                state.push_log(f"  効果: 相手が自身の手札 {_moved} 枚を選んで捨てた")
         elif k == "opp_hand_to_deck_bottom":
             # 相手は自身の手札 N 枚を選び デッキの下に置く。 = 相手が選ぶ → 相手=AI は最悪札を手放す
             # (良い札を残す)。 相手=人間は本来選ばせるべきだが 非 actor halt 未整備 → 最悪札 default。
@@ -10343,6 +10396,28 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         execute_effect({target_primitive: new_spec}, state, me, opp, self_inplay)
         return
 
+    if kind == "opp_discard_own_choice_pick":
+        # 「相手は自身の手札N枚を捨てる」 の相手側選択 (= 手札の持ち主が選ぶ、 cardqa_op_01)。
+        # 捨てること自体は強制なので、 picks が足りなければ最悪札で補完する。
+        candidates = choice.get("candidates", [])
+        actor_idx = int(choice.get("actor_idx", state.turn_player_idx))
+        a_me = state.players[actor_idx]
+        a_opp = state.players[1 - actor_idx]
+        limit = int(choice.get("limit", 1))
+        valid = [i for i in picks if 0 <= i < len(candidates)]
+        hand_idxs = [int(candidates[i]["hand_idx"]) for i in valid][:limit]
+        state.pending_choice = None
+        spec = dict(choice.get("primitive_value") or {})
+        if len(hand_idxs) < limit:
+            # 不足分は最悪札で補完 (= 「捨てる」 は強制。 0 枚 skip を許すと違反になる)
+            remaining = [i for i in range(len(a_me.hand)) if i not in hand_idxs]
+            need = min(limit - len(hand_idxs), len(remaining))
+            for _ in range(need):
+                w = _worst_hand_idx([a_me.hand[i] for i in remaining], a_me.known_hand_card_ids)
+                hand_idxs.append(remaining.pop(w))
+        spec["_opp_hand_picks"] = hand_idxs
+        execute_effect({"opp_discard_own_choice": spec}, state, a_opp, a_me, None)
+        return
     if kind == "opp_optional_play_from_hand":
         # ⭐ 公式 「相手は自身の手札から…キャラカード1枚**まで**を、 登場させる」 の相手側判断。
         #   picks が空 = **登場させない** (= 「まで」 なので 0 枚が正当)。

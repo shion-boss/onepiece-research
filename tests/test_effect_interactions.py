@@ -6064,3 +6064,88 @@ def test_self_chara_cost_ge_count_overlays_are_plain_cost_not_printed():
         "self_chara_cost_ge_count (= 現在コスト判定) の効果エントリが 「元々の」 を意図:\n  "
         + "\n  ".join(bad)
     )
+
+
+# =========================================================================== #
+#  手札の chooser 帰属 (2026-08-07)
+#    公式は 盤面と同じく 手札でも 「相手は」 と 「相手の」 を書き分ける:
+#      「**相手は**(自身の)手札N枚を捨てる」 → **手札の持ち主 (相手) が選ぶ**
+#        cardqa_op_01「この【登場時】効果で捨てるカードは相手が選びますか？」
+#                   → 「はい、 **手札の持ち主である相手が選びます**。」
+#        cardqa_st_18「…この【登場時】効果を発動していない側のプレイヤーが、 そのプレイヤーの
+#                     手札からカードを2枚選び、 そのプレイヤーのトラッシュに置きます。」
+#      「**相手の**手札N枚を捨てる」 → **発動者が裏向きで選ぶ** (= ランダムが忠実)
+#        cardqa_op_03 / cardqa_st_10「発動したプレイヤーが、 相手の手札を裏向きの状態で2枚選びます」
+#    ⚠ 2026-08-07 まで両方を trash_opp_hand_random (= ランダム) にしており、
+#      「相手が選ぶ」 型が **本来より強かった** (相手は惜しくない札を捨てられるはずが
+#      キーカードがランダムで飛んでいた)。 対象 20 枚。
+# =========================================================================== #
+def test_opponent_chooses_which_of_their_own_hand_cards_to_discard():
+    """「相手は自身の手札1枚を捨てる」 は **決定的に相手の選択** で解決する (ランダムでない)。"""
+    import json
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    raw = json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+    hi = next(c for c in raw
+              if c["category"] == "CHARACTER" and str(c.get("counter") or "") == "2000")
+    lo = next(c for c in raw
+              if c["category"] == "CHARACTER" and str(c.get("counter") or "0") in ("", "0", "-"))
+
+    def run(seed, prim):
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 10
+            p.life = [repo.get("OP01-013")] * 3
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(seed), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 0, 5
+        p1.hand = [repo.get(hi["card_id"]), repo.get(lo["card_id"])]
+        execute_effect(prim, st, p0, p1, None)
+        return p1.trash[0].card_id
+
+    chosen = {run(s, {"opp_discard_own_choice": 1}) for s in range(8)}
+    assert len(chosen) == 1, f"相手の選択が seed で変わる (= ランダムのまま): {chosen}"
+    assert hi["card_id"] not in chosen, \
+        "相手が高カウンターの防御札を捨てている (= 惜しくない札を選べていない)"
+    # 対照: 「相手の手札」 (= 発動者が裏向きで選ぶ) は random のままが忠実
+    rnd = {run(s, {"trash_opp_hand_random": 1}) for s in range(8)}
+    assert len(rnd) > 1, "trash_opp_hand_random が決定的になっている (裏向き選択の忠実性が壊れた)"
+
+
+def test_hand_chooser_attribution_matches_official_wording_whole_corpus():
+    """⭐ 全走査: 「相手は自身の手札…捨てる」 = opp_discard_own_choice /
+    「相手の手札…捨てる」 = trash_opp_hand_random (= 裏向き) の書き分けが崩れていない。"""
+    import json
+    import re
+
+    cards = {c["card_id"]: c
+             for c in json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    # 「相手の手札が N 枚以上」 は **条件節** なので対象指定と混同しない
+    SELF = re.compile(r"相手は[、]?(?:自身の|自分の)?手札[^。]{0,24}?捨て")
+    ACTOR = re.compile(r"相手の手札(?!が)[^。]{0,20}?捨て")
+
+    bad: list[str] = []
+    for cid, effs in sorted(ov.items()):
+        if not isinstance(effs, list) or cid.startswith("_"):
+            continue
+        card = cards.get(cid)
+        if not card:
+            continue
+        full = re.sub(r"\s+", "", (card.get("text") or "") + (card.get("trigger") or ""))
+        blob = json.dumps(effs, ensure_ascii=False)
+        has_self, has_actor = bool(SELF.search(full)), bool(ACTOR.search(full))
+        uses_rand = ("trash_opp_hand_random" in blob) or ("force_opp_discard" in blob)
+        uses_choice = "opp_discard_own_choice" in blob
+        if has_self and not has_actor and uses_rand and not uses_choice:
+            bad.append(f"{cid}: 「相手は自身の手札…捨てる」 なのにランダム")
+        if has_actor and not has_self and uses_choice:
+            bad.append(f"{cid}: 「相手の手札…捨てる」 (裏向き) なのに相手選択になっている")
+
+    assert not bad, "手札 chooser の書き分けが overlay と不一致:\n  " + "\n  ".join(bad)
