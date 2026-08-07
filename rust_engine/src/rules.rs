@@ -655,6 +655,10 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             state.last_self_chara_played_card = Some(card);
             state.last_self_chara_played_from_trash = false; // 手札からの登場
             // on_play 効果 + 登場 cascade を fidelity 保証で実行 (未対応は Err で bail = 黙って間違えない)。
+            // 通常の登場 (手札からプレイ) は 「キャラの効果による登場」 ではない
+            // (cardqa_op_12 / OP12-081)。 transient を必ずリセットしてから発火する
+            // (⚠ #[serde(skip)] なので前の効果の値が残る)。
+            state.rust_play_source_is_field_chara = false;
             crate::effects::execute_on_play(state, me, played_idx)?;
             Ok(())
         }
@@ -1459,6 +1463,8 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             // trigger_on_play context (effects.py:10640、 stage も trigger_on_play を通る)
             state.last_self_chara_played_card = Some(card.clone());
             state.last_self_chara_played_from_trash = false;
+            // 通常のステージ登場も 「キャラの効果による登場」 ではない (cardqa_op_12)。
+            state.rust_play_source_is_field_chara = false;
             // stage の on_play 効果 (未対応 primitive は diverge)
             crate::effects::execute_stage_on_play(state, me, played_idx)?;
             Ok(())

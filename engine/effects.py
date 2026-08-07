@@ -160,7 +160,12 @@ def enqueue_event(
     source_iid: Optional[int] = None,
     payload: Optional[dict] = None,
 ) -> None:
-    """トリガーをキューに追加。 resolve_triggers を別途呼ぶ必要あり。"""
+    """トリガーをキューに追加。 resolve_triggers を別途呼ぶ必要あり。
+
+    ⚠ **未解決**: 公式はコスト支払い中に誘発したトリガーを **現在の効果の解決後** に
+      発動させる (cardqa_op_14 / OP14-080)。 engine は即ドレインしており順序が逆。
+      詳細と差し戻しの経緯は docs/official_rulings.md を参照 (escalated)。
+    """
     state.event_queue.append(
         TriggerEvent(
             when=when,
@@ -1595,6 +1600,12 @@ def eval_condition(
             # by_battle: True = バトル由来 (= 効果由来ではない)
             actual_by_battle = not actual_by_opp_eff
             if bool(v) != actual_by_battle:
+                return False
+        elif k == "played_chara_by_field_chara_effect":
+            # 公式 (cardqa_op_12、 OP12-081 コアラ): 「**キャラの効果で**キャラを登場させた時」
+            #   = **場にあるキャラ** の効果による登場のみ。 【トリガー】効果による登場は
+            #   「『場にあるキャラの効果』以外の効果」 なので **該当しない** (公式=いいえ)。
+            if bool(getattr(state, "last_chara_played_by_field_chara", False)) != bool(v):
                 return False
         elif k == "played_chara_truly_original_cost_ge":
             # 直近の opp_chara_played カードの 「元々のコスト」 が N 以上 (OP12-081 コアラ)
@@ -3528,6 +3539,25 @@ def _execute_effect_body(
     self_inplay: Optional[InPlay] = None,
 ) -> bool:
     """execute_effect の 本体 (= audit hook を 外した 純粋 logic)。"""
+    # ⭐ 「**キャラの効果で**キャラを登場させた時」 (OP12-081) の判定用に、 いま実行中の
+    #   効果の **発動元 InPlay** を state に保持する (入れ子は save/restore で内側優先)。
+    #   trigger_on_play がこれを読んで last_chara_played_by_field_chara を決める。
+    _prev_src_ip = getattr(state, "_effect_source_ip", None)
+    state._effect_source_ip = self_inplay
+    try:
+        return _execute_effect_body_inner(spec, state, me, opp, self_inplay)
+    finally:
+        state._effect_source_ip = _prev_src_ip
+
+
+def _execute_effect_body_inner(
+    spec: EffectSpec,
+    state: GameState,
+    me: Player,
+    opp: Player,
+    self_inplay: Optional[InPlay] = None,
+) -> bool:
+    """_execute_effect_body の実体 (発動元追跡の wrapper を挟むため分離)。"""
     for k, v in spec.items():
         if k == "choice_effect":
             # 公式: 「以下から 1 つを選ぶ: ・効果A ・効果B」 等 の 分岐 効果。
@@ -11899,6 +11929,15 @@ def trigger_on_play(
     OP04-024 シュガー 等 (公式 7-1-1-7)。
     """
     me_idx = state.players.index(me)
+    # ⭐ 「キャラの効果でキャラを登場させた時」 (cardqa_op_12 / OP12-081) の判定。
+    #   **場にあるキャラ** の効果でなければ該当しない (トリガー/イベント/リーダーは不可)。
+    _src_ip = getattr(state, "_effect_source_ip", None)
+    state.last_chara_played_by_field_chara = bool(
+        _src_ip is not None
+        and _src_ip.card.category == Category.CHARACTER
+        and (any(c is _src_ip for c in me.characters)
+             or any(c is _src_ip for c in opp.characters))
+    )
     # payload-aware context: 自分の場の効果 (= OP02-026 サンジ等) が played カードを参照可
     state.last_self_chara_played_card = self_inplay.card
     # 登場した InPlay 自身を指す context (= OP16-079 ヤマト「そのキャラ」 target / トラッシュ起源 gate)。
@@ -14949,6 +14988,7 @@ def fire_activate_main(
         人間 acting + 候補 > 1 の cost (= ko_self_with_filter / rest_self_target_name)
         で modal halt → 解決後 cost_picks 付き で 再呼出 する。
     """
+
     is_resume = cost_picks is not None
     if cost_picks is None:
         cost_picks = {}

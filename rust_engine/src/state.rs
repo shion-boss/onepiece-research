@@ -483,12 +483,20 @@ pub struct GameState {
     pub last_self_chara_played_card: Option<CardDef>,
     // last_self_chara_played_iid は instance_id タグ = Rust 再現不可 → canonical から除外 (Python _EXCLUDE と一致)
     pub last_self_chara_played_from_trash: bool,
+    /// 公式 (cardqa_op_12、 OP12-081 コアラ): 「**キャラの効果で**キャラを登場させた時」 =
+    /// **場にあるキャラ** の効果による登場のみ (トリガー/イベント/リーダーは該当しない)。
+    #[serde(skip)]
+    pub last_chara_played_by_field_chara: bool,
     pub last_trigger_kept_in_hand: bool,
     // current_source_card_id: 効果処理中だけ立つ transient (effects.py:297 で set / 504 で restore)。
     // action 境界では常に None (= Python setattr で digest 不参照) → skip。 play_self 等 self_inplay=None の
     // source-gone 効果が「発動元カード」を特定するのに使う。
     #[serde(skip)]
     pub current_source_card_id: Option<String>,
+    /// いま実行中の効果の発動元が **場のキャラ** か (Python の state._effect_source_ip 相当)。
+    /// 「キャラの効果でキャラを登場させた時」 (cardqa_op_12 / OP12-081) の判定に使う。
+    #[serde(skip)]
+    pub rust_play_source_is_field_chara: bool,
     // アタック解決中だけ立つ transient。 opp_attack 系の条件 (opp_attacker_attribute) が参照する。
     // Python は current_attacker_iid から InPlay を引くが、 Rust は iid が無いので属性を直接持つ。
     #[serde(skip)]

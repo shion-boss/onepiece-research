@@ -1427,6 +1427,9 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         state.push_log(f"play: {card.name} (cost {card.cost} pay {eff_cost})")
         if state.effects_overlay:
             from .effects import trigger_on_play
+            # 通常の登場 (手札からプレイ) は 「キャラの効果による登場」 ではない
+            # (cardqa_op_12 / OP12-081)。 発動元をクリアしてから発火する。
+            state._effect_source_ip = None
             trigger_on_play(state, me, opp, ip, state.effects_overlay)
         return
 
@@ -1481,6 +1484,9 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         if state.effects_overlay:
             from .effects import trigger_on_play
             # 3-8-3: ステージエリアに置くことも「登場」 → 【登場時】を発動可
+            # 通常の登場 (手札からプレイ) は 「キャラの効果による登場」 ではない
+            # (cardqa_op_12 / OP12-081)。 発動元をクリアしてから発火する。
+            state._effect_source_ip = None
             trigger_on_play(state, me, opp, ip, state.effects_overlay)
         return
 

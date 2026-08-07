@@ -6500,3 +6500,49 @@ def test_op04_094_ko_cost_threshold_upgrades_with_trash_and_counts_self():
     # trash<15 で コスト6キャラは 対象外
     remain6b, _ = _play(5, c6)  # 発動後 trash=6 (<15)
     assert remain6b == 1, "trash<15 なのに コスト6キャラを KO している (= upgrade が誤発火)"
+
+
+def test_play_by_field_character_effect_vs_trigger_effect():
+    """OP12-081 コアラ: 「**キャラの効果で**キャラを登場させた時」 = **場にあるキャラ** の効果のみ。
+
+    一次情報 (cardqa_op_12): 「相手がキャラカードの【トリガー】効果で元々のコスト7以下の
+    キャラを登場させた時、 この【ターン1回】効果は発動できますか？」 → 「**いいえ**。
+    『場にあるキャラの効果』以外の効果によって…登場したときには…発動できません。
+    そのため、 【トリガー】効果による…登場では発動できません。」
+
+    ⚠ engine は Q&A の答え自体は満たしていたが、 それは overlay が **この分岐を丸ごと
+      未実装だった** ため。 正しくは 「場のキャラの効果による登場では **発動する**」 が
+      抜けており、 別の違反 (under-firing) だった。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, trigger_on_play
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def run(by_field_chara: bool):
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP12-081"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 10
+            p.life = [repo.get("OP01-013")] * 3
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 0, 5
+        if by_field_chara:
+            src = InPlay.of(repo.get("OP01-016"), sickness=False)
+            p0.characters = [src]
+            st._effect_source_ip = src
+        else:
+            st._effect_source_ip = None      # 【トリガー】効果 = 場のキャラの効果ではない
+        ip = InPlay.of(repo.get("OP01-013"), sickness=True)   # cost2 (= 8 未満)
+        p0.characters.append(ip)
+        life_before = len(p0.life)
+        trigger_on_play(st, p0, p1, ip, ov)
+        return len(p0.life) < life_before
+
+    assert run(True), "場のキャラの効果による登場で発動していない (= 分岐が未実装)"
+    assert not run(False), \
+        "【トリガー】効果による登場で発動している (公式=いいえ、 cardqa_op_12)"

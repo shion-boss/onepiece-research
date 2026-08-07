@@ -3654,3 +3654,52 @@ KOしない (base 効果が消失) (b) trash>=15 でも cost4 しかKOできず 
   登場では発動しない、 という source 帰属の裁定。 対象リーダーの特定が困難 (「元々のコスト7以下」 の
   閾値表記が card テキストと一致せず grep で 一意化できない) + reactive の source 属性 (character-effect
   vs trigger) を engine が正しく区別するかの精査が必要。 次バッチへ。
+
+---
+
+## 「キャラの効果で登場」 の source 帰属 (2026-08-07) / コスト由来トリガー順は差し戻し
+
+### ① OP14-080 — コスト由来トリガーの解決順 (**実装したが差し戻した = escalated**)
+
+一次情報 (`cardqa_op_14`): 「この【起動メイン】効果でKOした自分のキャラが【KO時】効果を
+持っていた場合、 それは発動できますか？」 → 「はい。 **『…パワー+1000。』を実行した後で**、
+そのキャラの【KO時】効果が発動します。」 engine は即ドレインで **順序が逆**。
+
+一度両エンジンに実装したが、 **差し戻した**。 診断:
+- **Python は event_queue 方式** なので 「効果を先に enqueue → コスト由来を後で流す」 で
+  順序を作れる (`_cost_trigger_buffer`)。
+- **Rust は `fire_on_ko` を inline 実行する** ので 「do を回してから発火」 しかできない。
+- この違いで **do が誘発する入れ子トリガーの相対順序が食い違う**。
+  `rust_parity_check` / `rust_effect_smoke_parity` は通るのに
+  `test_rust_apply_don_fidelity` の EndPhase digest が不一致になった
+  (cardrush_1385 ミラー、 OP14-079 クロコダイルの起動メイン = `ko_self_with_filter` で再現)。
+
+根治には **Rust 側も on_ko を queue 化** する必要があり、 `fire_on_ko` は 10 箇所以上から
+inline 前提で呼ばれる = アーキ変更。 → escalated に戻した。
+
+⚠ 再実装時の注意 (実装して分かったこと):
+- Python 側は **人間 modal の早期 return 5 箇所でバッファを閉じないと `_maybe_resolve` が
+  永久 no-op になり全トリガーが止まる**。
+- 効果不発 / 効果無効の経路でも **コストは払い済み** なので KO時 は発動させる。
+- ⭐ **差分ハーネスが通っても安心できない**。 このケースは 16 デッキ差分と効果スモークを
+  両方通り抜け、 `test_rust_apply_don_fidelity` (= fast_clone vs full_dump の EndPhase 比較)
+  だけが捕まえた。 **検査は 1 本で足りない**。
+
+### ② OP12-081 コアラ — 「キャラの効果で登場」 は **場にあるキャラ** 限定
+
+一次情報 (`cardqa_op_12`): 「相手がキャラカードの【トリガー】効果で元々のコスト7以下の
+キャラを登場させた時、 この【ターン1回】効果は発動できますか？」 → 「**いいえ**。
+『**場にあるキャラの効果**』以外の効果によって…登場したときには…発動できません。」
+
+⭐ **engine は Q&A の答えを満たしていたが、 理由が間違っていた**。 overlay が
+「キャラの効果で登場」 分岐を **丸ごと未実装** だっただけで、 正しくは
+「場のキャラの効果による登場では **発動する**」 が抜けていた = 別の違反 (under-firing)。
+
+実装: 発動元 InPlay を state に保持し (`_effect_source_ip` / Rust は
+`rust_play_source_is_field_chara`、 いずれも `execute_effect` 入口で save/restore)、
+`trigger_on_play` が `last_chara_played_by_field_chara` を決める。
+新条件 `played_chara_by_field_chara_effect` を両エンジンに実装し、 既存の cost≥8 分岐と
+【ターン1回】 を共有キー (`"OP12-081:reactive"`) で統合。
+
+⭐ **教訓 (再掲)**: 「Q&A の答えが合っている」 は 「実装が正しい」 と同義ではない。
+**なぜ合っているのか** を確認すると、 未実装ゆえの偶然だったことがある。

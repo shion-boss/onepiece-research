@@ -545,6 +545,11 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                 None => false,
             },
             // 直近に登場した **相手** キャラの元々コスト >= N (effects.py:1464)
+            // 公式 (cardqa_op_12 / OP12-081): 「キャラの効果でキャラを登場させた時」 =
+            // **場にあるキャラ** の効果のみ。【トリガー】効果による登場では発動しない。
+            "played_chara_by_field_chara_effect" => {
+                state.last_chara_played_by_field_chara == v.as_bool().unwrap_or(true)
+            }
             "played_chara_truly_original_cost_ge" => match &state.last_opp_chara_played_card {
                 Some(c) => c.cost as i64 >= v.as_i64().unwrap_or(0),
                 None => false,
@@ -3658,6 +3663,17 @@ pub fn apply_raw_effect(prim: &Value, state: &mut GameState, me_idx: usize) -> b
 /// fidelity 原則: 未対応 primitive は何もしない (誤適用ゼロ)。 rng を使う primitive
 /// (trash_self_hand_random 等) は Rust で bit 再現不可なので未対応扱い。
 fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> bool {
+    // ⭐ 「キャラの効果でキャラを登場させた時」 (cardqa_op_12 / OP12-081) の判定用。
+    //   いま実行中の効果の発動元が **場のキャラ** かを保持 (入れ子は内側優先で save/restore)。
+    //   Python の state._effect_source_ip と同じ役割。
+    let _prev_pf = state.rust_play_source_is_field_chara;
+    state.rust_play_source_is_field_chara = matches!(src, Slot::Char(_));
+    let _r = execute_effect_inner(prim, state, me_idx, src);
+    state.rust_play_source_is_field_chara = _prev_pf;
+    _r
+}
+
+fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> bool {
     let opp_idx = 1 - me_idx;
     let Some((key, v)) = prim.as_object().and_then(|o| o.iter().next()) else { return true };
     match key.as_str() {
@@ -9457,6 +9473,10 @@ fn try_replace_rest(
 /// (turn-first FIFO = Python の _maybe_resolve 順)。 各段 fire は fidelity 保証(未対応は Err で bail)。
 pub fn execute_on_play(state: &mut GameState, me_idx: usize, played_idx: usize) -> Result<(), String> {
     let opp = 1 - me_idx;
+    // ⭐ 「キャラの効果でキャラを登場させた時」 (cardqa_op_12 / OP12-081) 判定用。
+    //   ここは **効果由来の登場** 経路 (play_from_hand 等) からも通常登場からも呼ばれるので、
+    //   呼出側が state.rust_play_source_is_field_chara に立てた値をそのまま反映する。
+    state.last_chara_played_by_field_chara = state.rust_play_source_is_field_chara;
     let card_id = state.players[me_idx].characters[played_idx].card.card_id.clone();
     // Python (effects.py:trigger_on_play) は ①②③ を **enqueue** してから _maybe_resolve を呼ぶ。
     // _maybe_resolve は resolving=true (= 既にトリガー解決中) なら no-op なので、 **トリガーの中で
@@ -12020,6 +12040,9 @@ pub fn fire_counter_events(
 
 /// ステージ登場時の on_play 効果を実行 (game.py:PlayStage → trigger_on_play)。 played_idx = me.stages の末尾。
 pub fn execute_stage_on_play(state: &mut GameState, me_idx: usize, played_idx: usize) -> Result<(), String> {
+    // ⭐ Python の trigger_on_play は category を問わず last_chara_played_by_field_chara を
+    //   立てる (cardqa_op_12 / OP12-081) ので、 STAGE 経路でも同じく反映する。
+    state.last_chara_played_by_field_chara = state.rust_play_source_is_field_chara;
     // Python (effects.py:trigger_on_play) は category を問わず on_play を **enqueue** してから
     // _maybe_resolve を呼ぶ (= 解決中ならその場では発火せず後回し)。 以前はここで
     // execute_card_effects を直接呼んでいたため、 STAGE 登場の on_play が (character の
@@ -12293,6 +12316,8 @@ pub fn fire_activate_main(
                 state.ko_victim_effect_negated = neg;
                 // last_chara_ko_victim_card set (victim_* 条件用)、 cascade 完了後 None (Python 準拠)。
                 state.last_chara_ko_victim_card = None; // 効果 cascade は nested=deferred で victim None
+                // ⚠ **未解決**: 公式はコスト由来の【KO時】を効果本体の解決後に発動させる
+                //   (cardqa_op_14 / OP14-080)。 差し戻しの経緯は docs/official_rulings.md 参照。
                 let mut err: Option<String> = None;
                 if let Err(e) = fire_on_ko(state, me_idx, &vcid, false) {
                     err = Some(e);

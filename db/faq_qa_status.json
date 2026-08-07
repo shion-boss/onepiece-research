@@ -2818,7 +2818,7 @@
   "files": [
    "cardqa_op_14.json"
   ],
-  "note": "OP14-080 ゲッコー・モリア 起動メイン (自KO cost → 全体+1000)。 公式: 「パワー+1000を実行した後で、そのキャラの【KO時】効果が発動」。 実測は逆順 (KO時 draw が先、 +1000 が後)。 原因: fire_activate_main が cost 支払い時に trigger_on_ko→_maybe_resolve を即ドレインし、 do (activate_main event) の enqueue より前に KO時 を解決してしまう。 cost 由来の trigger は現行効果 (do) の解決後に drain すべき = resolution ordering のアーキ問題。 blast radius = activate_main/end_of_turn の全 cost-KO (+battle/counter cost も同型の可能性) で systemic、 Python/Rust 両方の drain 順序変更が要る為 escalate。 修正案: do を先に enqueue、 cost 支払い中は resolving guard で on_ko 即ドレインを抑止。",
+  "note": "OP14-080: コスト由来トリガーの解決順 (cardqa_op_14「『パワー+1000』を実行した後で【KO時】が発動」)。engine は即ドレインで逆順。**一度実装したが差し戻した (2026-08-07)**。診断: Python は event_queue 方式なので『効果を先に enqueue → コスト由来を後で流す』で順序を作れるが、**Rust は fire_on_ko を inline 実行する**ため『do を回してから発火』しかできない。この違いにより **do が誘発する入れ子トリガーの相対順序が両エンジンで食い違う** (rust_parity_check/effect_smoke は通るが test_rust_apply_don_fidelity の EndPhase digest が不一致。cardrush_1385 ミラーの OP14-079 クロコダイル起動メイン=ko_self_with_filter で再現)。根治には Rust 側も on_ko を queue 化する必要があり、fire_on_ko は 10 箇所以上から inline 前提で呼ばれる=アーキ変更。⚠ 実装時の注意: Python 側は人間 modal の早期 return 5 箇所でバッファを閉じないと _maybe_resolve が永久 no-op になり全トリガーが止まる。",
   "q": "この【起動メイン】効果でKOした自分のキャラが【KO時】効果を持っていた場合、それは発動できますか？",
   "status": "escalated"
  },
@@ -2998,9 +2998,9 @@
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "OP12 リーダー【ターン1回】reactive の source帰属(場のキャラ効果 vs トリガー効果)。対象カード特定困難(閾値表記差)+source属性の要精査。次バッチへ",
+  "note": "OP12-081 コアラ: 対象カードを特定 (OP12 リーダーで『キャラの効果で登場』を持つのは本カードのみ)。公式=いいえ (『場にあるキャラの効果』以外=【トリガー】効果による登場では発動しない)。engine は Q&A の答え自体は満たしていたが、それは **overlay が『キャラの効果で登場』分岐を丸ごと未実装だった**ためで、正しくは『場のキャラの効果による登場では発動する』が抜けていた=別の違反(under-firing)。発動元 InPlay を state に保持(_effect_source_ip / Rust は rust_play_source_is_field_chara、execute_effect 入口で save/restore)し、trigger_on_play が last_chara_played_by_field_chara を決定。新条件 played_chara_by_field_chara_effect を両エンジンに実装し、既存 cost>=8 分岐と【ターン1回】を共有キーで統合。実測: 場のキャラ効果=発動 / トリガー=不発。",
   "q": "相手がキャラカードの【トリガー】効果で元々のコスト7以下のキャラを登場させた時、この【ターン1回】効果は発動できますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "4828746fbc32": {
   "a": "はい、できます。",

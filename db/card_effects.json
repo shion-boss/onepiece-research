@@ -19571,7 +19571,22 @@
     "played_chara_truly_original_cost_ge": 8
    },
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": "OP12-081:reactive"
+   },
+   "do": [
+    {
+     "mill_opp_life_to_hand": 1
+    }
+   ]
+  },
+  {
+   "_text": "OP12-081 【ターン1回】相手が **キャラの効果で** キャラを登場させた時、発動できる。相手は自身のライフの上から1枚を、手札に加える。 [2026-08-07 実装: 公式の 2 分岐のうち この分岐が未実装だった。 「場にあるキャラの効果」 限定 = トリガー/イベント/リーダーによる登場では発動しない (cardqa_op_12)]",
+   "when": "on_opp_chara_played",
+   "if": {
+    "played_chara_by_field_chara_effect": true
+   },
+   "cost": {
+    "once_per_turn": "OP12-081:reactive"
    },
    "do": [
     {
@@ -19605,7 +19620,22 @@
     "played_chara_truly_original_cost_ge": 8
    },
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": "OP12-081:reactive"
+   },
+   "do": [
+    {
+     "mill_opp_life_to_hand": 1
+    }
+   ]
+  },
+  {
+   "_text": "OP12-081 【ターン1回】相手が **キャラの効果で** キャラを登場させた時、発動できる。相手は自身のライフの上から1枚を、手札に加える。 [2026-08-07 実装: 公式の 2 分岐のうち この分岐が未実装だった。 「場にあるキャラの効果」 限定 = トリガー/イベント/リーダーによる登場では発動しない (cardqa_op_12)]",
+   "when": "on_opp_chara_played",
+   "if": {
+    "played_chara_by_field_chara_effect": true
+   },
+   "cost": {
+    "once_per_turn": "OP12-081:reactive"
    },
    "do": [
     {

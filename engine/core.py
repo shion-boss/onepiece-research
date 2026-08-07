@@ -882,6 +882,11 @@ class GameState:
     # last_self_played_chara target / played_from_trash 条件が参照する。
     last_self_chara_played_iid: Optional[int] = None
     last_self_chara_played_from_trash: bool = False
+    # 公式 (cardqa_op_12、 OP12-081 コアラ): 「**キャラの効果で**キャラを登場させた時」 =
+    # **場にあるキャラ** の効果でなければならない。 【トリガー】/イベント/リーダー効果 に
+    # よる登場は該当しない (「『場にあるキャラの効果』以外の効果によって…登場したときには
+    # …発動できません。 そのため、【トリガー】効果による…登場では発動できません」)。
+    last_chara_played_by_field_chara: bool = False
     # 直近のトリガー処理で「このカードを手札に加える」 効果が発動したか (ST09-002 雨月天ぷら等)。
     # trigger_lifecard_trigger 後に game.py が読んで trash 移動 → 手札 へ振替。
     last_trigger_kept_in_hand: bool = False

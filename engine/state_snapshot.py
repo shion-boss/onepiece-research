@@ -35,6 +35,11 @@ _EXCLUDE = {
     "text",                # CardDef 経由では card_id に畳むので不要 (念のため)
     "instance_id",         # グローバルカウンタ採番 = ゲーム毎/言語間で不一致な単なる一意タグ。
                            #   状態の意味は card_id + flag + zone 位置(list順)で決まる → 除外が正準
+    "last_chara_played_by_field_chara",  # 「キャラの効果で登場したか」 (cardqa_op_12 / OP12-081)。
+                                   #   条件評価のための **登場時 transient**。 両engine で set 位置が
+                                   #   微妙に違い (Python=trigger_on_play / Rust=execute_on_play)
+                                   #   action 境界を跨ぐ意味を持たない → 除外が正準。
+                                   #   条件の正しさは効果の副作用 (相手ライフが動くか) で検証される。
     "last_self_chara_played_iid",  # 同上: 直近登場キャラの instance_id タグ (= Rust 再現不可)。
                                    #   カード identity は last_self_chara_played_card (card_id) が保持
     "once_per_turn_used",          # 【ターン1回】発動済 key 集合。 key が `iid:{source_iid}:...` 形式で
