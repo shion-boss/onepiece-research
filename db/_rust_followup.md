@@ -14,6 +14,42 @@
 > ```
 
 現在追従待ちなし ✅
+- [x] 2026-08-07 `scripts/rust_mismatch_scan.py --seeds 1-30` (広域スキャン) で MISMATCH=3 検出
+  - **根本原因 (3 件とも同型): when 発火の「enqueue して return」を Rust が省略し、 収集した do を
+    その場で直接実行していた** (= `state.rust_resolving` guard 無し)。 Python は `trigger_on_ko` /
+    `trigger_on_attack` / `fire_self_life_to_hand` / `_fire_opp_life_left_by_effect` いずれも
+    enqueue のみ行って return し、 実際の do 実行は `resolve_triggers` の中 (resolving=true) で
+    走る。 その間に do の中で登場した別カードの on_play は enqueue されるだけで後回しになる。
+    Rust の `fire_on_ko`/`fire_on_attack` はこの guard が無かったため、 nested な
+    `execute_on_play`/`execute_stage_on_play`(が呼ぶ `maybe_resolve()`) が即座に drain して
+    inline 実行され、 外側の do-list の残りより先に発火していた。
+    1. `fire_on_ko`: OP14-091 Mr.2・ボン・クレー の on_ko → Mr.5(ジェム) 登場
+       (`play_from_hand_or_trash`) の手札走査ループが、 Mr.5 自身の on_play (draw2+discard1) の
+       inline drain で書き換わった hand を読んでしまい、 手札 1 枚が消滅 (conservation 違反、
+       盤面/トラッシュは一致するため一見発見しづらい)。
+    2. `fire_on_attack` + `execute_stage_on_play` (STAGE on_play が enqueue を経由せず直接発火
+       していた) + `fire_field_when` の inline 直呼び 3 箇所 (`play_from_hand`(then_life_to_hand) /
+       `life_to_hand` primitive / 効果ダメージ経路): OP08-098 カルガラ leader の on_attack →
+       play_from_hand(then_life_to_hand) で ワイパー登場 → アッパーヤード search→stage 登場 が、
+       OP12-099 カルガラ(キャラ) の on_self_life_to_hand 反応 (draw1+self_draw_ban ×2) より **先に**
+       発火し、 stage 自身の search_top_n がデッキを先食いして後続 draw の対象がズレる。
+    3. `fire_opp_attack`: OP11-041 ナミ leader の opp_attack (discard_hand:1 cost) が別効果で
+       「効果無効」 化されている時、 Python は cost 支払い自体は無条件で先に行い (once_per_turn
+       マーク含む)、 無効化ゲートは **do 実行の直前** (`_execute_event`) でのみ効く。 Rust は
+       cost 支払いフェーズの手前で無効化チェックしていたため cost ごと丸ごと skip していた
+       (discard/once マークが漏れる)。
+  - **追従済 (2026-08-07)**: `fire_on_ko` / `fire_on_attack` に `fire_life_trigger` と同じ
+    `rust_resolving` save→true→do 実行→restore→(非 nested なら) `maybe_resolve()` の 4 点セットを
+    追加。 `execute_stage_on_play` を character 版 `execute_on_play` と同じ enqueue+resolve に統一。
+    `fire_field_when` の inline 直呼び 4 箇所を新設 helper `fire_self_life_to_hand` /
+    `fire_opp_life_left_by_effect` (Python の同名 helper と 1:1 対応、 enqueue+単一 resolve) に
+    置換。 `fire_opp_attack` の無効化チェックを cost 支払いフェーズから発火フェーズ (do 実行直前) に
+    移設。 詳細は `rust_engine/CLAUDE.md` の落とし穴 checklist に追記。
+  - 検証 = 対象 3 MISMATCH 個別 blob-diff で diff 0 件 / `rust_parity_check --assert` default
+    2083 MISMATCH 0 / `rust_effect_smoke_parity --assert` 5083/0/0 (静的 527/0/0 含む) /
+    `rust_parity_sweep --games 2` (329 デッキ) match 40730 bail 11 MISMATCH 0 (bail は既存の
+    未実装 primitive のみ、 新規増加なし) / 広域スキャン再走 MISMATCH 0 / シャドウ記録 0 件 /
+    フル `pytest tests/ -q` exit 0
 - [x] 2026-08-06 `scripts/rust_parity_sweep.py --games 2` (全カード合成デッキ 329 種) で MISMATCH=3 検出
   - **根本原因 (2 件、 同型): 静的効果ハンドラ `apply_static_primitive` の catch-all `_ => {}` が
     未実装 primitive を黙って no-op していた** (= execute_effect (動的 context) にしか実装が無い

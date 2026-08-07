@@ -98,6 +98,31 @@ RNG 依存効果は `rng.rs` (MT19937、 CPython `random` の bit 再現) を使
 
 過去に MISMATCH / 追従漏れを起こした「一見無害だが digest に効く」挙動。 新 primitive を書く時に確認する:
 
+- **when 発火は Python では原則すべて「enqueue して return」、 do 実行は resolve_triggers の中
+  (resolving=true) で走る** (`trigger_on_ko` / `trigger_on_attack` / `trigger_on_play` /
+  `fire_self_life_to_hand` / `_fire_opp_life_left_by_effect` 等、 いずれも docstring に「〜を
+  enqueue」と明記されている)。 Rust で `fire_on_ko` / `fire_on_attack` のように **収集した do を
+  その場で直接 `execute_effect`/`fire_gated_do` する実装** は、 `state.rust_resolving` を
+  save→true→(do 実行)→restore→(nested でなければ) `maybe_resolve()` の 4 点セットで包まないと、
+  do の中でネストして起きる別カードの登場 (`execute_on_play`/`execute_stage_on_play` が
+  enqueue+`maybe_resolve()` を呼ぶ) が **即座に drain (inline 実行)** され、 外側の do-list の
+  残り (draw/ban 等) より **先に** 発火する。 これは field-only の diff (digest 不一致) ではなく
+  **手札から特定カードが消える/増える** ような conservation 違反として現れることが多く、 位置
+  index 起因の #1 と誤診しやすい (2026-08-07、 OP14-091 Mr.2 ボン・クレー の on_ko →
+  play_from_hand_or_trash の手札走査ループが nested execute_on_play の inline drain で 1 枚喪失、
+  OP08-098 カルガラ leader の on_attack → play_from_hand(then_life_to_hand) → wyper on_play →
+  stage on_play が draw/block_self_draw_turn より先に走りデッキを消費、 の 2 件で発覚)。
+  `fire_life_trigger` は既にこのパターンで正しく実装されているので、 新しい when 発火経路を書く
+  ときは **必ずそれを雛形にする**。
+- **field-when の「発火元カード無し」ヘルパーも inline 直呼びしない**: `fire_field_when(state, idx, when)`
+  は即時スキャン+発火 (トップレベルから呼ぶ分には Python の enqueue+即 resolve と等価だが、
+  ネストした do-list の中から呼ぶと上記と同じ理由で inline 発火してしまう)。 「自分の効果でライフが
+  手札/トラッシュへ移動した」 系 (`life_to_hand` primitive / `play_from_hand` の `then_life_to_hand` /
+  `mill_opp_life_to_*` / 効果ダメージ経路) は Python がすべて `fire_self_life_to_hand` /
+  `_fire_opp_life_left_by_effect` という named helper (= enqueue+単一 `_maybe_resolve`) を経由する。
+  Rust 側にも同名の helper (`fire_self_life_to_hand` / `fire_opp_life_left_by_effect`、 effects.rs) を
+  用意したので、 on_self_life_to_hand / on_opp_life_taken / on_self_life_to_trash を発火する新しい
+  primitive はこれらを使う (直接 `fire_field_when` を呼ばない)。
 - **`trigger_on_play` は category 問わず `last_self_chara_played_card` を更新** (effects.py:10661)。 STAGE 登場
   (play_stage_from_hand / play_self の stage 版 / 通常 PlayStage) でも set が要る。 `on_self/opp_chara_played`
   の *発火* だけが CHARACTER 限定。 これを漏らすと stage 登場効果カード (例: OP08-110) が MISMATCH。

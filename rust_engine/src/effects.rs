@@ -6996,9 +6996,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             if moved > 0 {
                 // ⚠ execute_effect は bool を返すので ? は使えない。 発火に失敗したら
                 //   黙って進めず **false = 明示 bail** に落とす (不変条件: 黙って間違えない)。
-                if fire_field_when(state, me_idx, "on_opp_life_taken").is_err()
-                    || fire_field_when(state, opp_idx, "on_self_life_to_trash").is_err()
-                {
+                if fire_opp_life_left_by_effect(state, me_idx, opp_idx, "trash").is_err() {
                     return false;
                 }
             }
@@ -7026,9 +7024,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             // ⚠ ライフカードの【トリガー】は発動しない (公式 10-1-5) / `on_self_life_taken`
             //   (= ダメージを受けた時) は戦闘ダメージ専用なのでここでは発火しない。
             if moved > 0 {
-                if fire_field_when(state, me_idx, "on_opp_life_taken").is_err()
-                    || fire_field_when(state, opp_idx, "on_self_life_to_hand").is_err()
-                {
+                if fire_opp_life_left_by_effect(state, me_idx, opp_idx, "hand").is_err() {
                     return false;
                 }
             }
@@ -7312,7 +7308,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                         return false;
                     }
                 }
-                if moved > 0 && fire_field_when(state, me_idx, "on_self_life_to_hand").is_err() {
+                if moved > 0 && fire_self_life_to_hand(state, me_idx).is_err() {
                     return false;
                 }
                 return true;
@@ -8050,7 +8046,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     moved += 1;
                 }
             }
-            if moved > 0 && fire_field_when(state, me_idx, "on_self_life_to_hand").is_err() {
+            if moved > 0 && fire_self_life_to_hand(state, me_idx).is_err() {
                 return false; // cascade (on_self_life_to_hand) 再現不能 → bail
             }
             true
@@ -8746,11 +8742,10 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 // ⭐ 効果で相手ライフが離れた時も 「相手のライフが離れた時」 は発火する
                 // (cardqa_op_08 / OP08-105 ボニー)。 Python `_fire_opp_life_left_by_effect` と対称。
                 // ⚠ `on_self_life_taken` (= ダメージを受けた時) は戦闘ダメージ専用なので発火しない。
-                if fire_field_when(state, me_idx, "on_opp_life_taken").is_err() {
-                    return false;
-                }
-                let self_when = if went_to_hand { "on_self_life_to_hand" } else { "on_self_life_to_trash" };
-                if fire_field_when(state, opp_idx, self_when).is_err() {
+                // enqueue+単一 resolve (inline 直呼び禁止、 fire_self_life_to_hand と同じ理由)。
+                if fire_opp_life_left_by_effect(
+                    state, me_idx, opp_idx, if went_to_hand { "hand" } else { "trash" },
+                ).is_err() {
                     return false;
                 }
             }
@@ -9413,6 +9408,36 @@ fn enqueue_field_when(state: &mut GameState, owner_idx: usize, when: &str) {
     });
 }
 
+/// 自己効果で自分のライフが手札に加わった時の on_self_life_to_hand 発火 (effects.py:
+/// fire_self_life_to_hand)。 ⚠ `fire_field_when` (inline 即時発火) を直接呼んではいけない —
+/// Python は enqueue → _maybe_resolve なので、 これがネストして呼ばれた場合 (= 他の on_attack/
+/// on_ko 等の do-list 実行中) は resolving=true により後回しになる。 inline 直呼びだと
+/// ネスト元の do-list 残りより先に発火してしまう (OP08-098 カルガラの on_attack →
+/// play_from_hand(then_life_to_hand) → ここが該当、 2026-08-07 発覚)。
+fn fire_self_life_to_hand(state: &mut GameState, owner_idx: usize) -> Result<(), String> {
+    enqueue_field_when(state, owner_idx, "on_self_life_to_hand");
+    maybe_resolve(state)
+}
+
+/// 効果で相手のライフが離れた時のトリガー発火 (effects.py:_fire_opp_life_left_by_effect)。
+/// on_opp_life_taken (me 側) + on_self_life_to_hand/on_self_life_to_trash (opp 側、 dest で分岐) を
+/// **enqueue してから 1 回だけ** maybe_resolve する (= fire_self_life_to_hand と同じ理由で
+/// inline 直呼び禁止)。 dest: "hand" | "trash" | それ以外 (= opp 側トリガー無し、 deck 等)。
+fn fire_opp_life_left_by_effect(
+    state: &mut GameState,
+    me_idx: usize,
+    opp_idx: usize,
+    dest: &str,
+) -> Result<(), String> {
+    enqueue_field_when(state, me_idx, "on_opp_life_taken");
+    match dest {
+        "hand" => enqueue_field_when(state, opp_idx, "on_self_life_to_hand"),
+        "trash" => enqueue_field_when(state, opp_idx, "on_self_life_to_trash"),
+        _ => {}
+    }
+    maybe_resolve(state)
+}
+
 /// Python:_pop_next_event = ターンプレイヤー側を優先し、 同 owner 内は FIFO。
 fn pop_next_event(state: &mut GameState) -> Option<PendingTrigger> {
     if state.rust_event_queue.is_empty() {
@@ -9645,19 +9670,37 @@ pub fn fire_on_attack(
         }
         fired.push(idx);
     }
-    // 発火フェーズ: sorted idx 順に条件再評価 + do 発火
+    // 発火フェーズ: sorted idx 順に条件再評価 + do 発火。
+    // ⚠ Python (trigger_on_attack) は on_attack を **enqueue** して return するだけで、
+    //   実際の do 実行は resolve_triggers の中 (resolving=true) で走る。 その間に do の中で
+    //   登場したキャラ/ステージの on_play (play_from_hand/play_stage_from_hand 等) は
+    //   enqueue されるだけで後回しになる。 ここで resolving guard を張らずに fire_gated_do を
+    //   直接呼ぶと、 nested な execute_on_play/execute_stage_on_play が即座に drain してしまい
+    //   外側の do-list 残り (このケースでは then_life_to_hand → on_self_life_to_hand cascade)
+    //   より **先に** 後続カードの on_play が発火する (OP08-098 カルガラの on_attack で
+    //   ワイパー→アッパーヤード の連鎖が draw/block_self_draw_turn より先に走っていた、
+    //   2026-08-07 発覚)。 fire_on_ko / fire_life_trigger と同じ resolving guard を張る。
     fired.sort_unstable();
-    for idx in fired {
-        let eff = &effs[idx];
-        match eval_effect_conditions(eff, state, me_idx, Some(src)) {
-            Some(true) => {}
-            Some(false) => continue,
-            None => return Err("on_attack fire 条件 unknown".into()),
+    let prev_resolving = state.rust_resolving;
+    state.rust_resolving = true;
+    let r = (|| -> Result<(), String> {
+        for idx in fired {
+            let eff = &effs[idx];
+            match eval_effect_conditions(eff, state, me_idx, Some(src)) {
+                Some(true) => {}
+                Some(false) => continue,
+                None => return Err("on_attack fire 条件 unknown".into()),
+            }
+            let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
+            fire_gated_do(state, me_idx, src, dos)?;
         }
-        let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
-        fire_gated_do(state, me_idx, src, dos)?;
+        Ok(())
+    })();
+    state.rust_resolving = prev_resolving;
+    if r.is_ok() && !prev_resolving {
+        maybe_resolve(state)?;
     }
-    Ok(())
+    r
 }
 
 /// do-array を allow-list gate + draw cascade guard で発火。 全 prim 再現できたら Ok、 不能なら Err。
@@ -10334,46 +10377,60 @@ pub fn fire_on_ko(
         return Ok(());
     }
     crate::selfplay::note_fired(victim_cid);
-    for eff in effs {
-        if eff.get("when").and_then(|v| v.as_str()) != Some("on_ko") {
-            continue;
-        }
-        // effects.py:_execute_event 順: 条件 → once → cost → do。
-        match eval_effect_conditions(eff, state, owner_idx, None) {
-            Some(true) => {}
-            Some(false) => continue,
-            None => return Err("on_ko 条件 unknown".into()),
-        }
-        if eff.get("once_per_turn").is_some() {
-            return Err("on_ko once_per_turn 未対応 (canonical 未化)".into());
-        }
-        // cost: try_pay_counter_cost が扱う型 (pay_don/discard_hand/rest_self_don/life 系/flip 等) のみ対応
-        // (source-gone=Leader placeholder で player-level 安全)。 未対応型は try_pay_counter_cost が Err。
-        if let Some(cost) = eff.get("cost") {
-            if !cost_is_empty(cost) {
-                match try_pay_counter_cost(state, owner_idx, Slot::Detached, cost)? {
-                    true => {}
-                    false => continue, // 支払い不能 → 効果 skip
+    // Python (trigger_on_ko) は on_ko を **enqueue** して _maybe_resolve を呼ぶ = do-list は
+    // resolve_triggers の中 (resolving=true) で走る。 その間に do の中で登場したキャラの on_play
+    // (play_from_hand_or_trash 等) は enqueue されるだけで後回しになる (= 手札走査ループの途中で
+    // 割り込まない)。 Rust は on_ko を直接実行するだけで resolving を立てていなかったため、 nested
+    // な execute_on_play が即座に drain (inline 実行) してしまい、 play_from_hand_or_trash の
+    // index-based hand ループが「実行中に書き換わった hand」を読んで手札を 1 枚喪失させていた
+    // (OP14-091 Mr.2・ボン・クレー の on_ko → Mr.5(ジェム) 登場 → draw2+discard1 が
+    //  play_from_hand_or_trash のループ内で inline 発火、 2026-08-07 広域スキャンで発覚)。
+    // fire_life_trigger と同じ resolving guard を張る。
+    let prev_resolving = state.rust_resolving;
+    state.rust_resolving = true;
+    let r = (|| -> Result<(), String> {
+        for eff in effs {
+            if eff.get("when").and_then(|v| v.as_str()) != Some("on_ko") {
+                continue;
+            }
+            // effects.py:_execute_event 順: 条件 → once → cost → do。
+            match eval_effect_conditions(eff, state, owner_idx, None) {
+                Some(true) => {}
+                Some(false) => continue,
+                None => return Err("on_ko 条件 unknown".into()),
+            }
+            if eff.get("once_per_turn").is_some() {
+                return Err("on_ko once_per_turn 未対応 (canonical 未化)".into());
+            }
+            // cost: try_pay_counter_cost が扱う型 (pay_don/discard_hand/rest_self_don/life 系/flip 等) のみ対応
+            // (source-gone=Leader placeholder で player-level 安全)。 未対応型は try_pay_counter_cost が Err。
+            if let Some(cost) = eff.get("cost") {
+                if !cost_is_empty(cost) {
+                    match try_pay_counter_cost(state, owner_idx, Slot::Detached, cost)? {
+                        true => {}
+                        false => continue, // 支払い不能 → 効果 skip
+                    }
                 }
             }
-        }
-        let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
-        for prim in dos {
-            let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("");
-
-        }
-        // play_self_from_trash 用に victim の card_id を transient set (Python _execute_event=source)。
-        let prev_src = state.current_source_card_id.clone();
-        state.current_source_card_id = Some(victim_cid.to_string());
-        for prim in dos {
-            if !execute_effect(prim, state, owner_idx, Slot::Detached) {
-                state.current_source_card_id = prev_src.clone();
-                return Err(format!("on_ko primitive 再現不能: {}", prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?")));
+            let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
+            // play_self_from_trash 用に victim の card_id を transient set (Python _execute_event=source)。
+            let prev_src = state.current_source_card_id.clone();
+            state.current_source_card_id = Some(victim_cid.to_string());
+            for prim in dos {
+                if !execute_effect(prim, state, owner_idx, Slot::Detached) {
+                    state.current_source_card_id = prev_src.clone();
+                    return Err(format!("on_ko primitive 再現不能: {}", prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?")));
+                }
             }
+            state.current_source_card_id = prev_src.clone(); // transient を復元 (action 境界で None)
         }
-        state.current_source_card_id = prev_src.clone(); // transient を復元 (action 境界で None)
+        Ok(())
+    })();
+    state.rust_resolving = prev_resolving;
+    if r.is_ok() && !prev_resolving {
+        maybe_resolve(state)?;
     }
-    Ok(())
+    r
 }
 
 /// ライフカードの【トリガー】を発火 (effects.py:trigger_lifecard_trigger、 AI defender 経路)。
@@ -11654,11 +11711,12 @@ pub fn fire_opp_attack(
     // trash_self cost 効果: (source char index, do 配列)。 Python 順 = pay(=trash 全部)→fire(全部 source-gone)。
     let mut trash_self_fires: Vec<(usize, Vec<Value>)> = vec![];
     for slot in slots {
-        // 発動元が 「効果無効」 なら 【相手のアタック時】/【ブロック時】 は発動しない
-        // (effects.py:_execute_event の gate)。 when_key は opp_attack / on_block。
-        if src_effect_negated(state, defender_idx, slot, "on_attack") {
-            continue;
-        }
+        // ⚠ 「効果無効」 の gate はここ (cost 支払い前) で見ない。 Python (_enqueue_opp_attack_with_cost)
+        //   は cost 支払い自体には無効化チェックを一切行わず、 無効化ゲートは enqueue 後の
+        //   _execute_event (= do 発火の直前) でのみ効く (effects.py:270)。 = 効果無効でも cost
+        //   (discard_hand/once_per_turn マーク 等) は先に消費される (2026-08-07、 OP11-041 ナミの
+        //   opp_attack が negate されても discard_hand コストだけ先に払われていた MISMATCH で発覚)。
+        //   → 発火フェーズ (下) で do 実行の直前にチェックする。
         let cid = get_ip(&state.players[defender_idx], slot).card.card_id.clone();
         let Some(effs) = ov.get(&cid) else { continue };
         for (idx, eff) in effs.iter().enumerate() {
@@ -11740,6 +11798,12 @@ pub fn fire_opp_attack(
     }
     // 発火フェーズ: 収集順 (slot→idx = source→sorted idx) に条件再評価 + do 発火
     for (slot, idx) in fired {
+        // 発動元が 「効果無効」 なら 【相手のアタック時】/【ブロック時】 は発動しない
+        // (effects.py:_execute_event の gate、 270行目)。 cost 支払い後・do 発火の直前でのみ効く
+        // (上の cost 支払いフェーズでは見ない、 このループ冒頭に移設した理由はそこの comment 参照)。
+        if src_effect_negated(state, defender_idx, slot, "on_attack") {
+            continue;
+        }
         let cid = get_ip(&state.players[defender_idx], slot).card.card_id.clone();
         let Some(effs) = ov.get(&cid) else { continue };
         let eff = &effs[idx];
@@ -11841,8 +11905,23 @@ pub fn fire_counter_events(
 
 /// ステージ登場時の on_play 効果を実行 (game.py:PlayStage → trigger_on_play)。 played_idx = me.stages の末尾。
 pub fn execute_stage_on_play(state: &mut GameState, me_idx: usize, played_idx: usize) -> Result<(), String> {
+    // Python (effects.py:trigger_on_play) は category を問わず on_play を **enqueue** してから
+    // _maybe_resolve を呼ぶ (= 解決中ならその場では発火せず後回し)。 以前はここで
+    // execute_card_effects を直接呼んでいたため、 STAGE 登場の on_play が (character の
+    // execute_on_play と違って) 常に inline 発火していた。 これがネストして呼ばれる経路
+    // (= 他 do-list の途中で play_stage_from_hand が呼ばれた場合) では、 外側の do-list の
+    // 残りより **先に** 発火してしまい順序がズレる (OP08-098 カルガラの on_attack 内で
+    // 「ワイパー on_play → アッパーヤード search→play_stage_from_hand」 が起き、 その
+    // アッパーヤード自身の on_play (search_top_n) が本来は on_attack の do-list 完了後まで
+    // 後回しになるはずが、 inline 発火して外側の draw/block_self_draw_turn より先にデッキを
+    // 消費していた、 2026-08-07 発覚)。 character 版 execute_on_play と同じ enqueue+resolve
+    // guard に揃える (on_self/opp_chara_played は CHARACTER 限定、 Python も同様に stage では
+    // 発火しない)。
     let card_id = state.players[me_idx].stages[played_idx].card.card_id.clone();
-    execute_card_effects(state, me_idx, &card_id, "on_play", Slot::Stage(played_idx))
+    if !state.players[me_idx].opp_on_play_disabled_through_opp_turn {
+        enqueue_trigger(state, "on_play", me_idx, &card_id, Slot::Stage(played_idx));
+    }
+    maybe_resolve(state)
 }
 
 /// 起動メイン発火 (effects.py:fire_activate_main)。 effect_index の効果を cost 支払い→do 実行。
