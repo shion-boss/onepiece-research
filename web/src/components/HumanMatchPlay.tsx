@@ -2450,6 +2450,16 @@ export function HumanMatchPlay({
             onHover={setHovered}
             busy={busy}
           />
+        ) : state.pending_payload.kind === "opp_discard_own_choice_pick" ? (
+          // 公式 「相手は自身の手札N枚を捨てる」 = **手札の持ち主 (= このプレイヤー) が選ぶ**
+          // (cardqa_op_01「手札の持ち主である相手が選びます」、 2026-08-07)。
+          // 捨てること自体は強制なので N 枚必須 = discard pick と同契約。
+          <SelfHandDiscardPickModal
+            payload={state.pending_payload}
+            onSubmit={handleChoiceSubmit}
+            onHover={setHovered}
+            busy={busy}
+          />
         ) : state.pending_payload.kind === "opp_optional_play_from_hand" ? (
           // 相手 (= このプレイヤー) の効果由来の任意登場。 公式 「相手は自身の手札から
           // …キャラカード1枚**まで**を、 登場させる」 = **0 枚 (辞退) も選べる**

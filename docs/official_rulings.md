@@ -3427,3 +3427,230 @@ effects.rs 両方、 後者は `c.base_cost()`)。 全走査で本 primitive を
 cost も同型の可能性) で Python/Rust 両方の drain 順序を揃える必要がある為、 単発バッチでは直さず
 専用対応に回す。 ⚠ 残件は本カード 1 件だけでなく **cost-KO で KO時 を持つ全カード** に及ぶ =
 全走査で影響枚数を数えてから着手すること。
+
+---
+
+## 手札の chooser 帰属 — 「相手は」 と 「相手の」 は手札でも書き分けられる (2026-08-07)
+
+2026-08-06 に **盤面** で是正した chooser 帰属 (OP09-058 系) と **同じ書き分けが手札にもある**。
+
+| 公式の書き方 | 誰が選ぶか | 一次情報 |
+|---|---|---|
+| 「**相手は**(自身の)手札N枚を捨てる」 | **手札の持ち主 (相手)** | `cardqa_op_01`「この【登場時】効果で捨てるカードは相手が選びますか？」→「はい、**手札の持ち主である相手が選びます**。」 / `cardqa_st_18`「この【登場時】効果を発動していない側のプレイヤーが、そのプレイヤーの手札からカードを2枚選び…」 |
+| 「**相手の**手札N枚を捨てる」 | **発動者が裏向きで選ぶ** | `cardqa_op_03` / `cardqa_st_10`「この【登場時】効果を**発動したプレイヤーが、相手の手札を裏向きの状態で2枚選びます**」 |
+
+⚠ engine は **両方を `trash_opp_hand_random` (= ランダム)** にしていた。
+「相手の手札」 側はランダムが忠実なモデル (裏向き = 中身を見ずに選ぶ) なので **正しい**。
+問題は 「相手は自身の手札」 側で、 **相手は最も惜しくない札を捨てられるはずなのに
+キーカードがランダムで飛んでいた = 本来より強い除去になっていた**。 対象 **20 枚**。
+
+### 是正
+
+新 primitive `opp_discard_own_choice`:
+- AI 相手 = `_worst_hand_idx` (= counter 低 → cost 低 → power 低。 **高カウンターの防御札を温存**)。
+  既に 「相手が選ぶ」 と明記されていた `opp_hand_to_deck_bottom` と同じ helper を使う (= 一貫)。
+- 人間相手 = `opp_discard_own_choice_pick` modal を **相手に** 出す
+  (`actor_idx` = 相手。 捨てるのは強制なので N 枚必須、 不足分は最悪札で補完)。
+- Rust も同じ `worst_hand_idx` で mirror。
+
+⚠ **「相手の手札」 側は変えない**。 書き分けを潰さないこと (= 2026-08-04 の
+「公式の語の書き分けを潰さない」 と同じ規律)。
+
+### ⭐ 副産物: 「決定性」 も回復した
+
+`trash_opp_hand_random` は `state.rng` を使うので、 **beam 探索の value 評価が
+その手札選択の分だけ無意味になっていた** (2026-07-08 ohtsuki 指摘
+「ランダムなところがあると折角の value が意味なくなる」 と同型)。
+`opp_discard_own_choice` は決定的なので、 20 枚ぶんこの穴が塞がる。
+
+### 検査の穴も 2 つ塞いだ
+
+- `scan_engine_key_asymmetry` が新 primitive の Rust 未実装を検出 → 同時実装。
+- `lint_human_ui_contracts` が新 modal kind の UI 分岐欠落を検出 → 配線
+  (engine だけ直すと **人間が操作できない** = UnknownPendingChoiceModal 行き)。
+  ⭐ 今回のセッションで **2 回連続** これに助けられた (前は `opp_optional_play_from_hand`)。
+  **非 actor 側に modal を出す機構を足したら UI 配線までがワンセット**。
+
+---
+
+## chooser 帰属の残りゾーン — ドンと選択肢 (2026-08-07)
+
+手札 (同日) / 盤面 (2026-08-06) に続き、 **「相手は」 の書き分けが及ぶ残りのゾーン** を走査した。
+既存監査 (engine_strictness 10/10 / sonogo_order 0 / target_scope 0 / overlay_vs_cardqa 0 /
+overlay_vs_faq sev≥3 = 0) はすべて clean だったので、 **監査が見ていない軸**を新たに切った。
+
+### ① 「相手は自身の場のドン‼1枚をドン‼デッキに戻す」 = レストから返す (5 枚)
+
+engine は **アクティブ優先** で返していた = 行動側に都合のよい選択。
+相手が選ぶなら **アクティブを温存し、 レストのドンから返す**
+(アクティブはこのターンまだ使える。 こちらのターンなら **カウンターイベントの支払いに要る**)。
+対象: OP02-085 / OP02-089 / OP02-090 / OP02-091 / OP14-065。
+⚠ 「相手の**アクティブの**ドン」 と明示するカード (OP15-059 / PRB02-005) は別 primitive
+なので巻き込まない (= 書き分けを潰さない)。
+
+### ② 「**相手は**以下から1つを選ぶ」 = 相手が損の小さい方を選ぶ (3 枚)
+
+overlay には `actor: "opp"` が付いていたのに、 AI の選択は **actor に関わらず `max`**
+= **発動者に最も都合のよい選択肢** を選んでいた (= 相手が選ぶはずの不利益を発動者が決めていた)。
+選択肢の文面は発動者視点で書かれる (= `do` は発動者フレームで実行) ので、
+**発動者視点スコアの `min`** を取るのが相手最適。 対象: ST07-010 / ST07-015 / ST20-005。
+
+⭐ 一次情報が 「空振り選択肢も選べる」 ことを保証している (`cardqa_st_20`):
+「対戦相手のライフが0枚のときに…対戦相手は『・相手のライフの上から1枚をトラッシュに置く。』を
+選ぶことはできますか？」 → 「**はい、 できます。** …**何も起きません。**」
+→ `min` は空振り選択肢を自然に選ぶので、 この裁定と整合する。
+
+### ③ 自分で入れた回帰を 2 つ検出
+
+- `_option_score` のスコア表が `trash_opp_hand_random` を持っており、 同日の改名
+  (`opp_discard_own_choice`) が **表から漏れて 1.2 → 0.3 に落ちていた**。
+  ⚠ **primitive を改名/新設したら、 名前で引く表 (score / allow-list / audit) を全部洗う**。
+- `mill_opp_life_to_trash` 系に **空振り判定が無かった** (相手ライフ 0 でも高得点)。
+  ①②の修正と同時に是正。
+
+### ④ 旧挙動を固定していたテスト 2 件
+
+`test_return_opp_don_primitive` / `test_return_opp_don_falls_back_to_rested` が
+「active 優先」 を assert していた → 公式準拠に書き換え (後者は
+`..._falls_back_to_active` に改名)。 backfill だけでなく **手書きテストにも同じ罠がある**。
+
+### 残件 (未着手、 独立した判断が要る)
+
+- **`opp_trash_to_deck_bottom` (4 枚)**: 「相手は自身のトラッシュのカードN枚を…デッキの下に置く」
+  で engine は **トラッシュ順の先頭** から取る。 相手が選ぶなら価値の低いものを送るはず。
+  ⚠ ただし `_worst_hand_idx` は **counter 基準** でトラッシュには不適切
+  (トラッシュから counter は切れない) → **トラッシュ用の別基準 (cost/power) が要る**。
+- **`choice_effect` の人間相手 modal**: 人間が 「選ぶ側」 のとき modal が出ない
+  (`actor == "self"` でしか halt しない)。 選択肢の文面が発動者視点なので、
+  **`do` の実行フレームと modal の帰属を分離** する設計が要る。
+
+---
+
+## 残件だった 2 件も是正 (2026-08-07 後半)
+
+### ① `opp_trash_to_deck_bottom` — 相手が選ぶ (4 枚)
+
+「**相手は**自身のトラッシュから (filter) カードN枚を、 好きな順番でデッキの下に置く」。
+engine は **トラッシュ順の先頭** から取っており相手の選択になっていなかった
+(= 蘇生/回収の的になる高コスト札が先に抜けうる)。
+
+⭐ **`_worst_hand_idx` を流用してはいけない**。 あれは counter 低 → cost 低 → power 低 で、
+**トラッシュのカードはカウンターに切れない** ので counter は価値と無関係。
+トラッシュ用に `_worst_trash_order` (cost 低 → power 低 → 元の順) を新設した。
+対象: OP05-079 / OP06-092 / OP11-072 / OP11-091。
+
+### ② `choice_effect` の人間相手 modal (3 枚)
+
+「**相手は**以下から1つを選ぶ」 で **相手が人間** のとき modal が立たず、 AI が代わりに
+選んでいた (`actor == "self"` でしか halt しない実装だった)。
+
+⭐ **modal を出す相手と do の実行フレームは別物**。 選択肢の文面は **発動者視点** で
+書かれている (「相手は自身の手札2枚を捨てる」 = 選ぶ人自身のこと) ので、
+`do` は **発動者フレーム** で実行しなければならない。 pending_choice の `_actor_idx` には
+**発動者** の index を入れる (= resolver が me/opp を発動者基準に復元する)。
+
+### ⚠ Rust 追従で自分が入れた 2 つの誤り (差分検証が検出)
+
+1. **デッキ下へ積む順**: Python は 「選んだ順 (= 惜しくない順)」、 Rust は
+   「元のトラッシュ順」 で積んでいた → count>1 でデッキ底の並びがズレて **MISMATCH**。
+2. **空時の返り値**: Python の `return False` は 「何も起きなかった」 の意味だが、
+   **Rust の `false` は bail (= 未実装で降参)**。 該当 0 枚で `false` を返して **bail 化**
+   させてしまった。 状態不変の no-op は `true` が正しい。
+   ⭐ **Python の False と Rust の false は意味が違う** — 移植時に必ず確認する。
+## 公式 Q&A conformance バッチ (2026-08-07 #1、 cron `optcg-faq-conformance`): 3 fixed + 14 conform + 2 n/a + 1 escalated
+
+台帳 20 件を処理。 3 件の公式違反を是正 (いずれも overlay/engine を実際に動かして盤面差分で確認)。
+
+### fixed 1: 素の 「カード…登場させる」 は STAGE も対象 — `play_from_hand` の include_stage (ST31-002)
+
+**一次情報** (`db/faq/cardqa_st_31`): 「この【登場時】効果で『ST31-005 サウザンド・サニー号』を
+登場させることはできますか？」 → 「はい、できます。」
+
+ST31-002 ジンベエ 【登場時】 は 「コスト1の特徴《麦わらの一味》を持つ**カード**1枚まで…登場させる」
+= 「キャラカード」 でなく 素の 「カード」 なので STAGE (サニー号 = cost1・麦わらの一味) も対象。
+**是正前**: `play_from_hand` は CHARACTER 専用 (`card.category != CHARACTER: continue`) で STAGE を
+silent no-op で 落としていた。 → opt-in `include_stage` flag を追加 (Python `engine/effects.py` +
+Rust `rust_engine/src/effects.rs`、 既定 false = 従来どおり CHARACTER 専用 = 無回帰)。 STAGE 選択時は
+play_stage_from_hand と同じ 置換 + on_play + `last_self_chara_played_card` 更新。
+
+⭐ **全走査で見つけた 2 枚目**: EB03-048 は 「ステージカード1枚まで…登場させる」 で STAGE 専用なのに
+overlay が `play_from_hand` を使い、 やはり STAGE を 落としていた。 → `play_stage_from_hand` へ是正。
+残りの 6 枚 (OP10-008/OP08-070/OP07-070/OP01-044/OP01-050/OP01-074) は filter に STAGE が一致しないか
+category:CHARACTER 明示 = 従来どおりで正しい。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+`test_st31_002_include_stage_summons_a_stage_card` / `test_eb03_048_places_dressrosa_stage_from_hand` /
+`test_play_from_hand_bare_card_summon_can_place_stage` (= 全走査: 公式が 素の「カード」登場 なのに
+STAGE が filter 一致する play_from_hand は include_stage を持つこと)。
+
+### fixed 2: 「持ち主の手札に戻す」 (修飾なし) は 両陣営 — 自分限定 spec の 3 枚を是正
+
+**一次情報** (`db/faq/cardqa_st_03`): 「この【起動メイン】効果で自分のキャラを手札に戻すことが
+できますか？」 → 「はい、戻すことができます。」 = 修飾なし = 両陣営 (docs 上記 「相手のなし」 則)。
+
+2026-08-04 の 「相手のなし=両陣営」 是正は `one_opponent_*` (相手限定) → either だけを直し、
+**対称の `one_self_chara_filtered` (自分限定) を見落としていた**。 除去カードなのに相手キャラを
+バウンスできない状態だった。 該当 **3 枚**: EB02-024 そげキング / OP05-059 / ST03-001 クロコダイル
+(いずれも 「コストN以下のキャラ1枚まで…**持ち主の**手札に戻す」)。 → `one_character_either_filtered`
+へ是正 (spec は 2026-08-04 追加済 = engine 変更不要、 return_to_hand で 5 枚が既に使用)。
+
+⭐ **audit の綴りの穴**: `scripts/audit_target_scope.py` の `SELF_ONLY` 正規表現が
+`one_self_character` しか見ておらず、 実 spec の `one_self_chara`(= chara 綴り)を取りこぼしていた。
+→ 正規表現に `one_self_chara` を追加。 是正後 全走査 0 件。
+
+**恒久ガード**: `test_st03_001_return_can_target_opponent_character` + 上記 audit(--assert)。
+
+### fixed 3: OP04-094 雷の破壊剣 — トラッシュ枚数による KO コスト閾値の swap が壊れていた
+
+**一次情報** (`db/faq/cardqa_op_04`): 「自分のトラッシュが14枚の時にこの【メイン】効果を発動
+しました。 コスト6のキャラを選ぶことはできますか？」 → 「このカードを含めてトラッシュが15枚になり、
+コスト6以下のキャラを選ぶことができます。」
+
+公式テキスト: 「コスト4以下のキャラをKO。 トラッシュ15枚以上なら 代わりに コスト6以下を選ぶ」。
+**是正前** overlay = `do:[ko cost_le_4], if: trash>=15` = 二重の誤り: (a) trash<15 では 何も
+KOしない (base 効果が消失) (b) trash>=15 でも cost4 しかKOできず cost6 を選べない。 →
+`conditional` 2 分岐 (trash>=15 → cost6 / trash<=14 → cost4) へ是正。 イベント自身は 発動前に
+トラッシュ済 (公式 8-4-2 「公開→コスト→トラッシュ→効果発動」、 game.py:1446 が 1454 の前) なので
+手札発動時 trash14 → 15 で cost6 が選べる。 Python に `self_trash_count_le` を追加 (Rust
+`rules.rs:769` に既存 = 片側非対称を解消、 dict-target ko は両エンジンで 58 枚が既に使用)。
+
+**恒久ガード**: `test_op04_094_ko_cost_threshold_upgrades_with_trash_and_counts_self`
+(trash14→15 で cost6 KO / trash<15 で cost4 KO / trash<15 で cost6 は対象外)。
+
+### conform (問題なし、 再調査回避) 14 件
+
+- **411b** OP12-014/006: search `or_clauses=[{name:モンキー・Ｄ・ルフィ},{EVENT,赤}]`。 name 節に
+  色制限なし → 赤以外の同名も手札に加えられる。
+- **433f** OP07: 【相手のアタック時】で【ブロッカー】獲得 → その同じアタックにブロック可。 block 適格は
+  block step (opp_attack 発火の後) で `is_blocker_now` を動的判定 (game.py:1688)。
+- **4342** OP01-016 ナミ: search filter に `exclude_name:ナミ` → ST01-007 ナミ は対象外 (いいえ)。
+- **4373** OP15-025 等: `attach_rested_don from_cost_area:true` は `don_active` も pool に含む
+  (effects.py:6453) = 相手のドンが アクティブ/レスト いずれでも付与できる。
+- **43cf** OP12-059 粗砕: `if leader_name:サンジ`。 `leader_name` は正規化後 exact 一致 (substring 非対応)
+  → ST12-001「ロロノア・ゾロ＆サンジ」≠「サンジ」 で 引けない (いいえ)。
+- **446d** OP01【ドン!!×2】: battle-only KO耐性は game.py:492-497 (バトルKO経路) のみ参照。 効果KO
+  (打属性キャラの効果) は素通り = KOされる。
+- **455af** OP13-119 エース: don付与 (entry1) と 相手戻し→`force_opp_play_from_hand`
+  (entry3, `require_prior_bounce`) は独立 on_play。 don を 0 枚付与でも 戻せば 相手は cost4 登場
+  (実測: 相手 board OP01-016→hand、 hand OP01-013→board)。
+- **45d3** OP09-077 ゴムゴムの雷: `play_event_from_hand` 経由の発動でも 本体の `cost pay_don:2` を実行
+  (実測 don 5→3 + 相手キャラ KO)。
+- **4681** 【カウンター】: 手札が発動カード1枚だけでも発動可 (手札枚数 gate なし)。
+- **46e5** 「元々の効果がないキャラ」 = `_card_has_no_effect` (overlay 空)。 カウンター+1000 のみのバニラは
+  overlay=[] → True = 含む。
+- **4748** OP10: 「パワー6000以上のキャラ」 条件は現在パワー (ドン込 = InPlay.power) + 発動元自身も数える。
+- **47a8** OP06: 「トラッシュに置く」 は KO でない → 置かれたキャラの【KO時】は発動しない (既存一般則)。
+- **47d3** ST35-003 カラス: `optional_cost_then` の mill2 は cost。 「相手手札7以上」 gate はコロン後=効果のみ。
+  相手手札 6 以下でも cost (mill2) は支払える。
+- **4828** OP11: 【カウンター】でトラッシュから cost3以下 黒を手札。 トラッシュ枚数 gate なし = 9枚でも可。
+
+### n/a 2 件
+- **476d** ST01: 付与ドンの向き (縦/横) は engine 状態に無関係 (公式「向きを問わない」)。
+- **484e** ST12: 「残りをデッキの上か下に置く」 は 公開したカードに対する処理という 語義確認 = engine
+  状態変化に落ちない。
+
+### escalated 1 件
+- **47e2** OP12 リーダー【ターン1回】reactive: 「場にあるキャラの効果」 以外 (=【トリガー】効果) による
+  登場では発動しない、 という source 帰属の裁定。 対象リーダーの特定が困難 (「元々のコスト7以下」 の
+  閾値表記が card テキストと一致せず grep で 一意化できない) + reactive の source 属性 (character-effect
+  vs trigger) を engine が正しく区別するかの精査が必要。 次バッチへ。

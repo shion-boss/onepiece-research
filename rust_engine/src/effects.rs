@@ -2119,7 +2119,14 @@ fn walk_prim_names(node: &Value, out: &mut std::collections::BTreeSet<String>) {
 /// effects.py:_option_score — choice_effect 選択肢を局面 (相手/自キャラ数・自ライフ) で採点。
 /// do 空 = -1.0。 prim 集合を走査し効果種別で加点 (順不同 = 和なので順序非依存)。 スコア自体は digest
 /// に載らず「どの option を選ぶか」のみ決める (float 順序差は max 選択に無関係、 tie は Python 同様 first)。
-fn option_score(opt: &Value, n_opp: usize, n_me: usize, my_life: usize) -> f64 {
+fn option_score(
+    opt: &Value,
+    n_opp: usize,
+    n_me: usize,
+    my_life: usize,
+    opp_life: usize,
+    opp_hand: usize,
+) -> f64 {
     let do_val = opt.get("do");
     let empty = match do_val {
         Some(Value::Array(a)) => a.is_empty(),
@@ -2148,7 +2155,13 @@ fn option_score(opt: &Value, n_opp: usize, n_me: usize, my_life: usize) -> f64 {
             "put_top_to_life" | "hand_to_self_life" | "life_to_hand" => {
                 if my_life <= 2 { 2.5 } else { 0.8 }
             }
-            "trash_opp_hand_random" => 1.2,
+            // ⚠ 相手の手札が空なら空振り (Python _option_score と同順)。
+            "trash_opp_hand_random" | "opp_discard_own_choice" | "force_opp_discard"
+            | "opp_hand_to_deck_bottom" => if opp_hand > 0 { 1.2 } else { -0.5 },
+            // 相手ライフ削り。 ライフ 0 なら空振り (cardqa_st_20: 空振り選択肢も選べる)。
+            "mill_opp_life_to_trash" | "mill_opp_life_to_hand" | "deal_opp_leader_damage" => {
+                if opp_life > 0 { 2.0 } else { -0.5 }
+            }
             _ => 0.3,
         };
     }
@@ -3702,15 +3715,24 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             if valid.is_empty() {
                 return true; // 発動可能 option 無し = 不発 (Python continue)
             }
-            // 局面採点で最良 option (tie は first = Python max 準拠)。
+            // 局面採点で最良 option (tie は first = Python max/min 準拠)。
+            // ⭐ 「**相手は**以下から1つを選ぶ」 (actor="opp") は **相手が選ぶ** ので、
+            //   発動者視点スコアの **最小** = 相手にとって最も損の小さい選択肢を取る
+            //   (Python effects.py の _pick と同じ。 2026-08-07 是正)。
+            let actor_is_opp =
+                spec.get("actor").and_then(|x| x.as_str()) == Some("opp");
             let n_opp = state.players[opp_idx].characters.len();
             let n_me = state.players[me_idx].characters.len();
             let my_life = state.players[me_idx].life.len();
+            let opp_life = state.players[opp_idx].life.len();
+            let opp_hand = state.players[opp_idx].hand.len();
             let mut best = valid[0];
-            let mut best_s = option_score(&options[valid[0]], n_opp, n_me, my_life);
+            let mut best_s =
+                option_score(&options[valid[0]], n_opp, n_me, my_life, opp_life, opp_hand);
             for &i in &valid[1..] {
-                let s = option_score(&options[i], n_opp, n_me, my_life);
-                if s > best_s {
+                let s = option_score(&options[i], n_opp, n_me, my_life, opp_life, opp_hand);
+                let better = if actor_is_opp { s < best_s } else { s > best_s };
+                if better {
                     best_s = s;
                     best = i;
                 }
@@ -4224,13 +4246,16 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             } else {
                 v.as_i64().unwrap_or(1)
             } as i32;
+            // ⭐ 公式 「**相手は**自身の場のドン‼N枚を…戻す」 = **相手が選ぶ** ので
+            //   **レストのドンから** 返す (アクティブはこのターンまだ使える)。
+            //   2026-08-07 まで active 優先 = 行動側に都合のよい選択だった (Python と同時是正)。
             let o = &mut state.players[opp_idx];
-            let a = n.min(o.don_active);
-            o.don_active -= a;
-            o.don_remaining_in_deck += a;
-            let r = (n - a).min(o.don_rested);
+            let r = n.min(o.don_rested);
             o.don_rested -= r;
             o.don_remaining_in_deck += r;
+            let a = (n - r).min(o.don_active);
+            o.don_active -= a;
+            o.don_remaining_in_deck += a;
             true
         }
         // このキャラ以外の自キャラ全てをデッキ下へ (effects.py:other_self_charas_to_deck_bottom)。
@@ -4664,17 +4689,38 @@ if me_board_has_when(state, opp_idx, "on_self_don_returned_to_deck") {
             } else {
                 (v.as_i64().unwrap_or(1) as usize, None)
             };
+            // ⭐ 「**相手は**…好きな順番でデッキの下に置く」 = **相手が選ぶ**。
+            //   相手は最も惜しくない札 (cost 低 → power 低 → 元の順) から出す
+            //   (Python effects.py:_worst_trash_order と同順)。
+            //   ⚠ worst_hand_idx (counter 基準) は **トラッシュには使えない**
+            //     (トラッシュからカウンターは切れない)。
             let opp = &mut state.players[opp_idx];
+            let mut cand: Vec<usize> = (0..opp.trash.len())
+                .filter(|&i| matches_filter(&opp.trash[i], filt.as_ref()))
+                .collect();
+            cand.sort_by(|&a, &b| {
+                let ca = (opp.trash[a].cost, opp.trash[a].power, a);
+                let cb = (opp.trash[b].cost, opp.trash[b].power, b);
+                ca.cmp(&cb)
+            });
+            let order: Vec<usize> = cand.into_iter().take(count).collect();
+            if order.is_empty() {
+                // Python は該当 0 で return False だが、 Rust の false は **bail** を意味する。
+                // 状態は不変なので no-op = true が正しい (旧実装と同じ扱い)。
+                return true;
+            }
+            // ⚠ デッキ下へ積む順は **選んだ順 (= 惜しくない順)**。 Python の
+            //   `picked = [trash[i] for i in _order[:count]]` と一致させる
+            //   (元のトラッシュ順で積むと count>1 でデッキ底の並びがズレて MISMATCH)。
+            let chosen: std::collections::HashSet<usize> = order.iter().copied().collect();
+            let picked: Vec<crate::state::CardDef> =
+                order.iter().map(|&i| opp.trash[i].clone()).collect();
             let old = std::mem::take(&mut opp.trash);
-            let mut picked: Vec<crate::state::CardDef> = vec![];
-            for c in old {
-                if picked.len() < count && matches_filter(&c, filt.as_ref()) {
-                    picked.push(c);
-                } else {
+            for (i, c) in old.into_iter().enumerate() {
+                if !chosen.contains(&i) {
                     opp.trash.push(c);
                 }
             }
-            // Python は該当 0 で return False (= 忠実な no-op)。
             opp.deck.extend(picked);
             true
         }
@@ -5804,6 +5850,47 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             let removed = me.characters.remove(i);
             me.don_rested += removed.attached_dons;
             me.deck.push(removed.card);
+            true
+        }
+        // ⭐ 公式 「**相手は**(自身の)手札N枚を捨てる」 = **手札の持ち主 (相手) が選ぶ**
+        // (cardqa_op_01「手札の持ち主である相手が選びます」/ cardqa_st_18)。
+        // ⚠ 対照: 「**相手の**手札N枚を捨てる」 は発動者が **裏向きで** 選ぶ (cardqa_op_03/st_10)
+        //   = ランダムが忠実なモデル → そちらは trash_opp_hand_random のまま。
+        // AI は worst_hand_idx (= counter 低 → cost 低 → power 低。 防御札を温存)。
+        "opp_discard_own_choice" => {
+            let n = if v.is_object() {
+                v.get("amount").or_else(|| v.get("count")).and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                v.as_i64().unwrap_or(1)
+            };
+            // 人間相手の pick は Python が pending_choice で halt するので、 ここには
+            // AI 経路 (= 選択の余地なし or AI 所有) だけが来る。 picks 注入経路も同順で処理。
+            if let Some(picks) = v.get("_opp_hand_picks").and_then(|x| x.as_array()) {
+                let mut idxs: Vec<usize> = picks
+                    .iter()
+                    .filter_map(|x| x.as_i64())
+                    .map(|i| i as usize)
+                    .collect();
+                idxs.sort_unstable();
+                idxs.dedup();
+                let o = &mut state.players[opp_idx];
+                for i in idxs.into_iter().rev() {
+                    if i < o.hand.len() {
+                        let c = o.hand.remove(i);
+                        o.trash.push(c);
+                    }
+                }
+                return true;
+            }
+            for _ in 0..n {
+                let o = &mut state.players[opp_idx];
+                if o.hand.is_empty() {
+                    break;
+                }
+                let Some(i) = worst_hand_idx(&o.hand, &o.known_hand_card_ids) else { break };
+                let c = o.hand.remove(i);
+                o.trash.push(c);
+            }
             true
         }
         // 相手は自身の手札 N 枚をデッキ下へ (effects.py:opp_hand_to_deck_bottom)。 AI は worst_hand_idx。
@@ -7234,12 +7321,18 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             let limit = spec.and_then(|o| o.get("limit")).and_then(|x| x.as_i64()).unwrap_or(1) as usize;
             let rested = spec.and_then(|o| o.get("rested")).and_then(|x| x.as_bool()).unwrap_or(false);
             let unique = spec.and_then(|o| o.get("unique_name")).and_then(|x| x.as_bool()).unwrap_or(false);
+            // 公式が 素の 「カード…登場させる」 (= ST31-002 ジンベエ) は ステージも 対象。 opt-in flag、
+            // 既定 false = 従来どおり CHARACTER 専用。 cardqa_st_31 で サニー号 (STAGE) 登場が 「はい」。
+            let include_stage =
+                spec.and_then(|o| o.get("include_stage")).and_then(|x| x.as_bool()).unwrap_or(false);
             // 候補抽出: (hand_idx, cost, power, name)
             let mut cands: Vec<(usize, i32, i32, String)> = vec![];
             {
                 let me = &state.players[me_idx];
                 for (i, c) in me.hand.iter().enumerate() {
-                    if c.category != crate::state::Category::Character {
+                    let cat_ok = c.category == crate::state::Category::Character
+                        || (include_stage && c.category == crate::state::Category::Stage);
+                    if !cat_ok {
                         continue;
                     }
                     if card_no_play_via_effect(&c.card_id) {
@@ -7314,6 +7407,27 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 return true;
             }
             for card in cards {
+                // include_stage で STAGE を選んだ場合は play_stage_from_hand と同じ 置換 + on_play。
+                if card.category == crate::state::Category::Stage {
+                    let ctx_card = card.clone();
+                    let old = std::mem::take(&mut state.players[me_idx].stages);
+                    for s in old {
+                        let ad = s.attached_dons;
+                        state.players[me_idx].trash.push(s.card);
+                        if ad > 0 {
+                            state.players[me_idx].don_rested += ad;
+                        }
+                    }
+                    let ip = InPlay::of(card, false); // sickness=false (ステージ)
+                    state.players[me_idx].stages.push(ip);
+                    let played_idx = state.players[me_idx].stages.len() - 1;
+                    state.last_self_chara_played_card = Some(ctx_card);
+                    state.last_self_chara_played_from_trash = false;
+                    if execute_stage_on_play(state, me_idx, played_idx).is_err() {
+                        return false;
+                    }
+                    continue;
+                }
                 trash_weakest_for_field_full(state, me_idx); // 場5枚は最弱trash (3-7-6-1、 KO無)
                 let mut ip = InPlay::of(card.clone(), true); // sickness=true
                 ip.rested = rested;
@@ -9549,7 +9663,8 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "chara_to_trash" | "chara_to_self_life" | "scry_life" | "scry_all_life_one_to_deck"
             | "mill_self_life_until_n" | "set_base_cost_timed" | "give_ko_immune_through_opp_turn"
             | "to_hand_self_trigger" | "rest_multi" | "ko_total_power_le" | "ko_multi"
-            | "opp_hand_to_deck_bottom" | "opp_hand_to_deck_then_draw" | "extra_turn"
+            | "opp_hand_to_deck_bottom" | "opp_discard_own_choice"
+            | "opp_hand_to_deck_then_draw" | "extra_turn"
             | "disable_blocker" | "disable_opp_on_play_through_opp_turn" | "set_battle_ko_immune"
             | "rest_self_cards_filtered" | "ko_self_chara" | "fire_self_main"
             | "replace_ko_complex" | "draw_per_self_hand_discarded"

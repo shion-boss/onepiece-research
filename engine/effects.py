@@ -748,6 +748,8 @@ def _option_score(opt: dict, state: GameState, me: Player, opp: Player) -> float
         n_opp = len(getattr(opp, "characters", []) or [])
         n_me = len(getattr(me, "characters", []) or [])
         my_life = len(getattr(me, "life", []) or [])
+        opp_life = len(getattr(opp, "life", []) or [])
+        opp_hand = len(getattr(opp, "hand", []) or [])
         score = 0.0
         for pr in prims:
             if pr in ("ko", "ko_multi", "ko_all_others", "return_to_hand",
@@ -767,8 +769,18 @@ def _option_score(opt: dict, state: GameState, me: Player, opp: Player) -> float
                 score += 1.0 if n_me > 0 else -0.5      # 自分の駒が居ないパンプは空振り
             elif pr in ("put_top_to_life", "hand_to_self_life", "life_to_hand"):
                 score += 2.5 if my_life <= 2 else 0.8   # ライフが薄い時ほど回復が効く
-            elif pr in ("trash_opp_hand_random",):
-                score += 1.2
+            elif pr in ("trash_opp_hand_random", "opp_discard_own_choice",
+                        "force_opp_discard", "opp_hand_to_deck_bottom"):
+                # ⚠ 相手の手札が空なら空振り (= 選択肢として無価値/相手には好都合)。
+                score += 1.2 if opp_hand > 0 else -0.5
+            elif pr in ("mill_opp_life_to_trash", "mill_opp_life_to_hand",
+                        "deal_opp_leader_damage"):
+                # 相手ライフを削る系。 ⚠ ライフ 0 なら空振り。
+                # 公式 (cardqa_st_20): 「対戦相手のライフが0枚のとき…『相手のライフの上から
+                # 1枚をトラッシュに置く』を選ぶことはできますか？」 → 「はい、 できます。
+                # この場合、 トラッシュに置くことができるライフがないため、 **何も起きません**。」
+                # = 空振り選択肢は選べる。 相手が選ぶ (actor="opp") 局面では min がこれを取る。
+                score += 2.0 if opp_life > 0 else -0.5
             else:
                 score += 0.3
         return score
@@ -800,6 +812,25 @@ def _threat_key(ip) -> tuple:
 def _sacrifice_key(ip) -> tuple:
     """自キャラを「捨ててよい順」に並べる key (昇順ソート用)。 従来挙動 = power 昇順 (上記 revert)。"""
     return (float(getattr(ip, "power", 0) or 0),)
+
+def _worst_trash_order(cards: list) -> list[int]:
+    """トラッシュから **最も惜しくない順** の index 列 (cost 低 → power 低 → 元の順)。
+
+    ⚠ `_worst_hand_idx` (= counter 低 → cost 低 → power 低) を流用してはいけない。
+      **トラッシュのカードはカウンターに切れない** ので counter は価値と無関係。
+      トラッシュの価値は 「蘇生/回収の的になるか」 = 概ね cost / power で決まる。
+    公式 「**相手は**自身のトラッシュから (filter) カードN枚を、 好きな順番でデッキの下に置く」
+    = **相手が選ぶ** ので、 相手は復活させたい高コスト札を残し、 低コスト札から出す。
+    """
+    return sorted(
+        range(len(cards)),
+        key=lambda i: (
+            int(cards[i].cost) if cards[i].cost is not None else 0,
+            int(cards[i].power) if cards[i].power is not None else 0,
+            i,
+        ),
+    )
+
 
 def _worst_hand_idx(hand: list, known: Optional[list] = None) -> int:
     """最も捨てて惜しくない手札の index(counter 低 → cost 低 → power 低)。 高 counter の防御札を温存。
@@ -1273,6 +1304,11 @@ def eval_condition(
                 return False
         elif k == "self_trash_count_ge":
             if len(me.trash) < int(v):
+                return False
+        elif k == "self_trash_count_le":
+            # 自トラッシュ N 枚以下 (Rust rules.rs:769 と対称)。 OP04-094 雷の破壊剣 の
+            # 「トラッシュ15枚以上なら cost6、 それ未満なら cost4」 の下限側 分岐で使う。
+            if len(me.trash) > int(v):
                 return False
         elif k == "self_event_cost_used_ge":
             # このターン中に自分がコスト N 以上のイベントを使用していたか (= OP15-002 ルーシー)。
@@ -3534,11 +3570,59 @@ def _execute_effect_body(
                     f"  効果: choice_effect 選択 待ち ({len(valid_options)}個 候補, optional={optional})"
                 )
                 return True
+            # ⭐ 「**相手は**以下から1つを選ぶ」 (actor="opp") で **相手が人間** なら、
+            #   その人に選ばせる (= 選択肢の平等。 2026-08-07)。
+            #   ⚠ 選択肢の文面は **発動者視点** で書かれている (「相手は自身の手札2枚を捨てる」
+            #     = 選ぶ人自身のこと)。 したがって **do は発動者フレームのまま実行** する
+            #     必要があり、 pending_choice の `_actor_idx` には **発動者** の index を入れる
+            #     (= resolver が me/opp を発動者基準に復元する)。 modal を出す相手と
+            #     do を実行するフレームは別物。
+            if actor == "opp" and state.human_player_idx is not None:
+                _opp_idx = next(
+                    (i for i, pl in enumerate(state.players) if pl is opp), None
+                )
+                _me_idx = next(
+                    (i for i, pl in enumerate(state.players) if pl is me), None
+                )
+                if _opp_idx == state.human_player_idx and state.pending_choice is None:
+                    state.pending_choice = {
+                        "kind": "option_pick",
+                        "optional": optional,
+                        "options": [
+                            {"idx": i, "label": opt.get("label", f"効果 {i+1}")}
+                            for i, opt in valid_options
+                        ],
+                        "_full_options": options,
+                        "_self_inplay_iid": (
+                            self_inplay.instance_id if self_inplay else None
+                        ),
+                        # do は発動者フレームで実行する (= 文面が発動者視点のため)
+                        "_actor_idx": _me_idx,
+                        "description": (
+                            "相手の効果: **あなたが**選びます "
+                            "(選択肢の文面は発動者視点なので 「相手」 = あなた)"
+                        ),
+                    }
+                    state.push_log(
+                        f"  効果: choice_effect [opp] 相手 (人間) の選択 待ち "
+                        f"({len(valid_options)}個 候補)"
+                    )
+                    return True
             # AI: 文脈を見て最良の option を選ぶ (2026-07-24、 従来は「1 つ目」= 選んでいなかった)。
             # ⚠ フル sim は不可: effects 実行中に fast_clone すると plan_search →
             # _pick_activate_main → deepcopy 連鎖で hang した実例がある。 局面で「何も起きない」
             # 選択肢を外し、 効果量で並べる軽量スコアにする。
-            chosen_idx, chosen_opt = max(
+            # ⭐ 「**相手は**以下から1つを選ぶ」 (actor="opp") は **相手が選ぶ** ので、
+            #   相手にとって最も損の小さい選択肢になる。 選択肢の文面は発動者視点で書かれて
+            #   いる (= do は発動者の me/opp フレームで実行する) ため、 **発動者視点スコアの
+            #   最小** を取るのが相手最適 (= 発動者に最も効かない選択肢)。
+            #   ⚠ 2026-08-07 まで actor に関わらず max = **発動者に最も都合のよい選択肢**
+            #     を選んでいた (= 相手が選ぶはずの不利益を発動者が選べていた)。 対象 3 枚。
+            #   ⚠ 公式は 「何も起きない選択肢」 も選べる (cardqa_st_20: 相手のライフが0枚でも
+            #     「ライフの上から1枚をトラッシュ」 を選べる → 「はい、 何も起きません」)。
+            #     min は空振り選択肢を自然に選ぶので、 この裁定とも整合する。
+            _pick = min if actor == "opp" else max
+            chosen_idx, chosen_opt = _pick(
                 valid_options, key=lambda io: _option_score(io[1], state, me, opp))
             chosen_do = chosen_opt.get("do", []) if isinstance(chosen_opt, dict) else []
             state.push_log(
@@ -5559,6 +5643,12 @@ def _execute_effect_body(
             filt = _resolve_dynamic_filter(spec.get("filter", {}), state, me, opp)
             limit = int(spec.get("limit", 1))
             rested = bool(spec.get("rested", False))
+            # 公式が 「キャラカード」 でなく 素の 「カード」 を 登場 対象にする 効果 (= ST31-002
+            # ジンベエ 「コスト1の特徴《麦わらの一味》を持つカード1枚まで…登場させる」) は
+            # ステージも 対象。 opt-in flag。 既定 False = 従来どおり CHARACTER 専用 (無回帰)。
+            # 一次情報: cardqa_st_31 「この【登場時】効果で『ST31-005 サウザンド・サニー号』を
+            # 登場させることはできますか？」 → 「はい、できます。」
+            include_stage = bool(spec.get("include_stage", False)) if isinstance(spec, dict) else False
             # 既 解決 picks (= resolve_pending_choice 経由) の場合 は直接実行
             picks_idx: Optional[list[int]] = None
             if isinstance(v, dict) and "_picks_idx" in v:
@@ -5571,7 +5661,11 @@ def _execute_effect_body(
             from .game import _compute_in_hand_cost_minus as _pfh_ihm
             candidates: list[tuple[int, CardDef]] = []
             for i, card in enumerate(me.hand):
-                if card.category != Category.CHARACTER:
+                if card.category == Category.CHARACTER:
+                    pass
+                elif include_stage and card.category == Category.STAGE:
+                    pass
+                else:
                     continue
                 if _no_play_from_hand_via_effect(card, state.effects_overlay):
                     continue   # OP12-036: 効果で登場できないカードは候補外
@@ -5638,6 +5732,20 @@ def _execute_effect_body(
                 for idx in chosen_indexes:
                     chosen_cards.append(me.hand.pop(idx))
                 for card in chosen_cards:
+                    if include_stage and card.category == Category.STAGE:
+                        # ステージは 1 枚まで (公式 3-8-3) → 既存ステージをトラッシュへ置換。
+                        # play_stage_from_hand と 同じ 置換 + on_play 発火。
+                        for s in list(me.stages):
+                            me.stages.remove(s)
+                            me.trash.append(s.card)
+                            if s.attached_dons > 0:
+                                me.don_rested += s.attached_dons
+                        ip = InPlay.of(card, sickness=False)
+                        me.stages.append(ip)
+                        state.push_log(f"  効果: 手札からステージ登場 → {card.name}")
+                        if state.effects_overlay:
+                            trigger_on_play(state, me, opp, ip, state.effects_overlay)
+                        continue
                     if not me.can_play_character():
                         me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                     ip = InPlay.of(card, rested=rested, sickness=True)
@@ -7022,19 +7130,22 @@ def _execute_effect_body(
             else:
                 count = int(v)
                 filt = {}
-            picked = []
-            new_trash = []
-            for c in opp.trash:
-                if len(picked) < count and _matches_filter(c, filt):
-                    picked.append(c)
-                else:
-                    new_trash.append(c)
+            # ⭐ 「**相手は**…好きな順番でデッキの下に置く」 = **相手が選ぶ**。
+            #   ⚠ 2026-08-07 まで **トラッシュ順の先頭** から取っており、 相手の選択に
+            #     なっていなかった (= 蘇生の的になる高コスト札が先に抜けうる)。
+            #   相手は最も惜しくない札 (cost 低 → power 低) から出す。
+            _cand_idx = [i for i, c in enumerate(opp.trash) if _matches_filter(c, filt)]
+            _order = [i for i in _worst_trash_order(opp.trash) if i in set(_cand_idx)]
+            _chosen = set(_order[:count])
+            picked = [opp.trash[i] for i in _order[:count]]
+            opp.trash = [c for i, c in enumerate(opp.trash) if i not in _chosen]
             if not picked:
-                state.push_log(f"  効果: 相手トラッシュ → デッキ下 (該当なし)")
+                state.push_log("  効果: 相手トラッシュ → デッキ下 (該当なし)")
                 return False
-            opp.trash[:] = new_trash
             opp.deck.extend(picked)
-            state.push_log(f"  効果: 相手トラッシュ {len(picked)}枚 → 相手デッキ下")
+            state.push_log(
+                f"  効果: 相手がトラッシュ {len(picked)} 枚を選んでデッキ下へ"
+            )
         elif k == "draw_per_hand_to_deck_bottom":
             # 公式: 「自分の手札すべてを好きな順番でデッキの下に置いてもよい。
             # そうした場合、 置いた枚数分カードを引く」 (P-046 等)。
@@ -7818,19 +7929,80 @@ def _execute_effect_body(
                 for es in then_specs:
                     execute_effect(es, state, me, opp, self_inplay)
         elif k == "return_opp_don":
-            # 相手は自身の場のドン N 枚をドンデッキに戻す。 active 優先、 不足は rested から。
+            # ⭐ 公式 「**相手は**自身の場のドン‼N枚をドン‼デッキに戻す」 = **相手が選ぶ**
+            #   (= 手札/盤面の chooser 帰属と同じ書き分け。 cardqa_op_01「手札の持ち主である
+            #    相手が選びます」 の一般則がドンにも及ぶ)。
+            #   ⚠ 2026-08-07 まで **アクティブ優先** で返していた = 行動側に都合のよい選択。
+            #     相手は当然 **レストのドンから** 返す (アクティブは このターン中まだ使える =
+            #     こちらのターンなら カウンターイベントの支払いに要る / 自分のターンなら
+            #     そのまま登場やアタックに使える)。 対象 5 枚。
+            #   ⚠ 「相手の**アクティブの**ドン」 と明示するカード (OP15-059 / PRB02-005) は
+            #     別 primitive なのでここには来ない。 書き分けを潰さないこと。
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
             removed = 0
-            take_a = min(n, opp.don_active)
-            opp.don_active -= take_a
-            opp.don_remaining_in_deck += take_a
-            removed += take_a
+            take_r = min(n, opp.don_rested)
+            opp.don_rested -= take_r
+            opp.don_remaining_in_deck += take_r
+            removed += take_r
             if removed < n:
-                take_r = min(n - removed, opp.don_rested)
-                opp.don_rested -= take_r
-                opp.don_remaining_in_deck += take_r
-                removed += take_r
+                take_a = min(n - removed, opp.don_active)
+                opp.don_active -= take_a
+                opp.don_remaining_in_deck += take_a
+                removed += take_a
             state.push_log(f"  効果: 相手ドン {removed} 枚をドンデッキへ戻す")
+        elif k == "opp_discard_own_choice":
+            # ⭐ 公式 「**相手は**(自身の)手札N枚を捨てる」 = **手札の持ち主 (相手) が選ぶ**。
+            #   一次情報:
+            #     cardqa_op_01「この【登場時】効果で捨てるカードは相手が選びますか？」
+            #       → 「はい、 **手札の持ち主である相手が選びます**。」
+            #     cardqa_st_18「…どちらのプレイヤーが手札を2枚捨てますか？」 → 「この【登場時】
+            #       効果を発動していない側のプレイヤーが、 そのプレイヤーの手札から2枚選び…」
+            #   ⚠ 対照: 「**相手の**手札N枚を捨てる」 は **発動者が裏向きで選ぶ**
+            #     (cardqa_op_03 / cardqa_st_10) = ランダムが忠実なモデル。
+            #     → そちらは trash_opp_hand_random のままでよい。 書き分けを潰さないこと。
+            #   ⚠ 2026-08-07 まで両方を trash_opp_hand_random (= ランダム) にしており、
+            #     「相手が選ぶ」 型が **本来より強く** なっていた (相手は最も惜しくない札を
+            #     捨てられるはずが、 キーカードがランダムで飛んでいた)。 対象 20 枚。
+            _od_n = int(v) if not isinstance(v, dict) else int(v.get("amount", v.get("count", 1)))
+            _od_picks = v.get("_opp_hand_picks") if isinstance(v, dict) else None
+            _opp_idx = next((i for i, pl in enumerate(state.players) if pl is opp), None)
+            if (_od_picks is None and opp.hand and len(opp.hand) > _od_n
+                    and state.human_player_idx is not None
+                    and _opp_idx == state.human_player_idx):
+                # 相手が人間 → 本人に選ばせる (= 選択肢の平等)。 捨てるのは強制なので optional 無し。
+                state.pending_choice = {
+                    "kind": "opp_discard_own_choice_pick",
+                    "primitive_kind": "opp_discard_own_choice",
+                    "primitive_value": (dict(v) if isinstance(v, dict) else {"amount": _od_n}),
+                    "actor_idx": _opp_idx,
+                    "_actor_idx": _opp_idx,
+                    "limit": _od_n,
+                    "candidates": [
+                        {"hand_idx": i, "card_id": c.card_id, "name": c.name,
+                         "cost": int(c.cost) if c.cost is not None else 0,
+                         "power": int(c.power) if c.power is not None else 0}
+                        for i, c in enumerate(opp.hand)
+                    ],
+                    "description": f"相手の効果: 自分の手札から {_od_n} 枚を選んで捨てる",
+                }
+                state.push_log("  効果: 相手 (人間) が捨てる手札を選択 待ち")
+                return True
+            if _od_picks is not None:
+                for i in sorted(set(_od_picks), reverse=True):
+                    if 0 <= i < len(opp.hand):
+                        opp.trash.append(opp.hand.pop(i))
+                state.push_log(f"  効果: 相手が自身の手札 {len(set(_od_picks))} 枚を選んで捨てた")
+            else:
+                # AI (または候補 <= N で選択の余地なし): 最も惜しくない札を捨てる
+                _moved = 0
+                for _ in range(_od_n):
+                    if not opp.hand:
+                        break
+                    opp.trash.append(
+                        opp.hand.pop(_worst_hand_idx(opp.hand, opp.known_hand_card_ids))
+                    )
+                    _moved += 1
+                state.push_log(f"  効果: 相手が自身の手札 {_moved} 枚を選んで捨てた")
         elif k == "opp_hand_to_deck_bottom":
             # 相手は自身の手札 N 枚を選び デッキの下に置く。 = 相手が選ぶ → 相手=AI は最悪札を手放す
             # (良い札を残す)。 相手=人間は本来選ばせるべきだが 非 actor halt 未整備 → 最悪札 default。
@@ -10343,6 +10515,28 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         execute_effect({target_primitive: new_spec}, state, me, opp, self_inplay)
         return
 
+    if kind == "opp_discard_own_choice_pick":
+        # 「相手は自身の手札N枚を捨てる」 の相手側選択 (= 手札の持ち主が選ぶ、 cardqa_op_01)。
+        # 捨てること自体は強制なので、 picks が足りなければ最悪札で補完する。
+        candidates = choice.get("candidates", [])
+        actor_idx = int(choice.get("actor_idx", state.turn_player_idx))
+        a_me = state.players[actor_idx]
+        a_opp = state.players[1 - actor_idx]
+        limit = int(choice.get("limit", 1))
+        valid = [i for i in picks if 0 <= i < len(candidates)]
+        hand_idxs = [int(candidates[i]["hand_idx"]) for i in valid][:limit]
+        state.pending_choice = None
+        spec = dict(choice.get("primitive_value") or {})
+        if len(hand_idxs) < limit:
+            # 不足分は最悪札で補完 (= 「捨てる」 は強制。 0 枚 skip を許すと違反になる)
+            remaining = [i for i in range(len(a_me.hand)) if i not in hand_idxs]
+            need = min(limit - len(hand_idxs), len(remaining))
+            for _ in range(need):
+                w = _worst_hand_idx([a_me.hand[i] for i in remaining], a_me.known_hand_card_ids)
+                hand_idxs.append(remaining.pop(w))
+        spec["_opp_hand_picks"] = hand_idxs
+        execute_effect({"opp_discard_own_choice": spec}, state, a_opp, a_me, None)
+        return
     if kind == "opp_optional_play_from_hand":
         # ⭐ 公式 「相手は自身の手札から…キャラカード1枚**まで**を、 登場させる」 の相手側判断。
         #   picks が空 = **登場させない** (= 「まで」 なので 0 枚が正当)。

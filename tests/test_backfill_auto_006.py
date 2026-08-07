@@ -564,27 +564,35 @@ def test_eb02_022_usopp_on_play_blocked_when_three_strong():
 #            コスト1以下キャラ1枚を持ち主の手札に戻す
 # --------------------------------------------------------------------------- #
 def test_eb02_024_sogeking_on_play_draw_deckbottom_bounce_ai():
-    """AI: 2ドロー → 手札2枚をデッキ下 → 自コスト1以下キャラを手札に戻す。"""
+    """AI: 2ドロー → 手札2枚をデッキ下 → コスト1以下キャラを手札に戻す。
+
+    「コスト1以下のキャラ1枚まで…**持ち主の**手札に戻す」 は 修飾なし = 両陣営 (docs
+    official_rulings、 cardqa_st_03 系)。 AI は 相手のキャラを優先し 自分のキャラは巻き込まない。
+    ⚠ 是正前は self 限定 (one_self_chara_filtered) だった。
+    """
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, "OP10-099", overlay)
     me, opp = st.players[0], st.players[1]
     me.hand = [repo.get("OP01-013"), repo.get("OP01-013")]  # 手札2枚
     me.deck = [repo.get("OP01-016")] * 10
-    small = InPlay.of(repo.get("OP01-016"), sickness=False)  # ナミ cost1
+    small = InPlay.of(repo.get("OP01-016"), sickness=False)  # 自分 ナミ cost1
     me.characters = [small]
+    foe = InPlay.of(repo.get("OP01-016"), sickness=False)  # 相手 cost1
+    opp.characters = [foe]
 
     hand_before = len(me.hand)
     sogeking = InPlay.of(repo.get("EB02-024"), sickness=True)
     me.characters.append(sogeking)
     trigger_on_play(st, me, opp, sogeking, overlay)
 
-    # +2 draw, -2 deck bottom, +1 bounce (small が手札へ) = net +1
-    assert len(me.hand) == hand_before + 1, \
-        f"2ドロー-2デッキ下+1バウンスの net が合わない: {len(me.hand)} (before {hand_before})"
-    assert small not in me.characters, "コスト1以下キャラが手札に戻っていない"
-    assert any(c.card_id == "OP01-016" for c in me.hand), \
-        "戻したコスト1以下キャラが手札にない"
+    # +2 draw, -2 deck bottom, bounce は相手キャラ (相手の手札へ) = 自分の手札は net 0
+    assert len(me.hand) == hand_before, \
+        f"2ドロー-2デッキ下 で 自分の手札は net 0 のはず: {len(me.hand)} (before {hand_before})"
+    assert foe not in opp.characters, "AI が 相手のコスト1以下キャラを手札に戻していない"
+    assert small in me.characters, "AI が 相手より 自分のキャラを戻してしまっている"
+    assert any(c.card_id == "OP01-016" for c in opp.hand), \
+        "戻した相手キャラが 相手の手札にない"
 
 
 def test_eb02_024_sogeking_bounce_human_modal():

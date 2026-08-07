@@ -6064,3 +6064,439 @@ def test_self_chara_cost_ge_count_overlays_are_plain_cost_not_printed():
         "self_chara_cost_ge_count (= 現在コスト判定) の効果エントリが 「元々の」 を意図:\n  "
         + "\n  ".join(bad)
     )
+
+
+# =========================================================================== #
+#  手札の chooser 帰属 (2026-08-07)
+#    公式は 盤面と同じく 手札でも 「相手は」 と 「相手の」 を書き分ける:
+#      「**相手は**(自身の)手札N枚を捨てる」 → **手札の持ち主 (相手) が選ぶ**
+#        cardqa_op_01「この【登場時】効果で捨てるカードは相手が選びますか？」
+#                   → 「はい、 **手札の持ち主である相手が選びます**。」
+#        cardqa_st_18「…この【登場時】効果を発動していない側のプレイヤーが、 そのプレイヤーの
+#                     手札からカードを2枚選び、 そのプレイヤーのトラッシュに置きます。」
+#      「**相手の**手札N枚を捨てる」 → **発動者が裏向きで選ぶ** (= ランダムが忠実)
+#        cardqa_op_03 / cardqa_st_10「発動したプレイヤーが、 相手の手札を裏向きの状態で2枚選びます」
+#    ⚠ 2026-08-07 まで両方を trash_opp_hand_random (= ランダム) にしており、
+#      「相手が選ぶ」 型が **本来より強かった** (相手は惜しくない札を捨てられるはずが
+#      キーカードがランダムで飛んでいた)。 対象 20 枚。
+# =========================================================================== #
+def test_opponent_chooses_which_of_their_own_hand_cards_to_discard():
+    """「相手は自身の手札1枚を捨てる」 は **決定的に相手の選択** で解決する (ランダムでない)。"""
+    import json
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    raw = json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+    hi = next(c for c in raw
+              if c["category"] == "CHARACTER" and str(c.get("counter") or "") == "2000")
+    lo = next(c for c in raw
+              if c["category"] == "CHARACTER" and str(c.get("counter") or "0") in ("", "0", "-"))
+
+    def run(seed, prim):
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 10
+            p.life = [repo.get("OP01-013")] * 3
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(seed), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 0, 5
+        p1.hand = [repo.get(hi["card_id"]), repo.get(lo["card_id"])]
+        execute_effect(prim, st, p0, p1, None)
+        return p1.trash[0].card_id
+
+    chosen = {run(s, {"opp_discard_own_choice": 1}) for s in range(8)}
+    assert len(chosen) == 1, f"相手の選択が seed で変わる (= ランダムのまま): {chosen}"
+    assert hi["card_id"] not in chosen, \
+        "相手が高カウンターの防御札を捨てている (= 惜しくない札を選べていない)"
+    # 対照: 「相手の手札」 (= 発動者が裏向きで選ぶ) は random のままが忠実
+    rnd = {run(s, {"trash_opp_hand_random": 1}) for s in range(8)}
+    assert len(rnd) > 1, "trash_opp_hand_random が決定的になっている (裏向き選択の忠実性が壊れた)"
+
+
+def test_hand_chooser_attribution_matches_official_wording_whole_corpus():
+    """⭐ 全走査: 「相手は自身の手札…捨てる」 = opp_discard_own_choice /
+    「相手の手札…捨てる」 = trash_opp_hand_random (= 裏向き) の書き分けが崩れていない。"""
+    import json
+    import re
+
+    cards = {c["card_id"]: c
+             for c in json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    # 「相手の手札が N 枚以上」 は **条件節** なので対象指定と混同しない
+    SELF = re.compile(r"相手は[、]?(?:自身の|自分の)?手札[^。]{0,24}?捨て")
+    ACTOR = re.compile(r"相手の手札(?!が)[^。]{0,20}?捨て")
+
+    bad: list[str] = []
+    for cid, effs in sorted(ov.items()):
+        if not isinstance(effs, list) or cid.startswith("_"):
+            continue
+        card = cards.get(cid)
+        if not card:
+            continue
+        full = re.sub(r"\s+", "", (card.get("text") or "") + (card.get("trigger") or ""))
+        blob = json.dumps(effs, ensure_ascii=False)
+        has_self, has_actor = bool(SELF.search(full)), bool(ACTOR.search(full))
+        uses_rand = ("trash_opp_hand_random" in blob) or ("force_opp_discard" in blob)
+        uses_choice = "opp_discard_own_choice" in blob
+        if has_self and not has_actor and uses_rand and not uses_choice:
+            bad.append(f"{cid}: 「相手は自身の手札…捨てる」 なのにランダム")
+        if has_actor and not has_self and uses_choice:
+            bad.append(f"{cid}: 「相手の手札…捨てる」 (裏向き) なのに相手選択になっている")
+
+    assert not bad, "手札 chooser の書き分けが overlay と不一致:\n  " + "\n  ".join(bad)
+
+
+def test_opponent_returns_rested_don_not_active():
+    """「**相手は**自身の場のドン‼1枚をドン‼デッキに戻す」 = **相手が選ぶ** → レストから返す。
+
+    ⚠ 是正前は **アクティブ優先** = 行動側に都合のよい選択だった。 相手は当然
+    アクティブ (= このターンまだ使える。 こちらのターンならカウンターイベントの支払いに要る)
+    を残し、 レストのドンから返す。 対象 5 枚 (OP02-085/089/090/091 / OP14-065)。
+    ⚠ 「相手の**アクティブの**ドン」 と明示するカード (OP15-059 / PRB02-005) は別 primitive。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    for p in (p0, p1):
+        p.deck = [repo.get("OP01-013")] * 10
+        p.life = [repo.get("OP01-013")] * 3
+    st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                   rng=random.Random(1), effects_overlay=ov)
+    st.turn_player_idx, st.turn_number = 0, 5
+    p1.don_active, p1.don_rested = 3, 2
+
+    execute_effect({"return_opp_don": 1}, st, p0, p1, None)
+    assert (p1.don_active, p1.don_rested) == (3, 1), (
+        "相手はレストのドンから返すはず (アクティブを温存): "
+        f"active={p1.don_active} rested={p1.don_rested}"
+    )
+    # レストが尽きたらアクティブから (= 枚数は必ず満たす)
+    p1.don_active, p1.don_rested = 2, 0
+    execute_effect({"return_opp_don": 1}, st, p0, p1, None)
+    assert (p1.don_active, p1.don_rested) == (1, 0), \
+        "レストが無いときにアクティブから返せていない"
+
+
+def test_opponent_picks_the_least_bad_option_including_a_no_op():
+    """「**相手は**以下から1つを選ぶ」 (actor="opp") は **相手が選ぶ** = 損の小さい方。
+
+    一次情報 (cardqa_st_20): 「対戦相手のライフが0枚のときに、 自分はこの【登場時】効果を
+    発動し…対戦相手は『・相手のライフの上から1枚をトラッシュに置く。』を選ぶことは
+    できますか？」 → 「**はい、 できます。** この場合、 トラッシュに置くことができる
+    ライフがないため、 **何も起きません。**」
+    ⚠ 是正前は actor に関わらず発動者視点の max = **発動者に最も都合のよい選択肢** を
+      選んでおり、 相手が選ぶはずの不利益を発動者が決めていた。 対象 3 枚。
+    """
+    import json
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    eff = next(x for x in ov.get("ST20-005").effects
+               if "choice_effect" in json.dumps(x, ensure_ascii=False))
+
+    def run(opp_life_n: int):
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 10
+        p0.life = [repo.get("OP01-013")] * 3
+        p1.life = [repo.get("OP01-013")] * opp_life_n
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 0, 5
+        p1.hand = [repo.get("OP01-013")] * 4
+        for prim in eff["do"]:
+            execute_effect(prim, st, p0, p1, None)
+        return len(p1.hand), len(p1.life)
+
+    # 相手ライフ 0 → 「ライフをトラッシュ」 は空振り。 相手はそれを選べる (= 手札は減らない)
+    hand_after, life_after = run(0)
+    assert hand_after == 4 and life_after == 0, (
+        "相手が空振りの選択肢を選べていない (= 発動者最適のまま): "
+        f"hand={hand_after} life={life_after}"
+    )
+
+
+def test_opponent_chooses_which_trash_cards_go_to_deck_bottom():
+    """「**相手は**自身のトラッシュからカードN枚を…デッキの下に置く」 = **相手が選ぶ**。
+
+    ⚠ 是正前は **トラッシュ順の先頭** から取っており相手の選択になっていなかった
+      (= 蘇生の的になる高コスト札が先に抜けうる)。
+    ⚠ `_worst_hand_idx` (counter 基準) は流用できない — **トラッシュからカウンターは切れない**
+      ので counter は価値と無関係。 cost 低 → power 低 が正しい基準 (_worst_trash_order)。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    for p in (p0, p1):
+        p.deck = [repo.get("OP01-013")] * 10
+        p.life = [repo.get("OP01-013")] * 3
+    st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                   rng=random.Random(1), effects_overlay=ov)
+    st.turn_player_idx, st.turn_number = 0, 5
+
+    big, small = repo.get("OP08-099"), repo.get("EB01-015")   # cost6 / cost1
+    assert int(big.cost) > int(small.cost), "テスト前提: cost が異なる"
+    p1.trash = [big, small]          # **高コストを先頭** に置く (= 順序に釣られないか)
+
+    execute_effect({"opp_trash_to_deck_bottom": 1}, st, p0, p1, None)
+    assert p1.deck[-1].card_id == small.card_id, (
+        "相手は最も惜しくない (低コストの) 札を出すはず: "
+        f"deck底={p1.deck[-1].card_id}"
+    )
+    assert [c.card_id for c in p1.trash] == [big.card_id], \
+        "高コスト札 (蘇生の的) がトラッシュに残っていない"
+
+
+def test_human_opponent_gets_the_choice_when_official_says_they_choose():
+    """「**相手は**以下から1つを選ぶ」 で **相手が人間** ならその人に modal が立つ。
+
+    ⚠ 選択肢の文面は **発動者視点** (「相手は自身の手札2枚を捨てる」 = 選ぶ人自身のこと)。
+      したがって **do は発動者フレームで実行** する必要があり、 pending_choice の
+      `_actor_idx` には **発動者** の index を入れる。 modal を出す相手と do のフレームは別物。
+    """
+    import json
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect, resolve_pending_choice
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    eff = next(x for x in ov.get("ST20-005").effects
+               if "choice_effect" in json.dumps(x, ensure_ascii=False))
+
+    def run(human_idx, picks=None):
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 10
+        p0.life = [repo.get("OP01-013")] * 3
+        p1.life = [repo.get("OP01-013")] * 2
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 0, 5
+        st.human_player_idx = human_idx
+        p1.hand = [repo.get("OP01-013")] * 4
+        for prim in eff["do"]:
+            execute_effect(prim, st, p0, p1, None)
+            if st.pending_choice:
+                break
+        pc = st.pending_choice
+        if pc is not None and picks is not None:
+            resolve_pending_choice(st, picks)
+        return pc, len(p1.hand), len(p1.life)
+
+    # 相手 (P1) が人間 → その人に modal。 _actor_idx は **発動者 (P0)**
+    pc, hand, life = run(1, [1])       # option 1 = ライフをトラッシュ
+    assert pc is not None and pc.get("kind") == "option_pick", \
+        f"相手が人間なのに modal が立たない: {pc.get('kind') if pc else None}"
+    assert pc.get("_actor_idx") == 0, \
+        f"do の実行フレームが発動者になっていない: _actor_idx={pc.get('_actor_idx')}"
+    assert (hand, life) == (4, 1), \
+        f"人間が選んだ選択肢どおりに解決していない: hand={hand} life={life}"
+
+    # 発動者が人間 = 相手は AI → modal は立たず AI が相手最適で選ぶ
+    pc2, _, _ = run(0)
+    assert pc2 is None, "相手が AI なのに発動者へ modal が立っている"
+def test_st31_002_include_stage_summons_a_stage_card():
+    """ST31-002 ジンベエ 【登場時】: 素の 「カード…登場させる」 は ステージも 対象。
+
+    一次情報 (db/faq/cardqa_st_31): 「この【登場時】効果で『ST31-005 サウザンド・サニー号』を
+    登場させることはできますか？」 → 「はい、できます。」
+    公式テキストは 「コスト1の特徴《麦わらの一味》を持つ**カード**1枚まで」 = キャラ限定でない為
+    STAGE の サニー号 (ST31-005、 cost1・麦わらの一味) も 登場できる。
+
+    是正前: play_from_hand が CHARACTER のみを候補にしていたので STAGE は silent no-op で
+    登場できなかった (公式違反)。 include_stage flag で STAGE も候補+登場に含める。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.hand = [repo.get("ST31-005")]  # STAGE、 cost1、 麦わらの一味
+    jinbe = InPlay.of(repo.get("ST31-002"), sickness=True)
+    me.characters.append(jinbe)
+    trigger_on_play(st, me, opp, jinbe, overlay)
+    assert [s.card.card_id for s in me.stages] == ["ST31-005"], (
+        "ST31-002 の【登場時】で STAGE の サニー号 が 登場できていない "
+        f"(stages={[s.card.card_id for s in me.stages]})"
+    )
+    # サニー号 は 手札から 場へ移った (draw:1 で引いた別カードは手札に残る)
+    assert "ST31-005" not in [c.card_id for c in me.hand], "登場した サニー号 が 手札に残っている"
+
+
+def test_eb03_048_places_dressrosa_stage_from_hand():
+    """EB03-048 【登場時】後段: 「ステージカード1枚まで…登場させる」 は STAGE を 場に置く。
+
+    是正前: overlay が play_from_hand (= CHARACTER 専用) を使っていたので STAGE が
+    silent no-op で 置けなかった。 play_stage_from_hand へ是正。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    # search 段が引く先 (デッキ上) と、 play 段が置く手札 の両方に ドレスローザ stage を置く
+    me.deck = [repo.get("OP04-096")] + [repo.get(_FILLER)] * 24
+    me.hand = [repo.get("OP04-096")]  # コリーダコロシアム、 ドレスローザ、 cost1
+    eb = InPlay.of(repo.get("EB03-048"), sickness=True)
+    me.characters.append(eb)
+    trigger_on_play(st, me, opp, eb, overlay)
+    assert [s.card.card_id for s in me.stages] == ["OP04-096"], (
+        "EB03-048 が ドレスローザ stage を 場に置けていない "
+        f"(stages={[s.card.card_id for s in me.stages]})"
+    )
+
+
+def test_play_from_hand_bare_card_summon_can_place_stage():
+    """全走査ガード: 公式テキストが 素の 「…カード1枚まで(を)…登場させる」 (= キャラ限定でない)
+    で、 かつ その filter に STAGE が一致しうる overlay は、 include_stage を持つ か
+    play_stage_from_hand を使うこと (= STAGE を silent drop しない)。
+
+    play_from_hand は CHARACTER 専用。 公式が 「キャラカード」 でなく 素の 「カード」 と書く
+    登場効果 (= ST31-002 ジンベエ、 cardqa_st_31 で サニー号 STAGE 登場が 「はい」) は STAGE も
+    対象なので、 include_stage 無しの play_from_hand だと STAGE が黙って登場できず違反になる。
+    「キャラカード」 と書く効果は CHARACTER 専用が正しいので、 **公式テキスト** を判別子にする。
+    """
+    import json as _json
+    import re as _re
+    ov = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    cards = {c["base_id"]: c for c in
+             _json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    repo = _repo()
+    from engine.effects import _matches_filter
+    stages = []
+    seen = set()
+    for c in cards.values():
+        if c["category"] != "STAGE" or c["base_id"] in seen:
+            continue
+        seen.add(c["base_id"]); stages.append(repo.get(c["base_id"]))
+
+    def _bare_card_summon(txt: str) -> bool:
+        # 「…を、登場させる」 の直前の節に 「カード」 が有り 「キャラ」 が無い (= 素のカード)
+        for m in _re.finditer(r"([^。]*?)を、?登場させる", txt or ""):
+            seg = m.group(1)
+            if "カード" in seg and "キャラ" not in seg:
+                return True
+        return False
+
+    checked = 0
+    bad = []
+    for cid, effs in ov.items():
+        if not isinstance(effs, list) or cid.startswith("_"):
+            continue
+        txt = (cards.get(cid, {}) or {}).get("text") or ""
+        for e in effs:
+            for prim in e.get("do", []) or []:
+                if not (isinstance(prim, dict) and "play_from_hand" in prim):
+                    continue
+                spec = prim["play_from_hand"]
+                if not isinstance(spec, dict):
+                    continue
+                checked += 1
+                if spec.get("include_stage"):
+                    continue
+                if not _bare_card_summon(txt):
+                    continue  # 「キャラカード」 = CHARACTER 専用が正しい
+                filt = spec.get("filter", {}) or {}
+                if any(isinstance(vv, str) and vv.endswith("_dynamic") for vv in filt.values()):
+                    continue
+                hit = next((s.card_id for s in stages if _matches_filter(s, filt)), None)
+                if hit:
+                    bad.append(f"{cid}: 素の「カード」登場 + filter={filt} が STAGE {hit} に一致 "
+                               f"(include_stage 未指定 = STAGE を silent drop)")
+    assert checked, "play_from_hand を持つ overlay が 0 = テストが空回り"
+    assert not bad, (
+        "公式が 素の「カード」登場 なのに STAGE を silent drop する play_from_hand:\n  "
+        + "\n  ".join(bad)
+    )
+
+
+def test_st03_001_return_can_target_opponent_character():
+    """ST03-001 クロコダイル 【起動メイン】: 「コスト5以下のキャラ1枚まで…**持ち主の**手札に
+    戻す」 は 相手のキャラも 対象 (= 両陣営、 docs/official_rulings.md 「相手のなし=両陣営」)。
+
+    一次情報 (db/faq/cardqa_st_03): 「この【起動メイン】効果で自分のキャラを手札に戻すことが
+    できますか？」 → 「はい、戻すことができます。」 = 自分側も対象 = 修飾なし = 両陣営。
+    「持ち主の手札に戻す」 と所有者を明示するのは どちらの側も対象になりうる為。
+
+    是正前: overlay が `one_self_chara_filtered` (= 自分のみ) で、 除去カードなのに 相手キャラを
+    バウンスできなかった (公式違反)。 `one_character_either_filtered` へ是正 (EB02-024 / OP05-059 /
+    ST03-001 の 3 枚。 全走査ガード = scripts/audit_target_scope.py、 SELF_ONLY 正規表現に
+    one_self_chara を追加して chara/character 綴りの穴を塞いだ)。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    src = InPlay.of(repo.get("ST03-001"), sickness=False)
+    me.characters.append(src)
+    opp.characters.append(InPlay.of(repo.get("OP01-013"), sickness=False))  # 相手 cost2 キャラ
+    from engine.effects import execute_effect
+    execute_effect(
+        {"return_to_hand": {"type": "one_character_either_filtered", "filter": {"cost_le": 5}}},
+        st, me, opp, src,
+    )
+    assert len(opp.characters) == 0, "ST03-001 が 相手キャラを 手札に戻せていない (= 自分限定のまま)"
+    assert len(opp.hand) == 1, "戻した相手キャラが 相手の手札に入っていない"
+
+
+def test_op04_094_ko_cost_threshold_upgrades_with_trash_and_counts_self():
+    """OP04-094 雷の破壊剣: 「コスト4以下をKO。 自分のトラッシュが15枚以上なら 代わりに
+    コスト6以下を選ぶ」。 イベント自身も 発動時には トラッシュ済 (公式 8-4-2 の順)。
+
+    一次情報 (db/faq/cardqa_op_04): 「自分のトラッシュが14枚の時にこの【メイン】効果を発動
+    しました。 コスト6のキャラを選ぶことはできますか？」 → 「このカードを含めてトラッシュが
+    15枚になり、 コスト6以下のキャラを選ぶことができます。」
+
+    是正前: overlay が `do:[ko cost_le_4], if: trash>=15` = (a) trash<15 で 何もKOしない
+    (base 効果消失) (b) trash>=15 でも cost6 でなく cost4 しかKOできない = 二重の公式違反。
+    """
+    import random
+    import json as _json
+    from engine.game import PlayEvent, apply_action
+    repo, overlay = _repo(), _overlay()
+    allc = [repo.get(c["base_id"]) for c in
+            _json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+            if c["category"] == "CHARACTER"]
+    c6 = next(c for c in allc if c.cost == 6)
+    c4 = next(c for c in allc if c.cost == 4)
+
+    def _play(hand_trash_n, opp_char):
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        me.don_active = 10
+        me.trash = [repo.get(_FILLER)] * hand_trash_n
+        me.hand = [repo.get("OP04-094")]
+        opp.characters = [InPlay.of(opp_char, sickness=False)]
+        apply_action(st, PlayEvent(hand_idx=0))
+        return len(opp.characters), len(me.trash)
+
+    # Q シナリオ: 手札発動前トラッシュ14 → イベント自身で15 → cost6 KO 可
+    remain6, trash_after = _play(14, c6)
+    assert trash_after == 15, f"イベント自身が トラッシュに入っていない (trash={trash_after})"
+    assert remain6 == 0, "trash 14→15 で コスト6キャラを KO できていない (= 15以上upgrade 未動作)"
+    # base 効果: trash<15 でも コスト4以下は KO できる
+    remain4, _ = _play(5, c4)  # 発動後 trash=6 (<15)
+    assert remain4 == 0, "trash<15 で コスト4キャラを KO できていない (= base 効果が消えている)"
+    # trash<15 で コスト6キャラは 対象外
+    remain6b, _ = _play(5, c6)  # 発動後 trash=6 (<15)
+    assert remain6b == 1, "trash<15 なのに コスト6キャラを KO している (= upgrade が誤発火)"
