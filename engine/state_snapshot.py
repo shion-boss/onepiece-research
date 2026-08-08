@@ -40,6 +40,10 @@ _EXCLUDE = {
                                    #   微妙に違い (Python=trigger_on_play / Rust=execute_on_play)
                                    #   action 境界を跨ぐ意味を持たない → 除外が正準。
                                    #   条件の正しさは効果の副作用 (相手ライフが動くか) で検証される。
+    "_scheduled_src_category",     # 予約効果 (schedule_at_self_turn_end) の flush 中だけ立つ
+                                   #   「発動元の category」 (cardqa_eb_02 / OP10-030)。 flush の
+                                   #   1 spec ぶんだけ有効な transient (予約データ本体は canonical
+                                   #   field 側の `_src_category` が持つ) → 除外が正準。
     "_departed_to_public_zone",    # 「自分の効果で公開領域 (トラッシュ/表向きライフ) へ離脱した
                                    #   カード」 の一時台帳 (cardqa_op_08 / OP08-046 シャクヤク)。
                                    #   離脱 primitive が append → 直後の

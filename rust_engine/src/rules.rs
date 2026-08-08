@@ -522,9 +522,18 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
             let scheduled =
                 std::mem::take(&mut state.players[me].scheduled_at_self_turn_end);
             for spec in &scheduled {
-                if let Some(dos) = spec.get("do").and_then(|d| d.as_array()) {
-                    crate::effects::fire_gated_do(state, me, crate::effects::Slot::Leader, dos)?;
-                }
+                // 発動元 category を復元 (= src=Leader placeholder でも 「キャラの効果」 gate を効かせる)
+                state.rust_scheduled_src_category = spec
+                    .get("_src_category")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+                let r = if let Some(dos) = spec.get("do").and_then(|d| d.as_array()) {
+                    crate::effects::fire_gated_do(state, me, crate::effects::Slot::Leader, dos)
+                } else {
+                    Ok(())
+                };
+                state.rust_scheduled_src_category = None;
+                r?;
             }
             // 2. return_to_deck_bottom_at_turn_end: 一時登場キャラを持ち主デッキ下へ (付与ドン→レスト)。
             //    trigger 発火なし (単純 cleanup、 effects.py:11424)。 board 順で処理。

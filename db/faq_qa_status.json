@@ -3760,18 +3760,18 @@
    "cardqa_eb_02.json",
    "cardqa_st_24.json"
   ],
-  "note": "OP10-030 スモーカー自己ロック(キャラの効果でドンをアクティブにできない)が、EB02-015ボニー/ST24-005ドレークの【登場時】schedule_at_self_turn_end→untap_don を阻止していない (実測: end_of_turn で don active+1)。原因: 予約効果の flush が self_inplay=None で execute_effect され、untap_don の block check (self_inplay.card.category==CHARACTER) が通らない。是正には予約 spec に source category を持たせ両engine の flush で渡す必要 (scheduled data 変更+Rust parity)。公式=いいえ",
+  "note": "OP10-030: 予約効果に _src_category を持たせ flush 中に復元、untap_don の 「キャラの効果」 gate を通す (Py+Rust)。2026-08-08。test_op10_030_lock_blocks_scheduled_untap_don",
   "q": "自分の「OP10-030 スモーカー」の、「自分はこのターン中、キャラの効果でドン‼をアクティブにできない。」と書かれた【起動メイン】効果を起動したターンの終了時、この【登場時】効果でドン!!1枚をアクティブにできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "580f1f7ffedd": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_08.json"
   ],
-  "note": "OP08-105 ボニー: 相手が効果で自分のライフを手札に加えた時 (=self life_to_hand) に、相手側の on_opp_life_taken (相手のライフが離れた時) が発火しない (実測 fired=False)。是正済は mill_opp_life_to_hand 等 (actor が相手ライフ除去) のみで、プレイヤーが自ライフを手札に移す経路は opp の on_opp_life_taken を発火しない。公式=はい。修正は self-life-removal 全 primitive に相手側 on_opp_life_taken 発火を追加 (Bonney系デッキ横断+matrix影響+dual-engine)",
+  "note": "OP08-105: fire_self_life_to_hand から観測側の on_opp_life_taken も発火 (Py+Rust)。2026-08-08。test_op08_105_opp_life_taken_fires_when_owner_moves_own_life",
   "q": "自分のターン中に、相手が効果でライフを1枚手札に加え、その後カードをライフの上に加えました。この時、この【自分のターン中】効果でカード2枚を引き、手札1枚を捨てることはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "5830bd2f5e82": {
   "a": "いいえ、できません。",
@@ -3814,9 +3814,9 @@
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "OP15-105 ボニー: 元々パワー7000以下2枚が同時に相手効果で離脱→公式は「ライフ1枚を手札に加えて2枚とも残すか何もしないか」=単一適用。実測は per-victim (ライフ2枚消費)。_LeaveBatch は cost フィールドのみ dedup し do を dedup しない。OP15-090/098/105 は置換コストを do(life_to_hand/discard)に持つため未 dedup。是正には life_to_hand を replace-cost handler 化 (Py+Rust) しコスト節へ移動、or do を batch gate (victim狙い do=OP05-001/OP11-101 は per-victim維持が必要で要区別)。クラス横断+backfillテスト更新",
+  "note": "OP15-105/098/090: 支払いを do→cost へ移し life_to_hand を replace-cost handler 化 (Py+Rust)。同時離脱 dedup が効き 1 回の支払いで全 victim が残る (2026-08-08)。test_op15_105_simultaneous_leave_pays_replacement_cost_once",
   "q": "自分の元々のパワー7000以下のキャラが2枚同時に相手の効果で場を離れる場合、代わりに自分のライフの上から2枚を手札に加えることはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "5918556ebe8e": {
   "a": "はい、発動できます。\nその場合、【バニッシュ】の効果を複数持つことになりますが、何も起きません。",
@@ -3868,9 +3868,9 @@
   "files": [
    "cardqa_op_14.json"
   ],
-  "note": "OP14-029 たしぎ 【起動メイン】cost「自分のカード2枚をレスト」=公式はリーダー/キャラ/ステージ/ドンの4ゾーン。engine の rest_self_cards は leader+characters のみ (stage/don 欠落)。アクティブ leader/キャラが N 未満でもドン/ステージで払える局面を弾く=合法発動を阻害。ドンは InPlay でなく heterogeneous 選択が必要=アーキ変更。同型 ~13 base (EB04-015/019, OP14-020/033/036/037/038, OP15-035 等)",
+  "note": "OP14-029: rest_self_cards を 4 ゾーン (リーダー/キャラ/ステージ/ドン) に拡張 (primitive + payability 3 箇所、Py+Rust)。2026-08-08。残課題=人間があえてドンを選ぶ modal は未対応 (docs/official_rulings.md に記載)。test_op14_029_rest_self_cards_covers_four_zones",
   "q": "この【起動メイン】効果の「自分のカード2枚をレストにできる」とは、どのカードをレストにする効果ですか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "59f6f5da5f90": {
   "a": "はい、できます。",
@@ -3922,9 +3922,9 @@
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "OP12-057 アイス塊暴雉嘴(青/海軍 event)【トリガー】手札1捨て:カード1引く。leader=OP12-040 クザン(Q は OP12-043 と誤記、docs 3281)=on_self_hand_discarded if:actor_source_feature_contains:海軍。公式はい(クザン追加1ドロー)。engine 実測=違反: deck25→24(トリガー自身のdrawのみ)、公式は→23。原因: トリガーの cost 手札捨てが trigger_on_self_hand_discarded を source_inplay=None(トリガーは InPlay でない)で呼び、actor_source_feature_contains は last_discard_source_inplay しか読まず None→条件false→クザン不発。state.current_source_card_id=OP12-057 は discard 時に在るが 海軍 features を取れない(グローバル repo 無し + トリガー解決中に card はどの zone にも不在=probe 確認)。event(trigger/counter/main)由来の discard 全般で同型(source が event card=InPlay でない)。是正は source CardDef/features を trigger_on_self_hand_discarded へ通す plumbing + Rust ミラー(parity 維持)= 単一 primitive を超える両エンジン変更。escalated。",
+  "note": "OP12-057: ①トリガー発動元 CardDef を current_source_card に載せ InPlay 非依存に ②discard context を payload で持ち回り _execute_event で復元 (ネスト解決で context が消えていた真因)。Py+Rust。2026-08-08。test_op12_057_trigger_discard_feeds_navy_leader_draw",
   "q": "この【トリガー】効果で手札を1枚捨てカード1枚を引いた時、自分のリーダー「OP12-043 クザン」の効果でさらにカード1枚を引くことはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "5a9a5daf31f7": {
   "a": "はい、できます。この場合、このカードを含めて自分のトラッシュが15枚になるため、【メイン】効果でパワー+3000することや、【カウンター】効果でパワー+4000することができます。",

@@ -3174,7 +3174,7 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
             {
                 cnt += 1;
             }
-            for c in me.characters.iter() {
+            for c in me.characters.iter().chain(me.stages.iter()) {
                 if !c.rested
                     && matches_filter_ip(c, filt)
                     && !c.cannot_be_rested_buff
@@ -3182,6 +3182,12 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
                 {
                     cnt += 1;
                 }
+            }
+            // 公式 cardqa_op_14 (OP14-029 たしぎ): 「自分のカード N 枚」 = リーダー/キャラ/
+            // **ステージ/ドン‼** の 4 ゾーン合計。 ドンは特徴を持たないので filter 無し
+            // (= rest_self_cards、 rest_self_cards_filtered ではない) の時だけ頭数に入る。
+            if k == "rest_self_cards" && filt.map_or(true, |f| f.as_object().map_or(true, |o| o.is_empty())) {
+                cnt += me.don_active.max(0) as usize;
             }
             Some(cnt >= n)
         }
@@ -7103,10 +7109,13 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             //   (EB04-016 / OP10-030 の自己ロック、 effects.py と同条件)。
             //   発動元がキャラの時だけ効く (リーダー/ステージ効果は対象外)。
             if state.players[me_idx].block_chara_effect_untap_don_until_turn_end {
+                // 予約効果 (schedule_at_self_turn_end) の flush は src=Leader placeholder なので、
+                // 予約時に保存した発動元 category も見る (effects.py と同条件)。
                 let is_chara = matches!(src, Slot::Char(i)
                     if i < state.players[me_idx].characters.len()
                        && state.players[me_idx].characters[i].card.category
-                          == crate::state::Category::Character);
+                          == crate::state::Category::Character)
+                    || state.rust_scheduled_src_category.as_deref() == Some("CHARACTER");
                 if is_chara {
                     return true; // Python は continue = 忠実な no-op
                 }
@@ -7858,10 +7867,23 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                         actives.push((Slot::Char(i), c.power()));
                     }
                 }
+                // 公式 cardqa_op_14: ステージも 「自分のカード」 に含まれる。
+                for (i, st_ip) in me.stages.iter().enumerate() {
+                    if !st_ip.rested {
+                        actives.push((Slot::Stage(i), st_ip.power()));
+                    }
+                }
             }
             actives.sort_by(|a, b| a.1.cmp(&b.1)); // power 昇順 (stable=ties 原順)
+            let picked = actives.len().min(n);
             for (slot, _) in actives.into_iter().take(n) {
                 get_ip_mut(&mut state.players[me_idx], slot).rested = true;
+            }
+            // 場のカードで足りない分は アクティブのドン‼ をレストにして払う (4 ゾーン合計)。
+            let don_rest = (n - picked).min(state.players[me_idx].don_active.max(0) as usize) as i32;
+            if don_rest > 0 {
+                state.players[me_idx].don_active -= don_rest;
+                state.players[me_idx].don_rested += don_rest;
             }
             true
         }
@@ -8430,7 +8452,28 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
         // 「このターン終了時に〜」 予約効果 (effects.py:6752、 OP14-031)。 spec を scheduled list に append
         // (canonical field なので digest に載る)。 ⚠ flush (turn-end 発火) は未実装 = EndPhase で別途 bail。
         "schedule_at_self_turn_end" => {
-            state.players[me_idx].scheduled_at_self_turn_end.push(v.clone());
+            // ⭐ 発動元 category を予約データに残す (effects.py と同形。 cardqa_eb_02 / cardqa_st_24、
+            //   OP10-030 スモーカーの 「キャラの効果でドン‼をアクティブにできない」 を
+            //   ターン終了時の予約 untap_don にも効かせる為)。 flush は src=Leader placeholder
+            //   なので、 ここで持たせないと gate が通らない。
+            let mut sched = v.clone();
+            if let Some(o) = sched.as_object_mut() {
+                let cat = match src {
+                    Slot::Char(i) if i < state.players[me_idx].characters.len() => {
+                        match state.players[me_idx].characters[i].card.category {
+                            crate::state::Category::Character => Value::String("CHARACTER".into()),
+                            crate::state::Category::Leader => Value::String("LEADER".into()),
+                            crate::state::Category::Stage => Value::String("STAGE".into()),
+                            crate::state::Category::Event => Value::String("EVENT".into()),
+                        }
+                    }
+                    Slot::Leader => Value::String("LEADER".into()),
+                    Slot::Stage(_) => Value::String("STAGE".into()),
+                    _ => Value::Null,
+                };
+                o.insert("_src_category".to_string(), cat);
+            }
+            state.players[me_idx].scheduled_at_self_turn_end.push(sched);
             true
         }
         // 「(target) が相手の元コスト N 以下のキャラへアタック不可」 (effects.py:7653、 OP12-020 リーダー)。
@@ -9648,6 +9691,11 @@ fn enqueue_field_when(state: &mut GameState, owner_idx: usize, when: &str) {
 /// play_from_hand(then_life_to_hand) → ここが該当、 2026-08-07 発覚)。
 fn fire_self_life_to_hand(state: &mut GameState, owner_idx: usize) -> Result<(), String> {
     enqueue_field_when(state, owner_idx, "on_self_life_to_hand");
+    // ⭐ 「相手のライフが離れた時」 (on_opp_life_taken) は **離れ方を問わない**
+    //   (公式 cardqa_op_08、 OP08-105 ボニー = 相手が自分の効果で自ライフを手札に加えた時も発動)。
+    //   fire_opp_life_left_by_effect (= 自分が相手のライフを取り除く経路) と対称に、
+    //   **自分でライフを手札へ移した** 経路でも観測側 (相手) に発火させる。
+    enqueue_field_when(state, 1 - owner_idx, "on_opp_life_taken");
     maybe_resolve(state)
 }
 
@@ -10245,6 +10293,7 @@ pub fn try_replace_ko(
             let mut rand_discard: usize = 0;
             let mut mill_life: usize = 0;
             let mut rest_don_cost: i32 = 0;
+            let mut life_to_hand_cost: usize = 0;
             if let Some(cost) = eff.get("cost") {
                 let entries: Vec<&Value> = match cost {
                     Value::Array(a) => a.iter().collect(),
@@ -10292,6 +10341,14 @@ pub fn try_replace_ko(
                                 // 「代わりに自分の(アクティブの)ドン‼ N 枚をレストにできる」
                                 // (effects.py:_can_pay_replace_cost/_pay_replace_cost、 P-111 ロビン /
                                 // OP10-074 ピーカ)。 アクティブが N 枚未満なら置換不能 (= 通常離脱)。
+                                // 「代わりに自分のライフの上から N 枚を手札に加える」
+                                // (OP15-098 ルフィ / OP15-105 ボニー)。 ⚠ 公式 cardqa_op_15 の
+                                // 「同時離脱は 1 事象 = 支払いも 1 回」 を成立させる為に、 overlay 側で
+                                // do ではなく **cost** に置いてある (do は victim ごとに走るので
+                                // dedup が効かない)。 ライフが N 枚未満なら置換不能 = 通常離脱へ。
+                                "life_to_hand" => {
+                                    life_to_hand_cost = val.as_i64().unwrap_or(1) as usize
+                                }
                                 "rest_self_don" => {
                                     rest_don_cost = if val.is_object() {
                                         val.get("amount").and_then(|x| x.as_i64()).unwrap_or(1) as i32
@@ -10338,6 +10395,14 @@ pub fn try_replace_ko(
             // rest_self_don の payability: アクティブドンが N 枚以上 (effects.py:_can_pay_replace_cost)。
             if rest_don_cost > 0 && state.players[victim_owner].don_active < rest_don_cost {
                 continue;
+            }
+            // life_to_hand の payability: ライフが N 枚以上 かつ 「ライフを手札に加えられない」
+            // 禁止中でない (effects.py:_can_pay_replace_cost)。 足りなければ置換不発 → 通常離脱。
+            if life_to_hand_cost > 0 {
+                let pl = &state.players[victim_owner];
+                if pl.life.len() < life_to_hand_cost || pl.prevent_self_life_to_hand_until_turn_end {
+                    continue;
+                }
             }
             // trash_self_hand_random の payability: 手札が N 枚以上。
             if rand_discard > 0 && state.players[victim_owner].hand.len() < rand_discard {
@@ -10445,6 +10510,23 @@ pub fn try_replace_ko(
             }
             // mill_self_life_to_trash 支払い (effects.py:12629)。 ライフ上から N 枚をトラッシュへ。
             // ⚠ 効果でのライフ移動なので【トリガー】は発動しない (公式 10-1-5)。
+            // life_to_hand 支払い (effects.py:_pay_replace_cost)。 ライフ上から N 枚を手札へ。
+            // ⚠ do 版 primitive と同じく 「ライフが手札に加わった」 トリガーを発火する。
+            if life_to_hand_cost > 0 {
+                let mut moved = 0;
+                for _ in 0..life_to_hand_cost {
+                    let pl = &mut state.players[victim_owner];
+                    if pl.life.is_empty() {
+                        break;
+                    }
+                    let c = pl.life.remove(0);
+                    pl.hand.push(c);
+                    moved += 1;
+                }
+                if moved > 0 {
+                    fire_self_life_to_hand(state, victim_owner)?;
+                }
+            }
             for _ in 0..mill_life {
                 let pl = &mut state.players[victim_owner];
                 if pl.life.is_empty() {
@@ -10733,6 +10815,14 @@ pub fn fire_life_trigger(
     // play_self が発動元カードを特定できるよう source cid を立てる (effects.py:297)。 action 境界では
     // 常に None なので Ok 直前で戻す (Err 時は apply_action が state 破棄で無害)。
     state.current_source_card_id = Some(card_id.to_string());
+    // 【トリガー】は InPlay を持たないので、 発動元の特徴も transient に載せる
+    // (actor_source_feature_contains 用、 cardqa_op_12)。
+    state.current_source_card_features = state.players[defender_idx]
+        .life
+        .iter()
+        .chain(state.players[defender_idx].trash.iter())
+        .find(|c| c.card_id == card_id)
+        .map(|c| c.features.clone());
     // Python の trigger_lifecard_trigger は event を enqueue して _maybe_resolve を呼ぶ = トリガーの
     // do-list は **resolve_triggers の中** で走る。 その間 resolving=true なので、 do の中で登場した
     // キャラの on_play は enqueue されるだけで後回しになる。 Rust も同じ文脈を作る。
@@ -12632,8 +12722,11 @@ fn fire_hand_discarded_n(state: &mut GameState, me_idx: usize, src: Slot, n: i32
     // Python (trigger が flag を立てる) と digest が食い違っていた (OP12-053 / OP13-046 /
     // OP15-003 の replace-cost discard で MISMATCH)。 flag 設定を helper 内に集約して全経路一致。
     state.players[me_idx].hand_discarded_by_effect_this_turn = true;
-    state.current_discard_source_features =
-        src_ip(&state.players[me_idx], src).map(|ip| ip.card.features.clone());
+    // ⭐ InPlay が無い発動元 (= 【トリガー】/イベント) は CardDef 由来の特徴に fallback。
+    //   公式 cardqa_op_12 (OP12-057 の【トリガー】手札捨て → OP12-040 クザンが追加ドロー)。
+    state.current_discard_source_features = src_ip(&state.players[me_idx], src)
+        .map(|ip| ip.card.features.clone())
+        .or_else(|| state.current_source_card_features.clone());
     state.current_discard_count = n;
     let r = fire_field_when(state, me_idx, "on_self_hand_discarded");
     state.current_discard_source_features = None;

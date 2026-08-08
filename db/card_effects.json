@@ -2772,7 +2772,7 @@
  ],
  "OP15-098": [
   {
-   "_text": "空島ルフィ replace_ko: 空島P6000+ が相手効果で離れる時、代わりにライフ手札",
+   "_text": "空島ルフィ replace_ko: 空島P6000+ が相手効果で離れる時、代わりにライフ手札 [2026-08-08 同時離脱 dedup 是正: 支払いを do → cost へ移動。 公式 cardqa_op_15 = 2枚同時離脱でも支払いは1回で両方残す。 do は victim ごとに走るので dedup が効かない]",
    "when": "replace_leave",
    "if": {
     "target": "any_self_chara",
@@ -2780,12 +2780,13 @@
     "by_opp_effect": true,
     "target_truly_original_power_ge": 6000
    },
-   "do": [
+   "do": [],
+   "optional": true,
+   "cost": [
     {
      "life_to_hand": 1
     }
-   ],
-   "optional": true
+   ]
   }
  ],
  "P-081": [
@@ -12549,19 +12550,20 @@
  ],
  "OP15-090": [
   {
-   "_text": "ペローナ replace_ko: 自分のパワー7000以下が相手効果で離れる場合、手札捨て1で代替",
+   "_text": "ペローナ replace_ko: 自分のパワー7000以下が相手効果で離れる場合、手札捨て1で代替 [2026-08-08 同時離脱 dedup 是正: 支払いを do → cost へ移動。 公式 cardqa_op_15 = 2枚同時離脱でも支払いは1回で両方残す。 do は victim ごとに走るので dedup が効かない]",
    "when": "replace_leave",
    "if": {
     "target": "any_self_chara",
     "by_opp_effect": true,
     "target_truly_original_power_le": 7000
    },
-   "do": [
+   "do": [],
+   "optional": true,
+   "cost": [
     {
      "trash_self_hand_random": 1
     }
-   ],
-   "optional": true
+   ]
   }
  ],
  "OP10-011": [
@@ -19332,7 +19334,7 @@
  ],
  "OP15-098_p1": [
   {
-   "_text": "空島ルフィ replace_ko: 空島P6000+ が相手効果で離れる時、代わりにライフ手札",
+   "_text": "空島ルフィ replace_ko: 空島P6000+ が相手効果で離れる時、代わりにライフ手札 [2026-08-08 同時離脱 dedup 是正: 支払いを do → cost へ移動。 公式 cardqa_op_15 = 2枚同時離脱でも支払いは1回で両方残す。 do は victim ごとに走るので dedup が効かない]",
    "when": "replace_leave",
    "if": {
     "target": "any_self_chara",
@@ -19340,12 +19342,13 @@
     "by_opp_effect": true,
     "target_truly_original_power_ge": 6000
    },
-   "do": [
+   "do": [],
+   "optional": true,
+   "cost": [
     {
      "life_to_hand": 1
     }
-   ],
-   "optional": true
+   ]
   }
  ],
  "OP13-003_p1": [
@@ -101138,19 +101141,20 @@
  ],
  "OP15-105": [
   {
-   "_text": "自元P7000以下 効果離脱 → 自ライフ1手札",
+   "_text": "自元P7000以下 効果離脱 → 自ライフ1手札 [2026-08-08 同時離脱 dedup 是正: 支払いを do → cost へ移動。 公式 cardqa_op_15 = 2枚同時離脱でも支払いは1回で両方残す。 do は victim ごとに走るので dedup が効かない]",
    "when": "replace_leave",
    "if": {
     "target": "any_self_chara",
     "by_opp_effect": true,
     "target_truly_original_power_le": 7000
    },
-   "do": [
+   "do": [],
+   "optional": true,
+   "cost": [
     {
      "life_to_hand": 1
     }
-   ],
-   "optional": true
+   ]
   }
  ],
  "OP14-003": [

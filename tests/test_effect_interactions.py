@@ -7145,3 +7145,259 @@ def test_op15_023_don_attach_targets_both_players_owner_matched():
     assert myc.attached_dons == 1, "自陣キャラに付与できていない"
     assert me.don_rested == 1, "ドン源が自分のコストエリアでない"
     assert opp.don_rested == 3, "cross: 相手のドンが減った (owner_of_target が cross を許した #17 違反)"
+
+
+def test_op15_105_simultaneous_leave_pays_replacement_cost_once():
+    """OP15-105 ボニー / OP15-098 ルフィ / OP15-090 ペローナ:
+    「自分の元々のパワー7000以下のキャラが相手の効果で場を離れる場合、 代わりに
+     自分のライフの上から1枚を手札に加えることができる。」
+
+    一次情報 (db/faq/cardqa_op_15):
+      Q: 元々のパワー7000以下のキャラが **2枚同時に** 相手の効果で場を離れる場合、
+         代わりに自分のライフの上から **2枚** を手札に加えることはできますか？
+      A: この場合、 自分のライフの上から **1枚** を手札に加えることで場を離れるキャラを
+         **2枚とも** 場に残すか、 何もせずキャラ2枚が場を離れるかを選びます。
+
+    = 同時離脱は 1 事象なので **支払いは 1 回** で全員残る。
+
+    ⚠ engine の同時離脱 dedup (_LeaveBatch) は **cost フィールドしか** dedup しない。
+      この 3 枚は支払いを `do` に持っていたので victim ごとに払っていた (2枚 = ライフ2消費)。
+      → 支払いを cost へ移し、 life_to_hand を replace-cost handler 化して是正。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def run(n_victims: int):
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 20
+            p.life = [repo.get("OP01-013")] * 4
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 1, 5      # 相手のターン = 相手の効果で離脱
+        holder = InPlay.of(repo.get("OP15-105"), sickness=False)
+        p0.characters = [holder]
+        victims = []
+        for _ in range(n_victims):
+            v = InPlay.of(repo.get("OP01-013"), sickness=False)   # 元々パワー 7000 以下
+            p0.characters.append(v)
+            victims.append(v)
+        src = InPlay.of(repo.get("OP01-016"), sickness=False)
+        p1.characters = [src]
+        life_before, hand_before = len(p0.life), len(p0.hand)
+        execute_effect({"ko": "all_opponent_characters"}, st, p1, p0, src)
+        return (
+            life_before - len(p0.life),                       # 消費したライフ枚数
+            len(p0.hand) - hand_before,                        # 手札に加わった枚数
+            sum(1 for v in victims if v in p0.characters),     # 生存した victim 数
+        )
+
+    for n in (1, 2, 3):
+        life_paid, hand_gained, survived = run(n)
+        assert life_paid == 1, (
+            f"victim {n} 枚でもライフ支払いは 1 回のはず (実測 {life_paid}、 cardqa_op_15)"
+        )
+        assert hand_gained == 1, f"手札に加わるのも 1 枚のはず (実測 {hand_gained})"
+        assert survived == n, f"支払えば victim {n} 枚とも残るはず (実測 {survived})"
+
+
+def test_op14_029_rest_self_cards_covers_four_zones():
+    """OP14-029 たしぎ 【起動メイン】「自分のカード2枚をレストにできる：…」
+
+    一次情報 (db/faq/cardqa_op_14):
+      Q: この【起動メイン】効果の「自分のカード2枚をレストにできる」とは、 どのカードを
+         レストにする効果ですか？
+      A: この効果は、 自分の場にある、 **リーダー、 キャラ、 ステージ、 ドン!!** のうち
+         **合計2枚** をアクティブからレストにすることで発動します。
+
+    ⚠ engine の rest_self_cards は leader + characters しか候補にしておらず、
+      ステージ / ドンで払える局面を弾いて **合法な発動を阻害** していた。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def run(extra_chars: int, don_active: int):
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 20
+            p.life = [repo.get("OP01-013")] * 3
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 0, 5
+        p0.leader.rested = True                     # リーダーはレスト済 = 候補外
+        tashigi = InPlay.of(repo.get("OP14-029"), sickness=False)
+        p0.characters = [tashigi]
+        for _ in range(extra_chars):
+            p0.characters.append(InPlay.of(repo.get("OP01-013"), sickness=False))
+        p0.don_active = don_active
+        power_before = tashigi.power
+        execute_effect(
+            {"optional_cost_then": {
+                "cost": [{"rest_self_cards": 2}],
+                "effect": [{"power_pump": {"target": "self", "amount": 2000,
+                                           "duration": "turn"}}]}},
+            st, p0, p1, tashigi,
+        )
+        return tashigi.power > power_before, p0.don_active, p0.don_rested
+
+    # 場のキャラだけで足りる → 従来どおりキャラをレスト、 ドンは減らない
+    fired, don_a, don_r = run(extra_chars=3, don_active=0)
+    assert fired and don_a == 0 and don_r == 0
+
+    # アクティブなキャラが たしぎ 1 枚のみ → **ドンで不足分を払えるので発動できる**
+    fired, don_a, don_r = run(extra_chars=0, don_active=5)
+    assert fired, "ドンで払えるので発動できるはず (cardqa_op_14)"
+    assert (don_a, don_r) == (4, 1), f"不足 1 枚をドンで払うはず (active={don_a} rested={don_r})"
+
+    # 場のカード + ドン の合計が 2 未満 → 払えないので発動しない
+    fired, _, _ = run(extra_chars=0, don_active=0)
+    assert not fired, "合計 1 枚しか無いので払えない = 発動しないはず"
+
+
+def test_op08_105_opp_life_taken_fires_when_owner_moves_own_life():
+    """OP08-105 ボニー: 【ドン‼×1】【自分のターン中】【ターン1回】相手のライフが離れた時、…
+
+    一次情報 (db/faq/cardqa_op_08):
+      Q: 自分のターン中に、 **相手が効果でライフを1枚手札に加え**、 その後カードを
+         ライフの上に加えました。 この時、 この【自分のターン中】効果でカード2枚を引き、
+         手札1枚を捨てることはできますか？   A: **はい、 できます。**
+
+    = 「相手のライフが離れた時」 は **離れ方を問わない**。 engine は 「自分が相手のライフを
+      取り除く」 経路にしか on_opp_life_taken を配線しておらず、 **持ち主が自分でライフを
+      手札へ移す** 経路では観測側が発火しなかった。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    for p in (p0, p1):
+        p.deck = [repo.get("OP01-013")] * 20
+        p.life = [repo.get("OP01-013")] * 4
+    p0.hand = [repo.get("OP01-013")] * 2
+    st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                   rng=random.Random(1), effects_overlay=ov)
+    st.turn_player_idx, st.turn_number = 0, 5      # 自分 (P0) のターン
+    bonney = InPlay.of(repo.get("OP08-105"), sickness=False)
+    bonney.attached_dons = 1                       # 【ドン‼×1】
+    p0.characters = [bonney]
+    src = InPlay.of(repo.get("OP01-016"), sickness=False)
+    p1.characters = [src]
+
+    deck_before = len(p0.deck)
+    # 相手 (P1) が **自分の** ライフを手札に加える
+    execute_effect({"life_to_hand": 1}, st, p1, p0, src)
+    assert deck_before - len(p0.deck) == 2, (
+        "相手が自ライフを手札に加えた時も 「相手のライフが離れた時」 = 2 枚ドローするはず"
+    )
+
+
+def test_op10_030_lock_blocks_scheduled_untap_don():
+    """OP10-030 スモーカー: 「自分はこのターン中、 キャラの効果でドン‼をアクティブにできない。」
+
+    一次情報 (db/faq/cardqa_eb_02 + cardqa_st_24):
+      Q: スモーカーの【起動メイン】を起動したターンの終了時、 (EB02-015 ボニー /
+         ST24-005 ドレークの)【登場時】効果でドン!!1枚をアクティブにできますか？
+      A: **いいえ、 できません。**
+
+    = ターン終了時に予約された untap_don も 「**キャラの効果**」 なのでロックの対象。
+      engine は予約効果の flush を self_inplay=None で実行しており、 gate
+      (発動元がキャラか) が通らず 公式違反になっていた。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect, trigger_end_of_turn
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def run(locked: bool) -> int:
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 20
+            p.life = [repo.get("OP01-013")] * 3
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 0, 5
+        bonney = InPlay.of(repo.get("EB02-015"), sickness=False)   # キャラ
+        p0.characters = [bonney]
+        p0.don_rested, p0.don_active = 3, 0
+        # 【登場時】後半 = 「このターン終了時、 自分のドン‼1枚までを、 アクティブにする」
+        execute_effect({"schedule_at_self_turn_end": {"do": [{"untap_don": 1}]}},
+                       st, p0, p1, bonney)
+        if locked:
+            p0.block_chara_effect_untap_don_until_turn_end = True
+        trigger_end_of_turn(st, ov)
+        return p0.don_active
+
+    assert run(locked=False) == 1, "ロックが無ければ予約どおりドン1枚アクティブ"
+    assert run(locked=True) == 0, (
+        "スモーカーのロック中は **キャラの効果** の予約 untap_don も不発のはず "
+        "(cardqa_eb_02 / cardqa_st_24)"
+    )
+
+
+def test_op12_057_trigger_discard_feeds_navy_leader_draw():
+    """OP12-057 アイス塊暴雉嘴 (青/特徴《海軍》 event) の【トリガー】
+    「自分の手札1枚を捨てることができる：カード1枚を引く。」
+
+    一次情報 (db/faq/cardqa_op_12):
+      Q: この【トリガー】効果で手札を1枚捨てカード1枚を引いた時、 自分のリーダー
+         「クザン」 (= OP12-040、 特徴《海軍》/ 「自分の特徴《海軍》を持つカードの効果で
+         自分の手札からカードが捨てられた時、 捨てた枚数分カードを引く」) の効果で
+         さらにカード1枚を引くことはできますか？   A: **はい、 できます。**
+
+    ⚠ 2 段の欠陥があった:
+      1. 発動元がイベント (= InPlay を持たない) なので actor_source_feature_contains が
+         source を掴めない → CardDef 由来の特徴に fallback。
+      2. **より深い原因**: trigger_on_self_hand_discarded が context (捨てた枚数 / 発動元)
+         を _maybe_resolve の直後に消していた。 ネスト中 (既に resolving) の _maybe_resolve は
+         **drain せずに返る** ので、 クザンの効果が実際に解決される頃には
+         last_discard_count=0 になっており、 条件が真でも 0 枚ドローだった。
+         → on_ko の by_opp_effect と同じく **payload で持ち回る** 方式に統一。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, trigger_lifecard_trigger
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def run(leader_id: str) -> int:
+        p0 = Player(name="P0", leader=InPlay.of(repo.get(leader_id), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 25
+            p.life = [repo.get("OP01-013")] * 3
+        p0.hand = [repo.get("OP01-013")] * 3
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 1, 5    # 相手のターン (= ライフを取られた側)
+        deck_before = len(p0.deck)
+        trigger_lifecard_trigger(st, p0, p1, repo.get("OP12-057"), ov)
+        return deck_before - len(p0.deck)
+
+    assert run("OP12-040") == 2, (
+        "海軍リーダー クザン なら トリガーの1枚 + クザンの1枚 = 2枚 引くはず (cardqa_op_12)"
+    )
+    assert run("OP01-001") == 1, "非海軍リーダーなら トリガーの1枚だけ"

@@ -497,6 +497,11 @@ pub struct GameState {
     /// 「キャラの効果でキャラを登場させた時」 (cardqa_op_12 / OP12-081) の判定に使う。
     #[serde(skip)]
     pub rust_play_source_is_field_chara: bool,
+    /// 予約効果 (schedule_at_self_turn_end) の flush 中だけ立つ 「発動元 category」。
+    /// effects.py の state._scheduled_src_category ミラー (cardqa_eb_02 / OP10-030)。
+    /// action 境界を跨がない transient なので digest 対象外 (= serde skip)。
+    #[serde(skip)]
+    pub rust_scheduled_src_category: Option<String>,
     // アタック解決中だけ立つ transient。 opp_attack 系の条件 (opp_attacker_attribute) が参照する。
     // Python は current_attacker_iid から InPlay を引くが、 Rust は iid が無いので属性を直接持つ。
     #[serde(skip)]
@@ -509,6 +514,11 @@ pub struct GameState {
     // state.last_discard_source_inplay 相当で、 条件 actor_source_feature_contains が参照する。
     #[serde(skip)]
     pub current_discard_source_features: Option<Vec<String>>,
+    /// 【トリガー】/イベント (= InPlay を持たない発動元) の特徴。 effects.py の
+    /// state.current_source_card ミラー (cardqa_op_12 / OP12-057 → OP12-040 クザン)。
+    /// fire_life_trigger / イベント解決中だけ立つ transient → digest 対象外。
+    #[serde(skip)]
+    pub current_source_card_features: Option<Vec<String>>,
     // 直近に効果で捨てた手札の枚数 (transient、 Python の state.last_discard_count 相当)。
     // draw_per_self_hand_discarded (OP12-040 クザン「捨てた枚数分ドロー」) が読む。
     #[serde(skip)]
