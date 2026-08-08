@@ -3515,9 +3515,9 @@
   "files": [
    "cardqa_eb_02.json"
   ],
-  "note": "EB02-019 ロロノア・ゾロ『相手のキャラが2枚以上いる場合、登場したターンにキャラへアタックできる』= 条件付き部分速攻(キャラ限定)が overlay 未実装 (SWORD特徴版 static_swords_attack_chara しか無い)。新 static primitive + アタック時再評価 + Rust 追従が必要=アーキ追加。設問(相手1枚→不可)は現状(常に召喚酔い)で偶然満たされるが 相手2枚以上でアタック不可=別方向の欠陥。cardqa_eb_02",
+  "note": "EB02-019 ロロノア・ゾロ: 新 static primitive `static_self_attack_chara_if` で実装 (2026-08-08, commit 0994773)。 static_granted_keywords に付与 = _recompute_static ごとに 再評価される為 **アタック時点で判定** (cardqa_eb_02 の 2枚→1枚 で不可 を満たす)。 Rust も apply_static_primitive に追従。 regression test = tests/test_effect_interactions.py::test_eb02_019_conditional_chara_rush_reevaluated_at_attack_time",
   "q": "自分のターン中、相手のキャラが2枚いるときにこのキャラを登場し、その後他の効果で相手のキャラが1枚になりました。この場合、このキャラは相手のキャラにアタックできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "52c406ba1a7b": {
   "a": "いいえ、できません。",
@@ -3588,9 +3588,9 @@
   "files": [
    "cardqa_op_08.json"
   ],
-  "note": "OP08-046 シャクヤク on_self_chara_leave_by_self_effect: 公式(cardqa_op_08)は「このキャラ自身がトラッシュ/表向きライフに置かれて場を離れた時、自身の【自分のターン中】が発動できる」。engine の trigger は _enqueue_field_when で離脱後の盤面を走査し離脱した発動元自身を含めない=自身の departure では発火しない疑い。修正には field-when が直前に離脱したカードを行き先(trash/face-up-life限定)で条件付き包含する必要=アーキ変更+行き先モデル化(rule 11)",
+  "note": "OP08-046 シャクヤク: 実装済 (2026-08-08)。 離脱した本人も on_self_chara_leave_by_self_effect を発動できる (行き先が公開領域 = トラッシュ / 表向きライフ の時のみ)。 _note_public_departure の台帳を trigger_on_self_chara_leave_by_self_effect が consume し source_iid=None で enqueue する (trigger_on_ko と同じ場外モデル)。 手札/デッキ行きの site では 記録しない = 公式の限定をコードで表現。 Rust は台帳未実装につき該当局面で 明示 bail (該当カードは非リーダー 2 枚のみ)。 裁定: docs/official_rulings.md、 test: tests/test_effect_interactions.py::test_op08_046_own_departure_to_public_zone_fires_its_leave_trigger",
   "q": "このキャラが自分の効果で場を離れたとき、この【自分のターン中】効果は発動できますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "55070504b2cb": {
   "a": "いいえ、できません。",

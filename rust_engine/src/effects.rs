@@ -11317,6 +11317,35 @@ pub(crate) fn fire_field_when_with_toks(
     toks: Vec<(Option<u64>, String)>,
 ) -> Result<(), String> {
     let Some(ov) = overlay() else { return Ok(()) };
+    // ⭐ 「離脱したカード自身」 も反応する例外 (cardqa_op_08 / OP08-046 シャクヤク)。
+    //   公式: 「このキャラがトラッシュに置かれた時か、 ライフに表向きで置かれた時、 この
+    //   【自分のターン中】効果を発動できます」 = 場を離れた **本人** も発動できる (行き先が
+    //   公開領域の時のみ)。 Python は _note_public_departure の台帳で本人を追加 enqueue する。
+    //   Rust は台帳を持たないので、 **その when を持つカードが自分のトラッシュ/表向きライフに
+    //   存在する局面では明示 bail** する (= 黙って発火漏れを作らない。 過剰 bail は許容)。
+    //   本人参加しうるのは **OP08-046 の 1 枚だけ** なので影響範囲は極小
+    //   (OP07-038 は LEADER = 場を離れない、 OP08-056 は STAGE で下の CHARACTER 判定が弾く)。
+    if when == "on_self_chara_leave_by_self_effect" {
+        let p = &state.players[owner_idx];
+        let n_face_up = p.face_up_life_count.max(0) as usize;
+        //   ⚠ when の文面は 「**キャラ**が場を離れた時」 なので、 本人参加しうるのは CHARACTER だけ
+        //     (OP08-056 モビー・ディック号 は STAGE = 自身の離脱では発動しえない → bail 不要)。
+        let public: Vec<&crate::state::CardDef> = p
+            .trash
+            .iter()
+            .chain(p.life.iter().take(n_face_up))
+            .collect();
+        if public.iter().any(|c| {
+            c.category == crate::state::Category::Character
+                && ov.get(&c.card_id).map_or(false, |b| {
+                    b.iter().any(|e| e.get("when").and_then(|w| w.as_str()) == Some(when))
+                })
+        }) {
+            return Err(format!(
+                "{when}: 離脱本人の発動 (cardqa_op_08) は Rust 未実装 = bail"
+            ));
+        }
+    }
     for (tok, cid) in toks {
         // 先行 source の効果/コストがこの source を場から除いた場合、 Python は場外オブジェクトの
         // まま処理を続ける (bundle は card_id 引き)。 Rust は Slot::Detached で続行する

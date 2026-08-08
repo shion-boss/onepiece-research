@@ -40,6 +40,12 @@ _EXCLUDE = {
                                    #   微妙に違い (Python=trigger_on_play / Rust=execute_on_play)
                                    #   action 境界を跨ぐ意味を持たない → 除外が正準。
                                    #   条件の正しさは効果の副作用 (相手ライフが動くか) で検証される。
+    "_departed_to_public_zone",    # 「自分の効果で公開領域 (トラッシュ/表向きライフ) へ離脱した
+                                   #   カード」 の一時台帳 (cardqa_op_08 / OP08-046 シャクヤク)。
+                                   #   離脱 primitive が append → 直後の
+                                   #   trigger_on_self_chara_leave_by_self_effect が consume+clear。
+                                   #   action 境界を跨がない transient (Player object 参照を含むので
+                                   #   そもそも serialize 不可) → 除外が正準。
     "last_self_chara_played_iid",  # 同上: 直近登場キャラの instance_id タグ (= Rust 再現不可)。
                                    #   カード identity は last_self_chara_played_card (card_id) が保持
     "once_per_turn_used",          # 【ターン1回】発動済 key 集合。 key が `iid:{source_iid}:...` 形式で

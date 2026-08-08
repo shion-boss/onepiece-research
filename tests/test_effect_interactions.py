@@ -6968,3 +6968,54 @@ def test_eb02_019_conditional_chara_rush_reevaluated_at_attack_time():
         "相手キャラが 1 枚に減ったらアタック不可に戻るはず (cardqa_eb_02)"
     )
     assert counts(st, zoro) == (0, 0)
+
+
+def test_op08_046_own_departure_to_public_zone_fires_its_leave_trigger():
+    """OP08-046 シャクヤク: 【自分のターン中】【ターン1回】キャラが自分の効果で場を離れた時…
+
+    一次情報 (db/faq/cardqa_op_08): 「このキャラが自分の効果で場を離れたとき、
+    この【自分のターン中】効果は発動できますか？」 →
+    「この場合、 **このキャラがトラッシュに置かれた時か、 ライフに表向きで置かれた時**、
+    この【自分のターン中】効果を発動できます。」
+
+    = 離脱した **本人** も反応する。 ただし行き先が **公開領域** (トラッシュ / 表向きライフ)
+    の時だけで、 手札 / デッキ (= 非公開) へ戻った場合は発動しない。
+
+    engine の _enqueue_field_when は離脱 **後** の盤面を走査するので本人を含まない。
+    _note_public_departure の台帳で補う (effects.py)。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def run(prim):
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 20
+            p.life = [repo.get("OP01-013")] * 3
+        p1.hand = [repo.get("OP01-013")] * 6      # 「相手の手札が5枚以上」 条件を満たす
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 0, 5   # 【自分のターン中】
+        shakuyaku = InPlay.of(repo.get("OP08-046"), sickness=False)
+        src = InPlay.of(repo.get("OP01-016"), sickness=False)
+        p0.characters = [shakuyaku, src]
+        before = (len(p1.hand), len(p1.deck))
+        execute_effect(prim, st, p0, p1, src)
+        after = (len(p1.hand), len(p1.deck))
+        # 発動すると 「相手は自身の手札1枚をデッキの下に置く」 = 手札-1 / デッキ+1
+        return (after[0] - before[0], after[1] - before[1])
+
+    # 自身がトラッシュ (= 公開領域) へ → 発動できる
+    assert run({"other_self_charas_to_trash": True}) == (-1, 1), (
+        "シャクヤク自身がトラッシュへ置かれた場合は発動できるはず (cardqa_op_08)"
+    )
+    # 自身が手札 (= 非公開領域) へ戻る → 発動できない
+    assert run({"return_to_hand": "all_self_characters"}) == (0, 0), (
+        "手札へ戻った場合は発動できないはず (公式は トラッシュ / 表向きライフ のみ)"
+    )

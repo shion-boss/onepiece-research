@@ -1026,6 +1026,10 @@ def _pay_counter_cost(
             me.stages.remove(src); removed = True
         if removed:
             me.trash.append(src.card)
+            if not is_ko:
+                # 「トラッシュに置く」 = 公開領域 → 離脱したカード自身も
+                # on_self_chara_leave_by_self_effect を発動できる (cardqa_op_08)
+                _note_public_departure(state, me, src.card)
             if src.attached_dons > 0:  # 6-5-5-4: 付与ドンはレストで戻る
                 me.don_rested += src.attached_dons
                 src.attached_dons = 0
@@ -3818,6 +3822,7 @@ def _execute_effect_body_inner(
             for chara in list(me.characters):
                 me.characters.remove(chara)
                 me.trash.append(chara.card)
+                _note_public_departure(state, me, chara.card)
                 if chara.attached_dons > 0:
                     me.don_rested += chara.attached_dons
                 removed_any = True
@@ -3936,6 +3941,7 @@ def _execute_effect_body_inner(
                     continue
                 me.characters.remove(t)
                 me.trash.append(t.card)
+                _note_public_departure(state, me, t.card)
                 if t.attached_dons > 0:
                     me.don_rested += t.attached_dons
                 state.push_log(f"  効果: 自キャラKO → {t.card.name}")
@@ -4026,6 +4032,7 @@ def _execute_effect_body_inner(
                 elif t in me.characters:
                     me.characters.remove(t)
                     me.trash.append(t.card)
+                    _note_public_departure(state, me, t.card)
                     if t.attached_dons > 0:
                         me.don_rested += t.attached_dons
                     state.push_log(f"  効果: {t.card.name} を自トラッシュへ (非KO)")
@@ -8555,6 +8562,7 @@ def _execute_effect_body_inner(
                 if ip.attached_dons > 0:
                     me.don_rested += ip.attached_dons
                 me.trash.append(ip.card)
+                _note_public_departure(state, me, ip.card)
                 state.push_log(f"  効果: {ip.card.name} を trash へ")
                 _ost_any = True
                 if state.effects_overlay:
@@ -9147,6 +9155,8 @@ def _execute_effect_body_inner(
                 # face_up: 表向きで加える (ST13-001 等)。 count-only モデルで表向き枚数 +1。
                 if spec_val.get("face_up"):
                     me.face_up_life_count = min(me.face_up_life_count + 1, len(me.life))
+                    # 「ライフに表向きで置かれた時」 = 公開領域 → 自身も発動可 (cardqa_op_08)
+                    _note_public_departure(state, me, t.card)
             state.push_log(f"  効果: キャラ→自ライフ ({place}): {[t.card.name for t in targets]}")
             if _ctl_any and state.effects_overlay:
                 trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
@@ -13471,6 +13481,33 @@ def trigger_on_self_hand_discarded(
     state.last_discard_count = 0
 
 
+def _note_public_departure(state: GameState, owner: Player, card: CardDef) -> None:
+    """「自分の効果で場を離れた」 カードのうち、 行き先が **公開領域** (トラッシュ /
+    表向きライフ) のものを記録する。
+
+    公式 cardqa_op_08 (OP08-046 シャクヤク): 離脱したカード自身の
+    on_self_chara_leave_by_self_effect は 「トラッシュに置かれた時か、 ライフに表向きで
+    置かれた時」 に発動できる。 手札 / デッキ / 裏向きライフ (= 非公開領域) 行きでは発動しない
+    ので、 それらの離脱site では **呼ばない**。
+
+    直後の trigger_on_self_chara_leave_by_self_effect が consume + clear する。
+    ⚠ overlay 無しなら誰も consume しない (= trigger 自体が早期 return する) ので記録しない。
+    ⚠ when の文面は 「**キャラ**が自分の効果で場を離れた時」 なので、 離脱した本人が
+      キャラでない (= ステージ) 場合は本人参加の対象外。 例 OP08-056 モビー・ディック号 は
+      STAGE で、 その when は 『白ひげ海賊団』 **キャラ** の離脱を見る = 自身の離脱では
+      発動しえない。
+    """
+    if not state.effects_overlay:
+        return
+    # ⚠ Category は素の Enum (str 継承ではない) なので `== "CHARACTER"` は **常に False**。
+    #   必ず enum で比較する (文字列比較は silent no-op になる)。
+    if card.category != Category.CHARACTER:
+        return
+    if not getattr(state, "_departed_to_public_zone", None):
+        state._departed_to_public_zone = []
+    state._departed_to_public_zone.append((owner, card))
+
+
 def trigger_on_self_chara_leave_by_self_effect(
     state: GameState,
     actor: Player,
@@ -13488,6 +13525,37 @@ def trigger_on_self_chara_leave_by_self_effect(
     _enqueue_field_when(
         state, actor, "on_self_chara_leave_by_self_effect", effects_overlay
     )
+    # ⭐ 公式 (cardqa_op_08、 OP08-046 シャクヤク): 「このキャラが自分の効果で場を離れたとき、
+    #   この【自分のターン中】効果は発動できますか？」 → 「この場合、 **このキャラがトラッシュに
+    #   置かれた時か、 ライフに表向きで置かれた時**、 この【自分のターン中】効果を発動できます」。
+    #   = **離脱したカード自身** も反応する。 ただし行き先が **公開領域 (トラッシュ / 表向きライフ)**
+    #   の時だけ (手札 / デッキ / 裏向きライフ = 非公開 へ行った場合は発動できない)。
+    #   _enqueue_field_when は離脱**後**の盤面を走査するので自身は含まれない → 離脱時に
+    #   _note_public_departure で記録しておいた分をここで足す。
+    #   source_iid=None = 場外なので _execute_event は self_inplay=None で実行する
+    #   (trigger_on_ko と同じモデル。 「その後、 このキャラをレストにする」 は対象不在で不発)。
+    departed = getattr(state, "_departed_to_public_zone", None)
+    if departed:
+        state._departed_to_public_zone = []
+        actor_idx = state.players.index(actor)
+        for owner, card in departed:
+            if owner is not actor:
+                continue  # 「自分の」 効果で離れた **自分の** カードのみ (相手陣は対象外)
+            bundle = effects_overlay.get(card.card_id)
+            if bundle is None:
+                continue
+            if not any(
+                e.get("when") == "on_self_chara_leave_by_self_effect"
+                for e in bundle.effects
+            ):
+                continue
+            enqueue_event(
+                state,
+                when="on_self_chara_leave_by_self_effect",
+                owner_idx=actor_idx,
+                source_card_id=card.card_id,
+                source_iid=None,
+            )
     _maybe_resolve(state)
 
 
