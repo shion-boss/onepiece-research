@@ -9724,10 +9724,39 @@ fn execute_pending(state: &mut GameState, evt: &PendingTrigger) -> Result<(), St
 /// player の場に指定 when 効果を持つカードがあるか (draw cascade guard 用)。
 fn me_board_has_when(state: &GameState, pi: usize, when: &str) -> bool {
     let p = &state.players[pi];
-    std::iter::once(&p.leader)
+    if std::iter::once(&p.leader)
         .chain(p.characters.iter())
         .chain(p.stages.iter())
         .any(|ip| card_has_when(&ip.card.card_id, when))
+    {
+        return true;
+    }
+    // ⭐ 「離脱した本人」 が反応するケース (cardqa_op_08 / OP08-046) は、 発火時点で本人が
+    //   **もう盤面に居ない** ので上の走査では拾えない。 ここで false を返すと呼出側が
+    //   `me_board_has_when(..) && fire_field_when(..)` で短絡し、 fire_field_when 内の bail guard に
+    //   **到達しないまま Rust だけ無反応** = 黙って乖離する (MISMATCH)。 公開領域も見て true を返し、
+    //   必ず fire_field_when へ流して そこで明示 bail させる。
+    if when == "on_self_chara_leave_by_self_effect" {
+        return public_zone_has_leave_actor(state, pi, when);
+    }
+    false
+}
+
+/// 自分のトラッシュ / 表向きライフに、 指定 when を持つ **CHARACTER** が居るか。
+/// (= 「離脱した本人が反応する」 可能性がある局面か。 過剰検出でよい = bail に倒す為)
+fn public_zone_has_leave_actor(state: &GameState, pi: usize, when: &str) -> bool {
+    let Some(ov) = overlay() else { return false };
+    let p = &state.players[pi];
+    let n_face_up = p.face_up_life_count.max(0) as usize;
+    p.trash
+        .iter()
+        .chain(p.life.iter().take(n_face_up))
+        .any(|c| {
+            c.category == crate::state::Category::Character
+                && ov.get(&c.card_id).map_or(false, |b| {
+                    b.iter().any(|e| e.get("when").and_then(|w| w.as_str()) == Some(when))
+                })
+        })
 }
 
 /// cost が空 (= costless、 任意/強制コスト無) か。
@@ -11326,21 +11355,10 @@ pub(crate) fn fire_field_when_with_toks(
     //   本人参加しうるのは **OP08-046 の 1 枚だけ** なので影響範囲は極小
     //   (OP07-038 は LEADER = 場を離れない、 OP08-056 は STAGE で下の CHARACTER 判定が弾く)。
     if when == "on_self_chara_leave_by_self_effect" {
-        let p = &state.players[owner_idx];
-        let n_face_up = p.face_up_life_count.max(0) as usize;
         //   ⚠ when の文面は 「**キャラ**が場を離れた時」 なので、 本人参加しうるのは CHARACTER だけ
         //     (OP08-056 モビー・ディック号 は STAGE = 自身の離脱では発動しえない → bail 不要)。
-        let public: Vec<&crate::state::CardDef> = p
-            .trash
-            .iter()
-            .chain(p.life.iter().take(n_face_up))
-            .collect();
-        if public.iter().any(|c| {
-            c.category == crate::state::Category::Character
-                && ov.get(&c.card_id).map_or(false, |b| {
-                    b.iter().any(|e| e.get("when").and_then(|w| w.as_str()) == Some(when))
-                })
-        }) {
+        //   判定は me_board_has_when と **共通の helper** を使う (= 片方だけ直す事故を防ぐ)。
+        if public_zone_has_leave_actor(state, owner_idx, when) {
             return Err(format!(
                 "{when}: 離脱本人の発動 (cardqa_op_08) は Rust 未実装 = bail"
             ));
