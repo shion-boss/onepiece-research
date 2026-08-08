@@ -8489,6 +8489,17 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 .filter(|&&(pi, sl)| pi == opp_idx && matches!(sl, Slot::Char(_)))
                 .map(|&(pi, sl)| tag_src(state, pi, sl))
                 .collect();
+            // ⚠ **複数対象の `ko` は同時離脱**。 Python は _LeaveBatch を開き、 置換の可否を
+            //   **バッチ開始時の盤面** で決める (順序非依存。 cardqa_op_10 / OP10-032 たしぎ)。
+            //   Rust は逐次処理なので、 置換 holder が居る multi-target では **bail** する
+            //   (= 黙って順序依存の結果を作らない)。 単体 KO は従来どおり。
+            if toks.len() > 1
+                && (board_has_replace_holder(state, opp_idx)
+                    || board_has_replace_holder(state, me_idx))
+            {
+                note_unknown_key("simultaneous_leave", "ko(multi-target)");
+                return false;
+            }
             // source-gone (Detached) では Python も self_inplay=None で source 依存の KO 耐性判定を
             // **スキップ** する (effects.py:3352 `if thr >= 0 and self_inplay is not None`)。
             let src_pa: Option<(i32, String)> = src_ip(&state.players[me_idx], src)

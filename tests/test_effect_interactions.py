@@ -6844,3 +6844,57 @@ def test_char_summon_blocked_by_cost_ge_restriction_via_play_from_hand():
                    st, p0, p1, None)
     assert c4 not in [c.card.card_id for c in p0.characters], \
         "「キャラカードを登場できない」 は効果登場も全て止める (OP14-020)"
+
+
+def test_simultaneous_ko_replacement_is_order_independent():
+    """OP10-032 たしぎ: **同時KO** の置換は iteration 順に依存しない。
+
+    一次情報 (cardqa_op_10): 「アクティブのこのキャラと、 これ以外の自分の緑のキャラが
+    **同時にKOされるとき**、 この効果で代わりにこのキャラをレストにできますか？」
+    → 「**はい、 できます。** この場合、 この自分の緑のキャラはKOされず、
+      「たしぎ」 はKOされます。」
+
+    ⚠ 是正前は **たしぎを先に処理すると** たしぎが場を離れた後で緑キャラを見るため
+      holder が見つからず **両方KO** になっていた (= 盤面上の並び順で結果が変わる)。
+      同時離脱は 1 事象なので、 置換の可否は **バッチ開始時の盤面** で決める。
+    ⚠ `ko` (all_* target) も同時離脱 primitive。 これを集合から外していたのが原因だった。
+    """
+    import json
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    cards = {c["card_id"]: c
+             for c in json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    green = next(cid for cid, c in cards.items()
+                 if c["category"] == "CHARACTER" and "緑" in (c.get("color") or "")
+                 and c["name"] != "たしぎ" and str(c.get("power")) == "3000"
+                 and not cid.endswith(("_p1", "_p2", "_r1")))
+
+    def run(tashigi_first: bool):
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 10
+            p.life = [repo.get("OP01-013")] * 3
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 0, 5
+        t = InPlay.of(repo.get("OP10-032"), sickness=False)
+        g = InPlay.of(repo.get(green), sickness=False)
+        p1.characters = [t, g] if tashigi_first else [g, t]
+        src = InPlay.of(repo.get("OP01-016"), sickness=False)
+        p0.characters = [src]
+        execute_effect({"ko": "all_opponent_characters"}, st, p0, p1, src)
+        return (t in p1.characters, g in p1.characters)
+
+    for first in (False, True):
+        tashigi_alive, green_alive = run(first)
+        label = "たしぎ先" if first else "緑先"
+        assert not tashigi_alive, f"{label}: たしぎは KO されるはず (自身は置換対象外)"
+        assert green_alive, (
+            f"{label}: 緑キャラは置換で残るはず (順序依存になっている)"
+        )

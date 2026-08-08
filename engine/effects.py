@@ -3414,6 +3414,11 @@ def _audit_snapshot(state: "GameState") -> dict:
 # 1 つの効果で **複数のキャラが同時に場を離れる** primitive。 置換効果 (replace_ko /
 # replace_leave) のコストを holder ごとに 1 回だけにするためのバッチ境界 (cardqa_op_15)。
 _SIMULTANEOUS_LEAVE_PRIMS = frozenset({
+    # ⚠ `ko` も **all_* target なら同時離脱** (「相手のキャラすべてをKO」 等)。 単体 KO では
+    #   バッチの有無で挙動は変わらない (victim 1 枚なら 「1 回だけ払う」 は自明) ので、
+    #   primitive 単位で開いてよい。 これを外していたため OP10-032 たしぎの同時KOが
+    #   iteration 順に依存していた (2026-08-08)。
+    "ko",
     "ko_multi", "ko_all_others", "ko_total_power_le",
     "return_to_hand_multi", "return_to_deck_bottom_multi",
 })
@@ -3434,11 +3439,24 @@ class _LeaveBatch:
     def __enter__(self):
         if self.outer is None:
             self.state._leave_batch_decision = {}
+            # ⭐ **置換の可否はバッチ開始時 (= 離脱事象の直前) の盤面で決める**。
+            #   一次情報 (cardqa_op_10、 OP10-032 たしぎ): 「アクティブのこのキャラと、
+            #   これ以外の自分の緑のキャラが **同時にKOされるとき**、 この効果で代わりに
+            #   このキャラをレストにできますか？」 → 「**はい、 できます。** この場合、
+            #   この自分の緑のキャラはKOされず、 「たしぎ」 はKOされます。」
+            #   ⚠ 現盤面で holder を探すと **iteration 順に依存** する: たしぎを先に処理すると
+            #     たしぎが場を離れた後で緑キャラを見るので holder が見つからず両方KOになる。
+            #     同時離脱は 1 事象なので **開始時に居たカードは全員 holder になれる**。
+            self.state._leave_batch_holders = {
+                id(pl): ([pl.leader] + list(pl.characters) + list(pl.stages))
+                for pl in self.state.players
+            }
         return self
 
     def __exit__(self, *exc):
         if self.outer is None:
             self.state._leave_batch_decision = None
+            self.state._leave_batch_holders = None
         return False
 
 
@@ -13697,9 +13715,12 @@ def try_replace_ko(
     """
     if not effects_overlay:
         return False
-    # victim 所有者の場 (リーダー + キャラ + ステージ) を走査
+    # victim 所有者の場 (リーダー + キャラ + ステージ) を走査。
+    # ⭐ 同時離脱バッチ中は **バッチ開始時の盤面** を使う (= 順序非依存。 _LeaveBatch 参照)。
+    _snap = getattr(state, "_leave_batch_holders", None)
     candidates: list[InPlay] = (
-        [owner.leader] + list(owner.characters) + list(owner.stages)
+        list(_snap[id(owner)]) if (_snap is not None and id(owner) in _snap)
+        else [owner.leader] + list(owner.characters) + list(owner.stages)
     )
     for inplay in candidates:
         # 再入防止: この holder の置換 do が実行中なら、 その do が誘発した離脱で

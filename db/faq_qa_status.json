@@ -3660,9 +3660,9 @@
   "files": [
    "cardqa_op_10.json"
   ],
-  "note": "OP10-032 たしぎ: 同時KOの置換が iteration 順依存(お玉先=正/たしぎ先=両KO)。公式は 「緑は残りたしぎがKO」 を順序不問で要求。_LeaveBatch を pre-batch 盤面 snapshot で評価する必要=アーキ変更(rule 11)",
+  "note": "OP10-032 たしぎ: 同時KOの置換が iteration 順依存だった (cardqa_op_10「緑キャラはKOされず、たしぎはKOされます」)。真因は 2 つ: (1) ** (all_* target) が _SIMULTANEOUS_LEAVE_PRIMS に入っていなかった** ため同時離脱バッチが開かず、(2) バッチが開いても holder 候補を **現盤面** から取っていたため たしぎを先に処理すると たしぎが場を離れた後で緑キャラを見て holder が見つからず両方KOになった。是正:  を同時離脱 primitive に追加し、_LeaveBatch が **バッチ開始時の盤面スナップショット** を保持して try_replace_ko がそれを使う (= 順序非依存)。実測: 緑先/たしぎ先 どちらでも『たしぎKO・緑生存』を確認。Rust は逐次処理なので multi-target ko + 置換 holder 在場では **明示 bail** (黙って順序依存の結果を作らない)。16デッキ差分 bail=1 / MISMATCH=0、効果スモークは bail=0 / MISMATCH=0。",
   "q": "アクティブのこのキャラと、これ以外の自分の緑のキャラが同時にKOされるとき、この効果で代わりにこのキャラをレストにできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "56bd93b21cae": {
   "a": "次に迎える自分のターン終了時まで有効な効果です。",
