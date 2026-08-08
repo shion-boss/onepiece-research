@@ -481,6 +481,21 @@
  ],
  "EB02-019": [
   {
+   "_text": "EB02-019 常在: 「相手のキャラが2枚以上いる場合、 このキャラは登場したターンにキャラへアタックできる」 [2026-08-08 実装: 条件は都度再評価 = アタック時点で判定 (cardqa_eb_02: 登場時2枚→その後1枚 なら不可)]",
+   "when": "on_attached_don",
+   "n": 0,
+   "do": [
+    {
+     "static_self_attack_chara_if": {
+      "opp_chara_filtered_count_ge": {
+       "filter": {},
+       "count": 2
+      }
+     }
+    }
+   ]
+  },
+  {
    "_text": "EB02-019 on_play: 自分のリーダーが特徴《麦わらの一味》を持つ場合、相手のコスト4以下のキャラ1枚までを、レストにする。",
    "when": "on_play",
    "do": [
@@ -10055,7 +10070,7 @@
    ]
   },
   {
-   "_text": "ワイパー (黄 cost5) 起動メイン: 空島キャラにドン1付与",
+   "_text": "OP15-114 activate_main: 【ターン1回】自分の特徴《空島》を持つ、リーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
    "when": "activate_main",
    "cost": {
     "once_per_turn": true
@@ -10063,7 +10078,7 @@
    "do": [
     {
      "attach_rested_don": {
-      "target": "self_leader",
+      "target": "one_self_inplay_feature_空島",
       "count": 1
      }
     }
@@ -11222,12 +11237,12 @@
  ],
  "EB03-045": [
   {
-   "_text": "ペローナ (緑 cost4) ブロッカー+登場時: 自リーダーにドン1付与",
+   "_text": "EB03-045 on_play: 【ブロッカー】【登場時】自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
    "when": "on_play",
    "do": [
     {
      "attach_rested_don": {
-      "target": "self_leader",
+      "target": "self_inplay_choice",
       "count": 1
      }
     }
@@ -11247,7 +11262,8 @@
        "feature": "スリラーバーク海賊団",
        "cost_le": 2
       },
-      "limit": 1
+      "limit": 1,
+      "rested": true
      }
     }
    ]
@@ -34885,12 +34901,12 @@
  ],
  "EB03-045_p1": [
   {
-   "_text": "ペローナ (緑 cost4) ブロッカー+登場時: 自リーダーにドン1付与",
+   "_text": "EB03-045 on_play: 【ブロッカー】【登場時】自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
    "when": "on_play",
    "do": [
     {
      "attach_rested_don": {
-      "target": "self_leader",
+      "target": "self_inplay_choice",
       "count": 1
      }
     }
@@ -34910,7 +34926,8 @@
        "feature": "スリラーバーク海賊団",
        "cost_le": 2
       },
-      "limit": 1
+      "limit": 1,
+      "rested": true
      }
     }
    ]
@@ -35090,12 +35107,12 @@
  ],
  "EB03-045_p2": [
   {
-   "_text": "ペローナ (緑 cost4) ブロッカー+登場時: 自リーダーにドン1付与",
+   "_text": "EB03-045 on_play: 【ブロッカー】【登場時】自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
    "when": "on_play",
    "do": [
     {
      "attach_rested_don": {
-      "target": "self_leader",
+      "target": "self_inplay_choice",
       "count": 1
      }
     }
@@ -35115,7 +35132,8 @@
        "feature": "スリラーバーク海賊団",
        "cost_le": 2
       },
-      "limit": 1
+      "limit": 1,
+      "rested": true
      }
     }
    ]
@@ -36168,7 +36186,7 @@
    ]
   },
   {
-   "_text": "ワイパー (黄 cost5) 起動メイン: 空島キャラにドン1付与",
+   "_text": "OP15-114 activate_main: 【ターン1回】自分の特徴《空島》を持つ、リーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
    "when": "activate_main",
    "cost": {
     "once_per_turn": true
@@ -36176,7 +36194,7 @@
    "do": [
     {
      "attach_rested_don": {
-      "target": "self_leader",
+      "target": "one_self_inplay_feature_空島",
       "count": 1
      }
     }
@@ -43148,6 +43166,21 @@
  ],
  "EB02-019_p1": [
   {
+   "_text": "EB02-019 常在: 「相手のキャラが2枚以上いる場合、 このキャラは登場したターンにキャラへアタックできる」 [2026-08-08 実装: 条件は都度再評価 = アタック時点で判定 (cardqa_eb_02: 登場時2枚→その後1枚 なら不可)]",
+   "when": "on_attached_don",
+   "n": 0,
+   "do": [
+    {
+     "static_self_attack_chara_if": {
+      "opp_chara_filtered_count_ge": {
+       "filter": {},
+       "count": 2
+      }
+     }
+    }
+   ]
+  },
+  {
    "_text": "EB02-019_p1 on_play: 自分のリーダーが特徴《麦わらの一味》を持つ場合、相手のコスト4以下のキャラ1枚までを、レストにする。",
    "when": "on_play",
    "do": [
@@ -43161,6 +43194,21 @@
   }
  ],
  "EB02-019_p2": [
+  {
+   "_text": "EB02-019 常在: 「相手のキャラが2枚以上いる場合、 このキャラは登場したターンにキャラへアタックできる」 [2026-08-08 実装: 条件は都度再評価 = アタック時点で判定 (cardqa_eb_02: 登場時2枚→その後1枚 なら不可)]",
+   "when": "on_attached_don",
+   "n": 0,
+   "do": [
+    {
+     "static_self_attack_chara_if": {
+      "opp_chara_filtered_count_ge": {
+       "filter": {},
+       "count": 2
+      }
+     }
+    }
+   ]
+  },
   {
    "_text": "EB02-019_p2 on_play: 自分のリーダーが特徴《麦わらの一味》を持つ場合、相手のコスト4以下のキャラ1枚までを、レストにする。",
    "when": "on_play",

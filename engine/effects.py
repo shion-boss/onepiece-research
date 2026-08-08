@@ -7612,6 +7612,19 @@ def _execute_effect_body_inner(
             for ip in me.characters:
                 if "SWORD" in ip.card.features:
                     ip.granted_keywords.add("速攻：キャラ")
+        elif k == "static_self_attack_chara_if":
+            # 公式 静的: 「(条件) の場合、 **このキャラ** は登場したターンにキャラへアタックできる」
+            #   (EB02-019 ロロノア・ゾロ 「相手のキャラが2枚以上いる場合、…」)。
+            # ⭐ 条件は `_recompute_static` ごとに再評価されるので **アタック時点** で判定される。
+            #   一次情報 (cardqa_eb_02): 「相手のキャラが2枚いるときにこのキャラを登場し、 その後
+            #   他の効果で相手のキャラが1枚になりました。 この場合、 このキャラは相手のキャラに
+            #   アタックできますか？」 → 「**いいえ、 できません。**」 = 登場時ではなく都度判定。
+            # ⚠ static_granted_keywords に入れる (= 毎回クリアされるので条件が外れたら消える)。
+            #   static_swords_attack_chara は granted_keywords を使うが、 あちらは
+            #   「特徴 SWORD を持つ」 = 盤面で変わらない条件なので実害がない。
+            _cond = v if isinstance(v, dict) else {}
+            if self_inplay is not None and eval_condition(_cond, state, me, self_inplay):
+                self_inplay.static_granted_keywords.add("速攻：キャラ")
         elif k == "keep_opp_rested_chara_next_refresh":
             # 「相手の (filter) レストのキャラ N 枚は、 次の相手のリフレッシュフェイズで
             # アクティブにならない」 (OP15-038 等)。 該当キャラに stay_rested_next_refresh フラグ。

@@ -1491,6 +1491,40 @@ fn resolve_target(
         }
         // 相手リーダー (effects.py:2354、 one_opponent_leader は overlay 別名 OP06-023 等)。
         "opponent_leader" | "one_opponent_leader" => vec![(opp_idx, Slot::Leader)],
+        // one_self_inplay_feature_X = 自分のリーダーかキャラで 特徴 X を持つ 1 体
+        // (effects.py:3318、 OP15-114 ワイパー 「自分の特徴《空島》を持つ、 リーダーかキャラ1枚」)。
+        // ⚠ AI 選択基準は Python と同じく **power 降順 + 安定ソート** (= 同値ならリーダー優先)。
+        os if os.starts_with("one_self_inplay_feature_") => {
+            let feat = &os["one_self_inplay_feature_".len()..];
+            let p = &state.players[me_idx];
+            let mut cands: Vec<Slot> = Vec::new();
+            if p.leader.card.features.iter().any(|f| f == feat) {
+                cands.push(Slot::Leader);
+            }
+            for (i, ip) in p.characters.iter().enumerate() {
+                if ip.card.features.iter().any(|f| f == feat) {
+                    cands.push(Slot::Char(i));
+                }
+            }
+            cands.sort_by_key(|&sl| -(src_ip(p, sl).map(|ip| ip.power()).unwrap_or(0)));
+            cands.into_iter().take(1).map(|sl| (me_idx, sl)).collect()
+        }
+        // all_self_inplay_feature_X = 自分のリーダーかキャラで 特徴 X を持つ全員 (effects.py:3332)。
+        // Python は [leader] + characters の順 (power ソートなし)。
+        os if os.starts_with("all_self_inplay_feature_") => {
+            let feat = &os["all_self_inplay_feature_".len()..];
+            let p = &state.players[me_idx];
+            let mut out: Vec<(usize, Slot)> = Vec::new();
+            if p.leader.card.features.iter().any(|f| f == feat) {
+                out.push((me_idx, Slot::Leader));
+            }
+            for (i, ip) in p.characters.iter().enumerate() {
+                if ip.card.features.iter().any(|f| f == feat) {
+                    out.push((me_idx, Slot::Char(i)));
+                }
+            }
+            out
+        }
         // all_self_chara(cters)_cost_le_N = 自分のコスト N 以下のキャラ全員 (effects.py:2577、 OP06-096)。
         os if os.starts_with("all_self_chara_cost_le_")
             || os.starts_with("all_self_characters_cost_le_")
@@ -2621,6 +2655,19 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
                 if ip.card.features.iter().any(|f| f == "SWORD") {
                     ip.granted_keywords.insert("速攻：キャラ".to_string());
                 }
+            }
+        }
+        // 「(条件) の場合、 **このキャラ** は登場したターンにキャラへアタックできる」
+        // (EB02-019 ロロノア・ゾロ 「相手のキャラが2枚以上いる場合、…」、 effects.py:7615)。
+        // ⭐ 条件は recompute_static ごとに再評価 = **アタック時点** で判定 (cardqa_eb_02:
+        //   登場時 2 枚 → 後に 1 枚 になったら 「いいえ、 できません」)。 その為 granted_keywords
+        //   ではなく **static_granted_keywords** に入れる (= 毎回クリアされ条件が外れたら消える)。
+        "static_self_attack_chara_if" => {
+            let ok = eval_condition(spec, state, me_idx, Some(src)).unwrap_or(false);
+            if ok {
+                get_ip_mut(&mut state.players[me_idx], src)
+                    .static_granted_keywords
+                    .insert("速攻：キャラ".to_string());
             }
         }
         // 「相手はこのキャラを狙わなければならない」 (effects.py:10970)。

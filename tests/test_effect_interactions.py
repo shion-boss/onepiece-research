@@ -6898,3 +6898,73 @@ def test_simultaneous_ko_replacement_is_order_independent():
         assert green_alive, (
             f"{label}: 緑キャラは置換で残るはず (順序依存になっている)"
         )
+
+
+def test_eb02_019_conditional_chara_rush_reevaluated_at_attack_time():
+    """EB02-019 ロロノア・ゾロ: 「相手のキャラが2枚以上いる場合、 このキャラは登場した
+    ターンにキャラへアタックできる」。
+
+    一次情報 (db/faq/cardqa_eb_02): 「相手のキャラが2枚いるときにこのキャラを登場し、
+    その後他の効果で相手のキャラが1枚になりました。 この場合、 このキャラは相手のキャラに
+    アタックできますか？」 → 「**いいえ、 できません。**」
+    = 登場時の判定を保持するのではなく **アタック時点で毎回判定** する。
+
+    従って 静的効果 (static_self_attack_chara_if) として static_granted_keywords に
+    付与し、 _recompute_static ごとに再評価されなければならない。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, evaluate_static_effects
+    from engine.game import legal_actions, AttackCharacter, AttackLeader
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def build(n_opp: int):
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 10
+            p.life = [repo.get("OP01-013")] * 3
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 0, 5
+        # 登場したばかり (召喚酔い) の ゾロ
+        zoro = InPlay.of(repo.get("EB02-019"), sickness=True)
+        p0.characters = [zoro]
+        for _ in range(n_opp):
+            c = InPlay.of(repo.get("OP01-013"), sickness=False)
+            c.rested = True  # アタック対象になれるのは レスト のキャラのみ
+            p1.characters.append(c)
+        evaluate_static_effects(st, ov)
+        return st, zoro
+
+    def counts(st, zoro):
+        acts = legal_actions(st)
+        ch = [a for a in acts
+              if isinstance(a, AttackCharacter) and a.attacker_iid == zoro.instance_id]
+        ld = [a for a in acts
+              if isinstance(a, AttackLeader) and a.attacker_iid == zoro.instance_id]
+        return len(ch), len(ld)
+
+    # 相手キャラ 1 枚 = 条件未達 → 召喚酔いのまま アタック不可
+    st, zoro = build(1)
+    assert not zoro.is_rush_chara_only_now
+    assert counts(st, zoro) == (0, 0)
+
+    # 相手キャラ 2 枚 = 条件達成 → **キャラへのみ** アタック可 (リーダーへは不可)
+    st, zoro = build(2)
+    assert zoro.is_rush_chara_only_now
+    n_chara, n_leader = counts(st, zoro)
+    assert n_chara == 2, f"相手キャラ 2 枚全てを狙えるはず (got {n_chara})"
+    assert n_leader == 0, "速攻：キャラ はリーダーへアタックできない"
+
+    # 2 枚 → 1 枚に減った後は アタック不可 に戻る (cardqa_eb_02 そのもの)
+    st, zoro = build(2)
+    st.players[1].characters.pop()
+    evaluate_static_effects(st, ov)
+    assert not zoro.is_rush_chara_only_now, (
+        "相手キャラが 1 枚に減ったらアタック不可に戻るはず (cardqa_eb_02)"
+    )
+    assert counts(st, zoro) == (0, 0)

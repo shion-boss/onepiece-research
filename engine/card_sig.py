@@ -124,6 +124,7 @@ _ADDITIONAL_PRIM_LABEL: dict[str, tuple[str, ...]] = {
     "extra_turn": ("finisher_swing",), "redirect_attack": ("redirect",),
     "flip_life_face_up_effect": ("life_manip",), "reveal_self_life_top_pump_per_cost": ("buff_power",),
     "static_swords_attack_chara": ("buff_power",),
+    "static_self_attack_chara_if": ("rush_grant", "keyword_grant"),
     # 特殊勝利・残り
     "win_game": ("finisher_swing",), "set_deck_out_wins": ("finisher_swing",),
     "keep_opp_rested_chara_with_don_ge_next_refresh": ("tempo_rest",),
