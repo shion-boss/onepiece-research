@@ -7096,3 +7096,52 @@ def test_op16_074_don_minus_opp_returns_rested_don_first():
     execute_effect({"don_minus_opp": 3}, st, me, opp, None)
     assert opp.don_rested == 0 and opp.don_active == 2, \
         f"レスト優先→不足分アクティブ が守れていない (active={opp.don_active} rested={opp.don_rested})"
+
+
+# --------------------------------------------------------------------------- #
+#  公式 Q&A conformance バッチ (2026-08-08 #2、 cron optcg-faq-conformance)
+# --------------------------------------------------------------------------- #
+def test_op15_023_don_attach_targets_both_players_owner_matched():
+    """OP15-023 アーロン【起動メイン】「リーダーかキャラ1枚に持ち主のコストエリアのドン付与」
+    は 両陣営 が対象で、 ドン源は 対象の所有者 (= owner_of_target)。
+
+    一次情報 (cardqa_op_15):
+      #9 (qid 5b454d23df75): 「自分に自分のドン / 相手に相手のドン を付与できるか」→ はい。
+      #17 (qid 5cf7f863bc3a): 「自分に相手のドン / 相手に自分のドン (cross) を付与できるか」→ いいえ。
+    OP15-003/010/017 の レストドン是正 (2026-08-06) が この コストエリア variant を取りこぼしていた
+    (target=self_inplay_choice = 自陣限定 = 相手に付与できず #9 違反)。one_team_any_either +
+    owner_of_target へ是正 (from_cost_area は据置)。
+    """
+    from engine.core import InPlay
+    repo, overlay = _repo(), _overlay()
+
+    # #9: 相手のキャラに 相手のコストエリアのドン を付与できる (両陣営)
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    aaron = InPlay.of(repo.get("OP15-023"), sickness=False)
+    me.characters = [aaron]
+    oppc = InPlay.of(repo.get(_FILLER), sickness=False)
+    opp.characters = [oppc]
+    opp.don_rested, opp.don_active, me.don_rested = 2, 0, 3
+    spec = {"attach_rested_don": {
+        "target": {"_iid_picks": [oppc.instance_id]},
+        "count": 1, "from_cost_area": True, "owner_of_target": True}}
+    execute_effect(spec, st, me, opp, aaron)
+    assert oppc.attached_dons == 1, "相手キャラに付与できていない (両陣営 #9 違反)"
+    assert opp.don_rested == 1, "ドン源が相手のコストエリアでない (owner_of_target 違反)"
+    assert me.don_rested == 3, "cross: 自分のドンが減った (owner_of_target が cross を許した #17 違反)"
+
+    # #17: 自陣キャラへ付与すると 自分のコストエリアのドン から取る (cross 不可)
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    aaron = InPlay.of(repo.get("OP15-023"), sickness=False)
+    myc = InPlay.of(repo.get(_FILLER), sickness=False)
+    me.characters = [aaron, myc]
+    me.don_rested, me.don_active, opp.don_rested = 2, 0, 3
+    spec = {"attach_rested_don": {
+        "target": {"_iid_picks": [myc.instance_id]},
+        "count": 1, "from_cost_area": True, "owner_of_target": True}}
+    execute_effect(spec, st, me, opp, aaron)
+    assert myc.attached_dons == 1, "自陣キャラに付与できていない"
+    assert me.don_rested == 1, "ドン源が自分のコストエリアでない"
+    assert opp.don_rested == 3, "cross: 相手のドンが減った (owner_of_target が cross を許した #17 違反)"

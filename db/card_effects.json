@@ -10166,7 +10166,7 @@
    ]
   },
   {
-   "_text": "OP15-023 activate_main: 【ターン1回】相手のキャラ1枚に相手のレストのドン‼1枚を付与できる：リーダーかキャラ1枚に持ち主のコストエリアのドン‼1枚までを、付与する。",
+   "_text": "OP15-023 activate_main: 【ターン1回】相手のキャラ1枚に相手のレストのドン‼1枚を付与できる：リーダーかキャラ1枚に持ち主のコストエリアのドン‼1枚までを、付与する。 [両陣営是正 2026-08-08: 「持ち主のコストエリアのドン」修飾なし=両陣営 (cardqa_op_15)。OP15-003/010/017 のレストドン是正 2026-08-06 が コストエリア variant を取りこぼしていた]",
    "when": "activate_main",
    "cost": {
     "once_per_turn": true
@@ -10184,9 +10184,10 @@
       "effect": [
        {
         "attach_rested_don": {
-         "target": "self_inplay_choice",
+         "target": "one_team_any_either",
          "count": 1,
-         "from_cost_area": true
+         "from_cost_area": true,
+         "owner_of_target": true
         }
        }
       ]
