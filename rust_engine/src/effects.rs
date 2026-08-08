@@ -5398,12 +5398,15 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             } else {
                 v.as_i64().unwrap_or(1) as i32
             };
+            // ⭐ 「相手は自身の場のドン!!を戻す」 = 持ち主 (相手) が選ぶ → レストから返す
+            //    (cardqa_op_16 qid 59c4ab538c2d、 return_opp_don と同じ chooser 帰属)。
+            //    OP16-074 のみが使用 (全走査済)。
             let opp = &mut state.players[opp_idx];
-            let taken = n.min(opp.don_active);
-            opp.don_active -= taken;
+            let taken = n.min(opp.don_rested);
+            opp.don_rested -= taken;
             opp.don_remaining_in_deck += taken;
-            let more = (n - taken).min(opp.don_rested);
-            opp.don_rested -= more;
+            let more = (n - taken).min(opp.don_active);
+            opp.don_active -= more;
             opp.don_remaining_in_deck += more;
             let removed = taken + more;
             // 公式 Q&A (cardqa_op_06 / op_02) で裁定済: 「相手のカードの効果で自分のドン!!が
