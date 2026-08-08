@@ -4291,3 +4291,87 @@ OP16-074 のみ (全走査済) なので他カードへの影響なし。 恒久
   アクティブ leader/キャラが N 未満でもドン/ステージで払える局面を弾く = 合法発動を阻害。ドンは InPlay
   でなく heterogeneous 選択が必要 = アーキ変更 (OP14-024「相手のカード」の 4 ゾーン是正と同族)。同型
   ~13 base (EB04-015/019, OP14-020/033/036/037/038, OP15-035 等)。
+
+## 公式 Q&A conformance バッチ (2026-08-08 #3、 cron optcg-faq-conformance): 17 conform / 1 fixed / 1 n/a / 1 escalated
+
+### fixed: OP15-023 アーロン「持ち主のコストエリアのドン付与」は 両陣営 (owner_of_target)
+
+**一次情報** (`cardqa_op_15`):
+- #9 (qid 5b454d23df75): 「この『リーダーかキャラ1枚に持ち主のコストエリアのドン‼1枚までを、付与する』の効果で、
+  自分のリーダーやキャラに自分のドン、相手のリーダーやキャラに相手のドンを付与できますか？」→「はい、できます。」
+- #17 (qid 5cf7f863bc3a): 「自分に相手のドン、相手に自分のドンを付与できますか？(cross)」→「いいえ、できません。」
+
+OP15-023 の【起動メイン】effect side は 修飾なし「リーダーかキャラ1枚に持ち主のコストエリアのドン」= **両陣営**
+(自陣なら自ドン / 相手陣なら相手ドン、 owner-matched)。 **是正前**: overlay が `self_inplay_choice` (自陣限定) で
+相手に付与できず #9 に違反。 **2026-08-06 の レストドン是正 (OP15-003/010/017 を `one_team_any_either` +
+`owner_of_target` へ) が、 この from_cost_area (コストエリア) variant を取りこぼしていた** (overlay 全走査で
+`self_inplay_choice` かつ本文「持ち主の」= OP15-023 のみ。 他 91 エントリは本文「自分の」= 自陣限定で正、
+OP11-118 の「持ち主」は return_to_hand 由来の false positive)。
+
+**是正** (overlay-only): `target: one_team_any_either` + `owner_of_target: true` (`from_cost_area: true` 据置)。
+Python primitive `attach_rested_don` は `one_team_any_either` + `owner_of_target` + `from_cost_area` の組を既対応
+(`_owner_of(target)` で対象の所有者を解決 → `_take_rested` が from_cost_area で active も使う)。 実測: 相手キャラへ
+付与すると相手のコストエリアのドンを消費、 自陣へ付与すると自分のを消費 (cross 不可能 = #17 いいえ を構造保証)。
+Rust は `one_team_any_either` / `owner_of_target` で明示 bail (OP15-003 等と同、 rust_parity MISMATCH=0 維持)。
+恒久ガード: `test_op15_023_don_attach_targets_both_players_owner_matched`。
+
+⭐ **教訓**: 同型の一括是正 (レストドン) を入れた時は、 **同じ裁定を持つ別 variant (コストエリア)** も全走査で
+数える。 「レストのドン」 の spec 移行だけ見て「持ち主の」全カードを移行したつもりが、 from_cost_area 1 枚を落とした。
+
+### escalated: OP12-057 の【トリガー】手札捨てが 海軍リーダー OP12-040 クザンを発火しない (source が event)
+
+**一次情報** (`cardqa_op_12`, qid 5a84fdad61b7): 「この【トリガー】効果で手札を1枚捨てカード1枚を引いた時、 自分の
+リーダー『OP12-043 クザン』の効果でさらにカード1枚を引けますか？」→「はい、できます。」 (⚠ Q は OP12-043 と
+誤記、 実体は leader OP12-040 クザン =「自分の特徴《海軍》を持つカードの効果で自分の手札からカードが捨てられた時、
+捨てた枚数分引く」= `on_self_hand_discarded` + `actor_source_feature_contains:海軍`)。
+
+OP12-057 アイス塊暴雉嘴 は 青/海軍 event。【トリガー】= optional_cost_then{cost:[trash_self_hand_random], effect:[draw]}。
+
+**確認した違反** (実測): deck 25→24 (トリガー自身の draw のみ)、 公式は →23 (クザンの追加 draw)。 原因: トリガーの
+cost 手札捨てが `trigger_on_self_hand_discarded` を **`source_inplay=None`** (トリガーは InPlay でない) で呼び、
+`actor_source_feature_contains` は `last_discard_source_inplay` しか読まず None → 条件 false → クザン不発。
+`state.current_source_card_id`='OP12-057' は discard 時に在るが、 グローバル card repo 無し + トリガー解決中に
+card はどの zone にも不在 (probe 確認) で 海軍 features を取れない。 **event (trigger/counter/main) 由来の discard
+全般で同型** (source が event card = InPlay でない)。 Python/Rust とも同じで差分検証では沈黙、 公式オラクルでのみ検出。
+
+**escalate 理由**: 是正には source CardDef/features を `trigger_on_self_hand_discarded` へ通す plumbing
+(state.current_source_card 導入 or event dispatch での source-card 保持) + `actor_source_feature_contains` の fallback +
+Rust ミラー (parity 維持) が要る = 単一 primitive を超える両エンジンの source-threading。 consumer は OP12-040 クザン
+1 枚だが event 全経路のカバーが要る。 dedicated pass へ。
+
+### conform (再調査回避、 実測 or 構造で公式どおり確認)
+
+- **OP14-096 浸食輪廻 / OP15-095 ゴムゴムの暴風雨 / OP12-059 粗砕 / OP04-095 バ～リアッ!!** — カウンターイベントの
+  trash/event-count 閾値 (self_trash_count_ge / self_trash_event_count_ge) は、 イベントが効果解決前にトラッシュへ
+  (game.py:2433) ので **自身を数える** (trash9→10 / 他イベント3+自身=4 / trash14→15)。 OP07-095 鉄塊等と同機構。
+- **EB02-052 エネル** — 【アタック時】の +1000 は conditional{if:self_life_le:1} の中 (put_top_to_life と同ブロック)。
+  cost(discard) は非 gate。 自ライフ2以上では +1000 されない。
+- **OP15-008 クリーク / EB02-006 ヤマト** — 「速攻」の gate 位置: クリークは attach と独立した後段 do (0枚付与でも速攻)、
+  ヤマトは entry 全体が leader 条件 (or ワノ国/エース名) で gate (条件不成立なら速攻無し)。
+- **OP05-030 ロシナンテ** — 同時離脱 (カイドウ ko_all_others) で自レストキャラ2枚を、 replace_ko(return_self_to_trash)
+  1回で両救済 (return_self_to_trash は idempotent、 実測 レストキャラ2枚生存)。
+- **EB02-022 ウソップ** — 【登場時】条件 self_chara_power_ge_count_le は **現在パワー** で数える (相手 OP09-004 シャンクス
+  静的-1000 で ウソップ 5000→4000 は非カウント、 印刷6000+の2体は≥5000 → count=2≤2 → 登場可)。
+- **OP14-002 ウルージ** — 【アタック時】if:self_power_ge:5000。 パワー4000以下では draw も KO も不発。
+- **OP09-093 ティーチ** — 【起動メイン】disable_effect(相手キャラ, duration:next_opp_turn_end, also_cannot_attack)。
+  選ばれたキャラは次の相手ターン終了時までアタック不可。
+- **OP13-042 ニューゲート** — 【登場時】attach_rested_don 2つ (self_leader count2 / one_self_character_any count2) で
+  リーダーに2枚+キャラに2枚 独立付与。
+- **PRB02-017 ボア・ハンコック** — set_cannot_attack target=one_opponent_character_any は相手のアクティブ非Luffyキャラを
+  含む (公式はい)。 ⚠ 別件フォロー: overlay は(a)相手のレストのリーダー option 欠落 (b)モンキー・D・ルフィ名の除外欠落
+  (公式は Luffy を対象外だが overlay は選べる)。 target が「相手のレストのリーダー or 非Luffy相手キャラ」の複合で spec
+  新設要 = 別バッチ。
+- **OP16-048 バギー** — opp_attack で 囚人に give_keyword ブロッカー。 opp_attack はアタック宣言時 (block step より前)、
+  is_blocker_now は block step で動的判定 → 付与直後の囚人が現アタックをブロック可 (OP09-032 と同機構)。
+- **ST09-002 雨月天ぷら / ST09-009 風月おむすび** — 【トリガー】の to_hand_self_trigger (state.last_trigger_kept_in_hand=True)
+  は game.py がライフ札を手札へ強制配置 (非任意 do)。 トリガー発動時このカードは必ず手札へ = 加えない選択不可。
+- **OP06-103 河松** — 【アタック時】chara_to_self_life target filter power_eq:0 (現在パワーちょうど0)。 パワー0未満のキャラは
+  不一致でライフに置けない。
+
+### n/a (engine 状態変化に一意に落ちない)
+
+- **OP10-099 ユースタス・キッド / P-106 ルフィ 等 (series 空、 qid 5cf59becb545)** — 【自分のターン終了時】cost=
+  flip_life_face_up (「ライフの上から1枚を表向きにできる」)。 engine のライフモデルは face_up_life_count (枚数) のみで
+  位置を区別しない。 payability は「裏向きライフ1枚以上」(len-fu>=1) で判定 = 全ライフ表向きなら正しく不可だが、
+  Q の「一番上が表向き」(位置) は count モデルに一意に落ちない (下段が裏向きなら engine は許可、 公式は top 位置ゆえ不可)。
+  ライフ位置の表裏はモデル外 = n/a (ST13-004/009 と同型)。
