@@ -294,7 +294,7 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
                 or self_inplay.effect_disabled_through_opp_turn
             )
             and evt.when in ("on_play", "on_attack", "activate_main", "main", "counter",
-                             "opp_attack", "on_block")
+                             "opp_attack", "on_block", "end_of_turn", "opp_end_of_turn")
         ):
             state.push_log(
                 f"  効果無効: {self_inplay.card.name} の【{evt.when}】 は発動されない"

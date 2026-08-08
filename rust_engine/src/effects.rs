@@ -11467,6 +11467,12 @@ pub(crate) fn fire_field_when_with_toks(
             if eff.get("when").and_then(|v| v.as_str()) != Some(when) {
                 continue;
             }
+            // 発動元が 「効果無効」 なら発動しない (effects.py:_execute_event の gate)。
+            // src_effect_negated は list 済 when (end_of_turn/opp_end_of_turn 等) のみ true を返すので、
+            // fire_field_when が扱う他の when (on_self_chara_ko 等) は素通り = Python と一致。
+            if src_effect_negated(state, owner_idx, slot, when) {
+                continue;
+            }
             crate::selfplay::note_fired(&cid);
             // once_per_turn: cost.once_per_turn or top-level。 mirror 対象 when は event_once_used で追跡、
             // それ以外 (end_of_turn 等 別トラッカー) は従来通り bail。
@@ -12885,7 +12891,15 @@ fn pay_don_capacity(me: &Player) -> i32 {
 ///   Rust は無限に起動して自陣を KO し続けていた (2026-08-04、 once_per_turn 既定 True の
 ///   近似を外して初めて露出)。
 fn src_effect_negated(state: &GameState, me_idx: usize, src: Slot, when: &str) -> bool {
-    if !matches!(when, "on_play" | "on_attack" | "activate_main" | "main" | "counter") {
+    // 公式 「効果を無効にする」 に when の区別は無い = 発動する効果は全て抑止 (effects.py:_execute_event)。
+    // ⚠ end_of_turn / opp_end_of_turn は 2026-08-08 追加 (cardqa_op_10、 OP10-112 キッド:
+    //   ターン終了時まで無効化されたキャラの【自分のターン終了時】はエンドフェイズ内で
+    //   まだ無効なため発動しない)。 opp_attack / on_block は 2026-08-04 追加分。
+    if !matches!(
+        when,
+        "on_play" | "on_attack" | "activate_main" | "main" | "counter"
+            | "opp_attack" | "on_block" | "end_of_turn" | "opp_end_of_turn"
+    ) {
         return false;
     }
     match src_ip(&state.players[me_idx], src) {

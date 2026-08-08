@@ -7401,3 +7401,117 @@ def test_op12_057_trigger_discard_feeds_navy_leader_draw():
         "海軍リーダー クザン なら トリガーの1枚 + クザンの1枚 = 2枚 引くはず (cardqa_op_12)"
     )
     assert run("OP01-001") == 1, "非海軍リーダーなら トリガーの1枚だけ"
+
+
+# --------------------------------------------------------------------------- #
+#  同時離脱の置換コスト (return_self_don_to_deck) は 1 回だけ (2026-08-08)
+#     ⚠ 公式 cardqa_op_15 (OP15-069 ノラ):
+#       Q「自分の元々のパワー7000以下のキャラが2枚同時に相手の効果で場を離れる場合、
+#         代わりに自分のドン!!2枚をドン!!デッキに戻すことはできますか？」
+#       A「この場合、自分のドン!!1枚をドン!!デッキに戻すことでこの場を離れるキャラを2枚とも
+#         場に残すか、何もせずキャラ2枚が場を離れるかを選びます。」
+#     = 同時離脱は 1 事象なので置換コストは holder ごとに 1 回。 payment を do に置くと
+#       victim ごとに走って 2 枚払う (= 違反)。 cost に置いて batch dedup を効かせる。
+#     旧 overlay は return_self_don_to_deck を do に持っていた (= 2 枚返す bug)。
+# --------------------------------------------------------------------------- #
+def test_op15_069_nora_simultaneous_leave_returns_one_don():
+    """OP15-069 ノラ: 自元々パワー7000以下キャラが2枚同時に相手効果で離れても、
+    返すドンは 1 枚だけで 2 枚とも救う (公式 cardqa_op_15)。"""
+    from engine.effects import try_replace_ko, _LeaveBatch
+
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    nora = InPlay.of(repo.get("OP15-069"), sickness=False)      # holder (power2000)
+    v1 = InPlay.of(repo.get("OP01-013"), sickness=False)         # サンジ power3000 (<=7000)
+    v2 = InPlay.of(repo.get("OP01-013"), sickness=False)
+    me.characters = [nora, v1, v2]
+    me.don_active = 3
+    don_active_before = me.don_active
+    don_deck_before = me.don_remaining_in_deck
+
+    with _LeaveBatch(st):
+        r1 = try_replace_ko(st, me, opp, v1, overlay, by_opp_effect=True, leave_kind="ko")
+        r2 = try_replace_ko(st, me, opp, v2, overlay, by_opp_effect=True, leave_kind="ko")
+
+    assert r1 is True and r2 is True, "2 枚とも置換で救われるべき (ドンがあれば)"
+    assert me.don_active == don_active_before - 1, (
+        f"返したドンは 1 枚のはず (2 枚同時離脱でも 1 回払い)。 実際 {don_active_before - me.don_active} 枚"
+    )
+    assert me.don_remaining_in_deck == don_deck_before + 1, "ドンデッキに戻ったのは 1 枚のはず"
+
+
+def test_no_multivictim_replace_pays_consumable_don_in_do():
+    """overlay 全走査: return_self_don_to_deck (= 消費リソースの置換コスト) は、 複数 victim を
+    救いうる holder (target が self でない = other_self_chara / any_self_chara) では **必ず cost に
+    置く**。 do に置くと同時離脱で victim ごとに払う (= cardqa_op_15 違反)。"""
+    raw = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    offenders = []
+    for cid, effs in raw.items():
+        if not isinstance(effs, list):
+            continue
+        for e in effs:
+            if e.get("when") not in ("replace_ko", "replace_leave"):
+                continue
+            tgt = (e.get("if", {}) or {}).get("target", "self")
+            if tgt in ("self", "this"):
+                continue   # 単一 victim (= 本人のみ) なら do でも 1 回
+            do = e.get("do", []) or []
+            if any(isinstance(d, dict) and "return_self_don_to_deck" in d for d in do):
+                offenders.append(cid)
+    assert not offenders, (
+        f"複数 victim holder が return_self_don_to_deck を do に持つ (同時離脱で二重払い): {offenders}"
+    )
+
+
+# --------------------------------------------------------------------------- #
+#  効果無効 × 【自分のターン終了時】 (2026-08-08)
+#     ⚠ 公式 cardqa_op_10 (OP10-112 ユースタス・キッド):
+#       Q「このカードが直前の相手のターンに OP09-093 マーシャル・D・ティーチの【起動メイン】で
+#         選ばれ、このターン終了時まで効果が無効になっています。この【自分のターン終了時】効果は
+#         発動できますか？」
+#       A「いいえ、できません。エンドフェイズでは、はじめに【自分のターン終了時】が発動し、次に
+#         『ターン終了時まで』を期限とする効果が無効になります。」
+#     = 効果無効中の【自分のターン終了時】は発動しない。 _execute_event の disable gate は
+#       end_of_turn / opp_end_of_turn を含んでいなかった (= 発火してしまう bug、 2026-08-08 是正)。
+# --------------------------------------------------------------------------- #
+def test_disabled_character_end_of_turn_does_not_fire():
+    """効果無効 (effect_disabled_through_opp_turn) のキャラの【自分のターン終了時】は
+    エンドフェイズ内でまだ無効なため発動しない (公式 cardqa_op_10)。"""
+    from engine.effects import trigger_end_of_turn
+
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP10-099")   # ユースタス・キッド (リーダー)
+    st.phase = Phase.END
+    me, opp = st.players[0], st.players[1]
+    opp.life = [repo.get(_FILLER)] * 2               # 相手ライフ2以下 = キッドの end_of_turn 条件成立
+    kid = InPlay.of(repo.get("OP10-112"), sickness=False)   # ユースタス・キッド (キャラ)
+    kid.effect_disabled_through_opp_turn = True
+    me.characters = [kid]
+    me.hand = [repo.get(_FILLER)] * 2
+    deck_before = len(me.deck)
+
+    trigger_end_of_turn(st, overlay)
+
+    assert len(me.deck) == deck_before, (
+        "効果無効中のキャラの【自分のターン終了時】が発動してしまった (公式=いいえ、発動しない)"
+    )
+
+
+def test_non_disabled_character_end_of_turn_does_fire():
+    """対照: 無効化されていなければ【自分のターン終了時】は通常どおり発動する。"""
+    from engine.effects import trigger_end_of_turn
+
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP10-099")
+    st.phase = Phase.END
+    me, opp = st.players[0], st.players[1]
+    opp.life = [repo.get(_FILLER)] * 2
+    kid = InPlay.of(repo.get("OP10-112"), sickness=False)
+    me.characters = [kid]
+    me.hand = [repo.get(_FILLER)] * 2
+    deck_before = len(me.deck)
+
+    trigger_end_of_turn(st, overlay)
+
+    assert len(me.deck) == deck_before - 1, "無効でないキッドの end_of_turn はドローするはず"

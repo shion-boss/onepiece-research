@@ -4486,3 +4486,84 @@ state の transient に置いて即クリアすると、 ネスト解決では�
 ⚠ 逆に payload 化した後も **state 側の即クリアは残す**。 消し忘れると `last_discard_count` が
 後続イベントに漏れ、 無関係な `draw_per_self_hand_discarded` が誤発火する
 (実際にこれで MISMATCH 411 件を出し、 パリティハーネスが検出した)。
+
+## 公式 Q&A conformance バッチ (2026-08-08 #5、 cron optcg-faq-conformance): 2 fixed / 16 conform / 1 n/a / 1 escalated
+
+### fixed 1: OP15-069 ノラ / OP14-061 ヴェルゴ — 同時離脱の置換コスト (return_self_don_to_deck) は 1 回だけ (610713e3ac7d)
+
+一次情報 (`cardqa_op_15`、 OP15-069 ノラ):
+> Q: 自分の元々のパワー7000以下のキャラが **2枚同時に** 相手の効果で場を離れる場合、
+>    代わりに自分のドン‼ **2枚** をドン‼デッキに戻すことはできますか？
+> A: この場合、 自分のドン‼ **1枚** をドン‼デッキに戻すことでこの場を離れるキャラを
+>    **2枚とも** 場に残すか、 何もせずキャラ2枚が場を離れるかを選びます。
+
+= 2026-08-08 #4 の OP15-105/098/090 と **同型の取りこぼし**。 あの時は `life_to_hand` /
+`trash_self_hand_random` を `do`→`cost` へ移したが、 **`return_self_don_to_deck` を payment に持つ
+カードを見落としていた**。 `_LeaveBatch` の dedup は `cost` フィールドしか見ないので、 payment が
+`do` にあると victim ごとに走って 2 枚返す = 違反。
+
+- 是正: overlay で `return_self_don_to_deck` を `do`→`cost` へ移動 (OP15-069 / OP14-061 / OP14-061_p1)。
+  engine は既に `_can_pay_replace_cost` / `_pay_replace_cost` に `return_self_don_to_deck` handler を
+  持つ (active 優先で返す) ので **コード変更不要**。 Rust は multi-victim 同時離脱を明示 bail する
+  設計 (追従課題) なので黙って間違えない。 単一 victim では cost 経路で Python↔Rust bit 一致。
+- ⚠ EB04-030 カイドウ は 「**このキャラが**KOされる場合」 = self 単一 victim なので `do` のままで正しい
+  (holder=victim、 同時KO でも各自 1 回)。 是正対象外。
+- 回帰: `test_op15_069_nora_simultaneous_leave_returns_one_don` (2枚同時→ドン1返し) +
+  全走査 `test_no_multivictim_replace_pays_consumable_don_in_do` (target が self でない replace が
+  return_self_don_to_deck を do に持たないことを assert = 将来の取りこぼし防波堤)。
+- ⚠ 残: **OP15-052 レオ** は payment が `return_to_deck_bottom`(自キャラ1枚をデッキ下)で同型だが
+  primitive が replace-cost handler 未対応。 別 Q&A で顕在化したら要対応 (今回の 20 件には無い)。
+
+### fixed 2: OP10-112 ユースタス・キッド — 効果無効中の【自分のターン終了時】は発動しない (621f04edb120)
+
+一次情報 (`cardqa_op_10`):
+> Q: このカードが直前の相手のターンに OP09-093 マーシャル・D・ティーチの【起動メイン】で選ばれ、
+>    このターン終了時まで効果が無効になっています。この【自分のターン終了時】効果は発動できますか？
+> A: **いいえ、できません。** エンドフェイズでは、はじめに【自分のターン終了時】で表記されている
+>    効果が発動し、次に「ターン終了時まで」を期限とする効果が無効になります。「マーシャル・D・
+>    ティーチ」の効果が終了した時点で、「ユースタス・キッド」の【自分のターン終了時】効果が発動
+>    できるタイミングは過ぎています。
+
+= 公式 「効果を無効にする」 に **when の区別は無い** (2026-08-04 の再確認)。 だが `_execute_event` の
+disable gate (`effects.py`) の when list は `on_play/on_attack/activate_main/main/counter/opp_attack/
+on_block` **止まりで end_of_turn / opp_end_of_turn を含んでいなかった** → 効果無効中のキャラの
+【自分のターン終了時】が **発動してしまう** bug。 2026-08-04 に opp_attack/on_block を足した時と同じ
+「list を段階的に広げて末尾を取りこぼす」 型。
+
+- engine のエンドフェイズ順序自体は公式どおり: `game.py` L810 `trigger_end_of_turn` (【ターン終了時】
+  発動) → L837 `_reset_turn_buff` (「ターン終了時まで」 の無効フラグ clear)。 順序は正しかったが、
+  発動側が disable を見ていなかった。
+- 是正: `_execute_event` の gate when list に `end_of_turn` / `opp_end_of_turn` を追加。
+- Rust: `src_effect_negated` の when list を Python と揃え (opp_attack/on_block/end_of_turn/
+  opp_end_of_turn を追加)、 `fire_field_when_with_toks` の効果ループに `src_effect_negated` gate を
+  挿入 (end_of_turn は fire_field_when→fire_gated_do 経路で流れ、 fire_gated_do には gate が無かった)。
+  parity: MISMATCH=0 / 効果スモーク MISMATCH=0 / sonogo 0。
+- 回帰: `test_disabled_character_end_of_turn_does_not_fire` (無効→発動しない) +
+  `test_non_disabled_character_end_of_turn_does_fire` (対照)。
+
+### conform (実測で公式どおり確認、 再調査回避)
+
+- **OP02-035 ロー** 起動メイン: `play_from_hand` filter=`cost_eq:3` = コスト3ちょうど登場。 コスト2以下は不可 (6357ba035c90)。
+- **EB03-017 ボニー** 登場時: `if leader_feature 超新星` が do 全体 (untap_don + set_cannot_rest) を gate。 超新星でないと 「その後…レストにできない」 も使えない (6070bf295cf9)。
+- **OP15-056** メイン: draw 2 は無条件 (do[0])。 ダブルアタック+3000 のみ自リーダー ルーシー 想定。 非ルーシーでも 2 ドロー可 (6057f47ae47a)。 ⚠ latent: ダブルアタック/+3000 が leader 名 gate 無しで self_leader に付く (非ルーシーでも buff) — 本 Q の範囲外 (draw のみ問う) だが leader-name gate が要る可能性、 別 Q&A で顕在化したら要確認。
+- **OP16-034 ルフィ** 自ターン中: `self_distinct_chara_name_count` = `len(set(c.card.name))`。 二つ名カード ロシナンテ&ロー は印刷名1つ = カード名2種で +2000 (632c6421a978)。
+- **PRB02-001 コビー** アタック時: KO(1枚まで=0可) と draw が独立。 draw は `if self_hand_count_le:6` のみに依存し KO 有無に非依存 (実測: KO対象無しで draw=1) (62b91397f604)。
+- **OP12-027 コウシロウ** (属性斬/cost2) replace_ko: 2枚同時KO時 `_LeaveBatch` のバッチ開始時盤面スナップショットで互いを holder に選べ両方 rest→両生存 (実測 survivors=2)。 OP10-032 順序非依存 fix でカバー (6126dd5d6ce0)。
+- **EB04-010** 登場時: 相手キャラ1枚 パワー0 = power_pump -99999 turn。 元々5000+1000=現6000 でも 0 にクランプ (5fb97ff67540)。
+- **OP02-121 クザン** 登場時: ko `one_opponent_character_current_cost_le_0` = 現在コスト。 自ターン中 -5 static で現コスト0 のキャラを登場時KO で選べる (5fc85f8d0350)。
+- **OP02-062 ルフィ** 登場時/アタック時: return_to_hand `one_inplay_cost_le_4` = 両陣営 (「相手の」無し)。 自分のキャラも手札に戻せる (62ad54156667)。
+- **OP03-055 ゴムゴムの大槌** カウンター: optional_cost_then。 「その後デッキ2枚トラッシュ置いてもよい」 は任意で engine は常に skip = 公式の 「置かない選択」 と一致 (62a2bd5a5f7a)。 ⚠ 任意の自ミルが未実装 (常に skip) = トラッシュ活用デッキでは option を失うが本 Q の範囲外。
+- **OP08-023 キャロット**: `stay_rested_next_refresh` は resolution 時点のレストキャラ instance を選び mark。 解決時アクティブ/後で別途レストになったキャラは対象外→通常アクティブ (63295099ac7e)。
+- **OP09-009 ベン・ベックマン** 登場時: `chara_to_trash` (「トラッシュに置く」=非KO leave)。 `effects.py:4028` で on_ko/on_opp_chara_ko/on_self_chara_ko を明示的に発火しない (公式10-2-1)。 【KO時】は発動しない (6163e123669d)。
+- **OP03-041 ウソップ** on_opp_life_taken: `game.py` で ①`trigger_lifecard_trigger` (ライフのトリガー、 L2329) → ②`trigger_on_opp_life_taken` (L2372) の順。 トリガーを先に処理し、 その後 (キャラ在場なら) 発動 (62169822676b)。
+- **OP03-001 エース**: `game.py` L1561 `trigger_on_attack` (相手のアタック時) → L1566 `trigger_on_opp_attack_on_leader` (自リーダーのアタックされた時) の順。 相手の【アタック時】が先 (62e1ac2bd0b9)。
+- **ST01系 ブロッカー**: ブロッカー宣言でアタック対象確定後、 そのブロッカーがカウンターで6000以上でも対象は戻らない (engine はブロック宣言時に battle target 確定・再評価しない=構造的) (60ff84a8d091)。
+- **OP06系 登場時**: キャラ登場 (メインフェイズのプレイ) は同ターンのアタック実行有無に依存しない。 既に相手リーダーにアタック後でも登場でき【登場時】は発動 (61ddb668885f)。
+
+### n/a (engine 状態変化に一意に落ちない)
+
+- **OP01系「自分のキャラが3枚以上いる場合」の数え方の定義質問** (62fcb98836a5): engine は条件解決時に在場の自キャラを数え、 登場解決後は発動元自身も在場=カウント対象 (= このキャラを含む、 公式どおり)。 定義確認のため n/a。
+
+### escalated (自動修正の範囲外)
+
+- **OP06-043 アラマキ** 起動メイン (62dd3b280748): 公式は 「手札1枚を捨て、 **コスト2以下のキャラ1枚を持ち主のデッキ下に置く**」 が両方とも発動コスト (コロン前)。 現 overlay は `discard_hand` のみ cost、 `return_to_deck_bottom` を `do` に持ち かつ対象を **opp-only に限定**。 是正には (1) 両陣営化 (「相手の」無し=one_inplay_either) (2) 「filtered キャラを持ち主デッキ下に置く」 を activate_main **発動コスト**化 (cost 払えない=発動不可) が必要。 後者は activate_main の payability 系に filtered-return-to-deck-bottom コスト型を足す = Python/Rust 両対応のアーキ拡張につき escalated。 公式=コスト2以下を置かずに手札だけ捨てるのは不可 (cardqa_op_06)。

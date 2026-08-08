@@ -9717,11 +9717,14 @@
  ],
  "OP14-061": [
   {
-   "_text": "OP14-061 ヴェルゴ 置換 (ターン1回): 自ドフラ海賊団キャラが相手効果で場離れる時、 ドン1ドンデッキへ",
+   "_text": "OP14-061 ヴェルゴ 置換 (ターン1回): 自ドフラ海賊団キャラが相手効果で場離れる時、 ドン1ドンデッキへ [同時離脱1回化: return_self_don_to_deck を cost へ (cardqa_op_15)]",
    "when": "replace_leave",
    "cost": [
     {
      "once_per_turn": true
+    },
+    {
+     "return_self_don_to_deck": 1
     }
    ],
    "if": {
@@ -9729,11 +9732,7 @@
     "target_feature": "ドンキホーテ海賊団",
     "by_opp_effect": true
    },
-   "do": [
-    {
-     "return_self_don_to_deck": 1
-    }
-   ],
+   "do": [],
    "optional": true
   },
   {
@@ -36719,11 +36718,14 @@
  ],
  "OP14-061_p1": [
   {
-   "_text": "OP14-061_p1 ヴェルゴ 置換 (ターン1回): 自ドフラ海賊団キャラが相手効果で場離れる時、 ドン1ドンデッキへ",
+   "_text": "OP14-061_p1 ヴェルゴ 置換 (ターン1回): 自ドフラ海賊団キャラが相手効果で場離れる時、 ドン1ドンデッキへ [同時離脱1回化: return_self_don_to_deck を cost へ (cardqa_op_15)]",
    "when": "replace_leave",
    "cost": [
     {
      "once_per_turn": true
+    },
+    {
+     "return_self_don_to_deck": 1
     }
    ],
    "if": {
@@ -36731,11 +36733,7 @@
     "target_feature": "ドンキホーテ海賊団",
     "by_opp_effect": true
    },
-   "do": [
-    {
-     "return_self_don_to_deck": 1
-    }
-   ],
+   "do": [],
    "optional": true
   },
   {
@@ -101058,19 +101056,20 @@
  ],
  "OP15-069": [
   {
-   "_text": "OP15-069 ノラ 置換: 自元々パワー7000以下キャラが相手効果で場離れる時、 ドン1ドンデッキへ戻すと代替",
+   "_text": "OP15-069 ノラ 置換: 自元々パワー7000以下キャラが相手効果で場離れる時、 ドン1ドンデッキへ戻すと代替 [同時離脱1回化: return_self_don_to_deck を cost へ (cardqa_op_15)]",
    "when": "replace_leave",
    "if": {
     "target": "other_self_chara",
     "by_opp_effect": true,
     "target_truly_original_power_le": 7000
    },
-   "do": [
+   "do": [],
+   "optional": true,
+   "cost": [
     {
      "return_self_don_to_deck": 1
     }
-   ],
-   "optional": true
+   ]
   }
  ],
  "OP15-070": [
