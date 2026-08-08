@@ -14,6 +14,28 @@
 > ```
 
 現在追従待ちなし ✅
+- [x] 2026-08-08 `scripts/rust_effect_smoke_parity.py --assert` (置換効果パス) で MISMATCH=5 検出
+  (OP12-053 / OP13-046 / OP13-046_p1 / OP15-003 / OP15-003_p1)
+  - **根本原因: `try_replace_ko` 内の置換コスト手札捨て (discard_hand / discard_hand_with_filter /
+    trash_self_hand_random) が `fire_hand_discarded_n` (= on_self_hand_discarded cascade) は
+    呼んでいたが、 canonical field `hand_discarded_by_effect_this_turn` を立てていなかった**。
+    Python `_pay_replace_cost` は同じ手札捨てで必ず `trigger_on_self_hand_discarded` を呼び、
+    これが `me.hand_discarded_by_effect_this_turn = True` を設定してから cascade を enqueue する
+    (effects.py:13398/14037/14057/14073)。 Rust の他の discard 経路 (`trash_self_hand_random` 単体
+    primitive や `optional_discard_hand_for_battle_buff` 等) はこのフラグを明示的に立てているが、
+    `try_replace_ko` 内の 3 箇所 (rand_discard / discard_plain / discard_cost) だけこの 1 行が
+    抜けていた (2026-08-04 の置換効果 smoke parity 新設時から未検出 = このパスは今回が初めて
+    build-required gate を通した)。 field-diff は `hand_discarded_by_effect_this_turn` の
+    True/False 1 箇所のみ (blob-diff で確認)。 影響: ST33-004 等 「このターン中に効果で手札が
+    捨てられた場合」 系の条件判定が、 置換コストによる手札捨てだけ Rust 側で false のまま残る。
+  - **追従済 (2026-08-08)**: `rust_engine/src/effects.rs::try_replace_ko` の 3 箇所
+    (`fire_hand_discarded_n` 呼び出し直前) に `state.players[victim_owner]
+    .hand_discarded_by_effect_this_turn = true;` を追加。
+  - 検証 = `rust_effect_smoke_parity --assert` 置換 108/108 match (旧 103/5 MISMATCH から解消) /
+    `rust_parity_check --assert` default 2082/0/0・broad 6144 match (bail=1 は既存の
+    `deal_opp_leader_damage` on_ko 未対応、 新規ではない) / `rust_parity_sweep --games 2` (329
+    デッキ) match 40667 bail 11 MISMATCH 0 (bail は既存の未実装 primitive のみ) / シャドウ記録
+    prune 後 残 0 件 / フル `pytest tests/ -q` exit 0
 - [x] 2026-08-07 `scripts/rust_mismatch_scan.py --seeds 1-30` (広域スキャン) で MISMATCH=3 検出
   - **根本原因 (3 件とも同型): when 発火の「enqueue して return」を Rust が省略し、 収集した do を
     その場で直接実行していた** (= `state.rust_resolving` guard 無し)。 Python は `trigger_on_ko` /

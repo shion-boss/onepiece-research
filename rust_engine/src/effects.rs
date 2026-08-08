@@ -10359,6 +10359,7 @@ pub fn try_replace_ko(
             // → リーダー OP12-040 クザン の on_self_hand_discarded 発火 + flag)。 発動元 = holder。
             // cascade 再現不能なら Err bail (Python は必ず解決するので bail は「未追従」= 安全)。
             if rand_actual > 0 {
+                state.players[victim_owner].hand_discarded_by_effect_this_turn = true;
                 fire_hand_discarded_n(state, victim_owner, hslot, rand_actual)?;
             }
             // trash_self 支払い: holder を場からトラッシュへ (effects.py:12622)。 付与ドンはレストへ。
@@ -10421,6 +10422,7 @@ pub fn try_replace_ko(
                 plain_actual += 1;
             }
             if plain_actual > 0 {
+                state.players[victim_owner].hand_discarded_by_effect_this_turn = true;
                 fire_hand_discarded_n(state, victim_owner, hslot, plain_actual)?;
             }
             // rest_self_leader_or_stage_filtered 支払い (effects.py:12664)。 ⚠ ステージ優先で rest
@@ -10456,6 +10458,7 @@ pub fn try_replace_ko(
                     }
                 }
                 if discarded > 0 {
+                    state.players[victim_owner].hand_discarded_by_effect_this_turn = true;
                     fire_hand_discarded_n(state, victim_owner, hslot, discarded as i32)?;
                 }
             }
