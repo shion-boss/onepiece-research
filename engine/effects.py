@@ -3442,6 +3442,29 @@ class _LeaveBatch:
         return False
 
 
+def _char_summon_blocked(me: Player, card: CardDef) -> bool:
+    """このターン中の 「キャラ(カード)を登場できない」 系ペナルティで、 効果による登場が
+    禁止されているか。 公式は 「登場できない」 = 通常プレイも **効果による登場も** 一律禁止。
+
+    一次情報 (cardqa_op_13、 OP13-023 ウタ): 【登場時】で 「元々のコスト5以上のキャラカードを
+    登場できない」 を付与した後、 同ターンに ウタ が KO されても、 その【KO時】(play_from_hand
+    コスト5以下) で **コスト5のキャラは登場できない** (= 「いいえ」)。 効果登場もペナルティの対象。
+    同型: OP14-020 ミホーク 「このターン中、 キャラカードを登場できない」。
+
+    ⚠ ステージは 「キャラカードを登場できない」 の対象外 (= CHARACTER 限定)。
+    ⚠ しきい値は **印刷コスト** (公式 「元々のコスト」)。 legal_actions (game.py) の通常登場 gate
+       (`c.cost >= threshold`) と同基準。
+    """
+    if card.category != Category.CHARACTER:
+        return False
+    if me.block_chara_play_until_turn_end:
+        return True
+    thr = me.block_chara_play_cost_ge_threshold
+    if thr >= 0 and int(card.cost or 0) >= thr:
+        return True
+    return False
+
+
 def execute_effect(
     spec: EffectSpec,
     state: GameState,
@@ -4605,6 +4628,7 @@ def _execute_effect_body_inner(
             candidates: list[tuple[int, CardDef]] = [
                 (i, c) for i, c in enumerate(me.deck)
                 if c.category == Category.CHARACTER and _matches_filter(c, filt)
+                and not _char_summon_blocked(me, c)
             ]
             if picks_idx is None and _should_human_pick(state) and len(candidates) > limit:
                 cand_list = [
@@ -4935,6 +4959,7 @@ def _execute_effect_body_inner(
             matched = (
                 revealed.category == Category.CHARACTER
                 and _matches_filter(revealed, filt)
+                and not _char_summon_blocked(me, revealed)
             )
             state.push_log(
                 f"  効果: デッキ上1枚公開 → {revealed.name} ({'マッチ' if matched else '不マッチ'})"
@@ -5442,6 +5467,7 @@ def _execute_effect_body_inner(
                 (i, c) for i, c in enumerate(me.trash)
                 if c.category == target_category and _matches_filter(c, filt)
                 and not (filt.get("no_effect") and not _card_has_no_effect(c, state))
+                and not _char_summon_blocked(me, c)
             ]
             # or_to_life (= ゲッコー・モリア OP14-104【登場時】「ライフの上に表向きで加えるか
             # 登場させる」): human acting 時は 各候補 × {登場 / ライフ} の 行き先 を modal で 選ばせる。
@@ -5699,6 +5725,8 @@ def _execute_effect_body_inner(
                     continue
                 if _no_play_from_hand_via_effect(card, state.effects_overlay):
                     continue   # OP12-036: 効果で登場できないカードは候補外
+                if _char_summon_blocked(me, card):
+                    continue   # OP13-023 / OP14-020: 「登場できない」 ペナルティ (効果登場も禁止)
                 _ihm = _pfh_ihm(state, me, card)
                 if not _matches_filter_hand(card, filt, _ihm):
                     continue
@@ -5902,6 +5930,8 @@ def _execute_effect_body_inner(
             for i, card in enumerate(me.hand):
                 if card.category != Category.CHARACTER:
                     continue
+                if _char_summon_blocked(me, card):
+                    continue   # OP13-023 / OP14-020: 「登場できない」 ペナルティ
                 if name_filter is not None:
                     if not _matches_filter(card, name_filter):
                         continue
@@ -5954,6 +5984,8 @@ def _execute_effect_body_inner(
                         continue
                     if card.category != Category.CHARACTER:
                         continue
+                    if _char_summon_blocked(me, card):
+                        continue   # OP13-023 / OP14-020: 「登場できない」 ペナルティ
                     if card.name != nm:
                         continue
                     if not _matches_filter(card, extra_filt):
@@ -8593,10 +8625,12 @@ def _execute_effect_body_inner(
                 (i, c) for i, c in enumerate(me.hand)
                 if c.category == target_cat and _matches_filter(c, filt)
                 and not _no_play_from_hand_via_effect(c, state.effects_overlay)
+                and not _char_summon_blocked(me, c)
             ]
             trash_cands: list[tuple[int, CardDef]] = [
                 (i, c) for i, c in enumerate(me.trash)
                 if c.category == target_cat and _matches_filter(c, filt)
+                and not _char_summon_blocked(me, c)
             ]
             total_cands = len(hand_cands) + len(trash_cands)
             # 人間 acting + 候補 > limit + picks 未指定 → modal halt

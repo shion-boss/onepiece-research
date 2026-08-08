@@ -3414,9 +3414,9 @@
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-066 サトリ: アタック時 look_top_reorder to:choice は見た2枚を一括で上へ置き分割しない。1枚上/1枚下 は不可=公式いいえ(残る近似=上/下選択を上に固定は別論点)",
   "q": "この【アタック時】効果で見た2枚のカードは、1枚をデッキの上、1枚をデッキの下に置くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "5099229214ae": {
   "a": "はい、できます。",
@@ -3441,9 +3441,9 @@
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-021 見てろよ!エース: in_hand cost-3 は if{self_trash_event_count_ge:4}。トラッシュのイベント3枚では -3 されない=公式いいえ",
   "q": "自分のトラッシュにイベントが3枚の時、このカードのコストを-3した状態で発動することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "50cd10985559": {
   "a": "いいえ、トラッシュに置かれます。",
@@ -3470,9 +3470,9 @@
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "",
+  "note": "OP05 黒ブロッカー: 登場時 trash→hand(cost3-7黒) その後 play_from_hand(cost≤3黒 rested)。play_from_hand は更新後の手札を読むのでサーチした cost3 黒を同効果でレスト登場可=公式はい(search-then-play 一般則)",
   "q": "この【登場時】効果でコスト3の黒のカードを手札に加え、そのカードをレストで登場させることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "516728ba8c2b": {
   "a": "いいえ、できません。",
@@ -3506,9 +3506,9 @@
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "",
+  "note": "OP12-118 ジュエリー・ボニー: on_play if{self_rested_cards_count_ge:8} が draw2+discard1+untap_don 全体を gate。レストのカード7枚以下→条件false→ドンをアクティブにできない=公式いいえ",
   "q": "自分の場のレストのカードが7枚以下の場合、「自分のドン‼1枚までを、アクティブにする。」の効果はどうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "52732ba576b8": {
   "a": "いいえ、できません。",
@@ -3524,9 +3524,9 @@
   "files": [
    "cardqa_op_13.json"
   ],
-  "note": "",
+  "note": "OP13-023 ウタ: 登場時 block_chara_play_cost_ge5 が同ターンの【KO時】play_from_hand で無視されコスト5登場可だった(公式いいえ)。効果登場も 「登場できない」 の対象。play_from_hand/summon_from_deck/play_from_trash/play_from_hand_or_trash/reveal_top_play/named 系に _char_summon_blocked ガード追加(Py+Rust)。OP14-020 同型",
   "q": "このキャラの【登場時】効果を発動したターン中にこのキャラがKOされた場合、この【KO時】効果で自分の手札からコストが5のキャラを登場させることはできますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "538d640536bd": {
   "a": "いいえ、できません。",
@@ -3542,9 +3542,9 @@
   "files": [
    "cardqa_op_13.json"
   ],
-  "note": "",
+  "note": "OP13-054 ヤマト: on_play if{self_life_le:3} が draw2 と attach_rested_don 両方を gate。ライフ4以上で両方不発=公式いいえ",
   "q": "この【登場時】効果で、自分のライフが4枚以上の場合、自分のリーダーにレストのドン‼1枚までを付与できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "5432373e53e3": {
   "a": "いいえ、できません。この効果は一度にドン!!を2枚以上ドン!!デッキに戻した時に発動します。",
@@ -3561,9 +3561,9 @@
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-015 ヒグマ: do=[attach_rested_don(opp), power_pump target=one_opponent_character_attached_don_ge_1 -1000]。2段独立(settled tail)、-1000 は DON付与済キャラ対象で相手コストエリアのレストドン有無に非依存=公式はい",
   "q": "相手のレストのドン!!が相手のコストエリアに無い時に、この【登場時】効果を発動し、相手のドン‼が付与されているキャラ1枚までを、このターン中、パワー-1000することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "5472e532e19a": {
   "a": "はい、できます。",
@@ -3579,117 +3579,117 @@
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "",
+  "note": "OP05-098 エネル on_life_zero(相手ターン中): ライフ1→0でトリガー持ちを受けた時、ライフ札のトリガーが _resolve_life_taken で先に解決し、on_life_zero 反応は次アタック開始時(line1866-1871)=構造上トリガー先→エネル後=公式どおり",
   "q": "自分のライフが1枚の時にダメージを受け、そのライフがトリガーを持っていた場合、この【相手のターン中】効果と【トリガー】はどちらが先に発動しますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "54f7a979a67d": {
   "a": "この場合、このキャラがトラッシュに置かれた時か、ライフに表向きで置かれた時、この【自分のターン中】効果を発動できます。",
   "files": [
    "cardqa_op_08.json"
   ],
-  "note": "",
+  "note": "OP08-046 シャクヤク on_self_chara_leave_by_self_effect: 公式(cardqa_op_08)は「このキャラ自身がトラッシュ/表向きライフに置かれて場を離れた時、自身の【自分のターン中】が発動できる」。engine の trigger は _enqueue_field_when で離脱後の盤面を走査し離脱した発動元自身を含めない=自身の departure では発火しない疑い。修正には field-when が直前に離脱したカードを行き先(trash/face-up-life限定)で条件付き包含する必要=アーキ変更+行き先モデル化(rule 11)",
   "q": "このキャラが自分の効果で場を離れたとき、この【自分のターン中】効果は発動できますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "55070504b2cb": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_13.json"
   ],
-  "note": "",
+  "note": "OP13-117 ゴムゴムの白いスタンプ(メイン KO 相手コスト6以下キャラ): ko target=one_opponent_character。ステージは キャラでなく候補外=KO不可=公式いいえ(構造的)",
   "q": "この【メイン】効果で、相手のコスト6以下のステージをKOできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "551e6311a289": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15 アタック時でのドン付与先ブロッカーの【ブロック時】: on_block(ブロック時)はブロッカー宣言時に発火しDON付与に gate されない。相手のブロッカーにDONを付与しても block-time は発動=公式はい(構造的)",
   "q": "この【アタック時】効果で、相手のドン!!が付与されていない「OP01-078 ボア・ハンコック」にドン!!を付与し、その「ボア・ハンコック」が【ブロッカー】を発動した場合、相手は「ボア・ハンコック」の【ブロック時】効果を発動することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "55b4ad969ca1": {
   "a": "この場合、アタックの対象はこのキャラのままアタックの処理を続行します。",
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "",
+  "note": "OP06 ブロッカー宣言後のバトル中手札6枚以上: blocker_iid はアタック宣言時に確定。バトル中の手札枚数変化はアタック対象を変えずこのキャラのまま続行=公式はい(構造的)",
   "q": "このキャラの【ブロッカー】を発動した後、そのバトル中に自分の手札が6枚以上になった場合、アタックの対象はどうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "562ebe2b65ae": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_st_36.json"
   ],
-  "note": "",
+  "note": "ST36-004 バルトロメオ: on_play optional_cost_then cost=discard_hand_with_filter(超新星1)。手札に超新星無し→コスト不能→draw2 不発=公式いいえ(optional_cost_then payability 一般則)",
   "q": "手札に特徴《超新星》を持つカードがない場合、この【登場時】効果でカード2枚を引くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "56378f38ca0e": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "",
+  "note": "OP05 メイン: power_pump(-4000) と ko(power0以下) は2つの独立 target spec。別々の対象を選べる=公式はい(distinct-target 一般則)",
   "q": "この【メイン】効果で、パワー-4000するキャラと、KOするパワー0以下のキャラは、別の2枚を選ぶことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "56a130426dbd": {
   "a": "いいえ、できません。コストが3ちょうどのキャラを登場させます。",
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP02-030 光月おでん: KO時 summon_from_deck filter cost_eq:3(緑ワノ国)。コスト2以下は対象外=公式いいえ(コスト3ちょうど)",
   "q": "この【KO時】効果でコスト2以下のキャラカードを登場できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "56ac1bd39968": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "",
+  "note": "OP05-002 ベロ・ベティ: 起動メイン power_pump_multi target=one_self_character_any×3(キャラのみ)。リーダーは対象外=公式いいえ",
   "q": "この【起動メイン】効果で、このリーダーのパワーを+3000できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "56b57b2953d5": {
   "a": "はい、できます。この場合、この自分の緑のキャラはKOされず、「たしぎ」はKOされます。",
   "files": [
    "cardqa_op_10.json"
   ],
-  "note": "",
+  "note": "OP10-032 たしぎ: 同時KOの置換が iteration 順依存(お玉先=正/たしぎ先=両KO)。公式は 「緑は残りたしぎがKO」 を順序不問で要求。_LeaveBatch を pre-batch 盤面 snapshot で評価する必要=アーキ変更(rule 11)",
   "q": "アクティブのこのキャラと、これ以外の自分の緑のキャラが同時にKOされるとき、この効果で代わりにこのキャラをレストにできますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "56bd93b21cae": {
   "a": "次に迎える自分のターン終了時まで有効な効果です。",
   "files": [
    "cardqa_st_10.json"
   ],
-  "note": "",
+  "note": "ST10 【トリガー】「次の自分のターン終了時まで」の意味の定義質問。engine 状態変化に落ちない",
   "q": "この【トリガー】の「次の自分のターン終了時まで」とはいつまで有効な効果ですか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "56f29243acb9": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04 登場時/アタック時 その後 mill_self_top:1: mill は非任意。デッキのカードをトラッシュに置かない選択は不可=公式いいえ(構造的)",
   "q": "この【登場時】/【アタック時】効果を発動し、自分のデッキのカードをトラッシュに置かないことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "57098e2670f2": {
   "a": "この【登場時】効果を発動したプレイヤーが、相手の手札を裏向きの状態で2枚選びます。",
   "files": [
    "cardqa_op_03.json"
   ],
-  "note": "",
+  "note": "OP03 登場時: 相手手札6枚以上で捨てるカードは発動者が裏向きで2枚選ぶ=trash_opp_hand_random(random=中身を見ず選ぶ=忠実)。「相手は自身の手札」(持ち主が選ぶ)との書き分け(2026-08-07 chooser則)",
   "q": "相手の手札が6枚以上ある場合、この【登場時】効果で捨てるカードは誰が選びますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "576f4707126f": {
   "a": "はい、加えられます。",

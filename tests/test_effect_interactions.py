@@ -6781,3 +6781,66 @@ def test_ko_self_chara_cost_excludes_effect_ko_immune_char():
                         cost_cards.add(cid)
     assert "OP05-087" in cost_cards and len(cost_cards) >= 10, \
         f"ko_self_chara-as-cost の網羅が想定外 (現状 {len(cost_cards)} 件): {sorted(cost_cards)}"
+
+
+# ---------------------------------------------------------------------------
+# 「登場できない」 ペナルティは **効果による登場も** 禁止する (2026-08-08、 cardqa_op_13)
+#
+# 一次情報 (OP13-023 ウタ、 qid 52c406ba1a7b):
+#   「この【登場時】効果を発動したターン中にこのキャラがKOされた場合、この【KO時】効果で
+#    自分の手札からコストが5のキャラを登場させることはできますか？」 → 「いいえ、できません。」
+# = 登場時に付与した 「元々のコスト5以上のキャラカードを登場できない」 (block_chara_play_cost_ge:5)
+#   は、 同ターンの【KO時】play_from_hand (コスト5以下) にも効き、 コスト5は登場できない。
+# 是正前は play_from_hand 等の効果登場が block_chara_play_cost_ge_threshold /
+# block_chara_play_until_turn_end を一切見ておらず、 タダで登場していた (Python/Rust 同型)。
+# ---------------------------------------------------------------------------
+def test_char_summon_blocked_by_cost_ge_restriction_via_play_from_hand():
+    import random as _r
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    import json as _j
+    cards = _j.load(open(ROOT / "db" / "cards.json"))
+    c5 = next(c["card_id"] for c in cards
+              if c.get("category") == "CHARACTER" and str(c.get("cost")) == "5" and "_" not in c["card_id"])
+    c4 = next(c["card_id"] for c in cards
+              if c.get("category") == "CHARACTER" and str(c.get("cost")) == "4" and "_" not in c["card_id"])
+
+    def _mk():
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 12
+            p.life = [repo.get("OP01-013")] * 3
+        st = GameState(players=[p0, p1], phase=Phase.MAIN, rng=_r.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 0, 5
+        return st, p0, p1
+
+    # 制限あり: 元々のコスト5以上は登場できない (OP13-023 の登場時ペナルティ相当)
+    st, p0, p1 = _mk()
+    execute_effect({"block_chara_play_cost_ge": 5}, st, p0, p1, None)
+    p0.hand = [repo.get(c5), repo.get(c4)]
+    execute_effect({"play_from_hand": {"filter": {"truly_original_cost_le": 5}, "limit": 1, "rested": True}},
+                   st, p0, p1, None)
+    played = [c.card.card_id for c in p0.characters]
+    assert c5 not in played, "コスト5は 「元々のコスト5以上を登場できない」 で登場できないはず (公式いいえ)"
+    assert c4 in played, "コスト4は制限外なので登場できるはず"
+
+    # 対照: 制限が無ければ コスト5 も登場できる (旧挙動 = 制限を見ていなかった時と一致)
+    st, p0, p1 = _mk()
+    p0.hand = [repo.get(c5)]
+    execute_effect({"play_from_hand": {"filter": {"truly_original_cost_le": 5}, "limit": 1, "rested": True}},
+                   st, p0, p1, None)
+    assert c5 in [c.card.card_id for c in p0.characters], "制限が無ければ コスト5 は登場できる"
+
+    # block_chara_play_until_turn_end (OP14-020 ミホーク型): 全キャラの効果登場を止める
+    st, p0, p1 = _mk()
+    p0.block_chara_play_until_turn_end = True
+    p0.hand = [repo.get(c4)]
+    execute_effect({"play_from_hand": {"filter": {"truly_original_cost_le": 9}, "limit": 1, "rested": True}},
+                   st, p0, p1, None)
+    assert c4 not in [c.card.card_id for c in p0.characters], \
+        "「キャラカードを登場できない」 は効果登場も全て止める (OP14-020)"

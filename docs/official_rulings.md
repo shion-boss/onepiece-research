@@ -4009,3 +4009,55 @@ OP12-053 ボルサリーノ (海軍) の【ターン1回】replace_leave 「代�
 (3) 対応する `one_character_either_*` spec が全 spec 形について両エンジンに在るかの確認、
 が必要で、 20 件バッチ内での一括是正はリスクが高い。 **是正時は監査拡張 → 全走査再カウント →
 効果エントリ単位で移行** の順で行うこと (カード単位 blob 置換は別節を巻き込む、 docs 冒頭の規律 3)。
+
+## 「登場できない」 ペナルティは **効果による登場も** 禁止する (2026-08-08 是正、 OP13-023 / OP14-020)
+
+**一次情報** (`db/faq/cardqa_op_13`、 OP13-023 ウタ、 qid `52c406ba1a7b`):
+
+> 「この【登場時】効果を発動したターン中にこのキャラがKOされた場合、この【KO時】効果で
+>   自分の手札からコストが5のキャラを登場させることはできますか？」
+> → **「いいえ、できません。」**
+
+OP13-023 ウタ = 【登場時】「自分のドン‼2枚までをアクティブにする。その後、自分は、このターン中、
+**元々のコスト5以上のキャラカードを登場できない**。」【KO時】「自分の手札からコスト5以下の
+キャラカード1枚までを、レストで登場させる。」 登場時に付与した 「元々のコスト5以上を登場できない」
+は同ターンの【KO時】(コスト5以下 = コスト5を含む) にも効くので、 **コスト5のキャラは登場できない**。
+
+**是正前の挙動** (Python/Rust **同一挙動** = 差分検証では原理的に沈黙):
+`play_from_hand` / `summon_from_deck` / `play_from_trash` / `play_from_hand_or_trash` /
+`reveal_top_play` / `play_from_hand_named_*` の **効果による登場** が、 プレイヤーの
+`block_chara_play_cost_ge_threshold` (= 「元々のコストN以上を登場できない」) と
+`block_chara_play_until_turn_end` (= OP14-020 ミホーク 「キャラカードを登場できない」) を
+**一切見ていなかった**。 restriction は `legal_actions` (game.py) の **通常プレイ** gate でしか
+効いておらず、 効果登場はタダで通っていた。 実測 (是正前): block_chara_play_cost_ge:5 が立った
+状態で play_from_hand(cost≤5) にコスト5とコスト4を渡すと **コスト5が登場** した (公式いいえ)。
+
+公式テキストの 「登場できない」 = 通常プレイも **効果による登場も** 一律禁止 (登場 = summon)。
+
+**是正**: 共有ヘルパー `_char_summon_blocked(me, card)` (Python `engine/effects.py`) /
+`char_summon_blocked(me, card)` (Rust `rust_engine/src/effects.rs`) を新設し、 上記 7 primitive の
+候補フィルタに適用。 CHARACTER 限定 (ステージは 「キャラカードを登場できない」 の対象外)、
+しきい値は **印刷コスト** (公式 「元々のコスト」、 `legal_actions` の `c.cost >= threshold` と同基準)。
+restriction を設定するカードは **OP13-023 / OP14-020 の 2 枚のみ** (overlay 全走査)、 かつ threshold
+未設定 (=-1) / block=False が既定なので **restriction が立っていない大多数の局面は挙動不変** (無回帰)。
+
+**恒久ガード**: `tests/test_effect_interactions.py::test_char_summon_blocked_by_cost_ge_restriction_via_play_from_hand`
+(コスト5は登場不可 / コスト4は可 / 対照: 制限なしなら コスト5も可 / block_chara_play_until_turn_end で全効果登場停止)。
+
+⚠ **残る近似 (別バッチ)**: `play_self` (トリガー等の自己登場) と
+`bounce_self_chara_then_play_diff_color` (OP05 系) は Python/Rust **とも** restriction 未参照のまま
+(= 両エンジン一致で parity 維持)。 restriction 保有 2 枚との共起は稀だが要フォロー。
+
+### co-fix: 置換コストの手札捨てが Rust で `hand_discarded_by_effect_this_turn` を立てていなかった
+
+上記の是正で Rust を再ビルドしたところ、 `rust_effect_smoke_parity` の **置換パス** に既存の
+MISMATCH 5 件 (OP12-053 / OP13-046(+_p1) / OP15-003(+_p1)) が顕在化した。 直前の commit cc2fe25
+(「置換コストの手札捨ても on_self_hand_discarded を発火する」) が **stale binary で検証していた**
+ため committed 状態が MISMATCH だった (fresh build で発覚)。 原因: Python の
+`trigger_on_self_hand_discarded` は `discard_count>0` で canonical flag
+`hand_discarded_by_effect_this_turn=True` を立てるが、 Rust の `fire_hand_discarded_n`
+(= 置換コスト discard 経路が呼ぶ helper) が flag を立てていなかった (通常 discard 経路は外側で
+立てていたが置換経路だけ欠落 = 一部だけ実装)。 → `fire_hand_discarded_n` の入口で n>0 なら
+flag を立てるよう集約 (全経路一致)。 再ビルド後 `rust_parity_check` / `rust_effect_smoke_parity`
+とも **MISMATCH=0** (置換 108/108 match)。
+

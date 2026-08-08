@@ -2281,6 +2281,22 @@ fn matches_filter_hand(card: &crate::state::CardDef, filt: Option<&Value>, ihm: 
     matches_filter(card, Some(&Value::Object(rest)))
 }
 
+/// このターン中の 「キャラ(カード)を登場できない」 系ペナルティで、 効果による登場が
+/// 禁止されているか。 公式は 「登場できない」 = 通常プレイも効果登場も一律禁止
+/// (cardqa_op_13、 OP13-023 ウタ: 【登場時】で 「元々のコスト5以上を登場できない」 を付与後、
+/// 同ターンの【KO時】play_from_hand でコスト5を登場できない = 「いいえ」)。 OP14-020 ミホーク同型。
+/// ステージは対象外 (= CHARACTER 限定)、 しきい値は印刷コスト (public 「元々のコスト」)。
+fn char_summon_blocked(me: &crate::state::Player, card: &crate::state::CardDef) -> bool {
+    if card.category != crate::state::Category::Character {
+        return false;
+    }
+    if me.block_chara_play_until_turn_end {
+        return true;
+    }
+    let thr = me.block_chara_play_cost_ge_threshold;
+    thr >= 0 && card.cost >= thr
+}
+
 fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
     let Some(f) = filt.and_then(|x| x.as_object()) else { return true };
     for (k, v) in f {
@@ -4337,7 +4353,7 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
                         Some(f) => matches_filter(c, Some(f)),
                         None => norm_card_name(&c.name) == name,
                     };
-                    name_ok && c.cost >= cost_ge && c.cost <= cost_le
+                    name_ok && c.cost >= cost_ge && c.cost <= cost_le && !char_summon_blocked(me, c)
                 })
                 .collect();
             if cands.is_empty() {
@@ -4779,6 +4795,7 @@ if me_board_has_when(state, opp_idx, "on_self_don_returned_to_deck") {
                 if found < limit
                     && c.category == crate::state::Category::Character
                     && matches_filter(&c, filt.as_ref())
+                    && !char_summon_blocked(&state.players[me_idx], &c)
                 {
                     trash_weakest_for_field_full(state, me_idx);
                     let mut ip = InPlay::of(c.clone(), sickness);
@@ -6345,6 +6362,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     if c.category != crate::state::Category::Character
                         || norm_card_name(&c.name) != *nm
                         || !matches_filter(c, Some(&extra))
+                        || char_summon_blocked(&state.players[me_idx], c)
                     {
                         continue;
                     }
@@ -6771,7 +6789,8 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 state.players[me_idx].deck.remove(0)
             };
             let matched = revealed.category == crate::state::Category::Character
-                && matches_filter(&revealed, filt);
+                && matches_filter(&revealed, filt)
+                && !char_summon_blocked(&state.players[me_idx], &revealed);
             if matched {
                 trash_weakest_for_field_full(state, me_idx);
                 let mut ip = InPlay::of(revealed.clone(), true); // sickness=true
@@ -7198,6 +7217,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     if c.category == crate::state::Category::Character
                         && matches_filter(c, filt)
                         && !(unique && seen.contains(&c.name))
+                        && !char_summon_blocked(me, c)
                     {
                         chosen.push(i);
                         seen.push(c.name.clone());
@@ -7365,6 +7385,9 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     }
                     if card_no_play_via_effect(&c.card_id) {
                         continue;
+                    }
+                    if char_summon_blocked(me, c) {
+                        continue; // OP13-023 / OP14-020: 「登場できない」 ペナルティ (効果登場も禁止)
                     }
                     // 「コストN以下」 は 手札での現在コスト で判定 (= ST23-001 ウタ、 cardqa_st_23)。
                     // 手札コスト修正なし (ihm=0) のカードは matches_filter と完全一致 = 挙動不変。
@@ -7558,7 +7581,8 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 let m = found < limit
                     && card.category == target_cat
                     && matches_filter(&card, filt)
-                    && !card_no_play_via_effect(&card.card_id);
+                    && !card_no_play_via_effect(&card.card_id)
+                    && !char_summon_blocked(&state.players[me_idx], &card);
                 if m {
                     if place_played_card(state, me_idx, card.clone(), rested, target_cat).is_err() {
                         return false;
@@ -7577,7 +7601,8 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     let card = state.players[me_idx].trash[ti].clone();
                     let m = found < limit
                         && card.category == target_cat
-                        && matches_filter(&card, filt);
+                        && matches_filter(&card, filt)
+                        && !char_summon_blocked(&state.players[me_idx], &card);
                     if m {
                         if place_played_card(state, me_idx, card.clone(), rested, target_cat).is_err()
                         {
@@ -12490,6 +12515,15 @@ pub fn execute_one_effect(
 /// (Python の trigger_on_self_hand_discarded が last_discard_source_inplay を一時設定するのと対応)。
 /// 条件 actor_source_feature_contains がこれを見る。 発火後は必ず None に戻す。
 fn fire_hand_discarded_n(state: &mut GameState, me_idx: usize, src: Slot, n: i32) -> Result<(), String> {
+    if n <= 0 {
+        return Ok(());
+    }
+    // Python trigger_on_self_hand_discarded (effects.py:13398) は discard_count>0 で
+    // canonical flag hand_discarded_by_effect_this_turn=True を立ててから field-when を発火する。
+    // 置換コストの discard 経路 (try_replace_ko) は外側でこの flag を立てていなかったため、
+    // Python (trigger が flag を立てる) と digest が食い違っていた (OP12-053 / OP13-046 /
+    // OP15-003 の replace-cost discard で MISMATCH)。 flag 設定を helper 内に集約して全経路一致。
+    state.players[me_idx].hand_discarded_by_effect_this_turn = true;
     state.current_discard_source_features =
         src_ip(&state.players[me_idx], src).map(|ip| ip.card.features.clone());
     state.current_discard_count = n;
