@@ -3696,63 +3696,63 @@
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-084 Mr.2 【アタック時】search filter={category:EVENT,feature:B・W} 色制限なし → 青以外のB・Wイベントも手札に加えられる (はい)。overlay確認",
   "q": "この【アタック時】効果で、青以外の特徴《B・W》を持つイベントを手札に加えられますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "57816213a428": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_11.json"
   ],
-  "note": "",
+  "note": "OP11 相手のアタック時: engine は trigger_on_attack(攻撃側)を先に解決し、その後 defender の場を走査して on_opp_attack を積む (game.py 1521-1526)。攻撃時効果でこのキャラが場を離れると走査対象に居らず不発 (いいえ)。構造保証 (docs【アタック時】KO済キャラの相手のアタック時と同型)",
   "q": "相手のキャラがアタックした時、その【アタック時】効果などでこのキャラが場を離れた場合、このキャラの【相手のアタック時】効果は発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "5791eb26fe24": {
   "a": "いいえ、できません。「キャラ1枚」とは、キャラカードのみを指定しています。",
   "files": [
    "cardqa_st_02.json"
   ],
-  "note": "",
+  "note": "ST02-009 ロー 【登場時】untap target=all_self_chara_filtered (キャラ限定、リーダー含まず) → リーダーをアクティブにできない (いいえ)",
   "q": "この【登場時】効果でリーダーカードをアクティブにすることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "57ce5506a587": {
   "a": "いいえ、できません。この場合、この効果で自分のトラッシュからコスト9の「光月モモの助」1枚までを登場させることもできません。",
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "",
+  "note": "OP16-084 モモの助 【起動メイン】「コスト20以上のこのキャラをトラッシュ」の「コスト20以上」はコロン前=コスト節。overlay が [cost-not-gated] として効果側条件と誤解し、cost(trash_self)を無条件にしていた=コスト19以下でも自身をタダでトラッシュできた。entry if:{self_inplay_cost_ge:20} に移動 (overlay-only、両engine)。現在コスト<20 では起動メイン不発、しのぶ+20 等で20以上時のみ発動",
   "q": "このキャラのコストが19以下の時に、この【起動メイン】でこのキャラをトラッシュに置くことはできますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "57d297ad5649": {
   "a": "いいえ、されません。《超新星》か《海軍》、もしくは両方を持つキャラがそれぞれパワー＋1000されます。",
   "files": [
    "cardqa_st_02.json"
   ],
-  "note": "",
+  "note": "ST02-014 X・ドレーク 超新星 or 海軍 +1000: filter feature_in の対象キャラは1体として1回マッチ = 両特徴持ちでも+1000 (いいえ+2000)。boolean OR",
   "q": "《超新星》と《海軍》を両方持つキャラのパワーは+2000されますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "57e7a03e6d01": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_st_34.json"
   ],
-  "note": "",
+  "note": "ST34-001 カタクリ 2枚: on_self_don_returned_to_deck は mandatory field-when で、1回のドン返却イベントで両コピーが同時発火し各々の【ターン1回】を消費。実測: 1回目返却で rested+1(deck枯渇で片方0追加)、2回目返却では両方消費済で0追加 → もう片方は発動不可 (いいえ)",
   "q": "自分のターン中、自分の場にこの「ST34-001 シャーロット・カタクリ」が2枚ありドン!!が10枚ある時に、自分の場のドン!!を1枚ドン!!デッキに戻し、片方の「ST34-001 シャーロット・カタクリ」の効果を発動してドン!!デッキからドン!!1枚をレストで追加しました。このターン中、次に他の効果で自分の場のドン!!を1枚ドン!!デッキに戻した時、もう片方の「ST34-001 シャーロット・カタクリ」の効果を発動してドン!!デッキからドン!!1枚をレストで追加できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "57f5c1ae7599": {
   "a": "いいえ、元々のパワーが6000ちょうどのキャラを指します。",
   "files": [
    "cardqa_st_30.json"
   ],
-  "note": "",
+  "note": "ST30-016 戦えるかルフィ: 「元々のパワー6000のキャラ」=印刷6000ちょうど。self_field_named_all_with_power が truly_original_power_eq を読む既是正 (docs 1472節)。5000以下は含まない (いいえ)",
   "q": "この効果の「元々のパワー6000のキャラ」に、元々のパワー5000以下のキャラは含まれますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "57f9612eccad": {
   "a": "いいえ、できません。",
@@ -3760,117 +3760,117 @@
    "cardqa_eb_02.json",
    "cardqa_st_24.json"
   ],
-  "note": "",
+  "note": "OP10-030 スモーカー自己ロック(キャラの効果でドンをアクティブにできない)が、EB02-015ボニー/ST24-005ドレークの【登場時】schedule_at_self_turn_end→untap_don を阻止していない (実測: end_of_turn で don active+1)。原因: 予約効果の flush が self_inplay=None で execute_effect され、untap_don の block check (self_inplay.card.category==CHARACTER) が通らない。是正には予約 spec に source category を持たせ両engine の flush で渡す必要 (scheduled data 変更+Rust parity)。公式=いいえ",
   "q": "自分の「OP10-030 スモーカー」の、「自分はこのターン中、キャラの効果でドン‼をアクティブにできない。」と書かれた【起動メイン】効果を起動したターンの終了時、この【登場時】効果でドン!!1枚をアクティブにできますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "580f1f7ffedd": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_08.json"
   ],
-  "note": "",
+  "note": "OP08-105 ボニー: 相手が効果で自分のライフを手札に加えた時 (=self life_to_hand) に、相手側の on_opp_life_taken (相手のライフが離れた時) が発火しない (実測 fired=False)。是正済は mill_opp_life_to_hand 等 (actor が相手ライフ除去) のみで、プレイヤーが自ライフを手札に移す経路は opp の on_opp_life_taken を発火しない。公式=はい。修正は self-life-removal 全 primitive に相手側 on_opp_life_taken 発火を追加 (Bonney系デッキ横断+matrix影響+dual-engine)",
   "q": "自分のターン中に、相手が効果でライフを1枚手札に加え、その後カードをライフの上に加えました。この時、この【自分のターン中】効果でカード2枚を引き、手札1枚を捨てることはできますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "5830bd2f5e82": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_eb_03.json"
   ],
-  "note": "",
+  "note": "EB03-039 うるティ 【登場時】全体が if:{leader_feature:百獣海賊団} で gate。リーダーが百獣海賊団でなければ draw/discard/summon すべて不発 = 効果(登場)は起きない (いいえ)。効果側条件による gate",
   "q": "自分のリーダーが特徴《百獣海賊団》を持たない場合、自分の手札からパワー6000以下の元々の効果のないキャラカード1枚までを登場させることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "583dff1b21bd": {
   "a": "いいえ、できません。この効果は相手のライフがライフ以外の領域に移動した際に発動する効果です。",
   "files": [
    "cardqa_op_08.json"
   ],
-  "note": "",
+  "note": "OP08-105 「相手のライフが離れた時」(on_opp_life_taken) は _fire_opp_life_left_by_effect (ライフが他ゾーンへ移動時) 経由のみ発火。scry_life/peek_self_life_top/scry_life_reorder は発火させない → 見る/公開/並び替えでは不発 (いいえ)。構造保証",
   "q": "「相手のライフが離れた時」の効果は、相手のライフを見た時や相手のライフを公開した時、または相手のライフを並び替えた時も発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "5846a40c261f": {
   "a": "いいえ、アクティブになりません。",
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-038 keep_opp_rested_chara_next_refresh は効果解決時に t.stay_rested_next_refresh=True を立てるのみ。付与ドンが後で2枚未満になっても再評価しない → 次の相手リフレッシュでアクティブにならない (いいえ)。スナップショット",
   "q": "この【メイン】効果で選んだ相手のドン‼が2枚以上付与されているレストのコスト8以下のキャラが、その後他の方法でドン!!2枚以上が付与されていない状態になった場合、次の相手のリフレッシュフェイズでアクティブになりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "588cd2417063": {
   "a": "はい、できます。この場合、この【アタック時】効果で自分のトラッシュからカード3枚を好きな順番でデッキの下に置いたあと、何も行いません。",
   "files": [
    "cardqa_op_10.json"
   ],
-  "note": "",
+  "note": "OP10-118 ルフィ 【アタック時】cost=trash_to_deck(3) は無条件で支払える、effect(相手手札捨て)は if opp_hand>=5 で gate。相手手札4以下でも3枚デッキ下は可、その後何も起きない (はい)。cost-not-gated既是正",
   "q": "相手の手札が4枚以下の場合、この【アタック時】効果で自分のトラッシュからカード3枚を好きな順番でデッキの下に置くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "58d5d5a1a011": {
   "a": "この場合、自分のライフの上から1枚を手札に加えることで場を離れるキャラを2枚とも場に残すか、何もせずキャラ2枚が場を離れるかを選びます。",
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-105 ボニー: 元々パワー7000以下2枚が同時に相手効果で離脱→公式は「ライフ1枚を手札に加えて2枚とも残すか何もしないか」=単一適用。実測は per-victim (ライフ2枚消費)。_LeaveBatch は cost フィールドのみ dedup し do を dedup しない。OP15-090/098/105 は置換コストを do(life_to_hand/discard)に持つため未 dedup。是正には life_to_hand を replace-cost handler 化 (Py+Rust) しコスト節へ移動、or do を batch gate (victim狙い do=OP05-001/OP11-101 は per-victim維持が必要で要区別)。クラス横断+backfillテスト更新",
   "q": "自分の元々のパワー7000以下のキャラが2枚同時に相手の効果で場を離れる場合、代わりに自分のライフの上から2枚を手札に加えることはできますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "5918556ebe8e": {
   "a": "はい、発動できます。\nその場合、【バニッシュ】の効果を複数持つことになりますが、何も起きません。",
   "files": [
    "cardqa_.json"
   ],
-  "note": "",
+  "note": "「【バニッシュ】を同じターンに複数回発動→複数持つが何も起きない」= キーワード付与の冪等性 (idempotent)。対象カード series 空で特定不能 + キーワード重複は engine 状態(granted_keywords set)で冪等 = 盤面差に落ちない",
   "q": "この効果を同じターンに複数回発動することはできますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "594a8ad5fc09": {
   "a": "はい、表面が見えない状態で手札からカードを選びます。",
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "相手が手札から選ぶ時裏向き=秘匿情報の手続き。engine は相手手札選択を random/hidden でモデル化、盤面差に落ちない",
   "q": "相手が手札のカードを選ぶ時、手札は裏向きのまま選びますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "597ba671d468": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_eb_01.json"
   ],
-  "note": "",
+  "note": "EB01-038 オカマ道 【カウンター】redirect_attack は state.pending_attack_redirect を立てるのみ。trigger_on_block は blocker宣言(blocker_iid, game.py 1748/2045)でのみ発火 → 対象変更ではブロック時効果は発動しない (いいえ)。構造保証",
   "q": "この【カウンター】効果で、【ブロッカー】を持つキャラに相手のアタックの対象を変更した際、そのキャラの【ブロック時】効果は発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "59826f8a12a1": {
   "a": "はい、できます。",
   "files": [
    "cardqa_eb_01.json"
   ],
-  "note": "",
+  "note": "EB01-021 ハンニャバル 【ターン終了時】return_self_chara_to_hand(コスト)→add_don(効果)。ドンデッキ0でも cost(キャラ手札戻し) は払え、add_don が no-op になるだけ (はい)",
   "q": "自分のドン!!デッキが0枚の時、この【自分のターン終了時】効果で自分のコスト2以上の特徴《インペルダウン》を持つキャラ1枚を持ち主の手札に戻すことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "59c4ab538c2d": {
   "a": "この場合、デッキに戻すドン!!の持ち主である相手が選びます。",
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "",
+  "note": "OP16-074 マゼラン don_minus_opp が active優先だった。公式「相手は自身のドンを戻す」=持ち主(相手)が選ぶ=レスト優先 (return_opp_don と同 chooser 帰属、2026-08-07 是正の取りこぼし)。Python+Rust を rested→active 順に是正。本キー使用は OP16-074 のみ (全走査)",
   "q": "このキャラの効果で戻す相手のドン!!は、どちらのプレイヤーが選びますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "59ea5c59e884": {
   "a": "この効果は、自分の場にある、リーダー、キャラ、ステージ、ドン!!のうち合計2枚をアクティブからレストにすることで発動します。",
   "files": [
    "cardqa_op_14.json"
   ],
-  "note": "",
+  "note": "OP14-029 たしぎ 【起動メイン】cost「自分のカード2枚をレスト」=公式はリーダー/キャラ/ステージ/ドンの4ゾーン。engine の rest_self_cards は leader+characters のみ (stage/don 欠落)。アクティブ leader/キャラが N 未満でもドン/ステージで払える局面を弾く=合法発動を阻害。ドンは InPlay でなく heterogeneous 選択が必要=アーキ変更。同型 ~13 base (EB04-015/019, OP14-020/033/036/037/038, OP15-035 等)",
   "q": "この【起動メイン】効果の「自分のカード2枚をレストにできる」とは、どのカードをレストにする効果ですか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "59f6f5da5f90": {
   "a": "はい、できます。",

@@ -1603,6 +1603,15 @@ def test_no_optional_cost_remains_gated_by_post_colon_condition():
                 continue
             if "場合" in clause[:m.start()]:
                 continue          # コロン前にも条件 = top-level if が妥当
+            # ⚠ entry `if` が **発動元自身のコスト閾値** (self_inplay_cost_*) の時は、
+            #   それは 「コストN以上のこのキャラをトラッシュ…」 のような **コロン前=コスト節** の
+            #   条件 (= どのコストを払えるか) であって、 コロン後の効果条件ではない。
+            #   OP16-084 モモの助: 「コスト20以上のこのキャラをトラッシュに置くことができる：
+            #   場のドン9枚以上ある場合、…登場」 — コロン後 (ドン9枚) は do の conditional、
+            #   entry `if:{self_inplay_cost_ge:20}` は前段のコスト制限 (cardqa_op_16 57ce5506a587)。
+            if any(k in ("self_inplay_cost_ge", "self_inplay_cost_le", "self_inplay_cost_eq")
+                   for k in eff.get("if", {})):
+                continue
             bad.append(f"{cid}[{src}]: {clause[:80]}")
     assert not bad, (
         "コロン後の条件が top-level `if` のままで、 任意コストの支払いを妨げている:\n  "
@@ -7019,3 +7028,71 @@ def test_op08_046_own_departure_to_public_zone_fires_its_leave_trigger():
     assert run({"return_to_hand": "all_self_characters"}) == (0, 0), (
         "手札へ戻った場合は発動できないはず (公式は トラッシュ / 表向きライフ のみ)"
     )
+# --------------------------------------------------------------------------- #
+#  公式 Q&A conformance バッチ (2026-08-08、 faq_qa_manifest)
+# --------------------------------------------------------------------------- #
+def test_op16_084_activate_main_requires_self_cost_ge_20():
+    """OP16-084 光月モモの助: 【起動メイン】は **このキャラの現在コストが20以上** の時のみ発動可。
+
+    一次情報 (cardqa_op_16, qid 57ce5506a587):
+      Q: このキャラのコストが19以下の時に、この【起動メイン】でこのキャラをトラッシュに
+         置くことはできますか？
+      A: いいえ、できません。この場合、コスト9の「光月モモの助」を登場させることもできません。
+    → 「コスト20以上の…トラッシュに置くことができる」 の 「コスト20以上」 はコロン前=コスト節。
+       印刷コスト<20 なので OP16-087 しのぶ 等で現在コスト20以上にした時のみ発動できる。
+    """
+    repo, overlay = _repo(), _overlay()
+    # 印刷コスト5 (<20) → 起動メインが legal に出ない (= トラッシュできない)
+    st = _state(repo, overlay)
+    me = st.players[0]
+    momo = InPlay.of(repo.get("OP16-084"), sickness=False)
+    me.characters = [momo]
+    me.don_active = 10
+    me.trash = [repo.get("OP06-107")]
+    ams = [(ip, e) for ip, e in list_activate_main_effects(st, me, overlay) if ip is momo]
+    assert len(ams) == 0, "コスト19以下でも起動メインが legal に出ている (= 自身をトラッシュできてしまう)"
+
+    # 現在コスト25 (>=20) + 場のドン9以上 → 発動でき、自身がトラッシュへ
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    momo = InPlay.of(repo.get("OP16-084"), sickness=False)
+    momo.base_cost_override = 25
+    me.characters = [momo]
+    me.don_active = 10
+    me.trash = [repo.get("OP06-107")]
+    ams = [(ip, e) for ip, e in list_activate_main_effects(st, me, overlay) if ip is momo]
+    assert len(ams) == 1, "現在コスト20以上なら起動メインは発動できるべき"
+    fire_activate_main(st, me, opp, momo, ams[0][1])
+    from engine.effects import _maybe_resolve
+    _maybe_resolve(st)
+    assert momo not in me.characters, "コスト20以上ならコスト(自身トラッシュ)を払える"
+
+
+def test_op16_074_don_minus_opp_returns_rested_don_first():
+    """OP16-074 マゼラン: 「相手は自身の場のドン!!を戻す」 は 持ち主 (相手) が選ぶ = レストから返す。
+
+    一次情報 (cardqa_op_16, qid 59c4ab538c2d):
+      Q: このキャラの効果で戻す相手のドン!!は、どちらのプレイヤーが選びますか？
+      A: デッキに戻すドン!!の持ち主である相手が選びます。
+    → 相手はアクティブのドン (このターンまだ使える / カウンター支払いに要る) を温存し、
+       レストのドンから返す (return_opp_don と同じ chooser 帰属)。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    opp.don_active = 3
+    opp.don_rested = 3
+    remain_before = opp.don_remaining_in_deck
+    execute_effect({"don_minus_opp": 1}, st, me, opp, None)
+    assert opp.don_rested == 2, f"レストのドンから返していない (rested={opp.don_rested})"
+    assert opp.don_active == 3, f"アクティブのドンを温存できていない (active={opp.don_active})"
+    assert opp.don_remaining_in_deck == remain_before + 1
+
+    # レストが尽きたらアクティブから (足りない分)
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    opp.don_active = 4
+    opp.don_rested = 1
+    execute_effect({"don_minus_opp": 3}, st, me, opp, None)
+    assert opp.don_rested == 0 and opp.don_active == 2, \
+        f"レスト優先→不足分アクティブ が守れていない (active={opp.don_active} rested={opp.don_rested})"

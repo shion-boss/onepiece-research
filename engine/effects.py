@@ -5305,17 +5305,23 @@ def _execute_effect_body_inner(
                 t.summoning_sickness = False
             state.push_log(f"  効果: 速攻 → {[t.card.name for t in targets]}")
         elif k == "don_minus_opp":
-            # 「ドン!! -N: 相手のドンを N 枚 ドン!!デッキに戻す」
+            # 「相手は自身の場のドン!!を N 枚 ドン!!デッキに戻す」 (OP16-074 マゼラン)。
+            # ⭐ 公式 「**相手は**自身の場のドン!!をドン!!デッキに戻す」 = **戻すドンは持ち主
+            #   (相手) が選ぶ** (cardqa_op_16, qid 59c4ab538c2d: 「戻す相手のドン!!はどちらの
+            #   プレイヤーが選びますか？」 → 「デッキに戻すドン!!の持ち主である相手が選びます」)。
+            #   相手は当然 **レストのドンから** 返す (アクティブは このターンまだ使える =
+            #   自分のターンなら登場/アタック、 こちらのターンならカウンターイベントの支払いに要る)。
+            #   = return_opp_don と同じ chooser 帰属 (2026-08-07 の chooser 是正)。 このキーは
+            #   OP16-074 のみが使用 (全走査済) なので rested→active 順で bit 一致は保たれる。
             n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
-            # active から優先で減らし、足りなければ rested から
             removed = 0
-            taken = min(n, opp.don_active)
-            opp.don_active -= taken
+            taken = min(n, opp.don_rested)
+            opp.don_rested -= taken
             opp.don_remaining_in_deck += taken
             removed += taken
             if removed < n:
-                taken = min(n - removed, opp.don_rested)
-                opp.don_rested -= taken
+                taken = min(n - removed, opp.don_active)
+                opp.don_active -= taken
                 opp.don_remaining_in_deck += taken
                 removed += taken
             state.push_log(f"  効果: 相手ドン -{removed}")
