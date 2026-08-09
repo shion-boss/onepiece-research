@@ -156,24 +156,37 @@ def test_op05_099_opp_attack_power_minus_human_pick():
 #      トラッシュに置いてもよい。("ルフィ" 不在で有効、 overlay は mill_self_life_to_trash)
 # --------------------------------------------------------------------------- #
 def test_op05_100_replace_leave_mill_life_ai():
-    """場を離れる代替 (AI): 自分のライフの上から1枚をトラッシュへ (life -1 / trash +1)。"""
+    """場を離れる代替 (AI): 「代わりに自分のライフの上から1枚をトラッシュに置いてもよい」。
+    ライフ→トラッシュは **発動コスト** なので try_replace_ko 経由で payability 込みに検証する。
+    ⚠ 旧テストは replace_leave の `do` を直接 execute していた。 2026-08-09 に支払を do→cost へ
+      移したので do は空。 実経路 (try_replace_ko) で検証し、 ライフ0では置換不成立を確認する。"""
+    from engine.effects import try_replace_ko
     repo = _repo()
     overlay = _overlay()
+
+    # (a) ライフあり → 置換成立: ライフ -1 / トラッシュ +1、 離脱キャンセル
     st = _state(repo, _LEADER_NEUTRAL, overlay)
     me, opp = st.players[0], st.players[1]
     me.life = [repo.get(_RED_C2)] * 3
     me.trash = []
-    life_before = len(me.life)
-    trash_before = len(me.trash)
-
-    for prim in _do(overlay, "OP05-100", "replace_leave"):
-        execute_effect(prim, st, me, opp,
-                       InPlay.of(repo.get("OP05-100"), sickness=False))
-        while st.pending_choice is not None:
-            resolve_pending_choice(st, [0])
-
+    victim = InPlay.of(repo.get("OP05-100"), sickness=False)
+    me.characters = [victim]
+    life_before, trash_before = len(me.life), len(me.trash)
+    replaced = try_replace_ko(st, me, opp, victim, overlay, by_opp_effect=True, leave_kind="ko")
+    while st.pending_choice is not None:
+        resolve_pending_choice(st, [0])
+    assert replaced is True, "ライフがあるのに離脱代替が成立していない"
     assert len(me.life) == life_before - 1, "ライフの上から1枚がトラッシュに置かれていない"
     assert len(me.trash) == trash_before + 1, "トラッシュが1枚増えていない"
+
+    # (b) ライフ0 → 支払えず置換不成立 (通常どおり場を離れる)
+    st2 = _state(repo, _LEADER_NEUTRAL, overlay)
+    me2, opp2 = st2.players[0], st2.players[1]
+    me2.life = []
+    victim2 = InPlay.of(repo.get("OP05-100"), sickness=False)
+    me2.characters = [victim2]
+    replaced2 = try_replace_ko(st2, me2, opp2, victim2, overlay, by_opp_effect=True, leave_kind="ko")
+    assert replaced2 is False, "ライフ0なのに置換が成立している (payability 未検査)"
 
 
 # --------------------------------------------------------------------------- #

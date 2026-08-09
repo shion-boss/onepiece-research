@@ -7515,3 +7515,112 @@ def test_non_disabled_character_end_of_turn_does_fire():
     trigger_end_of_turn(st, overlay)
 
     assert len(me.deck) == deck_before - 1, "無効でないキッドの end_of_turn はドローするはず"
+
+
+# --------------------------------------------------------------------------- #
+#  R. 発動コストの取りこぼし (2026-08-09、 FAQ 全件保証バッチ)
+# --------------------------------------------------------------------------- #
+def test_eb01_011_activate_main_requires_returning_a_printed_power_1000_chara():
+    """EB01-011 ミニメリー2号 の【起動メイン】は 「自分の元々のパワー1000のキャラ1枚を
+    デッキの下に置く」 を発動コストに含む。 対象キャラが居なければドローできない (タダ撃ち禁止)。
+
+    一次情報 (cardqa_eb_01, qid 651d177800d2):
+      「元々のパワーが1000で、 ドン!!が付与され現在のパワーが2000以上となっているキャラを、
+        この【起動メイン】効果で自分のデッキの下に置きカード1枚を引くことはできますか？」
+      → 「はい、できます。」  (= 対象は **印刷パワー** 1000。 ドン付与で現在値が動いても対象)
+    是正前: overlay の cost が rest_self のみで、 対象キャラを戻さずに draw できた (タダ撃ち)。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    # (a) 印刷パワー1000のキャラ (ドン付与で現在2000+) を場に持つ → 発動でき、 draw 1 + 戻す
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    stage = InPlay.of(repo.get("EB01-011"), sickness=False)
+    me.stages = [stage]
+    p1000 = next(c for c in repo._by_id.values()
+                 if c.category.name == "CHARACTER" and str(c.power) == "1000")
+    tgt = InPlay.of(p1000, sickness=False)
+    tgt.attached_dons = 2                       # 現在パワー = 3000 だが元々は 1000
+    me.characters = [tgt]
+    hand_before = len(me.hand)
+    opts = [o for o in list_activate_main_effects(st, me, overlay)
+            if o[0].card.card_id == "EB01-011"]
+    assert opts, "対象キャラが居るのに起動メインが legal に出ない"
+    fire_activate_main(st, me, opp, *opts[0])
+    assert len(me.hand) == hand_before + 1, "コストを払ったのにドローしていない"
+    assert tgt not in me.characters, "元々パワー1000のキャラがデッキ下に置かれていない"
+    assert stage.rested, "コストの self rest が行われていない"
+
+    # (b) 印刷パワー1000のキャラが居ない → コスト不成立 = draw させない (タダ撃ち禁止)
+    st2 = _state(repo, overlay)
+    me2, opp2 = st2.players[0], st2.players[1]
+    stage2 = InPlay.of(repo.get("EB01-011"), sickness=False)
+    me2.stages = [stage2]
+    other = next(c for c in repo._by_id.values()
+                 if c.category.name == "CHARACTER" and str(c.power) not in ("1000", "-", ""))
+    me2.characters = [InPlay.of(other, sickness=False)]
+    hand_before2 = len(me2.hand)
+    for o in [o for o in list_activate_main_effects(st2, me2, overlay)
+              if o[0].card.card_id == "EB01-011"]:
+        fire_activate_main(st2, me2, opp2, *o)
+    assert len(me2.hand) == hand_before2, "対象不在なのにドローした (タダ撃ち)"
+    assert not stage2.rested, "対象不在なのに self rest だけ払っている"
+
+
+def test_st22_005_replace_leave_needs_full_two_card_discard():
+    """ST22-005 光月おでん の離脱置換は 「代わりに手札2枚を捨てる」 が発動コスト。
+    手札が1枚しかなければ払えず、 置換は成立せず場を離れる。
+
+    一次情報 (cardqa_st_22, qid 645ccc31a2c2):
+      「自分の手札が1枚だけの時にこのキャラが相手の効果で場を離れる場合、 手札1枚を捨てる
+        ことで場を離れないことはできますか？」
+      → 「この場合、 手札2枚を捨てることができないため効果は使えず、 場を離れることになります。」
+    是正前: 捨てが `do` にあり payability が効かず、 手札1枚でも 1 枚だけ捨てて置換成立していた。
+    """
+    from engine.effects import try_replace_ko
+    repo, overlay = _repo(), _overlay()
+
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    oden = InPlay.of(repo.get("ST22-005"), sickness=False)
+    me.characters = [oden]
+    me.hand = [repo.get(_FILLER)]               # 1 枚 = 2 枚捨てられない
+    replaced = try_replace_ko(st, me, opp, oden, overlay, by_opp_effect=True, leave_kind="ko")
+    assert replaced is False, "手札1枚では置換できないはず (公式=場を離れる)"
+    assert len(me.hand) == 1, "払えないのに手札を捨てている"
+
+    # 対照: 手札2枚あれば置換成立し 2 枚とも捨てる
+    st2 = _state(repo, overlay)
+    me2, opp2 = st2.players[0], st2.players[1]
+    oden2 = InPlay.of(repo.get("ST22-005"), sickness=False)
+    me2.characters = [oden2]
+    me2.hand = [repo.get(_FILLER), repo.get(_FILLER)]
+    replaced2 = try_replace_ko(st2, me2, opp2, oden2, overlay, by_opp_effect=True, leave_kind="ko")
+    assert replaced2 is True and len(me2.hand) == 0, "手札2枚なら置換成立し2枚捨てるはず"
+
+
+def test_no_replace_effect_hides_a_payment_cost_inside_do():
+    """全走査: replace_ko/leave/rest の 「代わりに<支払>できる/てもよい」 は必ず `cost` に置く。
+    `do` に支払プリミティブがあると payability が効かず、 資源不足でも置換が成立してしまう
+    (ST22-005 / ST22-012 / OP12-061 等で 2026-08-09 に是正)。 同型の取りこぼしを禁止する番人。
+    """
+    _, overlay = _repo(), _overlay()
+    PAY = {"trash_self_hand_random", "discard_hand", "discard_hand_with_filter",
+           "life_to_hand", "return_self_don_to_deck", "mill_self_life_to_trash",
+           "rest_self_don"}
+    offenders = []
+    for cid, bundle in overlay.items():
+        if cid == "_meta" or not hasattr(bundle, "effects"):
+            continue
+        for e in bundle.effects:
+            if not isinstance(e, dict):
+                continue
+            if e.get("when") not in ("replace_ko", "replace_leave", "replace_rest"):
+                continue
+            for prim in (e.get("do") or []):
+                if isinstance(prim, dict) and (set(prim.keys()) & PAY):
+                    offenders.append((cid, list(prim.keys())))
+    assert not offenders, (
+        "置換の支払コストが do に埋もれている (payability が効かない): "
+        f"{offenders[:10]}"
+    )

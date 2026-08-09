@@ -4567,3 +4567,87 @@ on_block` **止まりで end_of_turn / opp_end_of_turn を含んでいなかっ�
 ### escalated (自動修正の範囲外)
 
 - **OP06-043 アラマキ** 起動メイン (62dd3b280748): 公式は 「手札1枚を捨て、 **コスト2以下のキャラ1枚を持ち主のデッキ下に置く**」 が両方とも発動コスト (コロン前)。 現 overlay は `discard_hand` のみ cost、 `return_to_deck_bottom` を `do` に持ち かつ対象を **opp-only に限定**。 是正には (1) 両陣営化 (「相手の」無し=one_inplay_either) (2) 「filtered キャラを持ち主デッキ下に置く」 を activate_main **発動コスト**化 (cost 払えない=発動不可) が必要。 後者は activate_main の payability 系に filtered-return-to-deck-bottom コスト型を足す = Python/Rust 両対応のアーキ拡張につき escalated。 公式=コスト2以下を置かずに手札だけ捨てるのは不可 (cardqa_op_06)。
+
+## FAQ conformance バッチ (2026-08-09, cron optcg-faq-conformance): 16 conform / 2 fixed / 2 escalated
+
+一次ソース = 公式 Q&A (cardqa)。 台帳 `db/faq_qa_status.json`。 20 件処理。
+
+### fixed 1: EB01-011 ミニメリー2号 起動メインの発動コスト欠落 (タダ撃ち)
+
+**一次情報** (cardqa_eb_01, qid `651d177800d2`):
+> 「元々のパワーが1000で、 ドン!!が付与され現在のパワーが2000以上となっているキャラを、
+>  この【起動メイン】効果で自分のデッキの下に置きカード1枚を引くことはできますか？」→「はい、できます。」
+
+公式テキスト = 「このカードをレストにし、 **自分の元々のパワー1000のキャラ1枚をデッキの下に
+置く** ことができる：カード1枚を引く。」 コロン前 = 発動コスト。 overlay は `cost:{rest_self}` +
+`do:[draw:1]` のみで、 **「元々パワー1000のキャラをデッキ下」 が欠落** = 対象キャラ不在でも
+draw をタダ撃ちできた (OP05-056 X・バレルズ で 2026-08-05 に是正した同型の取りこぼし)。
+
+**是正**: `do` を `optional_cost_then{cost:[rest_self, return_self_chara_to_deck_bottom
+{filter:{truly_original_power_eq:1000}}], effect:[draw:1]}` に。 「元々のパワー」= 印刷値 =
+`truly_original_power_eq` (ドン付与で現在 2000+ でも対象に取れる = Q の答えと一致)。 rest_self を
+optional_cost_then 内に入れ、 有効な対象が居ない時は self rest も含め発動不成立 (ST07-017 precedent)。
+両エンジンとも `return_self_chara_to_deck_bottom` + `truly_original_power_eq` を実装済 = overlay のみ。
+
+### fixed 2: replace_ko/leave の「代わりに<支払>できる」が do に埋もれ payability 無効 (9 カード/14 entry)
+
+**一次情報** (cardqa_st_22, qid `645ccc31a2c2`, ST22-005 光月おでん):
+> 「自分の手札が1枚だけの時にこのキャラが相手の効果で場を離れる場合、 手札1枚を捨てることで
+>  場を離れないことはできますか？」→「この場合、 手札2枚を捨てることができないため効果は
+>  使えず、 場を離れることになります。」
+
+ST22-005 の replace_leave は 「代わりに手札2枚を捨てる」= 発動コストだが、 overlay は
+`do:[trash_self_hand_random:2]` に置いていた。 `do` は payability を通らないので、 手札1枚でも
+1 枚だけ捨てて置換成立 = 公式違反。
+
+**全走査で同型を検出** (`replace_ko/leave/rest` の do に支払プリミティブ):
+ST22-005 (手札2), ST22-012 (手札1), EB04-044 (手札1), ST25-003 (手札1),
+OP12-061 (ライフ1), OP10-034 (ライフ1), OP05-100 (ライフ→トラッシュ1), ST20-002 (ライフ→トラッシュ1),
+EB04-030 (ドン1戻し) = パラレル込み 14 entry。 いずれも N=1〜2 で資源不足時のみ差が出る。
+
+**是正**: 各 entry の支払プリミティブを `do`→`cost` へ移動 (`do:[]`)。 `_can_pay_replace_cost` /
+`_pay_replace_cost` (Py) と try_replace_ko の cost 経路 (Rust、 未対応キーは hard bail) が
+全キーを実装済 = overlay のみの是正。 番人テスト `test_no_replace_effect_hides_a_payment_cost_inside_do`
+を追加 (全走査で do に支払が無いことを assert)。
+
+### escalated: OP12-020 ゾロ 起動メインの battle-a-character 条件が overlay に欠落 (#4 / #20)
+
+**一次情報**: cardqa_op_12 (qid `6382b5750a5b`) + cardqa_op_16 (qid `669aab1767d6`)。
+公式テキスト = 「【起動メイン】【ターン1回】**このターン中、 このリーダーが相手のキャラと
+バトルしている場合**、 このリーダーをアクティブにする。 その後、 …」。
+- #4: ゾロが相手キャラにアタック→相手が OP05-022 ロシナンテ(leader)のブロッカー→ロシナンテと
+  バトル。 その後 untap 可か→「いいえ」(= leader とバトルしたので "相手のキャラとバトル" 不成立)。
+- #20: 相手ゾロが自キャラにアタック→自分の【相手のアタック時】でリーダーへ対象変更→その後
+  相手はゾロを untap 可か→「いいえ」(= leader へ向いたので character とのバトル不成立)。
+
+overlay の `if` は `self_attached_don_ge:3` のみで **「相手のキャラとバトルしている」 条件が欠落**。
+現状 DON≥3 なら battle 有無に関係なく untap できる = 違反。 是正には **ターン内で当該リーダーが
+相手キャラとバトルしたか** の追跡 (新しい per-turn state + 条件プリミティブ + Rust ミラー) が要る
+= データの持ち方を変えるアーキ変更のため escalated。
+
+### 観測 (要フォロー、 別途): OP05-040 鳥カゴ end_of_turn KO の対象範囲
+
+#3 (qid `6374966b2f6f`、 leader gate 無し) の確認中に別の乖離を発見。 公式 = 「レストの
+コスト5以下のキャラ**すべて**をKO」= 「相手の」 無し → 両陣営 + 「レストの」 = レスト限定。
+overlay は `ko:any_opponent_character_cost_le_5` = **相手のみ + レスト非限定**。 #3 の設問
+(leader gate) 自体は conform だが、 対象範囲は要是正。 「すべて」 の board-wipe 系に同型が
+無いか全走査が要るため本バッチでは未着手 (別途 escalate 予定)。
+
+### conform (公式どおり = 是正不要、 再調査回避のため記録、 2026-08-09)
+
+- **635ac276996d** ST30-002 イナズマ: search filter=`power_eq:6000` (印刷 6000 ちょうど、 5000 以下は非対象)。
+- **6370677145f1** OP01-006 お玉: KO→再登場は別 InPlay = 別カード。 -2000 は残らない (CardDef から新規生成)。
+- **6374966b2f6f** OP05-040 鳥カゴ: end_of_turn KO に leader gate 無し (`if:self_don_ge:10` のみ)。
+- **638b2d15db15** OP16 leader: 「相手のレストのコスト6以下1枚まで」= 0 枚可、 各節独立解決。
+- **63b2946a949d** OP12-016/017/019: attach_active_don_to_named_chara(レイリー) = レイリー在で付与可。
+- **6417404334c5** OP11-086 コリブー: 登場時 discard は効果 (登場コストでない)。 手札≤1 でも登場可。
+- **642f12dbdf83** OP06-053/P-030: KO時 return_to_deck_bottom=`one_character_either_*` (両陣営) = 自キャラも可。
+- **650736356e8d** OP03-043 ガイモン: on_opp_life_taken は field-wide 発火 = 他キャラ/リーダーの与ダメでも発動。
+- **65377db8520e** ST07-017: chara_to_self_life target=`one_self_chara_filtered` (1枚まで=0可) = 加えない選択可。
+- **653b30119283** ST03-015 砂嵐: main return_to_hand=`one_character_either_cost_le_7` (両陣営) = 自キャラも可。
+- **656f9c3a2d13**: 【トリガー】「お互いのライフ合計」は発火中の自身を含めない (line975 と同一則)。
+- **65d7d7661e9d** ST04-010 フーズ・フー: DON 無でトリガー登場可・登場時 KO は payability 不成立で skip (タダ撃ち無し、 実測)。
+- **65da01464632** OP06-091: 登場時=mill_self_top:5 (自分のデッキ)。 相手のデッキは対象外。
+- **6637d453709b** EB03-003 ウタ: 登場時 `if:leader_name:ウタ` が on_play 全体を gate = leader≠ウタで登場も発動せず。
+- **6686b81ebecb** OP04-064 ミス・オールサンデー: trigger cost=pay_don:2, do=play_self = ドン戻しを払えば登場必須 (atomic)。
+- **65b39fb038c0** OP04-055 疫災弾: main=optional_cost_then で cost を払えば effect(氷鬼登場)は必須 = 登場させない選択不可。

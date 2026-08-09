@@ -4237,180 +4237,180 @@
   "files": [
    "cardqa_st_30.json"
   ],
-  "note": "",
+  "note": "ST30-002 イナズマ search filter=power_eq:6000 (印刷値=6000ちょうど、5000以下は含まない)。overlay確認",
   "q": "この効果の「パワー6000のキャラカード」に、パワー5000以下のキャラカードは含まれますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "6370677145f1": {
   "a": "いいえ、されません。このカードが別の領域に移動した場合は、別のカードとして扱います。",
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP01-006 お玉。KO→再登場は別InPlay=別カード扱いで-2000は残らない (engineはCardDefから新規生成)。zone-change reset 一般則",
   "q": "「OP01-006 お玉」の【登場時】効果でパワーが-2000されたこのキャラがKOされ、【KO時】効果で登場しました。このとき、パワーは-2000された状態のままで登場しますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "6374966b2f6f": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "",
+  "note": "OP05-040 鳥カゴ end_of_turn KOにleader gate無し (if=self_don_ge:10のみ)。leader≠ドフラミンゴでも発動可",
   "q": "自分のリーダーが「ドンキホーテ・ドフラミンゴ」ではない場合、この【自分のターン終了時】効果でレストのコスト5以下のキャラすべてをKOすることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "6382b5750a5b": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "",
+  "note": "OP12-020 ゾロ 起動メイン(untap self)。相手キャラアタック→ロシナンテ(leader)ブロッカーでleaderとバトル後は untap不可(公式)。overlay に「相手のキャラとバトルしている場合」条件欠落=DON≥3のみ。ターン内battle-a-character追跡が要 (アーキ変更) の為escalate。#20と同根",
   "q": "このカードが相手のキャラにアタックして、相手がリーダー「OP05-022 ドンキホーテ・ロシナンテ」の【ブロッカー】を発動し、「ドンキホーテ・ロシナンテ」とバトルを行いました。バトルの後、この【起動メイン】効果で、このカードをアクティブにすることはできますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "638b2d15db15": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "",
+  "note": "OP16 leader効果。相手レストのコスト6以下1枚まで=0枚可、各節は独立解決 (ルフィ/Mr.3不在でも処理可)。1枚まで=0可の一般則",
   "q": "自分のリーダーが「すべてのカード名と特徴と属性を持つ」と書かれた効果を持ち、自分のキャラの「モンキー・Ｄ・ルフィ」や「Mr.3(ギャルディーノ)」がない場合、この効果の「相手のレストのコスト6以下のキャラ1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。」を処理することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "63b2946a949d": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "",
+  "note": "OP12-016/017/019 attach_active_don_to_named_chara(レイリー)。レイリー在ならDON付与可 (docs official_rulings.md line3733)",
   "q": "この【メイン】効果で、キャラの「シルバーズ・レイリー」にドン!!を付与することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "6417404334c5": {
   "a": "はい、できます。この場合、自分の手札が1枚なら、この【登場時】効果でその手札1枚を捨てます。",
   "files": [
    "cardqa_op_11.json"
   ],
-  "note": "",
+  "note": "OP11-086 コリブー 登場時=trash_self_hand_random:1 (効果であり登場コストでない)。手札≤1でも登場可、手札1なら1枚捨て",
   "q": "自分の手札が1枚以下の場合、このキャラを登場できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "642f12dbdf83": {
   "a": "はい、できます。",
   "files": [
    "cardqa_.json"
   ],
-  "note": "",
+  "note": "OP06-053/P-030 KO時 return_to_deck_bottom=one_character_either_cost_le_N (両陣営)。自キャラも対象に取れる",
   "q": "この【KO時】効果で自分のキャラをデッキの下に置くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "645ccc31a2c2": {
   "a": "この場合、手札2枚を捨てることができないため効果は使えず、場を離れることになります。",
   "files": [
    "cardqa_st_22.json"
   ],
-  "note": "",
+  "note": "ST22-005 光月おでん replace_leave。手札2枚捨てを do→cost へ移動しpayabilityを効かせた。手札1枚では置換不成立=場を離れる (cardqa_st_22)",
   "q": "自分の手札が1枚だけの時にこのキャラが相手の効果で場を離れる場合、手札1枚を捨てることで場を離れないことはできますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "650736356e8d": {
   "a": "はい、発動できます。",
   "files": [
    "cardqa_op_03.json"
   ],
-  "note": "",
+  "note": "OP03-043 ガイモン on_opp_life_taken (このキャラのアタック限定でない)。field-wide enqueue で他キャラ/リーダーのダメージでも発火。engine実測",
   "q": "この「相手のライフにダメージを与えた時」の効果は、このカード以外のキャラやリーダーのアタックで相手のライフにダメージを与えた時に発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "651d177800d2": {
   "a": "はい、できます。",
   "files": [
    "cardqa_eb_01.json"
   ],
-  "note": "",
+  "note": "EB01-011 ミニメリー2号 起動メイン。欠落していた発動コスト(元々パワー1000の自キャラ1枚をデッキ下=truly_original_power_eq)を optional_cost_then で追加。対象不在でdrawタダ撃ちを是正 (cardqa_eb_01)",
   "q": "元々のパワーが1000で、ドン!!が付与され現在のパワーが2000以上となっているキャラを、この【起動メイン】効果で自分のデッキの下に置きカード1枚を引くことはできますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "65377db8520e": {
   "a": "はい、できます。",
   "files": [
    "cardqa_st_07.json"
   ],
-  "note": "",
+  "note": "ST07-017 起動メイン chara_to_self_life target=one_self_chara_filtered (1枚まで=0可)。コスト3キャラを加えない選択可",
   "q": "この【起動メイン】効果で、このステージをレストにし、自分のライフ1枚を手札に加えました。この時、自分のコスト3のキャラをライフに加えないことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "653b30119283": {
   "a": "はい、戻すことができます。",
   "files": [
    "cardqa_st_03.json"
   ],
-  "note": "",
+  "note": "ST03-015 砂嵐 main return_to_hand=one_character_either_cost_le_7 (両陣営)。自キャラも手札に戻せる",
   "q": "この【メイン】効果で自分のキャラを手札に戻すことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "656f9c3a2d13": {
   "a": "いいえ、このカードを含めずに、それ以外のライフが合計5枚の場合に登場させます。",
   "files": [
    "cardqa_.json"
   ],
-  "note": "",
+  "note": "【トリガー】「お互いのライフ合計」は発火中の自身を含めない (docs line975 ST29-013 と同一則)",
   "q": "この【トリガー】効果の「お互いのライフの合計枚数が5枚以下の場合」は、このカード自身を含めて5枚以下である場合に登場させる効果ですか？",
-  "status": "pending"
+  "status": "conform"
  },
  "65b39fb038c0": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-055 疫災弾 main=optional_cost_then(cost:[氷鬼捨て,コスト4以下デッキ下], effect:[氷鬼登場])。コストを払えば登場(effect)は必須=登場させない選択不可",
   "q": "この【メイン】効果を発動し、自分の手札から「氷鬼」1枚を捨て、コスト4以下のキャラ1枚を持ち主のデッキの下に置いた上で、「氷鬼」を登場させないことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "65d7d7661e9d": {
   "a": "はい、登場できます。その際、ドン!!カードが不足のため【登場時】効果は発動させることはできません。",
   "files": [
    "cardqa_st_04.json"
   ],
-  "note": "",
+  "note": "ST04-010 フーズ・フー trigger=play_self(コスト無)、on_play cost=pay_don:1。DON無でトリガー登場可・登場時KOはpayability不成立でskip。engine実測 (タダ撃ち無し)",
   "q": "ドン!!デッキに戻せるドン!!カードが1枚もない場合、このキャラカードは【トリガー】効果で登場できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "65da01464632": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "",
+  "note": "OP06-091 ビクトリア・シンドリー 登場時=mill_self_top:5 (自分のデッキ)。相手のデッキは対象外",
   "q": "この【登場時】効果で、相手のデッキの上から5枚をトラッシュに置くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "6637d453709b": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_eb_03.json"
   ],
-  "note": "",
+  "note": "EB03-003 ウタ 登場時 if=leader_name:ウタ で on_play全体(draw+summon)をgate。leader≠ウタなら登場も発動しない",
   "q": "自分のリーダーが「ウタ」ではない場合、自分の手札からパワー6000以下の元々の効果のないキャラカード1枚までを登場させることはできますか？。",
-  "status": "pending"
+  "status": "conform"
  },
  "6686b81ebecb": {
   "a": "いいえ、できません。この場合、必ず登場させます。",
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-064 ミス・オールサンデー trigger cost=pay_don:2, do=play_self。コスト(ドン戻し)を払えば登場は必須 (cost+do atomic)",
   "q": "この【トリガー】効果でドン!!をデッキに戻し、このキャラを登場させないことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "669aab1767d6": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "",
+  "note": "OP12-020 ゾロ 起動メインの公式条件「このターン中このリーダーが相手のキャラとバトルしている場合」がoverlayに欠落 (if=self_attached_don_ge:3のみ)。ターン内battle-a-character追跡=新state+条件+Rust要 (アーキ変更) の為 escalate。#4と同根",
   "q": "自分のリーダーがこのカードの時、相手のリーダー「OP12-020 ロロノア・ゾロ」が自分のキャラにアタックし、この【相手のアタック時】効果でアタックの対象を自分のリーダーに変更しました。この場合、相手はこのターン中に「OP12-020 ロロノア・ゾロ」の【起動メイン】効果で「OP12-020 ロロノア・ゾロ」をアクティブにすることはできますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "66c30267daf0": {
   "a": "はい、できます。",
