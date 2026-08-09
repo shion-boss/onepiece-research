@@ -4824,3 +4824,72 @@ overlay OP02-027 を `self_don_active_eq:0` → `self_all_don_rested:true` に�
 - **OP15-080 オーズ**: +7000 の overlay 条件 filter が `{name:ゲッコー・モリア}` のみで、公式の
   「パワー10000以上」制約が欠落している可能性 (FAQ #20 自体は leader 除外で conform だが、通常のパワー<10000の
   モリアで誤発動しないか別途要確認)。
+
+## FAQ conformance バッチ (2026-08-09 #4, cron optcg-faq-conformance): 17 conform / 2 n/a / 1 escalated
+
+このバッチはエンジン挙動を **一次情報 (公式 cardqa) と突き合わせて確認のみ** (fixed 0)。 primitive の
+実装を直接読んで判定した (overlay JSON の眺めではなく)。
+
+### escalated (1 件)
+
+- **OP16-041 バギー (LEADER)【ドン×1】【ターン1回】「自分の特徴《インペルダウン》を持つキャラが
+  場を離れた時、発動できる。手札からインペルダウンの囚人1枚までを登場」** (cardqa_op_16,
+  qid 6e5d3fb07167)。 公式: 「自分の効果 (虜の矢 OP07-056 等) で自分のインペルダウンキャラが
+  場を離れた時**も**発動できる」→ **はい**。
+  - **現状 (違反)**: overlay は `on_self_chara_ko` (KO) + `on_self_chara_leave_by_opp_effect`
+    (相手効果離脱) の 2 経路だけを配線し、 **自分の効果での離脱 = `on_self_chara_leave_by_self_effect`
+    を欠く**。 = 虜の矢等で自インペルダウンキャラを手札に戻しても leader 効果が発動しない。
+    「場を離れた時」 の generic トリガーを持つカードは overlay 全走査でこの 1 枚のみ (パターンでない)。
+  - **なぜ自動修正しないか (アーキ変更)**: 単純に overlay へ `on_self_chara_leave_by_self_effect`
+    エントリを足すだけでは動かない。 その `if` は `victim_feature_in: [インペルダウン]` を要するが、
+    `trigger_on_self_chara_leave_by_self_effect` (effects.py:13666) は **victim_card を引数に取らず
+    `state.last_chara_ko_victim_card` を設定しない** (KO 経路 13744 / 相手効果離脱経路 13768 は設定する)。
+    → victim を通すには signature 変更 + ~14 箇所の呼び出し (1060/3881/3968/4001/4088/4636/6309/
+    8368/8426/8478/8525/8561/8654/9261) の改修 + Rust ミラーが要る。 加えて当環境は **maturin 不在で
+    Rust rebuild 不可** (cargo はあるが差分が壊れる)。 victim 判定を省くと非インペルダウンキャラの
+    離脱でも発動する over-fire = 別の違反。 → 人間レビュー行き。
+
+### conform (17 件、 primitive を読んで確認)
+
+- **attach_rested_don の「持ち主の」制約** (OP15-012/010/017 等, 6ba56563/6da0a986): overlay
+  `attach_rested_don owner_of_target:true` = 付与するレストドンは常に**対象の持ち主**のもの。
+  自→自ドン / 相手→相手ドンは可、 クロス付与 (自に相手ドン等) は構造上不可 (2026-08-06 両陣営是正で
+  実装済)。
+- **タイミング付き buff/耐性は解決時の盤面をスナップショット** (OP13-064 相手全-2000 / OP08-038
+  自全KO耐性, 6e6a0b4f/6ee538f3): `power_pump` / `set_ko_immune_timed` (effects.py:7894) は解決時に
+  `_resolve_target` で対象を確定し各 InPlay に duration 付きフラグを刻む (player-wide flag でない)
+  → 効果処理後に登場したキャラは対象外 → 「されない/KOできる」 と一致。
+- **「自分のレストのカード」 に付与ドンは含まれない** (OP06-038 一大三千, 6fb87d6f):
+  `self_rested_cards_count_ge` (effects.py:1986) = don_rested + レストキャラ/リーダー/ステージ。
+  attached_dons は非計上 → 例の盤面 (レストドン3+レストL1+レストキャラ1+付与ドン3) は 5<8 で +4000 不可。
+- **rest_self_cards は発動元自身も選べる** (OP14-029 たしぎ, 6dc54c53): 候補 = leader+characters+
+  stages (effects.py:4566)、 自身も含む。
+- **replace_leave は自身の離脱にも反応** (OP12-102 しらほし cost2, 6fc98692): if{target:self,
+  by_opp_effect:true, target_truly_original_cost_le:6} で自身 (cost2≤6) の相手効果離脱に flip life 可。
+- **cost 版 ko_self_chara / trash_self は純トラッシュ (KO時 非発火)** (ST27-002, 706e657b):
+  activate_main cost=trash_self、 【KO時】draw は別 on_ko エントリ → トラッシュ置きでは draw しない
+  (「トラッシュに置く≠KO」 の再確認)。 OP13-053 ティーチ (70aa91b1) も cost=ko_self_chara は
+  optional_cost_then のコスト経路 (effects.py:10148) = trash で on_ko 非発火、 自身 (白ひげ海賊団) を
+  弾にでき draw 実行 + アタッカー消失でバトル中断。
+- **登場は【登場時】の条件に阻まれない** (OP01-040 錦えもん等, 70656ed2): leader gate は効果のみを
+  gate、 登場自体はコスト支払いで成立。
+- **登場系はゾーン/カテゴリで制限** (ST12-010 イワンコフ reveal_top_play=公開カードのみ, 70082ac4 /
+  ST02-017 play_from_hand category:CHARACTER=イベント不可, 7033fe03)。
+- **distinct name は印刷名の集合サイズ** (OP16-034 ルフィ, 710f3631): self_distinct_chara_name_count
+  = len({card.name}) (effects.py:4129)。 二重名 alias (EB04-038) は card.name に影響せず、 同名2枚も
+  別名扱いしない → ルフィ+EB04-038×2 = 2種 = +2000。
+- **optional_cost_then はコストを払えば効果は必須** (ST07-004 等, 71743681): コストのみ払って +1000 を
+  辞退する経路は無い。
+- **【KO時】は自身をトラッシュから手札に加えられる** (OP15-042 キュロス, 71d3de56):
+  trash_to_hand filter{name:キュロス}。
+- **その後の第2 power_pump は同一対象** (EB03-020, 71e26103): 両 power_pump とも target=self_inplay
+  → 異なる2枚に分割不可。
+- **own pump の tail は相手対象不在でも実行** (OP02-112 ベルメール, 6fffbc44)。
+
+### n/a (2 件)
+
+- **相手のレストドンを付与する時どちらが選ぶか** (OP15, 6ed20ab0): engine はレストドンを count 型で
+  個体区別せず、 効果は actor が解決 = chooser 帰属は構造的に発動側。 盤面差分に落ちない。
+- **2 つの【相手のアタック時】を同一アタックで両方使えるか** (PRB02/OP07-019 ボニー, 6dfde7c1):
+  engine は eligible な相手アタック時効果を全て積み、 ドン active/rest は fungible な独立 state op。
+  単一盤面 assertion に落ちない definitional yes。
