@@ -4729,3 +4729,98 @@ overlay は `ko:any_opponent_character_cost_le_5` = **相手のみ + レスト�
 - **6896058e0308** ST36-005 キッド: engine のライフモデルは face_up_life_count のみで上/下の物理位置を
   区別しない。「上と下がどちらも表向き(中は裏)」は表現不能で verify 不可。
 - **6907c24b958e** OP07: 「パワー0にする」の定義説明(現在値と同じ分だけマイナス)。 用語確認。
+
+## FAQ conformance バッチ (2026-08-09 #3, cron optcg-faq-conformance): 11 conform / 3 fixed / 2 n/a / 2 escalated / 2 fixed(既存)→今回fixed
+
+### fixed 1 (engine 一般則): 相手の効果で手札が捨てられた時も on_self_hand_discarded / flag を発火
+一次情報:
+- cardqa_st_33 (ST33-004 ボルサリーノ): 「相手の効果で自分の手札が捨てられている場合、そのターン中
+  手札のこのカードはコスト-3されますか？」→「はい、コスト-3されます」
+- cardqa_op_14 (OP14-045 クロオビ / OP14-049 ジンベエ): 「OP09-111 ブルック の【トリガー】効果など、
+  相手の効果で自分が手札を捨てた場合、このキャラは【速攻】を得ることはできますか？」→「はい、できます」
+
+**バグ**: 相手の手札を捨てる 3 primitive (`trash_opp_hand_random` / `force_opp_discard` /
+`opp_discard_own_choice`) が victim (= 手札の持ち主) の `hand_discarded_by_effect_this_turn` フラグを
+立てず、`on_self_hand_discarded` トリガーも発火していなかった。= 相手効果で手札を捨てられても
+ST33-004 のコスト-3 が効かず、OP14-045/049 の【速攻】も付かなかった (公式違反)。
+
+自己 discard 経路 (trash_self_hand_random / counter cost / 置換コスト等) は既に発火していたので、
+Python↔Rust 差分でも自己参照 audit でも沈黙していた領域 = 公式 Q&A のみが検出できた。
+
+**是正 (Py+Rust)**: 3 primitive すべてで discard 後に victim 視点の
+`trigger_on_self_hand_discarded(state, opp, me, self_inplay, moved, ...)` を発火。
+- Python: 各 primitive に moved カウンタを足して発火 (人間選択 deferred 経路も `_opp_hand_picks` 付きで
+  再入するので 1 箇所で覆える)。
+- Rust: `me_board_has_when(opp_idx, "on_self_hand_discarded")` なら Python に委ねて bail、
+  そうでなければ flag のみ立てる (= flag-only ケースは Rust 一致、cascade は Python 権威)。
+- 影響: 発生源カード = trash_opp_hand_random 8 枚 + opp_discard_own_choice 36 枚 (計44)。
+  消費側 = on_self_hand_discarded 4 base (OP12-040 クザン / OP14-045 / OP14-049 / OP14-056) +
+  flag 読取り ST33-004。 一般則 1 箇所修正で全カバー。
+- 全走査ガード: `test_opp_effect_hand_discard_sets_victim_flag_all_primitives` が 3 primitive を
+  網羅して flag を assert (取りこぼし再発防止)。
+- ⚠ `opp_hand_to_deck_bottom` はトラッシュでなくデッキ下移動 = 「捨てられた」ではないので発火しない
+  (書き分け維持、正しい)。
+
+### fixed 2 (engine): 「自分のドン‼すべてがレスト」は付与ドンがあれば不成立
+一次情報 cardqa_op_02 (OP02-027 イヌアラシ): 「自分のキャラやリーダーにドン‼が付与されている場合、
+『自分のドン‼すべてがレストの場合』の条件を満たすことはできますか？」→「いいえ、できません」
+
+**バグ**: overlay は `self_don_active_eq: 0` (コストエリアのアクティブドンのみ 0 判定) を「全ドンレスト」の
+proxy にしていたが、これは**付与ドンを無視**する。アクティブドン0でキャラ/リーダーに付与ドンがある局面で
+条件が成立してしまい、OP02-027 が相手効果で除去されなくなっていた (本来は除去可能=公式違反)。
+
+**是正 (Py+Rust)**: 新条件 `self_all_don_rested` を追加 (`me.don_active == 0` **かつ**
+リーダー+全キャラの付与ドン合計 == 0)。付与ドンはレスト状態ではないので 1 枚でもあれば不成立。
+overlay OP02-027 を `self_don_active_eq:0` → `self_all_don_rested:true` に更新。使用カードは OP02-027 のみ。
+回帰: `test_self_all_don_rested_false_when_don_attached` / `test_op02_027_overlay_uses_self_all_don_rested`。
+
+### escalated (要人間レビュー)
+- **OP05-098 エネル** (cardqa_op_05): ライフ1枚→ダメージ→そのライフが威国(OP03-118)のトリガーで
+  ライフ0→1に戻った場合でも【相手のターン中】「ライフが0枚になった時」は発動できる(公式=はい)。
+  `on_self_life_zero` が「0になった瞬間の事象」として発火するか、威国トリガー解決後の現在ライフ(=1)で
+  条件が評価され不発にならないかの trigger 順序意味論。威国トリガー+ダメージ列の精緻なテスト構築が要り、
+  自信を持てないため escalated。
+- **OP05-001 サボ** (cardqa_op_05): 【相手のターン中】【ターン1回】5000以上KOされる代わりにパワー-1000
+  「できる」で、代わりの-1000をしないことを選んだ場合ターン1回は消費されず同ターン次の5000以上KOで再度
+  使える(公式=はい)。現 overlay は `replace_ko` + `cost:[once_per_turn]` で `optional:true` 未指定=強制
+  置換扱い。optional 化 + 「辞退時に once_per_turn を消費しない」意味論の実装は AI 選択モデルと絡み非自明。
+
+### conform (公式どおり = 是正不要、再調査回避のため記録、2026-08-09 #3)
+- **OP05-086 ネフェルタリ・ビビ** (cardqa_op_05): トラッシュ10枚以上の条件付き【ブロッカー】は
+  `on_attached_don n=0` 静的効果として `evaluate_static_effects` で毎回再評価。実測 trash10→付与, trash9→除去。
+- **EB02-015 ジュエリー・ボニー** (cardqa_eb_02): 【登場時】の `schedule_at_self_turn_end`(untap_don) は
+  `me.scheduled_at_self_turn_end` (player 保持) に予約され END phase で `self_inplay=None` flush。
+  キャラが場を離れても発動する。公式=はい。
+- **OP02-089/090** (cardqa_op_02): 【トリガー】「相手は自身のドンを戻す」(`return_opp_don`) は発動者でなく
+  持ち主(相手)が選ぶ。engine はレスト優先で返す=持ち主の最適選択(2026-08-07 是正済)。
+- **OP15-119 ルフィ** (cardqa_op_15): 「相手がイベントか【ブロッカー】を発動した時」= `opp_event_played` /
+  `on_opp_blocker_use`。EB03-031 レイジュがトラッシュのイベントの【メイン】効果を発動しても「イベント発動」
+  ではないので発火しない(2026-08-05 documented)。公式=いいえ。
+- **PRB02-006 ゾロ** (cardqa_prb_02): 置換レスト「代わりに自分の他のキャラ1枚をレストにできる」の対象に
+  「レストにできない」キャラは選べない(レストにできない=レスト行動全部不可、置換は有効な対象が要る)。公式=いいえ。
+- **ST36-002 キラー** (cardqa_st_36): 【自分のターン中】【登場時】は overlay conditions に `self_turn:true`。
+  相手のターン中に(トリガーで)登場しても on_play の 登場時 は発火しない。公式=いいえ。
+- **ST34-004 リンリン** (cardqa_st_34): 【登場時】ドン-4,手札1枚捨てる：の `optional_cost_then` は
+  payability gated。手札がこのカードのみ→登場後 手札0→discard cost 払えず効果不発(実測ログ「不発(cost不能)」)。公式=いいえ。
+- **OP01-088 砂漠の宝刀** (cardqa_op_01): デッキ上3枚を見て並べ替え上か下 (`look_top_reorder to:choice`)。
+  engine は3枚をまとめて配置し分割(1枚上2枚下)しない=公式「まとめて上か下」どおり。公式=いいえ(分割不可)。
+- **ST27-005 ティーチ** (cardqa_st_27): 【KO時】自分のトラッシュから黒カード1枚を手札に:KO後カードは
+  トラッシュにあり自身(黒)を対象にできる(実測 `trash_to_hand`)。公式=はい。
+- **OP15-025 クロ** (cardqa_op_15): 【登場時】相手ドン付与(まで)+その後ターン終了時の2節は独立。
+  前段でドンを付与しなくても後段の `schedule_at_self_turn_end` は独立に予約・発動。公式=はい。
+- **OP15-080 オーズ** (cardqa_op_15): +7000条件「パワー10000以上のゲッコー・モリアがいて」は
+  `self_chara_filtered_count_ge`(キャラのみ)で判定。全カード名を持つリーダーはキャラでないので数えず
+  +7000されない。公式=いいえ。
+
+### n/a (engine 状態変化に一意に落ちない)
+- OP10 (cardqa_op_10): 「デッキに何枚でも入れられる」テキストをトリガーで無効化しても対戦中の盤面には影響しない
+  (公式も「その対戦には影響しません」)。
+- OP06 (cardqa_op_06): 【トリガー】効果発動時にそのカードが場に登場するかの定義質問(→登場しない)。
+
+### ⚠ 観測 (要フォロー、別途)
+- **OP10-116 電磁砲**: 【メイン】overlay の `do` が `ko` のみで、前段「自分か相手のライフの上から1枚までを見て、
+  ライフの上か下に置く」scry 節を省略している。FAQ 裁定自体(KO可否)は conform だが、公式テキスト忠実主義の
+  観点で scry 節の実装が別途要る (情報効果 + face-up 維持がライフトリガーに影響しうる)。
+- **OP15-080 オーズ**: +7000 の overlay 条件 filter が `{name:ゲッコー・モリア}` のみで、公式の
+  「パワー10000以上」制約が欠落している可能性 (FAQ #20 自体は leader 除外で conform だが、通常のパワー<10000の
+  モリアで誤発動しないか別途要確認)。

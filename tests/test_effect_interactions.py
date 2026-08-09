@@ -7768,3 +7768,100 @@ def test_op02_089_trigger_don_return_gate():
     raw = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
     trig = next(e for e in raw["OP02-089"] if e.get("when") == "trigger")
     assert trig.get("if") == {"opp_don_count_ge": 6}, "OP02-089 トリガーの opp_don_count_ge gate 欠落"
+
+
+# --------------------------------------------------------------------------- #
+#  L. 相手の効果で自分の手札が捨てられた時も on_self_hand_discarded / flag は発火する
+#     公式 (cardqa_st_33 / cardqa_op_14):
+#       「相手の効果で自分の手札が捨てられている場合、そのターン中手札のこのカードは
+#         コスト-3されますか？」→「はい、コスト-3されます」(ST33-004 ボルサリーノ)
+#       「相手の効果 (OP09-111 ブルック の【トリガー】等) で自分が手札を捨てた場合、
+#         このキャラは【速攻】を得ることはできますか？」→「はい、できます」(OP14-045 クロオビ)
+#     2026-08-09: trash_opp_hand_random / force_opp_discard / opp_discard_own_choice が
+#       victim (= 手札の持ち主) の hand_discarded_by_effect_this_turn を立てず、
+#       on_self_hand_discarded トリガーも発火していなかった一般則バグを是正。
+# --------------------------------------------------------------------------- #
+def _fresh_state_with_opp_hand(repo, overlay, opp_hand_n=4):
+    st = _state(repo, overlay)
+    st.players[1].hand = [repo.get(_FILLER)] * opp_hand_n
+    return st
+
+
+def test_opp_effect_hand_discard_sets_victim_flag_all_primitives():
+    """相手手札を捨てる 3 primitive すべてが victim の hand_discarded フラグを立てる。
+
+    バグ回帰: 修正前は 3 primitive とも flag=False のまま = ST33-004 のコスト-3 が効かず、
+    OP14-045 クロオビ の【速攻】も発火しなかった。 全走査で取りこぼしを防ぐ。
+    """
+    repo, overlay = _repo(), _overlay()
+    for prim in ({"trash_opp_hand_random": 2},
+                 {"force_opp_discard": 1},
+                 {"opp_discard_own_choice": 2}):
+        st = _fresh_state_with_opp_hand(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        assert opp.hand_discarded_by_effect_this_turn is False
+        execute_effect(prim, st, me, opp, me.leader)
+        assert opp.hand_discarded_by_effect_this_turn is True, (
+            f"{list(prim)[0]}: 相手効果の手札破棄で victim の hand_discarded フラグが立たない")
+
+
+def test_op14_045_gains_rush_when_opponent_discards_my_hand():
+    """OP14-045 クロオビ は相手効果で自分の手札が捨てられた時に【速攻】を得る。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    # 自分 (P0) の場に登場したての クロオビ (召喚酔い) を置く。
+    kurobi = InPlay.of(repo.get("OP14-045"), sickness=True)
+    me.characters = [kurobi]
+    me.hand = [repo.get(_FILLER)] * 3
+    assert kurobi.summoning_sickness is True
+    # 相手 (P1) の効果が P0 の手札を捨てさせる (= me=opp 視点で trash_opp_hand_random)。
+    # 発動者は opp、 対象は me。
+    execute_effect({"trash_opp_hand_random": 1}, st, opp, me, opp.leader)
+    assert me.hand_discarded_by_effect_this_turn is True
+    # クロオビ が【速攻】を得て 召喚酔いでもアタック可能になっている。
+    kws = set(getattr(kurobi, "granted_keywords", set()) or []) \
+        | set(getattr(kurobi, "static_granted_keywords", set()) or [])
+    assert "速攻" in kws, f"クロオビ が速攻を得ていない (granted={kws})"
+
+
+# --------------------------------------------------------------------------- #
+#  M. 「自分のドン‼すべてがレストの場合」 は 付与ドンが 1 枚でもあれば不成立
+#     公式 (cardqa_op_02): 「自分のキャラやリーダーにドン‼が付与されている場合、
+#       『自分のドン‼すべてがレストの場合』の条件を満たすことはできますか？」
+#       →「いいえ、できません」(OP02-027 イヌアラシ)
+#     2026-08-09: self_don_active_eq:0 (コストエリアのアクティブドンのみ判定) は付与ドンを
+#       無視して条件成立させていた。 self_all_don_rested (active0 かつ 付与ドン0) を新設。
+# --------------------------------------------------------------------------- #
+def test_self_all_don_rested_false_when_don_attached():
+    """付与ドンがあると self_all_don_rested は False (アクティブドン0でも)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    inu = InPlay.of(repo.get("OP02-027"), sickness=False)
+    me.characters = [inu]
+    me.don_active = 0
+    me.don_rested = 3
+    cond = {"self_all_don_rested": True}
+    # 付与ゼロ → 全ドンレスト成立
+    assert eval_condition(cond, st, me, inu) is True
+    # キャラに 1 枚付与 → 不成立 (バグ回帰: 修正前は True のまま)
+    inu.attached_dons = 1
+    assert eval_condition(cond, st, me, inu) is False
+    # リーダーに付与でも不成立
+    inu.attached_dons = 0
+    me.leader.attached_dons = 1
+    assert eval_condition(cond, st, me, inu) is False
+    # アクティブドンが残っていても不成立
+    me.leader.attached_dons = 0
+    me.don_active = 1
+    assert eval_condition(cond, st, me, inu) is False
+
+
+def test_op02_027_overlay_uses_self_all_don_rested():
+    """OP02-027 の overlay は self_don_active_eq でなく self_all_don_rested を使う。"""
+    import json as _json
+    raw = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    ent = raw["OP02-027"][0]
+    assert "self_all_don_rested" in ent.get("if", {}), "OP02-027 が self_all_don_rested 未使用"
+    assert "self_don_active_eq" not in ent.get("if", {}), "旧 self_don_active_eq が残存"

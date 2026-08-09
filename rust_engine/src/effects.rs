@@ -663,6 +663,14 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
             "self_don_active_ge" => (me.don_active as i64) >= v.as_i64().unwrap_or(0),
             "self_don_active_le" => (me.don_active as i64) <= v.as_i64().unwrap_or(0),
             "self_don_active_eq" => (me.don_active as i64) == v.as_i64().unwrap_or(0),
+            // 「自分のドン‼すべてがレストの場合」 (cardqa_op_02、 OP02-027)。 コストエリアの
+            // アクティブドン 0 かつ キャラ/リーダーへの付与ドンが 0 (付与ドンはレストではない)。
+            "self_all_don_rested" => {
+                let attached = me.leader.attached_dons
+                    + me.characters.iter().map(|c| c.attached_dons).sum::<i32>();
+                let all_rested = me.don_active == 0 && attached == 0;
+                v.as_bool().unwrap_or(true) == all_rested
+            }
             // on_self_don_returned_to_deck で「一度に N 枚以上戻された」 (effects.py:1370、 OP09-061/EB02-035/P-077)。
             // don 返却 primitive が state.last_returned_don_count に保存。
             "returned_don_count_ge" => (state.last_returned_don_count as i64) >= v.as_i64().unwrap_or(0),
@@ -5966,6 +5974,10 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             };
             // 人間相手の pick は Python が pending_choice で halt するので、 ここには
             // AI 経路 (= 選択の余地なし or AI 所有) だけが来る。 picks 注入経路も同順で処理。
+            // 「相手は自身の手札を捨てる」= 持ち主 (opp) が捨てる → その opp 視点で
+            // 「効果で手札が捨てられた」を発火 (Python trigger_on_self_hand_discarded(opp,…))。
+            // cascade を要する場合は Python に委ねて bail (flag のみ Rust で立てる)。
+            let mut moved = 0i32;
             if let Some(picks) = v.get("_opp_hand_picks").and_then(|x| x.as_array()) {
                 let mut idxs: Vec<usize> = picks
                     .iter()
@@ -5979,7 +5991,14 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     if i < o.hand.len() {
                         let c = o.hand.remove(i);
                         o.trash.push(c);
+                        moved += 1;
                     }
+                }
+                if moved > 0 {
+                    if me_board_has_when(state, opp_idx, "on_self_hand_discarded") {
+                        return false;
+                    }
+                    state.players[opp_idx].hand_discarded_by_effect_this_turn = true;
                 }
                 return true;
             }
@@ -5991,6 +6010,13 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 let Some(i) = worst_hand_idx(&o.hand, &o.known_hand_card_ids) else { break };
                 let c = o.hand.remove(i);
                 o.trash.push(c);
+                moved += 1;
+            }
+            if moved > 0 {
+                if me_board_has_when(state, opp_idx, "on_self_hand_discarded") {
+                    return false;
+                }
+                state.players[opp_idx].hand_discarded_by_effect_this_turn = true;
             }
             true
         }
@@ -8173,6 +8199,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             } else {
                 v.as_i64().unwrap_or(1)
             };
+            let mut moved = 0i32;
             for _ in 0..n {
                 if state.players[opp_idx].hand.is_empty() {
                     break;
@@ -8181,6 +8208,17 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 let idx = state.rng_mut().randrange(len) as usize;
                 let c = state.players[opp_idx].hand.remove(idx);
                 state.players[opp_idx].trash.push(c);
+                moved += 1;
+            }
+            // 相手 (= 手札の持ち主 opp) 視点で「効果で手札が捨てられた」を発火する。
+            // Python: trigger_on_self_hand_discarded(opp,…) が flag + on_self_hand_discarded cascade。
+            // 公式 cardqa: 相手効果の手札破棄でも ST33-004 のコスト-3 / OP14-045【速攻】は発動する。
+            // cascade を要する (opp 場に on_self_hand_discarded がある) 場合は Python に委ねて bail。
+            if moved > 0 {
+                if me_board_has_when(state, opp_idx, "on_self_hand_discarded") {
+                    return false;
+                }
+                state.players[opp_idx].hand_discarded_by_effect_this_turn = true;
             }
             true
         }
