@@ -3659,7 +3659,10 @@ KOしない (base 効果が消失) (b) trash>=15 でも cost4 しかKOできず 
 
 ## 「キャラの効果で登場」 の source 帰属 (2026-08-07) / コスト由来トリガー順は差し戻し
 
-### ① OP14-080 — コスト由来トリガーの解決順 (**実装したが差し戻した = escalated**)
+### ① OP14-080 — コスト由来トリガーの解決順 (**当時は差し戻し = escalated。 2026-08-09 に解消済**)
+
+> ⚠ 以下は 2026-08-07 時点の記録。 **最終的な解決は本ファイル末尾の
+> 「OP14-080 コスト由来トリガーの解決順 — 6 度目で解消」 を参照**。
 
 一次情報 (`cardqa_op_14`): 「この【起動メイン】効果でKOした自分のキャラが【KO時】効果を
 持っていた場合、 それは発動できますか？」 → 「はい。 **『…パワー+1000。』を実行した後で**、
@@ -3911,6 +3914,11 @@ inline 発火ブロックを置換する際、 **`assert old in s` を付け忘�
 
 **この項目は 「KO トリガーと field-when の解決モデルを両エンジンで揃える」 という
 独立したリファクタとして扱うべきで、 conformance バッチの片手間では終わらない。**
+
+> ⭐ **後日談 (2026-08-09)**: この結論は **半分外れた**。 モデルを揃える必要はあったが、
+> 揃える先は 「Rust もキューに積む」 ではなく 「**Rust はキューを介さず、 支払い時に反応集合を
+> snapshot して do の後に発火する**」 だった (= drain 時走査という粒度差の発生源そのものを消す)。
+> 詳細は本ファイル末尾の 6 度目の記録。
 
 ## 効果でKOされないキャラは 自KO **コスト** の弾にできない (2026-08-07 是正、 cardqa_op_05)
 
@@ -4486,3 +4494,73 @@ state の transient に置いて即クリアすると、 ネスト解決では�
 ⚠ 逆に payload 化した後も **state 側の即クリアは残す**。 消し忘れると `last_discard_count` が
 後続イベントに漏れ、 無関係な `draw_per_self_hand_discarded` が誤発火する
 (実際にこれで MISMATCH 411 件を出し、 パリティハーネスが検出した)。
+
+---
+
+## OP14-080 コスト由来トリガーの解決順 — **6 度目で解消 (2026-08-09)。 escalated 0 件に**
+
+**一次情報** (`cardqa_op_14`、 OP14-080 ゲッコー・モリア):
+
+> Q: 「この【起動メイン】効果でKOした自分のキャラが【KO時】効果を持っていた場合、
+>     それは発動できますか？」
+> A: 「はい、できます。この場合、『自分のリーダーとキャラすべてを、このターン中、
+>     パワー+1000。』を **実行した後で**、そのキャラの【KO時】効果が発動します。」
+
+裏づけ (総合ルール `db/rules/rule_comprehensive_20260109.pdf`):
+**8-4-1-3** 発動コストを支払う → **8-4-1-4** 効果を発動する → **8-4-1-5** 効果を解決する。
+**8-6-1-1** 先に発動タイミングを満たした効果の解決中に別の効果が発動タイミングを満たした場合、
+その効果は **後から** 発動し解決する。
+
+### 何が壊れていたか
+
+engine は 【起動メイン】 のコストを `apply_action` 直下 (= `resolve_triggers` の **外**) で払う。
+コスト由来の `trigger_on_ko` が `_maybe_resolve` を呼ぶと `resolving=False` なので **その場で
+ドレイン** され、 本体 (パワー+1000) より **先に**【KO時】が解決していた。
+観測できる差: 【KO時】でトラッシュから登場したキャラが +1000 を受け取ってしまう
+(= 発動時点のスナップショットのはずの pump に、 後から出たキャラが乗る)。
+
+⚠ 他の cost (【アタック時】/【登場時】/【ターン終了時】/カウンター) は `_execute_event` の中
+(= resolving 中) で払われるので、 元から 「本体の do の後」 に解決される = この不具合は
+**起動メイン専用**。
+
+### 直し方 (過去 5 回との違い)
+
+| | 過去 5 回 (2026-08-07、 いずれも差し戻し) | 今回 |
+|---|---|---|
+| Python | `_cost_trigger_buffer` (同じ) | 同じ。 ただし `fire_activate_main` を **薄いラッパ + inner** に分離し、 バッファの開閉を `finally` に集約 (人間 modal の早期 return 5 箇所を個別に閉じる必要が無くなった) |
+| Rust | on_ko を `__cost_on_ko` として **キューに積む** → `fire_field_when` が **drain 時に場を走査** するため、 Python の 「enqueue 時にカード単位スナップショット」 と粒度がズレて収束しなかった | **キューを介さない**。 `DeferredCostTrigger` (= 支払い時に反応集合 `toks` を snapshot し、 do-list の後に発火) にした = drain 時走査が **そもそも発生しない** |
+
+Rust 側の要点:
+1. `fire_on_ko` を 2 段に分離 — `note_ko_and_should_fire` (被KO数の加算 / 効果無効 gate /
+   overlay 有無 = **KO の瞬間に必ず起きる記録**) と `run_on_ko_effects` (do = **後回し**)。
+   分離しないと `chara_ko_taken_this_turn` の加算まで遅れて、 本体 do がその値を読む条件で乖離する。
+2. `fire_activate_main` の do-list を `rust_resolving = true` の文脈で実行する。 Python は本体を
+   enqueue して `resolve_triggers` の中で回すので、 **do 中に誘発した別カードはキュー末尾**。
+   Rust が inline drain していると 「本体 → nested → コスト由来」 になり Python
+   (「本体 → コスト由来 → nested」) と食い違う。
+3. コストの `pay_don` (= on_self_don_returned_to_deck) も同じ deferred に載せる。
+4. victim 文脈 (`last_chara_ko_victim_card`) は **本体の解決まで保持** し、 解決後に畳む
+   (Python 側もバッファ中は `trigger_on_self_chara_ko` でクリアしない)。 消すと deferred な
+   `victim_*` 条件が空振りする (= 4 度目の試行で見つけていた要因)。
+
+### 検証
+
+- 16 デッキ差分 `rust_parity_check`: **match 2114 / bail 1 / MISMATCH 0** (bail は OP15-114 の
+  `optional_cost_then` = 既知の未実装 1 件のみ、 増えていない)
+- 効果差分 `rust_effect_smoke_parity`: **match 5086 / bail 0 / MISMATCH 0** (= 効果あり 4,262 枚
+  すべて bit 一致を維持)
+- 回帰テスト: `tests/test_effect_interactions.py::test_activate_main_cost_ko_trigger_fires_after_the_effect`
+  (Python の順序) + `tests/test_rust_parity.py::test_rust_parity_activate_main_cost_ko_trigger_order`
+  (同じ盤面で Rust と digest 一致)
+
+### ⚠ 副産物: 計器の穴を 1 つ塞いだ
+
+`tests/test_engine_determinism.py` の Rust fidelity 3 本 (`test_rust_state_model_fidelity` /
+`test_rust_apply_don_fidelity` / `test_rust_apply_playcharacter_fidelity`) が
+**`eng.load_overlay` を呼んでいなかった**。 Rust の overlay は process global (OnceLock) なので、
+**他のテストが先に load した実行順でだけ** まともな比較になり、 単体実行では
+「**効果ゼロの Rust vs 効果ありの Python**」 を比べていた。 今回の変更で軌跡がズレた結果
+EndPhase digest 不一致として露見し、 発覚した。 3 本とも明示 load するよう是正。
+
+⭐ **教訓**: 差分ハーネスは 「比較していないこと」 を成功として報告しうる
+(= `static_skip` / `py_skip` を数える話と同型)。 **オラクルを読み込み忘れた比較は常に通る**。

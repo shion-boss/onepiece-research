@@ -7401,3 +7401,74 @@ def test_op12_057_trigger_discard_feeds_navy_leader_draw():
         "海軍リーダー クザン なら トリガーの1枚 + クザンの1枚 = 2枚 引くはず (cardqa_op_12)"
     )
     assert run("OP01-001") == 1, "非海軍リーダーなら トリガーの1枚だけ"
+
+
+def test_activate_main_cost_ko_trigger_fires_after_the_effect():
+    """発動コストの支払いで誘発した【KO時】は **本体を解決した後** に発動する。
+
+    一次情報 (cardqa_op_14、 OP14-080 ゲッコー・モリア):
+      Q「この【起動メイン】効果でKOした自分のキャラが【KO時】効果を持っていた場合、
+        それは発動できますか？」
+      A「はい、できます。この場合、『自分のリーダーとキャラすべてを、このターン中、
+        パワー+1000。』を **実行した後で**、そのキャラの【KO時】効果が発動します。」
+
+    公式 8-4-1-3〜8-4-1-5 (コスト支払い → 発動 → 解決) の順序。 engine は コスト支払い中の
+    enqueue を即ドレインしており **順序が逆** だった (= 【KO時】で登場したキャラまで +1000 を
+    受けていた)。 _cost_trigger_buffer で本体 enqueue の後にコスト由来を流すよう是正。
+
+    観測点: KO時 (OP14-110 ホグバック) がトラッシュから登場させたキャラが +1000 を **受けない**
+    (= パワー加算は既に解決済)。 ※【起動メイン】の +1000 が 「発動時点のキャラのみ」 の
+    スナップショットであることは docs/official_rulings.md に既記載。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP14-080")   # ゲッコー・モリア
+    me, opp = st.players[0], st.players[1]
+    hogback = InPlay.of(repo.get("OP14-110"), sickness=False)  # 特徴 スリラーバーク海賊団 + 【KO時】登場
+    me.characters = [hogback]
+    me.trash = [repo.get("OP14-102")]                # クマシー (cost1/2000、【トリガー】持ち = 登場候補)
+
+    source, eff = list_activate_main_effects(st, me, overlay)[0]
+    fire_activate_main(st, me, opp, source, eff)
+
+    assert me.leader.power == 6000, "リーダーが +1000 を受けていない (本体が解決していない)"
+    assert [c.card.card_id for c in me.characters] == ["OP14-102"], \
+        "【KO時】でトラッシュのクマシーが登場していない"
+    assert me.characters[0].power == 2000, (
+        "コスト由来の【KO時】で登場したキャラが +1000 を受けている = "
+        "【KO時】が本体より先に解決している (cardqa_op_14 / OP14-080 違反)"
+    )
+
+
+def test_activate_main_cost_ko_trigger_order_survives_human_modal():
+    """同上 (cardqa_op_14) を **人間のコスト対象選択 modal を跨いで** 保証する。
+
+    コスト由来トリガーの退避バッファは 「モーダルで中断 → 選択 → 再入」 を跨いで生き残る
+    必要がある (= 過去の実装試行が繰り返し落ちた経路)。 閉じ忘れると 全トリガーが止まり、
+    早く閉じると 【KO時】 が本体より先に解決する。
+
+    観測点: 発動時に場に居た キャラ は +1000 を受け、 【KO時】 で **後から登場した** キャラは
+    受けない。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP14-080", human_idx=0)
+    me, opp = st.players[0], st.players[1]
+    hogback = InPlay.of(repo.get("OP14-110"), sickness=False)
+    kumacy = InPlay.of(repo.get("OP14-102"), sickness=False)   # 特徴 スリラーバーク海賊団 = KO 候補にもなる
+    me.characters = [hogback, kumacy]
+    me.trash = [repo.get("OP14-102")]
+
+    source, eff = list_activate_main_effects(st, me, overlay)[0]
+    fire_activate_main(st, me, opp, source, eff)
+    assert st.pending_choice is not None, "候補 2 枚なのに人間の自KO対象 modal が出ていない"
+    assert st.pending_choice["cost_kind"] == "ko_self_with_filter"
+
+    resolve_pending_choice(st, [0])   # ホグバック を KO 対象に選ぶ
+
+    assert st.pending_choice is None
+    assert not st.event_queue, "トリガーキューが残っている (= バッファを閉じ忘れ)"
+    assert me.leader.power == 6000
+    powers = [c.power for c in me.characters]
+    assert powers == [3000, 2000], (
+        f"powers={powers}: 発動時に居たキャラは 2000+1000、【KO時】で登場したキャラは素の 2000 "
+        f"のはず (cardqa_op_14 / OP14-080)"
+    )

@@ -140,3 +140,50 @@ def _deck_exists(slug: str) -> bool:
     import pathlib as _pl
 
     return (_pl.Path(__file__).resolve().parents[1] / "decks" / f"{slug}.json").exists()
+
+
+def test_rust_parity_activate_main_cost_ko_trigger_order():
+    """発動コスト由来の【KO時】は本体解決後 (cardqa_op_14 / OP14-080) — Rust も bit 一致か。
+
+    16 デッキ差分ではこの局面 (自KOコスト + 【KO時】持ちの弾 + 反応する場) が毎回出るとは
+    限らないので、 盤面を直接組んで両エンジンに同じ ActivateMain を適用し digest を比べる。
+    ⚠ Rust が 「解決順が違うのに黙って進む」 と MISMATCH、 未実装なら Err (= bail) になる。
+    """
+    import json
+    import random
+
+    import optcg_engine as eng
+
+    import scripts.rust_parity_check as P
+    from engine.core import GameState, InPlay, Phase, Player, reset_iid
+    from engine.effects import list_activate_main_effects
+    from engine.game import ActivateMain, apply_action
+    from engine.state_snapshot import full_dump, state_digest
+
+    repo, ov = P._load()
+    reset_iid()
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP14-080"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    for p in (p0, p1):
+        p.deck = [repo.get("OP01-013")] * 25
+        p.life = [repo.get("OP01-013")] * 3
+    p0.characters = [InPlay.of(repo.get("OP14-110"), sickness=False)]  # 【KO時】trash→登場
+    p0.trash = [repo.get("OP14-102")]
+    st = GameState(players=[p0, p1], phase=Phase.MAIN, rng=random.Random(1), effects_overlay=ov)
+    st.turn_player_idx, st.turn_number = 0, 9
+
+    cands = list_activate_main_effects(st, p0, ov)
+    assert cands, "OP14-080 の起動メインが候補に出ていない (前提崩れ)"
+    src, eff = cands[0]
+    eff_index = next(i for i, e in enumerate(ov[src.card.card_id].effects) if e is eff)
+    dump = json.dumps(full_dump(st))
+    act = ActivateMain(source_iid=src.instance_id, effect_index=eff_index)
+    action = P._enc(st, act)
+    assert action["t"] == "ActivateMain", f"action encode 失敗: {action}"
+
+    apply_action(st, act)
+    assert st.pending_choice is None
+    dr = eng.apply_action_digest(dump, json.dumps(action))   # Err (bail) なら例外 = テスト失敗
+    assert dr == state_digest(st), (
+        "コスト由来【KO時】の解決順で Python↔Rust が乖離 (cardqa_op_14 / OP14-080)"
+    )

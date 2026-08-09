@@ -162,19 +162,50 @@ def enqueue_event(
 ) -> None:
     """トリガーをキューに追加。 resolve_triggers を別途呼ぶ必要あり。
 
-    ⚠ **未解決**: 公式はコスト支払い中に誘発したトリガーを **現在の効果の解決後** に
-      発動させる (cardqa_op_14 / OP14-080)。 engine は即ドレインしており順序が逆。
-      詳細と差し戻しの経緯は docs/official_rulings.md を参照 (escalated)。
+    ⚠ 起動メインの **発動コスト支払い中** (= `_cost_trigger_buffering`) は キュー ではなく
+      バッファ に積む。 公式 8-4-1-3〜8-4-1-5 + cardqa_op_14 (OP14-080): コストの支払いで
+      発動タイミングを満たした効果は、 **その起動効果を解決した後** に発動する。
+      バッファは 起動メイン本体を enqueue した直後に キュー末尾へ流す (= 本体が先、
+      コスト由来が後)。 詳細は docs/official_rulings.md。
     """
-    state.event_queue.append(
-        TriggerEvent(
-            when=when,
-            owner_idx=owner_idx,
-            source_card_id=source_card_id,
-            source_iid=source_iid,
-            payload=payload or {},
-        )
+    evt = TriggerEvent(
+        when=when,
+        owner_idx=owner_idx,
+        source_card_id=source_card_id,
+        source_iid=source_iid,
+        payload=payload or {},
     )
+    if getattr(state, "_cost_trigger_buffering", False):
+        state._cost_trigger_buffer.append(evt)
+        return
+    state.event_queue.append(evt)
+
+
+# --- 発動コスト由来トリガーのバッファ (公式 8-4-1-3〜5 / cardqa_op_14) ------------- #
+# 起動メインだけは 「コスト支払い」 が resolve_triggers の外 (= apply_action 直下) で走るため、
+# 素直に enqueue すると コスト由来トリガーが 本体より先に ドレインされてしまう。 支払い中の
+# enqueue を退避し、 本体 enqueue の後で キューへ流すことで 公式の順序を作る。
+# (【アタック時】/【登場時】/【ターン終了時】 等のコストは _execute_event の中 = resolving 中に
+#  払われるので、 元から 本体 do の後に解決される = ここの対象外)
+def _cost_trigger_buffer_begin(state: GameState) -> None:
+    """コスト支払いの開始。 resume (= 人間 modal 解決後の再入) では既存バッファを引き継ぐ。"""
+    if getattr(state, "_cost_trigger_buffer", None) is None:
+        state._cost_trigger_buffer = []
+    state._cost_trigger_buffering = True
+
+
+def _cost_trigger_buffer_pause(state: GameState) -> None:
+    """バッファリングだけ止める (= 以降の enqueue は通常どおりキューへ)。 バッファは保持。"""
+    state._cost_trigger_buffering = False
+
+
+def _cost_trigger_buffer_flush(state: GameState) -> None:
+    """バッファをキュー末尾へ流して閉じる。"""
+    state._cost_trigger_buffering = False
+    buf = getattr(state, "_cost_trigger_buffer", None)
+    if buf:
+        state.event_queue.extend(buf)
+    state._cost_trigger_buffer = []
 
 
 def _pop_next_event(state: GameState) -> Optional[TriggerEvent]:
@@ -11578,6 +11609,9 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             # 0 件 選択 (= 人間 が skip 試みた): cost 払い 不能 で activate_main 全体 中止
             state.pending_choice = None
             state.push_log(f"  起動メインコスト: {cost_kind} 選択 なし → 中止")
+            # 既に払った分のコスト由来トリガー (= バッファ保持中) は取りこぼさず流す
+            _cost_trigger_buffer_flush(state)
+            _maybe_resolve(state)
             return
         picked_cand = candidates[valid_picks[0]]
         # cost_picks に inject (= prior に 重ねる)
@@ -11603,10 +11637,14 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
                 break
         if inplay is None or effect_index is None:
             state.pending_choice = None
+            _cost_trigger_buffer_flush(state)
+            _maybe_resolve(state)
             return
         bundle = state.effects_overlay.get(inplay.card.card_id) if state.effects_overlay else None
         if bundle is None or effect_index >= len(bundle.effects):
             state.pending_choice = None
+            _cost_trigger_buffer_flush(state)
+            _maybe_resolve(state)
             return
         eff = bundle.effects[effect_index]
         state.pending_choice = None
@@ -13715,7 +13753,11 @@ def trigger_on_self_chara_ko(
         state.last_chara_ko_victim_card = victim_card
     _enqueue_field_when(state, victim_owner, "on_self_chara_ko", effects_overlay)
     _maybe_resolve(state)
-    state.last_chara_ko_victim_card = None
+    # ⚠ 起動メインのコスト支払い中 (バッファ有効) は **まだ解決していない** ので victim 文脈を
+    #   消さない。 消すと deferred な【KO時】/「自分のキャラがKOされた時」 の victim_* 条件が
+    #   空振りする。 クリアは fire_activate_main が解決後に行う。
+    if not getattr(state, "_cost_trigger_buffering", False):
+        state.last_chara_ko_victim_card = None
 
 
 def trigger_on_self_chara_leave_by_opp_effect(
@@ -13735,7 +13777,8 @@ def trigger_on_self_chara_leave_by_opp_effect(
         state.last_chara_ko_victim_card = victim_card
     _enqueue_field_when(state, victim_owner, "on_self_chara_leave_by_opp_effect", effects_overlay)
     _maybe_resolve(state)
-    state.last_chara_ko_victim_card = None
+    if not getattr(state, "_cost_trigger_buffering", False):
+        state.last_chara_ko_victim_card = None
 
 
 def trigger_opp_event_or_trigger_fired(
@@ -14532,7 +14575,11 @@ def trigger_on_ko(
         )
         _maybe_resolve(state)
     finally:
-        state._on_ko_victim_attached_don = prev_vdon
+        # ⚠ コスト支払い中 (バッファ有効) は 解決が後回しなので、 付与ドン文脈も後まで残す
+        #   (= self_attached_don_ge が deferred な【KO時】で 0 に見えるのを防ぐ)。
+        #   クリアは fire_activate_main が解決後に行う。
+        if not getattr(state, "_cost_trigger_buffering", False):
+            state._on_ko_victim_attached_don = prev_vdon
 
 
 def trigger_on_life_zero(
@@ -15310,6 +15357,43 @@ def fire_activate_main(
     eff: EffectSpec,
     cost_picks: Optional[dict[str, int]] = None,
 ) -> None:
+    """起動メインの発火 (公式 8-4-1-3〜8-4-1-5 の順序ラッパ)。
+
+    発動コストの支払いで発動タイミングを満たした効果 (= 自KOコストの【KO時】等) は、
+    **この起動効果を解決した後** に発動する (cardqa_op_14 / OP14-080:
+    「『自分のリーダーとキャラすべてを、このターン中、パワー+1000。』 を実行した後で、
+      そのキャラの【KO時】効果が発動します」)。 支払い中の enqueue をバッファへ退避し、
+    本体を enqueue した直後にキューへ流すことで この順序を作る。
+
+    ⚠ 人間 modal (= コスト対象選択待ち) で中断した場合はバッファを **開いたまま** 保持し、
+      resolve_pending_choice 経由の再入 (cost_picks 付き) で続きを積む。
+    """
+    _cost_trigger_buffer_begin(state)
+    try:
+        _fire_activate_main_inner(state, me, opp, inplay, eff, cost_picks)
+    finally:
+        if state.pending_choice is None:
+            _cost_trigger_buffer_flush(state)
+    if state.pending_choice is not None:
+        return  # 選択待ちで中断 = 本体未 enqueue。 バッファは resume 時に引き継ぐ
+    _maybe_resolve(state)
+    # コスト由来の【KO時】文脈 (victim) はバッファ中クリアしないので、 解決後にここで畳む
+    # (= 通常経路も action 境界では None なので no-op)。
+    # ⚠ 人間の対象選択待ちで drain が中断した場合は **まだ解決中** なので残す
+    #   (resolve_pending_choice が続きを流す)。
+    if state.pending_choice is None:
+        state.last_chara_ko_victim_card = None
+        state._on_ko_victim_attached_don = 0
+
+
+def _fire_activate_main_inner(
+    state: GameState,
+    me: Player,
+    opp: Player,
+    inplay: InPlay,
+    eff: EffectSpec,
+    cost_picks: Optional[dict[str, int]] = None,
+) -> None:
     """起動メインの発火。 コストは同期支払い、 効果は enqueue (= effect_indexes payload 経由)。
 
     一度コストを払ったら効果実行は再評価せず必ず行う (= eval_condition は skip 可能)。
@@ -15751,6 +15835,9 @@ def fire_activate_main(
     if eff_idx is None:
         return
     me_idx = state.players.index(me)
+    # ⚠ 本体は **バッファではなくキュー** へ積む (= コスト由来トリガーより前に置く)。
+    #   ドレインは呼出元ラッパ (fire_activate_main) が flush 後に 1 回だけ行う。
+    _cost_trigger_buffer_pause(state)
     enqueue_event(
         state,
         when="activate_main",
@@ -15759,4 +15846,3 @@ def fire_activate_main(
         source_iid=inplay.instance_id,
         payload={"effect_indexes": [eff_idx]},
     )
-    _maybe_resolve(state)

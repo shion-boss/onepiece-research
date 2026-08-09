@@ -33,6 +33,24 @@ Rust に同じ意味論を実装すれば解消できる (= 追従課題)。
    **OP08-046 の 1 枚だけ** (OP07-038 は LEADER = 離場しない、 OP08-056 は STAGE で
    when が 「キャラが」 を見る) なので影響は極小。
 
+### ⚠ 既知の未追従 (= bail でも MISMATCH でもなく **まだ計測できていない** 乖離、 2026-08-09)
+
+**【ターン終了時】の発動コスト由来トリガーの解決順**。 Python は `_pay_end_of_turn_cost` を
+`_execute_event` の中 (= `resolving=true`) で払うので、 コストで誘発した効果は
+**そのカードの do の後、 しかも 全ての end_of_turn カードを処理し終えた後** に解決する。
+Rust の `fire_field_when` は `rust_resolving` を立てずに走るため、 `pay_end_of_turn_cost` 内の
+`enqueue_field_when + maybe_resolve` が **その場でドレイン** し、 そのカードの do より先に走る。
+
+- 該当は **overlay 全走査で 2 枚だけ** (`OP09-068` / `OP16-073` = end_of_turn cost が `pay_don`)、
+  かつ 反応側 (`on_self_don_returned_to_deck` = EB02-035 / P-077) が同時に場に居る局面に限る。
+  EOT cost の `ko_self_with_filter` 分岐は **該当カード 0 枚** (実質デッドコード)。
+- 直す形は 【起動メイン】 と同じ (= 反応集合を支払い時に snapshot して do の後に発火)。
+  ⚠ ただし 「全 end_of_turn カードを処理し終えた後」 まで揃えるには `fire_field_when` を
+  `rust_resolving = true` で包み、 rules.rs の end_of_turn / opp_end_of_turn **2 呼び出しを
+  1 つの解決スコープ** にする必要がある (= 10 箇所以上の呼出に影響する広い変更)。
+- 現状 3 ハーネス (16 デッキ / 全カード合成 / 効果スモーク) は MISMATCH=0 だが、
+  **この局面を踏んでいないだけ** = 「測れていない」 であって 「一致している」 ではない。
+
 **⭐ bail 0 到達 (2026-08-04)**。 最後まで残っていた 2 primitive を実装した:
 - `schedule_self_return_to_deck_bottom_at_battle_end` (OP02-064 ボン・クレー)
 - `reveal_hand_play_split` (OP10-058 レベッカ)
@@ -132,6 +150,18 @@ RNG 依存効果は `rng.rs` (MT19937、 CPython `random` の bit 再現) を使
   stage on_play が draw/block_self_draw_turn より先に走りデッキを消費、 の 2 件で発覚)。
   `fire_life_trigger` は既にこのパターンで正しく実装されているので、 新しい when 発火経路を書く
   ときは **必ずそれを雛形にする**。
+- **【起動メイン】の発動コストで誘発したトリガーは 「本体の do の後」 に発火する** (公式
+  8-4-1-3〜8-4-1-5 + cardqa_op_14 / OP14-080、 2026-08-09)。 Python は
+  `_cost_trigger_buffer` (= 支払い中の enqueue を退避 → 本体 enqueue → キューへ流す)。
+  Rust は **キューを介さず** `DeferredCostTrigger` (`fire_activate_main` 内) —
+  支払い時に反応集合 (`snapshot_field_toks`) を snapshot し、 do-list の後に発火する。
+  ⚠ **キューに積む実装は 5 回失敗している**: Rust の `fire_field_when` は **drain 時に場を
+  走査** するので、 Python の 「enqueue 時にカード単位でスナップショット」 と粒度が食い違い、
+  cost → do → drain の間に盤面が動くと反応集合がズレる。 deferred snapshot はその差の
+  発生源自体を消す。 併せて **`fire_activate_main` の do-list は `rust_resolving = true` で
+  実行する** (Python は本体を enqueue して resolve_triggers の中で回す = do 中の誘発は
+  キュー末尾)。 KO の記録 (被KO数 / 効果無効 gate) は **即時**、 do だけ deferred
+  (`note_ko_and_should_fire` / `run_on_ko_effects` の 2 段分離)。
 - **field-when の「発火元カード無し」ヘルパーも inline 直呼びしない**: `fire_field_when(state, idx, when)`
   は即時スキャン+発火 (トップレベルから呼ぶ分には Python の enqueue+即 resolve と等価だが、
   ネストした do-list の中から呼ぶと上記と同じ理由で inline 発火してしまう)。 「自分の効果でライフが

@@ -10718,6 +10718,22 @@ pub fn fire_on_ko(
     victim_cid: &str,
     by_opp_effect: bool,
 ) -> Result<(), String> {
+    if !note_ko_and_should_fire(state, owner_idx, victim_cid, by_opp_effect) {
+        return Ok(());
+    }
+    run_on_ko_effects(state, owner_idx, victim_cid)
+}
+
+/// `fire_on_ko` の **前半** (= KO された瞬間に必ず起きる記録) だけを行い、【KO時】の do を
+/// 実行すべきかを返す。 起動メインの発動コストによる自KO (公式 8-4-1-3〜5 / cardqa_op_14) は
+/// **記録は即時・do は本体解決後** なので、 呼出側がこの 2 段を分けて使う。
+/// Python も trigger_on_ko で 「被KO数の加算 → 効果無効 gate → enqueue」 の順に分かれている。
+pub(crate) fn note_ko_and_should_fire(
+    state: &mut GameState,
+    owner_idx: usize,
+    victim_cid: &str,
+    by_opp_effect: bool,
+) -> bool {
     // 条件 by_opp_effect / by_battle 用 (Python は trigger_on_ko の引数を state に伝搬)。
     state.last_ko_by_opp_effect = by_opp_effect;
     // ⚠ このターンの被 KO 数は **全 KO 経路の共通フック** で数える (Python trigger_on_ko:13022 と
@@ -10729,14 +10745,25 @@ pub fn fire_on_ko(
     // 記録は note_ko_victim_negated が除去直前に行う。 読んだら必ず clear (次の KO に漏らさない)。
     let victim_negated = std::mem::take(&mut state.ko_victim_effect_negated);
     if victim_negated {
-        return Ok(());
+        return false;
     }
-    let Some(ov) = overlay() else { return Ok(()) };
-    let Some(effs) = ov.get(victim_cid) else { return Ok(()) };
+    let Some(ov) = overlay() else { return false };
+    let Some(effs) = ov.get(victim_cid) else { return false };
     if !effs.iter().any(|e| e.get("when").and_then(|v| v.as_str()) == Some("on_ko")) {
-        return Ok(());
+        return false;
     }
     crate::selfplay::note_fired(victim_cid);
+    true
+}
+
+/// `fire_on_ko` の **後半** (=【KO時】 do の実行)。 `note_ko_and_should_fire` が true を返した後に呼ぶ。
+pub(crate) fn run_on_ko_effects(
+    state: &mut GameState,
+    owner_idx: usize,
+    victim_cid: &str,
+) -> Result<(), String> {
+    let Some(ov) = overlay() else { return Ok(()) };
+    let Some(effs) = ov.get(victim_cid) else { return Ok(()) };
     // Python (trigger_on_ko) は on_ko を **enqueue** して _maybe_resolve を呼ぶ = do-list は
     // resolve_triggers の中 (resolving=true) で走る。 その間に do の中で登場したキャラの on_play
     // (play_from_hand_or_trash 等) は enqueue されるだけで後回しになる (= 手札走査ループの途中で
@@ -12341,6 +12368,12 @@ pub fn fire_activate_main(
     };
     // trash_self でこの起動源が場から除去されたか (= act_used マークを skip する為)。
     let mut source_gone = false;
+    // ⭐ 発動コストの支払いで誘発した効果は **本体の解決後** に発動する
+    //    (公式 8-4-1-3〜8-4-1-5 + cardqa_op_14 / OP14-080)。 Python は
+    //    `_cost_trigger_buffer` に退避して本体 enqueue の後でキューへ流す。 Rust は
+    //    「反応集合を支払い時に snapshot して、 do-list の後に発火」 で同じ順序を作る
+    //    (= Python の 「enqueue 時にカード単位でスナップショット」 と等価)。
+    let mut deferred: Vec<DeferredCostTrigger> = Vec::new();
     // cost 支払い。 未対応 cost 種別 or cascade を起こす cost は bail (黙って間違えない)。
     if let Some(c) = &cost {
         if let Some(o) = c.as_object() {
@@ -12386,8 +12419,13 @@ pub fn fire_activate_main(
             if taken + more > 0 {
                 state.last_returned_don_count = taken + more;
                 if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
-                    enqueue_field_when(state, me_idx, "on_self_don_returned_to_deck");
-                    maybe_resolve(state)?;
+                    // コスト由来 = 本体解決後に発火 (反応集合は今の盤面で snapshot)。
+                    let toks = snapshot_field_toks(state, me_idx);
+                    deferred.push(DeferredCostTrigger::FieldWhen {
+                        owner: me_idx,
+                        when: "on_self_don_returned_to_deck".to_string(),
+                        toks,
+                    });
                 }
             }
         }
@@ -12551,7 +12589,11 @@ pub fn fire_activate_main(
         }
         // ko_self_with_filter (effects.py:13560): filter 一致の自キャラ 先頭 1 枚を自KO。 AI は候補[0]。
         //   → trash + 付与ドン→レスト、 chara_ko_taken++、 on_ko (source-gone) + on_self_chara_ko 発火
-        //   (self-ko なので on_opp_chara_ko は無し)。 未対応 on_ko/cascade は fire_on_ko/fire_field_when が bail。
+        //   (self-ko なので on_opp_chara_ko は無し)。 未対応 on_ko/cascade は run_on_ko_effects/
+        //   fire_field_when_with_toks が bail。
+        // ⭐ 公式 (cardqa_op_14 / OP14-080): 【KO時】は **本体 (パワー+1000 等) を解決した後** に
+        //    発動する。 記録 (被KO数 / 効果無効 gate / victim 文脈) は KO の瞬間に行い、 do の実行だけ
+        //    deferred に回す = Python の 「即 enqueue、 ドレインは本体の後」 と同順。
         if let Some(kf) = c.get("ko_self_with_filter") {
             let me = &mut state.players[me_idx];
             if let Some(i) = me.characters.iter().position(|ch| matches_filter_ip(&ch, Some(kf))) {
@@ -12562,26 +12604,23 @@ pub fn fire_activate_main(
                 let neg = removed.granted_keywords.contains("効果無効")
                     || removed.static_granted_keywords.contains("効果無効")
                     || removed.effect_disabled_through_opp_turn;
+                let vcard = removed.card.clone();
                 me.trash.push(removed.card);
                 me.don_rested += don;
                 state.ko_victim_effect_negated = neg;
-                // last_chara_ko_victim_card set (victim_* 条件用)、 cascade 完了後 None (Python 準拠)。
-                state.last_chara_ko_victim_card = None; // 効果 cascade は nested=deferred で victim None
-                // ⚠ **未解決**: 公式はコスト由来の【KO時】を効果本体の解決後に発動させる
-                //   (cardqa_op_14 / OP14-080)。 差し戻しの経緯は docs/official_rulings.md 参照。
-                let mut err: Option<String> = None;
-                if let Err(e) = fire_on_ko(state, me_idx, &vcid, false) {
-                    err = Some(e);
+                // victim_* 条件用の文脈 (Python trigger_on_ko:last_chara_ko_victim_card)。
+                // deferred な【KO時】/ on_self_chara_ko が読むので本体解決まで保持する
+                // (Python も バッファ中は trigger_on_self_chara_ko でクリアしない)。
+                state.last_chara_ko_victim_card = Some(vcard);
+                if note_ko_and_should_fire(state, me_idx, &vcid, false) {
+                    deferred.push(DeferredCostTrigger::OnKo { owner: me_idx, victim_cid: vcid });
                 }
-                if err.is_none() {
-                    if let Err(e) = fire_field_when(state, me_idx, "on_self_chara_ko") {
-                        err = Some(e);
-                    }
-                }
-                state.last_chara_ko_victim_card = None;
-                if let Some(e) = err {
-                    return Err(e);
-                }
+                let toks = snapshot_field_toks(state, me_idx);
+                deferred.push(DeferredCostTrigger::FieldWhen {
+                    owner: me_idx,
+                    when: "on_self_chara_ko".to_string(),
+                    toks,
+                });
             }
         }
     }
@@ -12602,40 +12641,80 @@ pub fn fire_activate_main(
     //   get_ip が index out of bounds で **panic** していた (OP07-109 / OP05-027/028、 全カード掃引で検出)。
     //   Python は self_inplay を object 参照で保持するが、 場を離れた InPlay への変更は digest に現れない
     //   (trash には CardDef しか残らない) ので、 Slot::Detached (= target "self" は 0 対象) と等価。
-    let mut do_src = if source_gone { Slot::Detached } else { src };
-    // ⚠ Python は cost 支払い **後** に if 句を再評価する (_execute_event:
-    //   「cost 既払いなので if 句のみ再評価 (条件変動の可能性に備える)」)。
-    //   コスト自体が条件を崩すカードがあるため必須。 例 P-081 クロスギルド:
-    //   cost=return_self_to_hand で自分が場を離れ 「青の《クロスギルド》キャラ3枚以上」 が
-    //   崩れる → Python は不発、 Rust は支払い前の判定のまま登場させていた (2026-08-03 発覚)。
-    // 発動元が 「効果無効」 なら発動しない (effects.py:_execute_event の gate)。
-    if src_effect_negated(state, me_idx, do_src, "activate_main") {
-        return Ok(());
-    }
-    match eval_effect_conditions(&eff_owned, state, me_idx, Some(do_src)) {
-        Some(true) => {}
-        Some(false) => return Ok(()), // 条件が崩れた = 効果は発動しない (コストは払い済み)
-        None => return Err("activate_main 条件 unknown (cost 後)".into()),
-    }
-    // do の途中で盤面が動いても発動元を見失わないよう、 一意トークンで追跡する
-    // (Python の self_inplay object 参照と等価。 場外に出たら Detached)。
-    let mut tok = tag_src(state, me_idx, do_src);
-    let last = dos.len().saturating_sub(1);
-    for (pi_, prim) in dos.iter().enumerate() {
-        if !execute_effect(prim, state, me_idx, do_src) {
-            let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?");
-            find_tagged(state, me_idx, tok);
-            return Err(format!("activate_main primitive 未対応: {k} ({card_id})"));
+    let do_src0 = if source_gone { Slot::Detached } else { src };
+    // ⚠ Python は起動メイン本体を **enqueue** し、 resolve_triggers の中 (resolving=true) で
+    //   実行する。 = do の途中で誘発した別カードの効果は キューに積まれるだけで、 do-list を
+    //   終えてから解決される。 Rust も同じ文脈で走らせる (inline drain だと順序が変わる)。
+    let prev_resolving = state.rust_resolving;
+    state.rust_resolving = true;
+    let r = (|| -> Result<(), String> {
+        let mut do_src = do_src0;
+        // ⚠ Python は cost 支払い **後** に if 句を再評価する (_execute_event:
+        //   「cost 既払いなので if 句のみ再評価 (条件変動の可能性に備える)」)。
+        //   コスト自体が条件を崩すカードがあるため必須。 例 P-081 クロスギルド:
+        //   cost=return_self_to_hand で自分が場を離れ 「青の《クロスギルド》キャラ3枚以上」 が
+        //   崩れる → Python は不発、 Rust は支払い前の判定のまま登場させていた (2026-08-03 発覚)。
+        // 発動元が 「効果無効」 なら発動しない (effects.py:_execute_event の gate)。
+        // ⚠ 不発でも **コストは払い済み** = コスト由来トリガーは発動する (下の deferred へ落ちる)。
+        let mut run_do = !src_effect_negated(state, me_idx, do_src, "activate_main");
+        if run_do {
+            match eval_effect_conditions(&eff_owned, state, me_idx, Some(do_src)) {
+                Some(true) => {}
+                Some(false) => run_do = false, // 条件が崩れた = 効果は発動しない
+                None => return Err("activate_main 条件 unknown (cost 後)".into()),
+            }
         }
-        // 最終 prim の後は src を参照しないので取り直し不要
-        if pi_ < last {
-            do_src = find_tagged(state, me_idx, tok);
-            tok = tag_src(state, me_idx, do_src);
-        } else {
-            find_tagged(state, me_idx, tok);
+        if run_do {
+            // do の途中で盤面が動いても発動元を見失わないよう、 一意トークンで追跡する
+            // (Python の self_inplay object 参照と等価。 場外に出たら Detached)。
+            let mut tok = tag_src(state, me_idx, do_src);
+            let last = dos.len().saturating_sub(1);
+            for (pi_, prim) in dos.iter().enumerate() {
+                if !execute_effect(prim, state, me_idx, do_src) {
+                    let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?");
+                    find_tagged(state, me_idx, tok);
+                    return Err(format!("activate_main primitive 未対応: {k} ({card_id})"));
+                }
+                // 最終 prim の後は src を参照しないので取り直し不要
+                if pi_ < last {
+                    do_src = find_tagged(state, me_idx, tok);
+                    tok = tag_src(state, me_idx, do_src);
+                } else {
+                    find_tagged(state, me_idx, tok);
+                }
+            }
         }
+        // ⭐ 発動コスト由来のトリガー (公式 8-4-1-3〜5 / cardqa_op_14): 本体の解決後に発動。
+        //    do が積んだ nested トリガーは **さらに後** (= キューに残っている) = Python 同順。
+        for d in std::mem::take(&mut deferred) {
+            match d {
+                DeferredCostTrigger::OnKo { owner, victim_cid } => {
+                    run_on_ko_effects(state, owner, &victim_cid)?;
+                }
+                DeferredCostTrigger::FieldWhen { owner, when, toks } => {
+                    fire_field_when_with_toks(state, owner, &when, toks)?;
+                }
+            }
+        }
+        Ok(())
+    })();
+    state.rust_resolving = prev_resolving;
+    r?;
+    if !prev_resolving {
+        maybe_resolve(state)?;
     }
+    // コスト由来の victim 文脈は本体解決まで保持していたので、 ここで畳む (Python:
+    // fire_activate_main 末尾で last_chara_ko_victim_card = None)。
+    state.last_chara_ko_victim_card = None;
     Ok(())
+}
+
+/// 発動コストの支払いで誘発したトリガー (= 本体の解決後に発動する)。
+/// 公式 8-4-1-3〜8-4-1-5 + cardqa_op_14 (OP14-080)。 反応集合 (toks) は **支払い時** に
+/// snapshot する = Python の `_enqueue_field_when` (enqueue 時にカード単位で積む) と等価。
+enum DeferredCostTrigger {
+    OnKo { owner: usize, victim_cid: String },
+    FieldWhen { owner: usize, when: String, toks: Vec<(Option<u64>, String)> },
 }
 
 /// do-list 実行中に src が「別のカードを指す / 範囲外になる」ことがある (前の primitive が場を縮めた場合)。

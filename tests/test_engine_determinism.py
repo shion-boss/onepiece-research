@@ -86,6 +86,10 @@ def test_rust_state_model_fidelity():
 
     repo = CardRepository.from_json(ROOT / "db" / "cards.json")
     ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    # ⚠ Rust の overlay は process global (OnceLock)。 ここで読ませないと Rust だけ
+    #   「効果ゼロのゲーム」 を再現し、 **効果なし Rust vs 効果あり Python** という無意味な
+    #   比較になる (= 他テストが先に load していた実行順でだけ通る)。
+    eng.load_overlay(str((ROOT / "db" / "card_effects.json").resolve()))
 
     def dl(s):
         return make_deck_from_dict(json.loads((ROOT / "decks" / f"{s}.json").read_text()), repo)
@@ -126,6 +130,10 @@ def test_rust_apply_don_fidelity():
 
     repo = CardRepository.from_json(ROOT / "db" / "cards.json")
     ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    # ⚠ Rust の overlay は process global (OnceLock)。 ここで読ませないと Rust だけ
+    #   「効果ゼロのゲーム」 を再現し、 **効果なし Rust vs 効果あり Python** という無意味な
+    #   比較になる (= 他テストが先に load していた実行順でだけ通る)。
+    eng.load_overlay(str((ROOT / "db" / "card_effects.json").resolve()))
 
     def dl(s):
         return make_deck_from_dict(json.loads((ROOT / "decks" / f"{s}.json").read_text()), repo)
@@ -182,6 +190,10 @@ def test_rust_apply_playcharacter_fidelity():
 
     repo = CardRepository.from_json(ROOT / "db" / "cards.json")
     ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+    # ⚠ Rust の overlay は process global (OnceLock)。 ここで読ませないと Rust だけ
+    #   「効果ゼロのゲーム」 を再現し、 **効果なし Rust vs 効果あり Python** という無意味な
+    #   比較になる (= 他テストが先に load していた実行順でだけ通る)。
+    eng.load_overlay(str((ROOT / "db" / "card_effects.json").resolve()))
 
     def dl(s):
         return make_deck_from_dict(json.loads((ROOT / "decks" / f"{s}.json").read_text()), repo)
