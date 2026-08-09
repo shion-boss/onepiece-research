@@ -9468,7 +9468,15 @@ pub fn execute_card_effects(
 /// レストされた char 自身の【レスト時】(on_self_rested) を発火 (effects.py:trigger_on_self_rested、 targeted)。
 /// bundle = rested char の overlay。 条件 (self_turn 等) を src=rested char で eval、 costless のみ発火、
 /// cost(once_per_turn は iid-keyed=canonical外)/unknown/未対応 prim は Err で bail。
-fn fire_on_self_rested(state: &mut GameState, owner_idx: usize, char_idx: usize) -> Result<(), String> {
+pub fn fire_on_self_rested(state: &mut GameState, owner_idx: usize, char_idx: usize) -> Result<(), String> {
+    fire_on_self_rested_impl(state, owner_idx, char_idx, false)
+}
+
+/// costless_only=true (アタック由来の自己レスト): cost 持ちの on_self_rested は発火せず skip する
+/// (bail でなく continue)。 cost 持ちは optional (OP14-021/070) か by_opp 系 (OP14-070/PRB02-009) で
+/// 自分のアタックでは発火すべきでない。 costless の【自分のターン中】系だけがアタックで発火する
+/// (公式 cardqa_op_14 677c149d0045)。 Python trigger_on_self_rested の costless_only と bit 一致。
+pub fn fire_on_self_rested_impl(state: &mut GameState, owner_idx: usize, char_idx: usize, costless_only: bool) -> Result<(), String> {
     let cid = state.players[owner_idx].characters[char_idx].card.card_id.clone();
     let Some(ov) = overlay() else { return Ok(()) };
     let Some(effs) = ov.get(&cid) else { return Ok(()) };
@@ -9478,6 +9486,17 @@ fn fire_on_self_rested(state: &mut GameState, owner_idx: usize, char_idx: usize)
     for eff in effs {
         if eff.get("when").and_then(|v| v.as_str()) != Some("on_self_rested") {
             continue;
+        }
+        // costless_only: cost 持ち (once_per_turn のみは costless 扱い) は skip。
+        if costless_only {
+            if let Some(cost) = eff.get("cost") {
+                let cost_has_real = cost.as_object().map_or(false, |o| {
+                    o.keys().any(|k| k != "once_per_turn")
+                });
+                if cost_has_real {
+                    continue;
+                }
+            }
         }
         let src = Slot::Char(char_idx);
         match eval_effect_conditions(eff, state, owner_idx, Some(src)) {

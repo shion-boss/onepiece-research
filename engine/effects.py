@@ -13435,9 +13435,17 @@ def trigger_on_self_rested(
     opp: Player,
     rested_ip: InPlay,
     effects_overlay: dict[str, CardEffectBundle],
+    costless_only: bool = False,
 ) -> None:
     """「このキャラがレストになった時」 (on_self_rested)。 me = rested_ip 所有者。
     OP14-027 シャンクス等。 rest primitive 内 / AttackLeader/AttackCharacter 後で発火。
+
+    costless_only=True (アタック由来の自己レスト): cost 持ちの効果は発火せず skip する。
+      cost 持ちの on_self_rested は (a) optional (OP14-021「もよい」 / OP14-070 「してもよい」) か
+      (b) 「相手のキャラの効果で」 系 (OP14-070) / by_opp_effect (PRB02-009) で、 いずれも自分の
+      アタック宣言で発火すべきでない (辞退が合法 or 発動条件外)。 costless の【自分のターン中】系
+      (OP14-027/028/032/035/119 / ST32-003) だけがアタックで発火する (公式 cardqa_op_14
+      677c149d0045)。 Rust fire_on_self_rested の costless_only と bit 一致させる。
     """
     if not effects_overlay:
         return
@@ -13447,6 +13455,10 @@ def trigger_on_self_rested(
     for eff in bundle.effects:
         if eff.get("when") != "on_self_rested":
             continue
+        if costless_only:
+            _cost = eff.get("cost") or {}
+            if any(ck != "once_per_turn" for ck in _cost):
+                continue
         if not eval_all_conditions(eff, state, me, rested_ip):
             continue
         cost = eff.get("cost", {})

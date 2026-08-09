@@ -4651,3 +4651,81 @@ overlay は `ko:any_opponent_character_cost_le_5` = **相手のみ + レスト�
 - **6637d453709b** EB03-003 ウタ: 登場時 `if:leader_name:ウタ` が on_play 全体を gate = leader≠ウタで登場も発動せず。
 - **6686b81ebecb** OP04-064 ミス・オールサンデー: trigger cost=pay_don:2, do=play_self = ドン戻しを払えば登場必須 (atomic)。
 - **65b39fb038c0** OP04-055 疫災弾: main=optional_cost_then で cost を払えば effect(氷鬼登場)は必須 = 登場させない選択不可。
+
+## FAQ conformance バッチ (2026-08-09 #2, cron optcg-faq-conformance): 14 conform / 2 fixed (+1 co-fix) / 3 n/a / 1 escalated
+
+### fixed 1 (engine 一般則): on_self_rested はアタック宣言 (自己レスト) でも発火する (677c149d0045)
+- 公式 cardqa_op_14: 「『このキャラがレストになった時』の効果は、このキャラがアタックした時に
+  発動しますか？」→「はい、発動します」。 アタック=キャラがレストになる=on_self_rested の発火事由。
+- **欠陥**: engine のアタック経路 (`game.py` AttackLeader/AttackCharacter) が `attacker.rested=True`
+  にした後 `trigger_on_self_rested` を **一度も呼んでいなかった** = 全 on_self_rested カード
+  (OP14-021/027/028/032/035/119 / ST32-003 / OP14-070 / PRB02-009) がアタックでは silent 不発。
+  実測: OP14-027 シャンクスでアタックしても相手アクティブキャラがレストにならなかった。
+  (docstring には「AttackLeader/AttackCharacter 後で発火」と書かれていたが実装が欠落 = 設計意図と乖離)。
+- **是正**: `game.py` の両アタック経路で `attacker.rested=True` 直後に
+  `trigger_on_self_rested(..., costless_only=True)` を呼ぶ (by_opp_effect=False で評価するため
+  `last_ko_by_opp_effect` を一時 False)。 Rust も `rules.rs` 両経路で
+  `fire_on_self_rested_impl(..., costless_only=true)`。
+- **costless_only の設計**: cost 持ちの on_self_rested は自己アタックで発火してはいけない —
+  OP14-021 (life_to_hand・「もよい」=任意) / OP14-070 (return_self_don・「相手のキャラの効果で」限定) /
+  PRB02-009 (trash_self・by_opp_effect 限定)。 いずれも辞退が合法 or 発動条件外なので、 costless
+  (=【自分のターン中】無条件系) だけをアタックで発火させる。 これで OP14-070 の「相手のキャラの
+  効果で」意味論の完全実装 (state への rest-cause flag 追加=アーキ変更) を回避しつつ回帰を防ぐ。
+- ⚠ **OP14-021 の任意コスト付き on_self_rested をアタックで能動発火させる**のは別課題 (要 optional-cost
+  trigger の AI 判断実装、 現状は「辞退」= 合法だが最善でない場合あり)。 影響は極小 (1 枚)。
+- Rust: `fire_on_self_rested` を `fire_on_self_rested_impl(costless_only)` に分離。 rest-primitive 経路
+  (`rest_char_with_cascade`) は costless_only=false で従来どおり (cost 持ちは bail)。
+
+### fixed 2 (overlay): OP10-087 チョッパー 起動メインのミルが条件外でタダ撃ちできた (670c9ed2c408)
+- 公式 cardqa_op_10: 「相手の手札が4枚以下の場合、この【起動メイン】効果で自分のデッキの上から
+  2枚をトラッシュに置くことはできますか？」→「いいえ、できません」。
+- カードテキスト: 「相手の手札が5枚以上ある場合、相手は自身の手札1枚を捨てる。**その後**、自分の
+  デッキの上から2枚をトラッシュに置く」= 条件「相手の手札5枚以上」は **その後のミルまで** gate する。
+- **欠陥**: overlay で `mill_self_top:2` が `conditional(opp_hand_count_ge:5)` の **外** にあり、
+  相手手札4枚以下でも常にミルできた。 → mill を conditional の `do` 内へ移動。 overlay-only 修正。
+
+### co-fix (overlay): OP02-089 の【トリガー】に欠落していた opp_don gate を追加 (698b27ad1441 調査中に発見)
+- OP02-089/090/091 は同文の【トリガー】「相手の場にドン6枚以上ある場合、相手は自身のドン1枚を戻す」。
+  OP02-090/091 は `if:{opp_don_count_ge:6}` を持つが **OP02-089 だけ欠落** = 相手ドン5枚以下でも戻せた。
+  兄弟カード同様に `if` を追加。 (Q&A 本体=return_opp_don の chooser 帰属は conform: レスト優先で相手が選ぶ)。
+
+### escalated: OP01-085 Mr.3 — 相手ターン中登場時の next_opp_turn_end off-by-one 疑い (6940163591bf)
+- 公式 cardqa_op_01: 「相手のターン中に登場させ登場時効果を発動した場合、次の相手のターン終了時とは
+  いつまでですか？」→「そのターンの終了時です」。
+- `game.py:589` の next_opp_turn_end clear 条件が `applied_turn < turn_number` (strict less) で、
+  相手ターン中に適用 (applied_turn == 現ターン) すると **同ターン終了で消えず**、 次の相手ターンまで
+  1 サイクル延びる off-by-one の疑い。 通常 (自ターン適用) は正しく動く。
+- 要 summon-during-opp-turn シナリオでの実測 + Python/Rust 同時修正。 本バッチでは未検証のため escalated。
+
+### conform (公式どおり = 是正不要、 再調査回避のため記録、 2026-08-09 #2)
+- **66c30267daf0** OP12-048 ロシナンテ: replace_leave の対象が any_self_chara(発動元自身を含む) +
+  by_opp_effect + opp_turn。 自身が相手効果で離脱時も rest self+手札捨て可 = overlay 構造で公式どおり。
+- **66dba6cc86d4** OP12-073 ロー: on_play 全体が `if:{don_diff_le:0}`(自ドン<=相手ドン)で gate。
+  自ドンが多い場合は add_don も power+1000 も不発 = 公式どおり。
+- **66eaa6d85c75** OP07-088 ハットリ / **68911352491d** OP07-043 サロメ: 単一 on_play power_pump+2000
+  (conditions self_turn)。 二重加算する別効果は無く、【登場時】1回のみ = 公式どおり。
+- **672ebe8ca1c9** OP12-099 カルガラ: draw 後 block_self_draw_until_turn_end=True。 2 枚目のライフ離脱
+  では引けない = 公式どおり (engine 既実装)。
+- **673bae12657f** OP04-033 マッハバイス系: 「その後、このターン終了時 ドンをアクティブ」は予約(schedule)
+  効果で source 離場後も発火 = 公式どおり。
+- **6793b3da698b** PRB01-001 サンジ: `one_self_chara_no_on_play_cost_le_8` は overlay の on_play エントリ
+  有無で構造判定。 条件付き登場時を持つ OP05-005 カラスも「登場時効果を持つ」扱いで対象外 = 公式どおり。
+- **67b8dc86df3d** OP01: 起動メインでアクティブ化したキャラは(アタック済でも)再アタック可 = 一般則。
+- **67ca805202cf** OP14-017 シャンブルズ: swap_opp_power は各キャラに固定値を set(duration turn)。
+  片方離場でも他方は戻らず入れ替えたまま = 公式どおり(実測確認)。
+- **6894394214db** EB02-011 アーロン: on_play 全体が `if:{leader_features_any:[魚人族,東の海]}` で gate。
+  リーダーが両方非所持なら「レストにできない」付与も不発 = 公式どおり。
+- **68b0518a4053** OP04-046 クイーン: search_top_n limit 2 + name_in は同名2枚も取得可 = 公式どおり。
+- **6939d89d3f7f** OP02-023: 【メイン】event はライフ4以上でも発動可・条件 life<=3 未達で no-op = 公式
+  「発動できるが何も起きない」どおり。
+- **6950ed4acc1d** OP11-023 アーロン: 手札での静的コスト-3は他効果(アラディン/フィッシャータイガー)の
+  登場でも現在コストとして適用 = 公式どおり。
+- **6951ee543433** OP10-022 ロー: reveal_life_top_play は非マッチ時ライフ枚数不変(公開札は裏向きで一番上
+  に維持) = 公式どおり(engine 実装コメント確認)。
+- **698b27ad1441** OP02-089/090/091: return_opp_don はレスト優先で相手(持ち主)が選んで戻す = 公式どおり
+  (chooser 帰属)。 ※上記 co-fix の gate 追加あり。
+
+### n/a (engine 状態変化に一意に落ちない)
+- **6896058e0308** ST36-005 キッド: engine のライフモデルは face_up_life_count のみで上/下の物理位置を
+  区別しない。「上と下がどちらも表向き(中は裏)」は表現不能で verify 不可。
+- **6907c24b958e** OP07: 「パワー0にする」の定義説明(現在値と同じ分だけマイナス)。 用語確認。

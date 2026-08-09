@@ -1545,6 +1545,16 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         # (= OP04-069 / OP11-088 等の効果が silent 不発) → アタック宣言時に設定する。
         state.current_attacker_iid = attacker.instance_id
         if state.effects_overlay:
+            # 「このキャラがレストになった時」(on_self_rested): アタック宣言で attacker が
+            # レストになる → 発火する (公式 cardqa_op_14 677c149d0045:「このキャラがレストに
+            # なった時」の効果は、このキャラがアタックした時に発動しますか？→「はい、発動します」)。
+            # アタック由来のレスト = 自己起因なので by_opp_effect=False で評価する。
+            # play_one_action の pre-fire は on_attack 系のみ = ここは opp_pre_fired と無関係。
+            from .effects import trigger_on_self_rested
+            _prev_ko_by_opp = getattr(state, "last_ko_by_opp_effect", False)
+            state.last_ko_by_opp_effect = False
+            trigger_on_self_rested(state, me, opp, attacker, state.effects_overlay, costless_only=True)
+            state.last_ko_by_opp_effect = _prev_ko_by_opp
             # play_one_action で 既 pre-fire 済 なら skip (= 二重発火 防止)。
             # play_one_action 経由 でない 呼出 (= 直接 apply_action) では 通常通り 発火。
             opp_pre_fired = getattr(state, "_opp_attack_pre_fired_id", None) == id(attacker)
@@ -1962,6 +1972,13 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         # (= OP04-069 / OP11-088 等の効果が silent 不発) → アタック宣言時に設定する。
         state.current_attacker_iid = attacker.instance_id
         if state.effects_overlay:
+            # 「このキャラがレストになった時」(on_self_rested): アタック宣言でレスト → 発火
+            # (公式 cardqa_op_14 677c149d0045)。 自己起因なので by_opp_effect=False で評価。
+            from .effects import trigger_on_self_rested
+            _prev_ko_by_opp = getattr(state, "last_ko_by_opp_effect", False)
+            state.last_ko_by_opp_effect = False
+            trigger_on_self_rested(state, me, opp, attacker, state.effects_overlay, costless_only=True)
+            state.last_ko_by_opp_effect = _prev_ko_by_opp
             opp_pre_fired = getattr(state, "_opp_attack_pre_fired_id", None) == id(attacker)
             if not opp_pre_fired:
                 from .effects import trigger_on_attack, trigger_on_opp_attack, trigger_on_opp_attack_on_chara

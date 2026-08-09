@@ -7624,3 +7624,147 @@ def test_no_replace_effect_hides_a_payment_cost_inside_do():
         "置換の支払コストが do に埋もれている (payability が効かない): "
         f"{offenders[:10]}"
     )
+
+
+# --------------------------------------------------------------------------- #
+#  I. on_self_rested はアタック宣言 (自己レスト) でも発火する
+#     公式 Q&A (cardqa_op_14 677c149d0045):
+#       「『このキャラがレストになった時』の効果は、このキャラがアタックした時に発動しますか？」
+#       → 「はい、発動します」
+#     ⚠ 2026-08-09 まで engine のアタック経路が trigger_on_self_rested を呼んでおらず、
+#       全 on_self_rested カード (OP14-027/028/032/035/119 / ST32-003 等) が
+#       アタックでは silent 不発だった (実測: シャンクスが相手キャラをレストにしなかった)。
+# --------------------------------------------------------------------------- #
+def test_on_self_rested_fires_on_attack():
+    """OP14-027 シャンクス: 【自分のターン中】このキャラがレストになった時、相手の元々パワー
+    7000以下のキャラ1枚までをレストにする。 アタック=自己レストで発火し、相手アクティブキャラを
+    レストにする。 (修正前はここが不発 = active のまま)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    shanks = InPlay.of(repo.get("OP14-027"), sickness=False)
+    shanks.rested = False
+    me.characters = [shanks]
+    foe = InPlay.of(repo.get("OP01-016"), sickness=False)  # 印刷パワー 2000 (<=7000)
+    foe.rested = False
+    opp.characters = [foe]
+    apply_action(st, AttackLeader(attacker_iid=shanks.instance_id))
+    assert opp.characters and opp.characters[0].rested, (
+        "アタック(自己レスト)で on_self_rested が発火せず相手キャラがレストにならない"
+    )
+
+
+def test_on_self_rested_costless_effect_fires_on_attack_scan():
+    """全走査: costless で条件が self_turn/無条件の on_self_rested カードは、アタックすると
+    trigger_on_self_rested が発火する (wiring 保証)。 cost 持ち (OP14-021 任意 / OP14-070
+    相手キャラ効果 / PRB02-009 by_opp) は自己アタックでは発火してはいけない。"""
+    import json as _json
+    from unittest import mock
+    from pathlib import Path as _Path
+    repo, overlay = _repo(), _overlay()
+    raw = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+
+    def _costless(eff):
+        cost = eff.get("cost") or {}
+        return not any(ck != "once_per_turn" for ck in cost)
+
+    fired, skipped = [], []
+    for cid, bundle in raw.items():
+        if cid == "_meta" or not isinstance(bundle, list):
+            continue
+        rested_effs = [e for e in bundle if isinstance(e, dict) and e.get("when") == "on_self_rested"]
+        if not rested_effs:
+            continue
+        try:
+            base_cid = cid.split("_")[0]
+            card = repo.get(cid)
+        except Exception:
+            continue
+        # キャラのみ (leader/stage は attacker にならない、 parallel は本体で代表)
+        if "_p" in cid:
+            continue
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        atk = InPlay.of(card, sickness=False)
+        atk.rested = False
+        me.characters = [atk]
+        me.don_active = 6
+        # スパイ: trigger_on_self_rested が attacker で呼ばれたか
+        calls = {"n": 0}
+        import engine.game as _g
+        real = _g.trigger_on_self_rested if hasattr(_g, "trigger_on_self_rested") else None
+        # game.py は関数内で from .effects import するので effects 側を patch
+        import engine.effects as _e
+        orig = _e.trigger_on_self_rested
+        def _spy(state, m, o, rested_ip, ov, costless_only=False):
+            if rested_ip is atk and costless_only:
+                calls["n"] += 1
+            return orig(state, m, o, rested_ip, ov, costless_only=costless_only)
+        with mock.patch.object(_e, "trigger_on_self_rested", _spy):
+            try:
+                apply_action(st, AttackLeader(attacker_iid=atk.instance_id))
+            except Exception:
+                continue
+        # trigger_on_self_rested はアタック経路から必ず呼ばれる (発火するか skip かは costless 次第)
+        assert calls["n"] >= 1, f"{cid}: アタック経路から on_self_rested が呼ばれていない (wiring 欠落)"
+
+    # cost 持ちの代表 (OP14-070) はアタックで自身をアクティブに戻してはいけない
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    buf = InPlay.of(repo.get("OP14-070"), sickness=False)
+    buf.rested = False
+    me.characters = [buf]
+    me.don_active = 6
+    apply_action(st, AttackLeader(attacker_iid=buf.instance_id))
+    assert me.characters[0].rested, "OP14-070(相手キャラ効果でレスト時)が自己アタックで誤発火し untap した"
+    assert me.don_active == 6, "OP14-070 が自己アタックでコスト(ドン返却)を誤って支払った"
+
+
+# --------------------------------------------------------------------------- #
+#  J. 条件節「相手の手札が5枚以上ある場合」は その後のミルまで gate する
+#     公式 Q&A (cardqa_op_10 670c9ed2c408): OP10-087 チョッパー
+#       「相手の手札が4枚以下の場合、この【起動メイン】効果で自分のデッキの上から2枚を
+#        トラッシュに置くことはできますか？」→「いいえ、できません」
+# --------------------------------------------------------------------------- #
+def test_op10_087_mill_gated_by_opponent_hand():
+    """OP10-087 の起動メインの mill (デッキ上2枚トラッシュ) は『相手の手札5枚以上』条件の
+    内側にあり、 相手手札4枚以下では発動しない。 (修正前は conditional の外でタダ撃ちできた)。"""
+    repo, overlay = _repo(), _overlay()
+    cond_prim = {"conditional": {"if": {"opp_hand_count_ge": 5},
+                                 "do": [{"opp_discard_own_choice": 1}, {"mill_self_top": 2}]}}
+    for opp_hand, expect in [(4, 0), (5, 2)]:
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        opp.hand = [repo.get(_FILLER)] * opp_hand
+        src = InPlay.of(repo.get("OP10-087"), sickness=False)
+        me.characters = [src]
+        before = len(me.deck)
+        execute_effect(cond_prim, st, me, opp, src)
+        milled = before - len(me.deck)
+        assert milled == expect, f"opp_hand={opp_hand}: milled={milled} (expect {expect})"
+
+
+def test_op10_087_overlay_mill_inside_conditional():
+    """回帰防止 (overlay 構造): OP10-087 の mill_self_top は conditional(opp_hand>=5)の内側にある。"""
+    import json as _json
+    raw = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    e = raw["OP10-087"][0]
+    oct = e["do"][0]["optional_cost_then"]["effect"]
+    # トップレベルの effect に mill_self_top が裸で置かれていないこと
+    top_keys = [k for prim in oct for k in prim.keys()]
+    assert "mill_self_top" not in top_keys, "mill_self_top が conditional の外にある (タダ撃ち回帰)"
+    cond = next(p for p in oct if "conditional" in p)
+    inner = [k for prim in cond["conditional"]["do"] for k in prim.keys()]
+    assert "mill_self_top" in inner, "mill_self_top が conditional 内に無い"
+
+
+# --------------------------------------------------------------------------- #
+#  K. OP02-089 の【トリガー】return_opp_don は『相手の場にドン6枚以上』で gate される
+#     兄弟カード OP02-090/091 と同文。 2026-08-09 まで OP02-089 だけ if 欠落。
+# --------------------------------------------------------------------------- #
+def test_op02_089_trigger_don_return_gate():
+    """OP02-089 の【トリガー】は相手のドンが6枚以上ある時だけ相手ドン1枚を戻す。"""
+    import json as _json
+    raw = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    trig = next(e for e in raw["OP02-089"] if e.get("when") == "trigger")
+    assert trig.get("if") == {"opp_don_count_ge": 6}, "OP02-089 トリガーの opp_don_count_ge gate 欠落"
