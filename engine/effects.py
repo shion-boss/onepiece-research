@@ -14117,6 +14117,12 @@ def try_replace_ko(
             if not _replace_ko_match(eff.get("if", {}), inplay, victim, by_opp_effect):
                 continue
             # 通常の eval_condition (leader_feature 等) も適用
+            # 同時離脱バッチの判定キャッシュ (= holder×when ごとに 1 度だけ決める)。
+            # ⚠ extra_cond の評価より **前** に用意する (victim 非依存条件の凍結に使う)。
+            _batch = getattr(state, "_leave_batch_decision", None)
+            _bkey = (inplay.instance_id, when)
+            if _batch is not None and _batch.get(_bkey) is False:
+                continue  # このバッチでは 「代替しない」 と決定済
             extra_cond = {
                 k: v for k, v in eff.get("if", {}).items()
                 if k not in ("target", "target_attribute", "target_cost_le",
@@ -14133,6 +14139,17 @@ def try_replace_ko(
                              "by_opp_effect", "by_battle")
             }
             if extra_cond and not eval_condition(extra_cond, state, owner, inplay):
+                # ⭐ **同時離脱は 1 事象** = victim に依らない条件 (トラッシュ枚数等) は
+                #   **バッチ開始時の状態** で 1 度だけ判定する。
+                #   一次情報 (cardqa_op_11、 OP11-001 コビー): 「トラッシュが2枚以下の時に
+                #   《海軍》キャラ A と B が **同時にKO** された場合、 まず A をトラッシュに置き、
+                #   B を【ターン1回】効果で代わりに場を離れないことはできますか？」
+                #   → 「**いいえ、 できません**」。 = 先に離れた victim がトラッシュを増やした
+                #   状態を後の victim の判定に使えない。 このバッチでは 「代替しない」 と確定させる。
+                #   ⚠ victim 依存の条件 (_replace_ko_match の target_*) は victim ごとに判定する
+                #     ので、 ここで凍結するのは **extra_cond (= victim 非依存)** だけ。
+                if _batch is not None:
+                    _batch[_bkey] = False
                 continue
             # optional gate (= 公式 「〜してもよい」 / 「〜することができる」)。
             # owner が human の 場合 は pending_choice modal を 立てて 人間 判断 を 待つ。
@@ -14189,13 +14206,20 @@ def try_replace_ko(
             #     **victim の数だけコストを払っていた** (2 victim = 手札 2 枚捨て) = 違反。
             #   バッチ (= _leave_batch_decision) が開いている間は holder×when 単位で
             #   「払った / 払わない」 を 1 度だけ決め、 以降の victim には無償で適用する。
-            _batch = getattr(state, "_leave_batch_decision", None)
-            _bkey = (inplay.instance_id, when)
             if _batch is not None and _batch.get(_bkey) is False:
                 continue  # このバッチでは 「代替しない」 と決定済 → 通常どおり離脱させる
             _batch_already_paid = _batch is not None and _batch.get(_bkey) is True
             if cost_specs and not _batch_already_paid:
                 if not _can_pay_replace_cost(state, owner, cost_specs, holder_card_id, inplay):
+                    # ⭐ **同時離脱は 1 事象** = 置換するかどうかは holder ごとに 1 度だけ決める。
+                    #   一次情報 (cardqa_op_11、 OP11-001 コビー): 「自分のトラッシュが2枚以下の時に
+                    #   (元々のパワー7000以下の《海軍》) キャラA と キャラB が **同時にKO** された場合、
+                    #   まず キャラA をトラッシュに置き、 キャラB を【ターン1回】効果で代わりに場を
+                    #   離れないことはできますか？」 → 「**いいえ、 できません**」。
+                    #   = 先に離れた victim がトラッシュを増やした状態で 後の victim の置換コストを
+                    #   払うことはできない。 このバッチでは 「代替しない」 と確定させる。
+                    if _batch is not None:
+                        _batch[_bkey] = False
                     continue
                 _pay_replace_cost(state, owner, cost_specs, holder_card_id, inplay)
             if _batch is not None:

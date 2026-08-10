@@ -3854,6 +3854,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
         }
         state.rust_leave_batch_holders = Some(snap);
         state.rust_leave_batch_paid.clear();
+        state.rust_leave_batch_declined.clear();
     }
     let _r = execute_effect_inner(prim, state, me_idx, src);
     if opened {
@@ -3863,6 +3864,7 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
         }
         state.rust_leave_batch_paid.clear();
+        state.rust_leave_batch_declined.clear();
     }
     if snap_owner {
         state.rust_leave_victim_snapshot = None;
@@ -10589,10 +10591,29 @@ pub fn try_replace_ko(
                 .filter(|(k, _)| !EXCL.contains(&k.as_str()))
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect();
+            // ⭐ **同時離脱は 1 事象** = victim に依らない条件 (トラッシュ枚数等) は
+            //   **バッチ開始時の状態** で 1 度だけ判定する (cardqa_op_11 / OP11-001 コビー:
+            //   先に離れた victim がトラッシュを増やした状態を後の victim に使えない)。
+            //   victim 依存の条件 (replace_ko_match の target_*) は victim ごとに判定する。
+            let when_key = eff.get("when").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            if let Some(t) = htok {
+                if state
+                    .rust_leave_batch_declined
+                    .iter()
+                    .any(|(tk, w)| *tk == t && w == &when_key)
+                {
+                    continue; // このバッチでは 「代替しない」 と決定済
+                }
+            }
             if !extra.is_empty() {
                 match eval_condition(&Value::Object(extra), state, victim_owner, Some(hslot)) {
                     Some(true) => {}
-                    Some(false) => continue,
+                    Some(false) => {
+                        if let Some(t) = htok {
+                            state.rust_leave_batch_declined.push((t, when_key.clone()));
+                        }
+                        continue;
+                    }
                     None => return Err("replace_ko extra_cond unknown".into()),
                 }
             }

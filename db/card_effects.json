@@ -13455,13 +13455,22 @@
    "do": [
     {
      "attach_rested_don": {
-      "target": "all_self_team",
+      "target": {
+       "type": "all_self_chara_filtered",
+       "filter": {
+        "feature_in": [
+         "動物",
+         "ドラム王国"
+        ]
+       }
+      },
       "count": 1,
       "per_target": true,
       "max_targets": 3
      }
     }
-   ]
+   ],
+   "_doc": "公式は 「自分の **特徴《動物》か《ドラム王国》を持つキャラ** 3枚までにレストのドン‼1枚ずつまでを付与」。 旧 overlay は target が all_self_team (= 特徴フィルタ無し + **リーダーも対象**) で、 対象外キャラやリーダーにも ドンを付与していた = 公式違反 (2026-08-10 是正、 cardqa_op_08 の裁定中に発覚)。 「1枚ずつまで」 は per_target:true + count:1、 「3枚まで」 は max_targets:3。"
   }
  ],
  "OP08-002_p2": [
@@ -15484,13 +15493,22 @@
    "do": [
     {
      "attach_rested_don": {
-      "target": "all_self_team",
+      "target": {
+       "type": "all_self_chara_filtered",
+       "filter": {
+        "feature_in": [
+         "動物",
+         "ドラム王国"
+        ]
+       }
+      },
       "count": 1,
       "per_target": true,
       "max_targets": 3
      }
     }
-   ]
+   ],
+   "_doc": "公式は 「自分の **特徴《動物》か《ドラム王国》を持つキャラ** 3枚までにレストのドン‼1枚ずつまでを付与」。 旧 overlay は target が all_self_team (= 特徴フィルタ無し + **リーダーも対象**) で、 対象外キャラやリーダーにも ドンを付与していた = 公式違反 (2026-08-10 是正、 cardqa_op_08 の裁定中に発覚)。 「1枚ずつまで」 は per_target:true + count:1、 「3枚まで」 は max_targets:3。"
   }
  ],
  "OP08-001_p1": [
@@ -15503,13 +15521,22 @@
    "do": [
     {
      "attach_rested_don": {
-      "target": "all_self_team",
+      "target": {
+       "type": "all_self_chara_filtered",
+       "filter": {
+        "feature_in": [
+         "動物",
+         "ドラム王国"
+        ]
+       }
+      },
       "count": 1,
       "per_target": true,
       "max_targets": 3
      }
     }
-   ]
+   ],
+   "_doc": "公式は 「自分の **特徴《動物》か《ドラム王国》を持つキャラ** 3枚までにレストのドン‼1枚ずつまでを付与」。 旧 overlay は target が all_self_team (= 特徴フィルタ無し + **リーダーも対象**) で、 対象外キャラやリーダーにも ドンを付与していた = 公式違反 (2026-08-10 是正、 cardqa_op_08 の裁定中に発覚)。 「1枚ずつまで」 は per_target:true + count:1、 「3枚まで」 は max_targets:3。"
   }
  ],
  "OP08-002": [
@@ -19090,13 +19117,22 @@
    "do": [
     {
      "attach_rested_don": {
-      "target": "all_self_team",
+      "target": {
+       "type": "all_self_chara_filtered",
+       "filter": {
+        "feature_in": [
+         "動物",
+         "ドラム王国"
+        ]
+       }
+      },
       "count": 1,
       "per_target": true,
       "max_targets": 3
      }
     }
-   ]
+   ],
+   "_doc": "公式は 「自分の **特徴《動物》か《ドラム王国》を持つキャラ** 3枚までにレストのドン‼1枚ずつまでを付与」。 旧 overlay は target が all_self_team (= 特徴フィルタ無し + **リーダーも対象**) で、 対象外キャラやリーダーにも ドンを付与していた = 公式違反 (2026-08-10 是正、 cardqa_op_08 の裁定中に発覚)。 「1枚ずつまで」 は per_target:true + count:1、 「3枚まで」 は max_targets:3。"
   }
  ],
  "OP08-002_p3": [

@@ -565,6 +565,12 @@ pub struct GameState {
     /// このバッチで既に置換コストを払った (holder トークン, when)。
     #[serde(skip)]
     pub rust_leave_batch_paid: Vec<(u64, String)>,
+    /// このバッチで 「代替しない」 と確定した (holder トークン, when)。
+    /// victim に依らない条件 (トラッシュ枚数等) は **バッチ開始時の状態** で 1 度だけ判定する
+    /// (cardqa_op_11 / OP11-001 コビー: 先に離れた victim がトラッシュを増やした状態を
+    ///  後の victim の判定に使えない)。
+    #[serde(skip)]
+    pub rust_leave_batch_declined: Vec<(u64, String)>,
     /// 「自分の(特徴X を持つ)キャラが場を離れた時」 の victim 判定用スナップショット。
     /// 効果の **最外側** で自陣キャラの顔ぶれを控え、 トリガー発火時に差分を取る
     /// (= 離脱経路が 16 以上あるので個別に victim を引き回すと必ず取りこぼす)。

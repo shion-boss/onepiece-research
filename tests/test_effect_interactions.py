@@ -8174,3 +8174,68 @@ def test_op06_043_activate_main_cost_is_all_or_nothing():
     assert hand_kept == 3, (
         "コスト2以下のキャラが居ないのに手札だけ捨てている (= 部分支払い、 cardqa_op_06 違反)"
     )
+
+
+def test_simultaneous_leave_replacement_condition_is_frozen_at_batch_start():
+    """同時離脱では victim に依らない条件を **バッチ開始時の状態** で 1 度だけ判定する。
+
+    一次情報 (cardqa_op_11、 OP11-001 コビー = 【ターン1回】自分の元々のパワー7000以下の
+    《海軍》キャラが相手の効果で場を離れる場合、 代わりに自分のトラッシュから3枚をデッキ下に):
+      Q「自分のトラッシュが **2枚以下** の時に、 (該当) キャラA と キャラB が **同時にKO**
+        された場合、 まず キャラA をトラッシュに置き、 キャラB をこの効果で代わりに場を
+        離れないことはできますか？」 → A「**いいえ、 できません**」
+
+    退行前は `self_trash_count_ge: 3` を victim ごとに **現在のトラッシュ** で評価しており、
+    先に落ちた A の分でトラッシュが 3 枚になり B だけ救われていた (= 実測で残キャラ 1)。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def survivors(trash_n: int) -> int:
+        st = _state(repo, overlay, leader0="OP11-001")
+        st.turn_player_idx = 1                      # 相手ターン = 相手の効果で離脱
+        me, opp = st.players[0], st.players[1]
+        me.trash = [repo.get(_FILLER)] * trash_n
+        me.characters = [
+            InPlay.of(repo.get("PRB02-001"), sickness=False),   # 海軍 / 元々5000
+            InPlay.of(repo.get("EB04-022"), sickness=False),    # 海軍 / 元々7000
+        ]
+        execute_effect(
+            {"ko_multi": [{"type": "one_opponent_character_filtered", "filter": {}},
+                          {"type": "one_opponent_character_filtered", "filter": {}}]},
+            st, opp, me, opp.leader,
+        )
+        resolve_triggers(st)
+        return len(me.characters)
+
+    assert survivors(2) == 0, (
+        "トラッシュ2枚 (コスト3枚に不足) なのにキャラが生き残っている = 先に離れた victim が "
+        "増やしたトラッシュで後の victim を救っている (cardqa_op_11 違反)"
+    )
+    # 対照: トラッシュ3枚なら 1 回払って **2 枚とも** 残る (cardqa_op_15 の 「コストは holder ごとに1回」)
+    assert survivors(3) == 2, "トラッシュ3枚なら同時離脱の2枚とも残るはず (cardqa_op_15)"
+    assert survivors(0) == 0, "トラッシュ0枚なら条件不成立で2枚とも離れるはず"
+
+
+def test_op08_001_chopper_attaches_don_only_to_filtered_characters():
+    """OP08-001 チョッパー 起動メイン: 対象は 「自分の **特徴《動物》か《ドラム王国》を持つ
+    キャラ**」 だけ。 特徴を持たないキャラや **自リーダー** には付与しない。
+
+    一次情報 (cardqa_op_08) の裁定中に発覚: overlay の target が `all_self_team`
+    (= 特徴フィルタ無し + リーダーも対象) で、 公式が対象外としているカードにもドンを
+    付与していた。 併せて 「1枚ずつまで」 (= 1 キャラに 2 枚以上は不可) も固定する。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP08-001")
+    me, opp = st.players[0], st.players[1]
+    me.don_rested = 5
+    target = InPlay.of(repo.get("EB04-018"), sickness=False)   # 特徴《動物》
+    other = InPlay.of(repo.get(_FILLER), sickness=False)       # 麦わらの一味 = 対象外
+    me.characters = [target, other]
+
+    source, eff = list_activate_main_effects(st, me, overlay)[0]
+    fire_activate_main(st, me, opp, source, eff)
+    resolve_triggers(st)
+
+    assert target.attached_dons == 1, "対象キャラに 1 枚付与されていない (「1枚ずつまで」)"
+    assert other.attached_dons == 0, "特徴を持たないキャラにドンが付与されている (公式違反)"
+    assert me.leader.attached_dons == 0, "リーダーにドンが付与されている (公式は 「キャラ」 限定)"
