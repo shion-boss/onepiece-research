@@ -275,6 +275,73 @@ Rust `effects.rs` 両方)。 overlay を
 
 ---
 
+## OP14-078 弾糸【カウンター】: gate は conform だが 「その後」 turn pump 欠落 + 人間経路 continuation バグを発見 (2026-08-10、 escalated)
+
+**一次情報** (`db/faq/cardqa_op_14`, qid `7cb0c9a599c9`):
+
+> Q: 自分のリーダーが特徴《ドンキホーテ海賊団》を持たない場合、 この【カウンター】効果で
+>    「その後、そのカードを、このターン中、パワー+2000。」効果を使うことはできますか？
+> A: **いいえ、できません。**
+
+**カードテキスト**: 「【カウンター】ドン‼-1：自分のリーダーが特徴《ドンキホーテ海賊団》を持つ場合、
+自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。**その後、そのカードを、このターン中、
+パワー+2000。**」
+
+**Q&A の論点 (= gate) は conform**: Q&A が問うのは 「その後の +2000 も leader gate 配下か」。 engine の
+overlay は `conditional {if: leader_feature ドンキホーテ海賊団, do: [...]}` が **効果全体を包む** ため、
+feature 無し→バトル分もその後分も一切不発 = 公式どおり (「いいえ」)。 → **台帳は conform**。
+
+**ただし点検中に 2 つの別バグを発見 (Q&A #3 の問いとは別軸、 是正は escalate)**:
+
+1. **overlay が 「その後、 そのカードを このターン中+2000」 の turn pump を欠落** (= battle +2000 のみの
+   simplified entry)。 `self_inplay` を対象にしているのは counter イベントの 「リーダーかキャラ1枚まで」
+   選択子で OP07-095/OP11-059 と同じ正しい慣用。 欠けているのは 2 段目の
+   `{"power_pump": {"target": "self_just_buffed", "amount": 2000, "duration": "turn"}}` のみ。
+
+2. **`self_just_buffed` の 2 段目 pump が 「人間の target_pick modal 解決後」 に continuation されない
+   pre-existing 系統バグ**。 AI 経路 (= 配備、 modal 無しで同期解決) は 2 段とも適用され正しい。 だが
+   人間経路 (target_pick modal → `resolve_pending_choice`) では 1 段目 pump のみ適用され、 親 do 配列の
+   残り (2 段目 self_just_buffed) が実行されない。 **OP14-078 固有でなく OP07-095/OP11-059 も同じ**
+   (実測: OP07-095 human = +4000 期待 +6000 / OP11-059 human = +2000 期待 +4000 / OP14-078 human =
+   +2000 期待 +4000)。 = modal resume 後の 「do 配列の続き」 を再開する continuation 機構が無い。
+
+**なぜ escalate**: (1) だけを overlay で足すと AI +4000 / 人間 +2000 の非対称が残り、 backfill の
+人間 test が不完全値を期待する形になる。 根治には (2) = **modal 解決後に親 do 配列の残余 primitive を
+再開する continuation 機構** が要る = 関数シグネチャ/実行モデルの変更 (arch)。 影響は self_just_buffed を
+2 段目に持つ counter 群 (OP07-095/OP11-059/OP14-078 等)。 規模見極めルール #11 (arch 変更) に該当し、
+Q&A #3 の conform 判定とは独立に **dedicated pass で Python+Rust 同時に直す** べき。 今回は overlay も
+engine も **変更せず** (gate が既に公式どおりのため台帳は conform で確定)。
+
+**残件の数え方**: self_just_buffed を 「その後」 2 段目に持つ overlay を全走査し、 人間経路 continuation の
+影響枚数を確定してから着手すること (バッチで見えた 3 枚だけを 「残 3 枚」 としない = 規律 #1)。
+
+---
+
+## 公式どおりで **問題なかった** もの (2026-08-10 追加分、 FAQ 全件保証 台帳より)
+
+- **「レストにできない」 は効果によるレストも止める** (cardqa_op_07 7c6e0322774f) — 「【ターン1回】効果で
+  『レストにできない』状態の相手キャラをレストにできるか」→「いいえ」。 `rest` primitive が
+  `cannot_be_rested_buff`/`static_cannot_be_rested` を除外 (effects.py:4392 の target-spec 経路 +
+  4411 の one_opp_chara_or_don 経路)。 2026-08-04 の一般則是正で既に対応済。
+- **on_self_rested は【ブロッカー】発動の自己レストで発火しない** (cardqa_op_14 7ed401536071、
+  OP14-070 バッファロー) — 「【ブロッカー】発動時に、 場のドン1枚をドンデッキに戻しこのキャラを
+  アクティブにできるか」→「いいえ」。 ブロッカー宣言は `game.py:1753` で `blocker.rested = True` を
+  直接セットし `trigger_on_self_rested` を **呼ばない** (発火点は attack 宣言 costless_only +
+  effect の rest primitive のみ)。 よって 「相手のキャラの効果でレストになった時」 効果は blocker では
+  不発 = 構造的に正しい。
+- **ダブルアタック付与は相手盤面に依存しない** (cardqa_st_05 7cd425f39ce8) — 「相手の場にキャラが
+  いない場合でも起動メインでダブルアタックを得られるか」→「はい」。 `give_keyword` は相手盤面を参照
+  しない = 構造的。
+- **「場のドンがドンデッキに戻された時」 は相手のドン戻しも含む** (cardqa_op_02 7f5683e477cf) —
+  owner=戻された側で trigger、 誰の効果かを問わない。 2026-08-04 決着済 (この Q&A が一次情報の 1 つ)。
+- **素の「パワーN以下」 は現在値** (cardqa_op_06 7fa78d1ee841) — お玉 (-2000) で元々7000→現在5000 の
+  相手キャラを 素の「パワーN以下」の【登場時】で KO 可→「はい」。 `_matches_filter_ip` が現在パワーで
+  判定 (settled 4-9 系是正)。
+- **ブロッカーは別バトルで消費されない** (cardqa_st_01 7fb59b968538) — 選んだキャラのアタック後、
+  別キャラがアタックした場合も相手はブロッカー発動可→「はい」。 ブロッカー適格は各アタック宣言時に判定。
+
+---
+
 ## 公式どおりで **問題なかった** もの (2026-08-04 追加分、 FAQ 全件保証 台帳より)
 
 - **リダイレクト系【相手のアタック時】は攻撃側のキーワードに依存しない** (OP14-060 ドフラミンゴ) —
