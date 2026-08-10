@@ -9626,14 +9626,19 @@ pub fn execute_on_play(state: &mut GameState, me_idx: usize, played_idx: usize) 
     if !state.players[me_idx].opp_on_play_disabled_through_opp_turn {
         enqueue_trigger(state, "on_play", me_idx, &card_id, Slot::Char(played_idx));
     }
-    enqueue_trigger(state, "on_self_chara_played", me_idx, &card_id, Slot::Char(played_idx));
+    // ⚠ 「自分のキャラが登場した時」 は **場の全カード** が反応する field-when (Python
+    //   trigger_on_play → `_enqueue_field_when(me, "on_self_chara_played")`)。 登場カードを
+    //   card_id に載せた marker を積むと 「登場カード自身の効果だけ」 を発火してしまう
+    //   (2026-08-10: リーダー OP14-041 の 「相手のターン中 自分のキャラ登場時 1ドロー」 が
+    //    丸ごと不発になり MISMATCH)。 反応集合は enqueue 時にカード単位で確定させる。
+    enqueue_field_when(state, me_idx, "on_self_chara_played");
     // payload-aware 条件 `played_chara_truly_original_cost_ge` (OP12-081 コアラ) の参照先。
     // ⚠ Rust は この field を **一度も set していなかった** ため条件が常に false = 相手の
     //   【相手がキャラを登場させた時】が丸ごと不発だった (2026-08-04 掃引 MISMATCH)。
     //   Python (effects.py:10959) と同じく enqueue の直前に set し、 drain 後に None へ戻す。
     state.last_opp_chara_played_card =
         Some(state.players[me_idx].characters[played_idx].card.clone());
-    enqueue_trigger(state, "on_opp_chara_played", opp, &card_id, Slot::Char(played_idx));
+    enqueue_field_when(state, opp, "on_opp_chara_played");
     let r = maybe_resolve(state);
     state.last_opp_chara_played_card = None;
     r
@@ -9650,6 +9655,9 @@ pub struct PendingTrigger {
     /// 発火元を一意に追う token (enqueue 時に打つ)。 drain までに盤面が動いても位置を復元できる
     /// = Python の source_iid 相当。 同名複数でも取り違えない。
     pub tok: Option<u64>,
+    /// Python の `payload["effect_indexes"]` 相当。 Some = **コスト支払い済で do だけ残っている**
+    /// 効果の index 列 (end_of_turn / opp_end_of_turn)。 None = when 一致の効果を通常判定で発火。
+    pub eff_idxs: Option<Vec<usize>>,
 }
 
 /// トリガーをキューに積む (Python:enqueue_event)。
@@ -9661,6 +9669,7 @@ fn enqueue_trigger(state: &mut GameState, when: &str, owner_idx: usize, card_id:
         card_id: card_id.to_string(),
         slot,
         tok,
+        eff_idxs: None,
     });
 }
 
@@ -9673,14 +9682,27 @@ fn enqueue_trigger(state: &mut GameState, when: &str, owner_idx: usize, card_id:
 /// (OP06-074 ゼファーのコストが OP06-076 人斬り鎌ぞうの誘発を呼ぶ、 2026-08-04 発覚)。
 ///
 /// 解決中でなければ Python 同様その場で drain される (maybe_resolve が回る)。
+///
+/// ⭐ **反応集合は enqueue 時に確定する** (2026-08-10)。 Python `_enqueue_field_when` は
+/// 「その when を持つカード」 を **enqueue した瞬間の場から カード単位で** 積む。 以前の Rust は
+/// 1 件だけ積んで **drain 時に場を走査** していたため、 enqueue と drain の間に盤面が動くと
+/// **反応するカードの集合そのもの** が食い違った (= 順序を揃えても消えない差、
+/// [[reference_rust_mismatch_root_cause_taxonomy]] 2b)。
 fn enqueue_field_when(state: &mut GameState, owner_idx: usize, when: &str) {
-    state.rust_event_queue.push(PendingTrigger {
-        when: when.to_string(),
-        owner_idx,
-        card_id: String::new(), // field-when は発火元カードを特定しない (場全体を走査)
-        slot: Slot::Leader,
-        tok: None,
-    });
+    let toks = snapshot_field_toks(state, owner_idx);
+    for (tok, cid) in toks {
+        if !card_has_when(&cid, when) {
+            continue;
+        }
+        state.rust_event_queue.push(PendingTrigger {
+            when: when.to_string(),
+            owner_idx,
+            card_id: cid,
+            slot: Slot::Leader, // field-when は tok で位置を引き直す (slot は未使用)
+            tok,
+            eff_idxs: None,
+        });
+    }
 }
 
 /// 自己効果で自分のライフが手札に加わった時の on_self_life_to_hand 発火 (effects.py:
@@ -9751,6 +9773,10 @@ pub fn maybe_resolve(state: &mut GameState) -> Result<(), String> {
 /// キューから取り出した 1 件を実行。 on_play は発火元スロットの card_id を照合し、
 /// ズレていたら同 card_id が一意な位置へ追随する (曖昧なら明示 bail = 誤発火を作らない)。
 fn execute_pending(state: &mut GameState, evt: &PendingTrigger) -> Result<(), String> {
+    // コスト支払い済 (= end_of_turn / opp_end_of_turn) は do だけを解決する。
+    if evt.eff_idxs.is_some() {
+        return run_explicit_idx_event(state, evt);
+    }
     match evt.when.as_str() {
         "on_play" => {
             let me = evt.owner_idx;
@@ -9767,6 +9793,11 @@ fn execute_pending(state: &mut GameState, evt: &PendingTrigger) -> Result<(), St
                 }
             };
             execute_card_effects(state, me, &evt.card_id, "on_play", slot)
+        }
+        // field-when は **enqueue 時にカード単位でスナップショット** 済 (card_id + tok)。
+        // card_id 空 = 旧形式 (場全体を drain 時に走査) は残っていないはずだが、 保険で従来経路へ。
+        w if !evt.card_id.is_empty() => {
+            fire_field_when_one(state, evt.owner_idx, w, evt.tok, &evt.card_id.clone())
         }
         w => fire_field_when(state, evt.owner_idx, w),
     }
@@ -11485,16 +11516,32 @@ pub(crate) fn fire_field_when_with_toks(
         }
     }
     for (tok, cid) in toks {
+        fire_field_when_one(state, owner_idx, when, tok, &cid)?;
+    }
+    Ok(())
+}
+
+/// `fire_field_when_with_toks` の **1 カード分**。 キューから 1 件ずつ取り出して発火する経路
+/// (= Python `_execute_event` がイベント 1 件 = カード 1 枚を処理するのと同じ粒度) で使う。
+pub(crate) fn fire_field_when_one(
+    state: &mut GameState,
+    owner_idx: usize,
+    when: &str,
+    tok: Option<u64>,
+    cid: &str,
+) -> Result<(), String> {
+    let Some(ov) = overlay() else { return Ok(()) };
+    {
         // 先行 source の効果/コストがこの source を場から除いた場合、 Python は場外オブジェクトの
         // まま処理を続ける (bundle は card_id 引き)。 Rust は Slot::Detached で続行する
         // (= "self" 対象は 0 件、 場外への変更は digest に現れないので等価)。
         let slot = find_tagged(state, owner_idx, tok);
-        let Some(effs) = ov.get(&cid) else { continue };
+        let Some(effs) = ov.get(cid) else { return Ok(()) };
         for (idx, eff) in effs.iter().enumerate() {
             if eff.get("when").and_then(|v| v.as_str()) != Some(when) {
                 continue;
             }
-            crate::selfplay::note_fired(&cid);
+            crate::selfplay::note_fired(cid);
             // once_per_turn: cost.once_per_turn or top-level。 mirror 対象 when は event_once_used で追跡、
             // それ以外 (end_of_turn 等 別トラッカー) は従来通り bail。
             let once_opt = eff
@@ -11810,6 +11857,151 @@ pub fn apply_don_phase_modifier(state: &mut GameState, me_idx: usize) -> Result<
     Ok(())
 }
 
+/// ターン開始時の自動効果 (公式 6-2-1-1-2) を Python `trigger_turn_start` と同じモデルで。
+/// = ターン側 on_turn_start と 非ターン側 opp_turn_start を **両方 enqueue してから 1 回ドレイン**。
+/// (カードごとに即発火すると、 ターン側の do が誘発した効果が 非ターン側より先に走ってしまう)
+pub fn enqueue_turn_start(state: &mut GameState, me_idx: usize, opp_idx: usize) -> Result<(), String> {
+    if overlay().is_none() {
+        return Ok(());
+    }
+    enqueue_field_when(state, me_idx, "on_turn_start");
+    enqueue_field_when(state, opp_idx, "opp_turn_start");
+    maybe_resolve(state)
+}
+
+/// エンドフェイズの自動効果 (公式 6-6-1-1) を Python `trigger_end_of_turn` と同じモデルで処理する。
+///
+/// ⭐ Python は **「両陣営を走査してコストを払い、 カード単位でイベントを enqueue」 → 最後に
+///   1 回ドレイン** という 2 相構造 (effects.py:trigger_end_of_turn)。 Rust は従来 カードごとに
+///   「コスト → do」 を **その場で** 実行していたため、
+///   - do が誘発した効果 (登場の on_play 等) が **次のカードの end_of_turn より先に** 走る
+///   - 後続カードのコスト判定が 「先行カードの do 適用後」 の盤面を見る
+///   の 2 点で Python と乖離しうる (公式 8-4-1-3〜5 と同じ 「コスト由来は後」 の話の系)。
+///   → 走査 (コスト支払い) と 解決 (do) を分けて Python と同順にする。
+///
+/// 順序: ターン側【自分のターン終了時】→ 非ターン側【相手のターン終了時】 (turn-first)。
+pub fn fire_end_of_turn_batch(state: &mut GameState, me_idx: usize) -> Result<(), String> {
+    let Some(ov) = overlay() else { return Ok(()) };
+    for (owner_idx, when) in [(me_idx, "end_of_turn"), (1 - me_idx, "opp_end_of_turn")] {
+        let toks = snapshot_field_toks(state, owner_idx);
+        for (tok, cid) in toks {
+            let Some(effs) = ov.get(&cid) else { continue };
+            if !effs.iter().any(|e| e.get("when").and_then(|v| v.as_str()) == Some(when)) {
+                continue;
+            }
+            let mut forced: Vec<usize> = Vec::new();
+            for (idx, eff) in effs.iter().enumerate() {
+                if eff.get("when").and_then(|v| v.as_str()) != Some(when) {
+                    continue;
+                }
+                // ⚠ find_tagged は **タグを消費する** ので走査中は peek で位置を引く
+                //   (消費すると 2 つ目以降の効果が Slot::Detached になり丸ごと不発になる)。
+                let slot = peek_tagged(state, owner_idx, tok);
+                let cost = eff.get("cost").cloned().unwrap_or(Value::Null);
+                let cost_once = cost.get("once_per_turn").and_then(|v| v.as_bool()) == Some(true);
+                // Python: cost.once_per_turn 済 (= `_end_of_turn_used_<idx>`) なら走査段で skip。
+                // canonical mirror は event_once_used (`<when>:<idx>`)。
+                if cost_once {
+                    let key = format!("{when}:{idx}");
+                    if get_ip(&state.players[owner_idx], slot).event_once_used.contains(&key) {
+                        continue;
+                    }
+                }
+                if !end_of_turn_cost_is_real(&cost) {
+                    // 強制効果 (cost なし / once_per_turn のみ) = 条件は **解決時** に評価する
+                    //   (Python も走査段では条件を見ない)。
+                    forced.push(idx);
+                    continue;
+                }
+                // cost-bearing optional: 条件 → 支払可否 → AI heuristic → 支払い (Python 同順)。
+                match eval_effect_conditions(eff, state, owner_idx, Some(slot)) {
+                    Some(true) => {}
+                    Some(false) => continue,
+                    None => return Err(format!("{when} 条件 unknown")),
+                }
+                if !can_pay_end_of_turn_cost(state, owner_idx, slot, &cost) {
+                    continue;
+                }
+                if !ai_should_fire_end_of_turn_cost(state, owner_idx, slot, eff) {
+                    continue;
+                }
+                // ⚠ 支払いで誘発したトリガーは Python と同じく **ここで** キューに積まれ、
+                //   resolving 外なのでその場でドレインされる (= 既に積んだカードイベントも回る)。
+                pay_end_of_turn_cost(state, owner_idx, slot, &cost, idx, when)?;
+                forced.push(idx);
+            }
+            if !forced.is_empty() {
+                // 解決時に位置を引き直せるよう、 走査タグとは別のトークンを打ち直す
+                // (コストで場を離れた場合は Detached → tok2=None = Python の self_inplay 不在と等価)。
+                let slot = peek_tagged(state, owner_idx, tok);
+                let tok2 = tag_src(state, owner_idx, slot);
+                state.rust_event_queue.push(PendingTrigger {
+                    when: when.to_string(),
+                    owner_idx,
+                    card_id: cid.clone(),
+                    slot: Slot::Leader,
+                    tok: tok2,
+                    eff_idxs: Some(forced),
+                });
+            }
+            let _ = find_tagged(state, owner_idx, tok); // 走査用タグを回収
+        }
+    }
+    maybe_resolve(state)
+}
+
+/// キューから取り出した 「コスト支払い済 + do だけ残っている」 イベントの解決
+/// (Python `_execute_event` の `payload["effect_indexes"]` 分岐)。
+fn run_explicit_idx_event(state: &mut GameState, evt: &PendingTrigger) -> Result<(), String> {
+    let Some(ov) = overlay() else { return Ok(()) };
+    let Some(effs) = ov.get(&evt.card_id) else { return Ok(()) };
+    let owner_idx = evt.owner_idx;
+    let when = evt.when.as_str();
+    let idxs = evt.eff_idxs.clone().unwrap_or_default();
+    for idx in idxs {
+        let Some(eff) = effs.get(idx) else { continue };
+        if eff.get("when").and_then(|v| v.as_str()) != Some(when) {
+            continue;
+        }
+        // 場を離れていても解決する (Python: cost_paid_explicit で self_inplay=None を許容)。
+        // ⚠ 複数 index を回すので peek (非消費)。 回収はループ後に 1 回。
+        let slot = peek_tagged(state, owner_idx, evt.tok);
+        // cost 既払いなので if 句のみ再評価 (条件変動の可能性に備える) = Python 同順。
+        match eval_effect_conditions(eff, state, owner_idx, Some(slot)) {
+            Some(true) => {}
+            Some(false) => continue,
+            None => return Err(format!("{when} 条件 unknown (cost 後)")),
+        }
+        // 【ターン1回】 ガード: **top-level** の once_per_turn のみ (cost 経由は支払い時に処理済)。
+        let once_opt = eff.get("once_per_turn");
+        if let Some(o) = once_opt {
+            if let Some(shared) = o.as_str() {
+                let key = format!("key:{shared}");
+                if state.players[owner_idx].once_shared_used.contains(&key) {
+                    continue;
+                }
+                let used = &mut state.players[owner_idx].once_shared_used;
+                used.push(key);
+                used.sort();
+            } else if o.as_bool() == Some(true) {
+                if !field_when_once_mirrored(when) {
+                    return Err(format!("{when} once_per_turn 未対応"));
+                }
+                let key = format!("{when}:{idx}");
+                if get_ip(&state.players[owner_idx], slot).event_once_used.contains(&key) {
+                    continue;
+                }
+                get_ip_mut(&mut state.players[owner_idx], slot).mark_event_once(when, idx as i64);
+            }
+        }
+        crate::selfplay::note_fired(&evt.card_id);
+        let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
+        fire_gated_do(state, owner_idx, slot, dos)?;
+    }
+    let _ = find_tagged(state, owner_idx, evt.tok); // タグ回収
+    Ok(())
+}
+
 /// end_of_turn の cost が user-optional 支払いを伴うか (effects.py:11220 `_end_of_turn_cost_is_real`)。
 fn end_of_turn_cost_is_real(cost: &Value) -> bool {
     let Some(o) = cost.as_object() else { return false };
@@ -12029,6 +12221,16 @@ fn pay_end_of_turn_cost(
         }
     }
     if let Some(ksf) = co.get("ko_self_with_filter").cloned() {
+        // ⚠ Python は `trigger_on_ko` / `trigger_on_self_chara_ko` = **enqueue + 即ドレイン**
+        //   (走査中なので resolving=false → 既に積んだカードイベントごと解決される)。 Rust の
+        //   on_ko は inline 発火でキューを持たないため同順を再現できない → 明示 bail。
+        //   overlay 全走査で **end_of_turn cost に ko_self_with_filter を持つカードは 0 枚**
+        //   (該当は pay_don の OP09-068 / OP16-073 のみ) なので実質デッドコード。
+        if (0..state.players[owner].characters.len())
+            .any(|i| matches_filter_ip(&state.players[owner].characters[i], Some(&ksf)))
+        {
+            return Err("end_of_turn cost ko_self_with_filter: KO時の解決順 未追従 = bail".into());
+        }
         // Python は最初の 1 体のみ KO し、 KO時トリガーを発火する。
         if let Some(i) = (0..state.players[owner].characters.len())
             .find(|&i| matches_filter_ip(&state.players[owner].characters[i], Some(&ksf)))

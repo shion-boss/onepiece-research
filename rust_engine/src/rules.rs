@@ -449,9 +449,10 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
             }
             // ターン開始時トリガー (game.py:707、 turn_number==1 含む全ターン)。
             // turn player の on_turn_start → 非turn player の opp_turn_start の順 (turn-first)。
+            // Python trigger_turn_start は **両陣営を enqueue してから 1 回ドレイン** する
+            // (= ターン側の効果の do が誘発したものより、 非ターン側の opp_turn_start が先)。
             let opp = 1 - me;
-            crate::effects::fire_field_when(state, me, "on_turn_start")?;
-            crate::effects::fire_field_when(state, opp, "opp_turn_start")?;
+            crate::effects::enqueue_turn_start(state, me, opp)?;
             state.phase = Phase::Draw;
         }
         Phase::Draw => {
@@ -566,10 +567,11 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
                     }
                 }
             }
-            // on-field end_of_turn (me) / opp_end_of_turn (opp) トリガー発火 (costless fire、
-            // cost/once/unknown/未対応prim は fire_field_when が Err で bail = 黙って間違えない)。
-            crate::effects::fire_field_when(state, me, "end_of_turn")?;
-            crate::effects::fire_field_when(state, 1 - me, "opp_end_of_turn")?;
+            // on-field end_of_turn (me) / opp_end_of_turn (opp)。 Python trigger_end_of_turn と同じく
+            // **走査 (コスト支払い) → カード単位で enqueue → 最後に 1 回ドレイン** の 2 相
+            // (= do が誘発した効果や 後続カードのコスト判定の順序を Python と揃える)。
+            // cost/once/unknown/未対応prim は Err で bail = 黙って間違えない。
+            crate::effects::fire_end_of_turn_batch(state, me)?;
             reset_turn_buff(state);
             if state.extra_turn_pending {
                 state.extra_turn_pending = false;

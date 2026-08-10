@@ -33,23 +33,23 @@ Rust に同じ意味論を実装すれば解消できる (= 追従課題)。
    **OP08-046 の 1 枚だけ** (OP07-038 は LEADER = 離場しない、 OP08-056 は STAGE で
    when が 「キャラが」 を見る) なので影響は極小。
 
-### ⚠ 既知の未追従 (= bail でも MISMATCH でもなく **まだ計測できていない** 乖離、 2026-08-09)
+### ⭐【ターン終了時】/【ターン開始時】も Python と同じ 2 相モデルに (2026-08-10、 解消済)
 
-**【ターン終了時】の発動コスト由来トリガーの解決順**。 Python は `_pay_end_of_turn_cost` を
-`_execute_event` の中 (= `resolving=true`) で払うので、 コストで誘発した効果は
-**そのカードの do の後、 しかも 全ての end_of_turn カードを処理し終えた後** に解決する。
-Rust の `fire_field_when` は `rust_resolving` を立てずに走るため、 `pay_end_of_turn_cost` 内の
-`enqueue_field_when + maybe_resolve` が **その場でドレイン** し、 そのカードの do より先に走る。
+Python `trigger_end_of_turn` は **① 両陣営を走査して コストを払い、 カード単位でイベントを
+enqueue → ② 最後に 1 回ドレインして do を実行** の 2 相。 Rust は カードごとに
+「コスト → do」 を **その場で** 実行していたので、
 
-- 該当は **overlay 全走査で 2 枚だけ** (`OP09-068` / `OP16-073` = end_of_turn cost が `pay_don`)、
-  かつ 反応側 (`on_self_don_returned_to_deck` = EB02-035 / P-077) が同時に場に居る局面に限る。
-  EOT cost の `ko_self_with_filter` 分岐は **該当カード 0 枚** (実質デッドコード)。
-- 直す形は 【起動メイン】 と同じ (= 反応集合を支払い時に snapshot して do の後に発火)。
-  ⚠ ただし 「全 end_of_turn カードを処理し終えた後」 まで揃えるには `fire_field_when` を
-  `rust_resolving = true` で包み、 rules.rs の end_of_turn / opp_end_of_turn **2 呼び出しを
-  1 つの解決スコープ** にする必要がある (= 10 箇所以上の呼出に影響する広い変更)。
-- 現状 3 ハーネス (16 デッキ / 全カード合成 / 効果スモーク) は MISMATCH=0 だが、
-  **この局面を踏んでいないだけ** = 「測れていない」 であって 「一致している」 ではない。
+- 先行カードの **do** が 後続カードの **コスト判定 (payability / 条件)** より先に走る (Python は後)
+- do が誘発した効果と 後続カードの end_of_turn の相対順序
+
+の 2 点で乖離しうる (= 公式 8-4-1-3〜5 「コスト支払いは発動、 do は解決」 の系)。
+→ `fire_end_of_turn_batch` (effects.rs) で Python と同じ 2 相にした。 ターン開始時も同型なので
+`enqueue_turn_start` で 両陣営 enqueue → 1 回ドレインに揃えた (rules.rs)。
+
+⚠ **EOT cost の `ko_self_with_filter` は明示 bail**。 Python は `trigger_on_ko` (= enqueue +
+即ドレイン) なので 「既に積んだカードイベントごと解決される」 が、 Rust の on_ko は inline 発火で
+キューを持たず同順を作れない。 overlay 全走査で **該当カード 0 枚** (cost 付き EOT は `pay_don` の
+OP09-068 / OP16-073 のみ) なので実質デッドコード。
 
 **⭐ bail 0 到達 (2026-08-04)**。 最後まで残っていた 2 primitive を実装した:
 - `schedule_self_return_to_deck_bottom_at_battle_end` (OP02-064 ボン・クレー)
@@ -162,6 +162,16 @@ RNG 依存効果は `rng.rs` (MT19937、 CPython `random` の bit 再現) を使
   実行する** (Python は本体を enqueue して resolve_triggers の中で回す = do 中の誘発は
   キュー末尾)。 KO の記録 (被KO数 / 効果無効 gate) は **即時**、 do だけ deferred
   (`note_ko_and_should_fire` / `run_on_ko_effects` の 2 段分離)。
+- **`enqueue_field_when` は 「反応するカード」 を enqueue 時に **カード単位で** 積む** (2026-08-10)。
+  Python `_enqueue_field_when` と同じ粒度。 以前は 1 件だけ積んで **drain 時に場を走査** していたため、
+  enqueue と drain の間に盤面が動くと **反応集合そのもの** が食い違った。
+  ⚠ この変更に伴い `execute_on_play` の `on_self_chara_played` / `on_opp_chara_played` は
+  **`enqueue_trigger` (= 登場カードを card_id に載せた marker) ではなく `enqueue_field_when`** で
+  積む。 marker のままだと 「登場カード自身の効果だけ」 を発火し、 場の反応カード (例: リーダー
+  OP14-041 「相手のターン中 自分のキャラ登場時 1ドロー」) が丸ごと落ちる。
+- **`find_tagged` は タグを消費する**。 1 枚のカードの複数効果を回すループや 複数 index を回す
+  解決では **`peek_tagged` (非消費) を使い、 回収は最後に 1 回**。 消費すると 2 つ目以降が
+  `Slot::Detached` になり、 効果が **黙って不発** になる (2026-08-10 に EOT 2 相化で踏んだ)。
 - **field-when の「発火元カード無し」ヘルパーも inline 直呼びしない**: `fire_field_when(state, idx, when)`
   は即時スキャン+発火 (トップレベルから呼ぶ分には Python の enqueue+即 resolve と等価だが、
   ネストした do-list の中から呼ぶと上記と同じ理由で inline 発火してしまう)。 「自分の効果でライフが
