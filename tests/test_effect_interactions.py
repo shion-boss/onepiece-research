@@ -8370,3 +8370,114 @@ def test_op05_109_pagaya_reacts_to_both_players_triggers():
     assert deck_drawn_by_pagaya(0) == 2, (
         "相手が【トリガー】を発動した時に発動していない (cardqa_op_05 違反)"
     )
+
+
+def test_on_life_zero_resolves_after_life_card_processing():
+    """「自分のライフが0枚になった時」 は **ライフ処理 (【トリガー】発動) が終わってから** 発動する。
+
+    一次情報 (cardqa_op_11、 OP11-102 ケイミー × 相手リーダー OP05-098 エネル ×
+    相手ライフ OP06-115「お前が消えろ」):
+      Q「ライフが1枚の相手にダメージを与え、 相手の「お前が消えろ」の【トリガー】効果が発動した時、
+        この【自分のターン中】効果と相手「エネル」の効果はどのように処理すればよいですか？」
+      A「**ターンプレイヤーの効果を優先するため、 まずこのカードの効果が発動し、 その後「エネル」の
+        効果が発動します**。 このカードの効果が発動した時点では、 相手のライフは「お前が消えろ」の
+        【トリガー】効果で増えた1枚だけなので、 **何も起きません**。 その後、「エネル」の効果により、
+        相手は自身のデッキの上から1枚を、 ライフの上に加え、 自身の手札1枚を捨てます」
+
+    退行前は 「ライフが 0 になった瞬間」 に **即解決** していたため、 非ターンプレイヤー (エネル) が
+    【トリガー】より先に走り、 ライフが 2 枚になった状態で ターンプレイヤーの反応 (ケイミーの
+    「相手のライフが2枚以上の場合」) が **誤って成立** して お互いのライフが 1 枚ずつ減っていた。
+    """
+    import engine.effects as _E
+    repo, overlay = _repo(), _overlay()
+    _orig = _E.should_fire_trigger
+    _E.should_fire_trigger = lambda *a, **k: True   # 発動意思は固定 (順序だけを見る)
+    try:
+        st = _state(repo, overlay, leader1="OP05-098")
+        me, opp = st.players[0], st.players[1]
+        atk = InPlay.of(repo.get("EB01-018_p1"), sickness=False)   # power7000 バニラ
+        me.characters = [atk, InPlay.of(repo.get("OP11-102"), sickness=False)]
+        me.life = [repo.get(_FILLER)] * 3
+        opp.life = [repo.get("OP06-115")]           # 唯一のライフ = お前が消えろ
+        opp.hand = [repo.get(_FILLER)] * 3
+        opp.deck = [repo.get(_FILLER)] * 20
+        opp.trash = []
+        apply_action(st, AttackLeader(attacker_iid=atk.instance_id), overlay)
+        while st.pending_choice is not None:
+            resolve_pending_choice(st, [0])
+    finally:
+        _E.should_fire_trigger = _orig
+
+    assert len(me.life) == 3, (
+        "ケイミーの 「お互いのライフの上から1枚をトラッシュ」 が誤って発動している "
+        "(= 相手ライフが2枚以上になってから解決した)"
+    )
+    assert len(opp.life) == 2, (
+        "相手ライフが 2 枚 (【トリガー】+1 / エネル+1) になっていない: "
+        f"{len(opp.life)} 枚"
+    )
+    assert len(opp.hand) == 1, (
+        "相手の手札が 3 → 1 (トリガー捨て1 + エネル捨て1) になっていない: "
+        f"{len(opp.hand)} 枚"
+    )
+
+
+def test_rest_paid_as_activation_cost_fires_rested_triggers():
+    """**発動コストでレストになった場合も** 「レストになった時」 は発動する。
+
+    一次情報 (cardqa_op_07、 OP07-031 バルトロメオ
+    「【自分のターン中】【ターン1回】キャラが自分の効果でレストになった時、 カード1枚を引き、
+      自分の手札1枚を捨てる」):
+      Q「自分のターン中に、 「【起動メイン】このキャラをレストにする：」 などの効果を発動し
+        自分のキャラがレストになった時、 このキャラの【自分のターン中】効果を発動できますか？」
+      → A「**はい、 できます**」
+
+    退行前は `rest` **primitive** (= 効果としてのレスト) からしか発火せず、 コスト由来のレストを
+    丸ごと取りこぼしていた。
+
+    ⚠ 併せて 対象範囲も是正: 公式は 「**キャラ**が自分の効果でレストになった時」 = **持ち主を
+      修飾していない** ので 相手キャラをレストにした場合も発動する (docs/official_rulings.md の
+      一般則: 「相手の」 が無ければ両陣営)。 修飾されているのは 「自分の効果で」 の方。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def run_cost_rest():
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        barto = InPlay.of(repo.get("OP07-031"), sickness=False)
+        grad = InPlay.of(repo.get("OP05-025"), sickness=False)  # 【起動メイン】自レスト：相手をレスト
+        me.characters = [barto, grad]
+        me.hand = [repo.get(_FILLER)] * 3
+        opp.characters = []                       # 相手対象なし = コスト由来レストだけを見る
+        d0, h0 = len(me.deck), len(me.hand)
+        effs = [(ip, e) for ip, e in list_activate_main_effects(st, me, overlay) if ip is grad]
+        assert effs, "グラディウスの【起動メイン】が候補に出ていない (前提崩れ)"
+        fire_activate_main(st, me, opp, grad, effs[0][1])
+        while st.pending_choice is not None:
+            resolve_pending_choice(st, [0])
+        resolve_triggers(st)
+        assert grad.rested, "コストの自レストが払われていない (前提崩れ)"
+        return d0 - len(me.deck), len(me.hand) - h0
+
+    drew, hand_delta = run_cost_rest()
+    assert drew == 1 and hand_delta == 0, (
+        "【起動メイン】のコストでレストになった時に バルトロメオが発動していない "
+        f"(引いた={drew} / 手札増減={hand_delta}、 公式は 1 引いて 1 捨てる)"
+    )
+
+    # 相手キャラを 自分の効果で レストにした場合 (= 「キャラが」 修飾なし → 両陣営)
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.characters = [InPlay.of(repo.get("OP07-031"), sickness=False)]
+    me.hand = [repo.get(_FILLER)] * 3
+    opp.characters = [InPlay.of(repo.get("OP01-016"), sickness=False)]
+    d0 = len(me.deck)
+    execute_effect({"rest": "one_opponent_character_any"}, st, me, opp, None)
+    while st.pending_choice is not None:
+        resolve_pending_choice(st, [0])
+    resolve_triggers(st)
+    assert opp.characters[0].rested, "相手キャラがレストになっていない (前提崩れ)"
+    assert d0 - len(me.deck) == 1, (
+        "相手キャラを 自分の効果で レストにした時に発動していない "
+        "(公式テキストは 「キャラが」 = 持ち主無修飾 → 両陣営)"
+    )

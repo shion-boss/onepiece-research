@@ -2337,9 +2337,9 @@ def _resolve_life_taken(
     #   ここは 戦闘ダメージ / 効果ダメージ 双方が通る choke point (= 1 hit ごと)。
     #   ⚠ mill_opp_life_* 等 ダメージ以外の ライフ除去経路は、 従来どおり
     #     「アタック開始時にライフ0」 の catch-all で拾う (= 取りこぼしは無いが発火が遅れる)。
-    if not opp.life and state.effects_overlay:
-        from .effects import trigger_on_life_zero
-        trigger_on_life_zero(state, opp, me, state.effects_overlay)
+    #   ⭐ **発火は この関数の末尾** (= ライフ処理が終わってから)。 ここで即発火すると
+    #     非ターンプレイヤーの効果が 【トリガー】 より先に解決してしまう (下記 fire_zero)。
+    fire_zero = bool(not opp.life and state.effects_overlay)
     fired = False
     kept_in_hand = False
     played_self = False
@@ -2428,6 +2428,17 @@ def _resolve_life_taken(
             trigger_on_opp_life_taken(
                 state, me, opp, went_to_hand, state.effects_overlay,
             )
+    # ⭐ 「自分のライフが0枚になった時」 は **ライフ処理 (= 【トリガー】発動 / 手札に加える)
+    #   が終わってから** 発動する (公式 cardqa_op_11、 OP11-102 ケイミー × OP05-098 エネル):
+    #     「ターンプレイヤーの効果を優先するため、 まずこのカード (ケイミー) の効果が発動し、
+    #      その後 「エネル」 の効果が発動します。 このカードの効果が発動した時点では、 相手の
+    #      ライフは 「お前が消えろ」 の【トリガー】効果で増えた1枚だけなので、 何も起きません」
+    #   従来は 0 になった **瞬間に即解決** していたので、 非ターンプレイヤー (= エネル) の効果が
+    #   【トリガー】 より先に走り、 ライフが 2 枚になった状態で ターンプレイヤーの反応
+    #   (ケイミーの 「相手のライフが2枚以上の場合」) が **誤って成立** していた (2026-08-10 是正)。
+    if fire_zero and state.effects_overlay:
+        from .effects import trigger_on_life_zero
+        trigger_on_life_zero(state, opp, me, state.effects_overlay)
 
 
 def resume_pending_attack_hit(state: GameState, use_trigger: bool) -> None:

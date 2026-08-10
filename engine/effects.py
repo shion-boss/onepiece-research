@@ -208,6 +208,37 @@ def _cost_trigger_buffer_flush(state: GameState) -> None:
     state._cost_trigger_buffer = []
 
 
+def _fire_rested_triggers(
+    state: GameState, actor: "Player", opp: "Player", target: "InPlay"
+) -> None:
+    """「レストになった時」 系の when を 1 箇所で発火する (= 効果由来 / コスト由来 の共通経路)。
+
+    - `on_self_rested`                        … 「このキャラがレストになった時」 (レストになった本人)
+    - `on_self_chara_rested_by_self_effect`   … 「キャラが自分の効果でレストになった時」 (場全体)
+
+    ⚠ **「キャラが」 に 「自分の/相手の」 の修飾が無い** (OP07-031 バルトロメオ / OP10-036 ペローナ)。
+      公式の書き分け (docs/official_rulings.md の一般則: 「相手の」 が無ければ両陣営) に従い、
+      **どちらの陣営のキャラでも** 「自分の効果で」 レストになったなら発動する。
+      修飾されているのは 「レストにした主体」 (= 自分の効果か) であって、 キャラの持ち主ではない。
+
+    ⚠ 「レストで登場」 は **発動しない** (公式 cardqa_op_09: 「『自分のキャラカードはレストで
+      登場する。』 の効果でレストで登場させた時、 『キャラが自分の効果でレストになった時』 などの
+      効果は発動できますか？」 → 「**いいえ**」)。 登場時から既にレスト = 「レストになった」 では
+      ないので、 登場経路からは この関数を呼ばない。
+    """
+    if not state.effects_overlay:
+        return
+    owner = actor if (target in actor.characters or target is actor.leader
+                      or target in actor.stages) else opp
+    trigger_on_self_rested(
+        state, owner, (opp if owner is actor else actor), target, state.effects_overlay,
+    )
+    _enqueue_field_when(
+        state, actor, "on_self_chara_rested_by_self_effect", state.effects_overlay,
+    )
+    _maybe_resolve(state)
+
+
 def _pop_next_event(state: GameState) -> Optional[TriggerEvent]:
     """次に解決すべきイベントを 1 つ取り出す。
 
@@ -4603,18 +4634,14 @@ def _execute_effect_body_inner(
                     continue
                 t.rested = True
                 actually_rested.append(t)
-                # 「このキャラがレストになった時」 trigger (OP14-027 シャンクス等)
+                # 「このキャラがレストになった時」 (OP14-027 シャンクス等) +
+                # 「キャラが自分の効果でレストになった時」 (field-wide、 OP07-031 / OP10-036)。
+                # ⚠ 従来は後者を `v_owner is me` (= 自陣キャラのみ) に限定していたが、 公式テキストは
+                #   「**キャラ**が自分の効果でレストになった時」 で **持ち主を修飾していない**
+                #   (docs/official_rulings.md の一般則: 「相手の」 が無ければ両陣営)。 修飾されて
+                #   いるのは 「自分の効果で」 = レストにした主体の方 (2026-08-10 是正)。
                 if state.effects_overlay and v_owner is not None:
-                    trigger_on_self_rested(state, v_owner, v_actor, t, state.effects_overlay)
-                    # 「キャラが自分の効果でレストになった時」 (field-wide、 OP10-036 ペローナ 等)。
-                    # actor (= me) 視点で「自分の効果」 由来。
-                    # 効果発動者 (= me) と victim_owner が 同陣営の 場合 のみ 発火 (= 「自分の効果で 自陣 キャラを レスト」)。
-                    if v_owner is me:
-                        _enqueue_field_when(
-                            state, me, "on_self_chara_rested_by_self_effect",
-                            state.effects_overlay,
-                        )
-                        _maybe_resolve(state)
+                    _fire_rested_triggers(state, me, opp, t)
             if actually_rested:
                 state.push_log(f"  効果: レスト → {[t.card.name for t in actually_rested]}")
             elif already_rested_skipped:
@@ -15633,6 +15660,18 @@ def _fire_activate_main_inner(
         if cost.get("rest_self"):
             inplay.rested = True
             state.push_log(f"  起動メインコスト: 自レスト {inplay.card.name}")
+            # ⭐ **発動コストでレストになった場合も 「レストになった時」 は発動する**
+            #   (公式 cardqa_op_07 / OP07-031 バルトロメオ:
+            #    「『【起動メイン】このキャラをレストにする：』などの効果を発動し 自分のキャラが
+            #      レストになった時、 このキャラの【自分のターン中】効果を発動できますか？」
+            #    → 「**はい、 できます**」)。
+            #   従来は `rest` **primitive** (= 効果としてのレスト) からしか発火しておらず、
+            #   コスト由来のレストを丸ごと取りこぼしていた (2026-08-10 是正)。
+            #   ⚠ 解決順は 公式 8-4-1-3〜5 (cardqa_op_14 / OP14-080) どおり **本体の後**。
+            #     ここは _cost_trigger_buffer の中なので enqueue は自動的に退避され、
+            #     do-list の後に flush される。
+            if state.effects_overlay:
+                _fire_rested_triggers(state, me, opp, inplay)
         # trash_self: 起動コストとしてこのキャラ自身をトラッシュに置く
         # 公式: 「このキャラをトラッシュに置くことができる」 = 自KO 同等の扱い
         # (= 場から取り除き、 持ち主のトラッシュへ、 付与ドンはレストでコストエリアへ)

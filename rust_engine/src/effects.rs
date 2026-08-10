@@ -9797,7 +9797,10 @@ fn rest_char_with_cascade(
             return Ok(()); // 置換発動 = 本来の rest はキャンセル
         }
     }
-    if pi == me_idx && me_board_has_when(state, me_idx, "on_self_chara_rested_by_self_effect") {
+    // ⚠ 「**キャラ**が自分の効果でレストになった時」 は 持ち主を修飾していない = **両陣営**
+    //   (2026-08-10 に Python `_fire_rested_triggers` を両陣営へ是正)。 発火側 (me_idx) の場に
+    //   反応カードがあれば、 レストされたのが どちらの陣営でも 未対応 bail にする。
+    if me_board_has_when(state, me_idx, "on_self_chara_rested_by_self_effect") {
         return Err("on_self_chara_rested_by_self_effect 未対応".into());
     }
     state.players[pi].characters[idx].rested = true;
@@ -13038,6 +13041,21 @@ pub fn fire_activate_main(
             source_gone = true;
         }
         if c.get("rest_self").and_then(|v| v.as_bool()).unwrap_or(false) {
+            // ⭐ **発動コストでレストになった場合も 「レストになった時」 は発動する**
+            //   (公式 cardqa_op_07 / OP07-031 バルトロメオ → 「はい、 できます」)。
+            //   Python は `_fire_rested_triggers` を コスト支払い中に呼び、 _cost_trigger_buffer
+            //   経由で **本体の後** に解決する。 Rust の起動メインは DeferredCostTrigger で
+            //   同順を作っているが 「レスト由来」 はまだ載せていないので、 反応カードが場に
+            //   あれば bail する (= 黙って乖離しない)。
+            let src_rested_before = get_ip(&state.players[me_idx], src).rested;
+            if !src_rested_before {
+                let scid = get_ip(&state.players[me_idx], src).card.card_id.clone();
+                if card_has_when(&scid, "on_self_rested")
+                    || me_board_has_when(state, me_idx, "on_self_chara_rested_by_self_effect")
+                {
+                    return Err("起動メイン rest_self コスト由来の レスト時トリガー 未対応".into());
+                }
+            }
             get_ip_mut(&mut state.players[me_idx], src).rested = true;
         }
         if pay_don > 0 {
