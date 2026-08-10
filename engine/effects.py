@@ -386,6 +386,18 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
     if when == "on_ko" and "by_opp_effect" in evt.payload:
         state.last_ko_by_opp_effect = bool(evt.payload["by_opp_effect"])
 
+    # ⭐ KO の victim 文脈 (victim_truly_original_power_ge / victim_feature_in 等) を payload から
+    #   復元する。 KO グループは 「全部 enqueue してから解決」 (公式 cardqa_op_10) なので、
+    #   解決時には state.last_chara_ko_victim_card が既に消えている。 transient state ではなく
+    #   **イベントに載せて運ぶ** のが正しい (2026-08-10、 OP14-041 ハンコックの
+    #   「元々のパワー5000以上の《九蛇海賊団》キャラがKOされた時」 が不発になった)。
+    prev_ko_victim = getattr(state, "last_chara_ko_victim_card", None)
+    if "victim_card" in evt.payload:
+        state.last_chara_ko_victim_card = evt.payload["victim_card"]
+    prev_ko_vdon = getattr(state, "_on_ko_victim_attached_don", 0)
+    if "victim_attached_don" in evt.payload:
+        state._on_ko_victim_attached_don = int(evt.payload["victim_attached_don"] or 0)
+
     # on_self_hand_discarded の context (捨てた枚数 / 発動元の特徴) を payload から復元。
     # enqueue 時点の state には残っていない (= ネスト解決だと既に上書き/消去されている)。
     prev_dc = getattr(state, "last_discard_count", 0)
@@ -631,6 +643,10 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
         state.forced_human_actor_idx = prev_forced
         if when == "on_ko":
             state.last_ko_by_opp_effect = prev_ko_by_opp
+        if "victim_card" in evt.payload:
+            state.last_chara_ko_victim_card = prev_ko_victim
+        if "victim_attached_don" in evt.payload:
+            state._on_ko_victim_attached_don = prev_ko_vdon
         if when == "on_self_hand_discarded":
             # ⚠ 復元し忘れると 「直近の破棄元特徴」 が **以降の全イベントに残留** し、
             #   無関係な条件が真になる (2026-08-08 に MISMATCH 411 件で検出)。
@@ -13600,8 +13616,17 @@ def trigger_on_opp_chara_ko(
     OP03-076 / EB04-044 等。 trigger_on_ko の後に呼ぶ。"""
     if not effects_overlay:
         return
-    _enqueue_field_when(state, me, "on_opp_chara_ko", effects_overlay)
-    _maybe_resolve(state)
+    _vic = getattr(state, "last_chara_ko_victim_card", None)
+    _enqueue_field_when(
+        state, me, "on_opp_chara_ko", effects_overlay,
+        payload=({"victim_card": _vic} if _vic is not None else None),
+    )
+    # ⚠ **ここでドレインしない** (2026-08-10、 公式 cardqa_op_10)。 1 回の KO から同時に発動する
+    #   効果 (victim の【KO時】 / 場の 「キャラがKOされた時」) は **全部 enqueue してから** 解決する。
+    #   途中でドレインすると、 まだ enqueue されていない同時発動ぶんより先に victim の【KO時】が
+    #   走り切り、 その中で登場したキャラの【登場時】まで解決されてしまう
+    #   (OP10-042 ウソップ(L) × OP10-090 フランキー × OP04-092 レベッカ)。
+    #   ドレインは KO グループ末尾の trigger_on_self_battle_ko か アクション境界が行う。
 
 
 def trigger_on_self_battle_ko(
@@ -13951,8 +13976,19 @@ def trigger_on_self_chara_ko(
     #  KO された時」 効果が effect-KO / battle-KO の双方で発火しなくなる engine bug を防ぐ)
     if victim_card is not None:
         state.last_chara_ko_victim_card = victim_card
-    _enqueue_field_when(state, victim_owner, "on_self_chara_ko", effects_overlay)
-    _maybe_resolve(state)
+    # ⭐ victim 文脈は **イベントに載せて運ぶ** (KO グループは全部 enqueue してから解決するので、
+    #   解決時には transient な state.last_chara_ko_victim_card が消えている)。
+    _vic = getattr(state, "last_chara_ko_victim_card", None)
+    _enqueue_field_when(
+        state, victim_owner, "on_self_chara_ko", effects_overlay,
+        payload=({"victim_card": _vic} if _vic is not None else None),
+    )
+    # ⚠ **ここでドレインしない** (2026-08-10、 公式 cardqa_op_10)。 1 回の KO から同時に発動する
+    #   効果 (victim の【KO時】 / 場の 「キャラがKOされた時」) は **全部 enqueue してから** 解決する。
+    #   途中でドレインすると、 まだ enqueue されていない同時発動ぶんより先に victim の【KO時】が
+    #   走り切り、 その中で登場したキャラの【登場時】まで解決されてしまう
+    #   (OP10-042 ウソップ(L) × OP10-090 フランキー × OP04-092 レベッカ)。
+    #   ドレインは KO グループ末尾の trigger_on_self_battle_ko か アクション境界が行う。
     # ⚠ 起動メインのコスト支払い中 (バッファ有効) は **まだ解決していない** ので victim 文脈を
     #   消さない。 消すと deferred な【KO時】/「自分のキャラがKOされた時」 の victim_* 条件が
     #   空振りする。 クリアは fire_activate_main が解決後に行う。
@@ -14795,9 +14831,26 @@ def trigger_on_ko(
             owner_idx=owner_idx,
             source_card_id=ko_card.card_id,
             source_iid=None,
-            payload={"by_opp_effect": bool(by_opp_effect)},
+            payload={
+                "by_opp_effect": bool(by_opp_effect),
+                # ⭐ 「【ドン‼×N】【KO時】」 の don-gate は **KO された瞬間の付与ドン** で判定する。
+                #   KO グループは 「全部 enqueue してから解決」 なので、 transient state では
+                #   解決前に復元されてしまう → イベントに載せて運ぶ (2026-08-11)。
+                "victim_attached_don": int(victim_attached_don or 0),
+                "victim_card": ko_card,
+            },
         )
-        _maybe_resolve(state)
+        # ⚠ **ここでドレインしない** (2026-08-10 是正、 公式 cardqa_op_10)。
+        #   1 回の KO からは 「victim の【KO時】」 と 「場の 『キャラがKOされた時』」 が
+        #   **同時に** 発動する。 ここで即解決すると 後続の trigger_on_self_chara_ko /
+        #   trigger_on_opp_chara_ko が enqueue される **前に** victim の【KO時】が走り切り、
+        #   その中で登場したキャラの【登場時】まで解決されてしまう。
+        #   公式 (OP10-042 ウソップ(L) × OP10-090 フランキー【KO時】 × OP04-092 レベッカ【登場時】):
+        #     「このリーダーの【相手のターン中】効果が、 フランキーの【KO時】効果で登場した
+        #      キャラの【登場時】効果よりも、 **必ず先に発動します**」
+        #   = 同時発動ぶんを全部 enqueue してから解決し、 解決中に新しく誘発したものは
+        #     キュー末尾に回る、 が正しい。 ドレインは 後続の trigger_on_*_chara_ko
+        #     (いずれも末尾で _maybe_resolve) と アクション境界が行う。
     finally:
         # ⚠ コスト支払い中 (バッファ有効) は 解決が後回しなので、 付与ドン文脈も後まで残す
         #   (= self_attached_don_ge が deferred な【KO時】で 0 に見えるのを防ぐ)。

@@ -20,6 +20,7 @@ from pathlib import Path
 from engine.core import GameState, InPlay, Phase, Player
 from engine.deck import CardRepository
 from engine.effects import (
+    resolve_triggers,
     execute_effect,
     load_effect_overlay,
     resolve_pending_choice,
@@ -127,6 +128,7 @@ def test_op13_033_on_ko_rest_two_opp_ai():
     opp.don_rested = 0
 
     trigger_on_ko(st, me, opp, repo.get("OP13-033"), overlay)
+    resolve_triggers(st)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
     _drain(st)
 
     rested_count = sum(1 for c in opp.characters if c.rested)
@@ -510,6 +512,7 @@ def test_op13_044_on_ko_draw_ai():
     me.deck = [repo.get(_FILLER)] * 10
 
     trigger_on_ko(st, me, opp, repo.get("OP13-044"), overlay)
+    resolve_triggers(st)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
     _drain(st)
 
     assert len(me.hand) == 1, f"【KO時】に1枚引けていない: hand={len(me.hand)}"

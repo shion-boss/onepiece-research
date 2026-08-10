@@ -20,6 +20,7 @@ from pathlib import Path
 from engine.core import GameState, InPlay, Phase, Player
 from engine.deck import CardRepository
 from engine.effects import (
+    resolve_triggers,
     evaluate_static_effects,
     execute_effect,
     fire_activate_main,
@@ -362,6 +363,7 @@ def test_op12_107_on_ko_put_top_to_life_on_opp_turn():
     deck_before = len(me.deck)
     life_before = len(me.life)
     trigger_on_ko(st, me, opp, repo.get("OP12-107"), overlay)
+    resolve_triggers(st)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
     _drain(st)
 
     assert len(me.life) == life_before + 1, "KO時にデッキ上1枚がライフに加わっていない"
@@ -380,6 +382,7 @@ def test_op12_107_on_ko_no_effect_on_self_turn():
 
     life_before = len(me.life)
     trigger_on_ko(st, me, opp, repo.get("OP12-107"), overlay)
+    resolve_triggers(st)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
     _drain(st)
 
     assert len(me.life) == life_before, "自ターンで KO時効果が発火してはいけない"
@@ -472,6 +475,7 @@ def test_op12_113_on_ko_play_from_hand_ss_ai():
     me.characters = []
 
     trigger_on_ko(st, me, opp, repo.get("OP12-113"), overlay)
+    resolve_triggers(st)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
     _drain(st)
 
     played = [c for c in me.characters if c.card.card_id == _SS_C4]
@@ -490,6 +494,7 @@ def test_op12_113_on_ko_no_play_when_not_ss_leader():
     me.characters = []
 
     trigger_on_ko(st, me, opp, repo.get("OP12-113"), overlay)
+    resolve_triggers(st)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
     _drain(st)
 
     assert not any(c.card.card_id == _SS_C4 for c in me.characters), \

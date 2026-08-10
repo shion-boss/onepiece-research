@@ -9,6 +9,7 @@ from pathlib import Path
 from engine.core import Category, GameState, InPlay, Phase, Player
 from engine.deck import CardRepository
 from engine.effects import (
+    resolve_triggers,
     evaluate_static_effects,
     fire_activate_main,
     list_activate_main_effects,
@@ -4208,6 +4209,7 @@ def test_on_self_chara_ko_preserves_victim_context():
     victim = repo.get(big)
     # 実 KO 相当の trigger 順序 (me = victim owner, players[1] = actor)
     trigger_on_ko(state, me, state.players[1], victim, overlay, by_opp_effect=True)
+    resolve_triggers(state)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
     trigger_on_self_chara_ko(state, me, state.players[1], overlay)  # victim_card 省略
     resolve_triggers(state)
     assert len(me.hand) == h0 + 1, "OP13-002: 元々パワー6000+キャラKOで1ドローが発火しない (victim context clobber)"
@@ -4479,6 +4481,7 @@ def test_op16_041_buggy_plays_prisoner_on_impeldown_ko():
     me.leader.attached_dons = 1                  # 【ドン!!×1】
     me.hand = [repo.get("OP16-042")]             # インペルダウンの囚人
     trigger_on_self_chara_ko(state, me, opp, overlay, victim_card=repo.get("EB02-038"))  # マゼラン(インペル)KO
+    resolve_triggers(state)  # KO グループは enqueue のみ = 実経路と同じくドレイン
     assert any(c.card.card_id == "OP16-042" for c in me.characters)  # 囚人 登場
     assert not any(c.card_id == "OP16-042" for c in me.hand)         # 手札から出た
 
@@ -4488,6 +4491,7 @@ def test_op16_041_buggy_plays_prisoner_on_impeldown_ko():
     me2.leader.attached_dons = 1
     me2.hand = [repo.get("OP16-042")]
     trigger_on_self_chara_ko(state2, me2, opp2, overlay, victim_card=repo.get("OP01-013"))  # サンジ(非インペル)
+    resolve_triggers(state2)  # KO グループは enqueue のみ = 実経路と同じくドレイン
     assert not me2.characters  # 登場しない
 
     # ドン!!×1 未満 → 発動しない
@@ -4496,6 +4500,7 @@ def test_op16_041_buggy_plays_prisoner_on_impeldown_ko():
     me3.leader.attached_dons = 0
     me3.hand = [repo.get("OP16-042")]
     trigger_on_self_chara_ko(state3, me3, opp3, overlay, victim_card=repo.get("EB02-038"))
+    resolve_triggers(state3)  # KO グループは enqueue のみ = 実経路と同じくドレイン
     assert not me3.characters  # DON 不足で発動しない
 
 

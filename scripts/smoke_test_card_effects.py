@@ -58,6 +58,7 @@ sys.path.insert(0, str(ROOT))
 from engine.core import Category, GameState, InPlay, Phase, Player
 from engine.deck import CardRepository
 from engine.effects import (
+    resolve_triggers,
     CardEffectBundle,
     evaluate_static_effects,
     fire_activate_main,
@@ -211,6 +212,11 @@ def fire_one_effect(
             me.characters.remove(src_inplay)
             me.trash.append(src_inplay.card)
         trigger_on_ko(state, me, opp, src_inplay.card, overlay, victim_attached_don=vdon)
+        # ⚠ KO トリガー群は 「同時発動を全部 enqueue してから解決」 (公式 cardqa_op_10、
+        #   2026-08-11) なので、 trigger_on_ko 単体では **キューに積むだけ**。 実経路では
+        #   同 KO の trigger_on_*_chara_ko とアクション境界がドレインする。 単発発火の
+        #   ハーネスはここで明示的に流す (= 流さないと全 on_ko 効果が 「空振り」 に見える)。
+        resolve_triggers(state)
     elif when == "activate_main":
         # cost を強制無視で発動
         try:
