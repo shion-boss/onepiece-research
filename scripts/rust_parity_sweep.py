@@ -253,9 +253,15 @@ def main() -> None:
                     help="MISMATCH>0 で exit 1 (CI 用)")
     ap.add_argument("--dump-limit", type=int, default=5,
                     help="MISMATCH の再現 dump を何件まで保存するか")
+    ap.add_argument("--diag", action="store_true",
+                    help="Rust 診断モード (= bail の **内側の理由** を unknown_conditions に集計)。"
+                         " 外側メッセージ (「on_play primitive 未対応: X」) は内側の Err を潰すので、"
+                         " 追従作業ではこれを付けて根本原因を見る")
     args = ap.parse_args()
 
     P._load()  # repo + overlay (Rust 側 load_overlay も含む)
+    if args.diag:
+        eng.reset_coverage_stats(True)
     decks = FS.build_synthetic_decks()
     if args.limit:
         decks = decks[:args.limit]
@@ -325,6 +331,13 @@ def main() -> None:
         print("\n=== bail 理由 top ===")
         for k, n in stats["bail"].most_common(20):
             print(f"  {n:5d}  {k}")
+    if args.diag:
+        cv = json.loads(eng.coverage_stats())
+        unk = sorted((cv.get("unknown_conditions") or {}).items(), key=lambda kv: -kv[1])
+        if unk:
+            print("\n=== bail の内側の理由 (--diag) ===")
+            for k, v in unk[:40]:
+                print(f"  {v:5d}  {k}")
     print(f"\n→ {OUT}")
 
     if stats["panic"]:

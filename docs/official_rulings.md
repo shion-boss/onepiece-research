@@ -4595,3 +4595,44 @@ OP14-080 の是正時に 「同型の未追従が【ターン終了時】に残�
 ⭐ **教訓**: 「解決モデルを Python に寄せる」 変更は、 **寄せた瞬間に今まで隠れていた粒度差が
 表に出る**。 差分ハーネスを 1 回回すごとに 1 つずつ原因が変わって現れるので、
 **MISMATCH の内訳が変わったら 「直った」 ではなく 「次の層が出た」 と読む**。
+
+### Rust 側の 「意図的な bail」 2 種を実装で解消 — 全ハーネス bail 0 へ (2026-08-10)
+
+Python では既に公式どおりだが Rust が追従できず明示 bail していた 2 件を実装した
+(= 「黙って間違えない」 は保っていたが、 その局面で Rust が計算を降りていた)。
+
+**① 同時離脱バッチ** (`_LeaveBatch` の移植)
+- `cardqa_op_10` / OP10-032 たしぎ: 「アクティブのこのキャラと、 これ以外の自分の緑のキャラが
+  **同時にKOされるとき**、 この効果で代わりにこのキャラをレストにできますか？」 → **はい**。
+  = 同時離脱は 1 事象なので、 置換 holder は **バッチ開始時に居たカード全員** が候補。
+  現盤面から探すと 「先に処理した victim が holder 自身だった」 場合に候補から消え、
+  **iteration 順で裁定が変わる**。
+- `cardqa_op_15` / OP15-090 ペローナ: 2 枚同時離脱でも 「手札**1枚**を捨てて **2枚とも** 残す」
+  = 置換コストは holder ごとに **1 回だけ**。
+- Rust: holder をトークンで追うスナップショット (`rust_leave_batch_holders`) +
+  支払い済台帳 (`rust_leave_batch_paid`)。 `board_has_replace_holder` の一律 bail を撤去。
+
+**② 「離脱本人」 の発動** (`_note_public_departure` の移植)
+- `cardqa_op_08` / OP08-046 シャクヤク: 場を離れた本人も、 **行き先が公開領域 (トラッシュ /
+  表向きライフ)** なら `on_self_chara_leave_by_self_effect` を発動できる。
+- Rust: 台帳 `rust_departed_to_public` に記録 → `fire_leave_by_self_effect` が
+  「場のカードの反応 + 本人の反応」 を発火。 記録サイトは Python と 1:1。
+
+**併せて**: field-when で `once_per_turn` を持つのに canonical mirror 漏れだった when 5 種
+(`on_self_chara_rested_by_self_effect` / `on_opp_blocker_use` / `on_self_chara_leave_by_opp_effect` /
+`on_opp_chara_returned_to_hand_by_self_effect` / `opp_attack_on_chara`) を overlay 全走査で洗い出し、
+両エンジンに追加 (Python は **記録のみ** = 挙動不変、 Rust はこれで 「ターン1回」 を追跡できる)。
+
+**結果**: 16 デッキ差分 match 2,115 / **bail 0**、 全カード合成 329 デッキ match 40,708 / **bail 0**、
+効果スモーク 3 パス match 5,086 / bail 0 (いずれも MISMATCH 0 / PANIC 0)。
+
+### ⚠ 計器の話 2 つ (どちらも 「見えていなかった」)
+
+1. **bail の外側メッセージは内側の Err を潰す**。 "on_play primitive 未対応: return_to_hand_multi"
+   だけ見ても原因は分からない (`execute_effect` が bool を返すため)。 `rust_parity_sweep --diag` を
+   足して `note_unknown_key` の内訳を出せるようにしたら、 14 件の bail が
+   **5 系統に一意に分解できた**。 追従作業は **必ず --diag から始める**。
+2. **`rust_effect_smoke_parity` の `skip(when)=674` は穴ではない**。 静的 (on_attached_don 536 /
+   in_hand 24 / setup_modifier 2) と 置換 (replace_leave 56 / replace_ko 49 / replace_rest 3) は
+   **別パスで bit 比較済**。 誤読を防ぐため内訳を出力するようにした。
+   (`bit 一致を証明できたカード: 4,262` = 効果ありカード全数、 が本当の網羅指標)

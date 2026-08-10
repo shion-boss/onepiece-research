@@ -387,6 +387,18 @@ def main() -> None:
     print(f"bit 一致を証明できたカード: {len(proven | sproven | rproven)} "
           f"(直接発火 {len(proven)} + 静的 {len(sproven)} + 置換 {len(rproven)})")
     print("skip: " + "  ".join(f"{k}={v}" for k, v in sorted(res.items()) if k.startswith("skip")))
+    # ⚠ skip(when) は **未検査ではない**。 静的 (on_attached_don / in_hand / setup_modifier) と
+    #   置換 (replace_ko / replace_leave / replace_rest) は 下の専用パスで bit 比較しているので、
+    #   直接発火パスでは対象外にしているだけ。 内訳を出して 「計器の穴」 と誤読されないようにする。
+    if res.get("skip(when)"):
+        skipped_by_when = Counter()
+        for cid, effs in cards:
+            for eff in effs:
+                w = eff.get("when") or "(when 無し)"
+                if w not in DIRECT_WHENS:
+                    skipped_by_when[w] += 1
+        print("  skip(when) 内訳 (= 別パスで検査済 or 対象外): "
+              + "  ".join(f"{w}={n}" for w, n in skipped_by_when.most_common()))
     if detail:
         print("\n=== 内訳 top ===")
         for k, v in detail.most_common(30):

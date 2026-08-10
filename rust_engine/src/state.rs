@@ -551,6 +551,23 @@ pub struct GameState {
     /// `last_return_to_hand_success`)。 OP13-119 の「そうした場合」 gate に使う。
     #[serde(skip)]
     pub last_return_to_hand_success: bool,
+    /// **同時離脱バッチ** (effects.py:`_LeaveBatch`) のスナップショット。
+    /// 公式は 「1 つの効果で複数のキャラが同時に場を離れる」 を 1 事象として扱うので、
+    /// ① 置換 holder は **バッチ開始時の盤面** から決める (順序非依存、 cardqa_op_10 / OP10-032 たしぎ)
+    /// ② 同じ holder の置換コストは **1 回だけ** (cardqa_op_15 / OP15-090 ペローナ)
+    /// (owner_idx, holder を追う一意トークン, card_id)。 transient なので digest 対象外。
+    #[serde(skip)]
+    pub rust_leave_batch_holders: Option<Vec<(usize, Option<u64>, String)>>,
+    /// このバッチで既に置換コストを払った (holder トークン, when)。
+    #[serde(skip)]
+    pub rust_leave_batch_paid: Vec<(u64, String)>,
+    /// 「自分の効果で場を離れ、 行き先が **公開領域** (トラッシュ / 表向きライフ)」 だった
+    /// キャラの台帳 (effects.py の `state._departed_to_public_zone` ミラー、 (owner_idx, card_id))。
+    /// 公式 cardqa_op_08 (OP08-046 シャクヤク): 離脱した **本人** も
+    /// on_self_chara_leave_by_self_effect を発動できる (行き先が公開領域の時だけ)。
+    /// 直後の発火で consume + clear する transient なので digest 対象外。
+    #[serde(skip)]
+    pub rust_departed_to_public: Vec<(usize, String)>,
     /// 直前の KO が「相手の効果由来」か (effects.py の動的属性 `last_ko_by_opp_effect` 相当)。
     /// 条件 by_opp_effect / by_battle の判定に使う。 fire_on_ko の引数から設定する。
     #[serde(skip)]

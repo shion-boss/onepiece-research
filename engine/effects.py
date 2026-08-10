@@ -1177,6 +1177,12 @@ _FIELD_WHEN_ONCE_MIRROR = frozenset({
     #  別 when で、 event-play 経路のみ enqueue する (trigger_opp_event_played)。
     "opp_event_played",
     "on_self_chara_leave_by_self_effect", "on_self_rested",
+    # field-when で once_per_turn を持つが mirror 漏れだった when (2026-08-10 追加)。
+    # 記録が無いと Rust が 「ターン1回」 を追跡できず、 該当トリガーが丸ごと bail する。
+    # ⚠ Python の判定は従来どおり once_per_turn_used (= 挙動不変、 記録が増えるだけ)。
+    "on_self_chara_rested_by_self_effect", "on_opp_blocker_use",
+    "on_self_chara_leave_by_opp_effect", "on_opp_chara_returned_to_hand_by_self_effect",
+    "opp_attack_on_chara",
     "on_self_trigger_fired",
     # ライフ 0 トリガー (OP05-098 紫エネル)。 source はリーダー (= 永続 InPlay) なので mirror 可能。
     # これが無いと Rust 側で「ターン1回」を追跡できず、 該当効果が丸ごと bail する (2026-07-31)。

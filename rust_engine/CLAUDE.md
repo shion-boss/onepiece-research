@@ -4,34 +4,36 @@
 > `optcg_engine`) は self-play を 30-100x 高速化するための**忠実ミラー**。 配備 AI・人間対戦・API は
 > Python のまま。 詳細背景は memory `project_rust_engine.md`。
 
-## 現状 (2026-08-08): Python との bit 一致を **効果カード全数** で証明済
+## 現状 (2026-08-10): Python との bit 一致を **効果カード全数** で証明済 + **全ハーネス bail 0**
 
 | 検証 | 結果 |
 |---|---|
-| 差分ハーネス 16 デッキ (`rust_parity_check --assert`) | match 2,081 / bail 1 / **MISMATCH 0** / static_skip 0 / py_skip 0 |
-| 差分 全カード合成デッキ 329 (`rust_parity_sweep`) | match 40,410 / bail 0 / **MISMATCH 0 / PANIC 0** |
+| 差分ハーネス 16 デッキ (`rust_parity_check --assert`) | match 2,115 / **bail 0** / **MISMATCH 0** / static_skip 0 / py_skip 0 |
+| 差分 全カード合成デッキ 329 (`rust_parity_sweep`) | match 40,708 / **bail 0** / **MISMATCH 0 / PANIC 0** |
 | 効果差分 3 パス (`rust_effect_smoke_parity --assert`) | 直接発火 3,909 + 静的 532 + 置換 108 / bail 0 / **MISMATCH 0** |
 | **効果ありカード 4,262 枚の bit 一致証明** | **100%** |
 | Rust 単独掃引 (`rust_fullsweep`、 60 デッキ / 360 game) | action 1,505,877 中 **bail 0**、 保存則違反 0、 中断 0 |
 | overlay 網羅 | primitive / condition / when / target spec が **全て実装済 (未対応 0)** |
 
-### ⚠ 現存する 「意図的な」 bail 2 種 (= 未実装 primitive ではなく **意味論の未追従**)
+### ⭐ 「意図的な」 bail 2 種を **実装で解消** (2026-08-10)
 
-どちらも公式 Q&A 起点で Python 側に 「同時性 / 本人参加」 の意味論を入れた結果、 逐次処理の
-Rust が追従できていない箇所。 **bail = 黙って間違えない** の原則どおり明示 Err にしてある。
-Rust に同じ意味論を実装すれば解消できる (= 追従課題)。
+どちらも公式 Q&A 起点で Python に 「同時性 / 本人参加」 の意味論を入れた結果、 逐次処理の Rust が
+追従できず bail していた箇所。 **Rust に同じ意味論を実装して bail 0 にした**。
 
-1. **multi-target `ko` + 置換 holder 在場** (`effects.rs` の `board_has_replace_holder` guard)
-   — Python は `_LeaveBatch` で **バッチ開始時の盤面** から置換 holder を決める (順序非依存、
-   cardqa_op_10 / OP10-032 たしぎ)。 Rust は逐次なので順序依存になるため bail。
-   16 デッキ差分の bail=1 はこれ (OP15-114 の on_play 経由で顕在化)。
-2. **`on_self_chara_leave_by_self_effect` の 「離脱本人」 発動** (`fire_field_when` の guard)
-   — 公式 cardqa_op_08 (OP08-046 シャクヤク): 場を離れた本人も、 **行き先が公開領域
-   (トラッシュ / 表向きライフ)** なら発動できる。 Python は `_note_public_departure` の台帳で
-   本人を追加 enqueue する。 Rust は台帳未実装につき、 その `when` を持つ **CHARACTER** が
-   自分のトラッシュ / 表向きライフに在る局面で bail (過剰 bail)。 本人参加しうるのは
-   **OP08-046 の 1 枚だけ** (OP07-038 は LEADER = 離場しない、 OP08-056 は STAGE で
-   when が 「キャラが」 を見る) なので影響は極小。
+1. **同時離脱バッチ** (`SIMULTANEOUS_LEAVE_PRIMS` + `state.rust_leave_batch_holders/paid`)
+   — Python `_LeaveBatch` の移植。 ① 置換 holder は **バッチ開始時の盤面** から決める
+   (順序非依存、 cardqa_op_10 / OP10-032 たしぎ) ② 同じ holder の置換コストは **1 回だけ**
+   (cardqa_op_15 / OP15-090 ペローナ)。 holder はトークンで追い、 `try_replace_ko` が
+   スナップショットを走査する。 従来の `board_has_replace_holder` 一律 bail は撤去。
+   ⚠ **残る bail は 1 種類だけ**: holder 自身がバッチ内で既に場を離れた場合
+   (Python は object 参照で場外 holder も扱えるが Rust は場外 InPlay を持たない) → 明示 Err。
+2. **`on_self_chara_leave_by_self_effect` の 「離脱本人」 発動** (`note_public_departure` +
+   `fire_leave_by_self_effect`) — 公式 cardqa_op_08 (OP08-046 シャクヤク): 場を離れた本人も
+   **行き先が公開領域 (トラッシュ / 表向きライフ)** なら発動できる。 Python `_note_public_departure`
+   の台帳 (`state.rust_departed_to_public`) を移植し、 場のカードの反応 + 本人の反応を発火する。
+   記録サイトは Python と 1:1 (`trash_self` コスト / `trash_all_self_chara` / `ko_self_chara` /
+   `chara_to_trash` / `chara_to_self_life` の face_up)。
+   ⚠ 「キャラが」 の文面なので **CHARACTER のみ** 記録する (STAGE は対象外)。
 
 ### ⭐【ターン終了時】/【ターン開始時】も Python と同じ 2 相モデルに (2026-08-10、 解消済)
 
