@@ -8239,3 +8239,43 @@ def test_op08_001_chopper_attaches_don_only_to_filtered_characters():
     assert target.attached_dons == 1, "対象キャラに 1 枚付与されていない (「1枚ずつまで」)"
     assert other.attached_dons == 0, "特徴を持たないキャラにドンが付与されている (公式違反)"
     assert me.leader.attached_dons == 0, "リーダーにドンが付与されている (公式は 「キャラ」 限定)"
+def test_op08_039_end_of_turn_untap_mink_only():
+    """OP08-039 ゾウ(ステージ)の【自分のターン終了時】は 特徴《ミンク族》を持つキャラだけを
+    アクティブにできる。 非ミンク族キャラは対象外。
+
+    公式 (cardqa_op_08, qid 7c2b32d9c030):
+      Q: 自分のリーダーが特徴《ミンク族》を持たない場合、この【自分のターン終了時】効果で
+         自分の特徴《ミンク族》を持つキャラ1枚をアクティブにできますか？
+      A: はい、できます。
+    → リーダーの特徴に依らず発動する (leader gate 無し) のは元から conform。
+      ただし overlay が target=one_self_character_any で **非ミンク族も** 起こせていた (2026-08-10 是正)。
+      対象は card テキストどおり 特徴《ミンク族》 に限定される。 非ミンク族が起きたら落ちる。
+    """
+    repo, ov = _repo(), _overlay()
+    spec = ov["OP08-039"].effects[1]["do"][0]   # end_of_turn untap_chara
+    assert ov["OP08-039"].effects[1].get("when") == "end_of_turn"
+
+    def _untap(char_id):
+        st, p0, p1 = _board_fi(repo, ov, [char_id], [])
+        p0.characters[0].rested = True
+        execute_effect(dict(spec), st, p0, p1, None)
+        guard = 0
+        while st.pending_choice is not None and guard < 5:
+            resolve_pending_choice(st, [0]); guard += 1
+        return p0.characters[0].rested
+
+    # 非ミンク族 (PRB02-001 コビー) は対象外 → レストのまま
+    assert _untap("PRB02-001") is True, "非ミンク族が起こされた (target が広すぎる)"
+    # ミンク族 (EB04-013) は対象 → アクティブ化
+    assert _untap("EB04-013") is False, "ミンク族キャラが起きていない"
+
+
+def test_op08_039_overlay_target_is_mink_filtered():
+    """回帰防止 (overlay 構造): OP08-039 end_of_turn の untap 対象は ミンク族 filter であって
+    無差別の one_self_character_any でないこと。"""
+    import json as _json
+    raw = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    tgt = raw["OP08-039"][1]["do"][0]["untap_chara"]["target"]
+    assert isinstance(tgt, dict), "target が文字列 (無差別) に戻っている"
+    assert tgt.get("filter", {}).get("feature") == "ミンク族", \
+        "untap 対象が 特徴《ミンク族》 に絞られていない"

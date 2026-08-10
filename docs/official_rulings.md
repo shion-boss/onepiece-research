@@ -5190,3 +5190,89 @@ engine 側は既に `replace_ko_optional` modal と 「支払い時のみ once �
   Mr.3 自身の経路は正しく、 壊れていたのは **別 family の 7 フィールド** だった。
 - ⭐ **「発火していない」 は 「条件が合わない」 より奥にある**。 OP16-041 は条件 (victim 特徴) を
   実装しても直らず、 その手前で **トリガー自体が呼ばれていない** 経路が 3 つあった。
+## FAQ conformance バッチ (2026-08-10 #2, cron optcg-faq-conformance): 14 conform / 1 fixed / 2 n/a / 3 escalated
+
+### fixed: OP08-039 ゾウ 【自分のターン終了時】untap の対象は 特徴《ミンク族》限定 (7c2b32d9c030)
+
+一次情報 (cardqa_op_08): 「自分のリーダーが特徴《ミンク族》を持たない場合、この【自分のターン終了時】
+効果で自分の特徴《ミンク族》を持つキャラ1枚をアクティブにできますか？」→「はい、できます。」
+
+- **問われた点 (leader gate) は元から conform**: end_of_turn 効果に leader_feature gate は無く、
+  リーダーが非ミンク族でも発動する。
+- **調査中に別の乖離を発見・是正**: card テキストは「自分の**特徴《ミンク族》を持つ**キャラ1枚まで」
+  だが overlay の `untap_chara.target` が `one_self_character_any` = **非ミンク族キャラも起こせた**。
+  対象を `{"type":"one_self_chara_filtered","filter":{"feature":"ミンク族"}}` に是正 (overlay のみ、
+  engine コード変更なし = Python/Rust は同じ overlay を読むので parity 中立)。
+- **全走査**: `untap_chara` で card テキストが特徴/属性/名を限定するのに target が `_any`/`all_self`
+  のカードは **OP08-039 の 1 枚のみ** (他は既に filtered)。
+- 回帰: `test_op08_039_end_of_turn_untap_mink_only` (非ミンク族は起きない/ミンク族は起きる) +
+  `test_op08_039_overlay_target_is_mink_filtered` (overlay 構造)。
+
+### escalated: EB01-061 Mr.2 — 「元々のパワーを書き換える効果」を truly_original_power が無視 (761fedc78941)
+
+一次情報 (cardqa_op_10): 「【アタック時】効果によって元々のパワーが2000以上になった場合に、相手の
+効果によってKOされますか？」→「いいえ、KOされません。」
+
+- Mr.2 の【アタック時】= `set_base_power_copy` (「このキャラの元々のパワーは…選んだキャラと同じパワーに
+  なる」)。 これで **元々のパワー自体が書き換わる** ので、「元々のパワー2000以下をKO」の対象から外れる。
+- engine の `truly_original_power` (core.py:515) は **常に printed `card.power` を返す** (Mr.2 は 1000)。
+  ドン/バフで 元々のパワー が変わらないのは正しいが、「元々のパワーは…になる」系の **明示的な書換え**
+  (base_power_override) も無視するため、Mr.2 は誤って KO される。
+- **なぜ自動修正しないか (アーキ変更)**: 同じ override フィールド (turn_base_power_override 等) を
+  OP06-009 シュライヤ は素の「相手のリーダーと同じ**パワーになる**」(= 現在パワー、元々でない) に使う。
+  truly_original に override を単純に畳み込むと OP06-009 が壊れる。「元々-set」と「パワー-set」を
+  区別する data-shape (フラグ/別フィールド) が要る = 関数シグネチャ/データ保持の変更。 human review 行き。
+
+### escalated: OP11-001 コビー — 同時KOの資源gate付き置換が逐次removeで漏れる (79e441b9d09f、実測で違反確認)
+
+一次情報 (cardqa_op_11): 「自分のトラッシュが2枚以下の時に、元々のパワー7000以下の特徴《海軍》を持つ
+『キャラA』と『キャラB』が同時にKOされました。まず『キャラA』をトラッシュに置き、『キャラB』をこの
+リーダーの【ターン1回】効果で代わりに場を離れないことはできますか？」→「いいえ、できません。」
+
+- **実測で違反を確認**: `ko_multi(["all_opponent_characters"])` で 海軍2枚を同時KO、コビー側 trash=2 から
+  スタート → **EB04-047 が生存** (本来は両方KO)。 原因:
+  1. `ko_multi`/`ko_all_others` (effects.py:8426) は victim を **1体ずつ trash に append しながら** 次の
+     victim を処理する (逐次 remove)。
+  2. コビーの replace_leave gate `if.self_trash_count_ge:3` は `eval_condition` で **live state** を読む。
+  → A を先に KO → trash 2→3 → B の gate が 3≥3 で成立 → B 救済 (trash_to_deck 3 で消費)。 公式は不可。
+- 2026-08-08 の たしぎ (OP10-032) 修正は同時離脱の **holder** をスナップショット化したが、**資源カウント
+  (trash 等)** は live のまま。 正しくは同時離脱バッチで **全 victim の置換可否を remove 前に確定** する
+  decide-all-then-remove の再構成が要る (資源 gate 全般に効く一般則) = アーキ変更。
+- Rust は既にこのクラス (multi-target ko + 置換 holder 在場) で **明示 bail** (たしぎ項の追従課題)。
+  Python を直しても新規 MISMATCH は生まない (Rust は元々結果を作っていない)。 human review 行き。
+
+### escalated: op_05「相手がトリガーを発動した時にも発動」対象カード特定不能 (770a4d8c9fcd)
+
+一次情報 (cardqa_op_05): 「相手が【トリガー】を発動した時にもこのキャラの効果は発動しますか？」→
+「はい、発動します。」 cardqa snapshot に card_id が無く、OP05 で `opp_event_or_trigger_fired` /
+`opp_event_played` に配線されたカードが 0 件。トリガー-reactive は OP11-102 ケイミー のみ確認済だが
+OP05 の対象を一意化できず、シナリオ化不能。 空回り防止で escalate (対象特定できれば再開)。
+
+### conform / n/a (公式どおり = 是正不要、再調査回避のため記録、2026-08-10 #2)
+
+- **OP15-023 アーロン** (76e19e380dbb / 7759a4b0ac17): `attach_rested_don owner_of_target=True,
+  from_cost_area=True`。DON源は対象の持ち主のコストエリア (自DONを相手キャラ/相手DONを自キャラには
+  付与不可)。`_take_rested` は rested 優先→不足時 don_active も消費 = **アクティブのドンも付与可**。
+- **OP06-026 コウシロウ** (7721c725fc86): 【登場時】斬コスト4以下を1枚アクティブ、その後
+  `block_self_attack_leader_turn` = 自陣全アタッカーが相手リーダーへアタック不可。
+- **OP12-020 ゾロ(L)** (77904a12f98b): 起動メイン【ドン×3】は発動時にドン条件を再評価 → バトル後に
+  ドン+1で×3を満たせばアクティブ化可。 ※battle-a-character 条件欠落は別Q (#4/#20) で既 escalated。
+- **OP16-003 白ひげ** (77b4baecc2e1): 【自分のターン中】give_keyword DA + power_pump+2000。既DA持ちなら
+  give_keyword は no-op、+2000は常に適用。
+- **op_12 play_event_from_hand** (77caee23c05a): 発動後イベントをトラッシュへ (汎用挙動)。
+- **op_01 アタック要件** (781e7dee86c7): アタック宣言は手札所持を要件としない (手札0でもアタック可)。
+- **OP06-024 イカロス・ムッヒ** (7851a676e57a): 【登場時】play_from_hand(魚人族cost4以下、0枚可) その後
+  `life_to_hand 1`。「その後」= 独立do、登場0枚でもライフ加える (OP09-103「登場した場合」draw gate とは別型)。
+- **op_08 attach_don** (793af5c6561b): 起動メインで1体につき1枚 (まで) = 1体に2枚以上は付与不可。
+- **op_07 エース+2000** (7a30a0234b72、n/a): 単一の【登場時】(自ターン中のみ) 効果。二重適用する第2効果は
+  engine に存在しない = 検証すべき phantom 無し。
+- **op_01 event reactive timing** (7a70416c958c): 反応効果は反応対象の処理後に解決 (docs line750/4657)。
+- **OP16-100 氷諸斬り** (7b203c1599ce): `opp_chara_ko_this_turn` は trigger_on_ko (effects.py:14563) で
+  全KO経路 (相手自身の効果含む) に加算 = cause 非依存。相手効果KOでもヤマトをアクティブ化可。
+- **ST21 -5000/KO 別対象** (7b3988593599): distinct-target 一般則 (docs line2147)。
+- **ST36-003 アプー** (7ba26838c882): 【トリガー】do=[draw:1, conditional(超新星→set_base_power7000)]。
+  draw は無条件、パワー化のみ超新星gate。非超新星でも引ける+パワー化不可。
+- **OP01-001 ゾロ(L)** (7c0d4ea56c0b): 【ドン×1】自キャラ全て+1000 (flat)。ドン2枚付与でも+1000のまま
+  (×1はgate、per-don倍化でない)。
+- **op_05 相互手札破棄の順** (7c61abd1cb9a、n/a): ターンプレイヤー先→相手の逐次解決。両者1枚捨てで最終盤面は
+  選択順に依らず同一 = 盤面差分としての違反に落ちない。
