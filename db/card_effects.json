@@ -71822,12 +71822,17 @@
    ]
   },
   {
-   "_text": "OP08-039 end_of_turn: 自分の特徴《ミンク族》を持つキャラ1枚までを、アクティブにする。",
+   "_text": "OP08-039 end_of_turn: 自分の特徴《ミンク族》を持つキャラ1枚までを、アクティブにする。 [対象は特徴《ミンク族》限定 (cardqa_op_08、 2026-08-10 是正: 旧 one_self_character_any は非ミンク族も対象にできた)]",
    "when": "end_of_turn",
    "do": [
     {
      "untap_chara": {
-      "target": "one_self_character_any",
+      "target": {
+       "type": "one_self_chara_filtered",
+       "filter": {
+        "feature": "ミンク族"
+       }
+      },
       "limit": 1
      }
     }
