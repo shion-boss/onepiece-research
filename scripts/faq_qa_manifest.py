@@ -26,7 +26,15 @@
 
   .venv/bin/python scripts/faq_qa_manifest.py            # 台帳を作成/更新して進捗を表示
   .venv/bin/python scripts/faq_qa_manifest.py --next 5   # 未処理を 5 件出す (routine 用)
+  .venv/bin/python scripts/faq_qa_manifest.py --next 5 --from-end   # 末尾から (手動バッチ用)
   .venv/bin/python scripts/faq_qa_manifest.py --set <qid> <status> "note"
+
+⚠ **cron と手動を並行させる時は端を分ける**:
+  毎時 cron `optcg-faq-conformance` (17 * * * *) は `--next N` = **先頭から** 掴み、 同じ
+  ブランチへ直接 push する。 台帳に claim/lock 機構は無いので、 手動バッチが同じ先頭を
+  掴むと **同じ Q&A を二重に裁定** する (= 別々の結論が別 commit で入りうる。 git の
+  conflict と違って自動では気づけない)。 手動側は必ず `--from-end` を使う。
+  残 pending がバッチ 2 本分を切ると両端が出会うので、 その時は警告が出る。
 """
 from __future__ import annotations
 
@@ -141,6 +149,9 @@ def sync(db: dict, uniq: dict, from_primary: bool = True) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--next", type=int, default=0, help="未処理を N 件表示 (routine 用)")
+    ap.add_argument("--from-end", action="store_true",
+                    help="未処理を **末尾から** 出す (= 手動バッチ用。 毎時 cron は先頭から"
+                         "掴むので、 逆端から進めば同じ Q&A を二重に裁定しない)")
     ap.add_argument("--set", nargs=3, metavar=("QID", "STATUS", "NOTE"),
                     help="1 件の status を更新")
     args = ap.parse_args()
@@ -176,8 +187,18 @@ def main() -> None:
 
     if args.next:
         pend = [(k, v) for k, v in sorted(db.items()) if v["status"] == "pending"]
-        print(f"\n=== 未処理 (先頭 {min(args.next, len(pend))} 件) ===")
-        for k, v in pend[:args.next]:
+        n = min(args.next, len(pend))
+        # ⚠ 毎時 cron (optcg-faq-conformance) は **先頭から** N 件掴む。 台帳に claim 機構が
+        #   無いので、 手動バッチが同じ先頭を掴むと **同じ Q&A を二重に裁定** する (git の
+        #   conflict より厄介: 別々の結論が別 commit で入りうる)。 --from-end で逆端から
+        #   進めば、 残 pending がバッチ 2 本分を切るまで両者は出会わない。
+        take = list(reversed(pend[-n:])) if args.from_end else pend[:n]
+        where = "末尾" if args.from_end else "先頭"
+        print(f"\n=== 未処理 ({where}から {n} 件) ===")
+        if args.from_end and len(pend) < args.next * 2:
+            print(f"⚠ 残 pending {len(pend)} 件 = バッチ 2 本分を切った。 "
+                  f"cron (先頭から) と範囲が重なる → cron を止めるか手動を停める")
+        for k, v in take:
             print(f"\n[{k}] ({len(v['files'])} 弾: {', '.join(v['files'][:3])})")
             print(f"  Q: {v['q']}")
             print(f"  A: {v['a']}")
