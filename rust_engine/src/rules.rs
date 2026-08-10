@@ -1084,13 +1084,10 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     state.players[opp].life_lost_this_turn = true;
                     // ⭐ 公式 (cardqa_op_05 / OP05-098 エネル): 「自分のライフが0枚になった時」 は
                     //   **0 になった瞬間の事象**。 この後 ライフ札の【トリガー】でライフが戻っても
-                    //   発動できる。 Python game.py:_resolve_life_taken 冒頭と同位置で発火する。
-                    if state.players[opp].life.is_empty() {
-                        let lcid0 = state.players[opp].leader.card.card_id.clone();
-                        if crate::effects::card_has_when(&lcid0, "on_life_zero") {
-                            crate::effects::fire_on_life_zero(state, opp)?;
-                        }
-                    }
+                    //   発動できる。 ⚠ ただし **発動は ライフ処理が終わってから**
+                    //   (公式 cardqa_op_11 / OP11-102 ケイミー × エネル: ターンプレイヤーの効果が先)。
+                    //   Python game.py:_resolve_life_taken の **末尾** と同位置で発火する。
+                    let fire_zero = state.players[opp].life.is_empty();
                     let cid = taken.card_id.clone();
                     if is_banish {
                         // バニッシュ = trash 直行、 _resolve_life_taken を通らない = life 移動 trigger 無
@@ -1150,6 +1147,16 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                         crate::effects::fire_field_when(state, opp, "on_self_life_to_trash")?;
                     }
                     crate::effects::fire_field_when(state, opp, "on_self_life_taken")?;
+                    // ⭐ 「自分のライフが0枚になった時」 は **ライフ処理の後** に発動する
+                    //   (Python game.py:_resolve_life_taken の末尾と同位置)。 ここで発火すると
+                    //   【トリガー】 → ターンプレイヤーの反応 → 非ターンプレイヤーの on_life_zero
+                    //   の順になり、 公式 (cardqa_op_11) と一致する。
+                    if fire_zero {
+                        let lcid0 = state.players[opp].leader.card.card_id.clone();
+                        if crate::effects::card_has_when(&lcid0, "on_life_zero") {
+                            crate::effects::fire_on_life_zero(state, opp)?;
+                        }
+                    }
                 }
             }
             reset_battle_buffs(state);
