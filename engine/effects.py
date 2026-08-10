@@ -325,7 +325,7 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
                 or self_inplay.effect_disabled_through_opp_turn
             )
             and evt.when in ("on_play", "on_attack", "activate_main", "main", "counter",
-                             "opp_attack", "on_block")
+                             "opp_attack", "on_block", "end_of_turn", "opp_end_of_turn")
         ):
             state.push_log(
                 f"  効果無効: {self_inplay.card.name} の【{evt.when}】 は発動されない"
@@ -1580,6 +1580,16 @@ def eval_condition(
                 return False
         elif k == "self_don_active_eq":
             if me.don_active != int(v):
+                return False
+        elif k == "self_all_don_rested":
+            # 「自分のドン‼すべてがレストの場合」 (cardqa_op_02、 OP02-027 イヌアラシ)。
+            # コストエリアのアクティブドン 0 **かつ** キャラ/リーダーに付与ドンが 1 枚も無い。
+            # ⚠ 付与 (attach) されたドンは 「レスト」 ではないので、 1 枚でも付与されていれば
+            #   「すべてレスト」 は 成立しない (公式: 「いいえ、 できません」)。
+            _attached = me.leader.attached_dons + sum(
+                c.attached_dons for c in me.characters)
+            _all_rested = (me.don_active == 0 and _attached == 0)
+            if bool(v) != _all_rested:
                 return False
         elif k == "self_don_count_eq":
             # 「自分の場のドン (= don area: active+rested) が N 枚」 (OP05-060 の「0枚」 等)
@@ -3855,12 +3865,21 @@ def _execute_effect_body_inner(
         elif k == "trash_opp_hand_random":
             # 相手手札からランダム N 枚捨て (公式の「相手の手札から〜捨てさせる」表現)。
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            _thr_moved = 0
             for _ in range(n):
                 if not opp.hand:
                     break
                 idx = state.rng.randrange(len(opp.hand))
                 opp.trash.append(opp.hand.pop(idx))
+                _thr_moved += 1
             state.push_log(f"  効果: 相手手札 {n} 枚 トラッシュ")
+            # 相手 (= 手札の持ち主 opp) 視点で「効果で手札が捨てられた」を発火する。
+            # 公式 cardqa: 相手の効果で自分の手札が捨てられた場合も ST33-004 のコスト-3 /
+            # OP14-045 クロオビ の【速攻】は発動する。 source は捨てを起こした側 (self_inplay)。
+            if _thr_moved > 0 and state.effects_overlay:
+                trigger_on_self_hand_discarded(
+                    state, opp, me, self_inplay, _thr_moved, state.effects_overlay
+                )
         elif k == "opp_hand_to_deck_then_draw":
             # OP06-047 シャーロット・プリン: 「相手は自身の手札すべてをデッキに戻し
             # シャッフルする。 その後、 相手はカード N 枚を引く。」 = 相手の手札リセット
@@ -5943,6 +5962,19 @@ def _execute_effect_body_inner(
                         state.push_log(f"  効果: 登場に伴いライフ上{n_life}枚を手札へ ({len(me.life)} 残)")
                         if moved:
                             fire_self_life_to_hand(state, me)
+                # 「登場させた場合、カード1枚を引く」 の後続 (= OP09-103 コアラ)。
+                # 登場 0 枚 (= 該当手札なし / 0 枚選択) なら draw 不発 = 公式「場合」 前文不成立。
+                # 一次情報 cardqa_op_09: 「手札からコスト4以下《革命軍》キャラ0枚を登場させることを
+                # 選んだ場合、カード1枚を引くことはできますか？」 → 「いいえ、できません。」
+                if chosen_cards and isinstance(v, dict) and v.get("then_draw"):
+                    n_draw = int(v.get("then_draw"))
+                    if getattr(me, "block_self_draw_until_turn_end", False):
+                        state.push_log(f"  効果: 登場に伴いドロー {n_draw} (ドロー禁止のため不発)")
+                    else:
+                        drawn = me.draw(n_draw)
+                        state.push_log(f"  効果: 登場に伴いドロー {n_draw}")
+                        if drawn and state.effects_overlay:
+                            trigger_on_self_draw_non_draw_phase(state, me, opp, state.effects_overlay)
         elif k == "play_from_hand_choice":
             # 「自分の手札から filter 一致のキャラ N 枚までを (任意で) 0 コストで登場」
             # play_from_hand との差分: 「~してもよい」 表現 (= 任意の選択) を表現する。
@@ -6265,12 +6297,19 @@ def _execute_effect_body_inner(
         elif k == "force_opp_discard":
             # 相手手札からランダム N 枚捨てさせる (= trash_opp_hand_random と同義のエイリアス)
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            _fod_moved = 0
             for _ in range(n):
                 if not opp.hand:
                     break
                 idx = state.rng.randrange(len(opp.hand))
                 opp.trash.append(opp.hand.pop(idx))
+                _fod_moved += 1
             state.push_log(f"  効果: 相手手札 {n} 枚捨て (force)")
+            # trash_opp_hand_random と同則: 相手 (opp) 視点で on_self_hand_discarded を発火。
+            if _fod_moved > 0 and state.effects_overlay:
+                trigger_on_self_hand_discarded(
+                    state, opp, me, self_inplay, _fod_moved, state.effects_overlay
+                )
         elif k == "return_to_deck_bottom":
             # 対象 (相手 or 自分のキャラ) を持ち主のデッキの下に置く
             #   v の 3 形式に対応 (ko / return_to_hand と 同じ target 解決):
@@ -8188,22 +8227,31 @@ def _execute_effect_body_inner(
                 }
                 state.push_log("  効果: 相手 (人間) が捨てる手札を選択 待ち")
                 return True
+            _odc_moved = 0
             if _od_picks is not None:
                 for i in sorted(set(_od_picks), reverse=True):
                     if 0 <= i < len(opp.hand):
                         opp.trash.append(opp.hand.pop(i))
-                state.push_log(f"  効果: 相手が自身の手札 {len(set(_od_picks))} 枚を選んで捨てた")
+                        _odc_moved += 1
+                state.push_log(f"  効果: 相手が自身の手札 {_odc_moved} 枚を選んで捨てた")
             else:
                 # AI (または候補 <= N で選択の余地なし): 最も惜しくない札を捨てる
-                _moved = 0
                 for _ in range(_od_n):
                     if not opp.hand:
                         break
                     opp.trash.append(
                         opp.hand.pop(_worst_hand_idx(opp.hand, opp.known_hand_card_ids))
                     )
-                    _moved += 1
-                state.push_log(f"  効果: 相手が自身の手札 {_moved} 枚を選んで捨てた")
+                    _odc_moved += 1
+                state.push_log(f"  効果: 相手が自身の手札 {_odc_moved} 枚を選んで捨てた")
+            # 「相手は自身の手札を捨てる」= 手札の持ち主 (opp) が捨てる → その opp 視点で
+            # 「効果で手札が捨てられた」を発火 (公式 cardqa: 相手効果の手札破棄でも ST33-004
+            # コスト-3 / OP14-045【速攻】は発動する)。 人間選択の deferred 経路も
+            # _opp_hand_picks 付きで ここに再入するため 1 箇所で覆える。
+            if _odc_moved > 0 and state.effects_overlay:
+                trigger_on_self_hand_discarded(
+                    state, opp, me, self_inplay, _odc_moved, state.effects_overlay
+                )
         elif k == "opp_hand_to_deck_bottom":
             # 相手は自身の手札 N 枚を選び デッキの下に置く。 = 相手が選ぶ → 相手=AI は最悪札を手放す
             # (良い札を残す)。 相手=人間は本来選ばせるべきだが 非 actor halt 未整備 → 最悪札 default。
@@ -13479,9 +13527,17 @@ def trigger_on_self_rested(
     opp: Player,
     rested_ip: InPlay,
     effects_overlay: dict[str, CardEffectBundle],
+    costless_only: bool = False,
 ) -> None:
     """「このキャラがレストになった時」 (on_self_rested)。 me = rested_ip 所有者。
     OP14-027 シャンクス等。 rest primitive 内 / AttackLeader/AttackCharacter 後で発火。
+
+    costless_only=True (アタック由来の自己レスト): cost 持ちの効果は発火せず skip する。
+      cost 持ちの on_self_rested は (a) optional (OP14-021「もよい」 / OP14-070 「してもよい」) か
+      (b) 「相手のキャラの効果で」 系 (OP14-070) / by_opp_effect (PRB02-009) で、 いずれも自分の
+      アタック宣言で発火すべきでない (辞退が合法 or 発動条件外)。 costless の【自分のターン中】系
+      (OP14-027/028/032/035/119 / ST32-003) だけがアタックで発火する (公式 cardqa_op_14
+      677c149d0045)。 Rust fire_on_self_rested の costless_only と bit 一致させる。
     """
     if not effects_overlay:
         return
@@ -13491,6 +13547,10 @@ def trigger_on_self_rested(
     for eff in bundle.effects:
         if eff.get("when") != "on_self_rested":
             continue
+        if costless_only:
+            _cost = eff.get("cost") or {}
+            if any(ck != "once_per_turn" for ck in _cost):
+                continue
         if not eval_all_conditions(eff, state, me, rested_ip):
             continue
         cost = eff.get("cost", {})

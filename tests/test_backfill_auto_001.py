@@ -349,9 +349,11 @@ def test_eb01_008_little_oars_replace_ko_human_confirm():
 #                                   デッキ下 → 1ドロー
 # --------------------------------------------------------------------------- #
 def test_eb01_011_mini_merry_activate_main_draw_ai():
-    """起動メイン: このステージをレストにし (コスト) → 1 枚引く。 AI 自動発動。
-    (overlay は rest_self コストのみ + draw1。 元々P1000キャラ→デッキ下は未モデル化の
-     追加コストだが、 overlay 忠実に rest_self + draw を検証。)"""
+    """起動メイン: このステージをレストにし + 自分の元々パワー1000のキャラ1枚をデッキ下 (コスト)
+    → 1 枚引く。 コロン前は発動コストなので、 元々パワー1000のキャラが居なければ発動できない
+    (cardqa_eb_01, qid 651d177800d2: 対象は印刷パワー1000。 ドン付与で現在2000+でも取れる)。
+    ⚠ 旧テストは 「rest_self + draw のみ」 = 元々パワー1000キャラを戻さずタダ撃ちを assert して
+      いた (2026-08-09 是正で書換)。"""
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, "OP10-099", overlay)
@@ -360,6 +362,12 @@ def test_eb01_011_mini_merry_activate_main_draw_ai():
     me.stages = [merry]
     me.hand = []
     me.deck = [repo.get("OP01-013")] * 10
+    # 印刷パワー1000のキャラ (ドン付与で現在2000+) を対象に用意
+    p1000 = next(c for c in repo._by_id.values()
+                 if c.category.name == "CHARACTER" and str(c.power) == "1000")
+    tgt = InPlay.of(p1000, sickness=False)
+    tgt.attached_dons = 2                       # 現在パワー 3000 でも 元々1000 = 対象
+    me.characters = [tgt]
 
     options = list_activate_main_effects(st, me, overlay)
     merry_opts = [(src, eff) for (src, eff) in options
@@ -370,7 +378,24 @@ def test_eb01_011_mini_merry_activate_main_draw_ai():
     fire_activate_main(st, me, opp, src, eff)
 
     assert len(me.hand) == 1, "起動メインの draw が起きていない"
+    assert tgt not in me.characters, "コストの 元々パワー1000キャラ→デッキ下 が行われていない"
     assert merry.rested is True, "起動メインコストでステージがレストされるべき"
+
+    # 対象キャラ不在なら発動しても draw させない (タダ撃ち禁止)
+    st2 = _state(repo, "OP10-099", overlay)
+    me2, opp2 = st2.players[0], st2.players[1]
+    merry2 = InPlay.of(repo.get("EB01-011"), sickness=False)
+    me2.stages = [merry2]
+    me2.hand = []
+    me2.deck = [repo.get("OP01-013")] * 10
+    other = next(c for c in repo._by_id.values()
+                 if c.category.name == "CHARACTER" and str(c.power) not in ("1000", "-", ""))
+    me2.characters = [InPlay.of(other, sickness=False)]
+    for src2, eff2 in [o for o in list_activate_main_effects(st2, me2, overlay)
+                       if o[0].card.card_id == "EB01-011"]:
+        fire_activate_main(st2, me2, opp2, src2, eff2)
+    assert len(me2.hand) == 0, "対象不在なのに draw した (タダ撃ち)"
+    assert merry2.rested is False, "対象不在なのに self rest だけ払っている"
 
 
 # --------------------------------------------------------------------------- #

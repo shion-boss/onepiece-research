@@ -764,6 +764,16 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             } else {
                 state.players[me].characters[atk_idx].rested = true;
             }
+            // 「このキャラがレストになった時」(on_self_rested): アタック宣言でレスト → 発火
+            // (公式 cardqa_op_14 677c149d0045)。 char attacker のみ (leader は on_self_rested
+            // を持たない = Python trigger_on_self_rested も no-op)。 自己起因 = by_opp_effect=false。
+            if !is_leader {
+                let prev_ko_by_opp = state.last_ko_by_opp_effect;
+                state.last_ko_by_opp_effect = false;
+                let r = crate::effects::fire_on_self_rested_impl(state, me, atk_idx, true);
+                state.last_ko_by_opp_effect = prev_ko_by_opp;
+                r?;
+            }
             // 【アタック時】(on_attack) 発火 (game.py:1467、 costless slice のみ、 未対応は Err で bail)
             // ⚠ on_attack でアタッカー自身が場を離れる (自 trash / 自 KO) ことがある。 Python は
             //   attacker を object 参照で保持して以降も同じ実体を読むが、 Rust は位置 index なので
@@ -1173,6 +1183,15 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 state.players[me].leader.rested = true;
             } else {
                 state.players[me].characters[atk_idx].rested = true;
+            }
+            // 「このキャラがレストになった時」(on_self_rested): アタック宣言でレスト → 発火
+            // (公式 cardqa_op_14 677c149d0045)。 char attacker のみ、 自己起因 = by_opp_effect=false。
+            if !is_leader {
+                let prev_ko_by_opp = state.last_ko_by_opp_effect;
+                state.last_ko_by_opp_effect = false;
+                let r = crate::effects::fire_on_self_rested_impl(state, me, atk_idx, true);
+                state.last_ko_by_opp_effect = prev_ko_by_opp;
+                r?;
             }
             // 【アタック時】(on_attack) 発火 (costless slice のみ、 未対応は Err)
             // ⚠ on_attack でアタッカー自身が場を離れる (自 trash / 自 KO) ことがある。 Python は
