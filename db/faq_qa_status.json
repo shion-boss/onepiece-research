@@ -5535,180 +5535,180 @@
   "files": [
    "cardqa_eb_03.json"
   ],
-  "note": "",
+  "note": "EB03-026 ハンコック activate_main: optional_cost_then の cost=return_self_chara_to_deck_bottom (except_self/filter 無し) → 発動元自身も『自分のキャラ1枚』として払える (payability は me.characters 全体, effects.py:9731)。self をデッキ下に置いてリーダー+キャラにレストのドン付与できる",
   "q": "この【起動メイン】効果でこのキャラを持ち主のデッキの下に置き、自分のリーダーとキャラ1枚にレストのドン‼1枚ずつまでを付与することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "7fd08ac2001b": {
   "a": "この【自分のターン終了時】効果ではゲームには敗北せず、何も起きません。",
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "op_02 ライフ0のターン終了時効果: 敗北せず何も起きない = engine は empty life で beneficial/neutral 効果を安全に空振りさせる (既記録『ライフ0の扱い』)。ライフからの手札/デッキ操作は 0枚で no-op、 敗北は deck-out のみ",
   "q": "自分のライフが1枚もない場合は【自分のターン終了時】効果はどうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "80d9ae43baed": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-040 クイーン on_attack: choice_effect で draw option は無条件、 cost8+キャラが居ても『代わりにライフに加える』を選ばず draw を選べる (option 分岐は独立、 optional:false だが draw 常在)",
   "q": "自分のライフと手札の合計枚数が4枚以下で、自分のコスト8以上のキャラがいる場合、この【アタック時】効果で自分のデッキの上から1枚までをライフの上に加えずに、カード1枚を引くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "81f0c7ba83d9": {
   "a": "はい、できます。",
   "files": [
    "cardqa_st_14.json"
   ],
-  "note": "",
+  "note": "ST14-002 ウソップ on_attack: KO gate = self_chara_filtered_count_ge{cost_ge:8} は発動元自身も数える → 自身コスト8以上なら相手コスト4以下KO可。『自分の』=自陣営限定で正",
   "q": "このキャラ自身のコストが8以上の場合、このキャラの【アタック時】効果で相手のコスト4以下のキャラ1枚をKOできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "820477cedf27": {
   "a": "この場合、そのまま公開したカードをデッキの一番上に裏向きで戻します。",
   "files": [
    "cardqa_st_17.json"
   ],
-  "note": "",
+  "note": "ST17-001 クロコダイル on_play: reveal_top_then rest_remain:'top' → 王下七武海 非マッチ時は公開カードをデッキの上に裏向きで戻す (then=draw2 は発火せず)",
   "q": "この【登場時】効果で、自分のデッキの上から1枚を公開し、そのカードが特徴《王下七武海》を持たないカードであった場合はどうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "82a4992f8b76": {
   "a": "はい、登場できます。その場合でも【登場時】効果のコストは支払うことも支払わないこともできますが、効果は何も起きません。",
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "op_01 ドンデッキ空でキャラ登場: 登場コストはコストエリアのドンで払う (ドンデッキ非依存) → 登場可。登場時の任意ドン系コスト効果はドンデッキ空でも登場自体を妨げず、効果は空振り (既記録 self_hand_to_deck_bottom 系と同型)",
   "q": "ドン!!デッキにカードがない場合、このキャラを登場できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "82d0a0871273": {
   "a": "はい、アタックできます。",
   "files": [
    "cardqa_st_02.json"
   ],
-  "note": "",
+  "note": "ST02-009 ロー: untap_chara でアクティブになったキャラは rested=False → 既にアタック済でも再アタック legal (game.py アタック適格は rested のみ判定)",
   "q": "既にこのターンにアタックしており、この効果でアクティブになったキャラでもう1度アタックできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "82eaa908d663": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_10.json"
   ],
-  "note": "",
+  "note": "OP10-049 サボ replace_leave: by_opp_effect + other_self_chara(除サボ) + truly_original_cost_le:7 → サボと他のcost7-キャラ同時KO時、他方の離脱が trigger になりサボ自身を手札に戻せる",
   "q": "このキャラと、これ以外の自分の元々のコスト7以下のキャラが同時に相手の効果でKOされるとき、この効果で代わりにこのキャラを手札に戻すことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "8344791c6e19": {
   "a": "はい、アタックできます。",
   "files": [
    "cardqa_st_02.json"
   ],
-  "note": "",
+  "note": "ST02-001 キッド leader: このリーダーをアクティブにする → rested=False で既アタック済でも再アタック legal (キャラと同じ untap 再アタック則)",
   "q": "既にこのターンにアタックしており、この効果でアクティブになったリーダーでもう1度アタックできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "838cd84512c1": {
   "a": "はい、されます。",
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP02-024 モビー: リーダー『エドワード・ニューゲート』が buff されなかった (all_self_chara_filtered=キャラ限定)。leader_name gate の self_leader entry を追加 (overlay-only)。cardqa_op_02: リーダーの同名も対象。白ひげ clause はキャラのみ (マルコ leader は非対象を確認)",
   "q": "この【自分のターン中】効果によって、自分のリーダーの「エドワード・ニューゲート」はパワー+2000されますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "83c15633d414": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_14.json"
   ],
-  "note": "",
+  "note": "OP14-020 ミホーク leader activate_main: block_chara_play が通常登場(game.py:941)と効果登場(_char_summon_blocked, effects.py 8経路)の両方を禁止 → ドン3活性化ターンは他効果でもキャラ登場不可",
   "q": "この【起動メイン】効果でドン!!3枚をアクティブにしたターン中、他の効果で自分のキャラを登場できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "83e1770aba3a": {
   "a": "いいえ、発動できません。",
   "files": [
    "cardqa_st_13.json"
   ],
-  "note": "",
+  "note": "st_13 表向きライフの【トリガー】不発: engine は face_up_life_count を『枚数』でのみ保持し、ダメージ経路の trigger_lifecard_trigger は face-up を参照しない (per-card 追跡なし)。『表向きライフはトリガー発動しない』の enforcement には life zone の per-card face-up 化 = アーキ変更が必要",
   "q": "自分のリーダーがこのカードの場合、自分の表向きのライフの【トリガー】効果は発動できますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "849a350e4773": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_14.json"
   ],
-  "note": "",
+  "note": "OP14-057 安心せい main: power_pump duration:turn target all_self_team_filtered は解決時に対象を確定(snapshot) → 実測: 既存の魚人/人魚は+1000、効果解決後に登場したキャラは非対象 (静的継続でなく一度きり)",
   "q": "この【メイン】効果を発動した後で、このターン中に自分の特徴《魚人族》か《人魚族》を持つキャラが登場した場合、そのキャラのパワーは+1000できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "853230522aad": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "op_02 ギャルディーノ+イワンコフ ターン終了時: 各【自分のターン終了時】効果の if は解決時に評価 (execute_effect 時点) → ギャルディーノ先解決で手札0後、イワンコフの self_hand==0 が成立し2枚引ける。条件は resolution 時評価で正",
   "q": "「OP02-065 ギャルディーノ」が自分の場にいるとき、その【自分のターン終了時】効果で手札が0枚になった後、このカードの【自分のターン終了時】効果を発動しました。その場合、カード2枚を引くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "8561c97fcdef": {
   "a": "この場合、「バルトロメオ」のコストは0になります。ターンプレイヤーの永続効果である「イッショウ」の効果を先に処理し、コストが3から0になった上で、非ターンプレイヤーの永続効果である「ウソップ」の効果が処理され、コストは+1されず0のままになります。",
   "files": [
    "cardqa_op_10.json"
   ],
-  "note": "",
+  "note": "op_10 バルトロメオ コスト多重永続効果 (イッショウ-3 → ウソップ+1) の層順+コスト0床: engine は turn-player-first (evaluate_static_effects:12509) だが、この4カード相互作用のコスト最終値(0のまま+1されず)は複数永続効果の合成規則の解釈が絡み単一シナリオに落とし切れない = 要人間レビュー",
   "q": "自分の場に元々のコストが3の「OP04-089 バルトロメオ」があり、このリーダーの効果で現在のコストが4になっています。この時、相手のターン中に、相手が「OP03-078 イッショウ」にドン!!を付与し、「イッショウ」の【自分のターン中】効果によってこの「バルトロメオ」のコストが-3されました。この場合、この「バルトロメオ」のコストはいくつになりますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "856aa6ee9436": {
   "a": "はい、特徴《エッグヘッド》を持つカード1枚であることを相手に公開し、手札に加えます。",
   "files": [
    "cardqa_op_07.json"
   ],
-  "note": "",
+  "note": "OP07 登場時サーチ: 手札に加えるカードを相手に公開するか = 情報公開でありエンジンの盤面状態変化に落ちない (隠匿情報 reveal は engine 非モデル)",
   "q": "この【登場時】効果で手札に加えるカードは相手に公開されますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "8585f3180046": {
   "a": "いいえ、できません。\nこの場合、カード1枚を引くこともできず、相手のコスト3以下のキャラ1枚までをレストにすることもできません。",
   "files": [
    "cardqa_op_13.json"
   ],
-  "note": "",
+  "note": "OP13-102 エジソン activate_main: conditional{if self_life_le_opp} が draw+rest の両方を包む → 自ライフ>相手ライフ(条件不成立)なら draw も rest も起きない。cost(trash_self)は任意コストで支払い済でも効果は空振り",
   "q": "この【起動メイン】効果で、自分のライフの枚数が相手のライフの枚数より多い場合、相手のコスト3以下のキャラ1枚までをレストにできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "859ee570d208": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-060 エネル activate_main: do=[give_keyword ブロッカー, trash_self_hand_random] → 実測: 手札0でもブロッカー付与は成立(その後の捨ては no-op)。捨ては後段効果でありコスト gate でない",
   "q": "自分の手札が無い場合、この【起動メイン】効果でこのキャラは【ブロッカー】を得ることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "85ce1e6bb392": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_11.json"
   ],
-  "note": "",
+  "note": "OP11-092 ヘルメッポ on_play: cost=discard_hand は do より先に払われ捨てたカードはトラッシュへ → play_from_trash(SWORD cost8-除ヘルメッポ)がその捨てた同カードを登場対象にできる (cost→do 順)",
   "q": "この【登場時】効果で「ヘルメッポ」以外のコスト8以下の特徴《SWORD》を持つキャラカード1枚を捨てた場合、そのカードを登場させる事はできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "85f9b2d9e3ca": {
   "a": "はい、できます。この場合、相手のキャラ1枚までが次の相手のリフレッシュフェイズでアクティブにならず、さらに自分のリーダーを次の相手のエンドフェイズ終了時までパワー+2000します。",
   "files": [
    "cardqa_st_24.json"
   ],
-  "note": "",
+  "note": "ST24-004 ロー&ベポ on_play: rest one_opponent_character_any は全レストでも0対象で no-op、conditional{opp_rested_chara_count_ge:2} は既レスト2枚を数える → 実測: 相手2レスト/0アクティブでリーダー+2000成立",
   "q": "相手のレストのキャラが2枚あり、アクティブのキャラが0枚の時、このキャラを登場させました。この時、この【登場時】効果で自分のリーダーをパワー+2000できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "863cb9b763af": {
   "a": "いいえ、アクティブになりません。この場合、まず「OP15-077 雷龍」の効果を解決し、このキャラが「次の相手のリフレッシュフェイズでアクティブにならない」状態になり、次にこのキャラの「相手がイベントか【ブロッカー】を発動した時」効果が発動します。これによりパワーが7000以上になった場合も、このキャラは次のリフレッシュフェイズにアクティブにならない状態のままになります。",

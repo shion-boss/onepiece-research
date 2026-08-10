@@ -16984,6 +16984,25 @@
    "when": "on_attached_don"
   },
   {
+   "_text": "自ターン中 + 自ライフ1以下、 リーダーが「エドワード・ニューゲート」ならリーダーも パワー+2000 (cardqa_op_02: リーダーの同名も対象、 白ひげ海賊団 clause は キャラのみ)",
+   "do": [
+    {
+     "power_pump": {
+      "amount": 2000,
+      "duration": "static",
+      "target": "self_leader"
+     }
+    }
+   ],
+   "if": {
+    "self_life_le": 1,
+    "self_turn": true,
+    "leader_name": "エドワード・ニューゲート"
+   },
+   "n": 0,
+   "when": "on_attached_don"
+  },
+  {
    "_text": "trigger: 自身登場 (play_self)",
    "do": [
     {

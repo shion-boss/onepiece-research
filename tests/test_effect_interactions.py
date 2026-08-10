@@ -2267,6 +2267,40 @@ def test_op03_036_untap_can_target_leader_kuro():
     assert me.leader in tgt, "リーダー『クロ』が untap 対象になるべき (cardqa_op_03)"
 
 
+def test_op02_024_moby_buffs_leader_edward_newgate():
+    """OP02-024 モビー・ディック号【自分のターン中】: 「自分の『エドワード・ニューゲート』」
+    はリーダーの同名も対象。
+
+    一次情報 (cardqa_op_02): 「この【自分のターン中】効果によって、自分のリーダーの
+    「エドワード・ニューゲート」はパワー+2000されますか？」→「はい、されます。」
+
+    是正前は target が all_self_chara_filtered (キャラ限定) で、 リーダー名が
+    エドワード・ニューゲート でも buff されなかった。 leader_name gate の self_leader
+    entry を追加。 「『白ひげ海賊団』を含む特徴を持つキャラ」 clause はキャラのみなので、
+    白ひげ海賊団だが エドワード・ニューゲート でない リーダー (マルコ 等) は 非対象。
+    """
+    repo, overlay = _repo(), _overlay()
+    # リーダー = エドワード・ニューゲート (OP02-001)、 ライフ1、 自ターン
+    st = _state(repo, overlay, leader0="OP02-001")
+    me = st.players[0]
+    me.life = [repo.get(_FILLER)]  # life<=1
+    me.stages = [InPlay.of(repo.get("OP02-024"), sickness=False)]
+    base = me.leader.card.power
+    evaluate_static_effects(st, overlay)
+    assert me.leader.static_buff == 2000, \
+        "リーダー『エドワード・ニューゲート』は +2000 されるべき (cardqa_op_02)"
+    assert me.leader.power == base + 2000
+
+    # 対照: 白ひげ海賊団 だが エドワード・ニューゲート でない リーダー (マルコ) は 非対象
+    st2 = _state(repo, overlay, leader0="OP08-002")  # マルコ (白ひげ, not EN)
+    me2 = st2.players[0]
+    me2.life = [repo.get(_FILLER)]
+    me2.stages = [InPlay.of(repo.get("OP02-024"), sickness=False)]
+    evaluate_static_effects(st2, overlay)
+    assert me2.leader.static_buff == 0, \
+        "白ひげ海賊団の非エドワード・ニューゲート リーダーは buff されない (白ひげ clause はキャラのみ)"
+
+
 def test_eb01_029_reveal_returns_to_top_when_cost_le_3():
     """EB01-029 わりいおれ死んだ【カウンター】: 公開カードがコスト3以下なら デッキの上へ戻す。
 

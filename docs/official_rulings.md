@@ -5580,3 +5580,39 @@ overlay **208 エントリすべてが `trash_self_hand_random`** で乱択代�
 **静的パス / 置換パスの MISMATCH がサマリ上 0 に見えて** いた (今回 置換の OP16-014 マルコ
 1 件がそれで隠れかけた)。 `--assert` は元から 3 パス見ていたので gate は効いていたが、
 **人間が読む行が嘘をつくのは計器の穴と同じ** → 3 パス合算 + 内訳表示に是正。
+
+---
+
+## OP02-024 モビー・ディック号: 「自分の『エドワード・ニューゲート』」 はリーダーの同名も buff する (2026-08-10 是正)
+
+**一次情報** (`db/faq/cardqa_op_02`):
+
+> 「この【自分のターン中】効果によって、自分のリーダーの「エドワード・ニューゲート」は
+> パワー+2000されますか？」 → **「はい、されます。」**
+
+OP02-024【自分のターン中】= 「自分のライフが1枚以下の場合、自分の『エドワード・ニューゲート』と
+『白ひげ海賊団』を含む特徴を持つキャラすべてを、パワー+2000。」 これは 2026-08-05 の OP03-036 で
+決着した一般則 **「自分の『<name>』」 はリーダーの同名もキャラの同名も指す** の未処理の同型。
+
+**是正前の挙動**: 唯一の power_pump が target `all_self_chara_filtered` (= `me.characters` 限定、
+effects.py:2621) で、 リーダー名が エドワード・ニューゲート でも buff されなかった。 実測
+(是正前): リーダー OP02-001 エドワード・ニューゲート の static_buff=0 (期待 +2000)。 Python/Rust とも
+同じ overlay を読むので **差分検証では原理的に沈黙**。
+
+**実装 (overlay-only)**: 既存の キャラ用 entry (`all_self_chara_filtered` + or:[name EN, feature 白ひげ])
+はそのまま残し、 **リーダー用 entry を追加** = target `self_leader` を `leader_name: "エドワード・ニューゲート"`
+で gate。 engine/Rust コードは無変更 (`self_leader` target / `leader_name` 条件 / `power_pump` static は
+両 engine 実装済)。
+
+⚠ **白ひげ海賊団 clause はキャラのみ**。 公式文は 「…と『白ひげ海賊団』を含む特徴を持つ**キャラ**すべて」
+なので、 `all_self_team_filtered` に OR フィルタを丸ごと載せると 白ひげ海賊団 だが エドワード・ニューゲート
+でないリーダー (マルコ OP08-002 / エース系 / ルフィ＆エース 等) を誤って buff する。 実測: 是正後も
+マルコ leader の static_buff=0 (非対象) を確認。 リーダーは **名前一致でのみ** 対象。
+
+**恒久ガード**: `tests/test_effect_interactions.py::test_op02_024_moby_buffs_leader_edward_newgate`
+(EN leader → +2000 / 対照: マルコ leader → 0)。
+
+**掃引**: `all_self_chara_filtered` + name フィルタは全 overlay で 11 entry。 うち Q&A で
+リーダー同名 buff が確認できたのは OP02-024 のみ。 他 (OP12-073 ロー / OP16-039 等) は公式文が
+「キャラ」 限定 かつ 該当リーダー名の Q&A 未確認 = 今回は非対象 (誤って team 化するとリーダー過剰 buff)。
+
