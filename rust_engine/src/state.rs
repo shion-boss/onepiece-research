@@ -420,6 +420,10 @@ pub struct Player {
     /// 無い起動メインの無限ループを防いでいる (core.py と同名 field)。
     pub block_chara_effect_untap_don_until_turn_end: bool,
     pub life_lost_this_turn: bool,
+    /// 「このターン中、 このリーダーが **相手のキャラと** バトルしている」 (cardqa_op_12 / OP12-020)。
+    /// core.py Player.leader_battled_opp_chara_this_turn のミラー (canonical = digest 対象)。
+    #[serde(default)]
+    pub leader_battled_opp_chara_this_turn: bool,
     pub chara_ko_taken_this_turn: i32,
     pub deck_out_wins: bool,
     /// 公式 (OP15-022 ブルック リーダー): 「ルール上、 自分はデッキが0枚でも敗北せず、
@@ -497,6 +501,11 @@ pub struct GameState {
     /// 「キャラの効果でキャラを登場させた時」 (cardqa_op_12 / OP12-081) の判定に使う。
     #[serde(skip)]
     pub rust_play_source_is_field_chara: bool,
+    /// 予約効果 (schedule_at_self_turn_end) の flush 中だけ立つ 「発動元 category」。
+    /// effects.py の state._scheduled_src_category ミラー (cardqa_eb_02 / OP10-030)。
+    /// action 境界を跨がない transient なので digest 対象外 (= serde skip)。
+    #[serde(skip)]
+    pub rust_scheduled_src_category: Option<String>,
     // アタック解決中だけ立つ transient。 opp_attack 系の条件 (opp_attacker_attribute) が参照する。
     // Python は current_attacker_iid から InPlay を引くが、 Rust は iid が無いので属性を直接持つ。
     #[serde(skip)]
@@ -509,6 +518,11 @@ pub struct GameState {
     // state.last_discard_source_inplay 相当で、 条件 actor_source_feature_contains が参照する。
     #[serde(skip)]
     pub current_discard_source_features: Option<Vec<String>>,
+    /// 【トリガー】/イベント (= InPlay を持たない発動元) の特徴。 effects.py の
+    /// state.current_source_card ミラー (cardqa_op_12 / OP12-057 → OP12-040 クザン)。
+    /// fire_life_trigger / イベント解決中だけ立つ transient → digest 対象外。
+    #[serde(skip)]
+    pub current_source_card_features: Option<Vec<String>>,
     // 直近に効果で捨てた手札の枚数 (transient、 Python の state.last_discard_count 相当)。
     // draw_per_self_hand_discarded (OP12-040 クザン「捨てた枚数分ドロー」) が読む。
     #[serde(skip)]
@@ -541,6 +555,37 @@ pub struct GameState {
     /// `last_return_to_hand_success`)。 OP13-119 の「そうした場合」 gate に使う。
     #[serde(skip)]
     pub last_return_to_hand_success: bool,
+    /// **同時離脱バッチ** (effects.py:`_LeaveBatch`) のスナップショット。
+    /// 公式は 「1 つの効果で複数のキャラが同時に場を離れる」 を 1 事象として扱うので、
+    /// ① 置換 holder は **バッチ開始時の盤面** から決める (順序非依存、 cardqa_op_10 / OP10-032 たしぎ)
+    /// ② 同じ holder の置換コストは **1 回だけ** (cardqa_op_15 / OP15-090 ペローナ)
+    /// (owner_idx, holder を追う一意トークン, card_id)。 transient なので digest 対象外。
+    #[serde(skip)]
+    pub rust_leave_batch_holders: Option<Vec<(usize, Option<u64>, String)>>,
+    /// このバッチで既に置換コストを払った (holder トークン, when)。
+    #[serde(skip)]
+    pub rust_leave_batch_paid: Vec<(u64, String)>,
+    /// このバッチで 「代替しない」 と確定した (holder トークン, when)。
+    /// victim に依らない条件 (トラッシュ枚数等) は **バッチ開始時の状態** で 1 度だけ判定する
+    /// (cardqa_op_11 / OP11-001 コビー: 先に離れた victim がトラッシュを増やした状態を
+    ///  後の victim の判定に使えない)。
+    #[serde(skip)]
+    pub rust_leave_batch_declined: Vec<(u64, String)>,
+    /// 「自分の(特徴X を持つ)キャラが場を離れた時」 の victim 判定用スナップショット。
+    /// 効果の **最外側** で自陣キャラの顔ぶれを控え、 トリガー発火時に差分を取る
+    /// (= 離脱経路が 16 以上あるので個別に victim を引き回すと必ず取りこぼす)。
+    #[serde(skip)]
+    pub rust_leave_victim_snapshot: Option<Vec<CardDef>>,
+    /// 直近の leave-by-self イベントで場を離れた victim (条件 leave_victim_feature_in が読む)。
+    #[serde(skip)]
+    pub rust_leave_by_self_victims: Vec<CardDef>,
+    /// 「自分の効果で場を離れ、 行き先が **公開領域** (トラッシュ / 表向きライフ)」 だった
+    /// キャラの台帳 (effects.py の `state._departed_to_public_zone` ミラー、 (owner_idx, card_id))。
+    /// 公式 cardqa_op_08 (OP08-046 シャクヤク): 離脱した **本人** も
+    /// on_self_chara_leave_by_self_effect を発動できる (行き先が公開領域の時だけ)。
+    /// 直後の発火で consume + clear する transient なので digest 対象外。
+    #[serde(skip)]
+    pub rust_departed_to_public: Vec<(usize, String)>,
     /// 直前の KO が「相手の効果由来」か (effects.py の動的属性 `last_ko_by_opp_effect` 相当)。
     /// 条件 by_opp_effect / by_battle の判定に使う。 fire_on_ko の引数から設定する。
     #[serde(skip)]

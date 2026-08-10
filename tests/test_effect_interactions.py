@@ -26,10 +26,11 @@ from engine.effects import (
     list_activate_main_effects,
     load_effect_overlay,
     resolve_pending_choice,
+    resolve_triggers,
     trigger_on_attack,
     trigger_on_play,
 )
-from engine.game import AttackCharacter, AttackLeader, apply_action, _fire_counter_events
+from engine.game import AttackCharacter, AttackLeader, EndPhase, apply_action, _fire_counter_events
 
 ROOT = Path(__file__).resolve().parent.parent
 _FILLER = "OP01-013"
@@ -1603,6 +1604,15 @@ def test_no_optional_cost_remains_gated_by_post_colon_condition():
                 continue
             if "場合" in clause[:m.start()]:
                 continue          # コロン前にも条件 = top-level if が妥当
+            # ⚠ entry `if` が **発動元自身のコスト閾値** (self_inplay_cost_*) の時は、
+            #   それは 「コストN以上のこのキャラをトラッシュ…」 のような **コロン前=コスト節** の
+            #   条件 (= どのコストを払えるか) であって、 コロン後の効果条件ではない。
+            #   OP16-084 モモの助: 「コスト20以上のこのキャラをトラッシュに置くことができる：
+            #   場のドン9枚以上ある場合、…登場」 — コロン後 (ドン9枚) は do の conditional、
+            #   entry `if:{self_inplay_cost_ge:20}` は前段のコスト制限 (cardqa_op_16 57ce5506a587)。
+            if any(k in ("self_inplay_cost_ge", "self_inplay_cost_le", "self_inplay_cost_eq")
+                   for k in eff.get("if", {})):
+                continue
             bad.append(f"{cid}[{src}]: {clause[:80]}")
     assert not bad, (
         "コロン後の条件が top-level `if` のままで、 任意コストの支払いを妨げている:\n  "
@@ -1774,7 +1784,11 @@ def test_all_either_target_cards_are_optional_up_to_n():
             text = re.sub(r"[(（][^)）]*[)）]", "",
                           re.sub(r"\s+", "", card.get(src) or ""))
             m = re.search(r"キャラ\d*枚(まで)?", text)
-            if m and not m.group(1):
+            # ⭐ spec に "mandatory": true があれば 「相手が居なければ自陣から選ぶ」 分岐が
+            #   実装済 (= この監査が求めている対応そのもの) なので対象外。
+            #   OP06-043 アラマキ が第 1 号 (2026-08-10、 発動コストの必須両陣営ターゲット)。
+            has_mandatory_flag = '"mandatory": true' in json.dumps(eff, ensure_ascii=False)
+            if m and not m.group(1) and not has_mandatory_flag:
                 mandatory.append(f"{cid}: {text[:70]}")
     assert not mandatory, (
         "必須形 「キャラN枚を」 が両陣営 spec を使っている。 AI の 「相手が居なければ 0 枚」 は "
@@ -6898,3 +6912,1370 @@ def test_simultaneous_ko_replacement_is_order_independent():
         assert green_alive, (
             f"{label}: 緑キャラは置換で残るはず (順序依存になっている)"
         )
+
+
+def test_eb02_019_conditional_chara_rush_reevaluated_at_attack_time():
+    """EB02-019 ロロノア・ゾロ: 「相手のキャラが2枚以上いる場合、 このキャラは登場した
+    ターンにキャラへアタックできる」。
+
+    一次情報 (db/faq/cardqa_eb_02): 「相手のキャラが2枚いるときにこのキャラを登場し、
+    その後他の効果で相手のキャラが1枚になりました。 この場合、 このキャラは相手のキャラに
+    アタックできますか？」 → 「**いいえ、 できません。**」
+    = 登場時の判定を保持するのではなく **アタック時点で毎回判定** する。
+
+    従って 静的効果 (static_self_attack_chara_if) として static_granted_keywords に
+    付与し、 _recompute_static ごとに再評価されなければならない。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, evaluate_static_effects
+    from engine.game import legal_actions, AttackCharacter, AttackLeader
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def build(n_opp: int):
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 10
+            p.life = [repo.get("OP01-013")] * 3
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 0, 5
+        # 登場したばかり (召喚酔い) の ゾロ
+        zoro = InPlay.of(repo.get("EB02-019"), sickness=True)
+        p0.characters = [zoro]
+        for _ in range(n_opp):
+            c = InPlay.of(repo.get("OP01-013"), sickness=False)
+            c.rested = True  # アタック対象になれるのは レスト のキャラのみ
+            p1.characters.append(c)
+        evaluate_static_effects(st, ov)
+        return st, zoro
+
+    def counts(st, zoro):
+        acts = legal_actions(st)
+        ch = [a for a in acts
+              if isinstance(a, AttackCharacter) and a.attacker_iid == zoro.instance_id]
+        ld = [a for a in acts
+              if isinstance(a, AttackLeader) and a.attacker_iid == zoro.instance_id]
+        return len(ch), len(ld)
+
+    # 相手キャラ 1 枚 = 条件未達 → 召喚酔いのまま アタック不可
+    st, zoro = build(1)
+    assert not zoro.is_rush_chara_only_now
+    assert counts(st, zoro) == (0, 0)
+
+    # 相手キャラ 2 枚 = 条件達成 → **キャラへのみ** アタック可 (リーダーへは不可)
+    st, zoro = build(2)
+    assert zoro.is_rush_chara_only_now
+    n_chara, n_leader = counts(st, zoro)
+    assert n_chara == 2, f"相手キャラ 2 枚全てを狙えるはず (got {n_chara})"
+    assert n_leader == 0, "速攻：キャラ はリーダーへアタックできない"
+
+    # 2 枚 → 1 枚に減った後は アタック不可 に戻る (cardqa_eb_02 そのもの)
+    st, zoro = build(2)
+    st.players[1].characters.pop()
+    evaluate_static_effects(st, ov)
+    assert not zoro.is_rush_chara_only_now, (
+        "相手キャラが 1 枚に減ったらアタック不可に戻るはず (cardqa_eb_02)"
+    )
+    assert counts(st, zoro) == (0, 0)
+
+
+def test_op08_046_own_departure_to_public_zone_fires_its_leave_trigger():
+    """OP08-046 シャクヤク: 【自分のターン中】【ターン1回】キャラが自分の効果で場を離れた時…
+
+    一次情報 (db/faq/cardqa_op_08): 「このキャラが自分の効果で場を離れたとき、
+    この【自分のターン中】効果は発動できますか？」 →
+    「この場合、 **このキャラがトラッシュに置かれた時か、 ライフに表向きで置かれた時**、
+    この【自分のターン中】効果を発動できます。」
+
+    = 離脱した **本人** も反応する。 ただし行き先が **公開領域** (トラッシュ / 表向きライフ)
+    の時だけで、 手札 / デッキ (= 非公開) へ戻った場合は発動しない。
+
+    engine の _enqueue_field_when は離脱 **後** の盤面を走査するので本人を含まない。
+    _note_public_departure の台帳で補う (effects.py)。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def run(prim):
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 20
+            p.life = [repo.get("OP01-013")] * 3
+        p1.hand = [repo.get("OP01-013")] * 6      # 「相手の手札が5枚以上」 条件を満たす
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 0, 5   # 【自分のターン中】
+        shakuyaku = InPlay.of(repo.get("OP08-046"), sickness=False)
+        src = InPlay.of(repo.get("OP01-016"), sickness=False)
+        p0.characters = [shakuyaku, src]
+        before = (len(p1.hand), len(p1.deck))
+        execute_effect(prim, st, p0, p1, src)
+        after = (len(p1.hand), len(p1.deck))
+        # 発動すると 「相手は自身の手札1枚をデッキの下に置く」 = 手札-1 / デッキ+1
+        return (after[0] - before[0], after[1] - before[1])
+
+    # 自身がトラッシュ (= 公開領域) へ → 発動できる
+    assert run({"other_self_charas_to_trash": True}) == (-1, 1), (
+        "シャクヤク自身がトラッシュへ置かれた場合は発動できるはず (cardqa_op_08)"
+    )
+    # 自身が手札 (= 非公開領域) へ戻る → 発動できない
+    assert run({"return_to_hand": "all_self_characters"}) == (0, 0), (
+        "手札へ戻った場合は発動できないはず (公式は トラッシュ / 表向きライフ のみ)"
+    )
+# --------------------------------------------------------------------------- #
+#  公式 Q&A conformance バッチ (2026-08-08、 faq_qa_manifest)
+# --------------------------------------------------------------------------- #
+def test_op16_084_activate_main_requires_self_cost_ge_20():
+    """OP16-084 光月モモの助: 【起動メイン】は **このキャラの現在コストが20以上** の時のみ発動可。
+
+    一次情報 (cardqa_op_16, qid 57ce5506a587):
+      Q: このキャラのコストが19以下の時に、この【起動メイン】でこのキャラをトラッシュに
+         置くことはできますか？
+      A: いいえ、できません。この場合、コスト9の「光月モモの助」を登場させることもできません。
+    → 「コスト20以上の…トラッシュに置くことができる」 の 「コスト20以上」 はコロン前=コスト節。
+       印刷コスト<20 なので OP16-087 しのぶ 等で現在コスト20以上にした時のみ発動できる。
+    """
+    repo, overlay = _repo(), _overlay()
+    # 印刷コスト5 (<20) → 起動メインが legal に出ない (= トラッシュできない)
+    st = _state(repo, overlay)
+    me = st.players[0]
+    momo = InPlay.of(repo.get("OP16-084"), sickness=False)
+    me.characters = [momo]
+    me.don_active = 10
+    me.trash = [repo.get("OP06-107")]
+    ams = [(ip, e) for ip, e in list_activate_main_effects(st, me, overlay) if ip is momo]
+    assert len(ams) == 0, "コスト19以下でも起動メインが legal に出ている (= 自身をトラッシュできてしまう)"
+
+    # 現在コスト25 (>=20) + 場のドン9以上 → 発動でき、自身がトラッシュへ
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    momo = InPlay.of(repo.get("OP16-084"), sickness=False)
+    momo.base_cost_override = 25
+    me.characters = [momo]
+    me.don_active = 10
+    me.trash = [repo.get("OP06-107")]
+    ams = [(ip, e) for ip, e in list_activate_main_effects(st, me, overlay) if ip is momo]
+    assert len(ams) == 1, "現在コスト20以上なら起動メインは発動できるべき"
+    fire_activate_main(st, me, opp, momo, ams[0][1])
+    from engine.effects import _maybe_resolve
+    _maybe_resolve(st)
+    assert momo not in me.characters, "コスト20以上ならコスト(自身トラッシュ)を払える"
+
+
+def test_op16_074_don_minus_opp_returns_rested_don_first():
+    """OP16-074 マゼラン: 「相手は自身の場のドン!!を戻す」 は 持ち主 (相手) が選ぶ = レストから返す。
+
+    一次情報 (cardqa_op_16, qid 59c4ab538c2d):
+      Q: このキャラの効果で戻す相手のドン!!は、どちらのプレイヤーが選びますか？
+      A: デッキに戻すドン!!の持ち主である相手が選びます。
+    → 相手はアクティブのドン (このターンまだ使える / カウンター支払いに要る) を温存し、
+       レストのドンから返す (return_opp_don と同じ chooser 帰属)。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    opp.don_active = 3
+    opp.don_rested = 3
+    remain_before = opp.don_remaining_in_deck
+    execute_effect({"don_minus_opp": 1}, st, me, opp, None)
+    assert opp.don_rested == 2, f"レストのドンから返していない (rested={opp.don_rested})"
+    assert opp.don_active == 3, f"アクティブのドンを温存できていない (active={opp.don_active})"
+    assert opp.don_remaining_in_deck == remain_before + 1
+
+    # レストが尽きたらアクティブから (足りない分)
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    opp.don_active = 4
+    opp.don_rested = 1
+    execute_effect({"don_minus_opp": 3}, st, me, opp, None)
+    assert opp.don_rested == 0 and opp.don_active == 2, \
+        f"レスト優先→不足分アクティブ が守れていない (active={opp.don_active} rested={opp.don_rested})"
+
+
+# --------------------------------------------------------------------------- #
+#  公式 Q&A conformance バッチ (2026-08-08 #2、 cron optcg-faq-conformance)
+# --------------------------------------------------------------------------- #
+def test_op15_023_don_attach_targets_both_players_owner_matched():
+    """OP15-023 アーロン【起動メイン】「リーダーかキャラ1枚に持ち主のコストエリアのドン付与」
+    は 両陣営 が対象で、 ドン源は 対象の所有者 (= owner_of_target)。
+
+    一次情報 (cardqa_op_15):
+      #9 (qid 5b454d23df75): 「自分に自分のドン / 相手に相手のドン を付与できるか」→ はい。
+      #17 (qid 5cf7f863bc3a): 「自分に相手のドン / 相手に自分のドン (cross) を付与できるか」→ いいえ。
+    OP15-003/010/017 の レストドン是正 (2026-08-06) が この コストエリア variant を取りこぼしていた
+    (target=self_inplay_choice = 自陣限定 = 相手に付与できず #9 違反)。one_team_any_either +
+    owner_of_target へ是正 (from_cost_area は据置)。
+    """
+    from engine.core import InPlay
+    repo, overlay = _repo(), _overlay()
+
+    # #9: 相手のキャラに 相手のコストエリアのドン を付与できる (両陣営)
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    aaron = InPlay.of(repo.get("OP15-023"), sickness=False)
+    me.characters = [aaron]
+    oppc = InPlay.of(repo.get(_FILLER), sickness=False)
+    opp.characters = [oppc]
+    opp.don_rested, opp.don_active, me.don_rested = 2, 0, 3
+    spec = {"attach_rested_don": {
+        "target": {"_iid_picks": [oppc.instance_id]},
+        "count": 1, "from_cost_area": True, "owner_of_target": True}}
+    execute_effect(spec, st, me, opp, aaron)
+    assert oppc.attached_dons == 1, "相手キャラに付与できていない (両陣営 #9 違反)"
+    assert opp.don_rested == 1, "ドン源が相手のコストエリアでない (owner_of_target 違反)"
+    assert me.don_rested == 3, "cross: 自分のドンが減った (owner_of_target が cross を許した #17 違反)"
+
+    # #17: 自陣キャラへ付与すると 自分のコストエリアのドン から取る (cross 不可)
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    aaron = InPlay.of(repo.get("OP15-023"), sickness=False)
+    myc = InPlay.of(repo.get(_FILLER), sickness=False)
+    me.characters = [aaron, myc]
+    me.don_rested, me.don_active, opp.don_rested = 2, 0, 3
+    spec = {"attach_rested_don": {
+        "target": {"_iid_picks": [myc.instance_id]},
+        "count": 1, "from_cost_area": True, "owner_of_target": True}}
+    execute_effect(spec, st, me, opp, aaron)
+    assert myc.attached_dons == 1, "自陣キャラに付与できていない"
+    assert me.don_rested == 1, "ドン源が自分のコストエリアでない"
+    assert opp.don_rested == 3, "cross: 相手のドンが減った (owner_of_target が cross を許した #17 違反)"
+
+
+def test_op15_105_simultaneous_leave_pays_replacement_cost_once():
+    """OP15-105 ボニー / OP15-098 ルフィ / OP15-090 ペローナ:
+    「自分の元々のパワー7000以下のキャラが相手の効果で場を離れる場合、 代わりに
+     自分のライフの上から1枚を手札に加えることができる。」
+
+    一次情報 (db/faq/cardqa_op_15):
+      Q: 元々のパワー7000以下のキャラが **2枚同時に** 相手の効果で場を離れる場合、
+         代わりに自分のライフの上から **2枚** を手札に加えることはできますか？
+      A: この場合、 自分のライフの上から **1枚** を手札に加えることで場を離れるキャラを
+         **2枚とも** 場に残すか、 何もせずキャラ2枚が場を離れるかを選びます。
+
+    = 同時離脱は 1 事象なので **支払いは 1 回** で全員残る。
+
+    ⚠ engine の同時離脱 dedup (_LeaveBatch) は **cost フィールドしか** dedup しない。
+      この 3 枚は支払いを `do` に持っていたので victim ごとに払っていた (2枚 = ライフ2消費)。
+      → 支払いを cost へ移し、 life_to_hand を replace-cost handler 化して是正。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def run(n_victims: int):
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 20
+            p.life = [repo.get("OP01-013")] * 4
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 1, 5      # 相手のターン = 相手の効果で離脱
+        holder = InPlay.of(repo.get("OP15-105"), sickness=False)
+        p0.characters = [holder]
+        victims = []
+        for _ in range(n_victims):
+            v = InPlay.of(repo.get("OP01-013"), sickness=False)   # 元々パワー 7000 以下
+            p0.characters.append(v)
+            victims.append(v)
+        src = InPlay.of(repo.get("OP01-016"), sickness=False)
+        p1.characters = [src]
+        life_before, hand_before = len(p0.life), len(p0.hand)
+        execute_effect({"ko": "all_opponent_characters"}, st, p1, p0, src)
+        return (
+            life_before - len(p0.life),                       # 消費したライフ枚数
+            len(p0.hand) - hand_before,                        # 手札に加わった枚数
+            sum(1 for v in victims if v in p0.characters),     # 生存した victim 数
+        )
+
+    for n in (1, 2, 3):
+        life_paid, hand_gained, survived = run(n)
+        assert life_paid == 1, (
+            f"victim {n} 枚でもライフ支払いは 1 回のはず (実測 {life_paid}、 cardqa_op_15)"
+        )
+        assert hand_gained == 1, f"手札に加わるのも 1 枚のはず (実測 {hand_gained})"
+        assert survived == n, f"支払えば victim {n} 枚とも残るはず (実測 {survived})"
+
+
+def test_op14_029_rest_self_cards_covers_four_zones():
+    """OP14-029 たしぎ 【起動メイン】「自分のカード2枚をレストにできる：…」
+
+    一次情報 (db/faq/cardqa_op_14):
+      Q: この【起動メイン】効果の「自分のカード2枚をレストにできる」とは、 どのカードを
+         レストにする効果ですか？
+      A: この効果は、 自分の場にある、 **リーダー、 キャラ、 ステージ、 ドン!!** のうち
+         **合計2枚** をアクティブからレストにすることで発動します。
+
+    ⚠ engine の rest_self_cards は leader + characters しか候補にしておらず、
+      ステージ / ドンで払える局面を弾いて **合法な発動を阻害** していた。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def run(extra_chars: int, don_active: int):
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 20
+            p.life = [repo.get("OP01-013")] * 3
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 0, 5
+        p0.leader.rested = True                     # リーダーはレスト済 = 候補外
+        tashigi = InPlay.of(repo.get("OP14-029"), sickness=False)
+        p0.characters = [tashigi]
+        for _ in range(extra_chars):
+            p0.characters.append(InPlay.of(repo.get("OP01-013"), sickness=False))
+        p0.don_active = don_active
+        power_before = tashigi.power
+        execute_effect(
+            {"optional_cost_then": {
+                "cost": [{"rest_self_cards": 2}],
+                "effect": [{"power_pump": {"target": "self", "amount": 2000,
+                                           "duration": "turn"}}]}},
+            st, p0, p1, tashigi,
+        )
+        return tashigi.power > power_before, p0.don_active, p0.don_rested
+
+    # 場のキャラだけで足りる → 従来どおりキャラをレスト、 ドンは減らない
+    fired, don_a, don_r = run(extra_chars=3, don_active=0)
+    assert fired and don_a == 0 and don_r == 0
+
+    # アクティブなキャラが たしぎ 1 枚のみ → **ドンで不足分を払えるので発動できる**
+    fired, don_a, don_r = run(extra_chars=0, don_active=5)
+    assert fired, "ドンで払えるので発動できるはず (cardqa_op_14)"
+    assert (don_a, don_r) == (4, 1), f"不足 1 枚をドンで払うはず (active={don_a} rested={don_r})"
+
+    # 場のカード + ドン の合計が 2 未満 → 払えないので発動しない
+    fired, _, _ = run(extra_chars=0, don_active=0)
+    assert not fired, "合計 1 枚しか無いので払えない = 発動しないはず"
+
+
+def test_op08_105_opp_life_taken_fires_when_owner_moves_own_life():
+    """OP08-105 ボニー: 【ドン‼×1】【自分のターン中】【ターン1回】相手のライフが離れた時、…
+
+    一次情報 (db/faq/cardqa_op_08):
+      Q: 自分のターン中に、 **相手が効果でライフを1枚手札に加え**、 その後カードを
+         ライフの上に加えました。 この時、 この【自分のターン中】効果でカード2枚を引き、
+         手札1枚を捨てることはできますか？   A: **はい、 できます。**
+
+    = 「相手のライフが離れた時」 は **離れ方を問わない**。 engine は 「自分が相手のライフを
+      取り除く」 経路にしか on_opp_life_taken を配線しておらず、 **持ち主が自分でライフを
+      手札へ移す** 経路では観測側が発火しなかった。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    for p in (p0, p1):
+        p.deck = [repo.get("OP01-013")] * 20
+        p.life = [repo.get("OP01-013")] * 4
+    p0.hand = [repo.get("OP01-013")] * 2
+    st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                   rng=random.Random(1), effects_overlay=ov)
+    st.turn_player_idx, st.turn_number = 0, 5      # 自分 (P0) のターン
+    bonney = InPlay.of(repo.get("OP08-105"), sickness=False)
+    bonney.attached_dons = 1                       # 【ドン‼×1】
+    p0.characters = [bonney]
+    src = InPlay.of(repo.get("OP01-016"), sickness=False)
+    p1.characters = [src]
+
+    deck_before = len(p0.deck)
+    # 相手 (P1) が **自分の** ライフを手札に加える
+    execute_effect({"life_to_hand": 1}, st, p1, p0, src)
+    assert deck_before - len(p0.deck) == 2, (
+        "相手が自ライフを手札に加えた時も 「相手のライフが離れた時」 = 2 枚ドローするはず"
+    )
+
+
+def test_op10_030_lock_blocks_scheduled_untap_don():
+    """OP10-030 スモーカー: 「自分はこのターン中、 キャラの効果でドン‼をアクティブにできない。」
+
+    一次情報 (db/faq/cardqa_eb_02 + cardqa_st_24):
+      Q: スモーカーの【起動メイン】を起動したターンの終了時、 (EB02-015 ボニー /
+         ST24-005 ドレークの)【登場時】効果でドン!!1枚をアクティブにできますか？
+      A: **いいえ、 できません。**
+
+    = ターン終了時に予約された untap_don も 「**キャラの効果**」 なのでロックの対象。
+      engine は予約効果の flush を self_inplay=None で実行しており、 gate
+      (発動元がキャラか) が通らず 公式違反になっていた。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, execute_effect, trigger_end_of_turn
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def run(locked: bool) -> int:
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 20
+            p.life = [repo.get("OP01-013")] * 3
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 0, 5
+        bonney = InPlay.of(repo.get("EB02-015"), sickness=False)   # キャラ
+        p0.characters = [bonney]
+        p0.don_rested, p0.don_active = 3, 0
+        # 【登場時】後半 = 「このターン終了時、 自分のドン‼1枚までを、 アクティブにする」
+        execute_effect({"schedule_at_self_turn_end": {"do": [{"untap_don": 1}]}},
+                       st, p0, p1, bonney)
+        if locked:
+            p0.block_chara_effect_untap_don_until_turn_end = True
+        trigger_end_of_turn(st, ov)
+        return p0.don_active
+
+    assert run(locked=False) == 1, "ロックが無ければ予約どおりドン1枚アクティブ"
+    assert run(locked=True) == 0, (
+        "スモーカーのロック中は **キャラの効果** の予約 untap_don も不発のはず "
+        "(cardqa_eb_02 / cardqa_st_24)"
+    )
+
+
+def test_op12_057_trigger_discard_feeds_navy_leader_draw():
+    """OP12-057 アイス塊暴雉嘴 (青/特徴《海軍》 event) の【トリガー】
+    「自分の手札1枚を捨てることができる：カード1枚を引く。」
+
+    一次情報 (db/faq/cardqa_op_12):
+      Q: この【トリガー】効果で手札を1枚捨てカード1枚を引いた時、 自分のリーダー
+         「クザン」 (= OP12-040、 特徴《海軍》/ 「自分の特徴《海軍》を持つカードの効果で
+         自分の手札からカードが捨てられた時、 捨てた枚数分カードを引く」) の効果で
+         さらにカード1枚を引くことはできますか？   A: **はい、 できます。**
+
+    ⚠ 2 段の欠陥があった:
+      1. 発動元がイベント (= InPlay を持たない) なので actor_source_feature_contains が
+         source を掴めない → CardDef 由来の特徴に fallback。
+      2. **より深い原因**: trigger_on_self_hand_discarded が context (捨てた枚数 / 発動元)
+         を _maybe_resolve の直後に消していた。 ネスト中 (既に resolving) の _maybe_resolve は
+         **drain せずに返る** ので、 クザンの効果が実際に解決される頃には
+         last_discard_count=0 になっており、 条件が真でも 0 枚ドローだった。
+         → on_ko の by_opp_effect と同じく **payload で持ち回る** 方式に統一。
+    """
+    import random
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay, trigger_lifecard_trigger
+
+    repo = CardRepository.from_json(ROOT / "db" / "cards.json")
+    ov = load_effect_overlay(ROOT / "db" / "card_effects.json")
+
+    def run(leader_id: str) -> int:
+        p0 = Player(name="P0", leader=InPlay.of(repo.get(leader_id), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        for p in (p0, p1):
+            p.deck = [repo.get("OP01-013")] * 25
+            p.life = [repo.get("OP01-013")] * 3
+        p0.hand = [repo.get("OP01-013")] * 3
+        st = GameState(players=[p0, p1], phase=Phase.MAIN,
+                       rng=random.Random(1), effects_overlay=ov)
+        st.turn_player_idx, st.turn_number = 1, 5    # 相手のターン (= ライフを取られた側)
+        deck_before = len(p0.deck)
+        trigger_lifecard_trigger(st, p0, p1, repo.get("OP12-057"), ov)
+        return deck_before - len(p0.deck)
+
+    assert run("OP12-040") == 2, (
+        "海軍リーダー クザン なら トリガーの1枚 + クザンの1枚 = 2枚 引くはず (cardqa_op_12)"
+    )
+    assert run("OP01-001") == 1, "非海軍リーダーなら トリガーの1枚だけ"
+
+
+def test_activate_main_cost_ko_trigger_fires_after_the_effect():
+    """発動コストの支払いで誘発した【KO時】は **本体を解決した後** に発動する。
+
+    一次情報 (cardqa_op_14、 OP14-080 ゲッコー・モリア):
+      Q「この【起動メイン】効果でKOした自分のキャラが【KO時】効果を持っていた場合、
+        それは発動できますか？」
+      A「はい、できます。この場合、『自分のリーダーとキャラすべてを、このターン中、
+        パワー+1000。』を **実行した後で**、そのキャラの【KO時】効果が発動します。」
+
+    公式 8-4-1-3〜8-4-1-5 (コスト支払い → 発動 → 解決) の順序。 engine は コスト支払い中の
+    enqueue を即ドレインしており **順序が逆** だった (= 【KO時】で登場したキャラまで +1000 を
+    受けていた)。 _cost_trigger_buffer で本体 enqueue の後にコスト由来を流すよう是正。
+
+    観測点: KO時 (OP14-110 ホグバック) がトラッシュから登場させたキャラが +1000 を **受けない**
+    (= パワー加算は既に解決済)。 ※【起動メイン】の +1000 が 「発動時点のキャラのみ」 の
+    スナップショットであることは docs/official_rulings.md に既記載。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP14-080")   # ゲッコー・モリア
+    me, opp = st.players[0], st.players[1]
+    hogback = InPlay.of(repo.get("OP14-110"), sickness=False)  # 特徴 スリラーバーク海賊団 + 【KO時】登場
+    me.characters = [hogback]
+    me.trash = [repo.get("OP14-102")]                # クマシー (cost1/2000、【トリガー】持ち = 登場候補)
+
+    source, eff = list_activate_main_effects(st, me, overlay)[0]
+    fire_activate_main(st, me, opp, source, eff)
+
+    assert me.leader.power == 6000, "リーダーが +1000 を受けていない (本体が解決していない)"
+    assert [c.card.card_id for c in me.characters] == ["OP14-102"], \
+        "【KO時】でトラッシュのクマシーが登場していない"
+    assert me.characters[0].power == 2000, (
+        "コスト由来の【KO時】で登場したキャラが +1000 を受けている = "
+        "【KO時】が本体より先に解決している (cardqa_op_14 / OP14-080 違反)"
+    )
+
+
+def test_activate_main_cost_ko_trigger_order_survives_human_modal():
+    """同上 (cardqa_op_14) を **人間のコスト対象選択 modal を跨いで** 保証する。
+
+    コスト由来トリガーの退避バッファは 「モーダルで中断 → 選択 → 再入」 を跨いで生き残る
+    必要がある (= 過去の実装試行が繰り返し落ちた経路)。 閉じ忘れると 全トリガーが止まり、
+    早く閉じると 【KO時】 が本体より先に解決する。
+
+    観測点: 発動時に場に居た キャラ は +1000 を受け、 【KO時】 で **後から登場した** キャラは
+    受けない。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP14-080", human_idx=0)
+    me, opp = st.players[0], st.players[1]
+    hogback = InPlay.of(repo.get("OP14-110"), sickness=False)
+    kumacy = InPlay.of(repo.get("OP14-102"), sickness=False)   # 特徴 スリラーバーク海賊団 = KO 候補にもなる
+    me.characters = [hogback, kumacy]
+    me.trash = [repo.get("OP14-102")]
+
+    source, eff = list_activate_main_effects(st, me, overlay)[0]
+    fire_activate_main(st, me, opp, source, eff)
+    assert st.pending_choice is not None, "候補 2 枚なのに人間の自KO対象 modal が出ていない"
+    assert st.pending_choice["cost_kind"] == "ko_self_with_filter"
+
+    resolve_pending_choice(st, [0])   # ホグバック を KO 対象に選ぶ
+
+    assert st.pending_choice is None
+    assert not st.event_queue, "トリガーキューが残っている (= バッファを閉じ忘れ)"
+    assert me.leader.power == 6000
+    powers = [c.power for c in me.characters]
+    assert powers == [3000, 2000], (
+        f"powers={powers}: 発動時に居たキャラは 2000+1000、【KO時】で登場したキャラは素の 2000 "
+        f"のはず (cardqa_op_14 / OP14-080)"
+    )
+# --------------------------------------------------------------------------- #
+#  同時離脱の置換コスト (return_self_don_to_deck) は 1 回だけ (2026-08-08)
+#     ⚠ 公式 cardqa_op_15 (OP15-069 ノラ):
+#       Q「自分の元々のパワー7000以下のキャラが2枚同時に相手の効果で場を離れる場合、
+#         代わりに自分のドン!!2枚をドン!!デッキに戻すことはできますか？」
+#       A「この場合、自分のドン!!1枚をドン!!デッキに戻すことでこの場を離れるキャラを2枚とも
+#         場に残すか、何もせずキャラ2枚が場を離れるかを選びます。」
+#     = 同時離脱は 1 事象なので置換コストは holder ごとに 1 回。 payment を do に置くと
+#       victim ごとに走って 2 枚払う (= 違反)。 cost に置いて batch dedup を効かせる。
+#     旧 overlay は return_self_don_to_deck を do に持っていた (= 2 枚返す bug)。
+# --------------------------------------------------------------------------- #
+def test_op15_069_nora_simultaneous_leave_returns_one_don():
+    """OP15-069 ノラ: 自元々パワー7000以下キャラが2枚同時に相手効果で離れても、
+    返すドンは 1 枚だけで 2 枚とも救う (公式 cardqa_op_15)。"""
+    from engine.effects import try_replace_ko, _LeaveBatch
+
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    nora = InPlay.of(repo.get("OP15-069"), sickness=False)      # holder (power2000)
+    v1 = InPlay.of(repo.get("OP01-013"), sickness=False)         # サンジ power3000 (<=7000)
+    v2 = InPlay.of(repo.get("OP01-013"), sickness=False)
+    me.characters = [nora, v1, v2]
+    me.don_active = 3
+    don_active_before = me.don_active
+    don_deck_before = me.don_remaining_in_deck
+
+    with _LeaveBatch(st):
+        r1 = try_replace_ko(st, me, opp, v1, overlay, by_opp_effect=True, leave_kind="ko")
+        r2 = try_replace_ko(st, me, opp, v2, overlay, by_opp_effect=True, leave_kind="ko")
+
+    assert r1 is True and r2 is True, "2 枚とも置換で救われるべき (ドンがあれば)"
+    assert me.don_active == don_active_before - 1, (
+        f"返したドンは 1 枚のはず (2 枚同時離脱でも 1 回払い)。 実際 {don_active_before - me.don_active} 枚"
+    )
+    assert me.don_remaining_in_deck == don_deck_before + 1, "ドンデッキに戻ったのは 1 枚のはず"
+
+
+def test_no_multivictim_replace_pays_consumable_don_in_do():
+    """overlay 全走査: return_self_don_to_deck (= 消費リソースの置換コスト) は、 複数 victim を
+    救いうる holder (target が self でない = other_self_chara / any_self_chara) では **必ず cost に
+    置く**。 do に置くと同時離脱で victim ごとに払う (= cardqa_op_15 違反)。"""
+    raw = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    offenders = []
+    for cid, effs in raw.items():
+        if not isinstance(effs, list):
+            continue
+        for e in effs:
+            if e.get("when") not in ("replace_ko", "replace_leave"):
+                continue
+            tgt = (e.get("if", {}) or {}).get("target", "self")
+            if tgt in ("self", "this"):
+                continue   # 単一 victim (= 本人のみ) なら do でも 1 回
+            do = e.get("do", []) or []
+            if any(isinstance(d, dict) and "return_self_don_to_deck" in d for d in do):
+                offenders.append(cid)
+    assert not offenders, (
+        f"複数 victim holder が return_self_don_to_deck を do に持つ (同時離脱で二重払い): {offenders}"
+    )
+
+
+# --------------------------------------------------------------------------- #
+#  効果無効 × 【自分のターン終了時】 (2026-08-08)
+#     ⚠ 公式 cardqa_op_10 (OP10-112 ユースタス・キッド):
+#       Q「このカードが直前の相手のターンに OP09-093 マーシャル・D・ティーチの【起動メイン】で
+#         選ばれ、このターン終了時まで効果が無効になっています。この【自分のターン終了時】効果は
+#         発動できますか？」
+#       A「いいえ、できません。エンドフェイズでは、はじめに【自分のターン終了時】が発動し、次に
+#         『ターン終了時まで』を期限とする効果が無効になります。」
+#     = 効果無効中の【自分のターン終了時】は発動しない。 _execute_event の disable gate は
+#       end_of_turn / opp_end_of_turn を含んでいなかった (= 発火してしまう bug、 2026-08-08 是正)。
+# --------------------------------------------------------------------------- #
+def test_disabled_character_end_of_turn_does_not_fire():
+    """効果無効 (effect_disabled_through_opp_turn) のキャラの【自分のターン終了時】は
+    エンドフェイズ内でまだ無効なため発動しない (公式 cardqa_op_10)。"""
+    from engine.effects import trigger_end_of_turn
+
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP10-099")   # ユースタス・キッド (リーダー)
+    st.phase = Phase.END
+    me, opp = st.players[0], st.players[1]
+    opp.life = [repo.get(_FILLER)] * 2               # 相手ライフ2以下 = キッドの end_of_turn 条件成立
+    kid = InPlay.of(repo.get("OP10-112"), sickness=False)   # ユースタス・キッド (キャラ)
+    kid.effect_disabled_through_opp_turn = True
+    me.characters = [kid]
+    me.hand = [repo.get(_FILLER)] * 2
+    deck_before = len(me.deck)
+
+    trigger_end_of_turn(st, overlay)
+
+    assert len(me.deck) == deck_before, (
+        "効果無効中のキャラの【自分のターン終了時】が発動してしまった (公式=いいえ、発動しない)"
+    )
+
+
+def test_non_disabled_character_end_of_turn_does_fire():
+    """対照: 無効化されていなければ【自分のターン終了時】は通常どおり発動する。"""
+    from engine.effects import trigger_end_of_turn
+
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP10-099")
+    st.phase = Phase.END
+    me, opp = st.players[0], st.players[1]
+    opp.life = [repo.get(_FILLER)] * 2
+    kid = InPlay.of(repo.get("OP10-112"), sickness=False)
+    me.characters = [kid]
+    me.hand = [repo.get(_FILLER)] * 2
+    deck_before = len(me.deck)
+
+    trigger_end_of_turn(st, overlay)
+
+    assert len(me.deck) == deck_before - 1, "無効でないキッドの end_of_turn はドローするはず"
+
+
+# --------------------------------------------------------------------------- #
+#  R. 発動コストの取りこぼし (2026-08-09、 FAQ 全件保証バッチ)
+# --------------------------------------------------------------------------- #
+def test_eb01_011_activate_main_requires_returning_a_printed_power_1000_chara():
+    """EB01-011 ミニメリー2号 の【起動メイン】は 「自分の元々のパワー1000のキャラ1枚を
+    デッキの下に置く」 を発動コストに含む。 対象キャラが居なければドローできない (タダ撃ち禁止)。
+
+    一次情報 (cardqa_eb_01, qid 651d177800d2):
+      「元々のパワーが1000で、 ドン!!が付与され現在のパワーが2000以上となっているキャラを、
+        この【起動メイン】効果で自分のデッキの下に置きカード1枚を引くことはできますか？」
+      → 「はい、できます。」  (= 対象は **印刷パワー** 1000。 ドン付与で現在値が動いても対象)
+    是正前: overlay の cost が rest_self のみで、 対象キャラを戻さずに draw できた (タダ撃ち)。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    # (a) 印刷パワー1000のキャラ (ドン付与で現在2000+) を場に持つ → 発動でき、 draw 1 + 戻す
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    stage = InPlay.of(repo.get("EB01-011"), sickness=False)
+    me.stages = [stage]
+    p1000 = next(c for c in repo._by_id.values()
+                 if c.category.name == "CHARACTER" and str(c.power) == "1000")
+    tgt = InPlay.of(p1000, sickness=False)
+    tgt.attached_dons = 2                       # 現在パワー = 3000 だが元々は 1000
+    me.characters = [tgt]
+    hand_before = len(me.hand)
+    opts = [o for o in list_activate_main_effects(st, me, overlay)
+            if o[0].card.card_id == "EB01-011"]
+    assert opts, "対象キャラが居るのに起動メインが legal に出ない"
+    fire_activate_main(st, me, opp, *opts[0])
+    assert len(me.hand) == hand_before + 1, "コストを払ったのにドローしていない"
+    assert tgt not in me.characters, "元々パワー1000のキャラがデッキ下に置かれていない"
+    assert stage.rested, "コストの self rest が行われていない"
+
+    # (b) 印刷パワー1000のキャラが居ない → コスト不成立 = draw させない (タダ撃ち禁止)
+    st2 = _state(repo, overlay)
+    me2, opp2 = st2.players[0], st2.players[1]
+    stage2 = InPlay.of(repo.get("EB01-011"), sickness=False)
+    me2.stages = [stage2]
+    other = next(c for c in repo._by_id.values()
+                 if c.category.name == "CHARACTER" and str(c.power) not in ("1000", "-", ""))
+    me2.characters = [InPlay.of(other, sickness=False)]
+    hand_before2 = len(me2.hand)
+    for o in [o for o in list_activate_main_effects(st2, me2, overlay)
+              if o[0].card.card_id == "EB01-011"]:
+        fire_activate_main(st2, me2, opp2, *o)
+    assert len(me2.hand) == hand_before2, "対象不在なのにドローした (タダ撃ち)"
+    assert not stage2.rested, "対象不在なのに self rest だけ払っている"
+
+
+def test_st22_005_replace_leave_needs_full_two_card_discard():
+    """ST22-005 光月おでん の離脱置換は 「代わりに手札2枚を捨てる」 が発動コスト。
+    手札が1枚しかなければ払えず、 置換は成立せず場を離れる。
+
+    一次情報 (cardqa_st_22, qid 645ccc31a2c2):
+      「自分の手札が1枚だけの時にこのキャラが相手の効果で場を離れる場合、 手札1枚を捨てる
+        ことで場を離れないことはできますか？」
+      → 「この場合、 手札2枚を捨てることができないため効果は使えず、 場を離れることになります。」
+    是正前: 捨てが `do` にあり payability が効かず、 手札1枚でも 1 枚だけ捨てて置換成立していた。
+    """
+    from engine.effects import try_replace_ko
+    repo, overlay = _repo(), _overlay()
+
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    oden = InPlay.of(repo.get("ST22-005"), sickness=False)
+    me.characters = [oden]
+    me.hand = [repo.get(_FILLER)]               # 1 枚 = 2 枚捨てられない
+    replaced = try_replace_ko(st, me, opp, oden, overlay, by_opp_effect=True, leave_kind="ko")
+    assert replaced is False, "手札1枚では置換できないはず (公式=場を離れる)"
+    assert len(me.hand) == 1, "払えないのに手札を捨てている"
+
+    # 対照: 手札2枚あれば置換成立し 2 枚とも捨てる
+    st2 = _state(repo, overlay)
+    me2, opp2 = st2.players[0], st2.players[1]
+    oden2 = InPlay.of(repo.get("ST22-005"), sickness=False)
+    me2.characters = [oden2]
+    me2.hand = [repo.get(_FILLER), repo.get(_FILLER)]
+    replaced2 = try_replace_ko(st2, me2, opp2, oden2, overlay, by_opp_effect=True, leave_kind="ko")
+    assert replaced2 is True and len(me2.hand) == 0, "手札2枚なら置換成立し2枚捨てるはず"
+
+
+def test_no_replace_effect_hides_a_payment_cost_inside_do():
+    """全走査: replace_ko/leave/rest の 「代わりに<支払>できる/てもよい」 は必ず `cost` に置く。
+    `do` に支払プリミティブがあると payability が効かず、 資源不足でも置換が成立してしまう
+    (ST22-005 / ST22-012 / OP12-061 等で 2026-08-09 に是正)。 同型の取りこぼしを禁止する番人。
+    """
+    _, overlay = _repo(), _overlay()
+    PAY = {"trash_self_hand_random", "discard_hand", "discard_hand_with_filter",
+           "life_to_hand", "return_self_don_to_deck", "mill_self_life_to_trash",
+           "rest_self_don"}
+    offenders = []
+    for cid, bundle in overlay.items():
+        if cid == "_meta" or not hasattr(bundle, "effects"):
+            continue
+        for e in bundle.effects:
+            if not isinstance(e, dict):
+                continue
+            if e.get("when") not in ("replace_ko", "replace_leave", "replace_rest"):
+                continue
+            for prim in (e.get("do") or []):
+                if isinstance(prim, dict) and (set(prim.keys()) & PAY):
+                    offenders.append((cid, list(prim.keys())))
+    assert not offenders, (
+        "置換の支払コストが do に埋もれている (payability が効かない): "
+        f"{offenders[:10]}"
+    )
+
+
+# --------------------------------------------------------------------------- #
+#  I. on_self_rested はアタック宣言 (自己レスト) でも発火する
+#     公式 Q&A (cardqa_op_14 677c149d0045):
+#       「『このキャラがレストになった時』の効果は、このキャラがアタックした時に発動しますか？」
+#       → 「はい、発動します」
+#     ⚠ 2026-08-09 まで engine のアタック経路が trigger_on_self_rested を呼んでおらず、
+#       全 on_self_rested カード (OP14-027/028/032/035/119 / ST32-003 等) が
+#       アタックでは silent 不発だった (実測: シャンクスが相手キャラをレストにしなかった)。
+# --------------------------------------------------------------------------- #
+def test_on_self_rested_fires_on_attack():
+    """OP14-027 シャンクス: 【自分のターン中】このキャラがレストになった時、相手の元々パワー
+    7000以下のキャラ1枚までをレストにする。 アタック=自己レストで発火し、相手アクティブキャラを
+    レストにする。 (修正前はここが不発 = active のまま)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    shanks = InPlay.of(repo.get("OP14-027"), sickness=False)
+    shanks.rested = False
+    me.characters = [shanks]
+    foe = InPlay.of(repo.get("OP01-016"), sickness=False)  # 印刷パワー 2000 (<=7000)
+    foe.rested = False
+    opp.characters = [foe]
+    apply_action(st, AttackLeader(attacker_iid=shanks.instance_id))
+    assert opp.characters and opp.characters[0].rested, (
+        "アタック(自己レスト)で on_self_rested が発火せず相手キャラがレストにならない"
+    )
+
+
+def test_on_self_rested_costless_effect_fires_on_attack_scan():
+    """全走査: costless で条件が self_turn/無条件の on_self_rested カードは、アタックすると
+    trigger_on_self_rested が発火する (wiring 保証)。 cost 持ち (OP14-021 任意 / OP14-070
+    相手キャラ効果 / PRB02-009 by_opp) は自己アタックでは発火してはいけない。"""
+    import json as _json
+    from unittest import mock
+    from pathlib import Path as _Path
+    repo, overlay = _repo(), _overlay()
+    raw = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+
+    def _costless(eff):
+        cost = eff.get("cost") or {}
+        return not any(ck != "once_per_turn" for ck in cost)
+
+    fired, skipped = [], []
+    for cid, bundle in raw.items():
+        if cid == "_meta" or not isinstance(bundle, list):
+            continue
+        rested_effs = [e for e in bundle if isinstance(e, dict) and e.get("when") == "on_self_rested"]
+        if not rested_effs:
+            continue
+        try:
+            base_cid = cid.split("_")[0]
+            card = repo.get(cid)
+        except Exception:
+            continue
+        # キャラのみ (leader/stage は attacker にならない、 parallel は本体で代表)
+        if "_p" in cid:
+            continue
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        atk = InPlay.of(card, sickness=False)
+        atk.rested = False
+        me.characters = [atk]
+        me.don_active = 6
+        # スパイ: trigger_on_self_rested が attacker で呼ばれたか
+        calls = {"n": 0}
+        import engine.game as _g
+        real = _g.trigger_on_self_rested if hasattr(_g, "trigger_on_self_rested") else None
+        # game.py は関数内で from .effects import するので effects 側を patch
+        import engine.effects as _e
+        orig = _e.trigger_on_self_rested
+        def _spy(state, m, o, rested_ip, ov, costless_only=False):
+            if rested_ip is atk and costless_only:
+                calls["n"] += 1
+            return orig(state, m, o, rested_ip, ov, costless_only=costless_only)
+        with mock.patch.object(_e, "trigger_on_self_rested", _spy):
+            try:
+                apply_action(st, AttackLeader(attacker_iid=atk.instance_id))
+            except Exception:
+                continue
+        # trigger_on_self_rested はアタック経路から必ず呼ばれる (発火するか skip かは costless 次第)
+        assert calls["n"] >= 1, f"{cid}: アタック経路から on_self_rested が呼ばれていない (wiring 欠落)"
+
+    # cost 持ちの代表 (OP14-070) はアタックで自身をアクティブに戻してはいけない
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    buf = InPlay.of(repo.get("OP14-070"), sickness=False)
+    buf.rested = False
+    me.characters = [buf]
+    me.don_active = 6
+    apply_action(st, AttackLeader(attacker_iid=buf.instance_id))
+    assert me.characters[0].rested, "OP14-070(相手キャラ効果でレスト時)が自己アタックで誤発火し untap した"
+    assert me.don_active == 6, "OP14-070 が自己アタックでコスト(ドン返却)を誤って支払った"
+
+
+# --------------------------------------------------------------------------- #
+#  J. 条件節「相手の手札が5枚以上ある場合」は その後のミルまで gate する
+#     公式 Q&A (cardqa_op_10 670c9ed2c408): OP10-087 チョッパー
+#       「相手の手札が4枚以下の場合、この【起動メイン】効果で自分のデッキの上から2枚を
+#        トラッシュに置くことはできますか？」→「いいえ、できません」
+# --------------------------------------------------------------------------- #
+def test_op10_087_mill_gated_by_opponent_hand():
+    """OP10-087 の起動メインの mill (デッキ上2枚トラッシュ) は『相手の手札5枚以上』条件の
+    内側にあり、 相手手札4枚以下では発動しない。 (修正前は conditional の外でタダ撃ちできた)。"""
+    repo, overlay = _repo(), _overlay()
+    cond_prim = {"conditional": {"if": {"opp_hand_count_ge": 5},
+                                 "do": [{"opp_discard_own_choice": 1}, {"mill_self_top": 2}]}}
+    for opp_hand, expect in [(4, 0), (5, 2)]:
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        opp.hand = [repo.get(_FILLER)] * opp_hand
+        src = InPlay.of(repo.get("OP10-087"), sickness=False)
+        me.characters = [src]
+        before = len(me.deck)
+        execute_effect(cond_prim, st, me, opp, src)
+        milled = before - len(me.deck)
+        assert milled == expect, f"opp_hand={opp_hand}: milled={milled} (expect {expect})"
+
+
+def test_op10_087_overlay_mill_inside_conditional():
+    """回帰防止 (overlay 構造): OP10-087 の mill_self_top は conditional(opp_hand>=5)の内側にある。"""
+    import json as _json
+    raw = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    e = raw["OP10-087"][0]
+    oct = e["do"][0]["optional_cost_then"]["effect"]
+    # トップレベルの effect に mill_self_top が裸で置かれていないこと
+    top_keys = [k for prim in oct for k in prim.keys()]
+    assert "mill_self_top" not in top_keys, "mill_self_top が conditional の外にある (タダ撃ち回帰)"
+    cond = next(p for p in oct if "conditional" in p)
+    inner = [k for prim in cond["conditional"]["do"] for k in prim.keys()]
+    assert "mill_self_top" in inner, "mill_self_top が conditional 内に無い"
+
+
+# --------------------------------------------------------------------------- #
+#  K. OP02-089 の【トリガー】return_opp_don は『相手の場にドン6枚以上』で gate される
+#     兄弟カード OP02-090/091 と同文。 2026-08-09 まで OP02-089 だけ if 欠落。
+# --------------------------------------------------------------------------- #
+def test_op02_089_trigger_don_return_gate():
+    """OP02-089 の【トリガー】は相手のドンが6枚以上ある時だけ相手ドン1枚を戻す。"""
+    import json as _json
+    raw = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    trig = next(e for e in raw["OP02-089"] if e.get("when") == "trigger")
+    assert trig.get("if") == {"opp_don_count_ge": 6}, "OP02-089 トリガーの opp_don_count_ge gate 欠落"
+
+
+# --------------------------------------------------------------------------- #
+#  L. 相手の効果で自分の手札が捨てられた時も on_self_hand_discarded / flag は発火する
+#     公式 (cardqa_st_33 / cardqa_op_14):
+#       「相手の効果で自分の手札が捨てられている場合、そのターン中手札のこのカードは
+#         コスト-3されますか？」→「はい、コスト-3されます」(ST33-004 ボルサリーノ)
+#       「相手の効果 (OP09-111 ブルック の【トリガー】等) で自分が手札を捨てた場合、
+#         このキャラは【速攻】を得ることはできますか？」→「はい、できます」(OP14-045 クロオビ)
+#     2026-08-09: trash_opp_hand_random / force_opp_discard / opp_discard_own_choice が
+#       victim (= 手札の持ち主) の hand_discarded_by_effect_this_turn を立てず、
+#       on_self_hand_discarded トリガーも発火していなかった一般則バグを是正。
+# --------------------------------------------------------------------------- #
+def _fresh_state_with_opp_hand(repo, overlay, opp_hand_n=4):
+    st = _state(repo, overlay)
+    st.players[1].hand = [repo.get(_FILLER)] * opp_hand_n
+    return st
+
+
+def test_opp_effect_hand_discard_sets_victim_flag_all_primitives():
+    """相手手札を捨てる 3 primitive すべてが victim の hand_discarded フラグを立てる。
+
+    バグ回帰: 修正前は 3 primitive とも flag=False のまま = ST33-004 のコスト-3 が効かず、
+    OP14-045 クロオビ の【速攻】も発火しなかった。 全走査で取りこぼしを防ぐ。
+    """
+    repo, overlay = _repo(), _overlay()
+    for prim in ({"trash_opp_hand_random": 2},
+                 {"force_opp_discard": 1},
+                 {"opp_discard_own_choice": 2}):
+        st = _fresh_state_with_opp_hand(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        assert opp.hand_discarded_by_effect_this_turn is False
+        execute_effect(prim, st, me, opp, me.leader)
+        assert opp.hand_discarded_by_effect_this_turn is True, (
+            f"{list(prim)[0]}: 相手効果の手札破棄で victim の hand_discarded フラグが立たない")
+
+
+def test_op14_045_gains_rush_when_opponent_discards_my_hand():
+    """OP14-045 クロオビ は相手効果で自分の手札が捨てられた時に【速攻】を得る。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    # 自分 (P0) の場に登場したての クロオビ (召喚酔い) を置く。
+    kurobi = InPlay.of(repo.get("OP14-045"), sickness=True)
+    me.characters = [kurobi]
+    me.hand = [repo.get(_FILLER)] * 3
+    assert kurobi.summoning_sickness is True
+    # 相手 (P1) の効果が P0 の手札を捨てさせる (= me=opp 視点で trash_opp_hand_random)。
+    # 発動者は opp、 対象は me。
+    execute_effect({"trash_opp_hand_random": 1}, st, opp, me, opp.leader)
+    assert me.hand_discarded_by_effect_this_turn is True
+    # クロオビ が【速攻】を得て 召喚酔いでもアタック可能になっている。
+    kws = set(getattr(kurobi, "granted_keywords", set()) or []) \
+        | set(getattr(kurobi, "static_granted_keywords", set()) or [])
+    assert "速攻" in kws, f"クロオビ が速攻を得ていない (granted={kws})"
+
+
+# --------------------------------------------------------------------------- #
+#  M. 「自分のドン‼すべてがレストの場合」 は 付与ドンが 1 枚でもあれば不成立
+#     公式 (cardqa_op_02): 「自分のキャラやリーダーにドン‼が付与されている場合、
+#       『自分のドン‼すべてがレストの場合』の条件を満たすことはできますか？」
+#       →「いいえ、できません」(OP02-027 イヌアラシ)
+#     2026-08-09: self_don_active_eq:0 (コストエリアのアクティブドンのみ判定) は付与ドンを
+#       無視して条件成立させていた。 self_all_don_rested (active0 かつ 付与ドン0) を新設。
+# --------------------------------------------------------------------------- #
+def test_self_all_don_rested_false_when_don_attached():
+    """付与ドンがあると self_all_don_rested は False (アクティブドン0でも)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    inu = InPlay.of(repo.get("OP02-027"), sickness=False)
+    me.characters = [inu]
+    me.don_active = 0
+    me.don_rested = 3
+    cond = {"self_all_don_rested": True}
+    # 付与ゼロ → 全ドンレスト成立
+    assert eval_condition(cond, st, me, inu) is True
+    # キャラに 1 枚付与 → 不成立 (バグ回帰: 修正前は True のまま)
+    inu.attached_dons = 1
+    assert eval_condition(cond, st, me, inu) is False
+    # リーダーに付与でも不成立
+    inu.attached_dons = 0
+    me.leader.attached_dons = 1
+    assert eval_condition(cond, st, me, inu) is False
+    # アクティブドンが残っていても不成立
+    me.leader.attached_dons = 0
+    me.don_active = 1
+    assert eval_condition(cond, st, me, inu) is False
+
+
+def test_op02_027_overlay_uses_self_all_don_rested():
+    """OP02-027 の overlay は self_don_active_eq でなく self_all_don_rested を使う。"""
+    import json as _json
+    raw = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    ent = raw["OP02-027"][0]
+    assert "self_all_don_rested" in ent.get("if", {}), "OP02-027 が self_all_don_rested 未使用"
+    assert "self_don_active_eq" not in ent.get("if", {}), "旧 self_don_active_eq が残存"
+
+
+# --------------------------------------------------------------------------- #
+#  L. OP09-103 コアラ: 「登場させた場合、カード1枚を引く」 は登場0枚なら draw 不発。
+#     一次情報 cardqa_op_09: 「この【登場時】効果を発動し、手札からコスト4以下の特徴
+#     《革命軍》を持つキャラカード0枚を登場させることを選んだ場合、カード1枚を引くこと
+#     はできますか？」 → 「いいえ、できません。」
+#     修正前は play_from_hand の後に裸の {"draw":1} があり、登場0枚でも引けた (タダ引き)。
+# --------------------------------------------------------------------------- #
+def test_op09_103_draw_gated_on_character_played():
+    """OP09-103: 登場できた時のみ draw。 該当キャラ不在 (登場0枚) では引かない。"""
+    import json as _json
+    repo, overlay = _repo(), _overlay()
+    # コスト4以下 革命軍 キャラを1枚探す (positive case 用)
+    rev = None
+    for c in _json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8")):
+        if (c["category"] == "CHARACTER" and "革命軍" in (c.get("features") or "")
+                and c.get("cost") and int(c["cost"]) <= 4):
+            rev = c["base_id"]
+            break
+    assert rev is not None
+
+    def run(hand_ids):
+        st = _state(repo, overlay, leader0="OP09-001")
+        me, opp = st.players[0], st.players[1]
+        me.hand = [repo.get(x) for x in hand_ids]
+        me.deck = [repo.get(_FILLER)] * 20
+        me.life = [repo.get(_FILLER)] * 3
+        koala = InPlay.of(repo.get("OP09-103"), sickness=True)
+        me.characters.append(koala)
+        before_hand, before_chars = len(me.hand), len(me.characters)
+        trigger_on_play(st, me, opp, koala, overlay)
+        return before_hand, len(me.hand), before_chars, len(me.characters)
+
+    # 0-play: 手札に 革命軍 コスト4以下 が無い → ライフ→手札コストのみ (+1)、 draw 不発。
+    bh, ah, bc, ac = run([_FILLER])
+    assert ac == bc, "登場0枚のはずがキャラが増えた"
+    assert ah == bh + 1, f"登場0枚で draw が発火した (hand {bh}->{ah}, 期待 +1=ライフコストのみ)"
+
+    # 1-play: 革命軍 コスト4以下 を登場 → draw 発火。
+    bh2, ah2, bc2, ac2 = run([rev])
+    assert ac2 == bc2 + 1, "革命軍キャラが登場していない"
+    # +1 (life cost) -1 (played from hand) +1 (draw) = net +1
+    assert ah2 == bh2 + 1, f"登場1枚で draw が発火していない (hand {bh2}->{ah2})"
+
+
+def test_op09_103_overlay_uses_then_draw():
+    """回帰防止 (overlay 構造): OP09-103 の draw は play_from_hand の then_draw であって、
+    裸の {'draw':1} で無条件発火していないこと。"""
+    import json as _json
+    raw = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    for cid in ("OP09-103", "OP09-103_p1"):
+        eff = raw[cid][0]["do"][0]["optional_cost_then"]["effect"]
+        top_keys = [k for prim in eff for k in prim.keys()]
+        assert "draw" not in top_keys, f"{cid}: 裸の draw が残存 (タダ引き回帰)"
+        pfh = next(p["play_from_hand"] for p in eff if "play_from_hand" in p)
+        assert pfh.get("then_draw") == 1, f"{cid}: play_from_hand.then_draw 未設定"
+
+
+def test_next_opp_turn_end_applied_during_opp_turn_expires_same_turn():
+    """「次の相手のターン終了時まで」 は **適用後 最初に訪れる相手のターン終了** で切れる。
+
+    一次情報 (cardqa_op_01、 OP01-085 Mr.3):
+      Q「このキャラを **相手のターン中に** 登場させ、【登場時】効果を発動した場合、
+        次の相手のターン終了時とはいつまでですか？」 → A「**そのターンの終了時です**」
+
+    退行前は applier-tracking の解除条件が `applied_turn < turn_number` (strict) で
+    「必ず 1 ターン経過」 を要求しており、 相手ターン中に適用した効果が **1 サイクル長く**
+    残っていた (turn 9 適用 → turn 11 終了まで持続)。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def run(turn_player: int) -> list[int]:
+        st = _state(repo, overlay)
+        st.turn_player_idx = turn_player
+        me = st.players[0]
+        c = InPlay.of(repo.get(_FILLER), sickness=False)
+        me.characters = [c]
+        execute_effect(
+            {"power_pump": {"target": "self", "amount": 1000,
+                            "duration": "next_opp_turn_end"}},
+            st, me, st.players[1], c,
+        )
+        seq = [c.next_opp_turn_end_buff]
+        for _ in range(3):
+            apply_action(st, EndPhase())
+            seq.append(c.next_opp_turn_end_buff)
+        return seq
+
+    # P0 が **相手 (P1) のターン中** に適用 → そのターン終了で切れる
+    assert run(turn_player=1) == [1000, 0, 0, 0], (
+        "相手ターン中に適用した 「次の相手のターン終了時まで」 が そのターン終了で切れていない "
+        "(cardqa_op_01 / OP01-085)"
+    )
+    # P0 が **自分のターン中** に適用 → 自ターン終了では切れず、 次の相手ターン終了で切れる
+    assert run(turn_player=0) == [1000, 1000, 0, 0], "自ターン適用時の挙動が変わってしまっている"
+
+
+def test_op12_020_activate_main_requires_battling_opp_character():
+    """OP12-020 ゾロ 起動メインは 「このターン中、 このリーダーが **相手のキャラと** バトルして
+    いる場合」 のみ発動できる (cardqa_op_12)。
+
+    公式 Q&A 2 件:
+      - 相手リーダー「OP05-022 ロシナンテ」の【ブロッカー】でリーダーとバトルした場合 → **いいえ**
+      - 【相手のアタック時】でアタック対象を自分のリーダーへ変更された場合 → **いいえ**
+    = 判定は **実際にバトルした相手** で行う。 退行前は overlay の if が
+    `self_attached_don_ge: 3` だけで、 バトルの有無に関係なくアクティブにできていた。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def build():
+        st = _state(repo, overlay, leader0="OP12-020")
+        st.players[0].leader.attached_dons = 3
+        return st, st.players[0], st.players[1]
+
+    def can_activate(st, me) -> bool:
+        return bool(list_activate_main_effects(st, me, overlay))
+
+    # (1) 何ともバトルしていない → 発動できない
+    st, me, opp = build()
+    assert not can_activate(st, me), "バトル前なのに起動メインが候補に出ている"
+
+    # (2) リーダーが相手 **キャラ** とバトル → 発動できる
+    st, me, opp = build()
+    victim = InPlay.of(repo.get(_FILLER), sickness=False)
+    victim.rested = True
+    opp.characters = [victim]
+    apply_action(st, AttackCharacter(attacker_iid=me.leader.instance_id,
+                                     target_iid=victim.instance_id))
+    assert me.leader_battled_opp_chara_this_turn is True
+    assert can_activate(st, me), "相手キャラとバトルしたのに起動メインが出ない"
+
+    # (3) リーダーが相手 **リーダー** とバトル → 発動できない (公式 いいえ)
+    st, me, opp = build()
+    apply_action(st, AttackLeader(attacker_iid=me.leader.instance_id))
+    assert me.leader_battled_opp_chara_this_turn is False
+    assert not can_activate(st, me), (
+        "リーダーとバトルしただけで起動メインが発動できている (cardqa_op_12 違反)"
+    )
+
+
+def test_op05_098_enel_fires_when_life_hits_zero_even_if_trigger_restores_it():
+    """OP05-098 エネル 【相手のターン中】「自分のライフが0枚になった時」 は **0 になった瞬間の事象**。
+
+    一次情報 (cardqa_op_05): 「自分のライフが1枚の時にダメージを受け、 そのライフが
+    『OP03-118 威国』 だったため【トリガー】効果を発動しライフが0枚から1枚になりました。
+    この時、 この【相手のターン中】効果は発動できますか？」 → 「はい、 発動できます」
+
+    退行前は 「アタック **開始時** にライフ0」 でしか発火しておらず、 ライフが戻ると
+    発動タイミングを永久に取り逃していた。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader1="OP05-098")
+    st.turn_player_idx = 0
+    me, opp = st.players[0], st.players[1]
+    opp.life = [repo.get("OP03-118")]          # ライフ 1 枚 (= 威国)
+    opp.hand = [repo.get(_FILLER)] * 4
+    deck_before = len(opp.deck)
+
+    apply_action(st, AttackLeader(attacker_iid=me.leader.instance_id))
+
+    assert not st.game_over, "エネルでライフを補充したのに敗北になっている"
+    assert len(opp.life) >= 1, "ライフ0のまま = エネルが発動していない (cardqa_op_05 違反)"
+    assert len(opp.deck) < deck_before, "デッキ上をライフに置く処理が走っていない"
+
+
+def test_op16_041_buggy_fires_on_leave_by_own_effect():
+    """OP16-041 バギー: **自分の効果で** インペルダウンキャラが場を離れた時も発動できる。
+
+    一次情報 (cardqa_op_16): 「自分の『OP07-056 虜の矢』などの効果によって、 自分の特徴
+    《インペルダウン》を持つキャラが手札に戻りました。 この時、 このリーダーの効果で
+    『インペルダウンの囚人』1枚を登場させることはできますか？」 → 「はい、 できます」
+
+    退行前は (a) overlay が KO / 相手効果離脱しか配線せず (b) 任意コストの離脱経路が
+    leave-by-self トリガーを一切発火していなかった、 の 2 段で発動しなかった。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def run(victim_id: str) -> bool:
+        st = _state(repo, overlay, leader0="OP16-041")
+        st.turn_player_idx = 1              # 相手ターン (= 虜の矢はカウンター)
+        me, opp = st.players[0], st.players[1]
+        me.leader.attached_dons = 1         # 【ドン!!×1】
+        me.characters = [InPlay.of(repo.get(victim_id), sickness=False)]
+        me.hand = [repo.get("OP16-042")]    # インペルダウンの囚人
+        execute_effect(
+            {"optional_cost_then": {
+                "cost": [{"return_self_chara_to_hand": {"count": 1, "filter": {"cost_ge": 2}}}],
+                "effect": [{"power_pump": {"target": "self_leader", "amount": 4000,
+                                           "duration": "battle"}}]}},
+            st, me, opp, me.leader,
+        )
+        resolve_triggers(st)
+        return any(c.card.card_id == "OP16-042" for c in me.characters)
+
+    assert run("EB02-038") is True, (
+        "インペルダウンキャラが自分の効果で場を離れたのに『囚人』が登場していない (cardqa_op_16 違反)"
+    )
+    assert run("EB01-012_r1") is False, (
+        "非インペルダウンキャラの離脱で発動してしまっている (victim 特徴の判定漏れ)"
+    )
+
+
+def test_op06_043_activate_main_cost_is_all_or_nothing():
+    """OP06-043 アラマキ: 「手札1枚を捨て、 コスト2以下のキャラ1枚をデッキの下に置くことが
+    できる：」 は **コロン前が全て発動コスト** = 部分支払い不可 (cardqa_op_06)。
+
+    Q「コスト2以下のキャラ1枚をデッキの下に置かずに、 自分の手札1枚を捨てることは
+      できますか？」 → 「いいえ、 できません」
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def run(with_target: bool):
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        src = InPlay.of(repo.get("OP06-043"), sickness=False)
+        me.characters = [src]
+        me.hand = [repo.get(_FILLER)] * 3
+        if with_target:
+            opp.characters = [InPlay.of(repo.get("OP01-016"), sickness=False)]  # コスト1
+        cands = list_activate_main_effects(st, me, overlay)
+        if not cands:
+            return src.power, len(me.hand)
+        s, e = cands[0]
+        fire_activate_main(st, me, opp, s, e)
+        resolve_triggers(st)
+        return src.power, len(me.hand)
+
+    pumped, hand_after = run(True)
+    base, hand_kept = run(False)
+    assert pumped == base + 3000, "弾が居る時は +3000 されるはず"
+    assert hand_after == 2, "弾が居る時は手札1枚を捨てるはず"
+    assert hand_kept == 3, (
+        "コスト2以下のキャラが居ないのに手札だけ捨てている (= 部分支払い、 cardqa_op_06 違反)"
+    )
+
+
+def test_simultaneous_leave_replacement_condition_is_frozen_at_batch_start():
+    """同時離脱では victim に依らない条件を **バッチ開始時の状態** で 1 度だけ判定する。
+
+    一次情報 (cardqa_op_11、 OP11-001 コビー = 【ターン1回】自分の元々のパワー7000以下の
+    《海軍》キャラが相手の効果で場を離れる場合、 代わりに自分のトラッシュから3枚をデッキ下に):
+      Q「自分のトラッシュが **2枚以下** の時に、 (該当) キャラA と キャラB が **同時にKO**
+        された場合、 まず キャラA をトラッシュに置き、 キャラB をこの効果で代わりに場を
+        離れないことはできますか？」 → A「**いいえ、 できません**」
+
+    退行前は `self_trash_count_ge: 3` を victim ごとに **現在のトラッシュ** で評価しており、
+    先に落ちた A の分でトラッシュが 3 枚になり B だけ救われていた (= 実測で残キャラ 1)。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def survivors(trash_n: int) -> int:
+        st = _state(repo, overlay, leader0="OP11-001")
+        st.turn_player_idx = 1                      # 相手ターン = 相手の効果で離脱
+        me, opp = st.players[0], st.players[1]
+        me.trash = [repo.get(_FILLER)] * trash_n
+        me.characters = [
+            InPlay.of(repo.get("PRB02-001"), sickness=False),   # 海軍 / 元々5000
+            InPlay.of(repo.get("EB04-022"), sickness=False),    # 海軍 / 元々7000
+        ]
+        execute_effect(
+            {"ko_multi": [{"type": "one_opponent_character_filtered", "filter": {}},
+                          {"type": "one_opponent_character_filtered", "filter": {}}]},
+            st, opp, me, opp.leader,
+        )
+        resolve_triggers(st)
+        return len(me.characters)
+
+    assert survivors(2) == 0, (
+        "トラッシュ2枚 (コスト3枚に不足) なのにキャラが生き残っている = 先に離れた victim が "
+        "増やしたトラッシュで後の victim を救っている (cardqa_op_11 違反)"
+    )
+    # 対照: トラッシュ3枚なら 1 回払って **2 枚とも** 残る (cardqa_op_15 の 「コストは holder ごとに1回」)
+    assert survivors(3) == 2, "トラッシュ3枚なら同時離脱の2枚とも残るはず (cardqa_op_15)"
+    assert survivors(0) == 0, "トラッシュ0枚なら条件不成立で2枚とも離れるはず"
+
+
+def test_op08_001_chopper_attaches_don_only_to_filtered_characters():
+    """OP08-001 チョッパー 起動メイン: 対象は 「自分の **特徴《動物》か《ドラム王国》を持つ
+    キャラ**」 だけ。 特徴を持たないキャラや **自リーダー** には付与しない。
+
+    一次情報 (cardqa_op_08) の裁定中に発覚: overlay の target が `all_self_team`
+    (= 特徴フィルタ無し + リーダーも対象) で、 公式が対象外としているカードにもドンを
+    付与していた。 併せて 「1枚ずつまで」 (= 1 キャラに 2 枚以上は不可) も固定する。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP08-001")
+    me, opp = st.players[0], st.players[1]
+    me.don_rested = 5
+    target = InPlay.of(repo.get("EB04-018"), sickness=False)   # 特徴《動物》
+    other = InPlay.of(repo.get(_FILLER), sickness=False)       # 麦わらの一味 = 対象外
+    me.characters = [target, other]
+
+    source, eff = list_activate_main_effects(st, me, overlay)[0]
+    fire_activate_main(st, me, opp, source, eff)
+    resolve_triggers(st)
+
+    assert target.attached_dons == 1, "対象キャラに 1 枚付与されていない (「1枚ずつまで」)"
+    assert other.attached_dons == 0, "特徴を持たないキャラにドンが付与されている (公式違反)"
+    assert me.leader.attached_dons == 0, "リーダーにドンが付与されている (公式は 「キャラ」 限定)"
+def test_op08_039_end_of_turn_untap_mink_only():
+    """OP08-039 ゾウ(ステージ)の【自分のターン終了時】は 特徴《ミンク族》を持つキャラだけを
+    アクティブにできる。 非ミンク族キャラは対象外。
+
+    公式 (cardqa_op_08, qid 7c2b32d9c030):
+      Q: 自分のリーダーが特徴《ミンク族》を持たない場合、この【自分のターン終了時】効果で
+         自分の特徴《ミンク族》を持つキャラ1枚をアクティブにできますか？
+      A: はい、できます。
+    → リーダーの特徴に依らず発動する (leader gate 無し) のは元から conform。
+      ただし overlay が target=one_self_character_any で **非ミンク族も** 起こせていた (2026-08-10 是正)。
+      対象は card テキストどおり 特徴《ミンク族》 に限定される。 非ミンク族が起きたら落ちる。
+    """
+    repo, ov = _repo(), _overlay()
+    spec = ov["OP08-039"].effects[1]["do"][0]   # end_of_turn untap_chara
+    assert ov["OP08-039"].effects[1].get("when") == "end_of_turn"
+
+    def _untap(char_id):
+        st, p0, p1 = _board_fi(repo, ov, [char_id], [])
+        p0.characters[0].rested = True
+        execute_effect(dict(spec), st, p0, p1, None)
+        guard = 0
+        while st.pending_choice is not None and guard < 5:
+            resolve_pending_choice(st, [0]); guard += 1
+        return p0.characters[0].rested
+
+    # 非ミンク族 (PRB02-001 コビー) は対象外 → レストのまま
+    assert _untap("PRB02-001") is True, "非ミンク族が起こされた (target が広すぎる)"
+    # ミンク族 (EB04-013) は対象 → アクティブ化
+    assert _untap("EB04-013") is False, "ミンク族キャラが起きていない"
+
+
+def test_op08_039_overlay_target_is_mink_filtered():
+    """回帰防止 (overlay 構造): OP08-039 end_of_turn の untap 対象は ミンク族 filter であって
+    無差別の one_self_character_any でないこと。"""
+    import json as _json
+    raw = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    tgt = raw["OP08-039"][1]["do"][0]["untap_chara"]["target"]
+    assert isinstance(tgt, dict), "target が文字列 (無差別) に戻っている"
+    assert tgt.get("filter", {}).get("feature") == "ミンク族", \
+        "untap 対象が 特徴《ミンク族》 に絞られていない"

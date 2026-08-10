@@ -617,6 +617,10 @@ def test_op12_020_activate_main_untap_and_restrict_ai():
     me, opp = st.players[0], st.players[1]
     me.leader.attached_dons = 3  # 【ドン‼×3】ゲート成立
     me.leader.rested = True       # バトル後 レスト状態を想定
+    # ⭐ 公式 (cardqa_op_12) は 「このターン中、 このリーダーが **相手のキャラと** バトルして
+    #   いる場合」 が発動条件。 2026-08-10 に overlay へ条件を追加したので、 その前提を作る。
+    #   (このテストは条件欠落時の overlay から生成された backfill = 旧仕様を固定していた)
+    me.leader_battled_opp_chara_this_turn = True
 
     opts = [o for o in list_activate_main_effects(st, me, overlay)
             if o[0].card.card_id == "OP12-020"]
@@ -651,6 +655,7 @@ def test_op12_020_activate_main_once_per_turn():
     me, opp = st.players[0], st.players[1]
     me.leader.attached_dons = 3
     me.leader.rested = True
+    me.leader_battled_opp_chara_this_turn = True  # 公式条件 (cardqa_op_12)、 上と同じ理由
 
     opts1 = [o for o in list_activate_main_effects(st, me, overlay)
              if o[0].card.card_id == "OP12-020"]

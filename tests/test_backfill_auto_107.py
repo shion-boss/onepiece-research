@@ -276,7 +276,16 @@ def test_op10_087_activate_main_opp_discard_and_mill_ai():
 
 
 def test_op10_087_activate_main_no_discard_when_opp_hand_lt5_ai():
-    """相手手札4枚以下では 捨て条件が不成立 → 相手手札は減らず、 上2枚トラッシュのみ (AI)。"""
+    """相手手札4枚以下では 条件「相手の手札が5枚以上ある場合」が不成立 → 相手手札は減らず、
+    **その後のミル(上2枚トラッシュ)も起きない**。
+
+    公式 cardqa_op_10 (670c9ed2c408): 「相手の手札が4枚以下の場合、この【起動メイン】効果で
+    自分のデッキの上から2枚をトラッシュに置くことはできますか？」→「いいえ、できません」。
+    カードテキスト「相手の手札が5枚以上ある場合、相手は…捨てる。その後、上2枚をトラッシュ」の
+    条件節は **その後のミルまで** gate する。
+    ⚠ 2026-08-09 是正前は mill_self_top が conditional の外にあり、 本テストも旧バグ
+      (「条件に関わらず 上2枚トラッシュ」) を正解として固定していた → 公式に合わせ書き換え。
+    """
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, _LEADER_DRESSROSA, overlay)
@@ -293,7 +302,8 @@ def test_op10_087_activate_main_no_discard_when_opp_hand_lt5_ai():
         _drain(st, [0])
 
     assert len(opp.hand) == opp_hand_before, "相手手札5枚未満では 相手は手札を捨てないべき"
-    assert len(me.trash) == trash_before + 2, "条件に関わらず 上2枚はトラッシュに置かれるべき"
+    assert len(me.trash) == trash_before, \
+        "相手手札5枚未満では 条件不成立で その後のミル(上2枚トラッシュ)も起きないべき (cardqa_op_10)"
 
 
 def test_op10_087_activate_main_human_optional_cost_confirm():

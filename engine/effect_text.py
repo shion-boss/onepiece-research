@@ -733,6 +733,8 @@ def _do_prim_jp(k: str, v: Any, full: dict) -> str:  # full = 親 dict
         return _target_jp(v) + "はレストにならない"
     if k == "static_swords_attack_chara":
         return "(常在) このリーダーは特徴《剣士》としてアタックできる"
+    if k == "static_self_attack_chara_if":
+        return "(常在) 条件を満たす場合、 このキャラは登場したターンにキャラへアタックできる"
     if k == "prevent_self_life_to_hand_turn":
         return "このターン、 自分のライフは手札に加えられない"
 

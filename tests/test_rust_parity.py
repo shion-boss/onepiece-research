@@ -140,3 +140,98 @@ def _deck_exists(slug: str) -> bool:
     import pathlib as _pl
 
     return (_pl.Path(__file__).resolve().parents[1] / "decks" / f"{slug}.json").exists()
+
+
+def test_rust_parity_activate_main_cost_ko_trigger_order():
+    """発動コスト由来の【KO時】は本体解決後 (cardqa_op_14 / OP14-080) — Rust も bit 一致か。
+
+    16 デッキ差分ではこの局面 (自KOコスト + 【KO時】持ちの弾 + 反応する場) が毎回出るとは
+    限らないので、 盤面を直接組んで両エンジンに同じ ActivateMain を適用し digest を比べる。
+    ⚠ Rust が 「解決順が違うのに黙って進む」 と MISMATCH、 未実装なら Err (= bail) になる。
+    """
+    import json
+    import random
+
+    import optcg_engine as eng
+
+    import scripts.rust_parity_check as P
+    from engine.core import GameState, InPlay, Phase, Player, reset_iid
+    from engine.effects import list_activate_main_effects
+    from engine.game import ActivateMain, apply_action
+    from engine.state_snapshot import full_dump, state_digest
+
+    repo, ov = P._load()
+    reset_iid()
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP14-080"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    for p in (p0, p1):
+        p.deck = [repo.get("OP01-013")] * 25
+        p.life = [repo.get("OP01-013")] * 3
+    p0.characters = [InPlay.of(repo.get("OP14-110"), sickness=False)]  # 【KO時】trash→登場
+    p0.trash = [repo.get("OP14-102")]
+    st = GameState(players=[p0, p1], phase=Phase.MAIN, rng=random.Random(1), effects_overlay=ov)
+    st.turn_player_idx, st.turn_number = 0, 9
+
+    cands = list_activate_main_effects(st, p0, ov)
+    assert cands, "OP14-080 の起動メインが候補に出ていない (前提崩れ)"
+    src, eff = cands[0]
+    eff_index = next(i for i, e in enumerate(ov[src.card.card_id].effects) if e is eff)
+    dump = json.dumps(full_dump(st))
+    act = ActivateMain(source_iid=src.instance_id, effect_index=eff_index)
+    action = P._enc(st, act)
+    assert action["t"] == "ActivateMain", f"action encode 失敗: {action}"
+
+    apply_action(st, act)
+    assert st.pending_choice is None
+    dr = eng.apply_action_digest(dump, json.dumps(action))   # Err (bail) なら例外 = テスト失敗
+    assert dr == state_digest(st), (
+        "コスト由来【KO時】の解決順で Python↔Rust が乖離 (cardqa_op_14 / OP14-080)"
+    )
+
+
+def test_rust_parity_end_of_turn_cost_batch():
+    """【ターン終了時】は 「走査 (コスト支払い) → カード単位で enqueue → 1 回ドレイン」 の 2 相
+    (Python `trigger_end_of_turn`)。 Rust が 「カードごとに コスト → do を即実行」 だと、
+    do が誘発した効果や 後続カードのコスト判定の順序が Python と食い違う (公式 8-4-1-3〜5 の系)。
+
+    盤面: OP09-068 チョッパー (レスト、【自分のターン終了時】ドン1枚以上返す：自身をアクティブ)
+          + OP05-074 キッド (自分の場のドンがドンデッキに戻された時: ドン1枚追加、 ターン1回)
+    = **コスト支払いが別カードのトリガーを誘発する** 局面を EndPhase で両エンジンに適用し digest 比較。
+    ⚠ Rust が発動元の位置を見失う (tag 消費バグ 等) と アクティブ化が丸ごと落ちて MISMATCH になる。
+    """
+    import json
+    import random
+
+    import optcg_engine as eng
+
+    import scripts.rust_parity_check as P
+    from engine.core import GameState, InPlay, Phase, Player, reset_iid
+    from engine.game import EndPhase, apply_action
+    from engine.state_snapshot import full_dump, state_digest
+
+    repo, ov = P._load()
+    reset_iid()
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    for p in (p0, p1):
+        p.deck = [repo.get("OP01-013")] * 25
+        p.life = [repo.get("OP01-013")] * 3
+    chopper = InPlay.of(repo.get("OP09-068"), sickness=False)   # end_of_turn: pay_don 1 → untap self
+    chopper.rested = True
+    kid = InPlay.of(repo.get("OP05-074"), sickness=False)        # on_self_don_returned_to_deck → add_don
+    p0.characters = [chopper, kid]
+    p0.don_active = 2
+    st = GameState(players=[p0, p1], phase=Phase.MAIN, rng=random.Random(3), effects_overlay=ov)
+    st.turn_player_idx, st.turn_number = 0, 9
+
+    dump = json.dumps(full_dump(st))
+    apply_action(st, EndPhase())
+    assert st.pending_choice is None
+    # 行動の anchor: コストを払ってアクティブ化されている (= 効果が実際に走った局面である)
+    assert not st.players[0].characters[0].rested, \
+        "チョッパーの【ターン終了時】アクティブ化が Python 側で起きていない (前提崩れ)"
+
+    dr = eng.apply_action_digest(dump, json.dumps({"t": "EndPhase"}))  # Err (bail) なら例外 = 失敗
+    assert dr == state_digest(st), (
+        "【ターン終了時】コスト由来トリガーの解決順で Python↔Rust が乖離"
+    )

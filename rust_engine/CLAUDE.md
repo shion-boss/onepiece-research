@@ -4,16 +4,54 @@
 > `optcg_engine`) は self-play を 30-100x 高速化するための**忠実ミラー**。 配備 AI・人間対戦・API は
 > Python のまま。 詳細背景は memory `project_rust_engine.md`。
 
-## 現状 (2026-08-04): Python との bit 一致を **効果カード全数** で証明済
+## 現状 (2026-08-10): Python との bit 一致を **効果カード全数** で証明済 + **全ハーネス bail 0**
 
 | 検証 | 結果 |
 |---|---|
-| 差分ハーネス 16 デッキ (`rust_parity_check --assert`) | match 2,037 / bail 0 / **MISMATCH 0** / static_skip 0 / py_skip 0 |
-| 差分 全カード合成デッキ 329 (`rust_parity_sweep`) | match 40,410 / bail 0 / **MISMATCH 0 / PANIC 0** |
-| 効果差分 3 パス (`rust_effect_smoke_parity --assert`) | 直接発火 5,084 + 静的 527 + 置換 108 / **MISMATCH 0** |
+| 差分ハーネス 16 デッキ (`rust_parity_check --assert`) | match 2,115 / **bail 0** / **MISMATCH 0** / static_skip 0 / py_skip 0 |
+| 差分 全カード合成デッキ 329 (`rust_parity_sweep`) | match 40,708 / **bail 0** / **MISMATCH 0 / PANIC 0** |
+| 効果差分 3 パス (`rust_effect_smoke_parity --assert`) | 直接発火 3,909 + 静的 532 + 置換 108 / bail 0 / **MISMATCH 0** |
 | **効果ありカード 4,262 枚の bit 一致証明** | **100%** |
 | Rust 単独掃引 (`rust_fullsweep`、 60 デッキ / 360 game) | action 1,505,877 中 **bail 0**、 保存則違反 0、 中断 0 |
 | overlay 網羅 | primitive / condition / when / target spec が **全て実装済 (未対応 0)** |
+
+### ⭐ 「意図的な」 bail 2 種を **実装で解消** (2026-08-10)
+
+どちらも公式 Q&A 起点で Python に 「同時性 / 本人参加」 の意味論を入れた結果、 逐次処理の Rust が
+追従できず bail していた箇所。 **Rust に同じ意味論を実装して bail 0 にした**。
+
+1. **同時離脱バッチ** (`SIMULTANEOUS_LEAVE_PRIMS` + `state.rust_leave_batch_holders/paid`)
+   — Python `_LeaveBatch` の移植。 ① 置換 holder は **バッチ開始時の盤面** から決める
+   (順序非依存、 cardqa_op_10 / OP10-032 たしぎ) ② 同じ holder の置換コストは **1 回だけ**
+   (cardqa_op_15 / OP15-090 ペローナ)。 holder はトークンで追い、 `try_replace_ko` が
+   スナップショットを走査する。 従来の `board_has_replace_holder` 一律 bail は撤去。
+   ⚠ **残る bail は 1 種類だけ**: holder 自身がバッチ内で既に場を離れた場合
+   (Python は object 参照で場外 holder も扱えるが Rust は場外 InPlay を持たない) → 明示 Err。
+2. **`on_self_chara_leave_by_self_effect` の 「離脱本人」 発動** (`note_public_departure` +
+   `fire_leave_by_self_effect`) — 公式 cardqa_op_08 (OP08-046 シャクヤク): 場を離れた本人も
+   **行き先が公開領域 (トラッシュ / 表向きライフ)** なら発動できる。 Python `_note_public_departure`
+   の台帳 (`state.rust_departed_to_public`) を移植し、 場のカードの反応 + 本人の反応を発火する。
+   記録サイトは Python と 1:1 (`trash_self` コスト / `trash_all_self_chara` / `ko_self_chara` /
+   `chara_to_trash` / `chara_to_self_life` の face_up)。
+   ⚠ 「キャラが」 の文面なので **CHARACTER のみ** 記録する (STAGE は対象外)。
+
+### ⭐【ターン終了時】/【ターン開始時】も Python と同じ 2 相モデルに (2026-08-10、 解消済)
+
+Python `trigger_end_of_turn` は **① 両陣営を走査して コストを払い、 カード単位でイベントを
+enqueue → ② 最後に 1 回ドレインして do を実行** の 2 相。 Rust は カードごとに
+「コスト → do」 を **その場で** 実行していたので、
+
+- 先行カードの **do** が 後続カードの **コスト判定 (payability / 条件)** より先に走る (Python は後)
+- do が誘発した効果と 後続カードの end_of_turn の相対順序
+
+の 2 点で乖離しうる (= 公式 8-4-1-3〜5 「コスト支払いは発動、 do は解決」 の系)。
+→ `fire_end_of_turn_batch` (effects.rs) で Python と同じ 2 相にした。 ターン開始時も同型なので
+`enqueue_turn_start` で 両陣営 enqueue → 1 回ドレインに揃えた (rules.rs)。
+
+⚠ **EOT cost の `ko_self_with_filter` は明示 bail**。 Python は `trigger_on_ko` (= enqueue +
+即ドレイン) なので 「既に積んだカードイベントごと解決される」 が、 Rust の on_ko は inline 発火で
+キューを持たず同順を作れない。 overlay 全走査で **該当カード 0 枚** (cost 付き EOT は `pay_don` の
+OP09-068 / OP16-073 のみ) なので実質デッドコード。
 
 **⭐ bail 0 到達 (2026-08-04)**。 最後まで残っていた 2 primitive を実装した:
 - `schedule_self_return_to_deck_bottom_at_battle_end` (OP02-064 ボン・クレー)
@@ -114,6 +152,28 @@ RNG 依存効果は `rng.rs` (MT19937、 CPython `random` の bit 再現) を使
   stage on_play が draw/block_self_draw_turn より先に走りデッキを消費、 の 2 件で発覚)。
   `fire_life_trigger` は既にこのパターンで正しく実装されているので、 新しい when 発火経路を書く
   ときは **必ずそれを雛形にする**。
+- **【起動メイン】の発動コストで誘発したトリガーは 「本体の do の後」 に発火する** (公式
+  8-4-1-3〜8-4-1-5 + cardqa_op_14 / OP14-080、 2026-08-09)。 Python は
+  `_cost_trigger_buffer` (= 支払い中の enqueue を退避 → 本体 enqueue → キューへ流す)。
+  Rust は **キューを介さず** `DeferredCostTrigger` (`fire_activate_main` 内) —
+  支払い時に反応集合 (`snapshot_field_toks`) を snapshot し、 do-list の後に発火する。
+  ⚠ **キューに積む実装は 5 回失敗している**: Rust の `fire_field_when` は **drain 時に場を
+  走査** するので、 Python の 「enqueue 時にカード単位でスナップショット」 と粒度が食い違い、
+  cost → do → drain の間に盤面が動くと反応集合がズレる。 deferred snapshot はその差の
+  発生源自体を消す。 併せて **`fire_activate_main` の do-list は `rust_resolving = true` で
+  実行する** (Python は本体を enqueue して resolve_triggers の中で回す = do 中の誘発は
+  キュー末尾)。 KO の記録 (被KO数 / 効果無効 gate) は **即時**、 do だけ deferred
+  (`note_ko_and_should_fire` / `run_on_ko_effects` の 2 段分離)。
+- **`enqueue_field_when` は 「反応するカード」 を enqueue 時に **カード単位で** 積む** (2026-08-10)。
+  Python `_enqueue_field_when` と同じ粒度。 以前は 1 件だけ積んで **drain 時に場を走査** していたため、
+  enqueue と drain の間に盤面が動くと **反応集合そのもの** が食い違った。
+  ⚠ この変更に伴い `execute_on_play` の `on_self_chara_played` / `on_opp_chara_played` は
+  **`enqueue_trigger` (= 登場カードを card_id に載せた marker) ではなく `enqueue_field_when`** で
+  積む。 marker のままだと 「登場カード自身の効果だけ」 を発火し、 場の反応カード (例: リーダー
+  OP14-041 「相手のターン中 自分のキャラ登場時 1ドロー」) が丸ごと落ちる。
+- **`find_tagged` は タグを消費する**。 1 枚のカードの複数効果を回すループや 複数 index を回す
+  解決では **`peek_tagged` (非消費) を使い、 回収は最後に 1 回**。 消費すると 2 つ目以降が
+  `Slot::Detached` になり、 効果が **黙って不発** になる (2026-08-10 に EOT 2 相化で踏んだ)。
 - **field-when の「発火元カード無し」ヘルパーも inline 直呼びしない**: `fire_field_when(state, idx, when)`
   は即時スキャン+発火 (トップレベルから呼ぶ分には Python の enqueue+即 resolve と等価だが、
   ネストした do-list の中から呼ぶと上記と同じ理由で inline 発火してしまう)。 「自分の効果でライフが

@@ -162,19 +162,50 @@ def enqueue_event(
 ) -> None:
     """トリガーをキューに追加。 resolve_triggers を別途呼ぶ必要あり。
 
-    ⚠ **未解決**: 公式はコスト支払い中に誘発したトリガーを **現在の効果の解決後** に
-      発動させる (cardqa_op_14 / OP14-080)。 engine は即ドレインしており順序が逆。
-      詳細と差し戻しの経緯は docs/official_rulings.md を参照 (escalated)。
+    ⚠ 起動メインの **発動コスト支払い中** (= `_cost_trigger_buffering`) は キュー ではなく
+      バッファ に積む。 公式 8-4-1-3〜8-4-1-5 + cardqa_op_14 (OP14-080): コストの支払いで
+      発動タイミングを満たした効果は、 **その起動効果を解決した後** に発動する。
+      バッファは 起動メイン本体を enqueue した直後に キュー末尾へ流す (= 本体が先、
+      コスト由来が後)。 詳細は docs/official_rulings.md。
     """
-    state.event_queue.append(
-        TriggerEvent(
-            when=when,
-            owner_idx=owner_idx,
-            source_card_id=source_card_id,
-            source_iid=source_iid,
-            payload=payload or {},
-        )
+    evt = TriggerEvent(
+        when=when,
+        owner_idx=owner_idx,
+        source_card_id=source_card_id,
+        source_iid=source_iid,
+        payload=payload or {},
     )
+    if getattr(state, "_cost_trigger_buffering", False):
+        state._cost_trigger_buffer.append(evt)
+        return
+    state.event_queue.append(evt)
+
+
+# --- 発動コスト由来トリガーのバッファ (公式 8-4-1-3〜5 / cardqa_op_14) ------------- #
+# 起動メインだけは 「コスト支払い」 が resolve_triggers の外 (= apply_action 直下) で走るため、
+# 素直に enqueue すると コスト由来トリガーが 本体より先に ドレインされてしまう。 支払い中の
+# enqueue を退避し、 本体 enqueue の後で キューへ流すことで 公式の順序を作る。
+# (【アタック時】/【登場時】/【ターン終了時】 等のコストは _execute_event の中 = resolving 中に
+#  払われるので、 元から 本体 do の後に解決される = ここの対象外)
+def _cost_trigger_buffer_begin(state: GameState) -> None:
+    """コスト支払いの開始。 resume (= 人間 modal 解決後の再入) では既存バッファを引き継ぐ。"""
+    if getattr(state, "_cost_trigger_buffer", None) is None:
+        state._cost_trigger_buffer = []
+    state._cost_trigger_buffering = True
+
+
+def _cost_trigger_buffer_pause(state: GameState) -> None:
+    """バッファリングだけ止める (= 以降の enqueue は通常どおりキューへ)。 バッファは保持。"""
+    state._cost_trigger_buffering = False
+
+
+def _cost_trigger_buffer_flush(state: GameState) -> None:
+    """バッファをキュー末尾へ流して閉じる。"""
+    state._cost_trigger_buffering = False
+    buf = getattr(state, "_cost_trigger_buffer", None)
+    if buf:
+        state.event_queue.extend(buf)
+    state._cost_trigger_buffer = []
 
 
 def _pop_next_event(state: GameState) -> Optional[TriggerEvent]:
@@ -294,7 +325,7 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
                 or self_inplay.effect_disabled_through_opp_turn
             )
             and evt.when in ("on_play", "on_attack", "activate_main", "main", "counter",
-                             "opp_attack", "on_block")
+                             "opp_attack", "on_block", "end_of_turn", "opp_end_of_turn")
         ):
             state.push_log(
                 f"  効果無効: {self_inplay.card.name} の【{evt.when}】 は発動されない"
@@ -323,6 +354,16 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
     prev_ko_by_opp = getattr(state, "last_ko_by_opp_effect", None)
     if when == "on_ko" and "by_opp_effect" in evt.payload:
         state.last_ko_by_opp_effect = bool(evt.payload["by_opp_effect"])
+
+    # on_self_hand_discarded の context (捨てた枚数 / 発動元の特徴) を payload から復元。
+    # enqueue 時点の state には残っていない (= ネスト解決だと既に上書き/消去されている)。
+    prev_dc = getattr(state, "last_discard_count", 0)
+    prev_dsf = getattr(state, "last_discard_source_features", None)
+    if when == "on_self_hand_discarded" and "discard_count" in evt.payload:
+        state.last_discard_count = int(evt.payload.get("discard_count") or 0)
+        state.last_discard_source_features = list(
+            evt.payload.get("discard_source_features") or []
+        )
 
     try:
         # payload.effect_indexes が指定されていれば、 その index の効果のみ発火 (cost 既払い)。
@@ -559,6 +600,11 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
         state.forced_human_actor_idx = prev_forced
         if when == "on_ko":
             state.last_ko_by_opp_effect = prev_ko_by_opp
+        if when == "on_self_hand_discarded":
+            # ⚠ 復元し忘れると 「直近の破棄元特徴」 が **以降の全イベントに残留** し、
+            #   無関係な条件が真になる (2026-08-08 に MISMATCH 411 件で検出)。
+            state.last_discard_count = prev_dc
+            state.last_discard_source_features = prev_dsf
 
 
 def _can_pay_counter_cost(
@@ -1026,6 +1072,10 @@ def _pay_counter_cost(
             me.stages.remove(src); removed = True
         if removed:
             me.trash.append(src.card)
+            if not is_ko:
+                # 「トラッシュに置く」 = 公開領域 → 離脱したカード自身も
+                # on_self_chara_leave_by_self_effect を発動できる (cardqa_op_08)
+                _note_public_departure(state, me, src.card)
             if src.attached_dons > 0:  # 6-5-5-4: 付与ドンはレストで戻る
                 me.don_rested += src.attached_dons
                 src.attached_dons = 0
@@ -1127,6 +1177,12 @@ _FIELD_WHEN_ONCE_MIRROR = frozenset({
     #  別 when で、 event-play 経路のみ enqueue する (trigger_opp_event_played)。
     "opp_event_played",
     "on_self_chara_leave_by_self_effect", "on_self_rested",
+    # field-when で once_per_turn を持つが mirror 漏れだった when (2026-08-10 追加)。
+    # 記録が無いと Rust が 「ターン1回」 を追跡できず、 該当トリガーが丸ごと bail する。
+    # ⚠ Python の判定は従来どおり once_per_turn_used (= 挙動不変、 記録が増えるだけ)。
+    "on_self_chara_rested_by_self_effect", "on_opp_blocker_use",
+    "on_self_chara_leave_by_opp_effect", "on_opp_chara_returned_to_hand_by_self_effect",
+    "opp_attack_on_chara",
     "on_self_trigger_fired",
     # ライフ 0 トリガー (OP05-098 紫エネル)。 source はリーダー (= 永続 InPlay) なので mirror 可能。
     # これが無いと Rust 側で「ターン1回」を追跡できず、 該当効果が丸ごと bail する (2026-07-31)。
@@ -1274,6 +1330,20 @@ def eval_condition(
             if opp is not None:
                 present = present or any(c.card.name == name for c in opp.characters)
             if present:  # いる → 条件不成立 (= 効果無効)
+                return False
+        elif k == "leave_victim_feature_in":
+            # 「自分の **特徴X を持つ** キャラが場を離れた時」 (OP16-041 バギー 等)。
+            # このイベントで場を離れた victim の **いずれか** が特徴を持てば成立
+            # (同時離脱では victim が複数になるため)。
+            feats = v if isinstance(v, list) else [v]
+            victims = getattr(state, "last_leave_by_self_victim_cards", None) or []
+            if not any(any(f in (c.features or []) for f in feats) for c in victims):
+                return False
+        elif k == "self_leader_battled_opp_chara_this_turn":
+            # 公式 (cardqa_op_12 / OP12-020 ゾロ): 「このターン中、 このリーダーが **相手のキャラと**
+            # バトルしている場合」。 ブロッカーやアタック対象変更で **リーダーとバトルした** 場合は
+            # 成立しない (= 実際にバトルした相手で判定する)。
+            if bool(v) != bool(getattr(me, "leader_battled_opp_chara_this_turn", False)):
                 return False
         elif k == "opp_life_lost_this_turn":
             # 「相手のライフが離れているターン中」 (P-120)。 opp が今ターン ライフを失ったか。
@@ -1525,6 +1595,16 @@ def eval_condition(
         elif k == "self_don_active_eq":
             if me.don_active != int(v):
                 return False
+        elif k == "self_all_don_rested":
+            # 「自分のドン‼すべてがレストの場合」 (cardqa_op_02、 OP02-027 イヌアラシ)。
+            # コストエリアのアクティブドン 0 **かつ** キャラ/リーダーに付与ドンが 1 枚も無い。
+            # ⚠ 付与 (attach) されたドンは 「レスト」 ではないので、 1 枚でも付与されていれば
+            #   「すべてレスト」 は 成立しない (公式: 「いいえ、 できません」)。
+            _attached = me.leader.attached_dons + sum(
+                c.attached_dons for c in me.characters)
+            _all_rested = (me.don_active == 0 and _attached == 0)
+            if bool(v) != _all_rested:
+                return False
         elif k == "self_don_count_eq":
             # 「自分の場のドン (= don area: active+rested) が N 枚」 (OP05-060 の「0枚」 等)
             if (me.don_active + me.don_rested) != int(v):
@@ -1654,10 +1734,23 @@ def eval_condition(
         elif k == "actor_source_feature_contains":
             # 直近の効果発動 source カードの特徴に v を含むか (= OP12-040 クザン用)。
             # trigger_on_self_hand_discarded が state.last_discard_source_inplay を一時設定。
+            # payload 復元済の特徴があればそれを使う (= enqueue 時点の発動元。 InPlay/イベント問わず)
+            _feats = getattr(state, "last_discard_source_features", None)
+            if _feats is not None:
+                if v not in "/".join(_feats):
+                    return False
+                continue
             src = getattr(state, "last_discard_source_inplay", None)
-            if src is None:
+            if src is not None:
+                _src_card = src.card
+            else:
+                # イベント / 【トリガー】 由来 (= InPlay が存在しない) は CardDef fallback。
+                # 公式 cardqa_op_12 (OP12-057 → OP12-040 クザン): 【トリガー】の手札捨てでも
+                # 「特徴《海軍》を持つカードの効果」 として扱われ、 クザンが追加ドローできる。
+                _src_card = getattr(state, "current_source_card", None)
+            if _src_card is None:
                 return False
-            features_text = "/".join(src.card.features)
+            features_text = "/".join(_src_card.features)
             if v not in features_text:
                 return False
         elif k == "self_chara_no_truly_original_power_ge":
@@ -2333,7 +2426,7 @@ def _resolve_target(
         return cands[:1]
 
     def _either_pick_one(
-        opp_cands: list, self_cands: list, description: str
+        opp_cands: list, self_cands: list, description: str, mandatory: bool = False
     ) -> Optional[list]:
         """両陣営候補から 1 枚選ぶ (公式: 修飾なし 「キャラ1枚まで」 は自陣も対象)。
 
@@ -2361,7 +2454,15 @@ def _resolve_target(
         ):
             return None
         ranked = sorted(opp_cands, key=lambda c: -_opp_value(c))
-        return ranked[:1]
+        if ranked:
+            return ranked[:1]
+        # ⭐ **必須形** (= 公式が 「キャラN枚を」 で 「まで」 が無い) は 0 枚を選べない。
+        #   相手候補が居なければ **自陣から選ぶ義務** がある (公式: 可能な限り解決する)。
+        #   AI は最も惜しくない駒 (= _sacrifice_key: 効果価値→パワー昇順) を出す。
+        #   ⚠ 任意形 (「まで」) は従来どおり 0 枚 (= 自陣を差し出さない) が正しい auto-pick。
+        if mandatory and self_cands:
+            return sorted(self_cands, key=_sacrifice_key)[:1]
+        return []
 
     # _iid_picks bypass (= resolve_pending_choice 経由 の 再実行)
     # ユーザ の 選択した iid から 該当 InPlay を 全 場 から 直接 解決 する。
@@ -2590,7 +2691,8 @@ def _resolve_target(
                 return [ip for ip in (opp_cands + self_cands)
                         if ip.instance_id in iid_picks][:1]
             picked = _either_pick_one(
-                opp_cands, self_cands, "両陣営のリーダー/キャラ から 1 枚 選択")
+                opp_cands, self_cands, "両陣営のリーダー/キャラ から 1 枚 選択",
+                mandatory=bool(target_spec.get("mandatory")))
             return [] if picked is None else picked
         if t == "one_opponent_inplay_filtered":
             # 相手リーダー or キャラ から filter にマッチする 1 枚
@@ -3554,12 +3656,22 @@ def execute_effect(
     _need_batch = isinstance(spec, dict) and any(
         k in _SIMULTANEOUS_LEAVE_PRIMS for k in spec
     )
+    # ⭐ 「自分の(特徴X を持つ)キャラが場を離れた時」 の **victim 判定用スナップショット**。
+    #   離脱は 16 以上の primitive/コスト経路から起きるので、 個別に victim を引き回すと
+    #   必ず取りこぼす (= 経路によって裁定が変わる)。 **効果の最外側で自陣の顔ぶれを控え、
+    #   トリガー発火時に差分を取る** ことで全経路を一様に覆う (cardqa_op_16 / OP16-041)。
+    _leave_snap_owner = False
+    if getattr(state, "_leave_victim_snapshot", None) is None:
+        state._leave_victim_snapshot = [c.card for c in me.characters]
+        _leave_snap_owner = True
     try:
         if _need_batch:
             with _LeaveBatch(state):
                 return _execute_effect_body(spec, state, me, opp, self_inplay)
         return _execute_effect_body(spec, state, me, opp, self_inplay)
     finally:
+        if _leave_snap_owner:
+            state._leave_victim_snapshot = None
         _pc_after = state.pending_choice
         if (isinstance(_pc_after, dict) and _pc_after is not _pc_before
                 and "_actor_idx" not in _pc_after):
@@ -3786,12 +3898,21 @@ def _execute_effect_body_inner(
         elif k == "trash_opp_hand_random":
             # 相手手札からランダム N 枚捨て (公式の「相手の手札から〜捨てさせる」表現)。
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            _thr_moved = 0
             for _ in range(n):
                 if not opp.hand:
                     break
                 idx = state.rng.randrange(len(opp.hand))
                 opp.trash.append(opp.hand.pop(idx))
+                _thr_moved += 1
             state.push_log(f"  効果: 相手手札 {n} 枚 トラッシュ")
+            # 相手 (= 手札の持ち主 opp) 視点で「効果で手札が捨てられた」を発火する。
+            # 公式 cardqa: 相手の効果で自分の手札が捨てられた場合も ST33-004 のコスト-3 /
+            # OP14-045 クロオビ の【速攻】は発動する。 source は捨てを起こした側 (self_inplay)。
+            if _thr_moved > 0 and state.effects_overlay:
+                trigger_on_self_hand_discarded(
+                    state, opp, me, self_inplay, _thr_moved, state.effects_overlay
+                )
         elif k == "opp_hand_to_deck_then_draw":
             # OP06-047 シャーロット・プリン: 「相手は自身の手札すべてをデッキに戻し
             # シャッフルする。 その後、 相手はカード N 枚を引く。」 = 相手の手札リセット
@@ -3818,6 +3939,7 @@ def _execute_effect_body_inner(
             for chara in list(me.characters):
                 me.characters.remove(chara)
                 me.trash.append(chara.card)
+                _note_public_departure(state, me, chara.card)
                 if chara.attached_dons > 0:
                     me.don_rested += chara.attached_dons
                 removed_any = True
@@ -3936,6 +4058,7 @@ def _execute_effect_body_inner(
                     continue
                 me.characters.remove(t)
                 me.trash.append(t.card)
+                _note_public_departure(state, me, t.card)
                 if t.attached_dons > 0:
                     me.don_rested += t.attached_dons
                 state.push_log(f"  効果: 自キャラKO → {t.card.name}")
@@ -4026,6 +4149,7 @@ def _execute_effect_body_inner(
                 elif t in me.characters:
                     me.characters.remove(t)
                     me.trash.append(t.card)
+                    _note_public_departure(state, me, t.card)
                     if t.attached_dons > 0:
                         me.don_rested += t.attached_dons
                     state.push_log(f"  効果: {t.card.name} を自トラッシュへ (非KO)")
@@ -4498,26 +4622,41 @@ def _execute_effect_body_inner(
             else:
                 state.push_log(f"  効果: レスト → 対象なし (不発)")
         elif k == "rest_self_cards":
-            # 自分のリーダー/キャラから N 枚をレスト。 AI 簡易: アクティブの中から power 低い順。
-            # 人間 acting + 候補 > N なら modal で 選ばせる。
+            # 公式 「自分のカード N 枚をレストにできる」 = **リーダー / キャラ / ステージ / ドン‼**
+            # の 4 ゾーン合計 (cardqa_op_14、 OP14-029 たしぎ):
+            #   「この効果は、 自分の場にある、 リーダー、 キャラ、 ステージ、 ドン!!のうち
+            #     合計2枚をアクティブからレストにすることで発動します。」
+            # ⚠ 2026-08-08 まで leader + characters しか候補にしておらず、 **ステージ / ドンで
+            #   払える局面を弾いて合法発動を阻害** していた。
+            # AI 簡易: アクティブの中から power 低い順。 InPlay で足りない分は ドン で払う
+            # (= ドンは互換なので個体選択が不要)。
             spec_val = v if isinstance(v, dict) else {"count": int(v)}
             n = int(spec_val.get("count", 1))
             iid_picks = spec_val.get("_iid_picks") if isinstance(v, dict) else None
-            actives = [me.leader] + list(me.characters)
+            actives = [me.leader] + list(me.characters) + list(me.stages)
             actives = [ip for ip in actives if not ip.rested]
             if iid_picks is not None:
                 chosen = [ip for ip in actives if ip.instance_id in iid_picks][:n]
             else:
                 if len(actives) > n and _maybe_request_target_pick(
                     state, actives, n, "rest_self_cards", v, self_inplay,
-                    description=f"自リーダー or キャラ から {n} 枚 を レスト",
+                    description=f"自リーダー / キャラ / ステージ から {n} 枚 を レスト",
                 ):
                     return False
                 actives.sort(key=lambda ip: ip.power)
                 chosen = actives[:n]
             for ip in chosen:
                 ip.rested = True
-            state.push_log(f"  効果: 自カード{n}枚レスト → {[ip.card.name for ip in chosen]}")
+            # 場のカードで足りない分は アクティブのドン‼ をレストにして払う (4 ゾーン合計)。
+            don_rest = max(0, n - len(chosen))
+            don_rest = min(don_rest, me.don_active)
+            if don_rest:
+                me.don_active -= don_rest
+                me.don_rested += don_rest
+            state.push_log(
+                f"  効果: 自カード{n}枚レスト → {[ip.card.name for ip in chosen]}"
+                + (f" + ドン{don_rest}枚" if don_rest else "")
+            )
         elif k == "return_to_hand":
             targets = _resolve_target(
                 v, state, me, opp, self_inplay,
@@ -5246,9 +5385,14 @@ def _execute_effect_body_inner(
             # v="all" は「自分のドン!! すべてを、アクティブにする」(OP13-028)
             # ⚠ 「このターン中、 キャラの効果でドン‼をアクティブにできない」 が立っていれば不発
             #   (EB04-016 / OP10-030 の自己ロック)。 self_inplay がキャラの時だけ効く。
+            #   予約効果 (schedule_at_self_turn_end) の flush は self_inplay=None なので、
+            #   予約時に保存した発動元 category も見る (cardqa_eb_02 / cardqa_st_24)。
+            _src_is_chara = (
+                self_inplay is not None
+                and self_inplay.card.category == Category.CHARACTER
+            ) or getattr(state, "_scheduled_src_category", None) == "CHARACTER"
             if (getattr(me, "block_chara_effect_untap_don_until_turn_end", False)
-                    and self_inplay is not None
-                    and self_inplay.card.category == Category.CHARACTER):
+                    and _src_is_chara):
                 state.push_log("  効果: ドン アクティブ化は このターン禁止 (不発)")
                 continue
             if isinstance(v, str) and v == "all":
@@ -5298,17 +5442,23 @@ def _execute_effect_body_inner(
                 t.summoning_sickness = False
             state.push_log(f"  効果: 速攻 → {[t.card.name for t in targets]}")
         elif k == "don_minus_opp":
-            # 「ドン!! -N: 相手のドンを N 枚 ドン!!デッキに戻す」
+            # 「相手は自身の場のドン!!を N 枚 ドン!!デッキに戻す」 (OP16-074 マゼラン)。
+            # ⭐ 公式 「**相手は**自身の場のドン!!をドン!!デッキに戻す」 = **戻すドンは持ち主
+            #   (相手) が選ぶ** (cardqa_op_16, qid 59c4ab538c2d: 「戻す相手のドン!!はどちらの
+            #   プレイヤーが選びますか？」 → 「デッキに戻すドン!!の持ち主である相手が選びます」)。
+            #   相手は当然 **レストのドンから** 返す (アクティブは このターンまだ使える =
+            #   自分のターンなら登場/アタック、 こちらのターンならカウンターイベントの支払いに要る)。
+            #   = return_opp_don と同じ chooser 帰属 (2026-08-07 の chooser 是正)。 このキーは
+            #   OP16-074 のみが使用 (全走査済) なので rested→active 順で bit 一致は保たれる。
             n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
-            # active から優先で減らし、足りなければ rested から
             removed = 0
-            taken = min(n, opp.don_active)
-            opp.don_active -= taken
+            taken = min(n, opp.don_rested)
+            opp.don_rested -= taken
             opp.don_remaining_in_deck += taken
             removed += taken
             if removed < n:
-                taken = min(n - removed, opp.don_rested)
-                opp.don_rested -= taken
+                taken = min(n - removed, opp.don_active)
+                opp.don_active -= taken
                 opp.don_remaining_in_deck += taken
                 removed += taken
             state.push_log(f"  効果: 相手ドン -{removed}")
@@ -5845,6 +5995,19 @@ def _execute_effect_body_inner(
                         state.push_log(f"  効果: 登場に伴いライフ上{n_life}枚を手札へ ({len(me.life)} 残)")
                         if moved:
                             fire_self_life_to_hand(state, me)
+                # 「登場させた場合、カード1枚を引く」 の後続 (= OP09-103 コアラ)。
+                # 登場 0 枚 (= 該当手札なし / 0 枚選択) なら draw 不発 = 公式「場合」 前文不成立。
+                # 一次情報 cardqa_op_09: 「手札からコスト4以下《革命軍》キャラ0枚を登場させることを
+                # 選んだ場合、カード1枚を引くことはできますか？」 → 「いいえ、できません。」
+                if chosen_cards and isinstance(v, dict) and v.get("then_draw"):
+                    n_draw = int(v.get("then_draw"))
+                    if getattr(me, "block_self_draw_until_turn_end", False):
+                        state.push_log(f"  効果: 登場に伴いドロー {n_draw} (ドロー禁止のため不発)")
+                    else:
+                        drawn = me.draw(n_draw)
+                        state.push_log(f"  効果: 登場に伴いドロー {n_draw}")
+                        if drawn and state.effects_overlay:
+                            trigger_on_self_draw_non_draw_phase(state, me, opp, state.effects_overlay)
         elif k == "play_from_hand_choice":
             # 「自分の手札から filter 一致のキャラ N 枚までを (任意で) 0 コストで登場」
             # play_from_hand との差分: 「~してもよい」 表現 (= 任意の選択) を表現する。
@@ -6167,12 +6330,19 @@ def _execute_effect_body_inner(
         elif k == "force_opp_discard":
             # 相手手札からランダム N 枚捨てさせる (= trash_opp_hand_random と同義のエイリアス)
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            _fod_moved = 0
             for _ in range(n):
                 if not opp.hand:
                     break
                 idx = state.rng.randrange(len(opp.hand))
                 opp.trash.append(opp.hand.pop(idx))
+                _fod_moved += 1
             state.push_log(f"  効果: 相手手札 {n} 枚捨て (force)")
+            # trash_opp_hand_random と同則: 相手 (opp) 視点で on_self_hand_discarded を発火。
+            if _fod_moved > 0 and state.effects_overlay:
+                trigger_on_self_hand_discarded(
+                    state, opp, me, self_inplay, _fod_moved, state.effects_overlay
+                )
         elif k == "return_to_deck_bottom":
             # 対象 (相手 or 自分のキャラ) を持ち主のデッキの下に置く
             #   v の 3 形式に対応 (ko / return_to_hand と 同じ target 解決):
@@ -7600,6 +7770,16 @@ def _execute_effect_body_inner(
             spec_val = v if isinstance(v, dict) else {}
             if not hasattr(me, "scheduled_at_self_turn_end"):
                 me.scheduled_at_self_turn_end = []
+            # ⭐ 発動元の category を予約データに残す (cardqa_eb_02 / cardqa_st_24、 OP10-030 スモーカー):
+            #   「キャラの効果でドン‼をアクティブにできない」 が立っているターンの終了時に、
+            #   EB02-015 ボニー / ST24-005 ドレークの【登場時】予約 (= **キャラの効果**) で
+            #   ドンをアクティブにできるか → 「**いいえ、 できません。**」
+            #   flush は self_inplay=None で実行するので、 category を持ち回らないと
+            #   untap_don の gate (発動元がキャラか) が通らず 公式違反になっていた。
+            spec_val = dict(spec_val)
+            spec_val["_src_category"] = (
+                self_inplay.card.category.value if self_inplay is not None else None
+            )
             me.scheduled_at_self_turn_end.append(spec_val)
             state.push_log(f"  効果: 自ターン終了時に発動を予約")
         elif k == "static_swords_attack_chara":
@@ -7612,6 +7792,19 @@ def _execute_effect_body_inner(
             for ip in me.characters:
                 if "SWORD" in ip.card.features:
                     ip.granted_keywords.add("速攻：キャラ")
+        elif k == "static_self_attack_chara_if":
+            # 公式 静的: 「(条件) の場合、 **このキャラ** は登場したターンにキャラへアタックできる」
+            #   (EB02-019 ロロノア・ゾロ 「相手のキャラが2枚以上いる場合、…」)。
+            # ⭐ 条件は `_recompute_static` ごとに再評価されるので **アタック時点** で判定される。
+            #   一次情報 (cardqa_eb_02): 「相手のキャラが2枚いるときにこのキャラを登場し、 その後
+            #   他の効果で相手のキャラが1枚になりました。 この場合、 このキャラは相手のキャラに
+            #   アタックできますか？」 → 「**いいえ、 できません。**」 = 登場時ではなく都度判定。
+            # ⚠ static_granted_keywords に入れる (= 毎回クリアされるので条件が外れたら消える)。
+            #   static_swords_attack_chara は granted_keywords を使うが、 あちらは
+            #   「特徴 SWORD を持つ」 = 盤面で変わらない条件なので実害がない。
+            _cond = v if isinstance(v, dict) else {}
+            if self_inplay is not None and eval_condition(_cond, state, me, self_inplay):
+                self_inplay.static_granted_keywords.add("速攻：キャラ")
         elif k == "keep_opp_rested_chara_next_refresh":
             # 「相手の (filter) レストのキャラ N 枚は、 次の相手のリフレッシュフェイズで
             # アクティブにならない」 (OP15-038 等)。 該当キャラに stay_rested_next_refresh フラグ。
@@ -8067,22 +8260,31 @@ def _execute_effect_body_inner(
                 }
                 state.push_log("  効果: 相手 (人間) が捨てる手札を選択 待ち")
                 return True
+            _odc_moved = 0
             if _od_picks is not None:
                 for i in sorted(set(_od_picks), reverse=True):
                     if 0 <= i < len(opp.hand):
                         opp.trash.append(opp.hand.pop(i))
-                state.push_log(f"  効果: 相手が自身の手札 {len(set(_od_picks))} 枚を選んで捨てた")
+                        _odc_moved += 1
+                state.push_log(f"  効果: 相手が自身の手札 {_odc_moved} 枚を選んで捨てた")
             else:
                 # AI (または候補 <= N で選択の余地なし): 最も惜しくない札を捨てる
-                _moved = 0
                 for _ in range(_od_n):
                     if not opp.hand:
                         break
                     opp.trash.append(
                         opp.hand.pop(_worst_hand_idx(opp.hand, opp.known_hand_card_ids))
                     )
-                    _moved += 1
-                state.push_log(f"  効果: 相手が自身の手札 {_moved} 枚を選んで捨てた")
+                    _odc_moved += 1
+                state.push_log(f"  効果: 相手が自身の手札 {_odc_moved} 枚を選んで捨てた")
+            # 「相手は自身の手札を捨てる」= 手札の持ち主 (opp) が捨てる → その opp 視点で
+            # 「効果で手札が捨てられた」を発火 (公式 cardqa: 相手効果の手札破棄でも ST33-004
+            # コスト-3 / OP14-045【速攻】は発動する)。 人間選択の deferred 経路も
+            # _opp_hand_picks 付きで ここに再入するため 1 箇所で覆える。
+            if _odc_moved > 0 and state.effects_overlay:
+                trigger_on_self_hand_discarded(
+                    state, opp, me, self_inplay, _odc_moved, state.effects_overlay
+                )
         elif k == "opp_hand_to_deck_bottom":
             # 相手は自身の手札 N 枚を選び デッキの下に置く。 = 相手が選ぶ → 相手=AI は最悪札を手放す
             # (良い札を残す)。 相手=人間は本来選ばせるべきだが 非 actor halt 未整備 → 最悪札 default。
@@ -8542,6 +8744,7 @@ def _execute_effect_body_inner(
                 if ip.attached_dons > 0:
                     me.don_rested += ip.attached_dons
                 me.trash.append(ip.card)
+                _note_public_departure(state, me, ip.card)
                 state.push_log(f"  効果: {ip.card.name} を trash へ")
                 _ost_any = True
                 if state.effects_overlay:
@@ -9134,6 +9337,8 @@ def _execute_effect_body_inner(
                 # face_up: 表向きで加える (ST13-001 等)。 count-only モデルで表向き枚数 +1。
                 if spec_val.get("face_up"):
                     me.face_up_life_count = min(me.face_up_life_count + 1, len(me.life))
+                    # 「ライフに表向きで置かれた時」 = 公開領域 → 自身も発動可 (cardqa_op_08)
+                    _note_public_departure(state, me, t.card)
             state.push_log(f"  効果: キャラ→自ライフ ({place}): {[t.card.name for t in targets]}")
             if _ctl_any and state.effects_overlay:
                 trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
@@ -9357,14 +9562,21 @@ def _execute_effect_body_inner(
                     _rc = cs.get("rest_self_cards", cs.get("rest_self_cards_filtered"))
                     _rc_n = int(_rc.get("count", 1)) if isinstance(_rc, dict) else int(_rc)
                     _rc_filt = _rc.get("filter", {}) if isinstance(_rc, dict) else {}
+                    # 公式 cardqa_op_14: 「自分のカード」 = リーダー/キャラ/**ステージ/ドン‼**
+                    # の 4 ゾーン合計 (filtered 版は特徴指定なので従来どおり InPlay のみ)。
                     _rc_pool = [
-                        ip for ip in ([me.leader] + list(me.characters))
+                        ip for ip in ([me.leader] + list(me.characters) + list(me.stages))
                         if ip is not None and not ip.rested
                         and not getattr(ip, "cannot_be_rested_buff", False)
                         and not getattr(ip, "static_cannot_be_rested", False)
                         and _matches_filter_ip(ip, _rc_filt)
                     ]
-                    if len(_rc_pool) < _rc_n:
+                    # ドン‼ は特徴を持たないので **filter 無しの rest_self_cards の時だけ**
+                    # 頭数に入る (rest_self_cards_filtered は 「特徴X のカード」 = 場のカード限定)。
+                    _rc_avail = len(_rc_pool)
+                    if "rest_self_cards" in cs and not _rc_filt:
+                        _rc_avail += me.don_active
+                    if _rc_avail < _rc_n:
                         can_pay = False
                         break
                 elif "mill_self_top" in cs:
@@ -9965,6 +10177,7 @@ def _execute_effect_body_inner(
                         if moved < rh_count:
                             targets_to_move.add(c.instance_id)
                             moved += 1
+                    new_chars_before = list(me.characters)
                     new_chars = []
                     for c in me.characters:
                         if c.instance_id in targets_to_move:
@@ -9977,6 +10190,14 @@ def _execute_effect_body_inner(
                         else:
                             new_chars.append(c)
                     me.characters = new_chars
+                    # ⚠ 「自分の効果で自分のキャラが場を離れた」 = leave-by-self トリガーの対象
+                    #   (公式 cardqa_op_16 / OP16-041: 虜の矢 OP07-056 のコストで自キャラが
+                    #    手札に戻った時も 「場を離れた時」 効果は発動する = はい)。
+                    #   任意コストの 3 経路 (手札 / デッキ下 / 自KO) とも発火が抜けていた。
+                    if state.effects_overlay and len(me.characters) != len(new_chars_before):
+                        trigger_on_self_chara_leave_by_self_effect(
+                            state, me, opp, state.effects_overlay
+                        )
                     continue
                 if "return_self_chara_to_deck_bottom" in cs:
                     # 公式: 自キャラ N 枚を持ち主 (= me) のデッキの下へ。
@@ -10003,6 +10224,7 @@ def _execute_effect_body_inner(
                         if moved < rb_count:
                             targets_to_move.add(c.instance_id)
                             moved += 1
+                    new_chars_before = list(me.characters)
                     new_chars = []
                     for c in me.characters:
                         if c.instance_id in targets_to_move:
@@ -10015,6 +10237,14 @@ def _execute_effect_body_inner(
                         else:
                             new_chars.append(c)
                     me.characters = new_chars
+                    # ⚠ 「自分の効果で自分のキャラが場を離れた」 = leave-by-self トリガーの対象
+                    #   (公式 cardqa_op_16 / OP16-041: 虜の矢 OP07-056 のコストで自キャラが
+                    #    手札に戻った時も 「場を離れた時」 効果は発動する = はい)。
+                    #   任意コストの 3 経路 (手札 / デッキ下 / 自KO) とも発火が抜けていた。
+                    if state.effects_overlay and len(me.characters) != len(new_chars_before):
+                        trigger_on_self_chara_leave_by_self_effect(
+                            state, me, opp, state.effects_overlay
+                        )
                     continue
                 if "ko_self_chara" in cs:
                     # 公式: 自分のキャラ N 枚を KO (= トラッシュへ)。 OP05-087 / EB04-048。
@@ -10041,6 +10271,7 @@ def _execute_effect_body_inner(
                                                    list(cost_specs[_ci + 1:]) + list(effect_specs)):
                         return True  # 人間選択待ち(continuation で残りコスト+効果)
                     to_ko = {c.instance_id for c in cands[:kc_count]}
+                    new_chars_before = list(me.characters)
                     new_chars = []
                     for c in me.characters:
                         if c.instance_id in to_ko:
@@ -10051,6 +10282,14 @@ def _execute_effect_body_inner(
                         else:
                             new_chars.append(c)
                     me.characters = new_chars
+                    # ⚠ 「自分の効果で自分のキャラが場を離れた」 = leave-by-self トリガーの対象
+                    #   (公式 cardqa_op_16 / OP16-041: 虜の矢 OP07-056 のコストで自キャラが
+                    #    手札に戻った時も 「場を離れた時」 効果は発動する = はい)。
+                    #   任意コストの 3 経路 (手札 / デッキ下 / 自KO) とも発火が抜けていた。
+                    if state.effects_overlay and len(me.characters) != len(new_chars_before):
+                        trigger_on_self_chara_leave_by_self_effect(
+                            state, me, opp, state.effects_overlay
+                        )
                     continue
                 execute_effect(cs, state, me, opp, self_inplay)
                 # 人間操作で cost が target pick (return_to_hand other_self_chara 等) を
@@ -11484,6 +11723,9 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             # 0 件 選択 (= 人間 が skip 試みた): cost 払い 不能 で activate_main 全体 中止
             state.pending_choice = None
             state.push_log(f"  起動メインコスト: {cost_kind} 選択 なし → 中止")
+            # 既に払った分のコスト由来トリガー (= バッファ保持中) は取りこぼさず流す
+            _cost_trigger_buffer_flush(state)
+            _maybe_resolve(state)
             return
         picked_cand = candidates[valid_picks[0]]
         # cost_picks に inject (= prior に 重ねる)
@@ -11509,10 +11751,14 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
                 break
         if inplay is None or effect_index is None:
             state.pending_choice = None
+            _cost_trigger_buffer_flush(state)
+            _maybe_resolve(state)
             return
         bundle = state.effects_overlay.get(inplay.card.card_id) if state.effects_overlay else None
         if bundle is None or effect_index >= len(bundle.effects):
             state.pending_choice = None
+            _cost_trigger_buffer_flush(state)
+            _maybe_resolve(state)
             return
         eff = bundle.effects[effect_index]
         state.pending_choice = None
@@ -12065,6 +12311,16 @@ def fire_self_life_to_hand(state: GameState, me: Player) -> None:
     if not overlay:
         return
     _enqueue_field_when(state, me, "on_self_life_to_hand", overlay)
+    # ⭐ 「相手のライフが離れた時」 (on_opp_life_taken) は **離れ方を問わない**
+    #   (公式 cardqa_op_08、 OP08-105 ボニー):
+    #     Q「自分のターン中に、 **相手が効果でライフを1枚手札に加え**、 その後カードを
+    #       ライフの上に加えました。 この時、 この【自分のターン中】効果でカード2枚を引き、
+    #       手札1枚を捨てることはできますか？」  A「**はい、 できます。**」
+    #   ⚠ 2026-08-08 まで、 _fire_opp_life_left_by_effect (= 自分が **相手の** ライフを
+    #     取り除く経路) にしか on_opp_life_taken を配線しておらず、 **プレイヤーが自分の
+    #     ライフを自分で手札へ移す** 経路では相手側が発火しなかった。 対称に発火させる。
+    _observer = state.players[1 - state.players.index(me)]
+    _enqueue_field_when(state, _observer, "on_opp_life_taken", overlay)
     _maybe_resolve(state)
 
 
@@ -12505,6 +12761,7 @@ def _enqueue_field_when(
     when: str,
     effects_overlay: dict[str, CardEffectBundle],
     only_iids: Optional[set[int]] = None,
+    payload: Optional[dict] = None,
 ) -> None:
     """owner の場 (leader + characters + stages) のうち、 指定 when を持つ全ての InPlay を enqueue。
     複数効果がある場合でもイベントは「カード単位」で 1 つ (= _execute_event が when 一致を全実行)。
@@ -12534,6 +12791,7 @@ def _enqueue_field_when(
             owner_idx=owner_idx,
             source_card_id=ip.card.card_id,
             source_iid=ip.instance_id,
+            payload=dict(payload) if payload else None,
         )
 
 
@@ -12841,8 +13099,16 @@ def trigger_end_of_turn(
     if scheduled:
         me.scheduled_at_self_turn_end = []
         for spec in scheduled:
-            for prim in (spec.get("do", []) if isinstance(spec, dict) else []):
-                execute_effect(prim, state, me, opp, None)
+            # 発動元 category を復元 (= self_inplay=None でも 「キャラの効果」 gate を効かせる)
+            _prev_sched_cat = getattr(state, "_scheduled_src_category", None)
+            state._scheduled_src_category = (
+                spec.get("_src_category") if isinstance(spec, dict) else None
+            )
+            try:
+                for prim in (spec.get("do", []) if isinstance(spec, dict) else []):
+                    execute_effect(prim, state, me, opp, None)
+            finally:
+                state._scheduled_src_category = _prev_sched_cat
     # 2. 一時登場キャラ を 持ち主のデッキの下へ戻す (= OP11-092 ヘルメッポ)。
     for ip in [c for c in list(me.characters)
                if getattr(c, "return_to_deck_bottom_at_turn_end", False)]:
@@ -13321,9 +13587,17 @@ def trigger_on_self_rested(
     opp: Player,
     rested_ip: InPlay,
     effects_overlay: dict[str, CardEffectBundle],
+    costless_only: bool = False,
 ) -> None:
     """「このキャラがレストになった時」 (on_self_rested)。 me = rested_ip 所有者。
     OP14-027 シャンクス等。 rest primitive 内 / AttackLeader/AttackCharacter 後で発火。
+
+    costless_only=True (アタック由来の自己レスト): cost 持ちの効果は発火せず skip する。
+      cost 持ちの on_self_rested は (a) optional (OP14-021「もよい」 / OP14-070 「してもよい」) か
+      (b) 「相手のキャラの効果で」 系 (OP14-070) / by_opp_effect (PRB02-009) で、 いずれも自分の
+      アタック宣言で発火すべきでない (辞退が合法 or 発動条件外)。 costless の【自分のターン中】系
+      (OP14-027/028/032/035/119 / ST32-003) だけがアタックで発火する (公式 cardqa_op_14
+      677c149d0045)。 Rust fire_on_self_rested の costless_only と bit 一致させる。
     """
     if not effects_overlay:
         return
@@ -13333,6 +13607,10 @@ def trigger_on_self_rested(
     for eff in bundle.effects:
         if eff.get("when") != "on_self_rested":
             continue
+        if costless_only:
+            _cost = eff.get("cost") or {}
+            if any(ck != "once_per_turn" for ck in _cost):
+                continue
         if not eval_all_conditions(eff, state, me, rested_ip):
             continue
         cost = eff.get("cost", {})
@@ -13450,12 +13728,56 @@ def trigger_on_self_hand_discarded(
     me.hand_discarded_by_effect_this_turn = True
     if not effects_overlay:
         return
+    # ⚠ **context は payload で持ち回る**。 ここで state に置いて _maybe_resolve 後に消すと、
+    #   ネスト中 (= 既に resolving) は _maybe_resolve が **drain せずに返る** ので、
+    #   実際に on_self_hand_discarded が解決される頃には context が消えている。
+    #   実害: OP12-057【トリガー】の手札捨て → OP12-040 クザンの追加ドローが
+    #   last_discard_count=0 で 0 枚になっていた (公式 cardqa_op_12 = 「はい、 できます」)。
+    #   on_ko の by_opp_effect と同じく payload → _execute_event で復元する方式に統一。
+    _src_card = source_inplay.card if source_inplay is not None else getattr(
+        state, "current_source_card", None
+    )
     state.last_discard_source_inplay = source_inplay
     state.last_discard_count = discard_count
-    _enqueue_field_when(state, me, "on_self_hand_discarded", effects_overlay)
+    _enqueue_field_when(
+        state, me, "on_self_hand_discarded", effects_overlay,
+        payload={
+            "discard_count": discard_count,
+            "discard_source_features": list(_src_card.features) if _src_card else [],
+        },
+    )
     _maybe_resolve(state)
+    # context 本体は payload が持つので、 state 側は従来どおり即クリアする
+    # (残すと last_discard_count が無関係な後続イベントに漏れ、 draw_per_self_hand_discarded 等が誤発火する)。
     state.last_discard_source_inplay = None
     state.last_discard_count = 0
+
+
+def _note_public_departure(state: GameState, owner: Player, card: CardDef) -> None:
+    """「自分の効果で場を離れた」 カードのうち、 行き先が **公開領域** (トラッシュ /
+    表向きライフ) のものを記録する。
+
+    公式 cardqa_op_08 (OP08-046 シャクヤク): 離脱したカード自身の
+    on_self_chara_leave_by_self_effect は 「トラッシュに置かれた時か、 ライフに表向きで
+    置かれた時」 に発動できる。 手札 / デッキ / 裏向きライフ (= 非公開領域) 行きでは発動しない
+    ので、 それらの離脱site では **呼ばない**。
+
+    直後の trigger_on_self_chara_leave_by_self_effect が consume + clear する。
+    ⚠ overlay 無しなら誰も consume しない (= trigger 自体が早期 return する) ので記録しない。
+    ⚠ when の文面は 「**キャラ**が自分の効果で場を離れた時」 なので、 離脱した本人が
+      キャラでない (= ステージ) 場合は本人参加の対象外。 例 OP08-056 モビー・ディック号 は
+      STAGE で、 その when は 『白ひげ海賊団』 **キャラ** の離脱を見る = 自身の離脱では
+      発動しえない。
+    """
+    if not state.effects_overlay:
+        return
+    # ⚠ Category は素の Enum (str 継承ではない) なので `== "CHARACTER"` は **常に False**。
+    #   必ず enum で比較する (文字列比較は silent no-op になる)。
+    if card.category != Category.CHARACTER:
+        return
+    if not getattr(state, "_departed_to_public_zone", None):
+        state._departed_to_public_zone = []
+    state._departed_to_public_zone.append((owner, card))
 
 
 def trigger_on_self_chara_leave_by_self_effect(
@@ -13472,9 +13794,53 @@ def trigger_on_self_chara_leave_by_self_effect(
     """
     if not effects_overlay:
         return
+    # ⭐ victim 文脈: 効果の最外側で控えた顔ぶれとの差分 = このイベントで場を離れたキャラ。
+    #   公式 (cardqa_op_16 / OP16-041 バギー) 「自分の特徴《インペルダウン》を持つキャラが
+    #   場を離れた時」 のように victim の特徴で絞る効果が読む。
+    _snap = getattr(state, "_leave_victim_snapshot", None)
+    if _snap is not None:
+        from collections import Counter as _Counter
+        _gone = _Counter(c.card_id for c in _snap) - _Counter(
+            c.card.card_id for c in actor.characters
+        )
+        _by_id = {c.card_id: c for c in _snap}
+        state.last_leave_by_self_victim_cards = [
+            _by_id[cid] for cid in _gone.elements() if cid in _by_id
+        ]
     _enqueue_field_when(
         state, actor, "on_self_chara_leave_by_self_effect", effects_overlay
     )
+    # ⭐ 公式 (cardqa_op_08、 OP08-046 シャクヤク): 「このキャラが自分の効果で場を離れたとき、
+    #   この【自分のターン中】効果は発動できますか？」 → 「この場合、 **このキャラがトラッシュに
+    #   置かれた時か、 ライフに表向きで置かれた時**、 この【自分のターン中】効果を発動できます」。
+    #   = **離脱したカード自身** も反応する。 ただし行き先が **公開領域 (トラッシュ / 表向きライフ)**
+    #   の時だけ (手札 / デッキ / 裏向きライフ = 非公開 へ行った場合は発動できない)。
+    #   _enqueue_field_when は離脱**後**の盤面を走査するので自身は含まれない → 離脱時に
+    #   _note_public_departure で記録しておいた分をここで足す。
+    #   source_iid=None = 場外なので _execute_event は self_inplay=None で実行する
+    #   (trigger_on_ko と同じモデル。 「その後、 このキャラをレストにする」 は対象不在で不発)。
+    departed = getattr(state, "_departed_to_public_zone", None)
+    if departed:
+        state._departed_to_public_zone = []
+        actor_idx = state.players.index(actor)
+        for owner, card in departed:
+            if owner is not actor:
+                continue  # 「自分の」 効果で離れた **自分の** カードのみ (相手陣は対象外)
+            bundle = effects_overlay.get(card.card_id)
+            if bundle is None:
+                continue
+            if not any(
+                e.get("when") == "on_self_chara_leave_by_self_effect"
+                for e in bundle.effects
+            ):
+                continue
+            enqueue_event(
+                state,
+                when="on_self_chara_leave_by_self_effect",
+                owner_idx=actor_idx,
+                source_card_id=card.card_id,
+                source_iid=None,
+            )
     _maybe_resolve(state)
 
 
@@ -13526,7 +13892,11 @@ def trigger_on_self_chara_ko(
         state.last_chara_ko_victim_card = victim_card
     _enqueue_field_when(state, victim_owner, "on_self_chara_ko", effects_overlay)
     _maybe_resolve(state)
-    state.last_chara_ko_victim_card = None
+    # ⚠ 起動メインのコスト支払い中 (バッファ有効) は **まだ解決していない** ので victim 文脈を
+    #   消さない。 消すと deferred な【KO時】/「自分のキャラがKOされた時」 の victim_* 条件が
+    #   空振りする。 クリアは fire_activate_main が解決後に行う。
+    if not getattr(state, "_cost_trigger_buffering", False):
+        state.last_chara_ko_victim_card = None
 
 
 def trigger_on_self_chara_leave_by_opp_effect(
@@ -13546,7 +13916,8 @@ def trigger_on_self_chara_leave_by_opp_effect(
         state.last_chara_ko_victim_card = victim_card
     _enqueue_field_when(state, victim_owner, "on_self_chara_leave_by_opp_effect", effects_overlay)
     _maybe_resolve(state)
-    state.last_chara_ko_victim_card = None
+    if not getattr(state, "_cost_trigger_buffering", False):
+        state.last_chara_ko_victim_card = None
 
 
 def trigger_opp_event_or_trigger_fired(
@@ -13746,6 +14117,12 @@ def try_replace_ko(
             if not _replace_ko_match(eff.get("if", {}), inplay, victim, by_opp_effect):
                 continue
             # 通常の eval_condition (leader_feature 等) も適用
+            # 同時離脱バッチの判定キャッシュ (= holder×when ごとに 1 度だけ決める)。
+            # ⚠ extra_cond の評価より **前** に用意する (victim 非依存条件の凍結に使う)。
+            _batch = getattr(state, "_leave_batch_decision", None)
+            _bkey = (inplay.instance_id, when)
+            if _batch is not None and _batch.get(_bkey) is False:
+                continue  # このバッチでは 「代替しない」 と決定済
             extra_cond = {
                 k: v for k, v in eff.get("if", {}).items()
                 if k not in ("target", "target_attribute", "target_cost_le",
@@ -13762,6 +14139,17 @@ def try_replace_ko(
                              "by_opp_effect", "by_battle")
             }
             if extra_cond and not eval_condition(extra_cond, state, owner, inplay):
+                # ⭐ **同時離脱は 1 事象** = victim に依らない条件 (トラッシュ枚数等) は
+                #   **バッチ開始時の状態** で 1 度だけ判定する。
+                #   一次情報 (cardqa_op_11、 OP11-001 コビー): 「トラッシュが2枚以下の時に
+                #   《海軍》キャラ A と B が **同時にKO** された場合、 まず A をトラッシュに置き、
+                #   B を【ターン1回】効果で代わりに場を離れないことはできますか？」
+                #   → 「**いいえ、 できません**」。 = 先に離れた victim がトラッシュを増やした
+                #   状態を後の victim の判定に使えない。 このバッチでは 「代替しない」 と確定させる。
+                #   ⚠ victim 依存の条件 (_replace_ko_match の target_*) は victim ごとに判定する
+                #     ので、 ここで凍結するのは **extra_cond (= victim 非依存)** だけ。
+                if _batch is not None:
+                    _batch[_bkey] = False
                 continue
             # optional gate (= 公式 「〜してもよい」 / 「〜することができる」)。
             # owner が human の 場合 は pending_choice modal を 立てて 人間 判断 を 待つ。
@@ -13818,13 +14206,20 @@ def try_replace_ko(
             #     **victim の数だけコストを払っていた** (2 victim = 手札 2 枚捨て) = 違反。
             #   バッチ (= _leave_batch_decision) が開いている間は holder×when 単位で
             #   「払った / 払わない」 を 1 度だけ決め、 以降の victim には無償で適用する。
-            _batch = getattr(state, "_leave_batch_decision", None)
-            _bkey = (inplay.instance_id, when)
             if _batch is not None and _batch.get(_bkey) is False:
                 continue  # このバッチでは 「代替しない」 と決定済 → 通常どおり離脱させる
             _batch_already_paid = _batch is not None and _batch.get(_bkey) is True
             if cost_specs and not _batch_already_paid:
                 if not _can_pay_replace_cost(state, owner, cost_specs, holder_card_id, inplay):
+                    # ⭐ **同時離脱は 1 事象** = 置換するかどうかは holder ごとに 1 度だけ決める。
+                    #   一次情報 (cardqa_op_11、 OP11-001 コビー): 「自分のトラッシュが2枚以下の時に
+                    #   (元々のパワー7000以下の《海軍》) キャラA と キャラB が **同時にKO** された場合、
+                    #   まず キャラA をトラッシュに置き、 キャラB を【ターン1回】効果で代わりに場を
+                    #   離れないことはできますか？」 → 「**いいえ、 できません**」。
+                    #   = 先に離れた victim がトラッシュを増やした状態で 後の victim の置換コストを
+                    #   払うことはできない。 このバッチでは 「代替しない」 と確定させる。
+                    if _batch is not None:
+                        _batch[_bkey] = False
                     continue
                 _pay_replace_cost(state, owner, cost_specs, holder_card_id, inplay)
             if _batch is not None:
@@ -13963,6 +14358,15 @@ def _can_pay_replace_cost(
             n = int(cs["trash_self_hand_random"])
             if len(me.hand) < n:
                 return False
+        elif "life_to_hand" in cs:
+            # 「代わりに自分のライフの上から N 枚を手札に加える」 (OP15-098 / OP15-105 等)。
+            # ⚠ 公式 「同時離脱 = 1 事象」 の dedup は cost 側でしか効かないので、 この支払は
+            #   必ず cost に置く (do に書くと victim ごとに払ってしまう、 cardqa_op_15)。
+            n = int(cs["life_to_hand"])
+            if len(me.life) < n:
+                return False
+            if getattr(me, "prevent_self_life_to_hand_until_turn_end", False):
+                return False   # OP02-023 等で 「ライフを手札に加えられない」 間は払えない
         elif "discard_hand" in cs:
             # 単純 「手札 N 枚捨てる」 (count に整数)
             n = int(cs["discard_hand"])
@@ -13986,9 +14390,10 @@ def _can_pay_replace_cost(
             # 自リーダー/キャラの アクティブ が N 枚以上 あれば 払える。
             rs_spec = cs["rest_self_cards"]
             n = int(rs_spec.get("count", 1)) if isinstance(rs_spec, dict) else int(rs_spec)
-            actives = [me.leader] + list(me.characters)
+            # 公式 cardqa_op_14: 「自分のカード」 = リーダー/キャラ/**ステージ/ドン‼** の 4 ゾーン合計。
+            actives = [me.leader] + list(me.characters) + list(me.stages)
             actives = [ip for ip in actives if ip is not None and not ip.rested]
-            if len(actives) < n:
+            if len(actives) + me.don_active < n:
                 return False
         elif "mill_self_life_to_trash" in cs:
             # 「代わりに自分のライフの上か下から N 枚をトラッシュに置く」 (ST09-010 エース 等)。
@@ -14092,6 +14497,17 @@ def _pay_replace_cost(
                 trigger_on_self_hand_discarded(
                     state, me, _opp, holder_inplay, discarded, state.effects_overlay
                 )
+        elif "life_to_hand" in cs:
+            n = int(cs["life_to_hand"])
+            moved = 0
+            for _ in range(n):
+                if me.life:
+                    me.hand.append(me.life.pop(0))
+                    moved += 1
+            state.push_log(f"  置換コスト: ライフ{moved}枚を手札へ")
+            if moved:
+                # do 版 (primitive life_to_hand) と同じく 「ライフが手札に加わった」 を発火
+                fire_self_life_to_hand(state, me)
         elif "trash_self_hand_random" in cs:
             n = int(cs["trash_self_hand_random"])
             actual = 0
@@ -14152,12 +14568,19 @@ def _pay_replace_cost(
             # AI 簡易: アクティブの power 低い順に N 枚レスト (primitive と同方針)。
             rs_spec = cs["rest_self_cards"]
             n = int(rs_spec.get("count", 1)) if isinstance(rs_spec, dict) else int(rs_spec)
-            actives = [me.leader] + list(me.characters)
+            # 公式 cardqa_op_14: 「自分のカード」 = リーダー/キャラ/**ステージ/ドン‼** の 4 ゾーン合計。
+            actives = [me.leader] + list(me.characters) + list(me.stages)
             actives = [ip for ip in actives if ip is not None and not ip.rested]
             actives.sort(key=lambda ip: ip.power)
-            for ip in actives[:n]:
+            _picked = actives[:n]
+            for ip in _picked:
                 ip.rested = True
                 state.push_log(f"  離脱置換コスト: 自カードレスト {ip.card.name}")
+            _don_rest = min(max(0, n - len(_picked)), me.don_active)
+            if _don_rest:
+                me.don_active -= _don_rest
+                me.don_rested += _don_rest
+                state.push_log(f"  離脱置換コスト: ドン{_don_rest}枚レスト")
 
 
 def _replace_ko_match(
@@ -14315,7 +14738,11 @@ def trigger_on_ko(
         )
         _maybe_resolve(state)
     finally:
-        state._on_ko_victim_attached_don = prev_vdon
+        # ⚠ コスト支払い中 (バッファ有効) は 解決が後回しなので、 付与ドン文脈も後まで残す
+        #   (= self_attached_don_ge が deferred な【KO時】で 0 に見えるのを防ぐ)。
+        #   クリアは fire_activate_main が解決後に行う。
+        if not getattr(state, "_cost_trigger_buffering", False):
+            state._on_ko_victim_attached_don = prev_vdon
 
 
 def trigger_on_life_zero(
@@ -14391,10 +14818,20 @@ def trigger_lifecard_trigger(
         source_card_id=card.card_id,
         source_iid=None,
     )
+    # ⭐ 【トリガー】/イベントは **InPlay を持たない** ので、 発動元の特徴を見る条件
+    #   (actor_source_feature_contains 等) が source を掴めない (公式 cardqa_op_12、
+    #   OP12-057 アイス塊暴雉嘴 の【トリガー】手札捨て → 海軍リーダー OP12-040 クザンの
+    #   on_self_hand_discarded が 「はい、 できます」 なのに不発だった)。
+    #   CardDef を state に載せて、 InPlay が無い経路でも特徴を引けるようにする。
+    _prev_src_card = getattr(state, "current_source_card", None)
+    state.current_source_card = card
     # 公式 (OP06-044 ギオン系): 【トリガー】効果は それに反応する opp_event_or_trigger_fired
     # reactive より **先** に解決する。 counter 経路と同じ理由 (turn 優先で reactive が
     # 先取りされる) で、 トリガー効果を先に drain してから reactive を積む。
-    _maybe_resolve(state)
+    try:
+        _maybe_resolve(state)
+    finally:
+        state.current_source_card = _prev_src_card
     # 「相手がイベントか【トリガー】を発動した時」 (OP11-102 ケイミー 等)
     # defender = トリガー発火側 → attacker_player 側を opp として発火させる。
     trigger_opp_event_or_trigger_fired(
@@ -15083,6 +15520,43 @@ def fire_activate_main(
     eff: EffectSpec,
     cost_picks: Optional[dict[str, int]] = None,
 ) -> None:
+    """起動メインの発火 (公式 8-4-1-3〜8-4-1-5 の順序ラッパ)。
+
+    発動コストの支払いで発動タイミングを満たした効果 (= 自KOコストの【KO時】等) は、
+    **この起動効果を解決した後** に発動する (cardqa_op_14 / OP14-080:
+    「『自分のリーダーとキャラすべてを、このターン中、パワー+1000。』 を実行した後で、
+      そのキャラの【KO時】効果が発動します」)。 支払い中の enqueue をバッファへ退避し、
+    本体を enqueue した直後にキューへ流すことで この順序を作る。
+
+    ⚠ 人間 modal (= コスト対象選択待ち) で中断した場合はバッファを **開いたまま** 保持し、
+      resolve_pending_choice 経由の再入 (cost_picks 付き) で続きを積む。
+    """
+    _cost_trigger_buffer_begin(state)
+    try:
+        _fire_activate_main_inner(state, me, opp, inplay, eff, cost_picks)
+    finally:
+        if state.pending_choice is None:
+            _cost_trigger_buffer_flush(state)
+    if state.pending_choice is not None:
+        return  # 選択待ちで中断 = 本体未 enqueue。 バッファは resume 時に引き継ぐ
+    _maybe_resolve(state)
+    # コスト由来の【KO時】文脈 (victim) はバッファ中クリアしないので、 解決後にここで畳む
+    # (= 通常経路も action 境界では None なので no-op)。
+    # ⚠ 人間の対象選択待ちで drain が中断した場合は **まだ解決中** なので残す
+    #   (resolve_pending_choice が続きを流す)。
+    if state.pending_choice is None:
+        state.last_chara_ko_victim_card = None
+        state._on_ko_victim_attached_don = 0
+
+
+def _fire_activate_main_inner(
+    state: GameState,
+    me: Player,
+    opp: Player,
+    inplay: InPlay,
+    eff: EffectSpec,
+    cost_picks: Optional[dict[str, int]] = None,
+) -> None:
     """起動メインの発火。 コストは同期支払い、 効果は enqueue (= effect_indexes payload 経由)。
 
     一度コストを払ったら効果実行は再評価せず必ず行う (= eval_condition は skip 可能)。
@@ -15524,6 +15998,9 @@ def fire_activate_main(
     if eff_idx is None:
         return
     me_idx = state.players.index(me)
+    # ⚠ 本体は **バッファではなくキュー** へ積む (= コスト由来トリガーより前に置く)。
+    #   ドレインは呼出元ラッパ (fire_activate_main) が flush 後に 1 回だけ行う。
+    _cost_trigger_buffer_pause(state)
     enqueue_event(
         state,
         when="activate_main",
@@ -15532,4 +16009,3 @@ def fire_activate_main(
         source_iid=inplay.instance_id,
         payload={"effect_indexes": [eff_idx]},
     )
-    _maybe_resolve(state)

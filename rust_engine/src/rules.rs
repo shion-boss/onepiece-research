@@ -257,6 +257,10 @@ fn do_battle_ko(
 }
 
 /// game.py:_reset_turn_buff = ターン終了時のバフ/フラグクリア (applier-tracking 含む)。
+/// ⭐ 「次の X のターン終了時まで」 は **適用後 最初に訪れる X のターン終了** で切れる
+/// (公式 cardqa_op_01 / OP01-085 Mr.3: 「相手のターン中に登場させた場合の 『次の相手のターン
+/// 終了時』 は **そのターンの終了時**」)。 applied_turn < turn_number (strict) だと 相手ターン中に
+/// 適用した効果が 1 サイクル長く残る → `<=` に是正 (2026-08-10、 Python game.py と同一)。
 pub fn reset_turn_buff(state: &mut GameState) {
     let tp = state.turn_player_idx;
     let turn_number = state.turn_number;
@@ -286,6 +290,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
         p.block_chara_effect_untap_don_until_turn_end = false;
         p.cannot_attack_leader_until_turn_end = false;
         p.life_lost_this_turn = false;
+        p.leader_battled_opp_chara_this_turn = false;
         p.chara_ko_taken_this_turn = 0;
         p.block_chara_play_cost_ge_threshold = -1;
         p.play_cost_reductions_filtered_turn = vec![];
@@ -310,7 +315,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
         {
             if (ip.next_opp_turn_end_buff != 0 || ip.next_opp_turn_end_applier_idx >= 0)
                 && ip.next_opp_turn_end_applier_idx >= 0
-                && ip.next_opp_turn_end_applied_turn < turn_number
+                && ip.next_opp_turn_end_applied_turn <= turn_number
                 && ended != ip.next_opp_turn_end_applier_idx
             {
                 ip.next_opp_turn_end_buff = 0;
@@ -319,7 +324,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
             }
             if (ip.next_self_turn_end_buff != 0 || ip.next_self_turn_end_applier_idx >= 0)
                 && ip.next_self_turn_end_applier_idx >= 0
-                && ip.next_self_turn_end_applied_turn < turn_number
+                && ip.next_self_turn_end_applied_turn <= turn_number
                 && ended == ip.next_self_turn_end_applier_idx
             {
                 ip.next_self_turn_end_buff = 0;
@@ -328,7 +333,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
             }
             if ip.cannot_be_rested_buff
                 && ip.cannot_be_rested_applier_idx >= 0
-                && ip.cannot_be_rested_applied_turn < turn_number
+                && ip.cannot_be_rested_applied_turn <= turn_number
                 && ended != ip.cannot_be_rested_applier_idx
             {
                 ip.cannot_be_rested_buff = false;
@@ -337,7 +342,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
             }
             if ip.next_opp_turn_end_base_power_override.is_some()
                 && ip.next_opp_turn_end_base_power_override_applier_idx >= 0
-                && ip.next_opp_turn_end_base_power_override_applied_turn < turn_number
+                && ip.next_opp_turn_end_base_power_override_applied_turn <= turn_number
                 && ended != ip.next_opp_turn_end_base_power_override_applier_idx
             {
                 ip.next_opp_turn_end_base_power_override = None;
@@ -346,7 +351,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
             }
             if ip.next_opp_turn_end_base_cost_override.is_some()
                 && ip.next_opp_turn_end_base_cost_override_applier_idx >= 0
-                && ip.next_opp_turn_end_base_cost_override_applied_turn < turn_number
+                && ip.next_opp_turn_end_base_cost_override_applied_turn <= turn_number
                 && ended != ip.next_opp_turn_end_base_cost_override_applier_idx
             {
                 ip.next_opp_turn_end_base_cost_override = None;
@@ -355,7 +360,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
             }
             if ip.attack_cost_discard_hand_n > 0
                 && ip.attack_cost_discard_hand_applier_idx >= 0
-                && ip.attack_cost_discard_hand_applied_turn < turn_number
+                && ip.attack_cost_discard_hand_applied_turn <= turn_number
                 && ended != ip.attack_cost_discard_hand_applier_idx
             {
                 ip.attack_cost_discard_hand_n = 0;
@@ -364,7 +369,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
             }
             if !ip.granted_keywords_through_opp_turn.is_empty()
                 && ip.granted_keywords_through_opp_turn_applier_idx >= 0
-                && ip.granted_keywords_through_opp_turn_applied_turn < turn_number
+                && ip.granted_keywords_through_opp_turn_applied_turn <= turn_number
                 && ended != ip.granted_keywords_through_opp_turn_applier_idx
             {
                 ip.granted_keywords_through_opp_turn.clear();
@@ -449,9 +454,10 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
             }
             // ターン開始時トリガー (game.py:707、 turn_number==1 含む全ターン)。
             // turn player の on_turn_start → 非turn player の opp_turn_start の順 (turn-first)。
+            // Python trigger_turn_start は **両陣営を enqueue してから 1 回ドレイン** する
+            // (= ターン側の効果の do が誘発したものより、 非ターン側の opp_turn_start が先)。
             let opp = 1 - me;
-            crate::effects::fire_field_when(state, me, "on_turn_start")?;
-            crate::effects::fire_field_when(state, opp, "opp_turn_start")?;
+            crate::effects::enqueue_turn_start(state, me, opp)?;
             state.phase = Phase::Draw;
         }
         Phase::Draw => {
@@ -522,9 +528,18 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
             let scheduled =
                 std::mem::take(&mut state.players[me].scheduled_at_self_turn_end);
             for spec in &scheduled {
-                if let Some(dos) = spec.get("do").and_then(|d| d.as_array()) {
-                    crate::effects::fire_gated_do(state, me, crate::effects::Slot::Leader, dos)?;
-                }
+                // 発動元 category を復元 (= src=Leader placeholder でも 「キャラの効果」 gate を効かせる)
+                state.rust_scheduled_src_category = spec
+                    .get("_src_category")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+                let r = if let Some(dos) = spec.get("do").and_then(|d| d.as_array()) {
+                    crate::effects::fire_gated_do(state, me, crate::effects::Slot::Leader, dos)
+                } else {
+                    Ok(())
+                };
+                state.rust_scheduled_src_category = None;
+                r?;
             }
             // 2. return_to_deck_bottom_at_turn_end: 一時登場キャラを持ち主デッキ下へ (付与ドン→レスト)。
             //    trigger 発火なし (単純 cleanup、 effects.py:11424)。 board 順で処理。
@@ -557,10 +572,11 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
                     }
                 }
             }
-            // on-field end_of_turn (me) / opp_end_of_turn (opp) トリガー発火 (costless fire、
-            // cost/once/unknown/未対応prim は fire_field_when が Err で bail = 黙って間違えない)。
-            crate::effects::fire_field_when(state, me, "end_of_turn")?;
-            crate::effects::fire_field_when(state, 1 - me, "opp_end_of_turn")?;
+            // on-field end_of_turn (me) / opp_end_of_turn (opp)。 Python trigger_end_of_turn と同じく
+            // **走査 (コスト支払い) → カード単位で enqueue → 最後に 1 回ドレイン** の 2 相
+            // (= do が誘発した効果や 後続カードのコスト判定の順序を Python と揃える)。
+            // cost/once/unknown/未対応prim は Err で bail = 黙って間違えない。
+            crate::effects::fire_end_of_turn_batch(state, me)?;
             reset_turn_buff(state);
             if state.extra_turn_pending {
                 state.extra_turn_pending = false;
@@ -753,6 +769,16 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             } else {
                 state.players[me].characters[atk_idx].rested = true;
             }
+            // 「このキャラがレストになった時」(on_self_rested): アタック宣言でレスト → 発火
+            // (公式 cardqa_op_14 677c149d0045)。 char attacker のみ (leader は on_self_rested
+            // を持たない = Python trigger_on_self_rested も no-op)。 自己起因 = by_opp_effect=false。
+            if !is_leader {
+                let prev_ko_by_opp = state.last_ko_by_opp_effect;
+                state.last_ko_by_opp_effect = false;
+                let r = crate::effects::fire_on_self_rested_impl(state, me, atk_idx, true);
+                state.last_ko_by_opp_effect = prev_ko_by_opp;
+                r?;
+            }
             // 【アタック時】(on_attack) 発火 (game.py:1467、 costless slice のみ、 未対応は Err で bail)
             // ⚠ on_attack でアタッカー自身が場を離れる (自 trash / 自 KO) ことがある。 Python は
             //   attacker を object 参照で保持して以降も同じ実体を読むが、 Rust は位置 index なので
@@ -884,6 +910,10 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     reset_battle_buffs(state); // target 消失 = 空打ち (game.py:1484)
                     return Ok(());
                 }
+                // 対象変更先が **キャラ** = リーダーはキャラとバトルした (cardqa_op_12 / OP12-020)
+                if is_leader {
+                    state.players[me].leader_battled_opp_chara_this_turn = true;
+                }
                 // カウンターフェイズ: counter events (defender=opp) → counter cards。
                 // 公式 (cardqa_st_02): 当事者が場を離れていたら **カウンターステップもスキップ**
                 // される (= カウンター札を無駄に消費しない)。 game.py と対。
@@ -931,6 +961,11 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             let mut is_blocked = false;
             let mut blk_idx = 0usize;
             if let Some(bi) = blocker_idx {
+                // ブロッカーは **キャラ** なので、 リーダーのアタックなら 「キャラとバトル」
+                // (cardqa_op_12 / OP12-020。 Python game.py の actual_target = blocker と同位置)。
+                if is_leader && bi < state.players[opp].characters.len() {
+                    state.players[me].leader_battled_opp_chara_this_turn = true;
+                }
                 let valid = bi < state.players[opp].characters.len() && {
                     let b = &state.players[opp].characters[bi];
                     !b.rested && b.is_blocker_now() && !b.blocker_disabled_until_turn_end
@@ -1042,6 +1077,15 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     }
                     let taken = state.players[opp].life.remove(0);
                     state.players[opp].life_lost_this_turn = true;
+                    // ⭐ 公式 (cardqa_op_05 / OP05-098 エネル): 「自分のライフが0枚になった時」 は
+                    //   **0 になった瞬間の事象**。 この後 ライフ札の【トリガー】でライフが戻っても
+                    //   発動できる。 Python game.py:_resolve_life_taken 冒頭と同位置で発火する。
+                    if state.players[opp].life.is_empty() {
+                        let lcid0 = state.players[opp].leader.card.card_id.clone();
+                        if crate::effects::card_has_when(&lcid0, "on_life_zero") {
+                            crate::effects::fire_on_life_zero(state, opp)?;
+                        }
+                    }
                     let cid = taken.card_id.clone();
                     if is_banish {
                         // バニッシュ = trash 直行、 _resolve_life_taken を通らない = life 移動 trigger 無
@@ -1162,6 +1206,15 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 state.players[me].leader.rested = true;
             } else {
                 state.players[me].characters[atk_idx].rested = true;
+            }
+            // 「このキャラがレストになった時」(on_self_rested): アタック宣言でレスト → 発火
+            // (公式 cardqa_op_14 677c149d0045)。 char attacker のみ、 自己起因 = by_opp_effect=false。
+            if !is_leader {
+                let prev_ko_by_opp = state.last_ko_by_opp_effect;
+                state.last_ko_by_opp_effect = false;
+                let r = crate::effects::fire_on_self_rested_impl(state, me, atk_idx, true);
+                state.last_ko_by_opp_effect = prev_ko_by_opp;
+                r?;
             }
             // 【アタック時】(on_attack) 発火 (costless slice のみ、 未対応は Err)
             // ⚠ on_attack でアタッカー自身が場を離れる (自 trash / 自 KO) ことがある。 Python は
@@ -1326,6 +1379,11 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                         }
                     }
                 }
+            }
+            // リーダーが **キャラ** とバトルする局面を記録 (cardqa_op_12 / OP12-020、
+            // Python game.py の Pre-counter snapshot と同位置)。
+            if is_leader {
+                state.players[me].leader_battled_opp_chara_this_turn = true;
             }
             // === カウンター: counter events → counter cards ===
             // ⚠ 【カウンター】イベントが盤面を動かす (KO / バウンス) と actual_idx が stale になる。

@@ -481,6 +481,21 @@
  ],
  "EB02-019": [
   {
+   "_text": "EB02-019 常在: 「相手のキャラが2枚以上いる場合、 このキャラは登場したターンにキャラへアタックできる」 [2026-08-08 実装: 条件は都度再評価 = アタック時点で判定 (cardqa_eb_02: 登場時2枚→その後1枚 なら不可)]",
+   "when": "on_attached_don",
+   "n": 0,
+   "do": [
+    {
+     "static_self_attack_chara_if": {
+      "opp_chara_filtered_count_ge": {
+       "filter": {},
+       "count": 2
+      }
+     }
+    }
+   ]
+  },
+  {
    "_text": "EB02-019 on_play: 自分のリーダーが特徴《麦わらの一味》を持つ場合、相手のコスト4以下のキャラ1枚までを、レストにする。",
    "when": "on_play",
    "do": [
@@ -2211,11 +2226,13 @@
     }
    ],
    "if": {
-    "self_attached_don_ge": 3
+    "self_attached_don_ge": 3,
+    "self_leader_battled_opp_chara_this_turn": true
    },
    "cost": {
     "once_per_turn": true
-   }
+   },
+   "_doc": "公式 (cardqa_op_12): 「このターン中、 このリーダーが **相手のキャラと** バトルしている場合」 が発動条件。 ブロッカーやアタック対象変更で **リーダーと** バトルした場合は発動できない (= 実際にバトルした相手で判定)。 2026-08-10 追加。"
   }
  ],
  "OP12-061": [
@@ -2242,14 +2259,14 @@
    "cost": [
     {
      "once_per_turn": true
-    }
-   ],
-   "do": [
+    },
     {
      "life_to_hand": 1
     }
    ],
-   "optional": true
+   "do": [],
+   "optional": true,
+   "_doc": "「代わりに<pay>できる/てもよい」は置換の発動コスト。do に置くと払えない局面 (手札/ライフ/ドン不足) でも支払わず置換成立していた (cardqa_st_22 一般則: コストを全額払えない場合その効果は発動できない)。2026-08-09 sweep で cost へ移動。"
   }
  ],
  "OP13-001": [
@@ -2757,7 +2774,7 @@
  ],
  "OP15-098": [
   {
-   "_text": "空島ルフィ replace_ko: 空島P6000+ が相手効果で離れる時、代わりにライフ手札",
+   "_text": "空島ルフィ replace_ko: 空島P6000+ が相手効果で離れる時、代わりにライフ手札 [2026-08-08 同時離脱 dedup 是正: 支払いを do → cost へ移動。 公式 cardqa_op_15 = 2枚同時離脱でも支払いは1回で両方残す。 do は victim ごとに走るので dedup が効かない]",
    "when": "replace_leave",
    "if": {
     "target": "any_self_chara",
@@ -2765,12 +2782,13 @@
     "by_opp_effect": true,
     "target_truly_original_power_ge": 6000
    },
-   "do": [
+   "do": [],
+   "optional": true,
+   "cost": [
     {
      "life_to_hand": 1
     }
-   ],
-   "optional": true
+   ]
   }
  ],
  "P-081": [
@@ -9701,11 +9719,14 @@
  ],
  "OP14-061": [
   {
-   "_text": "OP14-061 ヴェルゴ 置換 (ターン1回): 自ドフラ海賊団キャラが相手効果で場離れる時、 ドン1ドンデッキへ",
+   "_text": "OP14-061 ヴェルゴ 置換 (ターン1回): 自ドフラ海賊団キャラが相手効果で場離れる時、 ドン1ドンデッキへ [同時離脱1回化: return_self_don_to_deck を cost へ (cardqa_op_15)]",
    "when": "replace_leave",
    "cost": [
     {
      "once_per_turn": true
+    },
+    {
+     "return_self_don_to_deck": 1
     }
    ],
    "if": {
@@ -9713,11 +9734,7 @@
     "target_feature": "ドンキホーテ海賊団",
     "by_opp_effect": true
    },
-   "do": [
-    {
-     "return_self_don_to_deck": 1
-    }
-   ],
+   "do": [],
    "optional": true
   },
   {
@@ -10055,7 +10072,7 @@
    ]
   },
   {
-   "_text": "ワイパー (黄 cost5) 起動メイン: 空島キャラにドン1付与",
+   "_text": "OP15-114 activate_main: 【ターン1回】自分の特徴《空島》を持つ、リーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
    "when": "activate_main",
    "cost": {
     "once_per_turn": true
@@ -10063,7 +10080,7 @@
    "do": [
     {
      "attach_rested_don": {
-      "target": "self_leader",
+      "target": "one_self_inplay_feature_空島",
       "count": 1
      }
     }
@@ -10151,7 +10168,7 @@
    ]
   },
   {
-   "_text": "OP15-023 activate_main: 【ターン1回】相手のキャラ1枚に相手のレストのドン‼1枚を付与できる：リーダーかキャラ1枚に持ち主のコストエリアのドン‼1枚までを、付与する。",
+   "_text": "OP15-023 activate_main: 【ターン1回】相手のキャラ1枚に相手のレストのドン‼1枚を付与できる：リーダーかキャラ1枚に持ち主のコストエリアのドン‼1枚までを、付与する。 [両陣営是正 2026-08-08: 「持ち主のコストエリアのドン」修飾なし=両陣営 (cardqa_op_15)。OP15-003/010/017 のレストドン是正 2026-08-06 が コストエリア variant を取りこぼしていた]",
    "when": "activate_main",
    "cost": {
     "once_per_turn": true
@@ -10169,9 +10186,10 @@
       "effect": [
        {
         "attach_rested_don": {
-         "target": "self_inplay_choice",
+         "target": "one_team_any_either",
          "count": 1,
-         "from_cost_area": true
+         "from_cost_area": true,
+         "owner_of_target": true
         }
        }
       ]
@@ -10662,14 +10680,14 @@
    "cost": [
     {
      "once_per_turn": true
-    }
-   ],
-   "do": [
+    },
     {
      "trash_self_hand_random": 1
     }
    ],
-   "optional": true
+   "do": [],
+   "optional": true,
+   "_doc": "「代わりに<pay>できる/てもよい」は置換の発動コスト。do に置くと払えない局面 (手札/ライフ/ドン不足) でも支払わず置換成立していた (cardqa_st_22 一般則: コストを全額払えない場合その効果は発動できない)。2026-08-09 sweep で cost へ移動。"
   },
   {
    "_text": "EB04-044 on_opp_chara_ko (自ターン中): 相手キャラ KO 時 1 ドロー",
@@ -11222,12 +11240,12 @@
  ],
  "EB03-045": [
   {
-   "_text": "ペローナ (緑 cost4) ブロッカー+登場時: 自リーダーにドン1付与",
+   "_text": "EB03-045 on_play: 【ブロッカー】【登場時】自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
    "when": "on_play",
    "do": [
     {
      "attach_rested_don": {
-      "target": "self_leader",
+      "target": "self_inplay_choice",
       "count": 1
      }
     }
@@ -11247,7 +11265,8 @@
        "feature": "スリラーバーク海賊団",
        "cost_le": 2
       },
-      "limit": 1
+      "limit": 1,
+      "rested": true
      }
     }
    ]
@@ -12532,19 +12551,20 @@
  ],
  "OP15-090": [
   {
-   "_text": "ペローナ replace_ko: 自分のパワー7000以下が相手効果で離れる場合、手札捨て1で代替",
+   "_text": "ペローナ replace_ko: 自分のパワー7000以下が相手効果で離れる場合、手札捨て1で代替 [2026-08-08 同時離脱 dedup 是正: 支払いを do → cost へ移動。 公式 cardqa_op_15 = 2枚同時離脱でも支払いは1回で両方残す。 do は victim ごとに走るので dedup が効かない]",
    "when": "replace_leave",
    "if": {
     "target": "any_self_chara",
     "by_opp_effect": true,
     "target_truly_original_power_le": 7000
    },
-   "do": [
+   "do": [],
+   "optional": true,
+   "cost": [
     {
      "trash_self_hand_random": 1
     }
-   ],
-   "optional": true
+   ]
   }
  ],
  "OP10-011": [
@@ -13042,8 +13062,9 @@
  "OP05-001_p2": [
   {
    "_text": "OP05-001_p2 【ドン!!×1】【相手のターン中】【ターン1回】自分のパワー5000以上のキャラがKOされる場合、そのキャラはKOされる代わりに、このターン中、パワー-1000できる。",
-   "_doc": "公式テキストは素の 「パワー5000以上」 = **現在パワー** で判定する (ルール 4-9 が定義するのは 「元々の」 の意味だけで、 素の表記を印刷値に する根拠ではない。 cardqa: 「元々のパワーが6000以下のキャラが効果で7000以上 となっている場合…KOできますか？」→「いいえ。現在のパワーが6000以下の キャラをKOできます」)。 2026-08-04 に印刷値判定から是正。",
+   "_doc": "公式テキストは素の 「パワー5000以上」 = **現在パワー** で判定する (ルール 4-9 が定義するのは 「元々の」 の意味だけで、 素の表記を印刷値に する根拠ではない。 cardqa: 「元々のパワーが6000以下のキャラが効果で7000以上 となっている場合…KOできますか？」→「いいえ。現在のパワーが6000以下の キャラをKOできます」)。 2026-08-04 に印刷値判定から是正。 ⭐ 公式 (cardqa_op_05): 「代わりに…パワー-1000 **できる**」 = 任意。 代わりの処理を **しないことを選べる** し、 その場合は 『解決していない』 ので 【ターン1回】 を消費せず、 同ターンの次の 5000以上KO で再度使える (公式=はい)。 2026-08-10 に optional:true を追加 (engine は replace_ko_optional modal と 『支払い時のみ once 消費』 を既に実装済 = overlay の欠落だった)。",
    "when": "replace_ko",
+   "optional": true,
    "if": {
     "target": "any_self_chara",
     "target_power_ge": 5000,
@@ -13434,13 +13455,22 @@
    "do": [
     {
      "attach_rested_don": {
-      "target": "all_self_team",
+      "target": {
+       "type": "all_self_chara_filtered",
+       "filter": {
+        "feature_in": [
+         "動物",
+         "ドラム王国"
+        ]
+       }
+      },
       "count": 1,
       "per_target": true,
       "max_targets": 3
      }
     }
-   ]
+   ],
+   "_doc": "公式は 「自分の **特徴《動物》か《ドラム王国》を持つキャラ** 3枚までにレストのドン‼1枚ずつまでを付与」。 旧 overlay は target が all_self_team (= 特徴フィルタ無し + **リーダーも対象**) で、 対象外キャラやリーダーにも ドンを付与していた = 公式違反 (2026-08-10 是正、 cardqa_op_08 の裁定中に発覚)。 「1枚ずつまで」 は per_target:true + count:1、 「3枚まで」 は max_targets:3。"
   }
  ],
  "OP08-002_p2": [
@@ -14516,11 +14546,13 @@
     }
    ],
    "if": {
-    "self_attached_don_ge": 3
+    "self_attached_don_ge": 3,
+    "self_leader_battled_opp_chara_this_turn": true
    },
    "cost": {
     "once_per_turn": true
-   }
+   },
+   "_doc": "公式 (cardqa_op_12): 「このターン中、 このリーダーが **相手のキャラと** バトルしている場合」 が発動条件。 ブロッカーやアタック対象変更で **リーダーと** バトルした場合は発動できない (= 実際にバトルした相手で判定)。 2026-08-10 追加。"
   }
  ],
  "OP12-041_p1": [
@@ -14582,14 +14614,14 @@
    "cost": [
     {
      "once_per_turn": true
-    }
-   ],
-   "do": [
+    },
     {
      "life_to_hand": 1
     }
    ],
-   "optional": true
+   "do": [],
+   "optional": true,
+   "_doc": "「代わりに<pay>できる/てもよい」は置換の発動コスト。do に置くと払えない局面 (手札/ライフ/ドン不足) でも支払わず置換成立していた (cardqa_st_22 一般則: コストを全額払えない場合その効果は発動できない)。2026-08-09 sweep で cost へ移動。"
   }
  ],
  "OP11-021": [
@@ -15461,13 +15493,22 @@
    "do": [
     {
      "attach_rested_don": {
-      "target": "all_self_team",
+      "target": {
+       "type": "all_self_chara_filtered",
+       "filter": {
+        "feature_in": [
+         "動物",
+         "ドラム王国"
+        ]
+       }
+      },
       "count": 1,
       "per_target": true,
       "max_targets": 3
      }
     }
-   ]
+   ],
+   "_doc": "公式は 「自分の **特徴《動物》か《ドラム王国》を持つキャラ** 3枚までにレストのドン‼1枚ずつまでを付与」。 旧 overlay は target が all_self_team (= 特徴フィルタ無し + **リーダーも対象**) で、 対象外キャラやリーダーにも ドンを付与していた = 公式違反 (2026-08-10 是正、 cardqa_op_08 の裁定中に発覚)。 「1枚ずつまで」 は per_target:true + count:1、 「3枚まで」 は max_targets:3。"
   }
  ],
  "OP08-001_p1": [
@@ -15480,13 +15521,22 @@
    "do": [
     {
      "attach_rested_don": {
-      "target": "all_self_team",
+      "target": {
+       "type": "all_self_chara_filtered",
+       "filter": {
+        "feature_in": [
+         "動物",
+         "ドラム王国"
+        ]
+       }
+      },
       "count": 1,
       "per_target": true,
       "max_targets": 3
      }
     }
-   ]
+   ],
+   "_doc": "公式は 「自分の **特徴《動物》か《ドラム王国》を持つキャラ** 3枚までにレストのドン‼1枚ずつまでを付与」。 旧 overlay は target が all_self_team (= 特徴フィルタ無し + **リーダーも対象**) で、 対象外キャラやリーダーにも ドンを付与していた = 公式違反 (2026-08-10 是正、 cardqa_op_08 の裁定中に発覚)。 「1枚ずつまで」 は per_target:true + count:1、 「3枚まで」 は max_targets:3。"
   }
  ],
  "OP08-002": [
@@ -16184,8 +16234,9 @@
  "OP05-001": [
   {
    "_text": "OP05-001 【ドン!!×1】【相手のターン中】【ターン1回】自分のパワー5000以上のキャラがKOされる場合、そのキャラはKOされる代わりに、このターン中、パワー-1000できる。",
-   "_doc": "公式テキストは素の 「パワー5000以上」 = **現在パワー** で判定する (ルール 4-9 が定義するのは 「元々の」 の意味だけで、 素の表記を印刷値に する根拠ではない。 cardqa: 「元々のパワーが6000以下のキャラが効果で7000以上 となっている場合…KOできますか？」→「いいえ。現在のパワーが6000以下の キャラをKOできます」)。 2026-08-04 に印刷値判定から是正。",
+   "_doc": "公式テキストは素の 「パワー5000以上」 = **現在パワー** で判定する (ルール 4-9 が定義するのは 「元々の」 の意味だけで、 素の表記を印刷値に する根拠ではない。 cardqa: 「元々のパワーが6000以下のキャラが効果で7000以上 となっている場合…KOできますか？」→「いいえ。現在のパワーが6000以下の キャラをKOできます」)。 2026-08-04 に印刷値判定から是正。 ⭐ 公式 (cardqa_op_05): 「代わりに…パワー-1000 **できる**」 = 任意。 代わりの処理を **しないことを選べる** し、 その場合は 『解決していない』 ので 【ターン1回】 を消費せず、 同ターンの次の 5000以上KO で再度使える (公式=はい)。 2026-08-10 に optional:true を追加 (engine は replace_ko_optional modal と 『支払い時のみ once 消費』 を既に実装済 = overlay の欠落だった)。",
    "when": "replace_ko",
+   "optional": true,
    "if": {
     "target": "any_self_chara",
     "target_power_ge": 5000,
@@ -16212,8 +16263,9 @@
  "OP05-001_p1": [
   {
    "_text": "OP05-001_p1 【ドン!!×1】【相手のターン中】【ターン1回】自分のパワー5000以上のキャラがKOされる場合、そのキャラはKOされる代わりに、このターン中、パワー-1000できる。",
-   "_doc": "公式テキストは素の 「パワー5000以上」 = **現在パワー** で判定する (ルール 4-9 が定義するのは 「元々の」 の意味だけで、 素の表記を印刷値に する根拠ではない。 cardqa: 「元々のパワーが6000以下のキャラが効果で7000以上 となっている場合…KOできますか？」→「いいえ。現在のパワーが6000以下の キャラをKOできます」)。 2026-08-04 に印刷値判定から是正。",
+   "_doc": "公式テキストは素の 「パワー5000以上」 = **現在パワー** で判定する (ルール 4-9 が定義するのは 「元々の」 の意味だけで、 素の表記を印刷値に する根拠ではない。 cardqa: 「元々のパワーが6000以下のキャラが効果で7000以上 となっている場合…KOできますか？」→「いいえ。現在のパワーが6000以下の キャラをKOできます」)。 2026-08-04 に印刷値判定から是正。 ⭐ 公式 (cardqa_op_05): 「代わりに…パワー-1000 **できる**」 = 任意。 代わりの処理を **しないことを選べる** し、 その場合は 『解決していない』 ので 【ターン1回】 を消費せず、 同ターンの次の 5000以上KO で再度使える (公式=はい)。 2026-08-10 に optional:true を追加 (engine は replace_ko_optional modal と 『支払い時のみ once 消費』 を既に実装済 = overlay の欠落だった)。",
    "when": "replace_ko",
+   "optional": true,
    "if": {
     "target": "any_self_chara",
     "target_power_ge": 5000,
@@ -18675,11 +18727,13 @@
     }
    ],
    "if": {
-    "self_attached_don_ge": 3
+    "self_attached_don_ge": 3,
+    "self_leader_battled_opp_chara_this_turn": true
    },
    "cost": {
     "once_per_turn": true
-   }
+   },
+   "_doc": "公式 (cardqa_op_12): 「このターン中、 このリーダーが **相手のキャラと** バトルしている場合」 が発動条件。 ブロッカーやアタック対象変更で **リーダーと** バトルした場合は発動できない (= 実際にバトルした相手で判定)。 2026-08-10 追加。"
   }
  ],
  "OP13-001_p1": [
@@ -19063,13 +19117,22 @@
    "do": [
     {
      "attach_rested_don": {
-      "target": "all_self_team",
+      "target": {
+       "type": "all_self_chara_filtered",
+       "filter": {
+        "feature_in": [
+         "動物",
+         "ドラム王国"
+        ]
+       }
+      },
       "count": 1,
       "per_target": true,
       "max_targets": 3
      }
     }
-   ]
+   ],
+   "_doc": "公式は 「自分の **特徴《動物》か《ドラム王国》を持つキャラ** 3枚までにレストのドン‼1枚ずつまでを付与」。 旧 overlay は target が all_self_team (= 特徴フィルタ無し + **リーダーも対象**) で、 対象外キャラやリーダーにも ドンを付与していた = 公式違反 (2026-08-10 是正、 cardqa_op_08 の裁定中に発覚)。 「1枚ずつまで」 は per_target:true + count:1、 「3枚まで」 は max_targets:3。"
   }
  ],
  "OP08-002_p3": [
@@ -19215,11 +19278,13 @@
     }
    ],
    "if": {
-    "self_attached_don_ge": 3
+    "self_attached_don_ge": 3,
+    "self_leader_battled_opp_chara_this_turn": true
    },
    "cost": {
     "once_per_turn": true
-   }
+   },
+   "_doc": "公式 (cardqa_op_12): 「このターン中、 このリーダーが **相手のキャラと** バトルしている場合」 が発動条件。 ブロッカーやアタック対象変更で **リーダーと** バトルした場合は発動できない (= 実際にバトルした相手で判定)。 2026-08-10 追加。"
   }
  ],
  "P-011_p1": [
@@ -19315,7 +19380,7 @@
  ],
  "OP15-098_p1": [
   {
-   "_text": "空島ルフィ replace_ko: 空島P6000+ が相手効果で離れる時、代わりにライフ手札",
+   "_text": "空島ルフィ replace_ko: 空島P6000+ が相手効果で離れる時、代わりにライフ手札 [2026-08-08 同時離脱 dedup 是正: 支払いを do → cost へ移動。 公式 cardqa_op_15 = 2枚同時離脱でも支払いは1回で両方残す。 do は victim ごとに走るので dedup が効かない]",
    "when": "replace_leave",
    "if": {
     "target": "any_self_chara",
@@ -19323,12 +19388,13 @@
     "by_opp_effect": true,
     "target_truly_original_power_ge": 6000
    },
-   "do": [
+   "do": [],
+   "optional": true,
+   "cost": [
     {
      "life_to_hand": 1
     }
-   ],
-   "optional": true
+   ]
   }
  ],
  "OP13-003_p1": [
@@ -22459,15 +22525,32 @@
  "EB01-011": [
   {
    "_text": "EB01-011 activate_main: このカードをレストにし、自分の元々のパワー1000のキャラ1枚をデッキの下に置くことができる：カード1枚を引く。",
+   "_doc": "コロン前=発動コスト(self rest + 元々パワー1000の自キャラ1枚をデッキ下)。overlay に後者が無く draw をタダ撃ちできた (cardqa_eb_01, 2026-08-09 是正)。「元々のパワー1000」=印刷値=truly_original_power_eq (ドン付与で現在2000+でも対象に取れる)。rest_self を optional_cost_then 内に入れ、有効な対象キャラが居ない時は発動自体を不成立にする (ST07-017 の precedent)。",
    "when": "activate_main",
    "do": [
     {
-     "draw": 1
+     "optional_cost_then": {
+      "cost": [
+       {
+        "rest_self": true
+       },
+       {
+        "return_self_chara_to_deck_bottom": {
+         "count": 1,
+         "filter": {
+          "truly_original_power_eq": 1000
+         }
+        }
+       }
+      ],
+      "effect": [
+       {
+        "draw": 1
+       }
+      ]
+     }
     }
-   ],
-   "cost": {
-    "rest_self": true
-   }
+   ]
   }
  ],
  "EB01-029": [
@@ -26236,11 +26319,9 @@
           "cost_le": 4,
           "feature": "革命軍"
          },
-         "limit": 1
+         "limit": 1,
+         "then_draw": 1
         }
-       },
-       {
-        "draw": 1
        }
       ]
      }
@@ -34484,14 +34565,14 @@
    "cost": [
     {
      "once_per_turn": true
-    }
-   ],
-   "do": [
+    },
     {
      "trash_self_hand_random": 1
     }
    ],
-   "optional": true
+   "do": [],
+   "optional": true,
+   "_doc": "「代わりに<pay>できる/てもよい」は置換の発動コスト。do に置くと払えない局面 (手札/ライフ/ドン不足) でも支払わず置換成立していた (cardqa_st_22 一般則: コストを全額払えない場合その効果は発動できない)。2026-08-09 sweep で cost へ移動。"
   },
   {
    "_text": "EB04-044_p1 on_opp_chara_ko (自ターン中): 相手キャラ KO 時 1 ドロー",
@@ -34520,14 +34601,14 @@
    "cost": [
     {
      "once_per_turn": true
-    }
-   ],
-   "do": [
+    },
     {
      "trash_self_hand_random": 1
     }
    ],
-   "optional": true
+   "do": [],
+   "optional": true,
+   "_doc": "「代わりに<pay>できる/てもよい」は置換の発動コスト。do に置くと払えない局面 (手札/ライフ/ドン不足) でも支払わず置換成立していた (cardqa_st_22 一般則: コストを全額払えない場合その効果は発動できない)。2026-08-09 sweep で cost へ移動。"
   },
   {
    "_text": "EB04-044_p2 on_opp_chara_ko (自ターン中): 相手キャラ KO 時 1 ドロー",
@@ -34885,12 +34966,12 @@
  ],
  "EB03-045_p1": [
   {
-   "_text": "ペローナ (緑 cost4) ブロッカー+登場時: 自リーダーにドン1付与",
+   "_text": "EB03-045 on_play: 【ブロッカー】【登場時】自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
    "when": "on_play",
    "do": [
     {
      "attach_rested_don": {
-      "target": "self_leader",
+      "target": "self_inplay_choice",
       "count": 1
      }
     }
@@ -34910,7 +34991,8 @@
        "feature": "スリラーバーク海賊団",
        "cost_le": 2
       },
-      "limit": 1
+      "limit": 1,
+      "rested": true
      }
     }
    ]
@@ -35090,12 +35172,12 @@
  ],
  "EB03-045_p2": [
   {
-   "_text": "ペローナ (緑 cost4) ブロッカー+登場時: 自リーダーにドン1付与",
+   "_text": "EB03-045 on_play: 【ブロッカー】【登場時】自分のリーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
    "when": "on_play",
    "do": [
     {
      "attach_rested_don": {
-      "target": "self_leader",
+      "target": "self_inplay_choice",
       "count": 1
      }
     }
@@ -35115,7 +35197,8 @@
        "feature": "スリラーバーク海賊団",
        "cost_le": 2
       },
-      "limit": 1
+      "limit": 1,
+      "rested": true
      }
     }
    ]
@@ -36168,7 +36251,7 @@
    ]
   },
   {
-   "_text": "ワイパー (黄 cost5) 起動メイン: 空島キャラにドン1付与",
+   "_text": "OP15-114 activate_main: 【ターン1回】自分の特徴《空島》を持つ、リーダーかキャラ1枚にレストのドン‼1枚までを、付与する。",
    "when": "activate_main",
    "cost": {
     "once_per_turn": true
@@ -36176,7 +36259,7 @@
    "do": [
     {
      "attach_rested_don": {
-      "target": "self_leader",
+      "target": "one_self_inplay_feature_空島",
       "count": 1
      }
     }
@@ -36697,11 +36780,14 @@
  ],
  "OP14-061_p1": [
   {
-   "_text": "OP14-061_p1 ヴェルゴ 置換 (ターン1回): 自ドフラ海賊団キャラが相手効果で場離れる時、 ドン1ドンデッキへ",
+   "_text": "OP14-061_p1 ヴェルゴ 置換 (ターン1回): 自ドフラ海賊団キャラが相手効果で場離れる時、 ドン1ドンデッキへ [同時離脱1回化: return_self_don_to_deck を cost へ (cardqa_op_15)]",
    "when": "replace_leave",
    "cost": [
     {
      "once_per_turn": true
+    },
+    {
+     "return_self_don_to_deck": 1
     }
    ],
    "if": {
@@ -36709,11 +36795,7 @@
     "target_feature": "ドンキホーテ海賊団",
     "by_opp_effect": true
    },
-   "do": [
-    {
-     "return_self_don_to_deck": 1
-    }
-   ],
+   "do": [],
    "optional": true
   },
   {
@@ -39605,11 +39687,9 @@
           "cost_le": 4,
           "feature": "革命軍"
          },
-         "limit": 1
+         "limit": 1,
+         "then_draw": 1
         }
-       },
-       {
-        "draw": 1
        }
       ]
      }
@@ -43148,6 +43228,21 @@
  ],
  "EB02-019_p1": [
   {
+   "_text": "EB02-019 常在: 「相手のキャラが2枚以上いる場合、 このキャラは登場したターンにキャラへアタックできる」 [2026-08-08 実装: 条件は都度再評価 = アタック時点で判定 (cardqa_eb_02: 登場時2枚→その後1枚 なら不可)]",
+   "when": "on_attached_don",
+   "n": 0,
+   "do": [
+    {
+     "static_self_attack_chara_if": {
+      "opp_chara_filtered_count_ge": {
+       "filter": {},
+       "count": 2
+      }
+     }
+    }
+   ]
+  },
+  {
    "_text": "EB02-019_p1 on_play: 自分のリーダーが特徴《麦わらの一味》を持つ場合、相手のコスト4以下のキャラ1枚までを、レストにする。",
    "when": "on_play",
    "do": [
@@ -43161,6 +43256,21 @@
   }
  ],
  "EB02-019_p2": [
+  {
+   "_text": "EB02-019 常在: 「相手のキャラが2枚以上いる場合、 このキャラは登場したターンにキャラへアタックできる」 [2026-08-08 実装: 条件は都度再評価 = アタック時点で判定 (cardqa_eb_02: 登場時2枚→その後1枚 なら不可)]",
+   "when": "on_attached_don",
+   "n": 0,
+   "do": [
+    {
+     "static_self_attack_chara_if": {
+      "opp_chara_filtered_count_ge": {
+       "filter": {},
+       "count": 2
+      }
+     }
+    }
+   ]
+  },
   {
    "_text": "EB02-019_p2 on_play: 自分のリーダーが特徴《麦わらの一味》を持つ場合、相手のコスト4以下のキャラ1枚までを、レストにする。",
    "when": "on_play",
@@ -53045,13 +53155,16 @@
    }
   },
   {
-   "_text": "OP02-089_p1 trigger: 相手の場にドン‼が6枚以上ある場合、相手は自身の場のドン‼1枚をドン‼デッキに戻す。",
+   "_text": "OP02-089_p1 trigger: 相手の場にドン‼が6枚以上ある場合、相手は自身の場のドン‼1枚をドン‼デッキに戻す。 [gate是正 2026-08-09: 素カード OP02-089 と同様 if(opp_don_count_ge 6) 欠落を追加]",
    "when": "trigger",
    "do": [
     {
      "return_opp_don": 1
     }
-   ]
+   ],
+   "if": {
+    "opp_don_count_ge": 6
+   }
   }
  ],
  "OP02-089_p2": [
@@ -53072,13 +53185,16 @@
    }
   },
   {
-   "_text": "OP02-089_p2 trigger: 相手の場にドン‼が6枚以上ある場合、相手は自身の場のドン‼1枚をドン‼デッキに戻す。",
+   "_text": "OP02-089_p2 trigger: 相手の場にドン‼が6枚以上ある場合、相手は自身の場のドン‼1枚をドン‼デッキに戻す。 [gate是正 2026-08-09: 素カード OP02-089 と同様 if(opp_don_count_ge 6) 欠落を追加]",
    "when": "trigger",
    "do": [
     {
      "return_opp_don": 1
     }
-   ]
+   ],
+   "if": {
+    "opp_don_count_ge": 6
+   }
   }
  ],
  "OP02-089_p3": [
@@ -53099,13 +53215,16 @@
    }
   },
   {
-   "_text": "OP02-089_p3 trigger: 相手の場にドン‼が6枚以上ある場合、相手は自身の場のドン‼1枚をドン‼デッキに戻す。",
+   "_text": "OP02-089_p3 trigger: 相手の場にドン‼が6枚以上ある場合、相手は自身の場のドン‼1枚をドン‼デッキに戻す。 [gate是正 2026-08-09: 素カード OP02-089 と同様 if(opp_don_count_ge 6) 欠落を追加]",
    "when": "trigger",
    "do": [
     {
      "return_opp_don": 1
     }
-   ]
+   ],
+   "if": {
+    "opp_don_count_ge": 6
+   }
   }
  ],
  "OP02-089_r1": [
@@ -53126,13 +53245,16 @@
    }
   },
   {
-   "_text": "OP02-089_r1 trigger: 相手の場にドン‼が6枚以上ある場合、相手は自身の場のドン‼1枚をドン‼デッキに戻す。",
+   "_text": "OP02-089_r1 trigger: 相手の場にドン‼が6枚以上ある場合、相手は自身の場のドン‼1枚をドン‼デッキに戻す。 [gate是正 2026-08-09: 素カード OP02-089 と同様 if(opp_don_count_ge 6) 欠落を追加]",
    "when": "trigger",
    "do": [
     {
      "return_opp_don": 1
     }
-   ]
+   ],
+   "if": {
+    "opp_don_count_ge": 6
+   }
   }
  ],
  "OP02-096_r1": [
@@ -57641,12 +57763,14 @@
   {
    "_text": "EB04-030 replace_ko: KOされる場合、代わりに自分の場のドン‼1枚をドン‼デッキに戻すことができる。",
    "when": "replace_ko",
-   "do": [
+   "cost": [
     {
      "return_self_don_to_deck": 1
     }
    ],
-   "optional": true
+   "do": [],
+   "optional": true,
+   "_doc": "「代わりに<pay>できる/てもよい」は置換の発動コスト。do に置くと払えない局面 (手札/ライフ/ドン不足) でも支払わず置換成立していた (cardqa_st_22 一般則: コストを全額払えない場合その効果は発動できない)。2026-08-09 sweep で cost へ移動。"
   },
   {
    "_text": "EB04-030 on_play: ドン‼-2：自分のリーダーが特徴《百獣海賊団》を持つ場合、このキャラは、このターン中、【速攻】を得る。その後、相手のコスト7以下のキャラ1枚までを、レストにする [cost-not-gated] 「：」以前は発動コスト (cardqa_st_06)。 コロン後の条件は効果のみを gate し、 コストは条件不成立でも支払える (cardqa_op_02 / cardqa_st_04 / cardqa_op_08)。",
@@ -69148,7 +69272,7 @@
  ],
  "OP10-087": [
   {
-   "_text": "OP10-087 activate_main: このキャラと自分の特徴《ドレスローザ》を持つ、リーダーかステージ1枚を、レストにできる：相手の手札が5枚以上ある場合、相手は自身の手札1枚を捨てる。その後、自分 [chooser是正 2026-08-07: 公式「相手は自身の手札を捨てる」= 手札の持ち主が選ぶ (cardqa_op_01/st_18)。ランダムではない]",
+   "_text": "OP10-087 activate_main: このキャラと自分の特徴《ドレスローザ》を持つ、リーダーかステージ1枚を、レストにできる：相手の手札が5枚以上ある場合、相手は自身の手札1枚を捨てる。その後、自分 [gate是正 2026-08-09: 公式 cardqa_op_10 670c9ed2c408「相手の手札が4枚以下の場合、デッキ上2枚トラッシュできますか」→「いいえ、できません」= 条件「相手の手札5枚以上」は その後のミルまでを gate する。以前 mill_self_top が conditional の外にありタダ撃ちできていた] [chooser是正 2026-08-07: 相手は自身の手札を捨てる = 持ち主が選ぶ]",
    "when": "activate_main",
    "do": [
     {
@@ -69175,12 +69299,12 @@
          "do": [
           {
            "opp_discard_own_choice": 1
+          },
+          {
+           "mill_self_top": 2
           }
          ]
         }
-       },
-       {
-        "mill_self_top": 2
        }
       ]
      }
@@ -71745,12 +71869,17 @@
    ]
   },
   {
-   "_text": "OP08-039 end_of_turn: 自分の特徴《ミンク族》を持つキャラ1枚までを、アクティブにする。",
+   "_text": "OP08-039 end_of_turn: 自分の特徴《ミンク族》を持つキャラ1枚までを、アクティブにする。 [対象は特徴《ミンク族》限定 (cardqa_op_08、 2026-08-10 是正: 旧 one_self_character_any は非ミンク族も対象にできた)]",
    "when": "end_of_turn",
    "do": [
     {
      "untap_chara": {
-      "target": "one_self_character_any",
+      "target": {
+       "type": "one_self_chara_filtered",
+       "filter": {
+        "feature": "ミンク族"
+       }
+      },
       "limit": 1
      }
     }
@@ -75216,20 +75345,40 @@
    "when": "activate_main",
    "do": [
     {
-     "return_to_deck_bottom": "one_opponent_character_any_cost_le_2"
-    },
-    {
-     "power_pump": {
-      "target": "self",
-      "amount": 3000,
-      "duration": "turn"
+     "optional_cost_then": {
+      "cost": [
+       {
+        "discard_hand": 1
+       },
+       {
+        "return_to_deck_bottom": {
+         "type": "one_inplay_either_filtered",
+         "filter": {
+          "category_in": [
+           "CHARACTER"
+          ],
+          "cost_le": 2
+         },
+         "mandatory": true
+        }
+       }
+      ],
+      "effect": [
+       {
+        "power_pump": {
+         "target": "self",
+         "amount": 3000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
-    "once_per_turn": true,
-    "discard_hand": 1
-   }
+    "once_per_turn": true
+   },
+   "_doc": "公式 (cardqa_op_06): 「自分の手札1枚を捨て、 コスト2以下のキャラ1枚を持ち主のデッキの下に置くことができる：」 は **コロン前が全て発動コスト**。 「コスト2以下のキャラを置かずに手札だけ捨てる」 は不可 (= 部分支払い不可)。 → optional_cost_then の cost に 2 つとも入れる。 対象は 「相手の」 が無いので **両陣営**、 「コスト2以下」 は **現在コスト** (cost_le)。 2026-08-10 是正 (旧: discard のみ cost / return_to_deck_bottom が do かつ相手限定)。"
   }
  ],
  "OP06-043_p1": [
@@ -75238,20 +75387,40 @@
    "when": "activate_main",
    "do": [
     {
-     "return_to_deck_bottom": "one_opponent_character_any_cost_le_2"
-    },
-    {
-     "power_pump": {
-      "target": "self",
-      "amount": 3000,
-      "duration": "turn"
+     "optional_cost_then": {
+      "cost": [
+       {
+        "discard_hand": 1
+       },
+       {
+        "return_to_deck_bottom": {
+         "type": "one_inplay_either_filtered",
+         "filter": {
+          "category_in": [
+           "CHARACTER"
+          ],
+          "cost_le": 2
+         },
+         "mandatory": true
+        }
+       }
+      ],
+      "effect": [
+       {
+        "power_pump": {
+         "target": "self",
+         "amount": 3000,
+         "duration": "turn"
+        }
+       }
+      ]
      }
     }
    ],
    "cost": {
-    "once_per_turn": true,
-    "discard_hand": 1
-   }
+    "once_per_turn": true
+   },
+   "_doc": "公式 (cardqa_op_06): 「自分の手札1枚を捨て、 コスト2以下のキャラ1枚を持ち主のデッキの下に置くことができる：」 は **コロン前が全て発動コスト**。 「コスト2以下のキャラを置かずに手札だけ捨てる」 は不可 (= 部分支払い不可)。 → optional_cost_then の cost に 2 つとも入れる。 対象は 「相手の」 が無いので **両陣営**、 「コスト2以下」 は **現在コスト** (cost_le)。 2026-08-10 是正 (旧: discard のみ cost / return_to_deck_bottom が do かつ相手限定)。"
   }
  ],
  "OP06-046": [
@@ -82379,13 +82548,16 @@
    }
   },
   {
-   "_text": "OP02-089 trigger: 相手の場にドン‼が6枚以上ある場合、相手は自身の場のドン‼1枚をドン‼デッキに戻す。",
+   "_text": "OP02-089 trigger: 相手の場にドン‼が6枚以上ある場合、相手は自身の場のドン‼1枚をドン‼デッキに戻す。 [gate是正 2026-08-09: 兄弟カード OP02-090/091 と同文だが if(opp_don_count_ge 6) が欠落していた。公式テキスト「相手の場にドン6枚以上ある場合」に従い追加]",
    "when": "trigger",
    "do": [
     {
      "return_opp_don": 1
     }
-   ]
+   ],
+   "if": {
+    "opp_don_count_ge": 6
+   }
   }
  ],
  "OP02-090": [
@@ -86160,14 +86332,14 @@
    "cost": [
     {
      "once_per_turn": true
-    }
-   ],
-   "do": [
+    },
     {
      "trash_self_hand_random": 1
     }
    ],
-   "optional": true
+   "do": [],
+   "optional": true,
+   "_doc": "「代わりに<pay>できる/てもよい」は置換の発動コスト。do に置くと払えない局面 (手札/ライフ/ドン不足) でも支払わず置換成立していた (cardqa_st_22 一般則: コストを全額払えない場合その効果は発動できない)。2026-08-09 sweep で cost へ移動。"
   }
  ],
  "ST25-004": [
@@ -86498,16 +86670,18 @@
  "ST22-005": [
   {
    "_text": "ST22-005 このキャラが相手の効果で場を離れる場合、代わりに自分の手札2枚を捨てることができる。",
+   "_doc": "手札2枚を捨てるのは置換の発動コスト。do に置くと払えない (手札1枚) 局面でも 1 枚捨てて置換成立していた (cardqa_st_22: 手札1枚だけの時は 2 枚捨てられず効果を使えず場を離れる)。2026-08-09 に cost へ移し payability を効かせた。",
    "when": "replace_leave",
    "if": {
     "target": "self",
     "by_opp_effect": true
    },
-   "do": [
+   "cost": [
     {
      "trash_self_hand_random": 2
     }
    ],
+   "do": [],
    "optional": true
   },
   {
@@ -86530,16 +86704,18 @@
  "ST22-005_p1": [
   {
    "_text": "ST22-005_p1 このキャラが相手の効果で場を離れる場合、代わりに自分の手札2枚を捨てることができる。",
+   "_doc": "手札2枚を捨てるのは置換の発動コスト。do に置くと払えない (手札1枚) 局面でも 1 枚捨てて置換成立していた (cardqa_st_22: 手札1枚だけの時は 2 枚捨てられず効果を使えず場を離れる)。2026-08-09 に cost へ移し payability を効かせた。",
    "when": "replace_leave",
    "if": {
     "target": "self",
     "by_opp_effect": true
    },
-   "do": [
+   "cost": [
     {
      "trash_self_hand_random": 2
     }
    ],
+   "do": [],
    "optional": true
   },
   {
@@ -86754,14 +86930,14 @@
    "cost": [
     {
      "once_per_turn": true
-    }
-   ],
-   "do": [
+    },
     {
      "trash_self_hand_random": 1
     }
    ],
-   "optional": true
+   "do": [],
+   "optional": true,
+   "_doc": "「代わりに<pay>できる/てもよい」は置換の発動コスト。do に置くと払えない局面 (手札/ライフ/ドン不足) でも支払わず置換成立していた (cardqa_st_22 一般則: コストを全額払えない場合その効果は発動できない)。2026-08-09 sweep で cost へ移動。"
   },
   {
    "_text": "ST22-012 【アタック時】自分のデッキの上から1枚を公開し、そのカードが『白ひげ海賊団』を含む特徴を持つ場合、このキャラは、次の相手のターン終了時まで、パワー+1000。",
@@ -86799,14 +86975,14 @@
    "cost": [
     {
      "once_per_turn": true
-    }
-   ],
-   "do": [
+    },
     {
      "trash_self_hand_random": 1
     }
    ],
-   "optional": true
+   "do": [],
+   "optional": true,
+   "_doc": "「代わりに<pay>できる/てもよい」は置換の発動コスト。do に置くと払えない局面 (手札/ライフ/ドン不足) でも支払わず置換成立していた (cardqa_st_22 一般則: コストを全額払えない場合その効果は発動できない)。2026-08-09 sweep で cost へ移動。"
   },
   {
    "_text": "ST22-012_p1 【アタック時】自分のデッキの上から1枚を公開し、そのカードが『白ひげ海賊団』を含む特徴を持つ場合、このキャラは、次の相手のターン終了時まで、パワー+1000。",
@@ -101006,19 +101182,20 @@
  ],
  "OP15-069": [
   {
-   "_text": "OP15-069 ノラ 置換: 自元々パワー7000以下キャラが相手効果で場離れる時、 ドン1ドンデッキへ戻すと代替",
+   "_text": "OP15-069 ノラ 置換: 自元々パワー7000以下キャラが相手効果で場離れる時、 ドン1ドンデッキへ戻すと代替 [同時離脱1回化: return_self_don_to_deck を cost へ (cardqa_op_15)]",
    "when": "replace_leave",
    "if": {
     "target": "other_self_chara",
     "by_opp_effect": true,
     "target_truly_original_power_le": 7000
    },
-   "do": [
+   "do": [],
+   "optional": true,
+   "cost": [
     {
      "return_self_don_to_deck": 1
     }
-   ],
-   "optional": true
+   ]
   }
  ],
  "OP15-070": [
@@ -101089,19 +101266,20 @@
  ],
  "OP15-105": [
   {
-   "_text": "自元P7000以下 効果離脱 → 自ライフ1手札",
+   "_text": "自元P7000以下 効果離脱 → 自ライフ1手札 [2026-08-08 同時離脱 dedup 是正: 支払いを do → cost へ移動。 公式 cardqa_op_15 = 2枚同時離脱でも支払いは1回で両方残す。 do は victim ごとに走るので dedup が効かない]",
    "when": "replace_leave",
    "if": {
     "target": "any_self_chara",
     "by_opp_effect": true,
     "target_truly_original_power_le": 7000
    },
-   "do": [
+   "do": [],
+   "optional": true,
+   "cost": [
     {
      "life_to_hand": 1
     }
-   ],
-   "optional": true
+   ]
   }
  ],
  "OP14-003": [
@@ -102158,14 +102336,14 @@
    "cost": [
     {
      "once_per_turn": true
-    }
-   ],
-   "do": [
+    },
     {
      "life_to_hand": 1
     }
    ],
-   "optional": true
+   "do": [],
+   "optional": true,
+   "_doc": "「代わりに<pay>できる/てもよい」は置換の発動コスト。do に置くと払えない局面 (手札/ライフ/ドン不足) でも支払わず置換成立していた (cardqa_st_22 一般則: コストを全額払えない場合その効果は発動できない)。2026-08-09 sweep で cost へ移動。"
   }
  ],
  "OP10-036": [
@@ -103539,20 +103717,20 @@
    "cost": [
     {
      "once_per_turn": true
-    }
-   ],
-   "do": [
+    },
     {
      "mill_self_life_to_trash": 1
     }
    ],
+   "do": [],
    "optional": true,
    "if": {
     "target": "self",
     "either_side_chara_named_absent": {
      "name": "モンキー・D・ルフィ"
     }
-   }
+   },
+   "_doc": "「代わりに<pay>できる/てもよい」は置換の発動コスト。do に置くと払えない局面 (手札/ライフ/ドン不足) でも支払わず置換成立していた (cardqa_st_22 一般則: コストを全額払えない場合その効果は発動できない)。2026-08-09 sweep で cost へ移動。"
   }
  ],
  "OP05-100_p1": [
@@ -103562,20 +103740,20 @@
    "cost": [
     {
      "once_per_turn": true
-    }
-   ],
-   "do": [
+    },
     {
      "mill_self_life_to_trash": 1
     }
    ],
+   "do": [],
    "optional": true,
    "if": {
     "target": "self",
     "either_side_chara_named_absent": {
      "name": "モンキー・D・ルフィ"
     }
-   }
+   },
+   "_doc": "「代わりに<pay>できる/てもよい」は置換の発動コスト。do に置くと払えない局面 (手札/ライフ/ドン不足) でも支払わず置換成立していた (cardqa_st_22 一般則: コストを全額払えない場合その効果は発動できない)。2026-08-09 sweep で cost へ移動。"
   }
  ],
  "OP05-107": [
@@ -103609,20 +103787,20 @@
    "cost": [
     {
      "once_per_turn": true
-    }
-   ],
-   "do": [
+    },
     {
      "mill_self_life_to_trash": 1
     }
    ],
+   "do": [],
    "optional": true,
    "if": {
     "target": "self",
     "either_side_chara_named_absent": {
      "name": "モンキー・D・ルフィ"
     }
-   }
+   },
+   "_doc": "「代わりに<pay>できる/てもよい」は置換の発動コスト。do に置くと払えない局面 (手札/ライフ/ドン不足) でも支払わず置換成立していた (cardqa_st_22 一般則: コストを全額払えない場合その効果は発動できない)。2026-08-09 sweep で cost へ移動。"
   }
  ],
  "OP04-005": [
@@ -103898,11 +104076,11 @@
  "OP02-027": [
   {
    "_text": "OP02-027 自分のドン‼すべてがレストの場合、このキャラは相手の効果で場を離れない。",
-   "_doc": "「自分のドン‼すべてがレスト」 = self_don_active=0 で判定 (アクティブドン0 = 全ドンレスト、 正確)。",
+   "_doc": "「自分のドン‼すべてがレスト」 = self_all_don_rested (アクティブドン0 かつ 付与ドン0)。付与ドンはレストでないので1枚でも付与されていれば不成立 (cardqa_op_02: 付与されている場合は満たせない)。",
    "when": "on_attached_don",
    "n": 0,
    "if": {
-    "self_don_active_eq": 0
+    "self_all_don_rested": true
    },
    "do": [
     {
@@ -104534,14 +104712,14 @@
    "cost": [
     {
      "once_per_turn": true
-    }
-   ],
-   "do": [
+    },
     {
      "mill_self_life_to_trash": 1
     }
    ],
-   "optional": true
+   "do": [],
+   "optional": true,
+   "_doc": "「代わりに<pay>できる/てもよい」は置換の発動コスト。do に置くと払えない局面 (手札/ライフ/ドン不足) でも支払わず置換成立していた (cardqa_st_22 一般則: コストを全額払えない場合その効果は発動できない)。2026-08-09 sweep で cost へ移動。"
   },
   {
    "_text": "trigger: 手札1捨て → 自身登場",
@@ -105640,6 +105818,29 @@
    "if": {
     "self_attached_don_ge": 1,
     "victim_feature_in": [
+     "インペルダウン"
+    ]
+   },
+   "cost": {
+    "once_per_turn": "op16-041-leave"
+   },
+   "do": [
+    {
+     "play_from_hand_named_set": {
+      "names": [
+       "インペルダウンの囚人"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "_text": "OP16-041 バギー 自効果離脱経路: 【ドン!!×1】【ターン1回】自分の特徴《インペルダウン》キャラが **自分の効果で** 場を離れた時、 手札から「インペルダウンの囚人」1枚までを登場 (KO/相手効果離脱と共有のターン1回)。",
+   "_doc": "公式 (cardqa_op_16): 「自分の『虜の矢』などの効果によって、 自分の特徴《インペルダウン》を持つキャラが 手札に戻りました。 この時、 …登場させることはできますか？」 → 「**はい、 できます。** 自分の効果で自分の 特徴《インペルダウン》を持つキャラが場を離れた時も、 この効果を発動することができます」。 victim の特徴は leave_victim_feature_in (= このイベントで場を離れた victim のいずれか) で判定する。 2026-08-10 追加。",
+   "when": "on_self_chara_leave_by_self_effect",
+   "if": {
+    "self_attached_don_ge": 1,
+    "leave_victim_feature_in": [
      "インペルダウン"
     ]
    },
@@ -108410,8 +108611,11 @@
  ],
  "OP16-084": [
   {
-   "_text": "OP16-084 【起動メイン】コスト20以上のこのキャラをトラッシュ：場のドン9以上ならトラッシュからコスト9の「光月モモの助」1枚までを登場。 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
+   "_text": "OP16-084 【起動メイン】コスト20以上のこのキャラをトラッシュに置くことができる：場のドン9以上ならトラッシュからコスト9の「光月モモの助」1枚までを登場。 「コスト20以上」は **コロン前=コスト節の一部** (=このキャラのコストが20以上でなければトラッシュにできない = 発動不可) であり、コロン後の効果条件ではない。 一次情報 cardqa_op_16 (qid 57ce5506a587): 「このキャラのコストが19以下の時にトラッシュに置けますか？」→「いいえ、できません。この場合、モモの助を登場させることもできません」。 モモの助は印刷コスト<20 で、OP16-087 しのぶ の +20 等で現在コストが20以上になった時のみ発動できる。",
    "when": "activate_main",
+   "if": {
+    "self_inplay_cost_ge": 20
+   },
    "cost": {
     "trash_self": true
    },
@@ -108419,26 +108623,17 @@
     {
      "conditional": {
       "if": {
-       "self_inplay_cost_ge": 20
+       "self_don_count_ge": 9
       },
       "do": [
        {
-        "conditional": {
-         "if": {
-          "self_don_count_ge": 9
+        "play_from_trash": {
+         "filter": {
+          "category": "CHARACTER",
+          "name": "光月モモの助",
+          "cost_eq": 9
          },
-         "do": [
-          {
-           "play_from_trash": {
-            "filter": {
-             "category": "CHARACTER",
-             "name": "光月モモの助",
-             "cost_eq": 9
-            },
-            "limit": 1
-           }
-          }
-         ]
+         "limit": 1
         }
        }
       ]
@@ -109788,11 +109983,13 @@
     }
    ],
    "if": {
-    "self_attached_don_ge": 3
+    "self_attached_don_ge": 3,
+    "self_leader_battled_opp_chara_this_turn": true
    },
    "cost": {
     "once_per_turn": true
-   }
+   },
+   "_doc": "公式 (cardqa_op_12): 「このターン中、 このリーダーが **相手のキャラと** バトルしている場合」 が発動条件。 ブロッカーやアタック対象変更で **リーダーと** バトルした場合は発動できない (= 実際にバトルした相手で判定)。 2026-08-10 追加。"
   }
  ],
  "OP12-057_r1": [
