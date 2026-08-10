@@ -21,6 +21,7 @@ from pathlib import Path
 from engine.core import GameState, InPlay, Phase, Player
 from engine.deck import CardRepository
 from engine.effects import (
+    resolve_triggers,
     CardEffectBundle,
     eval_condition,
     execute_effect,
@@ -125,6 +126,7 @@ def test_on_self_chara_ko_fires_when_own_chara_kod_by_effect():
     actor = state.players[1]
     hand_before = len(victim_owner.hand)
     trigger_on_self_chara_ko(state, victim_owner, actor, overlay)
+    resolve_triggers(state)  # KO グループは enqueue のみ = 実経路と同じくドレイン
     # トリガー発火で 1 ドロー
     assert len(victim_owner.hand) == hand_before + 1
 

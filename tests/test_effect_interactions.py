@@ -4610,6 +4610,7 @@ def test_eb03_055_ko_damage_has_no_block_or_counter_window():
     victim = InPlay.of(repo.get("EB03-055"), sickness=False)
     trigger_on_ko(st, p0, p1, victim.card, ov, by_opp_effect=True,
                   victim_attached_don=0, victim_effect_negated=False)
+    resolve_triggers(st)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
     assert len(p1.life) == opp_life_before - 1, "KO時ダメージで相手ライフが1減っていない"
     assert st.pending_choice is None, (
         "KO時ダメージにブロック/カウンターの防御ウィンドウが立った (公式: 防げない)"
@@ -8480,4 +8481,92 @@ def test_rest_paid_as_activation_cost_fires_rested_triggers():
     assert d0 - len(me.deck) == 1, (
         "相手キャラを 自分の効果で レストにした時に発動していない "
         "(公式テキストは 「キャラが」 = 持ち主無修飾 → 両陣営)"
+    )
+
+
+def test_ko_triggers_resolve_before_effects_they_spawn():
+    """1 回の KO から **同時に発動する** 効果は、 その解決中に新しく誘発した効果より必ず先に発動する。
+
+    一次情報 (cardqa_op_10、 OP10-042 ウソップ(L)【相手のターン中】自分の《ドレスローザ》キャラが
+    KO された時 1 ドロー × OP10-090 フランキー【KO時】トラッシュから《ドレスローザ》を登場 ×
+    登場した OP04-092 レベッカ【登場時】デッキ上3枚サーチ):
+      Q「フランキーの【KO時】効果をリーダーの効果よりも先に発動してレベッカを登場させました。
+        この場合、 リーダーの【相手のターン中】効果とレベッカの【登場時】はどちらが先ですか？」
+      → A「このリーダーの【相手のターン中】効果が、 【KO時】効果で登場したキャラの【登場時】効果
+        よりも、 **必ず先に発動します**」
+
+    退行前は `trigger_on_ko` と `trigger_on_*_chara_ko` が **1 つ enqueue するたびにドレイン** して
+    いたため、 リーダーの効果が enqueue される前に フランキーの【KO時】が走り切り、 そこで登場した
+    レベッカの【登場時】まで解決されていた。
+
+    検証は 「どちらがデッキの先頭を取るか」 で行う: デッキ先頭にだけ《ドレスローザ》を置くと、
+      正: リーダーがドローで先頭を取る → レベッカは非対象3枚を見て 0 枚取得 → 手札 1 枚
+      誤: レベッカが先に先頭を手札へ + リーダーが 4 枚目をドロー → 手札 2 枚
+    """
+    repo, overlay = _repo(), _overlay()
+    cards = {c["card_id"]: c for c in json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    filler = next(cid for cid, c in cards.items()
+                  if c.get("category") == "CHARACTER" and "ドレスローザ" not in (c.get("features") or ""))
+    dressrosa = next(cid for cid, c in cards.items()
+                     if c.get("category") == "CHARACTER"
+                     and "ドレスローザ" in (c.get("features") or "") and c["name"] != "レベッカ")
+
+    st = _state(repo, overlay, leader0="OP10-042")
+    st.turn_player_idx = 1                       # 相手のターン中
+    me, opp = st.players[0], st.players[1]
+    franky = InPlay.of(repo.get("OP10-090"), sickness=False)
+    me.characters = [franky]
+    me.trash = [repo.get("OP04-092")]            # フランキーが登場させる レベッカ
+    me.hand = []
+    me.deck = [repo.get(dressrosa)] + [repo.get(filler)] * 10
+    attacker = InPlay.of(repo.get("EB01-018_p1"), sickness=False)   # power7000 バニラ
+    opp.characters = [attacker]
+
+    apply_action(st, AttackCharacter(attacker_iid=attacker.instance_id,
+                                     target_iid=franky.instance_id), overlay)
+    while st.pending_choice is not None:
+        resolve_pending_choice(st, [0])
+
+    assert any(c.card.card_id == "OP04-092" for c in me.characters), \
+        "フランキーの【KO時】でレベッカが登場していない (前提崩れ)"
+    assert [c.card_id for c in me.hand] == [dressrosa], (
+        "リーダー効果が 【KO時】で登場したキャラの【登場時】より後に解決している "
+        f"(手札={[c.card_id for c in me.hand]}、 公式はリーダーのドロー 1 枚だけ)"
+    )
+
+
+def test_ko_victim_context_survives_deferred_resolution():
+    """KO の victim 文脈 (「元々のパワーN以上」 等) は **解決を遅らせても** 失われない。
+
+    KO グループを 「全部 enqueue してから解決」 に変えた時 (上記 cardqa_op_10)、 victim 文脈を
+    transient な state に置いたままだと 解決時には既に消えていて、
+    OP14-041 ボア・ハンコック 「【ドン‼×1】【ターン1回】自分の**元々のパワー5000以上**の、
+    特徴《アマゾン・リリー》か《九蛇海賊団》を持つキャラがKOされた時、 相手のライフの上から1枚
+    までを、 持ち主の手札に加える」 が **丸ごと不発** になった (Rust 差分ハーネスが検出)。
+    → victim は イベントの payload に載せて運ぶ。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP14-041")
+    st.turn_player_idx = 1                       # 相手のターン (ハンコックは【相手のターン中】でない
+                                                 #  = 条件は don/victim のみ) だが KO は相手が起こす
+    me, opp = st.players[0], st.players[1]
+    me.leader.attached_dons = 1                  # 【ドン‼×1】
+    victim = InPlay.of(repo.get("OP14-114"), sickness=False)   # 九蛇海賊団 / 元々パワー5000以上
+    assert int(repo.get("OP14-114").power or 0) >= 5000, "victim の印刷パワー前提が崩れている"
+    me.characters = [victim]
+    opp.life = [repo.get(_FILLER)] * 3
+    opp.hand = []
+    attacker = InPlay.of(repo.get("EB01-018_p1"), sickness=False)
+    opp.characters = [attacker]
+    life_before, hand_before = len(opp.life), len(opp.hand)
+
+    apply_action(st, AttackCharacter(attacker_iid=attacker.instance_id,
+                                     target_iid=victim.instance_id), overlay)
+    while st.pending_choice is not None:
+        resolve_pending_choice(st, [0])
+
+    assert len(opp.life) == life_before - 1 and len(opp.hand) == hand_before + 1, (
+        "ハンコックの 「元々のパワー5000以上のキャラがKOされた時」 が発動していない "
+        f"(相手ライフ {life_before}→{len(opp.life)} / 手札 {hand_before}→{len(opp.hand)}) "
+        "= victim 文脈が遅延解決で失われている"
     )

@@ -4632,6 +4632,7 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
                 let vdon = state.players[me_idx].characters[idx].attached_dons;
                 note_ko_victim_negated(state, me_idx, idx);
                 let removed = state.players[me_idx].characters.remove(idx);
+                let _ko_vic = removed.card.clone(); // KO victim 文脈 (victim_truly_original_power_ge / victim_feature_in 用)
                 state.players[me_idx].trash.push(removed.card);
                 state.players[me_idx].don_rested += vdon;
                 ko_count += 1;
@@ -4640,7 +4641,7 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
                 //   trigger_on_ko (= 全 KO 経路の共通フック、 effects.py:12942) が冒頭で
                 //   owner.chara_ko_taken_this_turn を無条件加算する (OP06-095、 2026-08-03 発覚)。
                 //   同種の誤解が ko_self_chara / ko_multi / ko_self_with_filter にもあった。
-                state.last_chara_ko_victim_card = None;
+                state.last_chara_ko_victim_card = Some(_ko_vic); // Python は payload で victim を運ぶ (2026-08-11)
                 if fire_on_ko(state, me_idx, &vcid, false).is_err() {
                     return false;
                 }
@@ -5530,27 +5531,30 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
         // このキャラ (発動元) 自身を KO (effects.py:3331、 OP16-014 マルコの replace_leave do)。
         // 【KO時】+【自分のキャラがKOされた時】を発火 (自分の効果なので by_opp_effect=false)。
         "ko_self" => {
-            let (pi, removed_cid, don) = match src {
+            // KO victim 文脈 (victim_truly_original_power_ge / victim_feature_in) は match の外へ運ぶ。
+            let (pi, removed_cid, don, ko_vic) = match src {
                 Slot::Char(i) if i < state.players[me_idx].characters.len() => {
                 note_ko_victim_negated(state, me_idx, i);
                 let ip = state.players[me_idx].characters.remove(i);
                     let d = ip.attached_dons;
                     let cid = ip.card.card_id.clone();
+                    let vic = ip.card.clone();
                     state.players[me_idx].trash.push(ip.card);
-                    (Some(me_idx), Some(cid), d)
+                    (Some(me_idx), Some(cid), d, Some(vic))
                 }
                 Slot::Stage(i) if i < state.players[me_idx].stages.len() => {
                     let ip = state.players[me_idx].stages.remove(i);
                     let d = ip.attached_dons;
                     let cid = ip.card.card_id.clone();
+                    let vic = ip.card.clone();
                     state.players[me_idx].trash.push(ip.card);
-                    (Some(me_idx), Some(cid), d)
+                    (Some(me_idx), Some(cid), d, Some(vic))
                 }
-                _ => (None, None, 0),
+                _ => (None, None, 0, None),
             };
             if let (Some(pi), Some(cid)) = (pi, removed_cid) {
                 state.players[pi].don_rested += don;
-                state.last_chara_ko_victim_card = None;
+                state.last_chara_ko_victim_card = ko_vic; // Python は payload で victim を運ぶ (2026-08-11)
                 if fire_on_ko(state, pi, &cid, false).is_err()
                     || fire_field_when(state, pi, "on_self_chara_ko").is_err()
                 {
@@ -5975,12 +5979,13 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 note_ko_victim_negated(state, pi, idx);
                 let ip = state.players[pi].characters.remove(idx);
                 let don = ip.attached_dons;
+                let _ko_vic = ip.card.clone(); // KO victim 文脈 (victim_truly_original_power_ge / victim_feature_in 用)
                 state.players[pi].trash.push(ip.card);
                 state.players[pi].don_rested += don;
                 if by_opp {
                 }
                 ko_any = true;
-                state.last_chara_ko_victim_card = None;
+                state.last_chara_ko_victim_card = Some(_ko_vic); // Python は payload で victim を運ぶ (2026-08-11)
                 if fire_on_ko(state, pi, &vcid, by_opp).is_err() {
                     return false;
                 }
@@ -6399,10 +6404,11 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 note_ko_victim_negated(state, opp_idx, idx);
                 let ip = state.players[opp_idx].characters.remove(idx);
                 let don = ip.attached_dons;
+                let _ko_vic = ip.card.clone(); // KO victim 文脈 (victim_truly_original_power_ge / victim_feature_in 用)
                 state.players[opp_idx].trash.push(ip.card);
                 state.players[opp_idx].don_rested += don;
                 ko_any = true;
-                state.last_chara_ko_victim_card = None;
+                state.last_chara_ko_victim_card = Some(_ko_vic); // Python は payload で victim を運ぶ (2026-08-11)
                 if fire_on_ko(state, opp_idx, &vcid, true).is_err()
                     || fire_field_when(state, me_idx, "on_opp_chara_ko").is_err()
                     || fire_field_when(state, opp_idx, "on_self_chara_ko").is_err()
@@ -6872,6 +6878,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 let ip = state.players[me_idx].characters.remove(i);
                 let don = ip.attached_dons;
                 let departed = ip.card.clone();
+                let _ko_vic = ip.card.clone(); // KO victim 文脈 (victim_truly_original_power_ge / victim_feature_in 用)
                 state.players[me_idx].trash.push(ip.card);
                 state.players[me_idx].don_rested += don;
                 note_public_departure(state, me_idx, &departed); // 公開領域 (cardqa_op_08)
@@ -6881,7 +6888,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 // 依らず加算されるので、 自分の効果による自陣 KO でも増える。
                 // ⚠ かつて 「chara_ko_taken_this_turn も加算しない」 とコメントして省いていたが
                 //   誤り (OP04-079 オオロンブス で MISMATCH、 2026-08-03 全カード差分掃引で発覚)。
-                state.last_chara_ko_victim_card = None;
+                state.last_chara_ko_victim_card = Some(_ko_vic); // Python は payload で victim を運ぶ (2026-08-11)
                 if fire_on_ko(state, me_idx, &vcid, false).is_err() {
                     return false;
                 }
@@ -8866,13 +8873,14 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 let vdon = state.players[opp_idx].characters[idx].attached_dons;
                 note_ko_victim_negated(state, opp_idx, idx);
                 let removed = state.players[opp_idx].characters.remove(idx);
+                let _ko_vic = removed.card.clone(); // KO victim 文脈 (victim_truly_original_power_ge / victim_feature_in 用)
                 state.players[opp_idx].trash.push(removed.card);
                 state.players[opp_idx].don_rested += vdon;
                 ko_any = true;
                 // effects.py:3391 順: on_ko(victim側) → on_opp_chara_ko(me) → on_self_chara_ko(victim側)。
                 // ⭐ 効果 ko は nested resolution = Python は trigger を enqueue し、 その末尾で
                 // last_chara_ko_victim_card=None に戻してから deferred drain する = victim None で発火。
-                state.last_chara_ko_victim_card = None;
+                state.last_chara_ko_victim_card = Some(_ko_vic); // Python は payload で victim を運ぶ (2026-08-11)
                 if fire_on_ko(state, opp_idx, &vcid, true).is_err() {
                     note_unknown_key("ko", "on_ko");
                     return false;
@@ -12670,11 +12678,12 @@ fn pay_end_of_turn_cost(
             note_ko_victim_negated(state, owner, i);
             let ip = state.players[owner].characters.remove(i);
             let don = ip.attached_dons;
+            let _ko_vic = ip.card.clone(); // KO victim 文脈 (victim_truly_original_power_ge / victim_feature_in 用)
             state.players[owner].trash.push(ip.card);
             state.players[owner].don_rested += don;
             // Python (_pay_end_of_turn_cost) は trigger_on_ko を呼ぶので
             // chara_ko_taken_this_turn が増える (= 全 KO 経路の共通フック)。
-            state.last_chara_ko_victim_card = None;
+            state.last_chara_ko_victim_card = Some(_ko_vic); // Python は payload で victim を運ぶ (2026-08-11)
             fire_on_ko(state, owner, &vcid, false)?;
             fire_field_when(state, owner, "on_self_chara_ko")?;
             state.last_chara_ko_victim_card = None;

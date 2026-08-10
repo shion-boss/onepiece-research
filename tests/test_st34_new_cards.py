@@ -17,6 +17,7 @@ from pathlib import Path
 from engine.core import Category, GameState, InPlay, Phase, Player
 from engine.deck import CardRepository
 from engine.effects import (
+    resolve_triggers,
     execute_effect,
     load_effect_overlay,
     resolve_pending_choice,
@@ -135,6 +136,7 @@ def test_st34_001_on_ko_plays_low_power_chara_ai():
 
     # ST34-001 が KO された (= 場から消えた後に on_ko 発火)
     trigger_on_ko(st, me, opp, repo.get("ST34-001"), overlay, by_opp_effect=True)
+    resolve_triggers(st)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
 
     assert len(me.characters) == chara_before + 1, (
         "KO時 手札から パワー8000以下キャラを登場させるはず")
@@ -155,6 +157,7 @@ def test_st34_001_on_ko_human_gets_choice():
     chara_before = len(me.characters)
 
     trigger_on_ko(st, me, opp, repo.get("ST34-001"), overlay, by_opp_effect=True)
+    resolve_triggers(st)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
 
     # 人間: どれを登場させるか (0枚見送りも含め) 選ばせる modal が立つ (= 勝手に登場しない)
     assert st.pending_choice is not None, "人間 KO時登場は modal で確認するはず"

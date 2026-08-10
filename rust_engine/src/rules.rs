@@ -225,29 +225,55 @@ fn do_battle_ko(
     // game.py 準拠の順: trigger_on_ko (victim 側) → on_opp_chara_ko (攻撃側) → on_self_chara_ko (victim 側)。
     // Python trigger_on_ko が last_chara_ko_victim_card=victim を set (victim_* 条件用)、 cascade 完了後 None。
     state.last_chara_ko_victim_card = Some(vcard);
+    // ⭐ 1 回の KO から **同時に** 発動する効果 (victim の【KO時】/ 場の 「キャラがKOされた時」/
+    //   「バトルでKOした時」) は **全部発動させてから** キューを流す (公式 cardqa_op_10、
+    //   OP10-042 ウソップ(L) × OP10-090 フランキー × OP04-092 レベッカ:
+    //   「リーダーの【相手のターン中】効果が、 【KO時】効果で登場したキャラの【登場時】効果よりも
+    //    **必ず先に発動します**」)。 途中でドレインすると 【KO時】で登場したキャラの【登場時】が
+    //   まだ発動していない同時発動ぶんより先に走る。 Python game.py の KO グループと同則。
+    let ko_prev_resolving = state.rust_resolving;
+    state.rust_resolving = true;
+    // ⚠ **解決順は 「ターンプレイヤーの効果が先」** (公式 1-3-4)。 Python は 4 つとも enqueue して
+    //   から `_pop_next_event` (= turn_player 優先 → 同 owner 内 FIFO) で取り出すので、 Rust の
+    //   固定順 (on_ko → opp_chara_ko → self_chara_ko → battle_ko) だと owner が turn player で
+    //   ない側から走って乖離する。 enqueue 順を保ったまま owner で安定分割して同順を作る。
+    let tp = state.turn_player_idx;
+    // (step, owner) を Python の enqueue 順で並べる
+    let ko_steps: [(u8, usize); 4] = [
+        (0, victim_owner),   // trigger_on_ko          (victim の【KO時】)
+        (1, attacker_owner), // on_opp_chara_ko        (攻撃側の場)
+        (2, victim_owner),   // on_self_chara_ko       (victim 側の場)
+        (3, attacker_owner), // on_self_battle_ko      (バトルでKOした時)
+    ];
+    let mut ordered: Vec<u8> = ko_steps.iter().filter(|(_, o)| *o == tp).map(|(s, _)| *s).collect();
+    ordered.extend(ko_steps.iter().filter(|(_, o)| *o != tp).map(|(s, _)| *s));
     let mut err: Option<String> = None;
-    if let Err(e) = crate::effects::fire_on_ko(state, victim_owner, &vcid, false) {
-        err = Some(e);
-    }
-    if err.is_none() {
-        if let Err(e) = crate::effects::fire_field_when(state, attacker_owner, "on_opp_chara_ko") {
-            err = Some(e);
+    for step in ordered {
+        if err.is_some() {
+            break;
         }
-    }
-    if err.is_none() {
-        if let Err(e) = crate::effects::fire_field_when(state, victim_owner, "on_self_chara_ko") {
+        let r = match step {
+            0 => crate::effects::fire_on_ko(state, victim_owner, &vcid, false),
+            1 => crate::effects::fire_field_when(state, attacker_owner, "on_opp_chara_ko"),
+            2 => crate::effects::fire_field_when(state, victim_owner, "on_self_chara_ko"),
+            _ => match pending_battle_ko {
+                // 「このキャラのバトルによって相手のキャラをKOした時」
+                Some(sl) => {
+                    crate::effects::fire_on_self_battle_ko(state, attacker_owner, attacker_cid, sl)
+                }
+                None => Ok(()),
+            },
+        };
+        if let Err(e) = r {
             err = Some(e);
         }
     }
     state.last_chara_ko_victim_card = None;
-    if err.is_none() {
-        // 「このキャラのバトルによって相手のキャラをKOした時」 (game.py:1591、 on_ko 群の後)。
-        if let Some(sl) = pending_battle_ko {
-            if let Err(e) =
-                crate::effects::fire_on_self_battle_ko(state, attacker_owner, attacker_cid, sl)
-            {
-                err = Some(e);
-            }
+    // KO グループの発動が全部終わってからドレインする (上記の同時発動ルール)。
+    state.rust_resolving = ko_prev_resolving;
+    if err.is_none() && !ko_prev_resolving {
+        if let Err(e) = crate::effects::maybe_resolve(state) {
+            err = Some(e);
         }
     }
     match err {

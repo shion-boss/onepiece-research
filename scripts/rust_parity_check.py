@@ -269,6 +269,14 @@ def run_parity(n_games: int | None = None, seeds=(1, 7), max_turns=220):
                                 if e["t"] in ("PlayCharacter", "PlayEvent", "PlayStage") and 0 <= act.hand_idx < len(st.turn_player.hand):
                                     cid = st.turn_player.hand[act.hand_idx].card_id
                                 mismatch[f"{e['t']}:{cid}"] += 1
+                                import os as _os
+                                if _os.environ.get("ONEPIECE_PARITY_DUMP"):
+                                    import json as _j
+                                    _pth = _os.environ["ONEPIECE_PARITY_DUMP"]
+                                    if not _os.path.exists(_pth):
+                                        _j.dump({"dump": _j.loads(dump), "action": e,
+                                                 "py_after": full_dump(c)},
+                                                open(_pth, "w"))
                         except Exception as ex:
                             tot["bail"] += 1
                             bail_msgs[str(ex).splitlines()[0][:70]] += 1

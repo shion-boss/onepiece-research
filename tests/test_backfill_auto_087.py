@@ -20,6 +20,7 @@ from pathlib import Path
 from engine.core import GameState, InPlay, Phase, Player
 from engine.deck import CardRepository
 from engine.effects import (
+    resolve_triggers,
     execute_effect,
     fire_activate_main,
     list_activate_main_effects,
@@ -309,6 +310,7 @@ def test_op08_066_on_ko_add_rested_don_ai():
     rested_before = me.don_rested
     deck_before = me.don_remaining_in_deck
     trigger_on_ko(st, me, opp, repo.get("OP08-066"), overlay)
+    resolve_triggers(st)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
     _drain(st)
 
     assert me.don_rested == rested_before + 1, \
@@ -371,6 +373,7 @@ def test_op08_068_on_ko_add_rested_don_ai():
 
     rested_before = me.don_rested
     trigger_on_ko(st, me, opp, repo.get("OP08-068"), overlay)
+    resolve_triggers(st)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
     _drain(st)
 
     assert me.don_rested == rested_before + 1, \
@@ -464,6 +467,7 @@ def test_op08_070_on_ko_play_hiyoko_ai():
 
     don_before = me.don_active
     trigger_on_ko(st, me, opp, repo.get("OP08-070"), overlay)
+    resolve_triggers(st)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
     _drain(st)
 
     assert any(c.card.card_id == "OP08-073" for c in me.characters), \
@@ -482,6 +486,7 @@ def test_op08_070_on_ko_human_optional_cost_modal():
     me.hand = [repo.get("OP08-073")]
 
     trigger_on_ko(st, me, opp, repo.get("OP08-070"), overlay)
+    resolve_triggers(st)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
     assert st.pending_choice is not None, "人間 任意コストの modal が立たない"
     assert st.pending_choice.get("kind") == "optional_cost_confirm", \
         f"kind が optional_cost_confirm でない: {st.pending_choice.get('kind')}"
@@ -507,6 +512,7 @@ def test_op08_071_on_ko_summon_tamago_opp_turn_ai():
 
     don_before = me.don_active
     trigger_on_ko(st, me, opp, repo.get("OP08-071"), overlay)
+    resolve_triggers(st)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
     _drain(st)
 
     assert any(c.card.card_id == "OP08-070" for c in me.characters), \
@@ -524,6 +530,7 @@ def test_op08_071_self_turn_no_fire():
     me.deck = [repo.get("OP08-070")] + [repo.get("OP01-013")] * 10
 
     trigger_on_ko(st, me, opp, repo.get("OP08-071"), overlay)
+    resolve_triggers(st)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
     _drain(st)
 
     assert not any(c.card.card_id == "OP08-070" for c in me.characters), \
@@ -546,6 +553,7 @@ def test_op08_073_on_ko_summon_niwatori_opp_turn_ai():
 
     don_before = me.don_active
     trigger_on_ko(st, me, opp, repo.get("OP08-073"), overlay)
+    resolve_triggers(st)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
     _drain(st)
 
     assert any(c.card.card_id == "OP08-071" for c in me.characters), \

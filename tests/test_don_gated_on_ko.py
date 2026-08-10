@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from engine.core import InPlay
 from engine.effects import execute_effect, trigger_on_attack
+from engine.effects import resolve_triggers
 
 import tests.test_effects as T
 
@@ -33,6 +34,7 @@ def test_op14_051_draws_when_ko_with_2_don():
     state, me, opp = _ko_setup(repo, overlay, "OP14-051", 2)
     dk0 = len(me.deck)
     execute_effect({"ko": "one_opponent_character_any"}, state, opp, me, None)
+    resolve_triggers(state)  # KO トリガー群は enqueue のみ = 実経路 (apply_action 境界) と同じくドレイン
     assert len(me.deck) == dk0 - 1, "ドン2付きKOで1ドローしていない (= don-gate 評価バグ)"
 
 
@@ -42,6 +44,7 @@ def test_st21_004_draws_when_ko_with_2_don():
     state, me, opp = _ko_setup(repo, overlay, "ST21-004", 2)
     dk0 = len(me.deck)
     execute_effect({"ko": "one_opponent_character_any"}, state, opp, me, None)
+    resolve_triggers(state)  # KO トリガー群は enqueue のみ = 実経路 (apply_action 境界) と同じくドレイン
     assert len(me.deck) == dk0 - 1, "ドン2付きKOで1ドローしていない"
 
 
@@ -51,6 +54,7 @@ def test_op14_051_no_draw_when_ko_without_don():
     state, me, opp = _ko_setup(repo, overlay, "OP14-051", 0)
     dk0 = len(me.deck)
     execute_effect({"ko": "one_opponent_character_any"}, state, opp, me, None)
+    resolve_triggers(state)  # KO トリガー群は enqueue のみ = 実経路 (apply_action 境界) と同じくドレイン
     assert len(me.deck) == dk0, "ドン0なのにドローした (= 条件ゲートが壊れた)"
 
 

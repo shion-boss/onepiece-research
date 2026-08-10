@@ -12,6 +12,7 @@ from pathlib import Path
 from engine.core import Category, GameState, InPlay, Phase, Player
 from engine.deck import CardRepository
 from engine.effects import (
+    resolve_triggers,
     eval_condition,
     evaluate_static_effects,
     execute_effect,
@@ -86,6 +87,7 @@ def test_opp_chara_ko_this_turn_counter():
     p1.characters = [victim]
     p1.trash = []
     trigger_on_ko(s, p1, p0, victim.card, overlay, by_opp_effect=True)
+    resolve_triggers(s)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
     assert p1.chara_ko_taken_this_turn >= 1
     assert eval_condition({"opp_chara_ko_this_turn": True}, s, p0, None)  # me=p0 視点
 

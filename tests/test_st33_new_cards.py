@@ -21,6 +21,7 @@ from pathlib import Path
 from engine.core import Category, GameState, InPlay, Phase, Player
 from engine.deck import CardRepository
 from engine.effects import (
+    resolve_triggers,
     execute_effect,
     load_effect_overlay,
     resolve_pending_choice,
@@ -230,6 +231,7 @@ def test_st33_002_on_ko_summon_marine_ai():
     h0 = len(me.hand)
 
     trigger_on_ko(state, me, opp, repo.get("ST33-002"), overlay)
+    resolve_triggers(state)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
 
     assert state.pending_choice is None, "AI は自動登場"
     assert len(me.characters) == 1, "《海軍》コビー 1 枚が登場"
@@ -247,6 +249,7 @@ def test_st33_002_on_ko_no_marine_no_summon_ai():
     me.characters = []
 
     trigger_on_ko(state, me, opp, repo.get("ST33-002"), overlay)
+    resolve_triggers(state)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
 
     assert state.pending_choice is None
     assert len(me.characters) == 0, "該当《海軍》なし → 登場せず"
@@ -263,6 +266,7 @@ def test_st33_002_on_ko_summon_human_choice():
     me.characters = []
 
     trigger_on_ko(state, me, opp, repo.get("ST33-002"), overlay)
+    resolve_triggers(state)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
 
     assert state.pending_choice is not None, "人間: 登場候補選択 modal が立つ"
     assert state.pending_choice.get("kind") == "play_from_hand_pick"

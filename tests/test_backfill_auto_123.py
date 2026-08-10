@@ -29,6 +29,7 @@ import pytest
 from engine.core import GameState, InPlay, Phase, Player
 from engine.deck import CardRepository
 from engine.effects import (
+    resolve_triggers,
     evaluate_static_effects,
     execute_effect,
     load_effect_overlay,
@@ -135,6 +136,7 @@ def test_op12_089_on_ko_ko_cost_le_4_ai():
     opp.characters = [small, big]
 
     trigger_on_ko(st, me, opp, repo.get("OP12-089"), overlay)
+    resolve_triggers(st)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
     _drain(st)
 
     assert small not in opp.characters, "コスト4以下の相手キャラが KO されていない"
@@ -151,6 +153,7 @@ def test_op12_089_on_ko_no_ko_when_not_revolutionary():
     opp.characters = [small]
 
     trigger_on_ko(st, me, opp, repo.get("OP12-089"), overlay)
+    resolve_triggers(st)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
     _drain(st)
 
     assert small in opp.characters, "非革命軍 leader で KO が発火してはいけない"
@@ -167,6 +170,7 @@ def test_op12_089_on_ko_human_pick():
     opp.characters = [a, b]
 
     trigger_on_ko(st, me, opp, repo.get("OP12-089"), overlay)
+    resolve_triggers(st)  # KO グループは enqueue のみ = 実経路と同じくここでドレイン
 
     assert st.pending_choice is not None, "人間 + 複数候補で KO modal が立たない"
     assert st.pending_choice.get("kind") == "target_pick", \
