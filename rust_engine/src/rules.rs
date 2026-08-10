@@ -257,6 +257,10 @@ fn do_battle_ko(
 }
 
 /// game.py:_reset_turn_buff = ターン終了時のバフ/フラグクリア (applier-tracking 含む)。
+/// ⭐ 「次の X のターン終了時まで」 は **適用後 最初に訪れる X のターン終了** で切れる
+/// (公式 cardqa_op_01 / OP01-085 Mr.3: 「相手のターン中に登場させた場合の 『次の相手のターン
+/// 終了時』 は **そのターンの終了時**」)。 applied_turn < turn_number (strict) だと 相手ターン中に
+/// 適用した効果が 1 サイクル長く残る → `<=` に是正 (2026-08-10、 Python game.py と同一)。
 pub fn reset_turn_buff(state: &mut GameState) {
     let tp = state.turn_player_idx;
     let turn_number = state.turn_number;
@@ -286,6 +290,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
         p.block_chara_effect_untap_don_until_turn_end = false;
         p.cannot_attack_leader_until_turn_end = false;
         p.life_lost_this_turn = false;
+        p.leader_battled_opp_chara_this_turn = false;
         p.chara_ko_taken_this_turn = 0;
         p.block_chara_play_cost_ge_threshold = -1;
         p.play_cost_reductions_filtered_turn = vec![];
@@ -310,7 +315,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
         {
             if (ip.next_opp_turn_end_buff != 0 || ip.next_opp_turn_end_applier_idx >= 0)
                 && ip.next_opp_turn_end_applier_idx >= 0
-                && ip.next_opp_turn_end_applied_turn < turn_number
+                && ip.next_opp_turn_end_applied_turn <= turn_number
                 && ended != ip.next_opp_turn_end_applier_idx
             {
                 ip.next_opp_turn_end_buff = 0;
@@ -319,7 +324,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
             }
             if (ip.next_self_turn_end_buff != 0 || ip.next_self_turn_end_applier_idx >= 0)
                 && ip.next_self_turn_end_applier_idx >= 0
-                && ip.next_self_turn_end_applied_turn < turn_number
+                && ip.next_self_turn_end_applied_turn <= turn_number
                 && ended == ip.next_self_turn_end_applier_idx
             {
                 ip.next_self_turn_end_buff = 0;
@@ -328,7 +333,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
             }
             if ip.cannot_be_rested_buff
                 && ip.cannot_be_rested_applier_idx >= 0
-                && ip.cannot_be_rested_applied_turn < turn_number
+                && ip.cannot_be_rested_applied_turn <= turn_number
                 && ended != ip.cannot_be_rested_applier_idx
             {
                 ip.cannot_be_rested_buff = false;
@@ -337,7 +342,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
             }
             if ip.next_opp_turn_end_base_power_override.is_some()
                 && ip.next_opp_turn_end_base_power_override_applier_idx >= 0
-                && ip.next_opp_turn_end_base_power_override_applied_turn < turn_number
+                && ip.next_opp_turn_end_base_power_override_applied_turn <= turn_number
                 && ended != ip.next_opp_turn_end_base_power_override_applier_idx
             {
                 ip.next_opp_turn_end_base_power_override = None;
@@ -346,7 +351,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
             }
             if ip.next_opp_turn_end_base_cost_override.is_some()
                 && ip.next_opp_turn_end_base_cost_override_applier_idx >= 0
-                && ip.next_opp_turn_end_base_cost_override_applied_turn < turn_number
+                && ip.next_opp_turn_end_base_cost_override_applied_turn <= turn_number
                 && ended != ip.next_opp_turn_end_base_cost_override_applier_idx
             {
                 ip.next_opp_turn_end_base_cost_override = None;
@@ -355,7 +360,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
             }
             if ip.attack_cost_discard_hand_n > 0
                 && ip.attack_cost_discard_hand_applier_idx >= 0
-                && ip.attack_cost_discard_hand_applied_turn < turn_number
+                && ip.attack_cost_discard_hand_applied_turn <= turn_number
                 && ended != ip.attack_cost_discard_hand_applier_idx
             {
                 ip.attack_cost_discard_hand_n = 0;
@@ -364,7 +369,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
             }
             if !ip.granted_keywords_through_opp_turn.is_empty()
                 && ip.granted_keywords_through_opp_turn_applier_idx >= 0
-                && ip.granted_keywords_through_opp_turn_applied_turn < turn_number
+                && ip.granted_keywords_through_opp_turn_applied_turn <= turn_number
                 && ended != ip.granted_keywords_through_opp_turn_applier_idx
             {
                 ip.granted_keywords_through_opp_turn.clear();
@@ -905,6 +910,10 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     reset_battle_buffs(state); // target 消失 = 空打ち (game.py:1484)
                     return Ok(());
                 }
+                // 対象変更先が **キャラ** = リーダーはキャラとバトルした (cardqa_op_12 / OP12-020)
+                if is_leader {
+                    state.players[me].leader_battled_opp_chara_this_turn = true;
+                }
                 // カウンターフェイズ: counter events (defender=opp) → counter cards。
                 // 公式 (cardqa_st_02): 当事者が場を離れていたら **カウンターステップもスキップ**
                 // される (= カウンター札を無駄に消費しない)。 game.py と対。
@@ -952,6 +961,11 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             let mut is_blocked = false;
             let mut blk_idx = 0usize;
             if let Some(bi) = blocker_idx {
+                // ブロッカーは **キャラ** なので、 リーダーのアタックなら 「キャラとバトル」
+                // (cardqa_op_12 / OP12-020。 Python game.py の actual_target = blocker と同位置)。
+                if is_leader && bi < state.players[opp].characters.len() {
+                    state.players[me].leader_battled_opp_chara_this_turn = true;
+                }
                 let valid = bi < state.players[opp].characters.len() && {
                     let b = &state.players[opp].characters[bi];
                     !b.rested && b.is_blocker_now() && !b.blocker_disabled_until_turn_end
@@ -1063,6 +1077,15 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     }
                     let taken = state.players[opp].life.remove(0);
                     state.players[opp].life_lost_this_turn = true;
+                    // ⭐ 公式 (cardqa_op_05 / OP05-098 エネル): 「自分のライフが0枚になった時」 は
+                    //   **0 になった瞬間の事象**。 この後 ライフ札の【トリガー】でライフが戻っても
+                    //   発動できる。 Python game.py:_resolve_life_taken 冒頭と同位置で発火する。
+                    if state.players[opp].life.is_empty() {
+                        let lcid0 = state.players[opp].leader.card.card_id.clone();
+                        if crate::effects::card_has_when(&lcid0, "on_life_zero") {
+                            crate::effects::fire_on_life_zero(state, opp)?;
+                        }
+                    }
                     let cid = taken.card_id.clone();
                     if is_banish {
                         // バニッシュ = trash 直行、 _resolve_life_taken を通らない = life 移動 trigger 無
@@ -1356,6 +1379,11 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                         }
                     }
                 }
+            }
+            // リーダーが **キャラ** とバトルする局面を記録 (cardqa_op_12 / OP12-020、
+            // Python game.py の Pre-counter snapshot と同位置)。
+            if is_leader {
+                state.players[me].leader_battled_opp_chara_this_turn = true;
             }
             // === カウンター: counter events → counter cards ===
             // ⚠ 【カウンター】イベントが盤面を動かす (KO / バウンス) と actual_idx が stale になる。

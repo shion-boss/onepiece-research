@@ -26,10 +26,11 @@ from engine.effects import (
     list_activate_main_effects,
     load_effect_overlay,
     resolve_pending_choice,
+    resolve_triggers,
     trigger_on_attack,
     trigger_on_play,
 )
-from engine.game import AttackCharacter, AttackLeader, apply_action, _fire_counter_events
+from engine.game import AttackCharacter, AttackLeader, EndPhase, apply_action, _fire_counter_events
 
 ROOT = Path(__file__).resolve().parent.parent
 _FILLER = "OP01-013"
@@ -1783,7 +1784,11 @@ def test_all_either_target_cards_are_optional_up_to_n():
             text = re.sub(r"[(（][^)）]*[)）]", "",
                           re.sub(r"\s+", "", card.get(src) or ""))
             m = re.search(r"キャラ\d*枚(まで)?", text)
-            if m and not m.group(1):
+            # ⭐ spec に "mandatory": true があれば 「相手が居なければ自陣から選ぶ」 分岐が
+            #   実装済 (= この監査が求めている対応そのもの) なので対象外。
+            #   OP06-043 アラマキ が第 1 号 (2026-08-10、 発動コストの必須両陣営ターゲット)。
+            has_mandatory_flag = '"mandatory": true' in json.dumps(eff, ensure_ascii=False)
+            if m and not m.group(1) and not has_mandatory_flag:
                 mandatory.append(f"{cid}: {text[:70]}")
     assert not mandatory, (
         "必須形 「キャラN枚を」 が両陣営 spec を使っている。 AI の 「相手が居なければ 0 枚」 は "
@@ -7991,3 +7996,181 @@ def test_op09_103_overlay_uses_then_draw():
         assert "draw" not in top_keys, f"{cid}: 裸の draw が残存 (タダ引き回帰)"
         pfh = next(p["play_from_hand"] for p in eff if "play_from_hand" in p)
         assert pfh.get("then_draw") == 1, f"{cid}: play_from_hand.then_draw 未設定"
+
+
+def test_next_opp_turn_end_applied_during_opp_turn_expires_same_turn():
+    """「次の相手のターン終了時まで」 は **適用後 最初に訪れる相手のターン終了** で切れる。
+
+    一次情報 (cardqa_op_01、 OP01-085 Mr.3):
+      Q「このキャラを **相手のターン中に** 登場させ、【登場時】効果を発動した場合、
+        次の相手のターン終了時とはいつまでですか？」 → A「**そのターンの終了時です**」
+
+    退行前は applier-tracking の解除条件が `applied_turn < turn_number` (strict) で
+    「必ず 1 ターン経過」 を要求しており、 相手ターン中に適用した効果が **1 サイクル長く**
+    残っていた (turn 9 適用 → turn 11 終了まで持続)。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def run(turn_player: int) -> list[int]:
+        st = _state(repo, overlay)
+        st.turn_player_idx = turn_player
+        me = st.players[0]
+        c = InPlay.of(repo.get(_FILLER), sickness=False)
+        me.characters = [c]
+        execute_effect(
+            {"power_pump": {"target": "self", "amount": 1000,
+                            "duration": "next_opp_turn_end"}},
+            st, me, st.players[1], c,
+        )
+        seq = [c.next_opp_turn_end_buff]
+        for _ in range(3):
+            apply_action(st, EndPhase())
+            seq.append(c.next_opp_turn_end_buff)
+        return seq
+
+    # P0 が **相手 (P1) のターン中** に適用 → そのターン終了で切れる
+    assert run(turn_player=1) == [1000, 0, 0, 0], (
+        "相手ターン中に適用した 「次の相手のターン終了時まで」 が そのターン終了で切れていない "
+        "(cardqa_op_01 / OP01-085)"
+    )
+    # P0 が **自分のターン中** に適用 → 自ターン終了では切れず、 次の相手ターン終了で切れる
+    assert run(turn_player=0) == [1000, 1000, 0, 0], "自ターン適用時の挙動が変わってしまっている"
+
+
+def test_op12_020_activate_main_requires_battling_opp_character():
+    """OP12-020 ゾロ 起動メインは 「このターン中、 このリーダーが **相手のキャラと** バトルして
+    いる場合」 のみ発動できる (cardqa_op_12)。
+
+    公式 Q&A 2 件:
+      - 相手リーダー「OP05-022 ロシナンテ」の【ブロッカー】でリーダーとバトルした場合 → **いいえ**
+      - 【相手のアタック時】でアタック対象を自分のリーダーへ変更された場合 → **いいえ**
+    = 判定は **実際にバトルした相手** で行う。 退行前は overlay の if が
+    `self_attached_don_ge: 3` だけで、 バトルの有無に関係なくアクティブにできていた。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def build():
+        st = _state(repo, overlay, leader0="OP12-020")
+        st.players[0].leader.attached_dons = 3
+        return st, st.players[0], st.players[1]
+
+    def can_activate(st, me) -> bool:
+        return bool(list_activate_main_effects(st, me, overlay))
+
+    # (1) 何ともバトルしていない → 発動できない
+    st, me, opp = build()
+    assert not can_activate(st, me), "バトル前なのに起動メインが候補に出ている"
+
+    # (2) リーダーが相手 **キャラ** とバトル → 発動できる
+    st, me, opp = build()
+    victim = InPlay.of(repo.get(_FILLER), sickness=False)
+    victim.rested = True
+    opp.characters = [victim]
+    apply_action(st, AttackCharacter(attacker_iid=me.leader.instance_id,
+                                     target_iid=victim.instance_id))
+    assert me.leader_battled_opp_chara_this_turn is True
+    assert can_activate(st, me), "相手キャラとバトルしたのに起動メインが出ない"
+
+    # (3) リーダーが相手 **リーダー** とバトル → 発動できない (公式 いいえ)
+    st, me, opp = build()
+    apply_action(st, AttackLeader(attacker_iid=me.leader.instance_id))
+    assert me.leader_battled_opp_chara_this_turn is False
+    assert not can_activate(st, me), (
+        "リーダーとバトルしただけで起動メインが発動できている (cardqa_op_12 違反)"
+    )
+
+
+def test_op05_098_enel_fires_when_life_hits_zero_even_if_trigger_restores_it():
+    """OP05-098 エネル 【相手のターン中】「自分のライフが0枚になった時」 は **0 になった瞬間の事象**。
+
+    一次情報 (cardqa_op_05): 「自分のライフが1枚の時にダメージを受け、 そのライフが
+    『OP03-118 威国』 だったため【トリガー】効果を発動しライフが0枚から1枚になりました。
+    この時、 この【相手のターン中】効果は発動できますか？」 → 「はい、 発動できます」
+
+    退行前は 「アタック **開始時** にライフ0」 でしか発火しておらず、 ライフが戻ると
+    発動タイミングを永久に取り逃していた。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader1="OP05-098")
+    st.turn_player_idx = 0
+    me, opp = st.players[0], st.players[1]
+    opp.life = [repo.get("OP03-118")]          # ライフ 1 枚 (= 威国)
+    opp.hand = [repo.get(_FILLER)] * 4
+    deck_before = len(opp.deck)
+
+    apply_action(st, AttackLeader(attacker_iid=me.leader.instance_id))
+
+    assert not st.game_over, "エネルでライフを補充したのに敗北になっている"
+    assert len(opp.life) >= 1, "ライフ0のまま = エネルが発動していない (cardqa_op_05 違反)"
+    assert len(opp.deck) < deck_before, "デッキ上をライフに置く処理が走っていない"
+
+
+def test_op16_041_buggy_fires_on_leave_by_own_effect():
+    """OP16-041 バギー: **自分の効果で** インペルダウンキャラが場を離れた時も発動できる。
+
+    一次情報 (cardqa_op_16): 「自分の『OP07-056 虜の矢』などの効果によって、 自分の特徴
+    《インペルダウン》を持つキャラが手札に戻りました。 この時、 このリーダーの効果で
+    『インペルダウンの囚人』1枚を登場させることはできますか？」 → 「はい、 できます」
+
+    退行前は (a) overlay が KO / 相手効果離脱しか配線せず (b) 任意コストの離脱経路が
+    leave-by-self トリガーを一切発火していなかった、 の 2 段で発動しなかった。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def run(victim_id: str) -> bool:
+        st = _state(repo, overlay, leader0="OP16-041")
+        st.turn_player_idx = 1              # 相手ターン (= 虜の矢はカウンター)
+        me, opp = st.players[0], st.players[1]
+        me.leader.attached_dons = 1         # 【ドン!!×1】
+        me.characters = [InPlay.of(repo.get(victim_id), sickness=False)]
+        me.hand = [repo.get("OP16-042")]    # インペルダウンの囚人
+        execute_effect(
+            {"optional_cost_then": {
+                "cost": [{"return_self_chara_to_hand": {"count": 1, "filter": {"cost_ge": 2}}}],
+                "effect": [{"power_pump": {"target": "self_leader", "amount": 4000,
+                                           "duration": "battle"}}]}},
+            st, me, opp, me.leader,
+        )
+        resolve_triggers(st)
+        return any(c.card.card_id == "OP16-042" for c in me.characters)
+
+    assert run("EB02-038") is True, (
+        "インペルダウンキャラが自分の効果で場を離れたのに『囚人』が登場していない (cardqa_op_16 違反)"
+    )
+    assert run("EB01-012_r1") is False, (
+        "非インペルダウンキャラの離脱で発動してしまっている (victim 特徴の判定漏れ)"
+    )
+
+
+def test_op06_043_activate_main_cost_is_all_or_nothing():
+    """OP06-043 アラマキ: 「手札1枚を捨て、 コスト2以下のキャラ1枚をデッキの下に置くことが
+    できる：」 は **コロン前が全て発動コスト** = 部分支払い不可 (cardqa_op_06)。
+
+    Q「コスト2以下のキャラ1枚をデッキの下に置かずに、 自分の手札1枚を捨てることは
+      できますか？」 → 「いいえ、 できません」
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def run(with_target: bool):
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        src = InPlay.of(repo.get("OP06-043"), sickness=False)
+        me.characters = [src]
+        me.hand = [repo.get(_FILLER)] * 3
+        if with_target:
+            opp.characters = [InPlay.of(repo.get("OP01-016"), sickness=False)]  # コスト1
+        cands = list_activate_main_effects(st, me, overlay)
+        if not cands:
+            return src.power, len(me.hand)
+        s, e = cands[0]
+        fire_activate_main(st, me, opp, s, e)
+        resolve_triggers(st)
+        return src.power, len(me.hand)
+
+    pumped, hand_after = run(True)
+    base, hand_kept = run(False)
+    assert pumped == base + 3000, "弾が居る時は +3000 されるはず"
+    assert hand_after == 2, "弾が居る時は手札1枚を捨てるはず"
+    assert hand_kept == 3, (
+        "コスト2以下のキャラが居ないのに手札だけ捨てている (= 部分支払い、 cardqa_op_06 違反)"
+    )

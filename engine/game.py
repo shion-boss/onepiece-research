@@ -561,6 +561,7 @@ def _reset_turn_buff(state: GameState) -> None:
         player.block_chara_effect_untap_don_until_turn_end = False
         player.cannot_attack_leader_until_turn_end = False
         player.life_lost_this_turn = False
+        player.leader_battled_opp_chara_this_turn = False
         player.chara_ko_taken_this_turn = 0
         player.block_chara_play_cost_ge_threshold = -1
         player.play_cost_reductions_filtered_turn = []
@@ -578,15 +579,22 @@ def _reset_turn_buff(state: GameState) -> None:
         ip.cost_minus_through_opp_turn = 0
 
     # 次の(相手|自分)のターン終了時まで タイムドバフ系を applier-tracking でクリア。
-    # 条件: applied_turn < state.turn_number (= 少なくとも 1 ターン経過)
-    # かつ ended_idx の判定 (next_opp = !=applier、 next_self = ==applier)
+    # 条件: applied_turn <= state.turn_number かつ ended_idx の判定
+    #       (next_opp = ended_idx != applier、 next_self = ended_idx == applier)
+    # ⭐ 公式 (cardqa_op_01 / OP01-085 Mr.3): 「このキャラを **相手のターン中に** 登場させ…
+    #   次の相手のターン終了時とはいつまでですか？」 → 「**そのターンの終了時です**」。
+    #   = 「次の X のターン終了時」 は **適用後 最初に訪れる X のターン終了**。 適用が既に
+    #   X のターン中なら **そのターンの終了時** で切れる。
+    #   ⚠ 以前は applied_turn < turn_number (strict) で 「必ず 1 ターン経過」 を要求していたため、
+    #   相手ターン中に適用した効果が **1 サイクル長く残っていた** (2026-08-10 是正)。
+    #   自ターン中の適用 (= 大多数) は ended_idx の判定で当ターンは弾かれるので挙動不変。
     ended_idx = state.players.index(me_turn)
     for player in state.players:
         for ip in [player.leader, *player.characters, *player.stages]:
             # next_opp_turn_end_buff: applier の相手のターン終了で消える
             if ip.next_opp_turn_end_buff != 0 or ip.next_opp_turn_end_applier_idx >= 0:
                 if (ip.next_opp_turn_end_applier_idx >= 0
-                        and ip.next_opp_turn_end_applied_turn < state.turn_number
+                        and ip.next_opp_turn_end_applied_turn <= state.turn_number
                         and ended_idx != ip.next_opp_turn_end_applier_idx):
                     ip.next_opp_turn_end_buff = 0
                     ip.next_opp_turn_end_applier_idx = -1
@@ -594,7 +602,7 @@ def _reset_turn_buff(state: GameState) -> None:
             # next_self_turn_end_buff: applier の自身のターン終了で消える
             if ip.next_self_turn_end_buff != 0 or ip.next_self_turn_end_applier_idx >= 0:
                 if (ip.next_self_turn_end_applier_idx >= 0
-                        and ip.next_self_turn_end_applied_turn < state.turn_number
+                        and ip.next_self_turn_end_applied_turn <= state.turn_number
                         and ended_idx == ip.next_self_turn_end_applier_idx):
                     ip.next_self_turn_end_buff = 0
                     ip.next_self_turn_end_applier_idx = -1
@@ -602,7 +610,7 @@ def _reset_turn_buff(state: GameState) -> None:
             # cannot_be_rested_buff: applier の相手ターン終了で消える (= 防衛効果)
             if ip.cannot_be_rested_buff:
                 if (ip.cannot_be_rested_applier_idx >= 0
-                        and ip.cannot_be_rested_applied_turn < state.turn_number
+                        and ip.cannot_be_rested_applied_turn <= state.turn_number
                         and ended_idx != ip.cannot_be_rested_applier_idx):
                     ip.cannot_be_rested_buff = False
                     ip.cannot_be_rested_applier_idx = -1
@@ -612,14 +620,14 @@ def _reset_turn_buff(state: GameState) -> None:
             # ST26-005 ルフィ 「自分のリーダーを 次の相手のエンドフェイズ終了時まで、 元々のパワー7000」 等。
             if ip.next_opp_turn_end_base_power_override is not None:
                 if (ip.next_opp_turn_end_base_power_override_applier_idx >= 0
-                        and ip.next_opp_turn_end_base_power_override_applied_turn < state.turn_number
+                        and ip.next_opp_turn_end_base_power_override_applied_turn <= state.turn_number
                         and ended_idx != ip.next_opp_turn_end_base_power_override_applier_idx):
                     ip.next_opp_turn_end_base_power_override = None
                     ip.next_opp_turn_end_base_power_override_applier_idx = -1
                     ip.next_opp_turn_end_base_power_override_applied_turn = 0
             if ip.next_opp_turn_end_base_cost_override is not None:
                 if (ip.next_opp_turn_end_base_cost_override_applier_idx >= 0
-                        and ip.next_opp_turn_end_base_cost_override_applied_turn < state.turn_number
+                        and ip.next_opp_turn_end_base_cost_override_applied_turn <= state.turn_number
                         and ended_idx != ip.next_opp_turn_end_base_cost_override_applier_idx):
                     ip.next_opp_turn_end_base_cost_override = None
                     ip.next_opp_turn_end_base_cost_override_applier_idx = -1
@@ -628,14 +636,14 @@ def _reset_turn_buff(state: GameState) -> None:
             # OP09-084 カタリーナ・デボン 「次の相手のターン終了時まで、 【ダブルアタック】か【バニッシュ】か【ブロッカー】を得る」 等。
             if ip.attack_cost_discard_hand_n > 0:
                 if (ip.attack_cost_discard_hand_applier_idx >= 0
-                        and ip.attack_cost_discard_hand_applied_turn < state.turn_number
+                        and ip.attack_cost_discard_hand_applied_turn <= state.turn_number
                         and ended_idx != ip.attack_cost_discard_hand_applier_idx):
                     ip.attack_cost_discard_hand_n = 0
                     ip.attack_cost_discard_hand_applier_idx = -1
                     ip.attack_cost_discard_hand_applied_turn = 0
             if ip.granted_keywords_through_opp_turn:
                 if (ip.granted_keywords_through_opp_turn_applier_idx >= 0
-                        and ip.granted_keywords_through_opp_turn_applied_turn < state.turn_number
+                        and ip.granted_keywords_through_opp_turn_applied_turn <= state.turn_number
                         and ended_idx != ip.granted_keywords_through_opp_turn_applier_idx):
                     ip.granted_keywords_through_opp_turn = set()
                     ip.granted_keywords_through_opp_turn_applier_idx = -1
@@ -1620,6 +1628,9 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     f"atk: {attacker.card.name}(P={atk_power}) -> "
                     f"{redirect_target.card.name}(P={base_defender_power})"
                 )
+                # 対象変更先が **キャラ** = リーダーはキャラとバトルした (cardqa_op_12 / OP12-020)
+                if attacker is me.leader:
+                    me.leader_battled_opp_chara_this_turn = True
                 # === Counter フェイズ ===
                 # 発火 後 は battle_buff (= 神避 等) が redirect_target に 載るので 再読。
                 # 公式 (cardqa_st_02): 当事者が場を離れていたら
@@ -1736,6 +1747,10 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 # ② ブロッカーをレスト → アタック対象をブロッカーへ変更
                 blocker.rested = True
                 actual_target = blocker
+                # 公式 cardqa_op_12 (OP12-020): 「このリーダーが相手のキャラとバトルしている場合」
+                # は **実際にバトルした相手** で判定する (ブロッカー = キャラ とのバトル)。
+                if attacker is me.leader:
+                    me.leader_battled_opp_chara_this_turn = True
                 target_iid = blocker.instance_id
                 target_kind = "blocker"
                 is_blocked = True
@@ -2055,6 +2070,10 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 # ② ブロッカーをレスト → アタック対象をブロッカーへ変更
                 blocker.rested = True
                 actual_target = blocker
+                # 公式 cardqa_op_12 (OP12-020): 「このリーダーが相手のキャラとバトルしている場合」
+                # は **実際にバトルした相手** で判定する (ブロッカー = キャラ とのバトル)。
+                if attacker is me.leader:
+                    me.leader_battled_opp_chara_this_turn = True
                 state.push_log(f"  blocker: {blocker.card.name}")
                 # 10-2-15-1: 【ブロック時】効果発動
                 if state.effects_overlay:
@@ -2062,6 +2081,10 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     trigger_on_block(state, opp, me, blocker, state.effects_overlay)
 
         # === Pre-counter snapshot ===
+        # リーダーが **キャラ** とバトルする局面を記録 (cardqa_op_12 / OP12-020 ゾロの
+        # 「このターン中、 このリーダーが相手のキャラとバトルしている場合」)。
+        if attacker is me.leader:
+            me.leader_battled_opp_chara_this_turn = True
         atk_power = attacker.power
         base_defender_power = actual_target.power
         target_kind = "blocker" if action.blocker_iid is not None else "character"
@@ -2301,6 +2324,17 @@ def _resolve_life_taken(
                on_self_life_taken (= 「ダメージを受けた時」 = 戦闘専用) は発火せず、
                「相手のライフが効果で離れた時」 (_fire_opp_life_left_by_effect) を発火する。
     """
+    # ⭐ 公式 (cardqa_op_05 / OP05-098 エネル): 「自分のライフが0枚になった時」 は
+    #   **0 になった瞬間の事象**。 この後に ライフ札の【トリガー】(OP03-118 威国 等) で
+    #   ライフが 1 枚に戻っても、 その【相手のターン中】効果は発動できる (公式=はい)。
+    #   ⚠ engine は従来 「アタック **開始時** にライフ0」 でしか発火しておらず、
+    #     トリガーで回復すると 発動タイミングを永久に取り逃していた (2026-08-10 是正)。
+    #   ここは 戦闘ダメージ / 効果ダメージ 双方が通る choke point (= 1 hit ごと)。
+    #   ⚠ mill_opp_life_* 等 ダメージ以外の ライフ除去経路は、 従来どおり
+    #     「アタック開始時にライフ0」 の catch-all で拾う (= 取りこぼしは無いが発火が遅れる)。
+    if not opp.life and state.effects_overlay:
+        from .effects import trigger_on_life_zero
+        trigger_on_life_zero(state, opp, me, state.effects_overlay)
     fired = False
     kept_in_hand = False
     played_self = False

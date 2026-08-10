@@ -273,6 +273,25 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                 v.as_bool().unwrap_or(true) == (me.life.is_empty() || opp.life.is_empty())
             }
             "opp_life_lost_this_turn" => v.as_bool().unwrap_or(true) == opp.life_lost_this_turn,
+            // 「自分の **特徴X を持つ** キャラが場を離れた時」 (OP16-041 バギー 等)。
+            // このイベントで場を離れた victim の **いずれか** が特徴を持てば成立。
+            "leave_victim_feature_in" => {
+                let feats: Vec<String> = match v {
+                    Value::Array(a) => a.iter().filter_map(|x| x.as_str().map(String::from)).collect(),
+                    Value::String(x) => vec![x.clone()],
+                    _ => vec![],
+                };
+                state
+                    .rust_leave_by_self_victims
+                    .iter()
+                    .any(|c| feats.iter().any(|f| c.features.iter().any(|cf| cf == f)))
+            }
+            // 公式 (cardqa_op_12 / OP12-020 ゾロ): 「このターン中、 このリーダーが **相手のキャラと**
+            // バトルしている場合」。 実際にバトルした相手で判定 (ブロッカー/対象変更でリーダーと
+            // バトルしたなら不成立)。
+            "self_leader_battled_opp_chara_this_turn" => {
+                v.as_bool().unwrap_or(true) == me.leader_battled_opp_chara_this_turn
+            }
             "self_hand_discarded_by_effect_this_turn" => {
                 v.as_bool().unwrap_or(true) == me.hand_discarded_by_effect_this_turn
             }
@@ -979,7 +998,28 @@ fn resolve_target(
                     });
                     return Some(vec![(opp_idx, opp_cands[0])]);
                 }
-                // ⚠ AI は自陣を auto-pick しない (Python `_either_pick_one` と対)。
+                // ⭐ **必須形** (spec の "mandatory": true = 公式が 「キャラN枚を」 で 「まで」 が無い)
+                //   は 0 枚を選べないので、 相手候補が居なければ **自陣から選ぶ義務** がある。
+                //   AI は最も惜しくない駒 (Python `_sacrifice_key` = 効果価値 → パワー昇順) を出す。
+                //   任意形 (「まで」) は従来どおり 0 枚 = 自陣を差し出さない。
+                if v.get("mandatory").and_then(|x| x.as_bool()).unwrap_or(false) {
+                    let mut self_cands = collect_side(me_idx, state);
+                    if !self_cands.is_empty() {
+                        let me_p = &state.players[me_idx];
+                        // Python `_sacrifice_key` は **パワー昇順のみ** (effects.py:863)。
+                        // 余計な key を足すと同点時の選択が Python とズレる。
+                        let key = |sl: &Slot| -> i32 {
+                            match sl {
+                                Slot::Leader => me_p.leader.power(),
+                                Slot::Char(i) => me_p.characters[*i].power(),
+                                _ => 0,
+                            }
+                        };
+                        self_cands.sort_by_key(|sl| key(sl));
+                        return Some(vec![(me_idx, self_cands[0])]);
+                    }
+                }
+                // ⚠ 任意形では AI は自陣を auto-pick しない (Python `_either_pick_one` と対)。
                 return Some(vec![]);
             }
             if t == "one_opponent_inplay_filtered" {
@@ -3583,6 +3623,13 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
                     me.characters.push(c);
                 }
             }
+            // ⚠ 「自分の効果で自分のキャラが場を離れた」 = leave-by-self トリガーの対象
+            //   (公式 cardqa_op_16 / OP16-041 バギー: 虜の矢のコストで自キャラが手札に
+            //    戻った時も 「場を離れた時」 効果は発動する)。 任意コストの離脱 3 経路とも
+            //   発火が抜けていた (2026-08-10 是正、 Python effects.py と同位置)。
+            if fire_leave_by_self_effect(state, me_idx).is_err() {
+                return None;
+            }
         }
         // rest_own_card: AI は 非リーダー + power 昇順 (= リーダー/高power を温存、
         // effects.py:13720 と同順)。 直接 rested = cascade 無し。
@@ -3642,6 +3689,13 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
                 } else {
                     me.characters.push(c);
                 }
+            }
+            // ⚠ 「自分の効果で自分のキャラが場を離れた」 = leave-by-self トリガーの対象
+            //   (公式 cardqa_op_16 / OP16-041 バギー: 虜の矢のコストで自キャラが手札に
+            //    戻った時も 「場を離れた時」 効果は発動する)。 任意コストの離脱 3 経路とも
+            //   発火が抜けていた (2026-08-10 是正、 Python effects.py と同位置)。
+            if fire_leave_by_self_effect(state, me_idx).is_err() {
+                return None;
             }
         }
         // return_to_hand cost (other_self_chara 等): execute_effect 委譲 (Python も cost として execute_effect、
@@ -3731,6 +3785,13 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
                 state.players[me_idx].trash.push(ip.card);
                 state.players[me_idx].don_rested += don;
             }
+            // ⚠ 「自分の効果で自分のキャラが場を離れた」 = leave-by-self トリガーの対象
+            //   (公式 cardqa_op_16 / OP16-041 バギー: 虜の矢のコストで自キャラが手札に
+            //    戻った時も 「場を離れた時」 効果は発動する)。 任意コストの離脱 3 経路とも
+            //   発火が抜けていた (2026-08-10 是正、 Python effects.py と同位置)。
+            if fire_leave_by_self_effect(state, me_idx).is_err() {
+                return None;
+            }
         }
         // 上記以外の cost は対応する primitive にそのまま委譲する (Python effects.py:8659 の汎用パス)。
         // 未実装 primitive なら execute_effect が false を返し、 呼出側が bail する = 黙って無視しない。
@@ -3765,6 +3826,13 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
     //   Python の state._effect_source_ip と同じ役割。
     let _prev_pf = state.rust_play_source_is_field_chara;
     state.rust_play_source_is_field_chara = matches!(src, Slot::Char(_));
+    // ⭐ leave victim スナップショット (Python execute_effect と同位置)。 最外側だけ。
+    let snap_owner = state.rust_leave_victim_snapshot.is_none();
+    if snap_owner {
+        state.rust_leave_victim_snapshot = Some(
+            state.players[me_idx].characters.iter().map(|c| c.card.clone()).collect(),
+        );
+    }
     // 同時離脱バッチ (Python `_LeaveBatch`): 最外側だけが有効 (入れ子は開き直さない)。
     let opened = state.rust_leave_batch_holders.is_none()
         && prim.as_object().map_or(false, |o| {
@@ -3795,6 +3863,9 @@ fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot)
             }
         }
         state.rust_leave_batch_paid.clear();
+    }
+    if snap_owner {
+        state.rust_leave_victim_snapshot = None;
     }
     state.rust_play_source_is_field_chara = _prev_pf;
     _r
@@ -9092,6 +9163,18 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     return true;
                 }
                 let taken = state.players[opp_idx].life.remove(0);
+                // ⭐ 「自分のライフが0枚になった時」 は **0 になった瞬間の事象** (cardqa_op_05 /
+                //   OP05-098 エネル)。 効果ダメージ経路も Python `_resolve_life_taken` を通るので
+                //   同じ位置で発火する。 ⚠ 上の 「ライフ空で on_life_zero 持ち → bail」 guard に
+                //   よりここへ来る時点で 相手は on_life_zero を持たない or ライフが残っていた。
+                if state.players[opp_idx].life.is_empty() {
+                    let lcid0 = state.players[opp_idx].leader.card.card_id.clone();
+                    if card_has_when(&lcid0, "on_life_zero")
+                        && fire_on_life_zero(state, opp_idx).is_err()
+                    {
+                        return false; // 未対応 = 明示 bail (呼出側で Err)
+                    }
+                }
                 let cid = taken.card_id.clone();
                 // ⭐ 効果ダメージでも **ライフ札の【トリガー】は発動できる** (公式 cardqa_eb_03 /
                 //   rules 7-1-4-1-1-2 line 180: 「1ダメージ → 相手はライフ上1枚を手札へ or
@@ -9977,6 +10060,23 @@ pub(crate) fn note_public_departure(state: &mut GameState, owner_idx: usize, car
 /// **離脱した本人** (台帳 = 公開領域行きのみ) の効果も発動させる。
 pub(crate) fn fire_leave_by_self_effect(state: &mut GameState, actor_idx: usize) -> Result<(), String> {
     const WHEN: &str = "on_self_chara_leave_by_self_effect";
+    // ⭐ victim 文脈 (Python trigger_on_self_chara_leave_by_self_effect と同じ差分計算)。
+    if let Some(snap) = state.rust_leave_victim_snapshot.clone() {
+        let mut after: Vec<String> = state.players[actor_idx]
+            .characters
+            .iter()
+            .map(|c| c.card.card_id.clone())
+            .collect();
+        let mut gone: Vec<CardDef> = Vec::new();
+        for c in snap {
+            if let Some(pos) = after.iter().position(|x| *x == c.card_id) {
+                after.remove(pos); // 残っている 1 枚を相殺 (multiset 差分)
+            } else {
+                gone.push(c);
+            }
+        }
+        state.rust_leave_by_self_victims = gone;
+    }
     fire_field_when(state, actor_idx, WHEN)?;
     // 台帳は 「誰が反応したか」 に関わらず ここで空にする (Python も同じ = 取りこぼしを残さない)。
     let departed: Vec<(usize, String)> = std::mem::take(&mut state.rust_departed_to_public);

@@ -1331,6 +1331,20 @@ def eval_condition(
                 present = present or any(c.card.name == name for c in opp.characters)
             if present:  # いる → 条件不成立 (= 効果無効)
                 return False
+        elif k == "leave_victim_feature_in":
+            # 「自分の **特徴X を持つ** キャラが場を離れた時」 (OP16-041 バギー 等)。
+            # このイベントで場を離れた victim の **いずれか** が特徴を持てば成立
+            # (同時離脱では victim が複数になるため)。
+            feats = v if isinstance(v, list) else [v]
+            victims = getattr(state, "last_leave_by_self_victim_cards", None) or []
+            if not any(any(f in (c.features or []) for f in feats) for c in victims):
+                return False
+        elif k == "self_leader_battled_opp_chara_this_turn":
+            # 公式 (cardqa_op_12 / OP12-020 ゾロ): 「このターン中、 このリーダーが **相手のキャラと**
+            # バトルしている場合」。 ブロッカーやアタック対象変更で **リーダーとバトルした** 場合は
+            # 成立しない (= 実際にバトルした相手で判定する)。
+            if bool(v) != bool(getattr(me, "leader_battled_opp_chara_this_turn", False)):
+                return False
         elif k == "opp_life_lost_this_turn":
             # 「相手のライフが離れているターン中」 (P-120)。 opp が今ターン ライフを失ったか。
             lost = opp is not None and getattr(opp, "life_lost_this_turn", False)
@@ -2412,7 +2426,7 @@ def _resolve_target(
         return cands[:1]
 
     def _either_pick_one(
-        opp_cands: list, self_cands: list, description: str
+        opp_cands: list, self_cands: list, description: str, mandatory: bool = False
     ) -> Optional[list]:
         """両陣営候補から 1 枚選ぶ (公式: 修飾なし 「キャラ1枚まで」 は自陣も対象)。
 
@@ -2440,7 +2454,15 @@ def _resolve_target(
         ):
             return None
         ranked = sorted(opp_cands, key=lambda c: -_opp_value(c))
-        return ranked[:1]
+        if ranked:
+            return ranked[:1]
+        # ⭐ **必須形** (= 公式が 「キャラN枚を」 で 「まで」 が無い) は 0 枚を選べない。
+        #   相手候補が居なければ **自陣から選ぶ義務** がある (公式: 可能な限り解決する)。
+        #   AI は最も惜しくない駒 (= _sacrifice_key: 効果価値→パワー昇順) を出す。
+        #   ⚠ 任意形 (「まで」) は従来どおり 0 枚 (= 自陣を差し出さない) が正しい auto-pick。
+        if mandatory and self_cands:
+            return sorted(self_cands, key=_sacrifice_key)[:1]
+        return []
 
     # _iid_picks bypass (= resolve_pending_choice 経由 の 再実行)
     # ユーザ の 選択した iid から 該当 InPlay を 全 場 から 直接 解決 する。
@@ -2669,7 +2691,8 @@ def _resolve_target(
                 return [ip for ip in (opp_cands + self_cands)
                         if ip.instance_id in iid_picks][:1]
             picked = _either_pick_one(
-                opp_cands, self_cands, "両陣営のリーダー/キャラ から 1 枚 選択")
+                opp_cands, self_cands, "両陣営のリーダー/キャラ から 1 枚 選択",
+                mandatory=bool(target_spec.get("mandatory")))
             return [] if picked is None else picked
         if t == "one_opponent_inplay_filtered":
             # 相手リーダー or キャラ から filter にマッチする 1 枚
@@ -3633,12 +3656,22 @@ def execute_effect(
     _need_batch = isinstance(spec, dict) and any(
         k in _SIMULTANEOUS_LEAVE_PRIMS for k in spec
     )
+    # ⭐ 「自分の(特徴X を持つ)キャラが場を離れた時」 の **victim 判定用スナップショット**。
+    #   離脱は 16 以上の primitive/コスト経路から起きるので、 個別に victim を引き回すと
+    #   必ず取りこぼす (= 経路によって裁定が変わる)。 **効果の最外側で自陣の顔ぶれを控え、
+    #   トリガー発火時に差分を取る** ことで全経路を一様に覆う (cardqa_op_16 / OP16-041)。
+    _leave_snap_owner = False
+    if getattr(state, "_leave_victim_snapshot", None) is None:
+        state._leave_victim_snapshot = [c.card for c in me.characters]
+        _leave_snap_owner = True
     try:
         if _need_batch:
             with _LeaveBatch(state):
                 return _execute_effect_body(spec, state, me, opp, self_inplay)
         return _execute_effect_body(spec, state, me, opp, self_inplay)
     finally:
+        if _leave_snap_owner:
+            state._leave_victim_snapshot = None
         _pc_after = state.pending_choice
         if (isinstance(_pc_after, dict) and _pc_after is not _pc_before
                 and "_actor_idx" not in _pc_after):
@@ -10144,6 +10177,7 @@ def _execute_effect_body_inner(
                         if moved < rh_count:
                             targets_to_move.add(c.instance_id)
                             moved += 1
+                    new_chars_before = list(me.characters)
                     new_chars = []
                     for c in me.characters:
                         if c.instance_id in targets_to_move:
@@ -10156,6 +10190,14 @@ def _execute_effect_body_inner(
                         else:
                             new_chars.append(c)
                     me.characters = new_chars
+                    # ⚠ 「自分の効果で自分のキャラが場を離れた」 = leave-by-self トリガーの対象
+                    #   (公式 cardqa_op_16 / OP16-041: 虜の矢 OP07-056 のコストで自キャラが
+                    #    手札に戻った時も 「場を離れた時」 効果は発動する = はい)。
+                    #   任意コストの 3 経路 (手札 / デッキ下 / 自KO) とも発火が抜けていた。
+                    if state.effects_overlay and len(me.characters) != len(new_chars_before):
+                        trigger_on_self_chara_leave_by_self_effect(
+                            state, me, opp, state.effects_overlay
+                        )
                     continue
                 if "return_self_chara_to_deck_bottom" in cs:
                     # 公式: 自キャラ N 枚を持ち主 (= me) のデッキの下へ。
@@ -10182,6 +10224,7 @@ def _execute_effect_body_inner(
                         if moved < rb_count:
                             targets_to_move.add(c.instance_id)
                             moved += 1
+                    new_chars_before = list(me.characters)
                     new_chars = []
                     for c in me.characters:
                         if c.instance_id in targets_to_move:
@@ -10194,6 +10237,14 @@ def _execute_effect_body_inner(
                         else:
                             new_chars.append(c)
                     me.characters = new_chars
+                    # ⚠ 「自分の効果で自分のキャラが場を離れた」 = leave-by-self トリガーの対象
+                    #   (公式 cardqa_op_16 / OP16-041: 虜の矢 OP07-056 のコストで自キャラが
+                    #    手札に戻った時も 「場を離れた時」 効果は発動する = はい)。
+                    #   任意コストの 3 経路 (手札 / デッキ下 / 自KO) とも発火が抜けていた。
+                    if state.effects_overlay and len(me.characters) != len(new_chars_before):
+                        trigger_on_self_chara_leave_by_self_effect(
+                            state, me, opp, state.effects_overlay
+                        )
                     continue
                 if "ko_self_chara" in cs:
                     # 公式: 自分のキャラ N 枚を KO (= トラッシュへ)。 OP05-087 / EB04-048。
@@ -10220,6 +10271,7 @@ def _execute_effect_body_inner(
                                                    list(cost_specs[_ci + 1:]) + list(effect_specs)):
                         return True  # 人間選択待ち(continuation で残りコスト+効果)
                     to_ko = {c.instance_id for c in cands[:kc_count]}
+                    new_chars_before = list(me.characters)
                     new_chars = []
                     for c in me.characters:
                         if c.instance_id in to_ko:
@@ -10230,6 +10282,14 @@ def _execute_effect_body_inner(
                         else:
                             new_chars.append(c)
                     me.characters = new_chars
+                    # ⚠ 「自分の効果で自分のキャラが場を離れた」 = leave-by-self トリガーの対象
+                    #   (公式 cardqa_op_16 / OP16-041: 虜の矢 OP07-056 のコストで自キャラが
+                    #    手札に戻った時も 「場を離れた時」 効果は発動する = はい)。
+                    #   任意コストの 3 経路 (手札 / デッキ下 / 自KO) とも発火が抜けていた。
+                    if state.effects_overlay and len(me.characters) != len(new_chars_before):
+                        trigger_on_self_chara_leave_by_self_effect(
+                            state, me, opp, state.effects_overlay
+                        )
                     continue
                 execute_effect(cs, state, me, opp, self_inplay)
                 # 人間操作で cost が target pick (return_to_hand other_self_chara 等) を
@@ -13734,6 +13794,19 @@ def trigger_on_self_chara_leave_by_self_effect(
     """
     if not effects_overlay:
         return
+    # ⭐ victim 文脈: 効果の最外側で控えた顔ぶれとの差分 = このイベントで場を離れたキャラ。
+    #   公式 (cardqa_op_16 / OP16-041 バギー) 「自分の特徴《インペルダウン》を持つキャラが
+    #   場を離れた時」 のように victim の特徴で絞る効果が読む。
+    _snap = getattr(state, "_leave_victim_snapshot", None)
+    if _snap is not None:
+        from collections import Counter as _Counter
+        _gone = _Counter(c.card_id for c in _snap) - _Counter(
+            c.card.card_id for c in actor.characters
+        )
+        _by_id = {c.card_id: c for c in _snap}
+        state.last_leave_by_self_victim_cards = [
+            _by_id[cid] for cid in _gone.elements() if cid in _by_id
+        ]
     _enqueue_field_when(
         state, actor, "on_self_chara_leave_by_self_effect", effects_overlay
     )

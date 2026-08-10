@@ -391,8 +391,14 @@ def main() -> None:
     #   置換 (replace_ko / replace_leave / replace_rest) は 下の専用パスで bit 比較しているので、
     #   直接発火パスでは対象外にしているだけ。 内訳を出して 「計器の穴」 と誤読されないようにする。
     if res.get("skip(when)"):
+        # main() には run() の card 一覧が無いので overlay から数え直す (= 同じ集合)。
+        _ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+        _cards = [(cid, e) for cid, e in _ov.items()
+                  if not cid.startswith("_") and isinstance(e, list) and e]
+        if args.limit:
+            _cards = sorted(_cards)[:args.limit]
         skipped_by_when = Counter()
-        for cid, effs in cards:
+        for cid, effs in _cards:
             for eff in effs:
                 w = eff.get("when") or "(when 無し)"
                 if w not in DIRECT_WHENS:

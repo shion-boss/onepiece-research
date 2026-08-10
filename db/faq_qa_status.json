@@ -4183,9 +4183,9 @@
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "OP06-043 アラマキ 起動メイン: 公式は『手札1枚を捨て、コスト2以下のキャラ1枚を持ち主のデッキ下に置く』が両方とも発動コスト(コロン前)。現 overlay は discard_hand のみ cost、return_to_deck_bottom を do に持ち かつ対象を opp-only に限定。是正には(1)両陣営化(『相手の』無し=one_inplay_either)(2)『filtered キャラを持ち主デッキ下』を activate_main 発動コスト化(cost払えない=発動不可)が必要。後者は activate_main コスト系(payability)に filtered-return-to-deck-bottom コストの追加=Python/Rust 両対応のアーキ拡張につき escalated。公式=コスト2以下を置かずに手札だけ捨てるのは不可(cardqa_op_06)",
+  "note": "OP06-043 アラマキ 起動メイン: 公式は 「自分の手札1枚を捨て、 コスト2以下のキャラ1枚を持ち主のデッキの下に置くことができる：」 = **コロン前が全て発動コスト**。 旧 overlay は discard_hand のみ cost で return_to_deck_bottom を do に置き、 さらに対象を相手限定にしていた = (a) 部分支払い (手札だけ捨てて +3000) が可能 (b) 自分のキャラを選べない、 の 2 重の違反。 → プロジェクト規約どおり optional_cost_then で表現し直し、 cost に discard_hand + return_to_deck_bottom(one_inplay_either_filtered / category CHARACTER / cost_le 2 = **現在コスト**) の両方を入れた。 engine 側の新規実装は不要 (両エンジンとも optional_cost_then の payability に return_to_deck_bottom arm が既存)。 実測 3 ケース: ①弾あり+手札あり → デッキ下+手札-1+パワー+3000 ②**弾なし → 効果不発 (手札も減らない = 公式の いいえ)** ③手札0 → 起動メイン候補に出ない。",
   "q": "この【起動メイン】効果で、コスト2以下のキャラ1枚をデッキの下に置かずに、自分の手札1枚を捨てることはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "62e1ac2bd0b9": {
   "a": "いいえ、相手の【アタック時】「アタックした時」の効果が先に発動します。",
@@ -4264,9 +4264,9 @@
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "OP12-020 ゾロ 起動メイン(untap self)。相手キャラアタック→ロシナンテ(leader)ブロッカーでleaderとバトル後は untap不可(公式)。overlay に「相手のキャラとバトルしている場合」条件欠落=DON≥3のみ。ターン内battle-a-character追跡が要 (アーキ変更) の為escalate。#20と同根",
+  "note": "OP12-020 ゾロ 起動メイン: 公式条件 「このターン中、 このリーダーが **相手のキャラと** バトルしている場合」 が overlay に欠落していた (if は self_attached_don_ge:3 のみ)。 Player.leader_battled_opp_chara_this_turn (canonical field) を追加し、 **実際にバトルした相手** がキャラの時だけ true にする (AttackCharacter / AttackLeader のブロッカー経路 / 対象変更でキャラになった経路の3点)。 条件 self_leader_battled_opp_chara_this_turn を両エンジンに追加し overlay 5 entry (parallel 含む) に配線。 = ブロッカー/対象変更でリーダーとバトルした場合は発動不可 (公式=いいえ)。 実測で 3 ケース確認。",
   "q": "このカードが相手のキャラにアタックして、相手がリーダー「OP05-022 ドンキホーテ・ロシナンテ」の【ブロッカー】を発動し、「ドンキホーテ・ロシナンテ」とバトルを行いました。バトルの後、この【起動メイン】効果で、このカードをアクティブにすることはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "638b2d15db15": {
   "a": "はい、できます。",
@@ -4408,9 +4408,9 @@
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "OP12-020 ゾロ 起動メインの公式条件「このターン中このリーダーが相手のキャラとバトルしている場合」がoverlayに欠落 (if=self_attached_don_ge:3のみ)。ターン内battle-a-character追跡=新state+条件+Rust要 (アーキ変更) の為 escalate。#4と同根",
+  "note": "OP12-020 ゾロ (#6382b5750a5b と同根): アタック対象をリーダーへ変更された場合、 リーダーはキャラとバトルしていないので起動メインは発動できない (公式=いいえ)。 leader_battled_opp_chara_this_turn は redirect 先が **キャラ** の時だけ立てるので、 リーダーへ変更された場合は false のまま = 公式どおり。",
   "q": "自分のリーダーがこのカードの時、相手のリーダー「OP12-020 ロロノア・ゾロ」が自分のキャラにアタックし、この【相手のアタック時】効果でアタックの対象を自分のリーダーに変更しました。この場合、相手はこのターン中に「OP12-020 ロロノア・ゾロ」の【起動メイン】効果で「OP12-020 ロロノア・ゾロ」をアクティブにすることはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "66c30267daf0": {
   "a": "はい、できます。",
@@ -4579,9 +4579,9 @@
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "OP01-085 Mr.3: 相手ターン中に登場させた登場時の『次の相手のターン終了時』は公式=そのターン終了時。engine game.py:589 の next_opp_turn_end clear 条件が applied_turn<turn_number(strict)で、相手ターン中適用時は同ターン終了で消えず1サイクル延びる off-by-one 疑い。summon-during-opp-turn シナリオでの検証+修正が必要(要 Python+Rust)",
+  "note": "OP01-085 Mr.3 起点の一般則: 「次の X のターン終了時まで」 は **適用後 最初に訪れる X のターン終了** で切れる (公式=そのターンの終了時)。 engine の applier-tracking 系 7 family が applied_turn < turn_number (strict) で 「必ず1ターン経過」 を要求しており、 **相手ターン中に適用した効果が1サイクル長く残っていた**。 <= に是正 (game.py:_reset_turn_buff / rust rules.rs:reset_turn_buff)。 自ターン中適用 (大多数) は ended_idx 判定で当ターンが弾かれるので挙動不変。 ⚠ Mr.3 自身の cannot_attack_through_opp_turn は別経路 (カード所有者のターン終了でクリア) で元から公式どおりだった = 実測で確認。",
   "q": "このキャラを相手のターン中に登場させ、このキャラの【登場時】効果を発動した場合、次の相手のターン終了時とはいつまでですか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "6950ed4acc1d": {
   "a": "はい、できます。",
@@ -4660,18 +4660,18 @@
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "OP05-098 エネル 【相手のターン中】【ターン1回】自分のライフが0枚になった時: ライフ1枚時にダメージ→そのライフが威国(OP03-118)のトリガーでライフ0→1に戻った場合でもエネルは発動できる(公式=はい)。on_self_life_zero が『0になった瞬間の事象』として発火するか、威国トリガー解決後の現在ライフ(=1)で条件評価されないか、の trigger 順序意味論の検証に威国トリガー+ダメージ列の精緻なテスト構築が要る。自信を持てないため要人間レビュー",
+  "note": "OP05-098 エネル 【相手のターン中】ライフ0時: 実測の結果 **engine が公式違反だった**。 engine は on_life_zero を 「**アタック開始時に** ライフが0」 でしか発火しておらず、 公式の 「ライフが0枚に **なった時**」 (= 0 になった瞬間の事象) ではなかった。 そのためライフ1→ダメージで0→ライフ札の【トリガー】(OP03-118 威国等) でライフが1に戻ると、 発動タイミングを永久に取り逃していた (公式=発動できる)。 是正: ライフを1枚失った直後 (Python game.py:_resolve_life_taken 冒頭 = 戦闘/効果ダメージ共通の choke point、 Rust は damage ループと deal_opp_leader_damage の同位置) で life 空なら trigger_on_life_zero を発火。 従来の 「アタック開始時」 発火は mill_opp_life_* 等ダメージ以外の経路の catch-all として残す (【ターン1回】で二重発火しない)。 実測: ライフ1=威国 の局面でアタック → エネルの 「デッキ上1枚をライフへ + 手札1捨て」 が発動し敗北回避 (従来は不発)。",
   "q": "自分のライフが1枚の時にダメージを受け、そのライフが「OP03-118 威国」だったため、【トリガー】効果を発動しライフが0枚から1枚になりました。この時、この【相手のターン中】効果は発動できますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "6abb332f5b52": {
   "a": "はい、できます。\n「代わりに、このターン中、パワー-1000できる」を解決していない為、【ターン1回】は適用されません。",
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "OP05-001 サボ 【相手のターン中】【ターン1回】5000以上KOされる代わりにパワー-1000『できる』: 代わりの-1000をしないことを選んだ場合ターン1回は消費されず、同ターン次の5000以上KOで再度使える(公式=はい)。現overlay は replace_ko + cost:[once_per_turn] で optional:true 未指定=強制置換扱い。optional 化 + 『辞退時に once_per_turn を消費しない』意味論の実装は AI 選択モデルと絡み非自明。要人間レビュー",
+  "note": "OP05-001 サボ replace_ko 「代わりに…パワー-1000 **できる**」: overlay に optional が無く **強制置換** だった (= 辞退できない)。 engine 側は既に (a) replace_ko_optional modal による人間の任意判断 (b) 【ターン1回】は _pay_replace_cost = **実際に置換した時だけ** 消費、 を実装済だったので **overlay の欠落だけ** が原因。 optional:true を 3 entry (parallel 含む) に追加。 実測で公式 Q&A の 3 段を再現: ①1体目を辞退 → 通常KO・once 未消費 ②2体目で **modal 再提示** → 発動でパワー5000→4000 で生存・once 消費 ③3体目は modal 無しで通常KO。 = 「解決していないので【ターン1回】は適用されない」 (公式=はい)。 ⚠ AI 経路は human_player_idx 一致時のみ modal を出す設計なので挙動不変 (差分パリティ MISMATCH 0 を確認)。",
   "q": "相手のターンに、最初に自分のパワー5000以上のキャラがKOされた時に、この【相手のターン中】効果で代わりにパワー-1000をしないことを選びました。その後、そのターン中に次に自分のパワー5000以上のキャラがKOされた時、この【相手のターン中】効果で代わりにパワー-1000できますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "6b1b7b3c9e4c": {
   "a": "はい、コスト-3されます。",
@@ -4841,9 +4841,9 @@
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "OP16-041 バギー(LEADER)【ドン×1】【ターン1回】インペルダウンキャラが場を離れた時→インペルダウンの囚人登場。overlay は on_self_chara_ko + on_self_chara_leave_by_opp_effect のみ配線し、自分の効果での離脱(虜の矢OP07-056等)経路=on_self_chara_leave_by_self_effect を欠く=公式違反(はい発動する)。修正には victim_feature_in を効かせる必要があるが trigger_on_self_chara_leave_by_self_effect(effects.py:13666)は victim_card を受けず last_chara_ko_victim_card を設定しない→ signature変更 + ~14 call site + Rust mirror = アーキ変更。加えて maturin 不在で Rust rebuild 不可。escalate。",
+  "note": "OP16-041 バギー(LEADER) 「自分の特徴《インペルダウン》を持つキャラが場を離れた時」: **2 段の欠落** があった。 ① overlay が on_self_chara_ko + on_self_chara_leave_by_opp_effect しか配線しておらず 自分の効果での離脱経路が無い ② そもそも 任意コスト (optional_cost_then) の離脱 3 経路 (return_self_chara_to_hand / return_self_chara_to_deck_bottom / ko_self_chara) が **leave-by-self トリガーを一切発火していなかった** (= 虜の矢 OP07-056 の経路そのもの)。 是正: (a) victim 文脈を **全経路一様** に取れるよう 「効果の最外側で自陣キャラの顔ぶれをスナップショット → トリガー発火時に multiset 差分」 方式を両エンジンに実装 (個別に victim を引き回すと 16+ 経路で必ず取りこぼす) (b) 新条件 leave_victim_feature_in (= 離脱 victim の **いずれか** が特徴一致。 同時離脱で複数になるため) (c) 任意コスト 3 経路で trigger を発火 (d) overlay に on_self_chara_leave_by_self_effect entry を追加 (KO/相手効果離脱と同じ共有ターン1回キー)。 実測: ①インペルダウン(EB02-038)が虜の矢コストで手札へ → 囚人 OP16-042 が登場 (公式=はい) ②非インペルダウンなら登場しない。",
   "q": "自分のこのリーダーにドン!!1枚を付与してある時に、自分の「OP07-056 虜の矢」などの効果によって、自分の特徴《インペルダウン》を持つキャラが手札に戻りました。この時、このリーダーの効果で「インペルダウンの囚人」1枚を登場させることはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "6e6a0b4f9fdc": {
   "a": "いいえ、パワー-2000されません。",

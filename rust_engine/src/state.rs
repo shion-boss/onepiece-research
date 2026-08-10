@@ -420,6 +420,10 @@ pub struct Player {
     /// 無い起動メインの無限ループを防いでいる (core.py と同名 field)。
     pub block_chara_effect_untap_don_until_turn_end: bool,
     pub life_lost_this_turn: bool,
+    /// 「このターン中、 このリーダーが **相手のキャラと** バトルしている」 (cardqa_op_12 / OP12-020)。
+    /// core.py Player.leader_battled_opp_chara_this_turn のミラー (canonical = digest 対象)。
+    #[serde(default)]
+    pub leader_battled_opp_chara_this_turn: bool,
     pub chara_ko_taken_this_turn: i32,
     pub deck_out_wins: bool,
     /// 公式 (OP15-022 ブルック リーダー): 「ルール上、 自分はデッキが0枚でも敗北せず、
@@ -561,6 +565,14 @@ pub struct GameState {
     /// このバッチで既に置換コストを払った (holder トークン, when)。
     #[serde(skip)]
     pub rust_leave_batch_paid: Vec<(u64, String)>,
+    /// 「自分の(特徴X を持つ)キャラが場を離れた時」 の victim 判定用スナップショット。
+    /// 効果の **最外側** で自陣キャラの顔ぶれを控え、 トリガー発火時に差分を取る
+    /// (= 離脱経路が 16 以上あるので個別に victim を引き回すと必ず取りこぼす)。
+    #[serde(skip)]
+    pub rust_leave_victim_snapshot: Option<Vec<CardDef>>,
+    /// 直近の leave-by-self イベントで場を離れた victim (条件 leave_victim_feature_in が読む)。
+    #[serde(skip)]
+    pub rust_leave_by_self_victims: Vec<CardDef>,
     /// 「自分の効果で場を離れ、 行き先が **公開領域** (トラッシュ / 表向きライフ)」 だった
     /// キャラの台帳 (effects.py の `state._departed_to_public_zone` ミラー、 (owner_idx, card_id))。
     /// 公式 cardqa_op_08 (OP08-046 シャクヤク): 離脱した **本人** も

@@ -686,6 +686,11 @@ class Player:
     block_chara_effect_untap_don_until_turn_end: bool = False
     # このターン中にライフを失ったか (P-120 「相手のライフが離れているターン中」)。 refreshでクリア。
     life_lost_this_turn: bool = False
+    # 公式 (cardqa_op_12 / OP12-020 ゾロ): 「このターン中、 このリーダーが **相手のキャラと**
+    # バトルしている場合」 の判定用。 リーダーがアタックし、 **実際にバトルした相手** が
+    # キャラだった時のみ True (ブロッカーやアタック対象変更でリーダーとバトルしたなら False)。
+    # ターン開始時 (_reset_turn_buff) に False へ戻す。
+    leader_battled_opp_chara_this_turn: bool = False
     # このターン中に この player のキャラが KO された 回数 (OP16-100 氷諸斬り
     # 「このターン中、 相手のキャラがKOされている場合」 用)。 _reset_turn_buff でクリア。
     chara_ko_taken_this_turn: int = 0
