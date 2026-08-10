@@ -7542,6 +7542,53 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 }
                 return true;
             }
+            // then_draw 有 (OP09-103 コアラ): 「登場させた場合、カード1枚を引く」。 then_life と同じく
+            // Python は on_play を enqueue → draw → drain なので、 place all → draw → deferred on_play。
+            // 登場 0 枚なら draw 不発 (公式「場合」 前文不成立、 cardqa_op_09)。
+            if let Some(n_draw) = spec.and_then(|o| o.get("then_draw")).and_then(|x| x.as_i64()) {
+                let mut placed: Vec<usize> = vec![];
+                for card in cards {
+                    trash_weakest_for_field_full(state, me_idx);
+                    let mut ip = InPlay::of(card, true);
+                    ip.rested = rested;
+                    state.players[me_idx].characters.push(ip);
+                    placed.push(state.players[me_idx].characters.len() - 1);
+                }
+                if !placed.is_empty() && !state.players[me_idx].block_self_draw_until_turn_end {
+                    let mut drew = false;
+                    for _ in 0..n_draw {
+                        if state.players[me_idx].deck.is_empty() {
+                            break;
+                        }
+                        let c = state.players[me_idx].deck.remove(0);
+                        let cid = c.card_id.clone();
+                        let me = &mut state.players[me_idx];
+                        if !me.known_top_card_ids.is_empty() && me.known_top_card_ids[0] == cid {
+                            me.known_top_card_ids.remove(0);
+                        } else if let Some(p) = me.known_top_card_ids.iter().position(|x| *x == cid) {
+                            me.known_top_card_ids.remove(p);
+                        }
+                        me.hand.push(c);
+                        me.cards_drawn_count += 1;
+                        drew = true;
+                    }
+                    if drew
+                        && me_board_has_when(state, me_idx, "on_self_draw_non_draw_phase")
+                        && fire_on_self_draw_non_draw_phase(state, me_idx).is_err()
+                    {
+                        return false;
+                    }
+                }
+                for &pidx in &placed {
+                    let card = state.players[me_idx].characters[pidx].card.clone();
+                    state.last_self_chara_played_card = Some(card);
+                    state.last_self_chara_played_from_trash = false;
+                    if execute_on_play(state, me_idx, pidx).is_err() {
+                        return false;
+                    }
+                }
+                return true;
+            }
             for card in cards {
                 // include_stage で STAGE を選んだ場合は play_stage_from_hand と同じ 置換 + on_play。
                 if card.category == crate::state::Category::Stage {

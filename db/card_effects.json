@@ -26272,11 +26272,9 @@
           "cost_le": 4,
           "feature": "革命軍"
          },
-         "limit": 1
+         "limit": 1,
+         "then_draw": 1
         }
-       },
-       {
-        "draw": 1
        }
       ]
      }
@@ -39642,11 +39640,9 @@
           "cost_le": 4,
           "feature": "革命軍"
          },
-         "limit": 1
+         "limit": 1,
+         "then_draw": 1
         }
-       },
-       {
-        "draw": 1
        }
       ]
      }

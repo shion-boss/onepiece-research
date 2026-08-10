@@ -5925,6 +5925,19 @@ def _execute_effect_body_inner(
                         state.push_log(f"  効果: 登場に伴いライフ上{n_life}枚を手札へ ({len(me.life)} 残)")
                         if moved:
                             fire_self_life_to_hand(state, me)
+                # 「登場させた場合、カード1枚を引く」 の後続 (= OP09-103 コアラ)。
+                # 登場 0 枚 (= 該当手札なし / 0 枚選択) なら draw 不発 = 公式「場合」 前文不成立。
+                # 一次情報 cardqa_op_09: 「手札からコスト4以下《革命軍》キャラ0枚を登場させることを
+                # 選んだ場合、カード1枚を引くことはできますか？」 → 「いいえ、できません。」
+                if chosen_cards and isinstance(v, dict) and v.get("then_draw"):
+                    n_draw = int(v.get("then_draw"))
+                    if getattr(me, "block_self_draw_until_turn_end", False):
+                        state.push_log(f"  効果: 登場に伴いドロー {n_draw} (ドロー禁止のため不発)")
+                    else:
+                        drawn = me.draw(n_draw)
+                        state.push_log(f"  効果: 登場に伴いドロー {n_draw}")
+                        if drawn and state.effects_overlay:
+                            trigger_on_self_draw_non_draw_phase(state, me, opp, state.effects_overlay)
         elif k == "play_from_hand_choice":
             # 「自分の手札から filter 一致のキャラ N 枚までを (任意で) 0 コストで登場」
             # play_from_hand との差分: 「~してもよい」 表現 (= 任意の選択) を表現する。

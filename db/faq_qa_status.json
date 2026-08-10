@@ -4985,72 +4985,72 @@
   "files": [
    "cardqa_op_08.json"
   ],
-  "note": "",
+  "note": "OP08-084 ジャック: 「このキャラのコスト+4」は場でのみ有効な静的効果。手札の登場コストは印刷値7 (静的は場のInPlayのみ適用)",
   "q": "このキャラカードが手札にある時、このカードのコストは11ですか？",
-  "status": "pending"
+  "status": "conform"
  },
  "72465d9ec8e9": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_07.json"
   ],
-  "note": "",
+  "note": "OP07-026 ボニー: 相手ドン選択はドンエリアのレストのドン限定。キャラに付与された状態のドン(attached_dons)は選択対象として表現されず、engine挙動として構成不能",
   "q": "この【登場時】効果で、相手の付与された状態のドン!!1枚を選ぶことはできますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "725678d68d38": {
   "a": "はい、戻すことができます。",
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-043 うるティ: return one_character_either_cost_le_2。「相手の」無し=両陣営で自キャラも手札/デッキ下に戻せる (docs 両陣営ルール)",
   "q": "この【アタック時】効果で自分のキャラを手札やデッキの下に戻せますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "72c672ec1341": {
   "a": "はい、パワー+2000されます。",
   "files": [
    "cardqa_st_16.json"
   ],
-  "note": "",
+  "note": "ST16-003 カタクリ: self_rested_cards_count_ge は発動元自身も算入。実測 6枚(自身含む)で+2000 / 5枚で+0",
   "q": "自分のレストのカードが、このキャラを含めて6枚の場合、このキャラはパワー+2000されますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "735624561cb3": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "",
+  "note": "OP12-048 ロシナンテ: replace_leave の手札1枚捨てコストは _can_pay_replace_cost で gate。手札0では置換発動不可",
   "q": "自分の手札が0枚のとき、この【相手のターン中】効果で「このキャラをレストにし、自分の手札1枚を捨てる」ことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "7383f40c5a61": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_09.json"
   ],
-  "note": "",
+  "note": "OP09-103 コアラ: 「登場させた場合draw」を無条件drawから play_from_hand.then_draw(登場0枚で不発)に是正。Python+Rust両方、parity MISMATCH=0。回帰test 2本追加 (cardqa_op_09)",
   "q": "この【登場時】効果を発動し、手札からコスト4以下の特徴《革命軍》を持つキャラカード0枚を登場させることを選んだ場合、カード1枚を引くことはできますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "73dcdb858b74": {
   "a": "はい、できます。ただし、【トリガー】効果を発動したカードはライフからは離れており、相手のライフは1枚であるため、何も起きません。",
   "files": [
    "cardqa_op_11.json"
   ],
-  "note": "",
+  "note": "OP11-102 ケイミー: if.opp_life_ge=2 を解決時に再評価。1ダメージ後(相手ライフ1)は条件不成立で何も起きない",
   "q": "ライフが2枚の相手に1ダメージを与え、相手の【トリガー】効果が発動した時、この【自分のターン中】効果は発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "73fd9bef030d": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-046/014: play_event_from_hand はイベントの【メイン】効果を発動 (execute_main_event)。【カウンター】効果は発動しない",
   "q": "この【登場時】効果でイベントの【カウンター】効果を発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "7436eb3967ab": {
   "a": "はい、このキャラを登場させたプレイヤーが望む順で発動できます。",
@@ -5058,108 +5058,108 @@
    "cardqa_op_06.json",
    "cardqa_op_10.json"
   ],
-  "note": "",
+  "note": "OP10-058 レベッカ等 複数キャラ同時登場: 自分の複数登場時トリガーの発動順選択は engine 非モデル(単一順で解決)。盤面差分としての違反カード対は特定不能",
   "q": "この【登場時】効果で、「キャラA」をアクティブで、「キャラB」をレストで登場させました。このとき、「キャラA」と「キャラB」の【登場時】効果を発動する順番を選ぶことはできますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "746a455da76a": {
   "a": "そのバトルの処理を続行します。",
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "",
+  "note": "OP05-003 イナズマ: 速攻は宣言時に付与済。アタック宣言後にパワー7000以上キャラが離場しても宣言済アタックは続行 (静的喪失はアタックを取消さない)",
   "q": "このキャラが登場したターンにアタックし、そのバトル中にこのキャラ以外の自分のパワー7000以上のキャラがいない状態になった場合、そのアタックはどうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "74756955050c": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-031 ドフラミンゴ: stay_rested_next_refresh any_opp_rested_chara_n_3。相手キャラ3枚まで選択可",
   "q": "この【登場時】効果で相手のキャラ3枚を選ぶことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "74a6ffc04fbd": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "",
+  "note": "OP05-030 ロシナンテ: replace_ko の return_self_to_trash はKOトリガーを発火しない。相手OP03-076ルッチの「相手キャラKO時」は発動しない",
   "q": "レストのこのキャラがKOされるとき、この【相手のターン中】効果で代わりにトラッシュに置いた場合、「OP03-076 ロブ・ルッチ」の「相手のキャラがKOされた時、このリーダーをアクティブにする。」の効果を発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "74c06e3a50ee": {
   "a": "はい、「キャラ1枚まで」で0枚を選ぶことができます。その場合も、このキャラはそのターン中【ダブルアタック】を得ます。",
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP02-062 ルフィ: return_to_hand one_inplay_cost_le_4 は0枚選択可(1枚まで)、give_keyword ダブルアタックは独立実行され0枚戻しでも付与",
   "q": "この【登場時】効果や【アタック時】効果を発動し、手札2枚を捨て、キャラを1枚も戻さない事はできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "74e70180aa8d": {
   "a": "はい、登場できます。【登場時】効果のコストは支払うことも支払わないこともできますが、効果は何も起きません。",
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-094 カイドウ: [cost-not-gated]。登場自体は無制限、ドン-6コストは条件不成立でも支払可、効果(全KO)のみ百獣海賊団で gate",
   "q": "自分のリーダーが特徴《百獣海賊団》を持たない場合、このキャラを登場できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "74e969d7ed00": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_eb_01.json"
   ],
-  "note": "",
+  "note": "EB01-020 シャンブルズ: bounce_self_chara_then_play_diff_color は自キャラ不在(if not me.characters)で return False。自キャラ0枚では登場不可",
   "q": "自分のキャラが0枚の場合、この【メイン】効果で自分の手札からコスト2以下のキャラカードを登場できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "74ff98a314fe": {
   "a": "いいえ、できません。",
   "files": [
    "cardqa_op_14.json"
   ],
-  "note": "",
+  "note": "OP14 相手のアタック時効果: 対象は「自分のリーダーかキャラ」。相手キャラは選択対象外 (target spec が自陣限定)",
   "q": "この【相手のアタック時】効果で相手のキャラを選ぶことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "75363cd7ca54": {
   "a": "いいえ、できません。必ず【登場時】効果を発動し、可能な限りライフ1枚を手札に加えます。",
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP02-009 スクアード: 登場時 life_to_hand は任意(できる)でなく必須。可能な限りライフ1枚を手札に加える(mandatory)",
   "q": "このキャラを登場させる時、【登場時】効果を発動せずに自分のライフを手札に加えないことを選べますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "755071fc15b7": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_10.json"
   ],
-  "note": "",
+  "note": "OP10-095 ゾロ: ko one_opponent_character_cost_le_4 は0枚選択可(1枚まで)、その後 mill 2 は独立実行。KOせずデッキ上2枚トラッシュ可",
   "q": "この【登場時】効果で相手のコスト4以下のキャラをKOせずに、自分のデッキの上から2枚をトラッシュに置くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "75709acc64dc": {
   "a": "はい、発動できます。この場合、リーダーはパワーが-5000になります。",
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-006 コーザ: optional_cost_then コスト=リーダーpower_pump -5000。現在パワー0でも支払可、リーダーは-5000になる(負値許容)",
   "q": "他の効果で自分のアクティブのリーダーのパワーが0になっているとき、この【アタック時】効果を発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "7577a03448e9": {
   "a": "はい、できます。",
   "files": [
    "cardqa_op_03.json"
   ],
-  "note": "",
+  "note": "OP03-123 カタクリ: to 持ち主ライフ one_character_either_cost_le_8。両陣営対象で自キャラを自ライフに置ける",
   "q": "この【登場時】効果で自分のキャラを自分のライフに置くことができますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "761fedc78941": {
   "a": "いいえ、KOされません。",

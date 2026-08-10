@@ -4893,3 +4893,68 @@ overlay OP02-027 を `self_don_active_eq:0` → `self_all_don_rested:true` に�
 - **2 つの【相手のアタック時】を同一アタックで両方使えるか** (PRB02/OP07-019 ボニー, 6dfde7c1):
   engine は eligible な相手アタック時効果を全て積み、 ドン active/rest は fungible な独立 state op。
   単一盤面 assertion に落ちない definitional yes。
+
+## OP09-103 コアラ 「登場させた場合、カード1枚を引く」 は登場0枚で draw 不発 (2026-08-10 是正)
+
+一次情報 cardqa_op_09: 「この【登場時】効果を発動し、手札からコスト4以下の特徴《革命軍》を持つ
+キャラカード0枚を登場させることを選んだ場合、カード1枚を引くことはできますか？」→「いいえ、できません。」
+
+**違反していた**: overlay が `optional_cost_then.effect = [play_from_hand(革命軍 cost4以下), {"draw":1}]`
+となっており、 draw が play_from_hand の成否に関係なく無条件で走っていた。 = 手札に該当キャラが無い
+(or 0枚選択) 局面でも 1 枚引ける **タダ引き**。 実測: 手札に革命軍キャラ無しで発動 → hand 1→3
+(ライフ→手札コスト +1、 誤 draw +1)。
+
+**是正**: `play_from_hand` に `then_draw` サブキーを追加 (既存 `then_life_to_hand` = OP08-098 カルガラ
+と同型)。 `chosen_cards` (実登場) が非空の時のみ draw。 overlay を
+`play_from_hand: {filter:..., limit:1, then_draw:1}` に変更 (裸の draw を除去)。 Python
+`engine/effects.py` + Rust `rust_engine/src/effects.rs` の両方に実装 (Rust は then_life と同じく
+place all → draw → deferred execute_on_play で on_play enqueue 順を Python に一致)。 rust_parity
+MISMATCH=0 維持。 回帰: `test_op09_103_draw_gated_on_character_played` (0登場で draw 不発 / 1登場で draw) +
+`test_op09_103_overlay_uses_then_draw` (overlay 構造)。
+
+⚠ 全走査: 「登場させた場合〜引く」 の文型 + draw を持つカードは OP09-103 (+_p1) のみ (cards.json 全走査)。
+他の「登場させた場合」後続は then_life_to_hand (OP08-098) で既に gate 済。
+
+## 2026-08-10 バッチ conform 記録 (再調査回避のため「問題なし」も記録)
+
+以下は cardqa 全件保証バッチで検査し **engine が公式どおり = 是正不要** と確認した論点。 いずれも
+既存の一般則 (docs 既出) に帰着し、 対象カードを特定して overlay/engine 挙動で確認した。
+
+- **OP08-084 ジャック** (cardqa_op_08): 「このキャラのコスト+4」は場でのみ有効な静的効果。手札の
+  登場コストは印刷値7 (静的 buff は場の InPlay のみ適用、 手札は印刷コスト)。
+- **OP07-026 ボニー** (cardqa_op_07): 相手ドン選択はドンエリアのレストのドン限定。キャラに付与された
+  状態のドン (attached_dons) は選択対象として表現されず → **n/a** (engine 挙動として構成不能)。
+- **OP04-043 うるティ** (cardqa_op_04): return `one_character_either_cost_le_2`。「相手の」無し=両陣営、
+  自キャラも手札/デッキ下に戻せる (docs「両陣営」ルール)。
+- **ST16-003 カタクリ** (cardqa_st_16): `self_rested_cards_count_ge` は発動元自身も算入。実測 6枚
+  (自身含む) で +2000 / 5枚で +0。
+- **OP12-048 ロシナンテ** (cardqa_op_12): replace_leave の手札1枚捨てコストは `_can_pay_replace_cost`
+  で gate。手札0では置換発動不可 (タダ撃ちにならない)。
+- **OP11-102 ケイミー** (cardqa_op_11): `if.opp_life_ge=2` を解決時に再評価。1ダメージ後 (相手ライフ1)
+  は条件不成立で何も起きない。効果自体の発動は可 (相手トリガー発火が起点)。
+- **OP15-046/OP15-014** (cardqa_op_15): `play_event_from_hand` はイベントの【メイン】効果を発動。
+  【カウンター】効果は発動しない。
+- **OP10-058 レベッカ 等 複数キャラ同時登場** (cardqa_op_06/op_10): 自分の複数登場時トリガーの
+  発動順選択は engine 非モデル (単一順で解決) → **n/a** (盤面差分としての違反カード対は特定不能)。
+- **OP05-003 イナズマ** (cardqa_op_05): 速攻は宣言時に付与済。アタック宣言後にパワー7000以上キャラが
+  離場しても宣言済アタックは続行 (静的喪失はアタックを取消さない)。
+- **OP04-031 ドフラミンゴ** (cardqa_op_04): `stay_rested_next_refresh any_opp_rested_chara_n_3`。
+  相手キャラ3枚まで選択可。
+- **OP05-030 ロシナンテ** (cardqa_op_05): replace_ko の `return_self_to_trash` はKOトリガーを発火
+  しない。相手 OP03-076 ルッチの「相手キャラKO時」は発動しない (置換=KOされていない)。
+- **OP02-062 ルフィ** (cardqa_op_02): `return_to_hand one_inplay_cost_le_4` は0枚選択可 (1枚まで)、
+  give_keyword ダブルアタックは独立実行され0枚戻しでも付与。
+- **OP01-094 カイドウ** (cardqa_op_01): [cost-not-gated]。登場自体は無制限、ドン-6コストは条件不成立
+  でも支払可、効果 (全KO) のみ百獣海賊団リーダーで gate。
+- **EB01-020 シャンブルズ** (cardqa_eb_01): `bounce_self_chara_then_play_diff_color` は自キャラ不在
+  (`if not me.characters: return False`) で不発。自キャラ0枚では登場不可。
+- **OP14 相手のアタック時効果** (cardqa_op_14): 対象は「自分のリーダーかキャラ」。相手キャラは選択
+  対象外 (target spec が自陣限定)。
+- **OP02-009 スクアード** (cardqa_op_02): 登場時 `life_to_hand` は任意 (できる) でなく必須。可能な限り
+  ライフ1枚を手札に加える (mandatory、 発動しない選択は不可)。
+- **OP10-095 ゾロ** (cardqa_op_10): `ko one_opponent_character_cost_le_4` は0枚選択可 (1枚まで)、
+  その後 mill 2 は独立実行。KOせずデッキ上2枚トラッシュ可。
+- **OP04-006 コーザ** (cardqa_op_04): optional_cost_then コスト=リーダー power_pump -5000。現在パワー0
+  でも支払可、リーダーは -5000 になる (負値許容)。
+- **OP03-123 カタクリ** (cardqa_op_03): to 持ち主ライフ `one_character_either_cost_le_8`。両陣営対象で
+  自キャラを自ライフに置ける。

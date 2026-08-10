@@ -7865,3 +7865,60 @@ def test_op02_027_overlay_uses_self_all_don_rested():
     ent = raw["OP02-027"][0]
     assert "self_all_don_rested" in ent.get("if", {}), "OP02-027 が self_all_don_rested 未使用"
     assert "self_don_active_eq" not in ent.get("if", {}), "旧 self_don_active_eq が残存"
+
+
+# --------------------------------------------------------------------------- #
+#  L. OP09-103 コアラ: 「登場させた場合、カード1枚を引く」 は登場0枚なら draw 不発。
+#     一次情報 cardqa_op_09: 「この【登場時】効果を発動し、手札からコスト4以下の特徴
+#     《革命軍》を持つキャラカード0枚を登場させることを選んだ場合、カード1枚を引くこと
+#     はできますか？」 → 「いいえ、できません。」
+#     修正前は play_from_hand の後に裸の {"draw":1} があり、登場0枚でも引けた (タダ引き)。
+# --------------------------------------------------------------------------- #
+def test_op09_103_draw_gated_on_character_played():
+    """OP09-103: 登場できた時のみ draw。 該当キャラ不在 (登場0枚) では引かない。"""
+    import json as _json
+    repo, overlay = _repo(), _overlay()
+    # コスト4以下 革命軍 キャラを1枚探す (positive case 用)
+    rev = None
+    for c in _json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8")):
+        if (c["category"] == "CHARACTER" and "革命軍" in (c.get("features") or "")
+                and c.get("cost") and int(c["cost"]) <= 4):
+            rev = c["base_id"]
+            break
+    assert rev is not None
+
+    def run(hand_ids):
+        st = _state(repo, overlay, leader0="OP09-001")
+        me, opp = st.players[0], st.players[1]
+        me.hand = [repo.get(x) for x in hand_ids]
+        me.deck = [repo.get(_FILLER)] * 20
+        me.life = [repo.get(_FILLER)] * 3
+        koala = InPlay.of(repo.get("OP09-103"), sickness=True)
+        me.characters.append(koala)
+        before_hand, before_chars = len(me.hand), len(me.characters)
+        trigger_on_play(st, me, opp, koala, overlay)
+        return before_hand, len(me.hand), before_chars, len(me.characters)
+
+    # 0-play: 手札に 革命軍 コスト4以下 が無い → ライフ→手札コストのみ (+1)、 draw 不発。
+    bh, ah, bc, ac = run([_FILLER])
+    assert ac == bc, "登場0枚のはずがキャラが増えた"
+    assert ah == bh + 1, f"登場0枚で draw が発火した (hand {bh}->{ah}, 期待 +1=ライフコストのみ)"
+
+    # 1-play: 革命軍 コスト4以下 を登場 → draw 発火。
+    bh2, ah2, bc2, ac2 = run([rev])
+    assert ac2 == bc2 + 1, "革命軍キャラが登場していない"
+    # +1 (life cost) -1 (played from hand) +1 (draw) = net +1
+    assert ah2 == bh2 + 1, f"登場1枚で draw が発火していない (hand {bh2}->{ah2})"
+
+
+def test_op09_103_overlay_uses_then_draw():
+    """回帰防止 (overlay 構造): OP09-103 の draw は play_from_hand の then_draw であって、
+    裸の {'draw':1} で無条件発火していないこと。"""
+    import json as _json
+    raw = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    for cid in ("OP09-103", "OP09-103_p1"):
+        eff = raw[cid][0]["do"][0]["optional_cost_then"]["effect"]
+        top_keys = [k for prim in eff for k in prim.keys()]
+        assert "draw" not in top_keys, f"{cid}: 裸の draw が残存 (タダ引き回帰)"
+        pfh = next(p["play_from_hand"] for p in eff if "play_from_hand" in p)
+        assert pfh.get("then_draw") == 1, f"{cid}: play_from_hand.then_draw 未設定"
