@@ -811,9 +811,14 @@ def test_cannot_be_rested_blocks_rest_self_cost():
     """
     repo, overlay = _repo(), _overlay()
     st = _state(repo, overlay)
-    me = st.players[0]
-    c = InPlay.of(repo.get(_FILLER), sickness=False)   # rest_self コストの起動メインを持つ
+    me, opp = st.players[0], st.players[1]
+    # OP05-025 グラディウス =【起動メイン】このキャラをレストにできる：相手のコスト3以下をレスト。
+    # ⚠ 以前は _FILLER (OP01-013 サンジ) を使っていたが、 サンジの公式コストは **ライフ1枚を
+    #   手札に加える** でレストではない (2026-08-11 に overlay を是正)。 レストコストの検査には
+    #   公式テキストが実際に 「このキャラをレストにできる：」 のカードを使う。
+    c = InPlay.of(repo.get("OP05-025"), sickness=False)
     me.characters = [c]
+    opp.characters = [InPlay.of(repo.get("OP01-016"), sickness=False)]
 
     def opts():
         return [o for o in list_activate_main_effects(st, me, overlay) if o[0] is c]
@@ -3892,6 +3897,13 @@ def _first_unconditional_draw_trigger_card(overlay) -> str:
         if "_" in cid:
             continue
         for e in bundle.effects:
+            # ⚠ **発動コストを持つものは除外**する。 コストを払えない【トリガー】は そもそも
+            #   発動できない (公式 10-1-5 + 4-10、 2026-08-11 に engine が payability を見るように
+            #   なった) ので、 「無条件で発動する」 例には使えない (実際 EB01-038 は pay_don:1 を
+            #   持ち、 ドン 0 の最小 state では発動しない = テストの前提が崩れる)。
+            _cost = e.get("cost") or {}
+            if any(k != "once_per_turn" for k in _cost):
+                continue
             if (e.get("when") == "trigger" and not e.get("if") and not e.get("conditions")
                     and len(e.get("do") or []) == 1 and "draw" in (e["do"][0])):
                 return cid
@@ -8569,4 +8581,121 @@ def test_ko_victim_context_survives_deferred_resolution():
         "ハンコックの 「元々のパワー5000以上のキャラがKOされた時」 が発動していない "
         f"(相手ライフ {life_before}→{len(opp.life)} / 手札 {hand_before}→{len(opp.hand)}) "
         "= victim 文脈が遅延解決で失われている"
+    )
+
+
+def test_op01_013_sanji_activation_cost_is_life_not_rest():
+    """OP01-013 サンジ の【起動メイン】は **ライフ1枚を手札に加える** のがコスト (レストではない)。
+
+    公式テキスト逐語: 「【起動メイン】【ターン1回】自分のライフ1枚を手札に加えることができる：
+    このキャラは、 このターン中、 パワー+2000。 その後、 このキャラにレストのドン‼**2枚まで**を付与する。」
+
+    ⚠ 2026-08-11 是正。 旧 overlay は
+      - cost が **公式に存在しない `rest_self`**、 本来の発動コスト (ライフ→手札) は `do` に落ちていた
+        → **ライフ0でもタダ撃ち** できた (「できる：」 の前は発動コスト)
+      - `attach_rested_don{count:2}` が **6 回重複** → レストのドンが潤沢だと **12 枚付与**
+        (実測パワー 17000、 公式は 2 枚 = 7000)
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def run(life_n: int, rested_don: int):
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        sanji = InPlay.of(repo.get("OP01-013"), sickness=False)
+        me.characters = [sanji]
+        me.life = [repo.get(_FILLER)] * life_n
+        me.hand = []
+        me.don_active, me.don_rested = 0, rested_don
+        effs = [(ip, e) for ip, e in list_activate_main_effects(st, me, overlay) if ip is sanji]
+        if not effs:
+            return None
+        fire_activate_main(st, me, opp, sanji, effs[0][1])
+        while st.pending_choice is not None:
+            resolve_pending_choice(st, [0])
+        resolve_triggers(st)
+        return sanji, me
+
+    # ライフ 0 → 発動コストを払えない = 起動メインの候補に出ない
+    assert run(0, 12) is None, "ライフ0でも【起動メイン】が撃てている (= 発動コストが do に落ちている)"
+
+    sanji, me = run(3, 12)
+    assert not sanji.rested, "公式に無い 「レストにする」 コストを取っている"
+    assert len(me.life) == 2 and len(me.hand) == 1, (
+        f"ライフ1枚を手札に加える発動コストが払われていない (life={len(me.life)} hand={len(me.hand)})"
+    )
+    assert sanji.attached_dons == 2, (
+        f"レストのドンが 2 枚でない: {sanji.attached_dons} 枚 "
+        "(= attach_rested_don の重複)"
+    )
+    assert sanji.power == 3000 + 2000 + 2000, (
+        f"パワーが 印刷3000 + 効果+2000 + ドン2枚 = 7000 でない: {sanji.power}"
+    )
+
+
+def test_op10_116_and_st07_003_scry_life_is_not_omitted():
+    """「自分か相手のライフの上から1枚までを見て、 ライフの上か下に置く」 は省略できない。
+
+    同文のカードは 7 枚が `scry_life` で実装済だったが、 **OP10-116 電磁砲** と
+    **ST07-003 シャーロット・カタクリ** だけ overlay から丸ごと落ちていた (2026-08-11 是正)。
+    ライフの順序を変える実効果なので 「その後」 の本体だけ実装するのは公式テキスト忠実主義に反する。
+
+    ⚠ ST07-003 は **条件の位置** も誤っていた。 公式は 「…見て、 ライフの上か下に置く。 **その後**、
+      自分のライフの枚数が相手より少ない場合、 …【速攻】を得る」 = scry は無条件で、 条件が掛かるのは
+      【速攻】付与だけ。 旧 overlay は effect 全体を gate しており、 ライフが相手以上だと
+      **scry ごと不発** だった。
+    """
+    repo, overlay = _repo(), _overlay()
+    for cid in ("OP10-116", "ST07-003"):
+        prims = {k for e in overlay.get(cid).effects for p in (e.get("do") or []) for k in p}
+        assert "scry_life" in prims, f"{cid} に scry_life が無い (公式テキストの前半が欠落)"
+
+    # ST07-003: 速攻の条件を満たさなくても scry は走る
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.life = [repo.get(_FILLER)] * 4
+    opp.life = [repo.get(_FILLER)] * 2          # 自ライフ > 相手 = 速攻の条件は不成立
+    kata = InPlay.of(repo.get("ST07-003"), sickness=True)
+    me.characters = [kata]
+    log_before = len(st.log)
+    trigger_on_play(st, me, opp, kata, overlay)
+    while st.pending_choice is not None:
+        resolve_pending_choice(st, [0])
+    resolve_triggers(st)
+    assert any("ライフ上" in l for l in st.log[log_before:]), (
+        "速攻の条件が不成立だと scry ごと不発になっている (= 条件が effect 全体に掛かっている)"
+    )
+    assert "速攻" not in (kata.granted_keywords or []), "条件不成立なのに【速攻】が付いている"
+
+
+def test_trigger_cannot_be_activated_when_cost_unpayable():
+    """発動コストを払えない【トリガー】は **発動できない** (= カードは手札に加わる)。
+
+    公式 (総合ルール 10-1-5 + 4-10): 【トリガー】は 「公開して効果を発動する」 か 「手札に加える」 かの
+    選択で、 発動を選べるのは **効果を発動できる時だけ**。 コストを払えないなら発動できない。
+
+    退行前は 発動可否判定が `if` 条件しか見ておらず **コストの payability を見ていなかった** ため、
+    「ドン‼-2：このカードを登場させる」 (OP04-064 ミス・オールサンデー) を **ドン 0 でも発動宣言** でき、
+    カードはライフを離れてトラッシュへ行き、 支払いに失敗して **何も起きずにカードだけ失う** 状態だった。
+    """
+    from engine.effects import should_fire_trigger, trigger_lifecard_trigger
+    repo, overlay = _repo(), _overlay()
+
+    def run(don: int):
+        st = _state(repo, overlay)
+        me, opp = st.players[1], st.players[0]   # me = defender (ライフを取られた側)
+        me.don_active, me.don_rested = don, 0
+        me.life, me.characters, me.trash, me.hand = [], [], [], []
+        want = should_fire_trigger(st, me, repo.get("OP04-064"), overlay)
+        fired = trigger_lifecard_trigger(st, me, opp, repo.get("OP04-064"), overlay, auto_fire=True)
+        resolve_triggers(st)
+        return want, fired
+
+    want0, fired0 = run(0)
+    assert want0 is False and fired0 is False, (
+        "ドンを払えないのに【トリガー】を発動宣言している "
+        f"(should_fire={want0} / fired={fired0}) = カードを無駄に失う"
+    )
+    want10, fired10 = run(10)
+    assert want10 is True and fired10 is True, (
+        f"払える時に発動できていない (should_fire={want10} / fired={fired10})"
     )

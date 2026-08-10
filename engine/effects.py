@@ -14910,8 +14910,11 @@ def trigger_lifecard_trigger(
     if not auto_fire:
         return False
     # 発動可能な効果が 1 つでもあるか (= 発動成立判定)
+    # ⚠ 「発動できる」 = 条件成立 **かつ 発動コストを払える** (公式 10-1-5 + 4-10)。
+    #   払えないのに宣言すると カードはライフを離れてトラッシュへ行き、 支払いに失敗して
+    #   **何も起きずにカードだけ失う** (2026-08-11 是正)。
     fireable_exists = any(
-        eval_all_conditions(e, state, defender, None) for e in trigger_effects
+        _trigger_effect_activatable(state, defender, e) for e in trigger_effects
     )
     if not fireable_exists:
         return False
@@ -14971,6 +14974,33 @@ def trigger_lifecard_trigger(
     return True
 
 
+def _trigger_effect_activatable(
+    state: GameState, defender: Player, eff: dict
+) -> bool:
+    """【トリガー】1 効果が **発動できるか** (= 条件成立 かつ 発動コストを払える)。
+
+    公式 (総合ルール 10-1-5 + 4-10): 【トリガー】は 「公開して効果を発動する」 か
+    「手札に加える」 かの選択。 **発動を選べるのは効果を発動できる時だけ** で、 発動コストを
+    払えないなら発動できない = そのカードは通常どおり手札に加わる。
+
+    ⚠ 2026-08-11 是正: 従来は eval_all_conditions (= `if` 条件) しか見ておらず、
+      **コストの payability を見ていなかった**。 そのため 「ドン‼-2：このカードを登場させる」
+      (OP04-064 ミス・オールサンデー 等 10 枚) を **ドン 0 でも発動宣言** でき、 カードは
+      ライフを離れてトラッシュへ行き、 支払いに失敗して **何も起きずにカードだけ失う** 状態だった
+      (実測: ドン0で fired=True / 場に何も出ない)。
+    """
+    if not eval_all_conditions(eff, state, defender, None):
+        return False
+    cost = eff.get("cost") or {}
+    if not isinstance(cost, dict):
+        return True
+    real_cost = {k: v for k, v in cost.items() if k != "once_per_turn"}
+    if not real_cost:
+        return True
+    # 【トリガー】は場に InPlay を持たない (10-1-5-3: どの領域にも属さない) ので self_inplay=None。
+    return _can_pay_counter_cost(state, defender, None, real_cost)
+
+
 def should_fire_trigger(
     state: GameState,
     defender: Player,
@@ -14997,7 +15027,8 @@ def should_fire_trigger(
         return False
     # 条件を満たす発動可能な効果が 1 つでもあるか
     for eff in trigger_effects:
-        if not eval_all_conditions(eff, state, defender, None):
+        # ⚠ 条件だけでなく **発動コストの payability** も見る (公式 10-1-5 + 4-10)。
+        if not _trigger_effect_activatable(state, defender, eff):
             continue
         # ヒューリスティック: 強力な効果 (除去/ドロー/ライフ復元/登場) が含まれるなら発動。
         # play_self / play_from_trash / play_from_hand 等の「登場」 系も盤面を増やす有利効果
@@ -15209,8 +15240,15 @@ def _can_pay_activate_cost(
     - pay_don: int             場のドン (active+rested) が N 枚以上必要
     - discard_hand: int        手札 N 枚以上必要
     - ko_self_with_filter: dict 自場に該当キャラ 1 枚以上必要 (例: {feature: "B・W"})
+    - life_to_hand: int        自分のライフが N 枚以上必要 (= 「自分のライフN枚を手札に加える」)
     - once_per_turn: bool      _act_used が False
     """
+    # 「自分のライフN枚を手札に加えることができる：」 (OP01-013 サンジ)。 ライフが足りなければ
+    # **発動できない** (= 起動メインの候補に出さない)。 ⚠ do 側に置くと 「ライフ0でもタダ撃ち」
+    # になる (2026-08-11 是正、 公式テキストの 「できる：」 の前は発動コスト)。
+    life_n = int(cost.get("life_to_hand", 0) or 0)
+    if life_n > 0 and len(me.life) < life_n:
+        return False
     if cost.get("rest_self"):
         # 公式 (3 弾で繰り返し): 「レストにできない」 は **レストにすることが必要な行動**
         # (アタック /【ブロッカー】発動 / レストを要するコストの支払い) をできなくする。
@@ -15710,6 +15748,20 @@ def _fire_activate_main_inner(
         # rest_self: log push 漏れ で 「コスト と 状態 変化 の 順序 逆」 と 見える bug 修正
         # (= U2 観戦コメント T1 由来)。 push_log し ない と state.rested が 「起動メイン: X」
         # snap 後 silent に true 化 する ので、 観戦者 は cost 払い タイミング を 見失う。
+        # life_to_hand N: 自分のライフの上から N 枚を手札に加える (= 発動コスト)。
+        # ⚠ ライフ移動なので 「自分のライフが手札に加わった時」 系の when を発火する
+        #   (life_to_hand primitive と同じ helper を通す)。
+        life_cost_n = int(cost.get("life_to_hand", 0) or 0)
+        if life_cost_n > 0:
+            moved = 0
+            for _ in range(life_cost_n):
+                if not me.life:
+                    break
+                me.hand.append(me.life.pop(0))
+                moved += 1
+            if moved:
+                state.push_log(f"  起動メインコスト: ライフ {moved} 枚を手札へ")
+                fire_self_life_to_hand(state, me)
         if cost.get("rest_self"):
             inplay.rested = True
             state.push_log(f"  起動メインコスト: 自レスト {inplay.card.name}")
