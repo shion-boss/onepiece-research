@@ -282,6 +282,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
             ip.attacker_prevents_blocker_power_le = -1;
             ip.cannot_attack_target_cost_le_until_turn_end = -1;
             ip.turn_base_power_override = None;
+            ip.turn_base_power_override_is_original = false; // 公式 4-9-2-1 の 「元々の」 書き換えフラグも同時に落とす (game.py:556)
         }
         p.play_cost_reduction = 0;
         p.block_chara_play_until_turn_end = false;
@@ -346,6 +347,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
                 && ended != ip.next_opp_turn_end_base_power_override_applier_idx
             {
                 ip.next_opp_turn_end_base_power_override = None;
+                ip.next_opp_turn_end_base_power_override_is_original = false; // game.py:627
                 ip.next_opp_turn_end_base_power_override_applier_idx = -1;
                 ip.next_opp_turn_end_base_power_override_applied_turn = 0;
             }
@@ -440,13 +442,16 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
                 }
                 p.leader.next_turn_buff = 0;
                 p.leader.next_turn_base_power_override = None;
+                p.leader.next_turn_base_power_override_is_original = false; // game.py:712
                 for c in p.characters.iter_mut() {
                     c.next_turn_buff = 0;
                     c.next_turn_base_power_override = None;
+                    c.next_turn_base_power_override_is_original = false; // game.py:716
                 }
                 for s in p.stages.iter_mut() {
                     s.next_turn_buff = 0;
                     s.next_turn_base_power_override = None;
+                    s.next_turn_base_power_override_is_original = false; // game.py:720
                 }
                 p.once_per_turn_used.clear();
                 p.replace_opt_used_cards.clear(); // replace once の canonical mirror (game.py:695)

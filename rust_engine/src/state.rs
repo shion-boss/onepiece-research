@@ -186,9 +186,20 @@ pub struct InPlay {
     pub static_ko_immune_from_non_attribute: String,
     // base power/cost override 群 (Option = None なら CardDef 値)
     pub base_power_override: Option<i32>,
+    /// ⭐ その上書きが 「**元々の** パワーを◯◯にする」 効果由来か (公式 4-9-2-1)。
+    /// 素の 「パワーが◯◯になる」 (OP06-009) は現在パワーだけを変え 「元々のパワーN以下」 に
+    /// 影響しない。 core.py InPlay.*_is_original のミラー。
+    #[serde(default)]
+    pub base_power_override_is_original: bool,
     pub turn_base_power_override: Option<i32>,
+    #[serde(default)]
+    pub turn_base_power_override_is_original: bool,
     pub next_turn_base_power_override: Option<i32>,
+    #[serde(default)]
+    pub next_turn_base_power_override_is_original: bool,
     pub next_opp_turn_end_base_power_override: Option<i32>,
+    #[serde(default)]
+    pub next_opp_turn_end_base_power_override_is_original: bool,
     pub next_opp_turn_end_base_power_override_applier_idx: i32,
     pub next_opp_turn_end_base_power_override_applied_turn: i32,
     pub base_cost_override: Option<i32>,
@@ -301,6 +312,33 @@ impl InPlay {
             return p;
         }
         self.base_power_override.unwrap_or(self.card.power)
+    }
+
+    /// core.py InPlay.truly_original_power = 「元々のパワー」。 原則は印刷値だが、
+    /// **「元々のパワーを◯◯にする」 効果** (公式 4-9-2-1) で書き換えられていればその値。
+    /// ⚠ 素の 「パワーが◯◯になる」 (= `original` フラグ false) は現在パワーだけを変える。
+    pub fn truly_original_power(&self) -> i32 {
+        if self.turn_base_power_override_is_original {
+            if let Some(p) = self.turn_base_power_override {
+                return p;
+            }
+        }
+        if self.next_turn_base_power_override_is_original {
+            if let Some(p) = self.next_turn_base_power_override {
+                return p;
+            }
+        }
+        if self.next_opp_turn_end_base_power_override_is_original {
+            if let Some(p) = self.next_opp_turn_end_base_power_override {
+                return p;
+            }
+        }
+        if self.base_power_override_is_original {
+            if let Some(p) = self.base_power_override {
+                return p;
+            }
+        }
+        self.card.power
     }
 
     /// core.py InPlay.power = base + DON+1000(所有者ターンのみ)+ 各 buff。

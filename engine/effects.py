@@ -1184,6 +1184,8 @@ _FIELD_WHEN_ONCE_MIRROR = frozenset({
     "on_self_chara_leave_by_opp_effect", "on_opp_chara_returned_to_hand_by_self_effect",
     "opp_attack_on_chara",
     "on_self_trigger_fired",
+    # 「相手が【トリガー】を発動した時」 (= トリガー限定、 OP05-109 パガヤ。 2026-08-10 追加)
+    "opp_trigger_fired",
     # ライフ 0 トリガー (OP05-098 紫エネル)。 source はリーダー (= 永続 InPlay) なので mirror 可能。
     # これが無いと Rust 側で「ターン1回」を追跡できず、 該当効果が丸ごと bail する (2026-07-31)。
     "on_life_zero",
@@ -5548,17 +5550,26 @@ def _execute_effect_body_inner(
             duration = spec.get("duration", "turn")
             targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="set_base_power_timed", outer_value=v)
             me_idx = state.players.index(me)
+            # ⭐ 「**元々の** パワーを◯◯にする」 か 素の 「パワーが◯◯になる」 か。
+            #   公式 4-9-2-1 は 「元々のパワーをある数値にする効果」 を明記しており、
+            #   前者は 「元々のパワーN以下」 のフィルタ判定にも効く (cardqa_op_10 / EB01-061)。
+            #   overlay の `original` (= 公式テキストに 「元々のパワー」 があるか) で書き分ける。
+            is_original = bool(spec.get("original", False))
             for t in targets:
                 if duration == "turn":
                     t.turn_base_power_override = amount
+                    t.turn_base_power_override_is_original = is_original
                 elif duration == "next_self_turn_start":
                     t.next_turn_base_power_override = amount
+                    t.next_turn_base_power_override_is_original = is_original
                 elif duration in ("next_opp_turn_end", "next_opp_end_phase"):
                     t.next_opp_turn_end_base_power_override = amount
+                    t.next_opp_turn_end_base_power_override_is_original = is_original
                     t.next_opp_turn_end_base_power_override_applier_idx = me_idx
                     t.next_opp_turn_end_base_power_override_applied_turn = state.turn_number
                 else:
                     t.base_power_override = amount
+                    t.base_power_override_is_original = is_original
             state.push_log(
                 f"  効果: 元々のパワー={amount} ({duration}) → {[t.card.name for t in targets]}"
             )
@@ -5587,13 +5598,17 @@ def _execute_effect_body_inner(
                 state.push_log("  効果: power-copy 適用先なし (不発)")
                 return False
             copied_power = source_ip.power
+            is_original = bool(spec.get("original", False))   # 上記 set_base_power_timed と同則
             for t in to_cands:
                 if duration == "turn":
                     t.turn_base_power_override = copied_power
+                    t.turn_base_power_override_is_original = is_original
                 elif duration == "next_self_turn_start":
                     t.next_turn_base_power_override = copied_power
+                    t.next_turn_base_power_override_is_original = is_original
                 else:
                     t.base_power_override = copied_power
+                    t.base_power_override_is_original = is_original
             state.push_log(
                 f"  効果: 元々のパワー {copied_power} (= {source_ip.card.name}) を "
                 f"{[t.card.name for t in to_cands]} に複写 ({duration})"
@@ -12036,6 +12051,21 @@ def _matches_filter_ip(ip: Any, filt: dict[str, Any]) -> bool:
         if not rest_or:
             return True
         return _matches_filter_ip(ip, rest_or)
+    # ⭐ 「元々のパワー」 は **効果で書き換わる** (公式 4-9-2-1 「元々のパワーをある数値に
+    #   する効果」)。 CardDef 委譲だと印刷値固定になるので、 InPlay がある時は
+    #   ip.truly_original_power (= 「元々の」 書き換えを反映) で判定する。
+    #   一次情報 (cardqa_op_10 / EB01-061 Mr.2): 【アタック時】で元々のパワーが2000以上に
+    #   なったキャラは 「元々のパワー2000以下をKO」 の対象に **ならない**。
+    tp_keys = ("truly_original_power_le", "truly_original_power_ge", "truly_original_power_eq")
+    if any(k in filt for k in tp_keys):
+        top = ip.truly_original_power
+        if "truly_original_power_le" in filt and top > int(filt["truly_original_power_le"]):
+            return False
+        if "truly_original_power_ge" in filt and top < int(filt["truly_original_power_ge"]):
+            return False
+        if "truly_original_power_eq" in filt and top != int(filt["truly_original_power_eq"]):
+            return False
+        filt = {k: v for k, v in filt.items() if k not in tp_keys}
     plain = ("cost_le", "cost_ge", "cost_eq", "cost",
              "power_le", "power_ge", "power_eq")
     if not any(k in filt for k in plain):
@@ -12531,8 +12561,12 @@ def evaluate_static_effects(
                         target_spec = spec.get("target", "self")
                         amount = int(spec.get("amount", 0))
                         targets = _resolve_target(target_spec, state, me, opp, inplay)
+                        # 静的 (常在) の 「元々のパワーを X にする」。 overlay の original フラグで
+                        # 「元々の」 か 素の 「パワー」 かを書き分ける (公式 4-9-2-1 / cardqa_op_10)。
+                        is_original = bool(spec.get("original", False))
                         for t in targets:
                             t.base_power_override = amount
+                            t.base_power_override_is_original = is_original
                         continue
                     # 「相手はこのキャラ以外にアタックできない」 (taunt)
                     if "set_attack_taunt" in primitive:
@@ -14837,6 +14871,14 @@ def trigger_lifecard_trigger(
     trigger_opp_event_or_trigger_fired(
         state, attacker_player, defender, effects_overlay,
     )
+    # ⭐ 「**相手が【トリガー】を発動した時**」 (= トリガー限定。 イベントでは発動しない)。
+    #   公式 (cardqa_op_05 / OP05-109 パガヤ 「【ターン1回】【トリガー】が発動した時、…」):
+    #   「相手が【トリガー】を発動した時にもこのキャラの効果は発動しますか？」 → 「**はい**」。
+    #   = 「自分の/相手の」 の修飾が無い 「【トリガー】が発動した時」 は **両陣営** が対象。
+    #   opp_event_or_trigger_fired は イベントでも発動してしまうので別 when を用意する
+    #   (opp_event_played が 「イベント限定」 を持つのと対称)。
+    _enqueue_field_when(state, attacker_player, "opp_trigger_fired", effects_overlay)
+    _maybe_resolve(state)
     # 「自分の【トリガー】が発動した時」 (OP13-106 コニー 等)。
     # defender = トリガー発火側 (= 自分視点)。 defender の 場 で when="on_self_trigger_fired"
     # を 持つ カード を enqueue。 ⚠ この【トリガー】自身が登場させたカード (= snapshot 後の
