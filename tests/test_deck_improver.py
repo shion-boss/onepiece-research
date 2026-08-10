@@ -113,11 +113,39 @@ def test_generate_proposals_empty_for_no_stats(deck, repo):
     assert proposals == []
 
 
+def _synthetic_stats(deck, repo) -> list:
+    """提案生成を **決定的** にするための合成 stats。
+
+    ⚠ 従来は `compute_card_stats("cardrush_1454", deck)` の実対戦データに依存しており、
+      「弱いカードが無い」 環境では `pytest.skip` = **assertion が 1 つも走らなかった**。
+      デッキ内の実カードに対して 「明らかに弱い 1 枚 / 明らかに強い 1 枚」 を人工的に作り、
+      提案ロジック自体を常に検証する (2026-08-10)。
+    """
+    counts = Counter(c.card_id for c in deck.main)
+    ids = [cid for cid, _ in counts.most_common()]
+    assert len(ids) >= 2, "デッキに 2 種類以上のカードが必要 (前提崩れ)"
+    weak, strong = ids[0], ids[1]
+    out = []
+    for cid in (weak, strong):
+        card = repo.get(cid)
+        out.append(CardStat(
+            card_id=cid, base_id=cid, name=card.name,
+            n_in_deck=counts[cid],
+            n_appearances=20, n_total_plays=30, n_matches=40,
+            # weak = ベースラインを大きく下回る / strong = 大きく上回る
+            winrate_when_played=0.20 if cid == weak else 0.85,
+            deck_winrate_baseline=0.50,
+        ))
+    return out
+
+
 def test_generate_proposals_returns_swap_or_count(deck, repo):
-    stats, _, _ = compute_card_stats("cardrush_1454", deck)
-    proposals = generate_proposals(stats, deck, repo)
-    if not proposals:
-        pytest.skip("対戦データに弱いカードが無い場合は skip")
+    """合成 stats (明確に弱い1枚 + 強い1枚) で提案が必ず生成され、 net delta が 0 になる。"""
+    proposals = generate_proposals(_synthetic_stats(deck, repo), deck, repo)
+    assert proposals, (
+        "明確に弱いカード (勝率 20% vs baseline 50%) を与えても提案が 0 件 = "
+        "提案ロジックが機能していない"
+    )
     for p in proposals:
         assert p.proposal_type in ("swap", "count_decrease", "count_increase")
         # changes の delta 合計 = 0 (= 50 枚維持)
@@ -125,10 +153,9 @@ def test_generate_proposals_returns_swap_or_count(deck, repo):
 
 
 def test_proposal_changes_are_card_changes(deck, repo):
-    stats, _, _ = compute_card_stats("cardrush_1454", deck)
-    proposals = generate_proposals(stats, deck, repo)
-    if not proposals:
-        pytest.skip("対戦データに提案候補が無い")
+    """提案の changes が CardChange 型で、 delta が 0 でないこと (合成 stats で決定的に)。"""
+    proposals = generate_proposals(_synthetic_stats(deck, repo), deck, repo)
+    assert proposals, "合成 stats で提案が 0 件 (前提崩れ)"
     p = proposals[0]
     for c in p.changes:
         assert isinstance(c, CardChange)
