@@ -431,7 +431,15 @@ def test_op05_106_on_play_search_sky_ai():
 #    【ターン1回】【トリガー】が発動した時、カード2枚を引き、自分の手札2枚を捨てる。
 # --------------------------------------------------------------------------- #
 def test_op05_109_trigger_draw2_discard2_ai():
-    """トリガー (AI): カード2枚を引き、 手札2枚を捨てる (deck -2 / trash +2)。"""
+    """【トリガー】が発動した時 (AI): カード2枚を引き、 手札2枚を捨てる (deck -2 / trash +2)。
+
+    ⚠ 2026-08-10 是正: 旧 overlay は when="trigger" (= **このカード自身のライフトリガー**) で
+      登録されていたが、 OP05-109 パガヤ は cards.json の `trigger` 欄が空 = **【トリガー】を
+      持たない**。 公式テキストは 「【ターン1回】**【トリガー】が発動した時**、…」 = 場に居る間の
+      反応効果。 このテストは 捏造された when をそのまま assert して **バグを正解として固定** して
+      いたので、 正しい when (on_self_trigger_fired = 自分が【トリガー】を発動した時) に付け替える。
+      両陣営に反応することの検証は tests/test_effect_interactions.py 側。
+    """
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, _LEADER_NEUTRAL, overlay)
@@ -442,7 +450,7 @@ def test_op05_109_trigger_draw2_discard2_ai():
     deck_before = len(me.deck)
     trash_before = len(me.trash)
 
-    for prim in _do(overlay, "OP05-109", "trigger"):
+    for prim in _do(overlay, "OP05-109", "on_self_trigger_fired"):
         execute_effect(prim, st, me, opp, None)
         while st.pending_choice is not None:
             resolve_pending_choice(st, [0])

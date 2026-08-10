@@ -8279,3 +8279,94 @@ def test_op08_039_overlay_target_is_mink_filtered():
     assert isinstance(tgt, dict), "target が文字列 (無差別) に戻っている"
     assert tgt.get("filter", {}).get("feature") == "ミンク族", \
         "untap 対象が 特徴《ミンク族》 に絞られていない"
+
+
+def test_truly_original_power_is_rewritten_by_moto_effects():
+    """「元々のパワー」 は **「元々のパワーを◯◯にする」 効果で書き換わる** (公式 4-9-2-1)。
+
+    一次情報 (cardqa_op_10、 EB01-061 Mr.2・ボン・クレー = 【アタック時】「このキャラの
+    **元々のパワー** は、 このターン中、 選んだキャラと同じパワーになる」):
+      Q「…【アタック時】効果によって元々のパワーが2000以上になった場合に、 相手の効果に
+        よってKOされますか？」 → A「**いいえ、 KOされません**」
+    根拠: 総合ルール 4-9-2-1 「**元々のパワーをある数値にする効果**が複数あり…数値の高い
+    効果を適用します」 = 元々のパワーは効果で書き換わる。
+
+    ⚠ 素の 「パワーが◯◯になる」 (= 「元々の」 が無い、 OP06-009 シュライヤ) は現在パワー
+      だけを変え、 「元々のパワーN以下」 の判定には影響しない (overlay の original フラグ)。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def setup(card_id: str):
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        src = InPlay.of(repo.get(card_id), sickness=False)
+        me.characters = [src]
+        opp.characters = [InPlay.of(repo.get("OP01-002"), sickness=False)]  # コピー元
+        return st, me, opp, src
+
+    def is_targetable(st, opp, me) -> bool:
+        from engine.effects import _resolve_target
+        got = _resolve_target(
+            {"type": "one_opponent_character_filtered",
+             "filter": {"truly_original_power_le": 2000}},
+            st, opp, me, opp.leader,
+        ) or []
+        return bool(got)
+
+    # --- 「元々のパワー」 を書き換える効果 (EB01-061) ---
+    st, me, opp, mr2 = setup("EB01-061")
+    assert mr2.truly_original_power == mr2.card.power, "発動前は印刷値のはず"
+    assert is_targetable(st, opp, me), "発動前は 「元々2000以下」 の対象のはず (前提崩れ)"
+    trigger_on_attack(st, me, opp, mr2, overlay)
+    resolve_triggers(st)
+    assert mr2.truly_original_power > 2000, (
+        "「元々のパワーは…同じパワーになる」 が truly_original_power に反映されていない (公式 4-9-2-1)"
+    )
+    assert not is_targetable(st, opp, me), (
+        "元々のパワーが2000超になったのに 「元々2000以下」 でKO対象のまま (cardqa_op_10 違反)"
+    )
+
+    # --- 素の 「パワーになる」 (OP06-009 シュライヤ) は元々のパワーを変えない ---
+    st2, me2, opp2, shu = setup("OP06-009")
+    printed = shu.card.power
+    trigger_on_attack(st2, me2, opp2, shu, overlay)
+    resolve_triggers(st2)
+    assert shu.truly_original_power == printed, (
+        "「元々の」 が無い 「パワーになる」 が truly_original_power を書き換えている "
+        "(= 元々のパワー判定を巻き込んでいる)"
+    )
+
+
+def test_op05_109_pagaya_reacts_to_both_players_triggers():
+    """OP05-109 パガヤ 「【ターン1回】【トリガー】が発動した時、 カード2枚を引き、 手札2枚を捨てる」
+    は **両陣営** の【トリガー】発動に反応する。
+
+    一次情報 (cardqa_op_05): 「相手が【トリガー】を発動した時にもこのキャラの効果は発動
+    しますか？」 → 「**はい、 発動します**」 (= 「自分の/相手の」 の修飾が無い = 両陣営)。
+
+    退行前は overlay が `when: "trigger"` = **このカード自身のライフトリガー** として登録され
+    (cards.json の trigger 欄は空 = 持っていない【トリガー】を捏造)、 場では何も起きなかった。
+    """
+    repo, overlay = _repo(), _overlay()
+    from engine.effects import trigger_lifecard_trigger
+
+    def deck_drawn_by_pagaya(owner_idx: int) -> int:
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        owner = st.players[owner_idx]
+        owner.characters = [InPlay.of(repo.get("OP05-109"), sickness=False)]
+        for p in (me, opp):
+            p.hand = [repo.get(_FILLER)] * 4
+        before = len(owner.deck)
+        # defender = P1 が 【トリガー】 (OP07-057 = 無条件 draw1) を発動する
+        fired = trigger_lifecard_trigger(st, opp, me, repo.get("OP07-057"), overlay, auto_fire=True)
+        assert fired, "前提の【トリガー】が発動していない"
+        resolve_triggers(st)
+        return before - len(owner.deck)
+
+    # パガヤが「発動した側」(P1) → トリガーの draw1 + パガヤの draw2 = 3
+    assert deck_drawn_by_pagaya(1) == 3, "自分が【トリガー】を発動した時に発動していない"
+    # パガヤが「相手側」(P0) → パガヤの draw2 のみ
+    assert deck_drawn_by_pagaya(0) == 2, (
+        "相手が【トリガー】を発動した時に発動していない (cardqa_op_05 違反)"
+    )

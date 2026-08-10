@@ -553,6 +553,7 @@ def _reset_turn_buff(state: GameState) -> None:
             ip.attacker_prevents_blocker_power_le = -1
             ip.cannot_attack_target_cost_le_until_turn_end = -1
             ip.turn_base_power_override = None
+            ip.turn_base_power_override_is_original = False
         player.play_cost_reduction = 0
         player.block_chara_play_until_turn_end = False
         # OP09-081 effect: 自ターン 開始 で 「相手 on_play 無効」 flag reset (= 設定 player から 見て 1 周)
@@ -623,6 +624,7 @@ def _reset_turn_buff(state: GameState) -> None:
                         and ip.next_opp_turn_end_base_power_override_applied_turn <= state.turn_number
                         and ended_idx != ip.next_opp_turn_end_base_power_override_applier_idx):
                     ip.next_opp_turn_end_base_power_override = None
+                    ip.next_opp_turn_end_base_power_override_is_original = False
                     ip.next_opp_turn_end_base_power_override_applier_idx = -1
                     ip.next_opp_turn_end_base_power_override_applied_turn = 0
             if ip.next_opp_turn_end_base_cost_override is not None:
@@ -707,12 +709,15 @@ def advance_phase(state: GameState) -> None:
             # 自分のターン開始時 = ここで自分の InPlay の next_turn_buff を 0 に。
             me.leader.next_turn_buff = 0
             me.leader.next_turn_base_power_override = None
+            me.leader.next_turn_base_power_override_is_original = False
             for c in me.characters:
                 c.next_turn_buff = 0
                 c.next_turn_base_power_override = None
+                c.next_turn_base_power_override_is_original = False
             for s in me.stages:
                 s.next_turn_buff = 0
                 s.next_turn_base_power_override = None
+                s.next_turn_base_power_override_is_original = False
             # 【ターン1回】 効果の発動済みキー集合をクリア (= 次自ターンで再発動可)。
             # effect spec の top-level `once_per_turn` を _execute_event がガードに使う。
             me.once_per_turn_used.clear()

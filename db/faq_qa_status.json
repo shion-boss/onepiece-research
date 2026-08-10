@@ -5166,9 +5166,9 @@
   "files": [
    "cardqa_op_10.json"
   ],
-  "note": "EB01-061 Mr.2: 【アタック時】set_base_power_copy で 元々のパワーが2000以上になった場合、元々のパワー2000以下KOの対象外(公式=KOされない)。engine truly_original_power(core.py:515)は printed card.power 固定で 元々-書換え(base_power_override)を無視。ただし同じ override を OP06-009 は素の「パワーになる」(元々でない)に使う為、元々-set と パワー-set を区別する data-shape 変更が要る=アーキ変更で escalate",
+  "note": "EB01-061 Mr.2・ボン・クレー 【アタック時】 「このキャラの **元々のパワー** は、 このターン中、 選んだキャラと同じパワーになる」: 元々のパワーが 2000 以上になったら 「元々のパワー2000以下をKO」 の対象外 (公式=KOされない)。 **engine は違反していた**: InPlay.truly_original_power が **印刷値固定** (card.power) で 「元々の」 書き換えを無視し、 さらに filter (_matches_filter_ip / Rust matches_filter_ip) が CardDef へ委譲して印刷値で判定していた。 根拠: 公式総合ルール **4-9-2-1** 「**元々のパワーをある数値にする効果** が複数あり…数値の高い効果を適用します」 = 元々のパワーは効果で書き換わる (4-9 は 「印刷値のまま不変」 とは言っていない)。 是正: (a) InPlay に *_is_original フラグ 4 種を追加し truly_original_power が 「元々の」 書き換えのみを反映 (b) filter が InPlay 経由なら truly_original_power で判定 (c) overlay 39 エントリに original フラグを **公式テキストから導出して明示** (「元々のパワー」 を含む 35 = true / 素の 「パワーになる」 = OP15-092 系除く OP06-009 シュライヤ 4 = false)。 Python/Rust 同時是正、 差分 MISMATCH 0。 実測: 【アタック時】前は 「元々2000以下」 の対象、 後 (元々5000) は対象外。",
   "q": "自分の場に「EB01-061 Mr.2・ボン・クレー(ベンサム)」があるときに、この【登場時】を自分が発動しました。その後そのターン中に、「EB01-061 Mr.2・ボン・クレー(ベンサム)」が【アタック時】効果によって元々のパワーが2000以上になった場合に、相手の効果によってKOされますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "76e19e380dbb": {
   "a": "いいえ、できません。",
@@ -5184,9 +5184,9 @@
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "op_05 相手がトリガー発動時にも発動(A=はい)。対象カード特定不能: cardqa snapshotにcard_id無し、OP05でopp_event_or_trigger_fired/opp_event_played 配線カードが0件。トリガー-reactiveはケイミー(OP11)のみで確認済だがOP05対象を一意化できず。空回り防止で escalate",
+  "note": "対象カードを **OP05-109 パガヤ** と特定 (cardqa_op_05 の並びで前後 44-48 が同一カード群、 かつ OP05 で 「【トリガー】が発動した時」 を持つのは この 1 枚)。 公式テキスト 「【ターン1回】【トリガー】が発動した時、 カード2枚を引き、 自分の手札2枚を捨てる」 は **場に居る間の反応効果** で、 「自分の/相手の」 の修飾が無い = **両陣営** の発動に反応する (公式=はい)。 **engine は 2 重に間違っていた**: (a) overlay が when:\"trigger\" = **このカード自身のライフトリガー** として登録しており (cards.json の trigger 欄は空 = 持っていない【トリガー】を捏造)、 場では何も起きなかった (b) 相手側の発動に反応する when が 「イベントか【トリガー】」 (opp_event_or_trigger_fired) しか無く、 **トリガー限定** を表現できなかった。 是正: 新 when opp_trigger_fired を両エンジンに追加 (ライフトリガー経路のみで発火 = イベントでは発動しない。 opp_event_played が 「イベント限定」 を持つのと対称) + overlay を on_self_trigger_fired / opp_trigger_fired の 2 entry (共有ターン1回キー) に書き換え。 実測: パガヤが発動側でも相手側でも デッキ-2/手札±0 が発生。",
   "q": "相手が【トリガー】を発動した時にもこのキャラの効果は発動しますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "7721c725fc86": {
   "a": "いいえ、できません。",

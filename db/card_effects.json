@@ -5404,7 +5404,8 @@
      "set_base_power_copy": {
       "from_target": "one_opponent_character_any",
       "to_target": "self",
-      "duration": "turn"
+      "duration": "turn",
+      "original": true
      }
     }
    ]
@@ -10854,7 +10855,8 @@
      "set_base_power_timed": {
       "target": "self",
       "amount": 6000,
-      "duration": "static"
+      "duration": "static",
+      "original": true
      }
     },
     {
@@ -10864,7 +10866,8 @@
        "name": "オーム"
       },
       "amount": 6000,
-      "duration": "static"
+      "duration": "static",
+      "original": true
      }
     }
    ]
@@ -11470,7 +11473,8 @@
         "feature": "五老星"
        }
       },
-      "amount": 7000
+      "amount": 7000,
+      "original": true
      }
     }
    ]
@@ -12655,7 +12659,8 @@
     {
      "set_base_power": {
       "target": "self",
-      "amount": 9000
+      "amount": 9000,
+      "original": true
      }
     },
     {
@@ -12678,7 +12683,8 @@
     {
      "set_base_power": {
       "target": "self_leader",
-      "amount": 7000
+      "amount": 7000,
+      "original": true
      }
     }
    ]
@@ -35737,7 +35743,8 @@
      "set_base_power_copy": {
       "from_target": "one_opponent_character_any",
       "to_target": "self",
-      "duration": "turn"
+      "duration": "turn",
+      "original": true
      }
     }
    ]
@@ -36130,7 +36137,8 @@
     {
      "set_base_power": {
       "target": "self",
-      "amount": 9000
+      "amount": 9000,
+      "original": true
      }
     },
     {
@@ -36153,7 +36161,8 @@
     {
      "set_base_power": {
       "target": "self_leader",
-      "amount": 7000
+      "amount": 7000,
+      "original": true
      }
     }
    ]
@@ -37652,7 +37661,8 @@
         "feature": "五老星"
        }
       },
-      "amount": 7000
+      "amount": 7000,
+      "original": true
      }
     }
    ]
@@ -37695,7 +37705,8 @@
         "feature": "五老星"
        }
       },
-      "amount": 7000
+      "amount": 7000,
+      "original": true
      }
     }
    ]
@@ -48135,7 +48146,8 @@
      "set_base_power_copy": {
       "from_target": "one_opponent_character_any",
       "to_target": "self",
-      "duration": "turn"
+      "duration": "turn",
+      "original": true
      }
     }
    ]
@@ -57208,7 +57220,8 @@
      "set_base_power_timed": {
       "target": "self_leader",
       "amount": 7000,
-      "duration": "next_opp_turn_end"
+      "duration": "next_opp_turn_end",
+      "original": true
      }
     }
    ]
@@ -58216,7 +58229,8 @@
      "set_base_power_copy": {
       "from_target": "opponent_leader",
       "to_target": "self",
-      "duration": "turn"
+      "duration": "turn",
+      "original": true
      }
     }
    ]
@@ -58250,7 +58264,8 @@
      "set_base_power_copy": {
       "from_target": "opponent_leader",
       "to_target": "self",
-      "duration": "turn"
+      "duration": "turn",
+      "original": true
      }
     }
    ]
@@ -62816,7 +62831,8 @@
      "set_base_power_timed": {
       "target": "self_leader",
       "amount": 7000,
-      "duration": "next_opp_turn_end"
+      "duration": "next_opp_turn_end",
+      "original": true
      }
     }
    ]
@@ -62843,7 +62859,8 @@
      "set_base_power_timed": {
       "target": "self_leader",
       "amount": 7000,
-      "duration": "next_opp_turn_end"
+      "duration": "next_opp_turn_end",
+      "original": true
      }
     }
    ]
@@ -74813,7 +74830,8 @@
      "set_base_power_copy": {
       "from_target": "opponent_leader",
       "to_target": "self",
-      "duration": "next_self_turn_start"
+      "duration": "next_self_turn_start",
+      "original": false
      }
     }
    ]
@@ -74829,7 +74847,8 @@
      "set_base_power_copy": {
       "from_target": "opponent_leader",
       "to_target": "self",
-      "duration": "next_self_turn_start"
+      "duration": "next_self_turn_start",
+      "original": false
      }
     }
    ]
@@ -74847,7 +74866,8 @@
      "set_base_power_copy": {
       "from_target": "opponent_leader",
       "to_target": "self",
-      "duration": "next_self_turn_start"
+      "duration": "next_self_turn_start",
+      "original": false
      }
     }
    ]
@@ -74863,7 +74883,8 @@
      "set_base_power_copy": {
       "from_target": "opponent_leader",
       "to_target": "self",
-      "duration": "next_self_turn_start"
+      "duration": "next_self_turn_start",
+      "original": false
      }
     }
    ]
@@ -77761,8 +77782,12 @@
  ],
  "OP05-109": [
   {
-   "_text": "OP05-109 trigger: が発動した時、カード2枚を引き、自分の手札2枚を捨てる。 [dd-mand]",
-   "when": "trigger",
+   "_text": "OP05-109 パガヤ: 【ターン1回】自分が【トリガー】を発動した時、 カード2枚を引き 手札2枚を捨てる",
+   "_doc": "公式テキストは 「【ターン1回】**【トリガー】が発動した時**、 カード2枚を引き、 自分の手札2枚を捨てる」 = **場に居る間の反応効果** (このカードは【トリガー】を持たない: cards.json の trigger 欄は空)。 旧 overlay は when:\"trigger\" = **自身のライフトリガー** として登録しており、 場では何も起きず、 持っていない【トリガー】を捏造していた (2026-08-10 是正)。 「自分の/相手の」 の修飾が無いので **両陣営** の【トリガー】発動で発動する (cardqa_op_05: 「相手が【トリガー】を発動した時にも発動しますか？」→「はい、発動します」)。 ⚠ イベント発動では発動しない (opp_event_or_trigger_fired ではなく opp_trigger_fired を使う)。 【ターン1回】は自陣/相手陣で共有 (共有キー op05-109-trigger)。",
+   "when": "on_self_trigger_fired",
+   "cost": {
+    "once_per_turn": "op05-109-trigger"
+   },
    "do": [
     {
      "draw": 2
@@ -77770,10 +77795,23 @@
     {
      "trash_self_hand_random": 2
     }
-   ],
+   ]
+  },
+  {
+   "_text": "OP05-109 パガヤ: 【ターン1回】相手が【トリガー】を発動した時も同様 (修飾なし=両陣営、 cardqa_op_05)",
+   "_doc": "公式テキストは 「【ターン1回】**【トリガー】が発動した時**、 カード2枚を引き、 自分の手札2枚を捨てる」 = **場に居る間の反応効果** (このカードは【トリガー】を持たない: cards.json の trigger 欄は空)。 旧 overlay は when:\"trigger\" = **自身のライフトリガー** として登録しており、 場では何も起きず、 持っていない【トリガー】を捏造していた (2026-08-10 是正)。 「自分の/相手の」 の修飾が無いので **両陣営** の【トリガー】発動で発動する (cardqa_op_05: 「相手が【トリガー】を発動した時にも発動しますか？」→「はい、発動します」)。 ⚠ イベント発動では発動しない (opp_event_or_trigger_fired ではなく opp_trigger_fired を使う)。 【ターン1回】は自陣/相手陣で共有 (共有キー op05-109-trigger)。",
+   "when": "opp_trigger_fired",
    "cost": {
-    "once_per_turn": true
-   }
+    "once_per_turn": "op05-109-trigger"
+   },
+   "do": [
+    {
+     "draw": 2
+    },
+    {
+     "trash_self_hand_random": 2
+    }
+   ]
   }
  ],
  "OP05-111": [
@@ -78825,7 +78863,8 @@
      "set_base_power_copy": {
       "from_target": "opponent_attacker",
       "to_target": "self",
-      "duration": "turn"
+      "duration": "turn",
+      "original": true
      }
     }
    ],
@@ -86044,7 +86083,8 @@
      "set_base_power_timed": {
       "target": "self_leader",
       "amount": 7000,
-      "duration": "next_opp_turn_end"
+      "duration": "next_opp_turn_end",
+      "original": true
      }
     }
    ]
@@ -86071,7 +86111,8 @@
      "set_base_power_timed": {
       "target": "self_leader",
       "amount": 7000,
-      "duration": "next_opp_turn_end"
+      "duration": "next_opp_turn_end",
+      "original": true
      }
     }
    ]
@@ -95152,7 +95193,8 @@
      "set_base_power_timed": {
       "target": "self_leader",
       "amount": 7000,
-      "duration": "next_opp_turn_end"
+      "duration": "next_opp_turn_end",
+      "original": true
      }
     }
    ],
@@ -100672,7 +100714,8 @@
     {
      "set_base_power": {
       "target": "self_leader",
-      "amount": 7000
+      "amount": 7000,
+      "original": true
      }
     }
    ]
@@ -100814,7 +100857,8 @@
     {
      "set_base_power": {
       "target": "self_leader",
-      "amount": 7000
+      "amount": 7000,
+      "original": true
      }
     }
    ]
@@ -101232,7 +101276,8 @@
     {
      "set_base_power": {
       "target": "self",
-      "amount": 6000
+      "amount": 6000,
+      "original": true
      }
     },
     {
@@ -101241,7 +101286,8 @@
        "type": "all_self_chara_named",
        "name": "シュラ"
       },
-      "amount": 6000
+      "amount": 6000,
+      "original": true
      }
     }
    ]
@@ -101446,7 +101492,8 @@
      "set_base_power_copy": {
       "from_target": "self_leader",
       "to_target": "self",
-      "duration": "static"
+      "duration": "static",
+      "original": true
      }
     }
    ]
@@ -106220,7 +106267,8 @@
      "set_base_power_copy": {
       "from_target": "opponent_leader",
       "to_target": "self",
-      "duration": "turn"
+      "duration": "turn",
+      "original": true
      }
     }
    ]
@@ -106394,7 +106442,8 @@
      "set_base_power_copy": {
       "from_target": "opponent_leader",
       "to_target": "self",
-      "duration": "turn"
+      "duration": "turn",
+      "original": true
      }
     }
    ]
@@ -106859,7 +106908,8 @@
      "set_base_power_copy": {
       "from_target": "one_opponent_character_any",
       "to_target": "self",
-      "duration": "turn"
+      "duration": "turn",
+      "original": true
      }
     }
    ]
@@ -107563,7 +107613,8 @@
      "set_base_power_timed": {
       "target": "self_inplay",
       "amount": 7000,
-      "duration": "turn"
+      "duration": "turn",
+      "original": true
      }
     }
    ]
@@ -107853,7 +107904,8 @@
        "name": "インペルダウンの囚人"
       },
       "amount": 7000,
-      "duration": "turn"
+      "duration": "turn",
+      "original": true
      }
     }
    ]
@@ -108440,14 +108492,16 @@
         "set_base_power_timed": {
          "target": "self_leader",
          "amount": 7000,
-         "duration": "turn"
+         "duration": "turn",
+         "original": true
         }
        },
        {
         "set_base_power_timed": {
          "target": "self",
          "amount": 7000,
-         "duration": "turn"
+         "duration": "turn",
+         "original": true
         }
        }
       ]
@@ -109439,7 +109493,8 @@
         "set_base_power_timed": {
          "target": "one_opponent_character_any",
          "amount": 0,
-         "duration": "turn"
+         "duration": "turn",
+         "original": true
         }
        }
       ]
@@ -109680,7 +109735,8 @@
         "set_base_power_timed": {
          "target": "self_leader",
          "amount": 7000,
-         "duration": "turn"
+         "duration": "turn",
+         "original": true
         }
        }
       ]

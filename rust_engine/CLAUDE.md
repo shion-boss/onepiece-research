@@ -171,6 +171,21 @@ RNG 依存効果は `rng.rs` (MT19937、 CPython `random` の bit 再現) を使
   **`enqueue_trigger` (= 登場カードを card_id に載せた marker) ではなく `enqueue_field_when`** で
   積む。 marker のままだと 「登場カード自身の効果だけ」 を発火し、 場の反応カード (例: リーダー
   OP14-041 「相手のターン中 自分のキャラ登場時 1ドロー」) が丸ごと落ちる。
+- **when 発火の合間の drain を省くと 「本体 → reactive」 の順が崩れる** (2026-08-10)。 Python の
+  `trigger_lifecard_trigger` は **① トリガー本体を enqueue → `_maybe_resolve` で解決し切る →
+  ② reactive (opp_event_or_trigger_fired / opp_trigger_fired / on_self_trigger_fired) を 1 つ積む
+  ごとに drain** という形。 Rust は本体を `rust_resolving = true` で **inline** 実行するので、
+  本体の登場が誘発した `on_play` はキューに積まれたまま残り、 呼出側が最後にまとめて drain すると
+  **reactive より後** に走る。 → `drain_if_outer(state, prev_resolving)` を 本体の後と各 reactive の
+  後に挟む。 発覚例: OP05-106 シュラ【トリガー】(デッキ上5枚を見て1枚手札・残りをデッキ下) の
+  デッキ操作が OP05-109 パガヤ (【トリガー】発動時に2ドロー) の **後** に走り、 **引くカードが
+  変わった**。 新しい when 発火経路を書く時は 「Python が `_maybe_resolve` を呼んでいる位置」 を
+  そのまま drain 位置に写すこと。
+- **canonical field を足したら 「リセット側」 も対で写す** (2026-08-10)。 `*_base_power_override` に
+  `*_is_original` (公式 4-9-2-1 の 「元々のパワーを◯◯にする」 か) を足した時、 Rust は override 本体
+  だけ None に戻して フラグを落とし忘れ、 **次のターンに 「元々のパワー」 判定だけが残留** した
+  (`rules.rs` の turn reset / next_turn / next_opp_turn_end の 3 系統)。 set 側 4 箇所を写しても
+  clear 側を忘れると EndPhase で MISMATCH。 grep は **set と clear の両方** で行う。
 - **`find_tagged` は タグを消費する**。 1 枚のカードの複数効果を回すループや 複数 index を回す
   解決では **`peek_tagged` (非消費) を使い、 回収は最後に 1 回**。 消費すると 2 つ目以降が
   `Slot::Detached` になり、 効果が **黙って不発** になる (2026-08-10 に EOT 2 相化で踏んだ)。

@@ -62,6 +62,7 @@ DIRECT_WHENS = {
     "on_self_hand_discarded", "on_self_event_played", "on_self_rested", "on_self_trigger_fired",
     "on_self_chara_leave_by_self_effect", "on_self_don_returned_to_deck", "on_opp_blocker_use",
     "on_life_zero", "opp_event_or_trigger_fired", "opp_event_played",
+    "opp_trigger_fired",  # 2026-08-10 追加 (OP05-109 パガヤ、 トリガー限定の相手反応)
     "on_self_chara_rested_by_self_effect",
     "on_self_battled", "on_self_chara_leave_by_opp_effect", "on_self_don_attached",
     "on_self_battle_ko", "on_opp_chara_returned_to_hand_by_self_effect",

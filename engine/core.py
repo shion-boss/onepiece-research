@@ -310,20 +310,28 @@ class InPlay:
     # 「元々のパワー」を上書き (None なら CardDef.power を使う)。
     # 静的効果でセット (on_attached_don)、evaluate_static_effects でリセット
     base_power_override: Optional[int] = None
+    # ⭐ 上書きが 「**元々の** パワーを◯◯にする」 効果由来か (公式 4-9-2-1 が
+    #   「元々のパワーをある数値にする効果」 を明記 = 元々のパワーは効果で **書き換わる**)。
+    #   素の 「パワーが◯◯になる」 (OP06-009 シュライヤ 等) は現在パワーだけを変え、
+    #   「元々のパワーN以下」 のフィルタ判定には影響しない → False のまま。
+    base_power_override_is_original: bool = False
     # ターン中限定の「元々のパワー」上書き (= 「このターン中、 元々のパワーが X になる」)。
     # EB01-061 Mr.2 等の power-copy 効果用。 _reset_turn_buff でクリア。
     # 静的 base_power_override より優先される (= 効果が有効な間は静的を覆い隠す)。
     turn_base_power_override: Optional[int] = None
+    turn_base_power_override_is_original: bool = False
     # 「次の自分のターン開始時まで」 期限の base_power 上書き (= OP06-009 シュライヤ
     # 「このキャラは、 次の自分のターン開始時まで、 相手のリーダーと同じパワーになる」)。
     # 所有者の REFRESH 開始時 (= 次の自ターン開始時) にクリア。
     # turn_base_power_override より弱い優先 (= 「このターン中」 が同時に有効なら そちら勝ち)。
     next_turn_base_power_override: Optional[int] = None
+    next_turn_base_power_override_is_original: bool = False
     # 「次の相手のターン (= エンドフェイズ) 終了時まで」 の base_power 上書き
     # (= ST26-005 モンキー・Ｄ・ルフィ 「自分のリーダーを 次の相手のエンドフェイズ終了時まで、 元々のパワー 7000 にする」)。
     # applier-tracking (= applier_idx の opp ターンが終了したら _reset_turn_buff でクリア、
     # ただし applied_turn より少なくとも 1 ターン以上経過必須)。 EB02-041 系のドン+2 と同じ仕組み。
     next_opp_turn_end_base_power_override: Optional[int] = None
+    next_opp_turn_end_base_power_override_is_original: bool = False
     next_opp_turn_end_base_power_override_applier_idx: int = -1
     next_opp_turn_end_base_power_override_applied_turn: int = 0
     # 「元々のコスト」を上書き (None なら CardDef.cost を使う)
@@ -513,8 +521,29 @@ class InPlay:
 
     @property
     def truly_original_power(self) -> int:
-        """公式 4-9: 「元々のパワー」は永続効果で変更されても変わらない、CardDef オリジナル値。
-        「元々のパワー X 以下」(target_power_le) 等のフィルタ判定に使う。"""
+        """「元々のパワー」。 原則 CardDef の印刷値だが、 **「元々のパワーを◯◯にする」 効果**
+        で書き換えられている場合はその値。
+
+        公式 4-9-2-1: 「**元々のパワーをある数値にする効果**が複数あり、 その効果の対象と
+        なるカードが同一であり、 数値が異なる場合、 数値の高い効果を適用します」
+        = 元々のパワーは効果で書き換わりうる (4-9 は 「印刷値のまま不変」 とは言っていない)。
+        一次情報 (cardqa_op_10 / EB01-061 Mr.2・ボン・クレー): 【アタック時】で元々のパワーが
+        2000以上になった場合、 「元々のパワー2000以下をKO」 の対象に **ならない** (公式=KOされない)。
+
+        ⚠ 素の 「パワーが◯◯になる」 (= 「元々の」 が無い、 OP06-009 シュライヤ) は現在パワー
+          だけを変える。 overlay の `original` フラグで書き分ける (True の時だけここに効く)。
+        優先順位は base_power と同じ (turn > next_self_turn_start > next_opp_turn_end > 静的)。
+        """
+        if self.turn_base_power_override is not None and self.turn_base_power_override_is_original:
+            return self.turn_base_power_override
+        if (self.next_turn_base_power_override is not None
+                and self.next_turn_base_power_override_is_original):
+            return self.next_turn_base_power_override
+        if (self.next_opp_turn_end_base_power_override is not None
+                and self.next_opp_turn_end_base_power_override_is_original):
+            return self.next_opp_turn_end_base_power_override
+        if self.base_power_override is not None and self.base_power_override_is_original:
+            return self.base_power_override
         return self.card.power
 
     @property

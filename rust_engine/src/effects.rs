@@ -2302,10 +2302,28 @@ fn matches_filter_ip(ip: &InPlay, filt: Option<&Value>) -> bool {
         }
         return matches_filter_ip(ip, Some(&Value::Object(rest)));
     }
+    // ⭐ 「元々のパワー」 は **効果で書き換わる** (公式 4-9-2-1 「元々のパワーをある数値に
+    //   する効果」)。 CardDef へ丸投げすると印刷値固定になる (cardqa_op_10 / EB01-061 Mr.2:
+    //   【アタック時】で元々のパワーが2000以上になったキャラは 「元々2000以下をKO」 の対象外)。
+    //   Python `_matches_filter_ip` と同順・同キーで先に判定して strip する。
+    const TOP: [&str; 3] = ["truly_original_power_le", "truly_original_power_ge",
+                            "truly_original_power_eq"];
+    let mut f_owned;
+    let mut f = f;
+    if TOP.iter().any(|k| f.contains_key(*k)) {
+        let top = ip.truly_original_power() as i64;
+        let g = |k: &str| f.get(k).and_then(|x| x.as_i64());
+        if g("truly_original_power_le").map_or(false, |n| top > n) { return false; }
+        if g("truly_original_power_ge").map_or(false, |n| top < n) { return false; }
+        if g("truly_original_power_eq").map_or(false, |n| top != n) { return false; }
+        f_owned = f.clone();
+        for k in TOP { f_owned.remove(k); }
+        f = &f_owned;
+    }
     const PLAIN: [&str; 7] = ["cost_le", "cost_ge", "cost_eq", "cost",
                               "power_le", "power_ge", "power_eq"];
     if !PLAIN.iter().any(|k| f.contains_key(*k)) {
-        return matches_filter(&ip.card, filt);
+        return matches_filter(&ip.card, Some(&Value::Object(f.clone())));
     }
     let cur = ip.base_cost() as i64;
     let gi = |k: &str| f.get(k).and_then(|x| x.as_i64());
@@ -2572,8 +2590,12 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
         "set_base_power" => {
             let amount = as_i(spec.get("amount"), 0) as i32;
             let Some(targets) = resolve_target(spec.get("target"), me_idx, opp_idx, src, state) else { return };
+            // ⭐ 「元々の」 パワー書き換えか (公式 4-9-2-1、 Python effects.py の静的分岐と同則)。
+            let is_orig = spec.get("original").and_then(|x| x.as_bool()).unwrap_or(false);
             for (pi, sl) in targets {
-                get_ip_mut(&mut state.players[pi], sl).base_power_override = Some(amount);
+                let ip = get_ip_mut(&mut state.players[pi], sl);
+                ip.base_power_override = Some(amount);
+                ip.base_power_override_is_original = is_orig;
             }
         }
         // 元々のパワーを duration 付きで上書き (effects.py:4673)。 静的 context では duration="static"→base_power_override。
@@ -2582,17 +2604,29 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
             let duration = spec.get("duration").and_then(|v| v.as_str()).unwrap_or("turn").to_string();
             let Some(targets) = resolve_target(spec.get("target"), me_idx, opp_idx, src, state) else { return };
             let turn_number = state.turn_number;
+            // ⭐ 「元々の」 パワー書き換えか (公式 4-9-2-1)。 overlay の original フラグ。
+            let is_orig = spec.get("original").and_then(|x| x.as_bool()).unwrap_or(false);
             for (pi, sl) in targets {
                 let ip = get_ip_mut(&mut state.players[pi], sl);
                 match duration.as_str() {
-                    "turn" => ip.turn_base_power_override = Some(amount),
-                    "next_self_turn_start" => ip.next_turn_base_power_override = Some(amount),
+                    "turn" => {
+                        ip.turn_base_power_override = Some(amount);
+                        ip.turn_base_power_override_is_original = is_orig;
+                    }
+                    "next_self_turn_start" => {
+                        ip.next_turn_base_power_override = Some(amount);
+                        ip.next_turn_base_power_override_is_original = is_orig;
+                    }
                     "next_opp_turn_end" | "next_opp_end_phase" => {
                         ip.next_opp_turn_end_base_power_override = Some(amount);
+                        ip.next_opp_turn_end_base_power_override_is_original = is_orig;
                         ip.next_opp_turn_end_base_power_override_applier_idx = me_idx as i32;
                         ip.next_opp_turn_end_base_power_override_applied_turn = turn_number;
                     }
-                    _ => ip.base_power_override = Some(amount),
+                    _ => {
+                        ip.base_power_override = Some(amount);
+                        ip.base_power_override_is_original = is_orig;
+                    }
                 }
             }
         }
@@ -2610,13 +2644,24 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
             let Some(from_c) = resolve_target(Some(&from_spec), me_idx, opp_idx, src, state) else { return };
             let Some(&(fp, fs)) = from_c.first() else { return };
             let copied = get_ip(&state.players[fp], fs).power();
+            // ⭐ 「元々の」 パワー書き換えか (公式 4-9-2-1、 Python と同じ overlay フラグ)。
+            let is_orig_copy = spec.get("original").and_then(|x| x.as_bool()).unwrap_or(false);
             let Some(to_c) = resolve_target(Some(&to_spec), me_idx, opp_idx, src, state) else { return };
             for (pi, sl) in to_c {
                 let ip = get_ip_mut(&mut state.players[pi], sl);
                 match duration.as_str() {
-                    "turn" => ip.turn_base_power_override = Some(copied),
-                    "next_self_turn_start" => ip.next_turn_base_power_override = Some(copied),
-                    _ => ip.base_power_override = Some(copied),
+                    "turn" => {
+                        ip.turn_base_power_override = Some(copied);
+                        ip.turn_base_power_override_is_original = is_orig_copy;
+                    }
+                    "next_self_turn_start" => {
+                        ip.next_turn_base_power_override = Some(copied);
+                        ip.next_turn_base_power_override_is_original = is_orig_copy;
+                    }
+                    _ => {
+                        ip.base_power_override = Some(copied);
+                        ip.base_power_override_is_original = is_orig_copy;
+                    }
                 }
             }
         }
@@ -8411,12 +8456,23 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             if to_c.is_empty() {
                 return true;
             }
+            // ⭐ 「元々の」 パワー書き換えか (公式 4-9-2-1、 Python と同じ overlay フラグ)。
+            let is_orig_copy = v.get("original").and_then(|x| x.as_bool()).unwrap_or(false);
             for (pi, sl) in to_c {
                 let ip = get_ip_mut(&mut state.players[pi], sl);
                 match duration.as_str() {
-                    "turn" => ip.turn_base_power_override = Some(copied),
-                    "next_self_turn_start" => ip.next_turn_base_power_override = Some(copied),
-                    _ => ip.base_power_override = Some(copied),
+                    "turn" => {
+                        ip.turn_base_power_override = Some(copied);
+                        ip.turn_base_power_override_is_original = is_orig_copy;
+                    }
+                    "next_self_turn_start" => {
+                        ip.next_turn_base_power_override = Some(copied);
+                        ip.next_turn_base_power_override_is_original = is_orig_copy;
+                    }
+                    _ => {
+                        ip.base_power_override = Some(copied);
+                        ip.base_power_override_is_original = is_orig_copy;
+                    }
                 }
             }
             true
@@ -11310,10 +11366,24 @@ pub fn fire_life_trigger(
         }
     }
     state.current_source_card_id = None; // action 境界では None に戻す
+    // ⭐ Python は 本体を enqueue → `_maybe_resolve` で **解決し切って** から reactive を積む
+    //   (effects.py:trigger_lifecard_trigger の 「トリガー効果を先に drain してから reactive を
+    //   積む」)。 Rust は本体を inline 実行するので、 ここで明示的に drain しないと 本体の登場が
+    //   誘発した on_play が reactive より **後** に走る。
+    drain_if_outer(state, prev_resolving)?;
     // Python の enqueue 順: ① trigger 本体 → ② attacker の opp_event_or_trigger_fired
-    //   → ③ defender の on_self_trigger_fired。 FIFO drain なのでこの順で発火する。
+    //   → ③ defender の on_self_trigger_fired。 Python は 1 つ積むごとに drain するので
+    //   Rust も 各発火の後に drain_if_outer を挟む。
     fire_field_when(state, attacker_idx, "opp_event_or_trigger_fired")?;
+    drain_if_outer(state, prev_resolving)?;
+    // ⭐ 「**相手が【トリガー】を発動した時**」 (= トリガー限定、 イベントでは発動しない)。
+    //   公式 (cardqa_op_05 / OP05-109 パガヤ): 「【トリガー】が発動した時」 に 「自分の/相手の」 の
+    //   修飾が無い効果は **両陣営** の発動で反応する。 opp_event_or_trigger_fired はイベントでも
+    //   発動してしまうので別 when (opp_event_played が 「イベント限定」 を持つのと対称)。
+    fire_field_when(state, attacker_idx, "opp_trigger_fired")?;
+    drain_if_outer(state, prev_resolving)?;
     fire_field_when_with_toks(state, defender_idx, "on_self_trigger_fired", pre_trigger_toks)?;
+    drain_if_outer(state, prev_resolving)?;
     // resolving を戻し、 外側に居なければ溜まった on_play 等をここで drain する。
     state.rust_resolving = prev_resolving;
     if !prev_resolving {
@@ -11834,6 +11904,24 @@ pub fn fire_field_when(state: &mut GameState, owner_idx: usize, when: &str) -> R
 /// `fire_field_when` の本体だが、 走査対象トークンを呼出側から受け取る版。
 /// `snapshot_field_toks` を **いつ** 呼ぶかを呼出側が選べる (= "before" some other do-list を
 /// 実行して盤面が変わった後でも、 変化前の集合だけを対象にできる)。
+/// Python `_maybe_resolve` 相当 = 「外側が resolving でなければ その場でキューを drain」。
+///
+/// ⚠ Rust の when 発火は `rust_resolving = true` の下で do を **inline** 実行するので、
+/// do の中で起きた登場 (`execute_on_play` の enqueue) は 呼出側が最後にまとめて drain するまで
+/// 積まれたままになる。 Python は 本体を enqueue → `_maybe_resolve` で **その場で** 解決し切って
+/// から次の reactive を積むので、 間に挟まる drain を省くと **本体の登場効果が reactive より
+/// 後に走る** (2026-08-10、 OP05-106 シュラ【トリガー】のデッキ操作が OP05-109 パガヤ の
+/// ドローより後になり 引くカードが変わった = MISMATCH)。
+pub(crate) fn drain_if_outer(state: &mut GameState, prev_resolving: bool) -> Result<(), String> {
+    if prev_resolving {
+        return Ok(()); // 外側が解決中 = Python の _maybe_resolve は no-op
+    }
+    state.rust_resolving = false;
+    let r = maybe_resolve(state);
+    state.rust_resolving = true;
+    r
+}
+
 pub(crate) fn fire_field_when_with_toks(
     state: &mut GameState,
     owner_idx: usize,
@@ -12615,7 +12703,7 @@ fn field_when_once_mirrored(when: &str) -> bool {
             | "on_self_chara_rested_by_self_effect" | "on_opp_blocker_use"
             | "on_self_chara_leave_by_opp_effect" | "on_opp_chara_returned_to_hand_by_self_effect"
             | "opp_attack_on_chara"
-            | "on_self_trigger_fired" | "on_life_zero" | "on_play" | "on_block"
+            | "on_self_trigger_fired" | "opp_trigger_fired" | "on_life_zero" | "on_play" | "on_block"
             // end_of_turn / opp_end_of_turn は _pay_end_of_turn_cost が mark_event_once で
             // canonical mirror する (2026-08-02)。 これで Rust も「ターン1回」を追跡できる。
             | "end_of_turn" | "opp_end_of_turn"
