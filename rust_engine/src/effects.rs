@@ -155,6 +155,41 @@ pub fn should_fire_trigger(state: &GameState, defender_idx: usize, card_id: &str
             Some(false) => continue,
             None => return None, // 条件 unknown → 判定不能 = bail
         }
+        // ⚠ 条件だけでなく **発動コストの payability** も見る (公式 10-1-5 + 4-10、 2026-08-11)。
+        //   払えないなら発動できず カードは手札に加わる。 Python `_trigger_effect_activatable` と同則。
+        if let Some(cost) = eff.get("cost").and_then(|v| v.as_object()) {
+            let real: Vec<(&String, &Value)> =
+                cost.iter().filter(|(k, _)| k.as_str() != "once_per_turn").collect();
+            if !real.is_empty() {
+                let me = &state.players[defender_idx];
+                let mut payable = true;
+                for (k, v) in real {
+                    let n = v.as_i64().unwrap_or(0) as i32;
+                    match k.as_str() {
+                        "pay_don" => {
+                            if pay_don_capacity(me) < n {
+                                payable = false;
+                            }
+                        }
+                        "rest_self_don" => {
+                            if me.don_active < n {
+                                payable = false;
+                            }
+                        }
+                        "discard_hand" => {
+                            if (me.hand.len() as i32) < n {
+                                payable = false;
+                            }
+                        }
+                        // 未知の cost キーは判定不能 → bail (黙って乖離しない)
+                        _ => return None,
+                    }
+                }
+                if !payable {
+                    continue;
+                }
+            }
+        }
         if let Some(dos) = eff.get("do").and_then(|v| v.as_array()) {
             for prim in dos {
                 if let Some(o) = prim.as_object() {
@@ -13024,7 +13059,7 @@ pub fn fire_activate_main(
     if let Some(c) = &cost {
         if let Some(o) = c.as_object() {
             for k in o.keys() {
-                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card" | "ko_self_with_filter" | "trash_self" | "trash_to_deck" | "discard_hand_or_trash_filtered_chara" | "discard_hand" | "return_self_to_hand" | "discard_hand_with_filter" | "reveal_hand_with_filter" | "rest_self_target_name" | "rest_self_target") {
+                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card" | "ko_self_with_filter" | "trash_self" | "trash_to_deck" | "discard_hand_or_trash_filtered_chara" | "discard_hand" | "return_self_to_hand" | "discard_hand_with_filter" | "reveal_hand_with_filter" | "rest_self_target_name" | "rest_self_target" | "life_to_hand") {
                     note_unknown_key("activate_cost", k);
                     return Err(format!("activate_main cost 未対応: {k} ({card_id})"));
                 }
@@ -13048,6 +13083,24 @@ pub fn fire_activate_main(
             me.trash.push(removed.card);
             me.don_rested += don;
             source_gone = true;
+        }
+        // life_to_hand N: ライフの上から N 枚を手札へ (= 発動コスト、 Python と同順で rest_self の前)。
+        // 公式 OP01-013 サンジ 「自分のライフ1枚を手札に加えることができる：」 (2026-08-11 新設)。
+        let life_cost_n = c.get("life_to_hand").and_then(|v| v.as_i64()).unwrap_or(0);
+        if life_cost_n > 0 {
+            let mut moved = 0;
+            for _ in 0..life_cost_n {
+                if state.players[me_idx].life.is_empty() {
+                    break;
+                }
+                let lc = state.players[me_idx].life.remove(0);
+                state.players[me_idx].hand.push(lc);
+                moved += 1;
+            }
+            if moved > 0 {
+                // 「自分のライフが手札に加わった時」 (Python fire_self_life_to_hand と同経路)。
+                fire_self_life_to_hand(state, me_idx)?;
+            }
         }
         if c.get("rest_self").and_then(|v| v.as_bool()).unwrap_or(false) {
             // ⭐ **発動コストでレストになった場合も 「レストになった時」 は発動する**
@@ -13768,6 +13821,11 @@ fn can_pay_activate_cost(state: &GameState, me_idx: usize, ip: &InPlay, on_field
         return false;
     }
     if gi("trash_to_deck") > 0 && (me.trash.len() as i32) < gi("trash_to_deck") {
+        return false;
+    }
+    // 「自分のライフN枚を手札に加えることができる：」 (OP01-013 サンジ)。 ライフ不足なら発動不可
+    // (= do に置くと 「ライフ0でもタダ撃ち」 になる。 2026-08-11 に Python と同時に新設)。
+    if gi("life_to_hand") > 0 && (me.life.len() as i32) < gi("life_to_hand") {
         return false;
     }
     if gb("return_self_to_hand") && !on_field {

@@ -19,6 +19,7 @@ from pathlib import Path
 from engine.core import GameState, InPlay, Phase, Player
 from engine.deck import CardRepository
 from engine.effects import (
+    eval_condition,
     eval_all_conditions,
     execute_effect,
     fire_activate_main,
@@ -250,23 +251,41 @@ def test_st07_003_on_play_grants_rush_when_life_fewer_ai():
 
 
 def test_st07_003_on_play_condition_flag():
-    """overlay の トリガー条件 self_life_lt_opp の 成立/不成立 を検証。"""
+    """条件 self_life_lt_opp が掛かるのは **【速攻】付与だけ** (scry は無条件)。
+
+    公式: 「【登場時】自分か相手のライフの上から1枚までを見て、 ライフの上か下に置く。
+    **その後**、 自分のライフの枚数が相手より少ない場合、 このキャラは、 このターン中、
+    【速攻】を得る。」
+    ⚠ 2026-08-11 是正: 旧 overlay は effect 全体を `if` で gate しており、 ライフが相手以上だと
+      **scry ごと不発** だった。 さらに scry 自体が overlay から欠落していた。 このテストは
+      その旧構造 (effect-level if) を assert していたので、 正しい構造に合わせて書き換える。
+    """
     repo = _repo()
     overlay = _overlay()
     eff = _eff(overlay, "ST07-003", "on_play")
-    assert _cond_of(eff).get("self_life_lt_opp") is True, \
-        "overlay の 条件 self_life_lt_opp が無い"
+    # ⚠ _cond_of は conditional の中まで見るヘルパーなので、 ここでは **top-level** を直接見る。
+    assert not eff.get("if") and not eff.get("conditions"), \
+        "effect 全体に条件が残っている (公式は scry 無条件 → 速攻だけが条件付き)"
+    do = eff["do"]
+    assert any("scry_life" in p for p in do), "公式テキスト前半の scry_life が無い"
+    cond = next((p["conditional"] for p in do if "conditional" in p), None)
+    assert cond is not None, "【速攻】を包む conditional が無い"
+    assert cond["if"].get("self_life_lt_opp") is True, \
+        "conditional の条件が self_life_lt_opp でない"
+    assert any("give_keyword" in p for p in cond["do"]), \
+        "conditional の中身が【速攻】付与でない"
 
+    # 条件そのものの評価 (成立 / 不成立)
     st = _state(repo, _NEUTRAL_LEADER, overlay)
     st.players[0].life = [repo.get(_FILLER)] * 1
     st.players[1].life = [repo.get(_FILLER)] * 3
-    assert eval_all_conditions(eff, st, st.players[0], None) is True, \
+    assert eval_condition(cond["if"], st, st.players[0], None) is True, \
         "自1 < 相手3 で 条件成立するべき"
 
     st2 = _state(repo, _NEUTRAL_LEADER, overlay)
     st2.players[0].life = [repo.get(_FILLER)] * 4
     st2.players[1].life = [repo.get(_FILLER)] * 2
-    assert eval_all_conditions(eff, st2, st2.players[0], None) is False, \
+    assert eval_condition(cond["if"], st2, st2.players[0], None) is False, \
         "自4 > 相手2 で 条件不成立のはず"
 
 

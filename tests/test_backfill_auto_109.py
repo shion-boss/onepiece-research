@@ -380,7 +380,12 @@ def test_op10_116_main_human_ko_pick():
     b = InPlay.of(repo.get(_COST5_C), sickness=False)  # cost5
     opp.characters = [a, b]
 
-    execute_effect(_eff(overlay, "OP10-116", "main")["do"][0], st, me, opp, None)
+    # ⚠ 2026-08-11: do[0] は 公式テキスト前半の scry_life (「ライフの上から1枚までを見て、
+    #   ライフの上か下に置く」) になった。 このテストが見たいのは 「その後」 の KO なので、
+    #   do から ko primitive を名指しで取る (index 依存にしない)。
+    _do = _eff(overlay, "OP10-116", "main")["do"]
+    _ko_prim = next(p for p in _do if "ko" in p)
+    execute_effect(_ko_prim, st, me, opp, None)
     assert st.pending_choice is not None, "人間 + 複数候補で modal が立たない"
     assert st.pending_choice.get("kind") == "target_pick", \
         f"kind が target_pick でない: {st.pending_choice.get('kind')}"

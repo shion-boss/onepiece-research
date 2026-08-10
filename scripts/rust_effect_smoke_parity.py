@@ -336,6 +336,12 @@ def run_replace(limit: int = 0, quiet: bool = False):
                     break
             try_replace_ko(st, st.players[0], st.players[1], holder, overlay_py,
                            by_opp_effect=True, leave_kind=kind)
+            # ⚠ 置換 do の中で KO が起きると、 KO トリガー群は **enqueue のみ** で残る
+            #   (公式 cardqa_op_10 の同時発動、 2026-08-11)。 実経路では アクション境界が
+            #   ドレインするので、 ハーネスも同じ 「完了状態」 で比較する
+            #   (= 流さないと Python だけ mid-flight のままで Rust と食い違う。 OP16-014 マルコ)。
+            from engine.effects import resolve_triggers as _rt
+            _rt(st)
             if st.pending_choice is not None:
                 res["skip(pending)"] += 1
                 continue
@@ -379,11 +385,19 @@ def main() -> None:
     _d["replace_proven_cards"] = sorted(rproven)
     _d["replace_mismatch_cards"] = sorted(rbad)
     OUT.write_text(json.dumps(_d, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-    tot = res["match"] + res["bail"] + res["MISMATCH"] + res["PANIC"]
-    print("\n=== 結果 ===")
-    print(f"match={res['match']}  bail={res['bail']}  MISMATCH={res['MISMATCH']}  PANIC={res['PANIC']}")
+    # ⚠ **3 パス合算で出す**。 以前は直接発火 (res) だけを 「=== 結果 ===」 に出していたので、
+    #   静的/置換パスの MISMATCH が **サマリ上 0 に見えて** いた (2026-08-11 に OP16-014
+    #   replace_leave の 1 件を見落としかけた。 --assert は元から 3 パス見ているので gate は
+    #   効いていたが、 **人間が読む行が嘘をつく** のは計器の穴と同じ)。
+    agg = {k: res.get(k, 0) + sres.get(k, 0) + rres.get(k, 0)
+           for k in ("match", "bail", "MISMATCH", "PANIC")}
+    tot = agg["match"] + agg["bail"] + agg["MISMATCH"] + agg["PANIC"]
+    print("\n=== 結果 (直接発火 + 静的 + 置換 の合算) ===")
+    print(f"match={agg['match']}  bail={agg['bail']}  MISMATCH={agg['MISMATCH']}  PANIC={agg['PANIC']}")
+    if agg["MISMATCH"]:
+        print(f"  内訳: 直接発火={res['MISMATCH']}  静的={sres['MISMATCH']}  置換={rres['MISMATCH']}")
     if tot:
-        ok = res["match"] + res["bail"]
+        ok = agg["match"] + agg["bail"]
         print(f"correctness (match+bail、 黙って間違えない) = {100 * ok / tot:.2f}%")
     print(f"bit 一致を証明できたカード: {len(proven | sproven | rproven)} "
           f"(直接発火 {len(proven)} + 静的 {len(sproven)} + 置換 {len(rproven)})")
