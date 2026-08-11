@@ -9165,3 +9165,68 @@ def test_replace_rest_self_in_do_is_gated_by_cost():
     assert not offenders, (
         f"replace の do に rest:self があるのに cost の rest_self ゲートが無い: {offenders}"
     )
+
+
+def test_counter_events_apply_their_sonogo_clause():
+    """【カウンター】の 「その後、 …」 は power_pump だけで終わらない。
+
+    節カバレッジ監査 (`scripts/audit_text_clause_coverage.py`) が検出した 3 枚。 いずれも
+    overlay に **power_pump しか無く**、 公式テキストの後半 (除去/バウンス) が丸ごと落ちていた:
+      - ST06-014 衝撃波 「その後、 相手の **アクティブの** コスト3以下のキャラ1枚までを、 KOする」
+      - OP07-055 蛇ダンス 「その後、 自分のキャラ1枚までを、 持ち主の手札に戻す」
+      - OP07-094 剃 「その後、 自分のトラッシュが10枚以上ある場合、 自分の『CP』キャラ1枚までを戻す」
+    """
+    repo, overlay = _repo(), _overlay()
+    from engine.effects import trigger_counter_event
+
+    # ST06-014: アクティブのみが対象 (レストは残る)
+    st = _state(repo, overlay)
+    me, opp = st.players[1], st.players[0]
+    st.turn_player_idx = 0
+    active = InPlay.of(repo.get("OP01-016"), sickness=False)
+    rested = InPlay.of(repo.get("OP01-016"), sickness=False)
+    rested.rested = True
+    opp.characters = [active, rested]
+    trigger_counter_event(st, me, opp, repo.get("ST06-014"), overlay)
+    resolve_triggers(st)
+    while st.pending_choice is not None:
+        resolve_pending_choice(st, [0])
+        resolve_triggers(st)
+    assert len(opp.characters) == 1 and opp.characters[0].rested, (
+        "「その後」 の KO が実行されていない、 または **レストのキャラ** を誤って KO している"
+    )
+
+    # OP07-055: 自分のキャラが手札に戻る
+    st2 = _state(repo, overlay)
+    me2, opp2 = st2.players[1], st2.players[0]
+    st2.turn_player_idx = 0
+    me2.characters = [InPlay.of(repo.get("OP01-016"), sickness=False)]
+    me2.hand = []
+    trigger_counter_event(st2, me2, opp2, repo.get("OP07-055"), overlay)
+    resolve_triggers(st2)
+    while st2.pending_choice is not None:
+        resolve_pending_choice(st2, [0])
+        resolve_triggers(st2)
+    assert not me2.characters and len(me2.hand) == 1, "「その後」 の手札バウンスが実行されていない"
+
+    # OP07-094: トラッシュ10枚以上でのみ戻る
+    cards = {c["card_id"]: c for c in json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    cp = next(cid for cid, c in cards.items()
+              if c.get("category") == "CHARACTER" and "CP" in "".join(c.get("features") or ""))
+
+    def run_cp(trash_n: int) -> int:
+        st3 = _state(repo, overlay)
+        me3, opp3 = st3.players[1], st3.players[0]
+        st3.turn_player_idx = 0
+        me3.trash = [repo.get(_FILLER)] * trash_n
+        me3.characters = [InPlay.of(repo.get(cp), sickness=False)]
+        me3.hand = []
+        trigger_counter_event(st3, me3, opp3, repo.get("OP07-094"), overlay)
+        resolve_triggers(st3)
+        while st3.pending_choice is not None:
+            resolve_pending_choice(st3, [0])
+            resolve_triggers(st3)
+        return len(me3.characters)
+
+    assert run_cp(9) == 1, "トラッシュ9枚で条件を満たさないのに戻している"
+    assert run_cp(10) == 0, "トラッシュ10枚で 「その後」 のバウンスが実行されていない"

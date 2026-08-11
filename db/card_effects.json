@@ -46755,6 +46755,7 @@
  ],
  "OP07-055": [
   {
+   "_doc": "2026-08-11 是正 (節カバレッジ監査 audit_text_clause_coverage.py が検出): 公式テキストの 「その後、 …」 の **後半が overlay から丸ごと欠落** しており、 power_pump しか実装されていなかった (= カウンターイベントの本体除去が起きない)。 「その後、 自分のキャラ1枚までを、 持ち主の手札に戻す」",
    "_text": "OP07-055 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。その後、自分のキャラ1枚までを、持ち主の手札に戻す。",
    "do": [
     {
@@ -46763,6 +46764,9 @@
       "duration": "battle",
       "target": "self_inplay"
      }
+    },
+    {
+     "return_to_hand": "one_self_character_any"
     }
    ],
    "when": "counter"
@@ -48260,6 +48264,7 @@
  ],
  "OP07-094": [
   {
+   "_doc": "2026-08-11 是正 (節カバレッジ監査 audit_text_clause_coverage.py が検出): 公式テキストの 「その後、 …」 の **後半が overlay から丸ごと欠落** しており、 power_pump しか実装されていなかった (= カウンターイベントの本体除去が起きない)。 「その後、 自分のトラッシュが10枚以上ある場合、 自分の特徴『CP』を含むキャラ1枚までを、 持ち主の手札に戻す」",
    "_text": "OP07-094 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+2000。その後、自分のトラッシュが10枚以上ある場合、自分の特徴『CP』を含むキャラ1枚までを、持ち主 [soshite]",
    "do": [
     {
@@ -48267,6 +48272,23 @@
       "amount": 2000,
       "duration": "battle",
       "target": "self_inplay"
+     }
+    },
+    {
+     "conditional": {
+      "do": [
+       {
+        "return_to_hand": {
+         "filter": {
+          "feature_contains": "CP"
+         },
+         "type": "one_self_chara_filtered"
+        }
+       }
+      ],
+      "if": {
+       "self_trash_count_ge": 10
+      }
      }
     }
    ],
@@ -61535,6 +61557,11 @@
  "OP10-032": [
   {
    "_text": "OP10-032 replace_ko: 「たしぎ」以外の自分の緑のキャラが相手の効果で場を離れる場合、代わりにこのキャラをレストにできる。",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ],
    "do": [
     {
      "rest": "self"
@@ -61546,17 +61573,17 @@
     "target_color": "緑",
     "target_name_exclude": "たしぎ"
    },
-   "when": "replace_ko",
-   "cost": [
-    {
-     "rest_self": true
-    }
-   ]
+   "when": "replace_ko"
   }
  ],
  "OP10-032_p1": [
   {
    "_text": "OP10-032_p1 replace_ko: 「たしぎ」以外の自分の緑のキャラが相手の効果で場を離れる場合、代わりにこのキャラをレストにできる。",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ],
    "do": [
     {
      "rest": "self"
@@ -61568,17 +61595,17 @@
     "target_color": "緑",
     "target_name_exclude": "たしぎ"
    },
-   "when": "replace_ko",
-   "cost": [
-    {
-     "rest_self": true
-    }
-   ]
+   "when": "replace_ko"
   }
  ],
  "OP10-032_p2": [
   {
    "_text": "OP10-032_p2 replace_ko: 「たしぎ」以外の自分の緑のキャラが相手の効果で場を離れる場合、代わりにこのキャラをレストにできる。",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ],
    "do": [
     {
      "rest": "self"
@@ -61590,17 +61617,17 @@
     "target_color": "緑",
     "target_name_exclude": "たしぎ"
    },
-   "when": "replace_ko",
-   "cost": [
-    {
-     "rest_self": true
-    }
-   ]
+   "when": "replace_ko"
   }
  ],
  "OP10-032_r1": [
   {
    "_text": "OP10-032_r1 replace_ko: 「たしぎ」以外の自分の緑のキャラが相手の効果で場を離れる場合、代わりにこのキャラをレストにできる。",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ],
    "do": [
     {
      "rest": "self"
@@ -61612,12 +61639,7 @@
     "target_color": "緑",
     "target_name_exclude": "たしぎ"
    },
-   "when": "replace_ko",
-   "cost": [
-    {
-     "rest_self": true
-    }
-   ]
+   "when": "replace_ko"
   }
  ],
  "OP10-033": [
@@ -70179,6 +70201,11 @@
  "OP12-027": [
   {
    "_text": "コウシロウ replace_ko: 自分の他のコスト5以下属性(斬)が相手効果でKOされる場合、代わりに自身レスト",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ],
    "do": [
     {
      "rest": "self"
@@ -70191,17 +70218,17 @@
     "target_cost_le": 5
    },
    "optional": true,
-   "when": "replace_ko",
-   "cost": [
-    {
-     "rest_self": true
-    }
-   ]
+   "when": "replace_ko"
   }
  ],
  "OP12-027_r1": [
   {
    "_text": "コウシロウ replace_ko: 自分の他のコスト5以下属性(斬)が相手効果でKOされる場合、代わりに自身レスト",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ],
    "do": [
     {
      "rest": "self"
@@ -70214,12 +70241,7 @@
     "target_cost_le": 5
    },
    "optional": true,
-   "when": "replace_ko",
-   "cost": [
-    {
-     "rest_self": true
-    }
-   ]
+   "when": "replace_ko"
   }
  ],
  "OP12-028": [
@@ -100107,6 +100129,7 @@
  "ST06-013": [],
  "ST06-014": [
   {
+   "_doc": "2026-08-11 是正 (節カバレッジ監査 audit_text_clause_coverage.py が検出): 公式テキストの 「その後、 …」 の **後半が overlay から丸ごと欠落** しており、 power_pump しか実装されていなかった (= カウンターイベントの本体除去が起きない)。 「その後、 相手のアクティブのコスト3以下のキャラ1枚までを、 KOする」",
    "_text": "ST06-014 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。その後、相手のアクティブのコスト3以下のキャラ1枚までを、KOする。",
    "do": [
     {
@@ -100114,6 +100137,15 @@
       "amount": 4000,
       "duration": "battle",
       "target": "self_inplay"
+     }
+    },
+    {
+     "ko": {
+      "filter": {
+       "active": true,
+       "cost_le": 3
+      },
+      "type": "one_opponent_character_filtered"
      }
     }
    ],
@@ -100131,6 +100163,7 @@
  ],
  "ST06-014_p1": [
   {
+   "_doc": "2026-08-11 是正 (節カバレッジ監査 audit_text_clause_coverage.py が検出): 公式テキストの 「その後、 …」 の **後半が overlay から丸ごと欠落** しており、 power_pump しか実装されていなかった (= カウンターイベントの本体除去が起きない)。 「その後、 相手のアクティブのコスト3以下のキャラ1枚までを、 KOする」",
    "_text": "ST06-014_p1 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。その後、相手のアクティブのコスト3以下のキャラ1枚までを、KOする。",
    "do": [
     {
@@ -100138,6 +100171,15 @@
       "amount": 4000,
       "duration": "battle",
       "target": "self_inplay"
+     }
+    },
+    {
+     "ko": {
+      "filter": {
+       "active": true,
+       "cost_le": 3
+      },
+      "type": "one_opponent_character_filtered"
      }
     }
    ],
@@ -100155,6 +100197,7 @@
  ],
  "ST06-014_p2": [
   {
+   "_doc": "2026-08-11 是正 (節カバレッジ監査 audit_text_clause_coverage.py が検出): 公式テキストの 「その後、 …」 の **後半が overlay から丸ごと欠落** しており、 power_pump しか実装されていなかった (= カウンターイベントの本体除去が起きない)。 「その後、 相手のアクティブのコスト3以下のキャラ1枚までを、 KOする」",
    "_text": "ST06-014_p2 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。その後、相手のアクティブのコスト3以下のキャラ1枚までを、KOする。",
    "do": [
     {
@@ -100162,6 +100205,15 @@
       "amount": 4000,
       "duration": "battle",
       "target": "self_inplay"
+     }
+    },
+    {
+     "ko": {
+      "filter": {
+       "active": true,
+       "cost_le": 3
+      },
+      "type": "one_opponent_character_filtered"
      }
     }
    ],
@@ -100179,6 +100231,7 @@
  ],
  "ST06-014_r1": [
   {
+   "_doc": "2026-08-11 是正 (節カバレッジ監査 audit_text_clause_coverage.py が検出): 公式テキストの 「その後、 …」 の **後半が overlay から丸ごと欠落** しており、 power_pump しか実装されていなかった (= カウンターイベントの本体除去が起きない)。 「その後、 相手のアクティブのコスト3以下のキャラ1枚までを、 KOする」",
    "_text": "ST06-014_r1 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。その後、相手のアクティブのコスト3以下のキャラ1枚までを、KOする。",
    "do": [
     {
@@ -100186,6 +100239,15 @@
       "amount": 4000,
       "duration": "battle",
       "target": "self_inplay"
+     }
+    },
+    {
+     "ko": {
+      "filter": {
+       "active": true,
+       "cost_le": 3
+      },
+      "type": "one_opponent_character_filtered"
      }
     }
    ],
@@ -110261,6 +110323,11 @@
  "ST30-011": [
   {
    "_text": "自元P6000 効果離脱 → holder レスト",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ],
    "do": [
     {
      "rest": "self"
@@ -110273,17 +110340,17 @@
     "target_truly_original_power_le": 6000
    },
    "optional": true,
-   "when": "replace_leave",
-   "cost": [
-    {
-     "rest_self": true
-    }
-   ]
+   "when": "replace_leave"
   }
  ],
  "ST30-011_p1": [
   {
    "_text": "自元P6000 効果離脱 → holder レスト",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ],
    "do": [
     {
      "rest": "self"
@@ -110296,12 +110363,7 @@
     "target_truly_original_power_le": 6000
    },
    "optional": true,
-   "when": "replace_leave",
-   "cost": [
-    {
-     "rest_self": true
-    }
-   ]
+   "when": "replace_leave"
   }
  ],
  "ST30-012": [
