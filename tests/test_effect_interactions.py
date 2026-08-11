@@ -9325,3 +9325,64 @@ def test_op07_091_trash_to_deck_pump_is_per_three():
     assert moved == 3 and gain == 1000, f"3枚で +1000 のはず (置いた={moved} 上昇={gain})"
     moved, gain, _ = run(7)
     assert moved == 7 and gain == 2000, f"7枚で +2000 のはず (置いた={moved} 上昇={gain})"
+
+
+# --------------------------------------------------------------------------- #
+#  search_top_n destination=play の【登場時】は「その後、残りを置く」の後に発動する
+#  一次情報 (cardqa_op_03 / 8fba21f82b0d、 OP03-094 空気開扉):
+#    Q:「この【メイン】効果で登場したキャラの【登場時】効果は、この【メイン】効果の
+#       『その後、残りをトラッシュに置く。』を行う前に発動しますか？」
+#    A:「いいえ、残りのカードをトラッシュにおいた後に【登場時】効果が発動します。」
+#  是正前: search_top_n が登場ループ内で即 trigger_on_play しており、 remaining を
+#          トラッシュに置く **前** に登場時が解決していた (Python/Rust とも同じ誤り =
+#          差分検証では沈黙)。
+# --------------------------------------------------------------------------- #
+def test_search_top_n_play_on_play_fires_after_remaining_to_trash():
+    """登場したキャラの【登場時】は、残りをトラッシュに置いた後に発動する。
+
+    観測方法: 登場キャラ A の【登場時】を「トラッシュからコスト2以下のキャラ1枚を登場」に
+    差し替える。 A と一緒に見た残り4枚 (コスト2のキャラ) がトラッシュに置かれた後に A の
+    登場時が走るなら、 その4枚のうち1枚を釣り上げられる。 是正前は登場時がトラッシュ化の
+    前に走り、 (空トラッシュから) 何も釣れなかった。
+    """
+    from engine.effects import CardEffectBundle
+
+    repo, overlay = _repo(), _overlay()
+    A_ID = "OP02-042"   # ヤマト (キャラ)。 登場時を下記に差し替える
+    T_ID = "OP01-013"   # コスト2キャラ (on_play なし = 釣り上げても再帰しない)
+    # A の overlay を「登場時: トラッシュからコスト2以下のキャラ1枚を登場」に差し替え
+    overlay = dict(overlay)
+    overlay[A_ID] = CardEffectBundle(card_id=A_ID, effects=[{
+        "when": "on_play",
+        "do": [{"play_from_trash": {
+            "filter": {"category": "CHARACTER", "cost_le": 2},
+            "limit": 1, "rested": False,
+        }}],
+    }])
+
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.characters = []
+    me.trash = []                       # トラッシュは空から始める (= 釣り上げ元は remaining のみ)
+    # デッキ上5枚 = [A, T, T, T, T]。 filter=name:ヤマト で A だけ拾い、 残り4枚の T を trash へ
+    me.deck = [repo.get(A_ID)] + [repo.get(T_ID)] * 4 + me.deck
+
+    execute_effect(
+        {"search_top_n": {
+            "depth": 5, "filter": {"name": "ヤマト"}, "limit": 1,
+            "destination": "play", "rest_remain": "trash",
+        }},
+        st, me, opp, None,
+    )
+    resolve_triggers(st)
+
+    played_a = [c for c in me.characters if c.card.card_id == A_ID]
+    grabbed = [c for c in me.characters if c.card.card_id == T_ID]
+    assert len(played_a) == 1, "A (ヤマト) が登場していない (前提が崩れている)"
+    # ★ 是正の核心: remaining の T が先にトラッシュへ → A の登場時が 1 枚釣り上げる。
+    #   是正前は登場時がトラッシュ化前に走り grabbed==0 で落ちる。
+    assert len(grabbed) == 1, (
+        "登場時が『残りをトラッシュに置く』前に走っている "
+        f"(釣り上げ数={len(grabbed)}、 trash残={len(me.trash)})"
+    )
+    assert len(me.trash) == 3, f"trash に 3 枚残るはず (実際 {len(me.trash)})"

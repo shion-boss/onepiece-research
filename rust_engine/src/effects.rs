@@ -9213,6 +9213,12 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             }
             // destination="play": CHARACTER は登場 (field-full は最弱 trash / sickness=true)、
             // STAGE はステージ登場、 それ以外は手札へフォールバック (effects.py:4193)。
+            // ⭐ 【登場時】は 「その後、 残りを (トラッシュ/デッキ下) に置く」 が完了した **後**
+            //   に発火する (公式 cardqa_op_03 / OP03-094 空気開扉)。 Python (effects.py) と同じく
+            //   登場位置 (Slot) を溜めておき、 remaining 処理後にまとめて発火する。 全 overlay で
+            //   destination=play の limit は 1 なので、 remaining 処理は characters/stages を
+            //   触らず pidx は不変 (= 位置退避で十分)。
+            let mut deferred_on_play: Vec<(bool, usize)> = vec![];
             for c in to_play {
                 match c.category {
                     crate::state::Category::Stage => {
@@ -9225,9 +9231,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                         let ip = InPlay::of(c, false);
                         state.players[me_idx].stages.push(ip);
                         let pidx = state.players[me_idx].stages.len() - 1;
-                        if execute_stage_on_play(state, me_idx, pidx).is_err() {
-                            return false;
-                        }
+                        deferred_on_play.push((true, pidx));
                     }
                     crate::state::Category::Character => {
                         trash_weakest_for_field_full(state, me_idx);
@@ -9237,9 +9241,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                         let pidx = state.players[me_idx].characters.len() - 1;
                         state.last_self_chara_played_card = Some(c);
                         state.last_self_chara_played_from_trash = false;
-                        if execute_on_play(state, me_idx, pidx).is_err() {
-                            return false;
-                        }
+                        deferred_on_play.push((false, pidx));
                     }
                     _ => state.players[me_idx].hand.push(c),
                 }
@@ -9274,6 +9276,19 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 } else {
                     me.known_bottom_card_ids.push(c.card_id.clone());
                     me.deck.push(c);
+                }
+            }
+            // ⭐ remaining を配置した後に【登場時】を発火 (公式 cardqa_op_03、 上の
+            //   deferred_on_play コメント参照)。
+            for (is_stage, pidx) in deferred_on_play {
+                if is_stage {
+                    if execute_stage_on_play(state, me_idx, pidx).is_err() {
+                        return false;
+                    }
+                } else {
+                    if execute_on_play(state, me_idx, pidx).is_err() {
+                        return false;
+                    }
                 }
             }
             true
