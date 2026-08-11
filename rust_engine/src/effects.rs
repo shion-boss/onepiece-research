@@ -4091,28 +4091,32 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
             }
             let duration = v.get("duration").and_then(|x| x.as_str()).unwrap_or("turn").to_string();
             let turn_number = state.turn_number;
+            // 「パワー0にする」 (素の) = その時点の現在パワーぶんの固定マイナス (per-target)。
+            // 公式 cardqa_op_07 / OP07-002 アイン: 代入でなく -現在パワー (EB04-010 も同型)。
+            let to_zero = v.get("to_zero").and_then(|x| x.as_bool()).unwrap_or(false);
             for (pi, sl) in targets {
                 if let Some(f) = &ff {
                     if !get_ip(&state.players[pi], sl).card.features.iter().any(|x| x == f) {
                         continue;
                     }
                 }
+                let amt = if to_zero { -get_ip(&state.players[pi], sl).power() } else { amount };
                 let ip = get_ip_mut(&mut state.players[pi], sl);
                 match duration.as_str() {
-                    "static" => ip.static_buff += amount,
-                    "battle" => ip.battle_buff += amount,
-                    "next_self_turn_start" => ip.next_turn_buff += amount,
+                    "static" => ip.static_buff += amt,
+                    "battle" => ip.battle_buff += amt,
+                    "next_self_turn_start" => ip.next_turn_buff += amt,
                     "next_opp_turn_end" | "next_opp_end_phase" => {
-                        ip.next_opp_turn_end_buff += amount;
+                        ip.next_opp_turn_end_buff += amt;
                         ip.next_opp_turn_end_applier_idx = me_idx as i32;
                         ip.next_opp_turn_end_applied_turn = turn_number;
                     }
                     "next_self_turn_end" => {
-                        ip.next_self_turn_end_buff += amount;
+                        ip.next_self_turn_end_buff += amt;
                         ip.next_self_turn_end_applier_idx = me_idx as i32;
                         ip.next_self_turn_end_applied_turn = turn_number;
                     }
-                    _ => ip.turn_buff += amount, // "turn" 既定
+                    _ => ip.turn_buff += amt, // "turn" 既定
                 }
             }
             true
@@ -10779,6 +10783,7 @@ pub fn try_replace_ko(
             let mut mill_life: usize = 0;
             let mut rest_don_cost: i32 = 0;
             let mut life_to_hand_cost: usize = 0;
+            let mut rest_holder_self = false;
             if let Some(cost) = eff.get("cost") {
                 let entries: Vec<&Value> = match cost {
                     Value::Array(a) => a.iter().collect(),
@@ -10802,6 +10807,10 @@ pub fn try_replace_ko(
                                 }
                                 // 「代わりに自分のカード N 枚をレストにできる」 (OP16-033 モーリー)。
                                 "rest_self_cards" => rest_cards = Some(val.clone()),
+                                // 「代わりにこのキャラをレストにできる」 (OP10-032 たしぎ /
+                                // OP12-027 コウシロウ / ST30-011 バギー)。 holder がアクティブ
+                                // でなければ置換不発 (cardqa_op_10)。
+                                "rest_self" => rest_holder_self = json_truthy(val),
                                 // 「代わりにこのキャラをトラッシュに置き」 (OP08-045 サッチ)。
                                 // holder が場のキャラなら常に払える (effects.py:12545)。
                                 "trash_self" => trash_holder = json_truthy(val),
@@ -10872,6 +10881,7 @@ pub fn try_replace_ko(
                 mill_life = 0;
                 rest_don_cost = 0;
                 life_to_hand_cost = 0;
+                rest_holder_self = false;
             }
             if has_once && state.players[victim_owner].replace_opt_used_cards.contains(&hcid) {
                 continue;
@@ -10921,6 +10931,14 @@ pub fn try_replace_ko(
             // trash_self の payability: holder が場のキャラである必要 (effects.py:12550)。
             if trash_holder && !matches!(hslot, Slot::Char(_)) {
                 continue;
+            }
+            // rest_self の payability: holder がアクティブ (レスト禁止中でない) 必要 (cardqa_op_10、
+            // OP10-032 たしぎ)。 既レスト/レスト禁止なら置換不発 → 通常離脱。
+            if rest_holder_self {
+                let hip = get_ip(&state.players[victim_owner], hslot);
+                if hip.rested || hip.cannot_be_rested_buff || hip.static_cannot_be_rested {
+                    continue;
+                }
             }
             // rest_self_cards の payability: 自リーダー+キャラのアクティブが N 枚以上 (effects.py:12584)。
             if let Some(rc) = &rest_cards {
@@ -11088,6 +11106,9 @@ pub fn try_replace_ko(
                     }
                 }
             }
+            // rest_self は払える判定専用 (Python _pay_replace_cost は no-op)。 実際のレストは
+            // do の `rest: self` (execute_effect) が行い、 「レストになった時」 トリガーを発火する。
+            let _ = rest_holder_self;
             // rest_self_cards 支払い (effects.py:12686、 AI は power 昇順で N 枚レスト)。
             if let Some(rc) = &rest_cards {
                 let n = if rc.is_object() {
@@ -13778,6 +13799,23 @@ fn optional_cost_payable_in_do(state: &GameState, me_idx: usize, ip: &InPlay, ef
             }
             if let Some(n) = cs.get("discard_hand").and_then(|v| v.as_i64()) {
                 if (me.hand.len() as i64) < n {
+                    return false;
+                }
+            }
+            // 「相手のキャラ1枚に相手の(レストの)ドンN枚を付与できる：」 (OP15-003 アルビダ 等)。
+            // ⚠ 公式 (cardqa_op_15): 相手キャラ0枚 / 相手レストドン0 なら **発動できない**。
+            //   この key を見ていなかったため 発動でき、 何も起きないまま【ターン1回】だけ消費して
+            //   いた (2026-08-11 に Python と同時に是正)。
+            if let Some(av) = cs.get("attach_opp_don_to_opp_chara") {
+                let opp = &state.players[1 - me_idx];
+                let n = if av.is_object() {
+                    av.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as i32
+                } else {
+                    av.as_i64().unwrap_or(1) as i32
+                };
+                let from_cost = av.get("from_cost_area").and_then(|x| x.as_bool()).unwrap_or(false);
+                let avail = opp.don_rested + if from_cost { opp.don_active } else { 0 };
+                if opp.characters.is_empty() || avail < n {
                     return false;
                 }
             }

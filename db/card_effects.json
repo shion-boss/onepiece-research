@@ -8460,9 +8460,9 @@
    "do": [
     {
      "power_pump": {
-      "amount": -99999,
       "duration": "turn",
-      "target": "one_opponent_character_any"
+      "target": "one_opponent_character_any",
+      "to_zero": true
      }
     }
    ],
@@ -19820,6 +19820,16 @@
   }
  ],
  "OP02-102": [
+  {
+   "_text": "OP02-102 static: このキャラは効果でKOされない",
+   "do": [
+    {
+     "set_ko_immune": "self"
+    }
+   ],
+   "n": 0,
+   "when": "on_attached_don"
+  },
   {
    "_text": "OP02-102 on_attack: コスト0のキャラがいる場合、このキャラは、このバトル中、パワー+2000。",
    "do": [
@@ -44464,9 +44474,9 @@
    "do": [
     {
      "power_pump": {
-      "amount": -99999,
       "duration": "turn",
-      "target": "one_opponent_character_any"
+      "target": "one_opponent_character_any",
+      "to_zero": true
      }
     }
    ],
@@ -61536,7 +61546,12 @@
     "target_color": "緑",
     "target_name_exclude": "たしぎ"
    },
-   "when": "replace_ko"
+   "when": "replace_ko",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ]
   }
  ],
  "OP10-032_p1": [
@@ -61553,7 +61568,12 @@
     "target_color": "緑",
     "target_name_exclude": "たしぎ"
    },
-   "when": "replace_ko"
+   "when": "replace_ko",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ]
   }
  ],
  "OP10-032_p2": [
@@ -61570,7 +61590,12 @@
     "target_color": "緑",
     "target_name_exclude": "たしぎ"
    },
-   "when": "replace_ko"
+   "when": "replace_ko",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ]
   }
  ],
  "OP10-032_r1": [
@@ -61587,7 +61612,12 @@
     "target_color": "緑",
     "target_name_exclude": "たしぎ"
    },
-   "when": "replace_ko"
+   "when": "replace_ko",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ]
   }
  ],
  "OP10-033": [
@@ -64873,6 +64903,7 @@
  ],
  "OP10-119": [
   {
+   "_doc": "2026-08-11 是正: 公式テキスト末尾の 「その後、 …レストのドン‼N枚までを、 付与する」 が overlay から **丸ごと欠落** していた。 「その後」 は独立した do なので前半が0枚でも実行される。 掃引 (nested 構造も含めて検索) で 同型の未実装は OP10-119 / OP12-031 の 2 枚のみ。",
    "_text": "OP10-119 on_play: 自分の手札から特徴《超新星》を持つキャラカード1枚までを公開し、ライフの上に裏向きで加える。その後、自分の特徴《超新星》を持つリーダー1枚にレストのドン‼1枚ま",
    "do": [
     {
@@ -64883,6 +64914,21 @@
        "feature": "超新星"
       }
      }
+    },
+    {
+     "conditional": {
+      "do": [
+       {
+        "attach_rested_don": {
+         "count": 1,
+         "target": "self_leader"
+        }
+       }
+      ],
+      "if": {
+       "leader_feature": "超新星"
+      }
+     }
     }
    ],
    "when": "on_play"
@@ -64890,6 +64936,7 @@
  ],
  "OP10-119_p1": [
   {
+   "_doc": "2026-08-11 是正: 公式テキスト末尾の 「その後、 …レストのドン‼N枚までを、 付与する」 が overlay から **丸ごと欠落** していた。 「その後」 は独立した do なので前半が0枚でも実行される。 掃引 (nested 構造も含めて検索) で 同型の未実装は OP10-119 / OP12-031 の 2 枚のみ。",
    "_text": "OP10-119_p1 on_play: 自分の手札から特徴《超新星》を持つキャラカード1枚までを公開し、ライフの上に裏向きで加える。その後、自分の特徴《超新星》を持つリーダー1枚にレストのドン‼1枚ま",
    "do": [
     {
@@ -64900,6 +64947,21 @@
        "feature": "超新星"
       }
      }
+    },
+    {
+     "conditional": {
+      "do": [
+       {
+        "attach_rested_don": {
+         "count": 1,
+         "target": "self_leader"
+        }
+       }
+      ],
+      "if": {
+       "leader_feature": "超新星"
+      }
+     }
     }
    ],
    "when": "on_play"
@@ -64907,6 +64969,7 @@
  ],
  "OP10-119_p2": [
   {
+   "_doc": "2026-08-11 是正: 公式テキスト末尾の 「その後、 …レストのドン‼N枚までを、 付与する」 が overlay から **丸ごと欠落** していた。 「その後」 は独立した do なので前半が0枚でも実行される。 掃引 (nested 構造も含めて検索) で 同型の未実装は OP10-119 / OP12-031 の 2 枚のみ。",
    "_text": "OP10-119_p2 on_play: 自分の手札から特徴《超新星》を持つキャラカード1枚までを公開し、ライフの上に裏向きで加える。その後、自分の特徴《超新星》を持つリーダー1枚にレストのドン‼1枚ま",
    "do": [
     {
@@ -64917,6 +64980,21 @@
        "feature": "超新星"
       }
      }
+    },
+    {
+     "conditional": {
+      "do": [
+       {
+        "attach_rested_don": {
+         "count": 1,
+         "target": "self_leader"
+        }
+       }
+      ],
+      "if": {
+       "leader_feature": "超新星"
+      }
+     }
     }
    ],
    "when": "on_play"
@@ -64924,6 +65002,7 @@
  ],
  "OP10-119_p3": [
   {
+   "_doc": "2026-08-11 是正: 公式テキスト末尾の 「その後、 …レストのドン‼N枚までを、 付与する」 が overlay から **丸ごと欠落** していた。 「その後」 は独立した do なので前半が0枚でも実行される。 掃引 (nested 構造も含めて検索) で 同型の未実装は OP10-119 / OP12-031 の 2 枚のみ。",
    "_text": "OP10-119_p3 on_play: 自分の手札から特徴《超新星》を持つキャラカード1枚までを公開し、ライフの上に裏向きで加える。その後、自分の特徴《超新星》を持つリーダー1枚にレストのドン‼1枚ま",
    "do": [
     {
@@ -64934,6 +65013,21 @@
        "feature": "超新星"
       }
      }
+    },
+    {
+     "conditional": {
+      "do": [
+       {
+        "attach_rested_don": {
+         "count": 1,
+         "target": "self_leader"
+        }
+       }
+      ],
+      "if": {
+       "leader_feature": "超新星"
+      }
+     }
     }
    ],
    "when": "on_play"
@@ -64941,6 +65035,7 @@
  ],
  "OP10-119_r1": [
   {
+   "_doc": "2026-08-11 是正: 公式テキスト末尾の 「その後、 …レストのドン‼N枚までを、 付与する」 が overlay から **丸ごと欠落** していた。 「その後」 は独立した do なので前半が0枚でも実行される。 掃引 (nested 構造も含めて検索) で 同型の未実装は OP10-119 / OP12-031 の 2 枚のみ。",
    "_text": "OP10-119_r1 on_play: 自分の手札から特徴《超新星》を持つキャラカード1枚までを公開し、ライフの上に裏向きで加える。その後、自分の特徴《超新星》を持つリーダー1枚にレストのドン‼1枚ま",
    "do": [
     {
@@ -64949,6 +65044,21 @@
       "filter": {
        "category": "CHARACTER",
        "feature": "超新星"
+      }
+     }
+    },
+    {
+     "conditional": {
+      "do": [
+       {
+        "attach_rested_don": {
+         "count": 1,
+         "target": "self_leader"
+        }
+       }
+      ],
+      "if": {
+       "leader_feature": "超新星"
       }
      }
     }
@@ -70081,7 +70191,12 @@
     "target_cost_le": 5
    },
    "optional": true,
-   "when": "replace_ko"
+   "when": "replace_ko",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ]
   }
  ],
  "OP12-027_r1": [
@@ -70099,7 +70214,12 @@
     "target_cost_le": 5
    },
    "optional": true,
-   "when": "replace_ko"
+   "when": "replace_ko",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ]
   }
  ],
  "OP12-028": [
@@ -70315,10 +70435,26 @@
  ],
  "OP12-031": [
   {
+   "_doc": "2026-08-11 是正: 公式テキスト末尾の 「その後、 …レストのドン‼N枚までを、 付与する」 が overlay から **丸ごと欠落** していた。 「その後」 は独立した do なので前半が0枚でも実行される。 掃引 (nested 構造も含めて検索) で 同型の未実装は OP10-119 / OP12-031 の 2 枚のみ。",
    "_text": "OP12-031 on_play: 相手の元々のコスト6以下のキャラ1枚までを、レストにする。その後、自分のリーダーの「ロロノア・ゾロ」にレストのドン‼3枚までを、付与する。",
    "do": [
     {
      "rest": "one_opponent_character_truly_original_cost_le_6"
+    },
+    {
+     "conditional": {
+      "do": [
+       {
+        "attach_rested_don": {
+         "count": 3,
+         "target": "self_leader"
+        }
+       }
+      ],
+      "if": {
+       "leader_name": "ロロノア・ゾロ"
+      }
+     }
     }
    ],
    "when": "on_play"
@@ -70326,10 +70462,26 @@
  ],
  "OP12-031_p1": [
   {
+   "_doc": "2026-08-11 是正: 公式テキスト末尾の 「その後、 …レストのドン‼N枚までを、 付与する」 が overlay から **丸ごと欠落** していた。 「その後」 は独立した do なので前半が0枚でも実行される。 掃引 (nested 構造も含めて検索) で 同型の未実装は OP10-119 / OP12-031 の 2 枚のみ。",
    "_text": "OP12-031_p1 on_play: 相手の元々のコスト6以下のキャラ1枚までを、レストにする。その後、自分のリーダーの「ロロノア・ゾロ」にレストのドン‼3枚までを、付与する。",
    "do": [
     {
      "rest": "one_opponent_character_truly_original_cost_le_6"
+    },
+    {
+     "conditional": {
+      "do": [
+       {
+        "attach_rested_don": {
+         "count": 3,
+         "target": "self_leader"
+        }
+       }
+      ],
+      "if": {
+       "leader_name": "ロロノア・ゾロ"
+      }
+     }
     }
    ],
    "when": "on_play"
@@ -70337,10 +70489,26 @@
  ],
  "OP12-031_p2": [
   {
+   "_doc": "2026-08-11 是正: 公式テキスト末尾の 「その後、 …レストのドン‼N枚までを、 付与する」 が overlay から **丸ごと欠落** していた。 「その後」 は独立した do なので前半が0枚でも実行される。 掃引 (nested 構造も含めて検索) で 同型の未実装は OP10-119 / OP12-031 の 2 枚のみ。",
    "_text": "OP12-031_p2 on_play: 相手の元々のコスト6以下のキャラ1枚までを、レストにする。その後、自分のリーダーの「ロロノア・ゾロ」にレストのドン‼3枚までを、付与する。",
    "do": [
     {
      "rest": "one_opponent_character_truly_original_cost_le_6"
+    },
+    {
+     "conditional": {
+      "do": [
+       {
+        "attach_rested_don": {
+         "count": 3,
+         "target": "self_leader"
+        }
+       }
+      ],
+      "if": {
+       "leader_name": "ロロノア・ゾロ"
+      }
+     }
     }
    ],
    "when": "on_play"
@@ -70348,10 +70516,26 @@
  ],
  "OP12-031_r1": [
   {
+   "_doc": "2026-08-11 是正: 公式テキスト末尾の 「その後、 …レストのドン‼N枚までを、 付与する」 が overlay から **丸ごと欠落** していた。 「その後」 は独立した do なので前半が0枚でも実行される。 掃引 (nested 構造も含めて検索) で 同型の未実装は OP10-119 / OP12-031 の 2 枚のみ。",
    "_text": "OP12-031 on_play: 相手の元々のコスト6以下のキャラ1枚までを、レストにする。その後、自分のリーダーの「ロロノア・ゾロ」にレストのドン‼3枚までを、付与する。",
    "do": [
     {
      "rest": "one_opponent_character_truly_original_cost_le_6"
+    },
+    {
+     "conditional": {
+      "do": [
+       {
+        "attach_rested_don": {
+         "count": 3,
+         "target": "self_leader"
+        }
+       }
+      ],
+      "if": {
+       "leader_name": "ロロノア・ゾロ"
+      }
+     }
     }
    ],
    "when": "on_play"
@@ -70999,6 +71183,9 @@
    "cost": [
     {
      "trash_self_hand_random": 1
+    },
+    {
+     "rest_self": true
     }
    ],
    "do": [
@@ -99680,6 +99867,16 @@
  "ST06-003": [],
  "ST06-004": [
   {
+   "_text": "ST06-004 static: このキャラは効果でKOされない",
+   "do": [
+    {
+     "set_ko_immune": "self"
+    }
+   ],
+   "n": 0,
+   "when": "on_attached_don"
+  },
+  {
    "_text": "on_attached_don n=1: コスト0のキャラがいる場合、このキャラは【ダブルアタック】を得る。(このカードが与えるダメージは2になる)",
    "conditions": [
     {
@@ -110076,7 +110273,12 @@
     "target_truly_original_power_le": 6000
    },
    "optional": true,
-   "when": "replace_leave"
+   "when": "replace_leave",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ]
   }
  ],
  "ST30-011_p1": [
@@ -110094,7 +110296,12 @@
     "target_truly_original_power_le": 6000
    },
    "optional": true,
-   "when": "replace_leave"
+   "when": "replace_leave",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ]
   }
  ],
  "ST30-012": [
