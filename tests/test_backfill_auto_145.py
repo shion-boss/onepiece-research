@@ -368,7 +368,8 @@ def test_op15_099_activate_main_flip_life_attach_rested_don_ai():
     urouge = InPlay.of(repo.get("OP15-099"), sickness=False)
     me.characters = [urouge]
     me.life = [repo.get("OP01-016")] * 2
-    me.face_up_life_count = 2
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (2) for i in range(len(me.life))]
     me.don_rested = 2  # レストドン供給源
     don_before = me.leader.attached_dons
     rested_before = me.don_rested

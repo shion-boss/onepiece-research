@@ -6015,3 +6015,110 @@ overlay は **トラッシュ→デッキ下が丸ごと欠落** し、 パン�
   「ダメージを与えた時」 (= この是正の対象)、 残る OP08-105 ボニーは 「相手のライフが**離れた時**」
   だが 【ターン1回】 付きなので **この変更で挙動が変わらない**。
 - **実測**: 通常アタックもダブルアタックも デッキ -7。
+
+---
+
+## 2026-08-11 #10 — ライフの **表向き/裏向き** を per-card で持つ (escalated 2 件 解消)
+
+**背景**: 台帳に残っていた escalated 2 件は、 どちらも 「**このライフ 1 枚が表向きか**」 を
+engine が知らないと再現できなかった。 それまでの実装は `face_up_life_count`
+(= 「上から N 枚が表向き」 の近似) だった。 近似は ST13-012 マキノ (= ライフを好きな順番で
+置き直す) で即座に壊れる — 並べ替えた後の 「上から N 枚」 は元の表向きの枚数と無関係。
+
+→ `Player.life_face_up: list[bool]` (= `life` と同じ index) に移行し、
+`face_up_life_count` は **その導出プロパティ** にした。 ライフを触る全経路
+(Python 44 箇所 / Rust 約 28 箇所) を `life_take` / `life_put` 経由か
+併記に置き換えた。 **黙ってズレない** よう、 `_recompute_static` に
+`len(life_face_up) != len(life)` で `AssertionError` を投げる desync guard を置いた
+(退避したい時だけ `ONEPIECE_LIFE_FLAG_LAX=1`)。
+
+> ⚠ この guard は実際に仕事をした。 `plan_search.fast_clone` が `p.life` を
+> 再構築していて `Player.__setattr__` がフラグを全 False に戻していた
+> (= 長さは一致するので guard では捕まらず、 **parity harness が MISMATCH 28 として検出**)。
+> 「長さ一致」 は同期の証明にならない。 clone/restore の 5 経路にフラグを載せて解消。
+
+### (1) ST13-003 モンキー・D・ルフィ(L) の下では 表向きライフの【トリガー】が発動しない
+
+- **Q (cardqa_st_13, `83e1770aba3a`)**: 自分のリーダーがこのカードの場合、 自分の表向きの
+  ライフの【トリガー】効果は発動できますか？ → **いいえ、 発動できません**
+- **根拠**: 【トリガー】は 「ライフを**手札に加える代わりに**公開して効果を発動する」 置換
+  (公式 10-1-5)。 ST13-003 は 「自分の表向きのライフは手札に加わる**代わりに**デッキの下に
+  置かれる」 ので、 **手札に加わらない** = 置換の前提が消え、 【トリガー】自体が起きない。
+- **是正前**: 表向きでも通常どおり手札に加わり、 【トリガー】も発動していた。
+- **是正後 (実測)**: `手札=0 デッキ 20→21 トラッシュ=0` (デッキの下へ、 トリガー不発)。
+  対照 — 裏向き: `手札=1 デッキ→19 トラッシュ=1` / 通常リーダー + 表向き: `手札=1`。
+- 回帰: `test_st13_003_face_up_life_goes_to_deck_bottom_and_blocks_trigger`
+
+### (2) ST13-003 下では 「ライフを手札に加える」 **コスト**が支払えない
+
+- **Q (cardqa_st_13, `fa2e22459ce5`)**: ST13-012 マキノ 【登場時】自分のライフの上か下から
+  1枚を手札に加えることができる：自分のライフすべてを見て、 好きな順番で置く — を
+  ST13-003 の下で使うと？ → デッキの下に置くことはできますが、 **コストとして…支払えて
+  いない為、 何も起きません**
+- **根拠**: 公式 4-10 (支払えないコストは支払えない = 効果は発動しない)。 コロン前は
+  **発動コスト**なので、 「手札に加える」 が起きない以上 未払いであり、 コロン後
+  (ライフの並べ替え) は実行されない。 ⚠ 「カードは動くのに払えていない」 という
+  **非対称**が肝で、 「動いたら払えた」 と実装すると間違える。
+- **是正後 (実測)**: `ST13-003 / 表向き: 手札=0 デッキ 10→11 並べ替え=False` /
+  `ST13-003 / 裏向き: 手札=1 デッキ 10→10 並べ替え=True` /
+  `通常リーダー / 表向き: 手札=1 並べ替え=True`。
+- 実装: `life_top_or_bottom_to_hand` が置換時に `False` を返し、
+  `optional_cost_then` の cost ループが戻り値を見て中断する (以前は戻り値を捨てていた)。
+- 回帰: `test_st13_003_blocks_life_to_hand_cost_payment`
+
+### (3) 硬いコストは 「そもそも発動できない」 = 札も動かない (**書き分け**)
+
+同じ 「ライフ→手札」 でも、 コロン前が **任意でない** (= 「〜する：」) 場合は 公式 4-10 で
+**発動自体ができない** = 札は動かない。 (2) の 「できる：」 (= 札は動くが未払い) と結論が違うので、
+payability を一律にしてはいけない。 `_life_to_hand_cost_payable` を 硬いコストの payability
+(`_can_pay_counter_cost` / `_can_pay_replace_cost` / `_can_pay_activate_cost`) にだけ配線し、
+`_optional_cost_payable_in_do` (= 「できる：」) には **入れない**。
+- 実測 (OP01-013 ナミ 「自分のライフ1枚を手札に加える：カード1枚引く」):
+  `ST13-003 + 上が表向き → 起動メイン 0 件 (札も動かない)` /
+  `ST13-003 + 上が裏向き → 1 件` / `通常リーダー + 全部表向き → 1 件`。
+- 回帰: `test_st13_003_hard_life_cost_is_unpayable_and_moves_nothing`
+
+### (4) 置換は 「ライフ→手札」 の **移動そのもの** にかかる
+
+ダメージ経路だけ直すと、 同じ移動が経路によって違う結果になる。 自分/相手のライフを手札に
+加える全経路 (`life_to_hand` / `mill_opp_life_to_hand` / `then_life_to_hand` / counter・replace・
+起動メインのコスト支払い) を `_life_card_to_hand` 1 本に通し、 そこで置換を判定するようにした。
+回帰: `test_st13_003_life_to_hand_effect_sends_face_up_to_deck_bottom`
+
+### (5) ⚠ 並べ替えは 「位置」 ではなく 「札」 にフラグが付いていること
+
+per-card 化で **両エンジンが別々に壊れた** 箇所。 掃引 (`rust_parity_sweep`) が MISMATCH 15 /
+static_skip 288 で検出した。
+- **Python**: `pl.life = [...]` と書くと `Player.__setattr__` が `life_face_up` を
+  全裏向きに張り直す → **表向きの札を並べ替えた瞬間に表向きが消える** (EB02-053 で実測)。
+- **Rust**: `std::mem::take(&mut p.life)` でカードだけ入れ替え、 フラグは古いまま残る
+  → 長さがずれる / 別の札が表向き扱いになる (ST13-004 / ST13-016 で実測)。
+
+→ 両側に (card, face_up) の組で扱う helper (`_life_set_pairs` / `take_life_pairs` +
+`set_life_pairs`) を置き、 `scry_life` / `scry_all_life_reorder` /
+`scry_all_life_one_to_deck` / `view_life_top_choose_position` / 人間 reorder の全経路を通した。
+回帰: `test_life_reorder_carries_face_up_flag_with_the_card` /
+`test_scry_life_keeps_face_up_card_face_up`。
+
+> 教訓: **「長さが合っている」 は同期の証明にならない**。 desync guard (長さ) は
+> 位置ずれを一切捕まえない。 捕まえたのは 2 実装の差分掃引だった。
+
+### (6) Rust は 「動的 context」 と 「静的 context」 で **別の match** を持つ
+
+`set_face_up_life_to_deck_bottom_static` を `execute_effect_inner` にだけ足していたため、
+静的評価 (`apply_static_primitive`、 `on_attached_don` 経由) では catch-all `_ => {}` に落ちて
+**黙って no-op** していた。 = Rust では ST13-003 のフラグが一度も立たず、 前節の 「明示 bail」
+も一度も発火しない = **bail しているつもりで素通りしていた**。
+検出は effect smoke の `MISMATCH(static) @ST13-003` と sweep の `static_skip=288`。
+⚠ Rust に静的効果を足す時は **2 箇所** (`execute_effect_inner` / `apply_static_primitive`) を
+必ず両方見る。 過去にも同じ穴で `set_base_power_copy` が落ちている (2026-08-06)。
+
+### Rust 側
+
+`life_face_up` / `face_up_life_to_deck_bottom` の **データ・静的効果・硬いコストの payability**
+は同期済 (`life_to_hand_cost_payable`)。 **ルール置換が実際に走る挙動は未実装** なので、
+`apply_action` の入口で 「置換が効きうる盤面」 (= `face_up_life_to_deck_bottom` かつ
+表向きライフが 1 枚以上) を **明示 bail** する。 「bit 一致か、 さもなくば明示 bail」 の
+不変条件は維持 (= 黙って乖離しない)。 ⚠ 表向きライフが 0 枚の ST13-003 戦は素通りするので、
+通常の対戦性能には影響しない。 Rust で ST13-003 の表向きライフを回す必要が出たら
+ここ (ダメージ経路 + 各 life→hand primitive) を実装する。

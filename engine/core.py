@@ -616,10 +616,15 @@ class Player:
     stages: list = field(default_factory=list)
     trash: list = field(default_factory=list)
     life: list = field(default_factory=list)
-    # 表向きのライフ枚数 (= しらほし系。 上から数えた face-up 枚数の近似)。
-    # leader/効果でライフを「表向き」 にした枚数を保持し、 「表向きのライフがある場合」
-    # 条件 / 「ライフ上1枚を裏向きにできる」 cost (= face-up を消費) 等で参照する。
-    face_up_life_count: int = 0
+    # ⭐ ライフ **1 枚ごと** の表向き/裏向き (= life と同じ長さ・同じ並び)。
+    #   公式 (cardqa_st_13 / ST13-003 ルフィ 「ルール上、 自分の表向きのライフは手札に加わる
+    #   代わりにデッキの下に置かれる」) を再現するには 「どの札が表向きか」 が要る。
+    #   ⚠ 「表向きは上から N 枚」 の近似は **使えない**: ST13-012 マキノ 「自分のライフすべてを見て、
+    #     好きな順番で置く」 が全体を並べ替えるため、 位置ベースのモデルが壊れる (2026-08-11)。
+    life_face_up: list = field(default_factory=list)
+    # ⭐ 「ルール上、 自分の表向きのライフは手札に加わる代わりにデッキの下に置かれる」
+    #   (ST13-003 モンキー・D・ルフィ(L))。 静的効果なので evaluate_static_effects で毎回再計算する。
+    face_up_life_to_deck_bottom: bool = False
     # Phase 7I (2026-05-14): opp に公開済の手札カード ID リスト。
     # return_to_hand / search 等で「公開してから手札に加える」 経路を経たカードが追加される。
     # 手札からの退場 (= play / counter / discard) で先頭マッチ分が削除される。
@@ -674,6 +679,45 @@ class Player:
                 out.append(cid)
         self.known_top_card_ids = out
         return out
+
+    def __setattr__(self, name, value):
+        """`life` を **まるごと差し替え** たら表向きフラグを裏向きで張り直す。
+
+        ⭐ 2026-08-11 の per-card 化で、 ライフは `life` と `life_face_up` の 2 本立てになった。
+        構築 (setup / テスト / clone) は `p.life = [...]` と書くのが自然なので、 その場合は
+        **全部裏向き** で長さを合わせる (= 公式どおり、 ライフは裏向きで置かれるのが既定)。
+
+        ⚠ **表向きを保ったまま並べ替える** 経路 (ST13-012 マキノ 「自分のライフすべてを見て、
+          好きな順番で置く」 等) は、 `life` を代入した **後に** `life_face_up` を明示代入すること。
+          代入順を逆にすると ここで潰れる。
+        """
+        object.__setattr__(self, name, value)
+        if name == "life":
+            object.__setattr__(self, "life_face_up", [False] * len(value))
+
+    @property
+    def face_up_life_count(self) -> int:
+        """表向きのライフ枚数 (= `life_face_up` の True の数)。
+
+        ⚠ 2026-08-11 に **枚数だけ持つモデルから per-card フラグへ移行** した。 読み取り側
+        (「表向きのライフがある場合」 条件 / 「ライフ上1枚を裏向きにできる」 cost 等) を
+        無改修にするため property として残している。 **書き込みは `life_face_up` を直接操作する**。
+        """
+        return sum(1 for x in self.life_face_up if x)
+
+    def life_sync_flags(self) -> None:
+        """`life_face_up` の長さを `life` に揃える (不足は裏向きで埋め、 余りは切る)。
+
+        ⚠ **通常運用で呼ぶ関数ではない**。 ライフを触る各所は `life` と `life_face_up` を
+        **同じ行で対にして** 操作すること (= 片方だけ動かすと表向きが 1 枚ずれる)。
+        これは `ONEPIECE_LIFE_FLAG_LAX=1` の緊急退避 (外部ツールが古い形の state を
+        流し込んだ時) 専用の埋め合わせで、 既定では代わりに AssertionError を投げる。
+        """
+        n = len(self.life)
+        if len(self.life_face_up) < n:
+            self.life_face_up.extend([False] * (n - len(self.life_face_up)))
+        elif len(self.life_face_up) > n:
+            del self.life_face_up[n:]
 
     def normalize_known_hand(self) -> None:
         """known_hand_card_ids を hand との整合性で正規化 (Phase 7I)。

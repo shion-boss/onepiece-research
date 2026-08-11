@@ -210,7 +210,8 @@ def test_op12_102_replace_leave_flip_life():
     st = _state(repo, _NEUTRAL, overlay)
     me, opp = st.players[0], st.players[1]
     me.life = [repo.get(_FILLER)] * 3
-    me.face_up_life_count = 0
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
 
     do, _ = _do(overlay, "OP12-102", "replace_leave")
     for prim in do:

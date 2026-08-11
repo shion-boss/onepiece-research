@@ -717,10 +717,10 @@ def _can_pay_counter_cost(
         return False
     # life → hand 系 (= ライフ上から N 枚を手札に): ライフ不足なら払えない。
     lth = int(cost.get("life_to_hand", 0) or 0)
-    if lth > 0 and len(me.life) < lth:
+    if lth > 0 and not _life_to_hand_cost_payable(me, lth):
         return False
     ltob = int(cost.get("life_top_or_bottom_to_hand", 0) or 0)
-    if ltob > 0 and len(me.life) < ltob:
+    if ltob > 0 and not _life_to_hand_cost_payable(me, ltob, from_ends=True):
         return False
     # trash_to_deck N (= トラッシュ N 枚をデッキに): トラッシュ不足なら払えない。
     ttd = int(cost.get("trash_to_deck", 0) or 0)
@@ -1103,7 +1103,8 @@ def _pay_counter_cost(
     if lth_total > 0:
         actual = min(lth_total, len(me.life))
         for _ in range(actual):
-            me.hand.append(me.life.pop(0))
+            _c = me.life.pop(0)
+            _life_card_to_hand(state, me, _c, bool(me.life_face_up.pop(0)))
         if actual:
             state.push_log(f"  cost: ライフ上から {actual} 枚を手札に")
     # trash_to_deck N: トラッシュ上から N 枚をデッキ下へ。
@@ -1122,11 +1123,17 @@ def _pay_counter_cost(
     # flip_life_face_down: ライフ1枚を裏向きに (= face_up_life_count を 1 減らす)、 ST36-005 キッド。
     # engine のライフモデルは「上か下」 の物理位置を区別せず face_up_life_count で表向き枚数のみ管理。
     if cost.get("flip_life_face_down"):
-        me.face_up_life_count = max(0, min(me.face_up_life_count, len(me.life)) - 1)
+        for _i, _fu in enumerate(me.life_face_up):   # 上から順に 1 枚裏向きへ
+            if _fu:
+                me.life_face_up[_i] = False
+                break
         state.push_log("  cost: ライフ1枚を裏向き")
     # flip_life_face_up: ライフ1枚を表向きに (= face_up_life_count を 1 増やす)、 ST36-005 キッド。
     if cost.get("flip_life_face_up"):
-        me.face_up_life_count = min(me.face_up_life_count + 1, len(me.life))
+        for _i, _fu in enumerate(me.life_face_up):   # 上から順に 1 枚表向きへ
+            if not _fu:
+                me.life_face_up[_i] = True
+                break
         state.push_log("  cost: ライフ1枚を表向き")
     # trash_self / self_ko: source 自身を 場から除去 → トラッシュ。
     if (cost.get("trash_self") or cost.get("self_ko")) and self_inplay is not None:
@@ -5067,8 +5074,9 @@ def _execute_effect_body_inner(
                     # 「ライフの上に加える」 (= OP16-119 ティーチ)。 公式 表記なし は裏向き (life 既定)。
                     # life_face_up = 表向きで加える (= ST13-002)。 count-only モデルで表向き +1。
                     me.life.insert(0, c)
-                    if destination == "life_face_up":
-                        me.face_up_life_count = min(me.face_up_life_count + 1, len(me.life))
+                    me.life_face_up.insert(0, False)  # 既定は裏向き
+                    if destination == "life_face_up" and me.life_face_up:
+                        me.life_face_up[0] = True   # 「表向きで加える」 = 入れた札そのもの
                     state.push_log(
                         f"  効果: search_top_n → ライフ上に加える"
                         f"{'(表向き)' if destination == 'life_face_up' else ''} ({len(me.life)} 枚)")
@@ -5459,8 +5467,9 @@ def _execute_effect_body_inner(
             moved = 0
             for _ in range(n):
                 if me.life:
-                    me.hand.append(me.life.pop(0))
-                    moved += 1
+                    _c = me.life.pop(0)
+                    if _life_card_to_hand(state, me, _c, bool(me.life_face_up.pop(0))):
+                        moved += 1
             state.push_log(f"  効果: ライフ{n}枚を手札へ")
             if moved:
                 fire_self_life_to_hand(state, me)
@@ -5591,6 +5600,7 @@ def _execute_effect_body_inner(
                     break
                 c = me.deck.pop(0)
                 me.life.append(c)  # ライフ上 (技術的には先頭追加だが簡略)
+                me.life_face_up.append(False)  # 既定は裏向き
             state.push_log(f"  効果: デッキ上 {n} 枚をライフへ")
         elif k == "give_keyword":
             # 動的キーワード付与。spec: {"target": "self", "keyword": "ダブルアタック"}
@@ -6108,8 +6118,10 @@ def _execute_effect_body_inner(
                         moved = 0
                         for _ in range(n_life):
                             if me.life:
-                                me.hand.append(me.life.pop(0))
-                                moved += 1
+                                _c = me.life.pop(0)
+                                if _life_card_to_hand(
+                                        state, me, _c, bool(me.life_face_up.pop(0))):
+                                    moved += 1
                         state.push_log(f"  効果: 登場に伴いライフ上{n_life}枚を手札へ ({len(me.life)} 残)")
                         if moved:
                             fire_self_life_to_hand(state, me)
@@ -6314,8 +6326,8 @@ def _execute_effect_body_inner(
                 if not opp.life:
                     break
                 taken = opp.life.pop(0)
-                opp.hand.append(taken)
-                _moved += 1
+                if _life_card_to_hand(state, opp, taken, bool(opp.life_face_up.pop(0))):
+                    _moved += 1
             state.push_log(f"  効果: 相手ライフ上 {n} 枚を相手手札へ")
             _fire_opp_life_left_by_effect(state, me, opp, _moved, "hand")
         elif k == "mill_self_life_to_trash":
@@ -6325,6 +6337,7 @@ def _execute_effect_body_inner(
                 if not me.life:
                     break
                 taken = me.life.pop(0)
+                me.life_face_up.pop(0)  # ライフと同じ位置の表向きフラグも取り出す
                 me.trash.append(taken)
             state.push_log(f"  効果: 自ライフ上 {n} 枚をトラッシュへ")
         elif k == "mill_opp_life_to_trash":
@@ -6336,6 +6349,7 @@ def _execute_effect_body_inner(
                 if not opp.life:
                     break
                 taken = opp.life.pop(0)
+                opp.life_face_up.pop(0)  # ライフと同じ位置の表向きフラグも取り出す
                 opp.trash.append(taken)
                 _moved += 1
             state.push_log(f"  効果: 相手ライフ上 {n} 枚をトラッシュへ")
@@ -6383,6 +6397,7 @@ def _execute_effect_body_inner(
                         return True
                     continue
                 taken = opp.life.pop(0)
+                opp.life_face_up.pop(0)  # ライフと同じ位置の表向きフラグも取り出す
                 _resolve_life_taken(state, me, opp, taken, by_effect=True)
             state.push_log(f"  効果: 相手リーダーに {n} ダメージ")
         elif k == "force_opp_play_from_hand":
@@ -7110,6 +7125,7 @@ def _execute_effect_body_inner(
                 )
                 if matched:
                     me.life.pop(0)
+                    me.life_face_up.pop(0)  # ライフと同じ位置の表向きフラグも取り出す
                     if not me.can_play_character():
                         me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
                     ip = InPlay.of(revealed, rested=rested_flag, sickness=True)
@@ -7881,24 +7897,37 @@ def _execute_effect_body_inner(
             n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
             drawn = opp.draw(n)
             state.push_log(f"  効果: 相手が{len(drawn)}枚ドロー")
+        elif k == "set_face_up_life_to_deck_bottom_static":
+            # 「ルール上、 自分の表向きのライフは手札に加わる代わりにデッキの下に置かれる」
+            # (ST13-003 モンキー・D・ルフィ(L))。 **置換効果** なので、
+            #   - ダメージで離れた表向きライフは 手札ではなく **デッキの下** へ → 【トリガー】も
+            #     発動できない (公式 cardqa_st_13: 「自分の表向きのライフの【トリガー】効果は
+            #     発動できますか？」 → 「**いいえ**」)
+            #   - 「ライフ1枚を **手札に加える**」 コストは **支払えていない** ことになる
+            #     (公式 cardqa_st_13: ST13-012 マキノ との相互作用 → 「何も起きません」)
+            me.face_up_life_to_deck_bottom = True
         elif k == "set_all_life_face_down":
             # 「自分のライフすべてを裏向きにする」 (EB03-051/OP08-075 等)。 face-up 枚数 0 化。
-            me.face_up_life_count = 0
+            me.life_face_up = [False] * len(me.life)
             state.push_log("  効果: 自ライフすべてを裏向き")
         elif k == "flip_life_face_up_effect":
             # 「自分のライフの上から N 枚を表向きにする」 (= cost でなく効果としての表向き化)。
             n = int(v) if not isinstance(v, dict) else int(v.get("count", 1))
-            me.face_up_life_count = min(me.face_up_life_count + n, len(me.life))
+            for _i in range(min(n, len(me.life_face_up))):
+                me.life_face_up[_i] = True          # 「ライフの上から N 枚」 = 上から順
             state.push_log(f"  効果: 自ライフ上{n}枚を表向き")
         elif k == "trash_all_face_up_life":
-            # 「自分のライフの表向きのカードすべてをトラッシュに置く」 (ST13-002)。 count-only モデル:
-            # 表向き札は top に置かれる (search life_face_up / chara_to_self_life face_up) ので、
-            # 上から face_up_life_count 枚をトラッシュへ。
-            n = min(me.face_up_life_count, len(me.life))
-            for _ in range(n):
-                if me.life:
-                    me.trash.append(me.life.pop(0))
-            me.face_up_life_count = 0
+            # 「自分のライフの表向きのカードすべてをトラッシュに置く」 (ST13-002)。
+            # ⭐ per-card フラグ化 (2026-08-11) により **位置を問わず表向きの札だけ** を取り除ける。
+            #   従来は 「表向きは上から N 枚」 と仮定していたが、 ST13-012 マキノ の並べ替えで崩れる。
+            _keep_c, _keep_f, n = [], [], 0
+            for _c, _fu in zip(me.life, me.life_face_up):
+                if _fu:
+                    me.trash.append(_c); n += 1
+                else:
+                    _keep_c.append(_c); _keep_f.append(_fu)
+            me.life = _keep_c
+            me.life_face_up = _keep_f
             if n:
                 state.push_log(f"  効果: 表向きライフ {n} 枚をトラッシュ")
         elif k == "schedule_self_return_to_deck_bottom_at_battle_end":
@@ -8083,6 +8112,7 @@ def _execute_effect_body_inner(
                     if not opp.life:
                         break
                     opp.deck.append(opp.life.pop(0))
+                    opp.life_face_up.pop(0)  # ライフと同じ位置の表向きフラグも取り出す
                     actually_milled += 1
                 state.push_log(
                     f"  効果: 公開カード EVENT → 相手ライフ {actually_milled} 枚 デッキ下へ"
@@ -8174,11 +8204,13 @@ def _execute_effect_body_inner(
             # 簡略: 手札 先 → trash 後 で count 分 ライフ 上 に 加える
             for idx, c in hand_cands[:count]:
                 me.life.insert(0, c)
+                me.life_face_up.insert(0, False)  # 既定は裏向き
                 n_added += 1
             if n_added < count:
                 need = count - n_added
                 for idx, c in trash_cands[:need]:
                     me.life.insert(0, c)
+                    me.life_face_up.insert(0, False)  # 既定は裏向き
                     n_added += 1
             # 元 zone から 削除 (逆順 で pop)
             for idx, c in sorted(hand_cands[:count], key=lambda x: -x[0]):
@@ -8189,8 +8221,9 @@ def _execute_effect_body_inner(
                 if idx < len(me.trash):
                     me.trash.pop(idx)
             if face_up and n_added:
-                # 表向きで加えた分だけ face_up_life_count を加算 (= ライフ上に積んだ枚数)。
-                me.face_up_life_count = min(me.face_up_life_count + n_added, len(me.life))
+                # 表向きで加えた **その札** を表向きにする (= 直前に top へ積んだ n_added 枚)。
+                for _i in range(min(n_added, len(me.life_face_up))):
+                    me.life_face_up[_i] = True
             state.push_log(f"  効果: 手札/trash から chara {n_added} 枚 をライフへ"
                            + (" (表向き)" if face_up else ""))
         elif k == "set_battle_ko_immune":
@@ -8346,6 +8379,7 @@ def _execute_effect_body_inner(
                         opp.don_rested += t.attached_dons
                         t.attached_dons = 0
                     opp.life.insert(0, t.card)
+                    opp.life_face_up.insert(0, False)  # 既定は裏向き
                     state.push_log(f"  効果: 相手キャラ {t.card.name} → 相手ライフ上")
                     placed += 1
             if placed and then_specs:
@@ -8530,6 +8564,7 @@ def _execute_effect_body_inner(
                         opp.don_rested += t.attached_dons
                     # ライフに加える (= KO ではないので【KO時】 不発動)
                     opp.life.append(t.card)
+                    opp.life_face_up.append(False)  # 既定は裏向き
                     state.push_log(f"  効果: {t.card.name} を持ち主ライフへ")
         elif k == "ko_all_others":
             # 「このキャラ以外のキャラすべてを KO する」 (OP01-094 カイドウ 等)。
@@ -8842,6 +8877,7 @@ def _execute_effect_body_inner(
                         break
                     card = me.hand.pop(i)
                     me.life.append(card)
+                    me.life_face_up.append(False)  # 既定は裏向き
                     moved += 1
                     state.push_log(f"  効果: {card.name} を自ライフへ")
             else:
@@ -8851,6 +8887,7 @@ def _execute_effect_body_inner(
                 for card in me.hand:
                     if moved < count and _matches_filter(card, filt):
                         me.life.append(card)
+                        me.life_face_up.append(False)  # 既定は裏向き
                         moved += 1
                         state.push_log(f"  効果: {card.name} を自ライフへ")
                     else:
@@ -9150,11 +9187,22 @@ def _execute_effect_body_inner(
                 # 実用上は上下どちらでも 1 枚減るので勝率影響小。
                 if place == "bottom":
                     card = target_pl.life.pop(-1)
+                    was_face_up = bool(target_pl.life_face_up.pop(-1))
                 else:
                     card = target_pl.life.pop(0)
-                me.hand.append(card)
+                    was_face_up = bool(target_pl.life_face_up.pop(0))
+                # ⭐ 「ルール上、 自分の表向きのライフは **手札に加わる代わりにデッキの下** に置かれる」
+                #   (ST13-003 モンキー・D・ルフィ(L))。 手札に入らないので、 これを **コスト**
+                #   として使う効果は **支払えていない** ことになる
+                #   (公式 cardqa_st_13 / ST13-012 マキノ との相互作用 → 「何も起きません」)。
+                if not _life_card_to_hand(state, target_pl, card, was_face_up):
+                    continue
+                if target_pl is not me:      # 「相手のライフを自分の手札に」 型
+                    me.hand.append(target_pl.hand.pop())
                 moved += 1
             state.push_log(f"  効果: {owner}ライフ上/下{moved}枚を手札へ")
+            if moved == 0:
+                return False   # 1 枚も手札に加わっていない = コストとしては未払い
         elif k == "scry_life":
             # 公式: 「ライフの上から N 枚までを見て、 ライフの上か下に置く」
             # spec: {"owner": "self"|"opp"|"self_or_opp", "depth": 1}
@@ -9214,12 +9262,13 @@ def _execute_effect_body_inner(
             # 公式「上か下に置く」を top/bottom 二択で実行 (= depth1 の sort no-op バグ修正)。
             #   自ライフ: 有用札(トリガー/カウンター)は【上】に残し被弾時に活かす、 不要札は【下】へ。
             #   相手ライフ: 有用札は【下】に埋めダメージ時に引かせない(妨害)、 不要札は【上】(雑魚を引かせる)。
-            rest = target_pl.life[depth:]
+            rest = list(zip(target_pl.life[depth:], target_pl.life_face_up[depth:]))
+            seen_pairs = list(zip(seen, target_pl.life_face_up[:depth]))
             top_grp, bot_grp = [], []
-            for c in seen:
+            for c, f in seen_pairs:
                 keep_top = _is_good(c) if is_self else (not _is_good(c))
-                (top_grp if keep_top else bot_grp).append(c)
-            target_pl.life = top_grp + rest + bot_grp
+                (top_grp if keep_top else bot_grp).append((c, f))
+            _life_set_pairs(target_pl, top_grp + rest + bot_grp)
             owner_label = "自" if is_self else "相手"
             state.push_log(
                 f"  効果: {owner_label}ライフ上{depth}枚を確認 (上{len(top_grp)}/下{len(bot_grp)})"
@@ -9298,11 +9347,13 @@ def _execute_effect_body_inner(
                 power = int(getattr(card, "power", 0) or 0)
                 return (trig, counter, power)
             # AI: 自ライフ で 価値高 を 上、 相手ライフ で 価値低 を 上
+            seen_pairs = list(zip(seen, target_pl.life_face_up[:d]))
+            rest_pairs = list(zip(rest, target_pl.life_face_up[d:]))
             if target_pl is me:
-                seen.sort(key=_life_value, reverse=True)
+                seen_pairs.sort(key=lambda cf: _life_value(cf[0]), reverse=True)
             else:
-                seen.sort(key=_life_value)
-            target_pl.life = seen + rest
+                seen_pairs.sort(key=lambda cf: _life_value(cf[0]))
+            _life_set_pairs(target_pl, seen_pairs + rest_pairs)
             state.push_log(
                 f"  効果: ライフ上{d}枚 整列 ({'自' if target_pl is me else '相手'})"
             )
@@ -9388,6 +9439,7 @@ def _execute_effect_body_inner(
             milled = 0
             while len(me.life) > target_count:
                 card = me.life.pop(0)
+                me.life_face_up.pop(0)  # ライフと同じ位置の表向きフラグも取り出す
                 me.trash.append(card)
                 milled += 1
             state.push_log(f"  効果: ライフ→トラッシュ {milled}枚 (ライフ={target_count}枚まで削減)")
@@ -9416,13 +9468,14 @@ def _execute_effect_body_inner(
                 counter = int(getattr(card, "counter", 0) or 0)
                 power = int(getattr(card, "power", 0) or 0)
                 return (trig, counter, power)
-            sorted_life = sorted(me.life, key=_life_value, reverse=True)
+            sorted_life = sorted(zip(me.life, me.life_face_up),
+                                 key=lambda cf: _life_value(cf[0]), reverse=True)
             # 価値最大のカードをデッキトップへ (= 次ターンに引いて即活用)。
             # 残りライフはトリガー/カウンター大を上に積む (= ライフトリガー発動を早める)。
-            to_deck = sorted_life[0]
+            to_deck = sorted_life[0][0]
             rest = sorted_life[1:]
-            rest.sort(key=_life_value, reverse=True)
-            me.life = rest
+            rest.sort(key=lambda cf: _life_value(cf[0]), reverse=True)
+            _life_set_pairs(me, rest)
             if to_place == "bottom":
                 me.deck.append(to_deck)
                 state.push_log(f"  効果: ライフ→デッキ下: {to_deck.name} + ライフ {len(rest)} 枚並べ替え")
@@ -9458,7 +9511,10 @@ def _execute_effect_body_inner(
                 return (trig, counter, power)
             # 自分のライフ = 強い札 (トリガー/カウンター) を **上** に。
             # 相手のライフ = 並べるのは **こちら** なので、 相手が得をしないよう **弱い札を上** に。
-            _target_pl.life.sort(key=_life_value, reverse=(_owner != "opp"))
+            # ⚠ 並べ替えは **表向きフラグを連れて** 行う (カードだけ動かすと表向きがすり替わる)。
+            _pairs = list(zip(_target_pl.life, _target_pl.life_face_up))
+            _pairs.sort(key=lambda cf: _life_value(cf[0]), reverse=(_owner != "opp"))
+            _life_set_pairs(_target_pl, _pairs)
             state.push_log(
                 f"  効果: {_who}ライフ {len(_target_pl.life)} 枚を並べ替え "
                 + ("(相手に不利な順 = 弱い札を上)" if _owner == "opp"
@@ -9494,11 +9550,16 @@ def _execute_effect_body_inner(
                 # 持ち主 (= me) のライフへ。 AI 簡易: top に置く (= 早く回収 / 早くトリガー発動)。
                 if place == "bottom":
                     me.life.append(t.card)
+                    me.life_face_up.append(False)  # 既定は裏向き
                 else:
                     me.life.insert(0, t.card)
-                # face_up: 表向きで加える (ST13-001 等)。 count-only モデルで表向き枚数 +1。
+                    me.life_face_up.insert(0, False)  # 既定は裏向き
+                # face_up: 表向きで加える (ST13-001 等)。 置いた **その 1 枚** のフラグを立てる。
                 if spec_val.get("face_up"):
-                    me.face_up_life_count = min(me.face_up_life_count + 1, len(me.life))
+                    # 置いた **その札** を表向きに (bottom 指定なら末尾、 既定は先頭)
+                    _pos = len(me.life_face_up) - 1 if place == "bottom" else 0
+                    if 0 <= _pos < len(me.life_face_up):
+                        me.life_face_up[_pos] = True
                     # 「ライフに表向きで置かれた時」 = 公開領域 → 自身も発動可 (cardqa_op_08)
                     _note_public_departure(state, me, t.card)
             state.push_log(f"  効果: キャラ→自ライフ ({place}): {[t.card.name for t in targets]}")
@@ -10089,11 +10150,17 @@ def _execute_effect_body_inner(
                                    state, me, opp, self_inplay)
                     continue
                 if "flip_life_face_up" in cs:
-                    me.face_up_life_count = min(me.face_up_life_count + 1, len(me.life))
+                    for _i, _fu in enumerate(me.life_face_up):
+                        if not _fu:
+                            me.life_face_up[_i] = True
+                            break
                     state.push_log("  効果コスト: ライフ上1枚を表向き")
                     continue
                 if "flip_life_face_down" in cs:
-                    me.face_up_life_count = max(0, min(me.face_up_life_count, len(me.life)) - 1)
+                    for _i, _fu in enumerate(me.life_face_up):
+                        if _fu:
+                            me.life_face_up[_i] = False
+                            break
                     state.push_log("  効果コスト: ライフ上1枚を裏向き")
                     continue
                 if "attach_opp_don_to_opp_chara" in cs:
@@ -10453,7 +10520,15 @@ def _execute_effect_body_inner(
                             state, me, opp, state.effects_overlay
                         )
                     continue
-                execute_effect(cs, state, me, opp, self_inplay)
+                _paid = execute_effect(cs, state, me, opp, self_inplay)
+                # ⭐ コスト primitive が **払えなかった** (False) 場合は効果を実行しない。
+                #   公式 (cardqa_st_13 / ST13-003 × ST13-012 マキノ): 表向きライフは
+                #   「手札に加わる代わりにデッキの下」 なので、 「ライフ1枚を **手札に加える**」
+                #   コストは **支払えていない** → 「何も起きません」。
+                #   ⚠ 従来は戻り値を捨てており、 コスト未払いでも効果が走っていた (2026-08-11 是正)。
+                if _paid is False and state.pending_choice is None:
+                    state.push_log("  効果: 任意コスト 未払い → 効果は発動しない")
+                    return False
                 # 人間操作で cost が target pick (return_to_hand other_self_chara 等) を
                 # 要求し pending_choice を立てた場合、 ここで halt しないと直後の effect 実行が
                 # pending_choice を上書きし cost が踏み倒される (= ジョズ OP08-047 で「自キャラを
@@ -10947,9 +11022,7 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         if act.get("dest") == "life":
             card = me.trash.pop(ti)
             me.life.insert(0, card)  # 「ライフの上」 = top
-            me.face_up_life_count = min(
-                getattr(me, "face_up_life_count", 0) + 1, len(me.life)
-            )
+            me.life_face_up.insert(0, True)   # 公式 「**表向きで**加える」 (= モリア)
             state.push_log(f"  効果: {card.name} をライフの上に表向きで加えた (= モリア)")
         else:
             # 登場: 既存 play_from_trash の picks 解決 path を 再利用 (or_to_life は外す)
@@ -11704,12 +11777,17 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         for i in range(actual_depth):
             if i not in seen_set:
                 ordered.append(i)
-        new_seen = [seen[i] for i in ordered]
-        target_pl.life = new_seen + rest
+        _fseen = target_pl.life_face_up[:actual_depth]
+        _frest = target_pl.life_face_up[actual_depth:]
+        _life_set_pairs(
+            target_pl,
+            [(seen[i], _fseen[i]) for i in ordered] + list(zip(rest, _frest)),
+        )
         # scry_all_life_one_to_deck: 並べ替えた1枚目をデッキへ(top/bottom)、 残りをライフに。
         one_to_deck = choice.get("one_to_deck")
         if one_to_deck and target_pl.life:
             top = target_pl.life.pop(0)
+            target_pl.life_face_up.pop(0)  # ライフと同じ位置の表向きフラグも取り出す
             if one_to_deck == "bottom":
                 target_pl.deck.append(top)
             else:
@@ -11782,11 +11860,13 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         d = min(depth, len(target_pl.life))
         seen = target_pl.life[:d]
         rest = target_pl.life[d:]
+        _sp = list(zip(seen, target_pl.life_face_up[:d]))
+        _rp = list(zip(rest, target_pl.life_face_up[d:]))
         if position == 1:
-            target_pl.life = rest + seen
+            _life_set_pairs(target_pl, _rp + _sp)
             pos_label = "下"
         else:
-            target_pl.life = seen + rest
+            _life_set_pairs(target_pl, _sp + _rp)
             pos_label = "上"
         owner_label = "自" if target_pl is me else "相手"
         state.push_log(
@@ -11971,6 +12051,7 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         elif destination == "life":
             # 「ライフの上に加える」 (= OP16-119 ティーチ)。 裏向き (life 既定)。
             me.life.insert(0, c)
+            me.life_face_up.insert(0, False)  # 既定は裏向き
             state.push_log(f"  効果: 人間選択 → ライフ上に加える ({len(me.life)} 枚)")
         elif destination == "trash":
             # 「〜枚をトラッシュに置く」 (= OP03-083 コルギー等)。 picked を直接 trash へ。
@@ -12501,6 +12582,66 @@ def fire_self_life_to_hand(state: GameState, me: Player) -> None:
     _maybe_resolve(state)
 
 
+def _life_set_pairs(pl, pairs) -> None:
+    """ライフを (card, face_up) の組で **まとめて置き換える**。
+
+    ⚠ `pl.life = [...]` だけ書くと `Player.__setattr__` が `life_face_up` を全裏向きに
+      張り直すので、 **表向きのライフを並べ替えると表向きが消える**。 並べ替え/抜き取りを
+      伴う primitive (scry 系) は必ずこの helper を通す (2026-08-11、 per-card 化で判明)。
+    """
+    pl.life = [c for c, _ in pairs]
+    pl.life_face_up = [bool(f) for _, f in pairs]
+
+
+def _life_card_to_hand(state, owner_pl, card, face_up: bool) -> bool:
+    """ライフから離れた 1 枚を **手札に加える**。 実際に加わったら True。
+
+    ⭐ 「ルール上、 自分の表向きのライフは 手札に加わる **代わりに** デッキの下に置かれる」
+      (ST13-003 モンキー・D・ルフィ(L)、 公式 cardqa_st_13)。 これは 「ライフ→手札」 全般に
+      かかるルール置換なので、 ダメージ経路だけでなく **効果でライフを手札に加える経路**
+      でも効く。 置換が起きた札は 「手札に加わっていない」 = コストとしては **未払い**。
+    """
+    if face_up and getattr(owner_pl, "face_up_life_to_deck_bottom", False):
+        owner_pl.deck.append(card)
+        state.push_log(
+            f"  {owner_pl.name} 表向きライフ→デッキ下 ({card.name}) "
+            f"= 手札に加わらない (ルール置換)"
+        )
+        return False
+    owner_pl.hand.append(card)
+    return True
+
+
+def _life_to_hand_cost_payable(me, n: int, from_ends: bool = False) -> bool:
+    """「ライフ N 枚を手札に加える」 を **発動コスト** として払えるか。
+
+    ⭐ ST13-003 下の表向きライフは手札に加わらない (デッキの下へ) ので、 **コストにできない**
+      (公式 4-10: 支払えないコストの効果は発動できない)。 素の 「ライフ上から N 枚」 は上から
+      順に取るので上 N 枚が対象、 `life_top_or_bottom_to_hand` は上下どちらの端からでも取れる。
+
+    ⚠ 「できる：」 型 (overlay の optional_cost_then) には **使わない**。 そちらは公式が
+      「デッキの下に置くことはできますが、 コストとして支払えていない為、 何も起きません」
+      = **札は動いてから未払いになる** と裁定しているので、 事前に弾いてはいけない。
+    """
+    if len(me.life) < n:
+        return False
+    if not getattr(me, "face_up_life_to_deck_bottom", False):
+        return True
+    flags = list(me.life_face_up)
+    if not from_ends:
+        return not any(flags[:n])
+    lo, hi = 0, len(flags) - 1
+    got = 0
+    while got < n and lo <= hi:
+        if not flags[lo]:
+            lo += 1; got += 1
+        elif not flags[hi]:
+            hi -= 1; got += 1
+        else:
+            break
+    return got >= n
+
+
 def _fire_opp_life_left_by_effect(
     state: GameState, me: Player, opp: Player, n: int, dest: str
 ) -> None:
@@ -12576,25 +12717,18 @@ def evaluate_static_effects(
     leader / characters / stages すべてを走査対象にする (ステージ永続効果対応)。
     state.effects_overlay に変更があった場合や、ドン付与・キャラ登場・KO 後に呼ぶ。
     """
-    # ⚠ 表向きライフ枚数の正規化 (2026-08-04)。 face_up_life_count は **増やす側も読む側も**
-    #   `min(..., len(life))` で clamp していたが、 **ライフが減る時に減らしていなかった**。
-    #   ライフ 1 (表向き 1) → ダメージで 0 になっても 1 のまま残り、 後で put_top_to_life 等で
-    #   ライフが増えると **新しく置いた裏向きのライフを表向きと誤認** する潜在バグだった。
-    #   読み出しが clamp されているため挙動には出にくいが、 値は canonical state (digest 対象) の
-    #   一部なので 「壊れた状態」 そのもの。 Rust 側の保存則チェック (INV-face-up-life) が検出した
-    #   = 差分検証では見えない (両エンジンが同じ間違いをしていた) クラス。
-    #   静的再計算は両エンジンが同じ場所で回すので、 ここで正規化すれば bit 一致も保たれる。
-    for _p in state.players:
-        _fu = int(getattr(_p, "face_up_life_count", 0) or 0)
-        _clamped = max(0, min(_fu, len(_p.life)))
-        if _clamped != _fu:
-            _p.face_up_life_count = _clamped
+    # ⚠ 旧モデル (face_up_life_count = 表向き **枚数** だけを持つ) では 「ライフが減る時に
+    #   減らし忘れて 表向き枚数が残る」 バグがあり、 ここで clamp して正規化していた。
+    #   2026-08-11 に **per-card フラグ (life_face_up)** へ移行したので、 枚数は
+    #   フラグから導出される property になり **構造的に食い違わない** (= この正規化は不要)。
+    #   長さの同期漏れは game._recompute_static の guard が **落として** 検出する。
     if not effects_overlay:
         return
 
     # 全 InPlay の静的フラグをリセット
     for player in state.players:
         player.hand_counter_boost = None   # 手札 counter 静的ブースト (OP16-118) も毎回再評価
+        player.face_up_life_to_deck_bottom = False   # ST13-003 のルール置換 (毎回再評価)
         for ip in [player.leader, *player.characters, *player.stages]:
             ip.static_buff = 0
             ip.static_ko_immune = False
@@ -14575,7 +14709,7 @@ def _can_pay_replace_cost(
             # ⚠ 公式 「同時離脱 = 1 事象」 の dedup は cost 側でしか効かないので、 この支払は
             #   必ず cost に置く (do に書くと victim ごとに払ってしまう、 cardqa_op_15)。
             n = int(cs["life_to_hand"])
-            if len(me.life) < n:
+            if not _life_to_hand_cost_payable(me, n):
                 return False
             if getattr(me, "prevent_self_life_to_hand_until_turn_end", False):
                 return False   # OP02-023 等で 「ライフを手札に加えられない」 間は払えない
@@ -14674,6 +14808,7 @@ def _pay_replace_cost(
                 if not me.life:
                     break
                 me.trash.append(me.life.pop(0))
+                me.life_face_up.pop(0)  # ライフと同じ位置の表向きフラグも取り出す
             state.push_log(f"  離脱置換コスト: 自ライフ {n} 枚をトラッシュへ")
             continue
         if "rest_self" in cs:
@@ -14733,8 +14868,9 @@ def _pay_replace_cost(
             moved = 0
             for _ in range(n):
                 if me.life:
-                    me.hand.append(me.life.pop(0))
-                    moved += 1
+                    _c = me.life.pop(0)
+                    if _life_card_to_hand(state, me, _c, bool(me.life_face_up.pop(0))):
+                        moved += 1
             state.push_log(f"  置換コスト: ライフ{moved}枚を手札へ")
             if moved:
                 # do 版 (primitive life_to_hand) と同じく 「ライフが手札に加わった」 を発火
@@ -15402,7 +15538,7 @@ def _can_pay_activate_cost(
     # **発動できない** (= 起動メインの候補に出さない)。 ⚠ do 側に置くと 「ライフ0でもタダ撃ち」
     # になる (2026-08-11 是正、 公式テキストの 「できる：」 の前は発動コスト)。
     life_n = int(cost.get("life_to_hand", 0) or 0)
-    if life_n > 0 and len(me.life) < life_n:
+    if life_n > 0 and not _life_to_hand_cost_payable(me, life_n):
         return False
     if cost.get("rest_self"):
         # 公式 (3 弾で繰り返し): 「レストにできない」 は **レストにすることが必要な行動**
@@ -15925,8 +16061,9 @@ def _fire_activate_main_inner(
             for _ in range(life_cost_n):
                 if not me.life:
                     break
-                me.hand.append(me.life.pop(0))
-                moved += 1
+                _c = me.life.pop(0)
+                if _life_card_to_hand(state, me, _c, bool(me.life_face_up.pop(0))):
+                    moved += 1
             if moved:
                 state.push_log(f"  起動メインコスト: ライフ {moved} 枚を手札へ")
                 fire_self_life_to_hand(state, me)

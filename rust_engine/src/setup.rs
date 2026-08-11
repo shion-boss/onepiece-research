@@ -81,6 +81,7 @@ pub fn setup_pre_mulligan(
             if !p.deck.is_empty() {
                 let c = p.deck.remove(0);
                 p.life.push(c);
+                p.life_face_up.push(false);  // 既定は裏向き
             }
         }
     }

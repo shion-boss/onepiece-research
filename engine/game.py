@@ -213,6 +213,7 @@ def _place_life_and_draw(state: GameState) -> None:
         for _ in range(p.leader.card.life):
             if p.deck:
                 p.life.append(p.deck.pop(0))
+                p.life_face_up.append(False)  # 既定は裏向き
     for p in state.players:
         p.draw(5)
 
@@ -462,6 +463,21 @@ def _recompute_static(state: GameState) -> None:
     overlay の有無に関わらず、所有者ターンフラグ (DON+1000 ゲート用) は更新する。
     """
     _update_ownership_flags(state)
+    # ⭐ ライフの per-card 表向きフラグ (life_face_up) が life と食い違っていないか検査する。
+    #   ⚠ **黙って埋めない**。 埋めると 「表向きだったはずの札が裏向きになる」 誤りを隠すので、
+    #     アクション境界で落として同期漏れの箇所を必ず露出させる (2026-08-11 の per-card 化)。
+    #     env ONEPIECE_LIFE_FLAG_LAX=1 で警告のみに落とせる (外部ツールの緊急退避用)。
+    for _p in state.players:
+        if len(_p.life_face_up) != len(_p.life):
+            import os as _os
+            _msg = (f"life_face_up desync: {_p.name} life={len(_p.life)} "
+                    f"flags={len(_p.life_face_up)} (= ライフを操作した箇所が "
+                    f"life_face_up を同期していない)")
+            if _os.environ.get("ONEPIECE_LIFE_FLAG_LAX"):
+                state.push_log("  ⚠ " + _msg)
+                _p.life_sync_flags()
+            else:
+                raise AssertionError(_msg)
     if state.effects_overlay:
         from .effects import evaluate_static_effects
         evaluate_static_effects(state, state.effects_overlay)
@@ -1909,6 +1925,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     state.push_log(f"  ライフ尽きた、残り {damage} 発目以降は空打ち")
                     break
                 taken = opp.life.pop(0)
+                taken_face_up = bool(opp.life_face_up.pop(0))  # この 1 枚が表向きだったか
                 opp.life_lost_this_turn = True
                 if is_banish:
                     opp.trash.append(taken)
@@ -1929,6 +1946,10 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                         e.get("when") == "trigger"
                         for e in state.effects_overlay[taken.card_id].effects
                     )
+                    # ST13-003 下の表向きライフは手札に加わらない = 【トリガー】は選べない。
+                    # 人間に 「使いますか？」 と訊いてから握り潰さないようにする。
+                    and not (taken_face_up
+                             and getattr(opp, "face_up_life_to_deck_bottom", False))
                 )
                 if is_human_defender:
                     # 残 damage 計算 (= 既 消化 + 残)
@@ -1943,8 +1964,12 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                         "is_banish": is_banish,
                         "taken_card_id": taken.card_id,
                     }
-                    # taken を 一旦 life の 0 番目 に 戻す (= resolve で 再 pop)
+                    # taken を 一旦 life の 0 番目 に 戻す (= resolve で 再 pop)。
+                    # ⚠ **表向きフラグも元のまま戻す**。 ここで裏向きに潰すと ST13-003 の
+                    #   ルール置換 (表向き→デッキ下 / 【トリガー】不発) が 人間 defender の
+                    #   確認 pause を通った時だけ効かなくなる。
                     opp.life.insert(0, taken)
+                    opp.life_face_up.insert(0, taken_face_up)
                     state.pending_choice = {
                         "kind": "life_taken_choice",
                         "card_id": taken.card_id,
@@ -1965,7 +1990,8 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 #   ライフが 2 枚離れても attacker 側の when は 1 回だけ発火させる (2026-08-11 是正、
                 #   従来は hit ごとに発火し OP03-041 ウソップ が 7 枚→14 枚 mill していた)。
                 _resolve_life_taken(state, me, opp, taken,
-                                    fire_opp_life_taken=(_hit_i == 0))
+                                    fire_opp_life_taken=(_hit_i == 0),
+                                    taken_face_up=taken_face_up)
         else:
             state.push_log("  blocked")
         # 公式 7-1-5-1: バトル終了時に「このバトル中」効果をリセット
@@ -2320,6 +2346,7 @@ def _resolve_life_taken(
     use_trigger: Optional[bool] = None,
     by_effect: bool = False,
     fire_opp_life_taken: bool = True,
+    taken_face_up: bool = False,
 ) -> None:
     """1 hit 分 の life→hand / trigger 処理。
 
@@ -2348,6 +2375,27 @@ def _resolve_life_taken(
     #   ⭐ **発火は この関数の末尾** (= ライフ処理が終わってから)。 ここで即発火すると
     #     非ターンプレイヤーの効果が 【トリガー】 より先に解決してしまう (下記 fire_zero)。
     fire_zero = bool(not opp.life and state.effects_overlay)
+    # ⭐ 「ルール上、 自分の表向きのライフは **手札に加わる代わりにデッキの下** に置かれる」
+    #   (ST13-003 モンキー・D・ルフィ(L))。 【トリガー】は 「ライフを手札に加える代わりに公開して
+    #   効果を発動する」 置換 (公式 10-1-5) なので、 手札に加わらない = **発動できない**
+    #   (公式 cardqa_st_13: 「自分の表向きのライフの【トリガー】効果は発動できますか？」 → 「いいえ」)。
+    #   ⚠ 「この 1 枚が表向きだったか」 は呼出側 (damage ループ) が取り出したフラグで判る。
+    if taken_face_up and getattr(opp, "face_up_life_to_deck_bottom", False):
+        opp.deck.append(taken)
+        state.push_log(
+            f"  hit: {opp.name} 表向きライフ→デッキ下 ({taken.name}) "
+            f"= ルール置換のため【トリガー】は発動しない"
+        )
+        if state.effects_overlay:
+            from .effects import trigger_on_opp_life_taken
+            trigger_on_opp_life_taken(
+                state, me, opp, False, state.effects_overlay,
+                fire_attacker_side=fire_opp_life_taken,
+            )
+        if fire_zero and state.effects_overlay:
+            from .effects import trigger_on_life_zero
+            trigger_on_life_zero(state, opp, me, state.effects_overlay)
+        return
     fired = False
     kept_in_hand = False
     played_self = False
@@ -2471,8 +2519,10 @@ def resume_pending_attack_hit(state: GameState, use_trigger: bool) -> None:
         _reset_battle_buffs(state)
         return
     taken = opp.life.pop(0)
+    taken_face_up = bool(opp.life_face_up.pop(0))  # この 1 枚が表向きだったか
     state.pending_attack_hits = None
-    _resolve_life_taken(state, me, opp, taken, use_trigger=use_trigger)
+    _resolve_life_taken(state, me, opp, taken, use_trigger=use_trigger,
+                        taken_face_up=taken_face_up)
     # バトル終了時 (7-1-5-1): 人間 defender の pause 経路で skip された battle 効果リセットを補完
     _reset_battle_buffs(state)
 

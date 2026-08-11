@@ -582,38 +582,54 @@ def test_no_card_uses_self_ko_cost_against_official_text():
 #       Rust の保存則チェック (INV-face-up-life) が検出 = 両エンジンが同じ間違いをしていて
 #       差分検証では原理的に見えなかったクラス ([[reference_rust_mismatch_root_cause_taxonomy]])。
 # --------------------------------------------------------------------------- #
-def test_face_up_life_never_exceeds_life_count():
-    """ライフが減ったら表向き枚数もそれ以下に正規化される。"""
+def test_face_up_life_is_tracked_per_card():
+    """表向きライフは **1 枚ごと** に追跡される (枚数だけのモデルではない)。
+
+    ⭐ 2026-08-11 に per-card 化。 旧モデルは 「表向きは上から N 枚」 という **枚数だけ** を持ち、
+    ライフが減っても減らし忘れる / 並べ替えで位置がずれる といった壊れ方をした。
+    公式 (cardqa_st_13 / ST13-003 ルフィ 「ルール上、 自分の表向きのライフは手札に加わる代わりに
+    デッキの下に置かれる」) を再現するには **どの札が表向きか** が要る。
+    ⚠ 「上から N 枚」 の近似は使えない: ST13-012 マキノ 「自分のライフすべてを見て、 好きな順番で
+      置く」 が全体を並べ替えるため。
+    """
     repo, overlay = _repo(), _overlay()
     st = _state(repo, overlay)
     me = st.players[0]
+
+    # 3 枚のうち **真ん中だけ** 表向き (= 位置ベースでは表せない状態)
+    me.life = [repo.get(_FILLER) for _ in range(3)]
+    me.life_face_up = [False, True, False]
+    assert me.face_up_life_count == 1
+
+    # ライフが尽きても 「表向き枚数」 は構造的に 0 (= 導出値なのでずれようがない)
+    me.life = []
+    assert me.face_up_life_count == 0, "ライフ 0 なのに表向きが残っている"
+
+    # 積み直したライフは裏向き (= 古い表向き情報が引き継がれない)
     me.life = [repo.get(_FILLER)]
-    me.face_up_life_count = 1
-
-    me.life.clear()                       # ダメージ等でライフが尽きた状況
-    evaluate_static_effects(st, overlay)  # = 両エンジンが回す正規化フック
-
-    assert me.face_up_life_count == 0, (
-        f"ライフ 0 なのに表向き {me.face_up_life_count} 枚が残っている"
-    )
+    assert me.face_up_life_count == 0, "新しく置いた裏向きのライフが表向き扱いになっている"
+    assert len(me.life_face_up) == len(me.life), "フラグ長がライフ枚数と一致していない"
 
 
-def test_stale_face_up_does_not_mark_new_life_as_face_up():
-    """ライフが再び増えた時、 古い表向きカウントが新しい裏向きライフを表向きにしない。"""
+def test_life_face_up_desync_is_loud():
+    """`life` と `life_face_up` の長さが食い違ったら **アクション境界で落とす**。
+
+    ⚠ 黙って埋めると 「表向きだったはずの札が裏向きになる」 誤りを隠す
+    ([[project_approximation_hides_bugs]])。 同期漏れは必ず露出させる。
+    """
+    from engine.game import _recompute_static
     repo, overlay = _repo(), _overlay()
     st = _state(repo, overlay)
     me = st.players[0]
-    me.life = [repo.get(_FILLER)]
-    me.face_up_life_count = 1
-    me.life.clear()
-    evaluate_static_effects(st, overlay)          # ここで 0 に正規化される
-
-    me.life.append(repo.get(_FILLER))             # 効果でライフを 1 枚積み直す (裏向き)
-    evaluate_static_effects(st, overlay)
-    assert me.face_up_life_count == 0, (
-        "新しく置いた裏向きのライフが表向き扱いになっている"
-        f" (face_up={me.face_up_life_count})"
-    )
+    me.life = [repo.get(_FILLER) for _ in range(3)]
+    _recompute_static(st)                     # 正常時は通る
+    me.life.append(repo.get(_FILLER))         # フラグを更新し忘れた操作を再現
+    try:
+        _recompute_static(st)
+    except AssertionError as e:
+        assert "life_face_up desync" in str(e)
+    else:
+        raise AssertionError("同期漏れが検出されていない (黙って通っている)")
 
 
 # --------------------------------------------------------------------------- #
@@ -1448,7 +1464,8 @@ def _opt_cost_board(repo, ov, card_id: str, opp_hand: int, *, face_up_life: int 
         p.life = [repo.get("OP01-013")] * 3
     p0.trash = [repo.get("OP01-013")] * 4
     p0.don_active = 8
-    p0.face_up_life_count = face_up_life
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    p0.life_face_up = [i < (face_up_life) for i in range(len(p0.life))]
     st = GameState(players=[p0, p1], phase=Phase.MAIN,
                    rng=random.Random(1), effects_overlay=ov)
     st.turn_player_idx, st.turn_number = 0, 5
@@ -9364,3 +9381,194 @@ def test_damage_dealt_trigger_fires_once_per_attack():
         "【ダブルアタック】で 2 回発動している "
         f"(mill={milled(True)} 枚、 公式は 1 回のみ = 7 枚)"
     )
+
+
+def test_st13_003_face_up_life_goes_to_deck_bottom_and_blocks_trigger():
+    """ST13-003 ルフィ(L): 表向きライフは **手札に加わる代わりにデッキの下** = 【トリガー】不発。
+
+    一次情報 (cardqa_st_13): 「自分のリーダーがこのカードの場合、 自分の表向きのライフの
+    【トリガー】効果は発動できますか？」 → 「**いいえ、 発動できません**」
+    根拠: 【トリガー】は 「ライフを手札に加える代わりに公開して効果を発動する」 置換 (公式 10-1-5)。
+    手札に加わらない (= デッキの下へ行く) なら その置換自体が起きない。
+
+    ⚠ この再現には ライフの **per-card 表向きフラグ** が要る (2026-08-11 に移行)。
+      「表向きは上から N 枚」 の近似では ST13-012 マキノ の並べ替えで壊れる。
+    """
+    import engine.effects as _E
+    repo, overlay = _repo(), _overlay()
+    _orig = _E.should_fire_trigger
+    _E.should_fire_trigger = lambda *a, **k: True
+    try:
+        def run(leader_id: str, face_up: bool):
+            st = _state(repo, overlay, leader1=leader_id)
+            me, opp = st.players[0], st.players[1]
+            atk = InPlay.of(repo.get("EB01-018_p1"), sickness=False)
+            me.characters = [atk]
+            opp.life = [repo.get("OP07-057")]      # 無条件 draw の【トリガー】持ち
+            opp.life_face_up = [face_up]
+            opp.deck = [repo.get(_FILLER)] * 20
+            opp.hand, opp.trash = [], []
+            evaluate_static_effects(st, overlay)
+            deck0 = len(opp.deck)
+            apply_action(st, AttackLeader(attacker_iid=atk.instance_id), overlay)
+            while st.pending_choice is not None:
+                resolve_pending_choice(st, [0])
+            return len(opp.hand), len(opp.deck) - deck0, len(opp.trash)
+
+        hand_n, deck_d, trash_n = run("ST13-003", True)
+        assert (hand_n, deck_d, trash_n) == (0, 1, 0), (
+            f"表向きライフがデッキの下に行っていない / トリガーが発動している "
+            f"(hand={hand_n} deck差={deck_d} trash={trash_n})"
+        )
+        # 対照: 裏向きなら通常どおり【トリガー】が発動する
+        hand_n2, deck_d2, trash_n2 = run("ST13-003", False)
+        assert deck_d2 == -1 and trash_n2 == 1, "裏向きライフの【トリガー】まで止めている"
+        # 対照: 通常リーダーなら表向きでも通常どおり
+        hand_n3, deck_d3, _ = run("OP01-001", True)
+        assert deck_d3 == -1, "ST13-003 以外のリーダーにまでルール置換が効いている"
+    finally:
+        _E.should_fire_trigger = _orig
+
+
+def test_st13_003_blocks_life_to_hand_cost_payment():
+    """ST13-003 下では 「ライフ1枚を **手札に加える**」 コストが **支払えない**。
+
+    一次情報 (cardqa_st_13): ST13-012 マキノ 「【登場時】自分のライフの上か下から1枚を手札に
+    加えることができる：自分のライフすべてを見て、 好きな順番で置く」 との相互作用
+    → 「デッキの下に置くことはできますが、 **コストとして…支払えていない為、 何も起きません**」
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def run(leader_id: str, flags: list[bool]):
+        st = _state(repo, overlay, leader0=leader_id)
+        me, opp = st.players[0], st.players[1]
+        me.life = [repo.get("OP01-016"), repo.get("OP01-022"), repo.get(_FILLER)]
+        me.life_face_up = list(flags)
+        me.hand, me.deck = [], [repo.get(_FILLER)] * 10
+        evaluate_static_effects(st, overlay)
+        makino = InPlay.of(repo.get("ST13-012"), sickness=True)
+        me.characters = [makino]
+        log0, deck0 = len(st.log), len(me.deck)
+        trigger_on_play(st, me, opp, makino, overlay)
+        resolve_triggers(st)
+        while st.pending_choice is not None:
+            resolve_pending_choice(st, [0])
+            resolve_triggers(st)
+        reordered = any("並べ替え" in l for l in st.log[log0:])
+        return len(me.hand), len(me.deck) - deck0, reordered
+
+    hand_n, deck_d, reordered = run("ST13-003", [True, True, True])
+    assert hand_n == 0 and deck_d == 1, "表向きライフがデッキの下に行っていない"
+    assert not reordered, (
+        "コストを支払えていないのに効果 (ライフの並べ替え) が実行されている "
+        "(公式: 「何も起きません」)"
+    )
+    # 対照: 裏向きなら払えて効果も走る
+    hand_n2, deck_d2, reordered2 = run("ST13-003", [False, False, False])
+    assert hand_n2 == 1 and deck_d2 == 0 and reordered2, "裏向きライフでも払えなくなっている"
+
+
+def test_st13_003_hard_life_cost_is_unpayable_and_moves_nothing():
+    """ST13-003 下では 「ライフ1枚を手札に加える：」 型の **硬いコスト** は そもそも発動できない。
+
+    ⚠ ST13-012 マキノ (「加えることが**できる**：」) との **書き分け**:
+      公式 (cardqa_st_13) は マキノ について 「デッキの下に置くことはできますが、 コストとして
+      支払えていない為、 何も起きません」 = **札は動く**。 一方 コロン前が任意でない硬いコストは
+      公式 4-10 (支払えないコストは払えない) で **発動自体ができない** = 札も動かない。
+      同じ 「ライフ→手札」 でも結果が違うので、 payability を一律にしてはいけない。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def offers(leader_id: str, flags: list[bool]):
+        st = _state(repo, overlay, leader0=leader_id)
+        me = st.players[0]
+        me.life = [repo.get(_FILLER)] * 3
+        me.life_face_up = list(flags)
+        evaluate_static_effects(st, overlay)
+        nami = InPlay.of(repo.get("OP01-013"), sickness=False)   # 起動メイン: ライフ1枚を手札に
+        me.characters = [nami]
+        life0, hand0 = len(me.life), len(me.hand)
+        opts = [o for o in list_activate_main_effects(st, me, overlay)
+                if o[0].card.card_id == "OP01-013"]
+        assert (len(me.life), len(me.hand)) == (life0, hand0), "列挙しただけで札が動いている"
+        return len(opts)
+
+    assert offers("ST13-003", [True, False, False]) == 0, (
+        "表向きのライフを コストとして手札に加えられないのに 起動メインが発動可能になっている"
+    )
+    assert offers("ST13-003", [False, True, True]) == 1, (
+        "上から取るのは 1 枚目 (裏向き) なので払えるはず"
+    )
+    assert offers("ST13-003", [False, False, False]) == 1, "裏向きだけなのに払えない"
+    assert offers("OP01-001", [True, True, True]) == 1, (
+        "ST13-003 以外のリーダーにまでルール置換が効いている"
+    )
+
+
+def test_st13_003_life_to_hand_effect_sends_face_up_to_deck_bottom():
+    """効果 (コストでない) の 「自分のライフ1枚を手札に加える」 も同じルール置換を受ける。
+
+    置換は 「ライフ→手札」 という **移動そのもの** にかかる (ST13-003 のテキスト)。
+    ダメージ経路だけ直して効果経路を直さないと、 同じ移動が経路で違う結果になる。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def run(leader_id: str, flags: list[bool]):
+        st = _state(repo, overlay, leader0=leader_id)
+        me = st.players[0]
+        me.life = [repo.get(_FILLER)] * 2
+        me.life_face_up = list(flags)
+        me.hand, me.deck = [], [repo.get(_FILLER)] * 5
+        evaluate_static_effects(st, overlay)
+        execute_effect({"life_to_hand": 1}, st, me, st.players[1], None)
+        return len(me.hand), len(me.deck), len(me.life)
+
+    assert run("ST13-003", [True, False]) == (0, 6, 1), "表向きライフがデッキの下に行っていない"
+    assert run("ST13-003", [False, True]) == (1, 5, 1), "裏向きライフまでデッキの下に行っている"
+    assert run("OP01-001", [True, False]) == (1, 5, 1), "無関係なリーダーで置換が効いている"
+
+
+def test_life_reorder_carries_face_up_flag_with_the_card():
+    """ライフの **並べ替え** は表向きフラグをカードと一緒に動かす。
+
+    ⭐ 2026-08-11 の per-card 化で顕在化した罠。 `pl.life = [...]` と書くと
+    `Player.__setattr__` が `life_face_up` を全裏向きに張り直すので、 **表向きの札を
+    並べ替えた瞬間に表向きが消える** (Rust 側は逆に古いフラグが残って位置がずれる)。
+    どちらも 「表向きライフ」 を参照する効果 (ST13-003 のルール置換 / しらほし系の条件) に
+    直撃するので、 位置ではなく **札** にフラグが付いていることを固定する。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    # 並べ替えキー = (トリガー有無, カウンター, パワー) 降順。
+    #   OP01-025 (0/5000) < OP01-016 (1000/2000) < _FILLER=OP01-013 (2000/3000)
+    #   → 表向きにした OP01-025 は **先頭から末尾へ動く** = 位置ベースなら必ず壊れる並び。
+    me.life = [repo.get("OP01-025"), repo.get("OP01-016"), repo.get(_FILLER)]
+    me.life_face_up = [True, False, False]
+    face_up_card = me.life[0].card_id
+
+    execute_effect({"scry_all_life_reorder": {"owner": "self"}}, st, me, st.players[1], None)
+
+    assert len(me.life) == len(me.life_face_up) == 3, "並べ替えで枚数/フラグ数が壊れた"
+    assert me.life[0].card_id != face_up_card, "テスト前提: 並べ替えで順番が変わること"
+    up = [c.card_id for c, f in zip(me.life, me.life_face_up) if f]
+    assert up == [face_up_card], (
+        f"表向きフラグがカードに追随していない (表向き={up}, 期待={[face_up_card]})"
+    )
+
+
+def test_scry_life_keeps_face_up_card_face_up():
+    """`scry_life` (上から N 枚を見て上か下に置く) でも表向きは札に追随する。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    # OP01-025 = カウンター 0 = 「不要札」 → 下へ / _FILLER = カウンター 2000 = 上へ。
+    me.life = [repo.get("OP01-025"), repo.get(_FILLER)]
+    me.life_face_up = [True, False]
+
+    execute_effect({"scry_life": {"depth": 2, "owner": "self"}}, st, me, st.players[1], None)
+
+    assert len(me.life) == len(me.life_face_up) == 2
+    assert me.life[0].card_id == _FILLER, "テスト前提: 上下が入れ替わること"
+    up = [c.card_id for c, f in zip(me.life, me.life_face_up) if f]
+    assert up == ["OP01-025"], f"表向きフラグが別の札に移っている (表向き={up})"

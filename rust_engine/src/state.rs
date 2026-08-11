@@ -436,7 +436,16 @@ pub struct Player {
     pub trash: Vec<CardDef>,
     #[serde(serialize_with = "ser_card_ids")]
     pub life: Vec<CardDef>,
-    pub face_up_life_count: i32,
+    /// ⭐ ライフ **1 枚ごと** の表向き/裏向き (= life と同じ長さ・同じ並び)。
+    /// Python `Player.life_face_up` の対 (2026-08-11 に 「枚数だけ」 モデルから移行)。
+    /// ⚠ 「表向きは上から N 枚」 の近似は使えない: ST13-012 マキノ 「ライフすべてを見て好きな
+    ///   順番で置く」 が全体を並べ替えるため。
+    #[serde(default)]
+    pub life_face_up: Vec<bool>,
+    /// 「ルール上、 自分の表向きのライフは手札に加わる代わりにデッキの下に置かれる」
+    /// (ST13-003 モンキー・D・ルフィ(L))。 静的効果なので recompute_static で毎回再計算する。
+    #[serde(default)]
+    pub face_up_life_to_deck_bottom: bool,
     pub known_hand_card_ids: Vec<String>,
     pub known_bottom_card_ids: Vec<String>,
     pub known_top_card_ids: Vec<String>,
@@ -493,6 +502,21 @@ pub struct Player {
     pub did_mulligan: bool,
     pub hand_counter_boost: Option<serde_json::Value>,
 }
+
+impl Player {
+    /// 表向きのライフ枚数 (= `life_face_up` の true の数)。 Python の property と同則。
+    /// ⚠ **書き込みは `life_face_up` を直接操作する** (枚数だけを持つ旧モデルは 2026-08-11 に廃止)。
+    pub fn face_up_life_count(&self) -> i32 {
+        self.life_face_up.iter().filter(|x| **x).count() as i32
+    }
+
+    /// `life_face_up` の長さを `life` に揃える (setup / まるごと差し替えの後に呼ぶ)。
+    pub fn life_sync_flags(&mut self) {
+        let n = self.life.len();
+        self.life_face_up.resize(n, false);
+    }
+}
+
 
 /// ゲーム状態 (core.py GameState の**ルール状態**のみ)。 AI 評価/UI/デッキメタ/human 対話は
 /// 差分対象外 (Python 側 _EXCLUDE と一致)。 last_* トリガー context は action 間では通常 None。

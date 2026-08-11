@@ -197,7 +197,8 @@ def test_op13_109_boni_replace_leave_flip_life_ai():
     st = _state(repo, "OP01-001", overlay)
     me, opp = st.players[0], st.players[1]
     me.life = [repo.get(_FILLER)] * 2
-    me.face_up_life_count = 0
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
 
     for prim in _do(overlay, "OP13-109", "replace_leave"):
         execute_effect(prim, st, me, opp,
@@ -351,7 +352,8 @@ def test_op13_114_ssnake_on_play_debuff_ai():
     st = _state(repo, "OP01-001", overlay)
     me, opp = st.players[0], st.players[1]
     me.life = [repo.get(_FILLER)] * 2
-    me.face_up_life_count = 0
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
     victim = InPlay.of(repo.get(_KAIOU), sickness=False)  # pow6000
     opp.characters = [victim]
 
@@ -373,7 +375,8 @@ def test_op13_114_ssnake_on_play_human_optional_confirm():
     st = _state(repo, "OP01-001", overlay, human_idx=0)
     me, opp = st.players[0], st.players[1]
     me.life = [repo.get(_FILLER)] * 2
-    me.face_up_life_count = 0
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
     victim = InPlay.of(repo.get(_KAIOU), sickness=False)  # pow6000
     opp.characters = [victim]
 
@@ -534,7 +537,8 @@ def test_op13_117_event_main_ko_cost_le6_ai():
     st = _state(repo, "OP01-001", overlay)
     me, opp = st.players[0], st.players[1]
     me.life = [repo.get(_FILLER)] * 2
-    me.face_up_life_count = 0
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
     victim = InPlay.of(repo.get(_COST3), sickness=False)  # cost3 (= ≤6)
     opp.characters = [victim]
 
@@ -553,7 +557,8 @@ def test_op13_117_event_main_ko_human_optional_confirm():
     st = _state(repo, "OP01-001", overlay, human_idx=0)
     me, opp = st.players[0], st.players[1]
     me.life = [repo.get(_FILLER)] * 2
-    me.face_up_life_count = 0
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
     victim = InPlay.of(repo.get(_COST3), sickness=False)
     opp.characters = [victim]
 

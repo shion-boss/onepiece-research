@@ -273,7 +273,8 @@ def test_flip_life_face_down_primitive():
     st = _state(repo, "OP10-099", {})
     me = st.players[0]
     me.life = [repo.get("OP01-013")] * 3
-    me.face_up_life_count = 2  # 事前に 2 枚表向き
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ  # 事前に 2 枚表向き
+    me.life_face_up = [i < (2) for i in range(len(me.life))]
 
     from engine.effects import _pay_counter_cost
     _pay_counter_cost(st, me, st.players[1], me.leader,
@@ -287,7 +288,8 @@ def test_flip_life_face_up_primitive():
     st = _state(repo, "OP10-099", {})
     me = st.players[0]
     me.life = [repo.get("OP01-013")] * 3
-    me.face_up_life_count = 0  # 全部裏向き (= 通常)
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ  # 全部裏向き (= 通常)
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
 
     from engine.effects import _pay_counter_cost
     _pay_counter_cost(st, me, st.players[1], me.leader,
@@ -304,13 +306,15 @@ def test_flip_life_cost_payability_bounds():
     me.life = [repo.get("OP01-013")] * 2
 
     # face_up=0 → 裏向きにできる表向きが無い → flip_face_down 不能
-    me.face_up_life_count = 0
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
     assert not _can_pay_counter_cost(st, me, me.leader, {"flip_life_face_down": True})
     # 表向きにできる裏向きはある → flip_face_up 可
     assert _can_pay_counter_cost(st, me, me.leader, {"flip_life_face_up": True})
 
     # face_up=2 (全表向き) → 裏向きにできる → flip_face_down 可 / 表向きにする裏が無い
-    me.face_up_life_count = 2
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (2) for i in range(len(me.life))]
     assert _can_pay_counter_cost(st, me, me.leader, {"flip_life_face_down": True})
     assert not _can_pay_counter_cost(st, me, me.leader, {"flip_life_face_up": True})
 
@@ -396,7 +400,8 @@ def test_st36_005_activate_main_flip_up_attach_rested_don_ai():
     kid = _kid_char(repo)
     me.characters = [kid]
     me.life = [repo.get("OP01-013")] * 3
-    me.face_up_life_count = 0        # 裏向き (= 表にできる)
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ        # 裏向き (= 表にできる)
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
     me.don_rested = 2                # レストドン供給源
 
     fu_before = me.face_up_life_count
@@ -427,7 +432,8 @@ def test_st36_005_activate_main_once_per_turn():
     kid = _kid_char(repo)
     me.characters = [kid]
     me.life = [repo.get("OP01-013")] * 3
-    me.face_up_life_count = 0
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
     me.don_rested = 3
 
     opts1 = [o for o in list_activate_main_effects(st, me, overlay)
@@ -450,7 +456,8 @@ def test_st36_005_activate_main_human_flip_confirm():
     kid = _kid_char(repo)
     me.characters = [kid]
     me.life = [repo.get("OP01-013")] * 3
-    me.face_up_life_count = 0
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
     me.don_rested = 2
 
     opts = [o for o in list_activate_main_effects(st, me, overlay)
@@ -482,7 +489,8 @@ def test_st36_005_activate_main_human_decline():
     kid = _kid_char(repo)
     me.characters = [kid]
     me.life = [repo.get("OP01-013")] * 3
-    me.face_up_life_count = 0
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
     me.don_rested = 2
 
     opts = [o for o in list_activate_main_effects(st, me, overlay)

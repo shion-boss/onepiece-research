@@ -201,7 +201,8 @@ def test_op08_075_main_rest_and_flip_life_ai():
     st = _state(repo, overlay=overlay)
     me, opp = st.players[0], st.players[1]
     me.life = [repo.get("OP01-013")] * 3
-    me.face_up_life_count = 3
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (3) for i in range(len(me.life))]
     victim = InPlay.of(repo.get("OP01-016"), sickness=False)  # ナミ cost1 <= 2
     victim.rested = False
     opp.characters = [victim]
@@ -221,7 +222,8 @@ def test_op08_075_main_human_rest_pick():
     st = _state(repo, overlay=overlay, human_idx=0)
     me, opp = st.players[0], st.players[1]
     me.life = [repo.get("OP01-013")] * 2
-    me.face_up_life_count = 2
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (2) for i in range(len(me.life))]
     a = InPlay.of(repo.get("OP01-016"), sickness=False)  # cost1
     b = InPlay.of(repo.get("OP01-013"), sickness=False)  # cost2
     a.rested = False

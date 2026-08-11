@@ -284,11 +284,13 @@ pub fn check_invariants(st: &GameState, base: &[(usize, i32, u64); 2], ctx: &str
             note_violation("INV-attached-negative", format!("p{i} ({ctx})"));
             n += 1;
         }
-        // 表向きライフは 0 以上 かつ ライフ枚数以下 (公式: ライフの一部を表向きにする効果群)
-        if p.face_up_life_count < 0 || p.face_up_life_count > p.life.len() as i32 {
+        // ⭐ per-card 化 (2026-08-11) で 「表向き枚数 ≤ ライフ枚数」 は導出値ゆえ自明になった。
+        //   代わりに **フラグ列の長さがライフと一致しているか** を保存則として見る
+        //   (= 同期漏れがあれば 「表向きだったはずの札が裏向きになる」 = 黙って壊れる)。
+        if p.life_face_up.len() != p.life.len() {
             note_violation(
                 "INV-face-up-life",
-                format!("p{i} face_up={} / life={} ({ctx})", p.face_up_life_count, p.life.len()),
+                format!("p{i} flags={} / life={} ({ctx})", p.life_face_up.len(), p.life.len()),
             );
             n += 1;
         }

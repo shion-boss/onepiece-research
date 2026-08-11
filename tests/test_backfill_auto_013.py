@@ -555,7 +555,8 @@ def test_eb03_051_smoothie_on_play_ko_and_life_face_down_ai():
     st = _state(repo, "OP01-001", overlay)
     me, opp = st.players[0], st.players[1]
     me.life = [repo.get("ST01-004")] * 2
-    me.face_up_life_count = 2  # 表向き 2 枚 (= 条件成立)
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ  # 表向き 2 枚 (= 条件成立)
+    me.life_face_up = [i < (2) for i in range(len(me.life))]
     victim = InPlay.of(repo.get("EB01-017"), sickness=False)  # cost2
     opp.characters = [victim]
 
@@ -574,10 +575,12 @@ def test_eb03_051_smoothie_has_face_up_life_condition():
     st = _state(repo, "OP01-001", overlay)
     me, _opp = st.players[0], st.players[1]
     me.life = [repo.get("ST01-004")] * 2
-    me.face_up_life_count = 0
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
     assert eval_condition({"has_face_up_life": True}, st, me) is False, \
         "表向きライフ0で has_face_up_life が成立してはいけない"
-    me.face_up_life_count = 1
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (1) for i in range(len(me.life))]
     assert eval_condition({"has_face_up_life": True}, st, me) is True, \
         "表向きライフ1で has_face_up_life が成立していない"
 
@@ -589,7 +592,8 @@ def test_eb03_051_smoothie_on_play_cost3_survives():
     st = _state(repo, "OP01-001", overlay)
     me, opp = st.players[0], st.players[1]
     me.life = [repo.get("ST01-004")] * 2
-    me.face_up_life_count = 2
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (2) for i in range(len(me.life))]
     big = InPlay.of(repo.get("EB02-029"), sickness=False)  # cost3
     opp.characters = [big]
 

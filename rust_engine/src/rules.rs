@@ -632,6 +632,19 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
 /// action を state に適用 (副作用)。 Python apply_action ラッパ相当: impl 後に _recompute_static の
 /// ownership 部分を反映 (静的効果 eval は R3)。
 pub fn apply_action(state: &mut GameState, action: &Value) -> Result<(), String> {
+    // ⛔ ST13-003 モンキー・D・ルフィ(L) の 「ルール上、 自分の表向きのライフは手札に加わる
+    //    代わりにデッキの下に置かれる」 は、 Python 側だけ実装済 (【トリガー】不発 /
+    //    「ライフを手札に」 コストが未払いになる、 公式 cardqa_st_13)。 Rust に同じ置換を
+    //    通す場所が (ダメージ経路 / 各種コスト payability / 各 primitive) と広く、 まだ
+    //    移していない。 **黙って乖離させない** ため、 置換が効きうる盤面に入ったら明示 bail。
+    //    ⚠ 「表向きのライフが実際に 1 枚でもある」 時だけなので、 通常の ST13-003 戦は素通りする。
+    if state
+        .players
+        .iter()
+        .any(|p| p.face_up_life_to_deck_bottom && p.life_face_up.iter().any(|f| *f))
+    {
+        return Err("ST13-003 表向きライフ→デッキ下 未対応".into());
+    }
     let r = apply_action_impl(state, action);
     if r.is_ok() {
         recompute_static(state); // ownership + 静的効果 (Python _recompute_static)
@@ -1110,7 +1123,13 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     if state.players[opp].life.is_empty() {
                         break;
                     }
+                    let taken_face_up = state.players[opp].life_face_up.remove(0);
                     let taken = state.players[opp].life.remove(0);
+                    // ⚠ 「表向きライフは手札に加わる代わりにデッキの下」 (ST13-003) は Python 側
+                    //   だけ実装済 (【トリガー】も発動できない)。 Rust は未実装なので明示 bail。
+                    if taken_face_up && state.players[opp].face_up_life_to_deck_bottom {
+                        return Err("ST13-003 表向きライフ→デッキ下 未対応".into());
+                    }
                     state.players[opp].life_lost_this_turn = true;
                     // ⭐ 公式 (cardqa_op_05 / OP05-098 エネル): 「自分のライフが0枚になった時」 は
                     //   **0 になった瞬間の事象**。 この後 ライフ札の【トリガー】でライフが戻っても

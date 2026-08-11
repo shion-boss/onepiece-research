@@ -647,7 +647,8 @@ def test_op11_100_otohime_on_play_draw_when_shirahoshi_ai():
     st = _state(repo, _SHIRAHOSHI, overlay)
     me, opp = st.players[0], st.players[1]
     me.life = [repo.get(_FILLER)] * 3
-    me.face_up_life_count = 1   # 表向きライフ 1 枚 (= 裏向きコストが払える)
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ   # 表向きライフ 1 枚 (= 裏向きコストが払える)
+    me.life_face_up = [i < (1) for i in range(len(me.life))]
     me.deck = [repo.get(_FILLER)] * 5
     src = InPlay.of(repo.get("OP11-100"), sickness=True)
     me.characters = [src]
@@ -668,7 +669,8 @@ def test_op11_100_otohime_on_play_no_effect_when_wrong_leader():
     st = _state(repo, _NEUTRAL, overlay)  # 非しらほし
     me, opp = st.players[0], st.players[1]
     me.life = [repo.get(_FILLER)] * 3
-    me.face_up_life_count = 1
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (1) for i in range(len(me.life))]
     me.deck = [repo.get(_FILLER)] * 5
     src = InPlay.of(repo.get("OP11-100"), sickness=True)
     me.characters = [src]
@@ -687,7 +689,8 @@ def test_op11_100_otohime_on_play_human_optional_confirm():
     st = _state(repo, _SHIRAHOSHI, overlay, human_idx=0)
     me, opp = st.players[0], st.players[1]
     me.life = [repo.get(_FILLER)] * 3
-    me.face_up_life_count = 1
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (1) for i in range(len(me.life))]
     me.deck = [repo.get(_FILLER)] * 5
     src = InPlay.of(repo.get("OP11-100"), sickness=True)
     me.characters = [src]

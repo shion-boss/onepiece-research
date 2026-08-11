@@ -244,7 +244,8 @@ def test_eb03_056_bellobetty_on_play_ko_cost3_ai():
     st = _state(repo, "OP01-001", overlay)
     me, opp = st.players[0], st.players[1]
     me.life = [repo.get("OP01-013")] * 2
-    me.face_up_life_count = 0
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
     victim = InPlay.of(repo.get("EB02-029"), sickness=False)  # cost3
     opp.characters = [victim]
 
@@ -264,7 +265,8 @@ def test_eb03_056_bellobetty_on_play_human_confirm():
     st = _state(repo, "OP01-001", overlay, human_idx=0)
     me, opp = st.players[0], st.players[1]
     me.life = [repo.get("OP01-013")] * 2
-    me.face_up_life_count = 0
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
     victim = InPlay.of(repo.get("EB02-029"), sickness=False)  # cost3
     opp.characters = [victim]
 

@@ -464,7 +464,7 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                 src.and_then(|sl| src_ip(me, sl)).map_or(false, |ip| ip.attached_dons as i64 >= n)
             }
             "has_face_up_life" => {
-                let present = me.face_up_life_count.min(me.life.len() as i32) > 0;
+                let present = me.face_up_life_count().min(me.life.len() as i32) > 0;
                 v.as_bool().unwrap_or(true) == present
             }
             "self_leader_power_le" => (me.leader.power() as i64) <= v.as_i64().unwrap_or(0),
@@ -3047,6 +3047,14 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
         "set_hand_counter_boost" => {
             state.players[me_idx].hand_counter_boost = Some(spec.clone());
         }
+        // 「ルール上、 自分の表向きのライフは手札に加わる代わりにデッキの下に置かれる」
+        // (ST13-003 モンキー・D・ルフィ(L)、 effects.py:set_face_up_life_to_deck_bottom_static)。
+        // ⚠ execute_effect 側にしか実装が無く、 **静的 context (on_attached_don 経由) では
+        //   catch-all `_ => {}` で黙って no-op** していた (= 2026-08-11 の追加時に片側だけ実装)。
+        //   parity sweep の static_skip 288 / effect smoke の MISMATCH(static) 2 が検出。
+        "set_face_up_life_to_deck_bottom_static" => {
+            state.players[me_idx].face_up_life_to_deck_bottom = true;
+        }
         _ => {} // 未対応 primitive → skip (該当カードは diverge = 差分テストが示す)
     }
 }
@@ -3130,10 +3138,10 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
         }
         // flip_life は payability あり (effects.py:8515)。 face_up: 裏向きライフ≥1、 face_down: 表向き≥1。
         "flip_life_face_up" => {
-            let fu = me.face_up_life_count.min(me.life.len() as i32);
+            let fu = me.face_up_life_count().min(me.life.len() as i32);
             Some((me.life.len() as i32) - fu >= 1)
         }
-        "flip_life_face_down" => Some(me.face_up_life_count.min(me.life.len() as i32) >= 1),
+        "flip_life_face_down" => Some(me.face_up_life_count().min(me.life.len() as i32) >= 1),
         "rest_self_chara_filtered" => {
             let filt = cv.get("filter");
             Some(me.characters.iter().any(|c| !c.rested && matches_filter_ip(&c, filt)))
@@ -3563,11 +3571,15 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
         }
         "flip_life_face_up" => {
             let me = &mut state.players[me_idx];
-            me.face_up_life_count = (me.face_up_life_count + 1).min(me.life.len() as i32);
+            if let Some(i) = me.life_face_up.iter().position(|f| !*f) {
+                me.life_face_up[i] = true;   // 上から順に 1 枚表向きへ
+            }
         }
         "flip_life_face_down" => {
             let me = &mut state.players[me_idx];
-            me.face_up_life_count = (me.face_up_life_count.min(me.life.len() as i32) - 1).max(0);
+            if let Some(i) = me.life_face_up.iter().position(|f| *f) {
+                me.life_face_up[i] = false;  // 上から順に 1 枚裏向きへ
+            }
         }
         "attach_active_don_to_named_chara" => {
             let name = cv.get("name").and_then(|x| x.as_str()).unwrap_or("").to_string();
@@ -4498,11 +4510,15 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
                 me.don_active += removed.attached_dons;
                 if place_bottom {
                     me.life.push(removed.card);
+                    me.life_face_up.push(false);  // 既定は裏向き
                 } else {
                     me.life.insert(0, removed.card);
+                    me.life_face_up.insert(0, false);  // 既定は裏向き
                 }
                 if face_up {
-                    me.face_up_life_count = (me.face_up_life_count + 1).min(me.life.len() as i32);
+                    if let Some(i) = me.life_face_up.iter().position(|f| !*f) {
+                me.life_face_up[i] = true;   // 上から順に 1 枚表向きへ
+            }
                     // 「ライフに表向きで置かれた時」 = 公開領域 → 本人も反応しうる (cardqa_op_08)
                     let card = neg_ip.card.clone();
                     note_public_departure(state, me_idx, &card);
@@ -4551,6 +4567,7 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
                 let removed = o.characters.remove(i);
                 o.don_rested += removed.attached_dons;
                 o.life.push(removed.card);
+                o.life_face_up.push(false);  // 既定は裏向き
             }
             true
         }
@@ -4729,15 +4746,16 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
         // 表向き札は top に居るので上から face_up_life_count 枚。
         "trash_all_face_up_life" => {
             let me = &mut state.players[me_idx];
-            let n = me.face_up_life_count.min(me.life.len() as i32);
+            let n = me.face_up_life_count();
             for _ in 0..n {
                 if me.life.is_empty() {
                     break;
                 }
                 let c = me.life.remove(0);
+                me.life_face_up.remove(0);  // ライフと同じ位置のフラグも
                 me.trash.push(c);
             }
-            me.face_up_life_count = 0;
+            me.life_face_up = vec![false; me.life.len()];
             true
         }
         // 自分の手札が N 枚になるように捨てる (effects.py:5563)。 AI は worst_hand_idx から。
@@ -4833,6 +4851,7 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
                     t.attached_dons = 0;
                 }
                 state.players[opp_idx].life.insert(0, t.card);
+                state.players[opp_idx].life_face_up.insert(0, false);  // 既定は裏向き
                 placed += 1;
             }
             if placed > 0 {
@@ -5138,20 +5157,28 @@ if me_board_has_when(state, opp_idx, "on_self_don_returned_to_deck") {
             if state.players[pi].life.is_empty() {
                 return true; // Python は return False = 忠実な no-op
             }
-            let mut life = std::mem::take(&mut state.players[pi].life);
+            // ⚠ 並べ替えは **表向きフラグを連れて** 動かす (life と life_face_up は同じ並び)。
+            //   カードだけ並べ替えると 「表向きだった札」 が別の札にすり替わる (2026-08-11)。
+            let mut life = take_life_pairs(&mut state.players[pi]);
             // Python: sort(key=(trig, counter, power), reverse=(owner != "opp"))
             //   自分のライフ = 強い札を上 / 相手のライフ = 弱い札を上 (相手が得をしない順)
             life.sort_by(|a, b| {
-                let ka = (!a.trigger.is_empty() as i32, a.counter, a.power);
-                let kb = (!b.trigger.is_empty() as i32, b.counter, b.power);
+                let ka = (!a.0.trigger.is_empty() as i32, a.0.counter, a.0.power);
+                let kb = (!b.0.trigger.is_empty() as i32, b.0.counter, b.0.power);
                 if owner_opp { ka.cmp(&kb) } else { kb.cmp(&ka) }
             });
-            state.players[pi].life = life;
+            set_life_pairs(&mut state.players[pi], life);
             true
         }
         // 「自分のライフすべてを裏向きにする」 (effects.py:6804、 OP08-075)。
+        // 「ルール上、 自分の表向きのライフは手札に加わる代わりにデッキの下に置かれる」 (ST13-003)。
+        "set_face_up_life_to_deck_bottom_static" => {
+            state.players[me_idx].face_up_life_to_deck_bottom = true;
+            true
+        }
         "set_all_life_face_down" => {
-            state.players[me_idx].face_up_life_count = 0;
+            let _n = state.players[me_idx].life.len();
+            state.players[me_idx].life_face_up = vec![false; _n];
             true
         }
         // 「自分の手札 N 枚をデッキの下に置く」 = self_hand_to_deck_bottom の alias (effects.py:6470)。
@@ -5660,6 +5687,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                         break;
                     }
                     let c = o.life.remove(0);
+                    o.life_face_up.remove(0);  // ライフと同じ位置のフラグも
                     o.deck.push(c);
                 }
             }
@@ -5752,17 +5780,18 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 return true;
             }
             let d = depth.min(state.players[pi].life.len());
-            let mut seen: Vec<crate::state::CardDef> =
-                state.players[pi].life.drain(..d).collect();
+            // ⚠ 並べ替えは表向きフラグを連れて動かす (カードだけ動かすと表向きがすり替わる)。
+            let mut all = take_life_pairs(&mut state.players[pi]);
+            let rest = all.split_off(d);
+            let mut seen = all;
             let key = |c: &crate::state::CardDef| (!c.trigger.is_empty() as i32, c.counter, c.power);
             if is_self {
-                seen.sort_by(|a, b| key(b).cmp(&key(a)));
+                seen.sort_by(|a, b| key(&b.0).cmp(&key(&a.0)));
             } else {
-                seen.sort_by(|a, b| key(a).cmp(&key(b)));
+                seen.sort_by(|a, b| key(&a.0).cmp(&key(&b.0)));
             }
-            for (i, c) in seen.into_iter().enumerate() {
-                state.players[pi].life.insert(i, c);
-            }
+            seen.extend(rest);
+            set_life_pairs(&mut state.players[pi], seen);
             true
         }
         // 「相手のレストのリーダー/キャラ N 枚は次の相手リフレッシュでアクティブにならない」
@@ -5972,7 +6001,9 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 v.as_i64().unwrap_or(1) as i32
             };
             let me = &mut state.players[me_idx];
-            me.face_up_life_count = (me.face_up_life_count + n).min(me.life.len() as i32);
+            for i in 0..(n as usize).min(me.life_face_up.len()) {
+                me.life_face_up[i] = true;   // 「ライフの上から N 枚」 = 上から順
+            }
             true
         }
         // 「自分の付与ドン N 枚までを、 特徴 X を持つ自キャラ 1 枚に付与する」
@@ -6414,13 +6445,13 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 return true; // ライフ空 = 不発
             }
             let to_bottom = v.get("to").and_then(|x| x.as_str()) == Some("bottom");
-            let mut life = std::mem::take(&mut state.players[me_idx].life);
+            let mut life = take_life_pairs(&mut state.players[me_idx]);
             let key = |c: &crate::state::CardDef| {
                 (if c.trigger.is_empty() { 0 } else { 1 }, c.counter, c.power)
             };
-            life.sort_by(|a, b| key(b).cmp(&key(a))); // 価値降順 (安定 = tie は元順)
-            let to_deck = life.remove(0);
-            state.players[me_idx].life = life;
+            life.sort_by(|a, b| key(&b.0).cmp(&key(&a.0))); // 価値降順 (安定 = tie は元順)
+            let to_deck = life.remove(0).0;
+            set_life_pairs(&mut state.players[me_idx], life);
             if to_bottom {
                 state.players[me_idx].deck.push(to_deck);
             } else {
@@ -6543,6 +6574,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             .max(0) as usize;
             while state.players[me_idx].life.len() > target {
                 let c = state.players[me_idx].life.remove(0);
+                state.players[me_idx].life_face_up.remove(0);  // ライフと同じ位置のフラグも
                 state.players[me_idx].trash.push(c);
             }
             true
@@ -6727,11 +6759,13 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             for &i in hand_idx.iter() {
                 let c = state.players[me_idx].hand[i].clone();
                 state.players[me_idx].life.insert(0, c);
+                state.players[me_idx].life_face_up.insert(0, false);  // 既定は裏向き
                 added += 1;
             }
             for &i in trash_idx.iter() {
                 let c = state.players[me_idx].trash[i].clone();
                 state.players[me_idx].life.insert(0, c);
+                state.players[me_idx].life_face_up.insert(0, false);  // 既定は裏向き
                 added += 1;
             }
             for &i in hand_idx.iter().rev() {
@@ -6746,7 +6780,9 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             }
             if face_up && added > 0 {
                 let me = &mut state.players[me_idx];
-                me.face_up_life_count = (me.face_up_life_count + added).min(me.life.len() as i32);
+                for i in 0..(added as usize).min(me.life_face_up.len()) {
+                    me.life_face_up[i] = true;   // 表向きで加えた **その札**
+                }
             }
             true
         }
@@ -7124,6 +7160,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 return true; // 空 = 不発 (再現できている)
             }
             let revealed = if from_life {
+                state.players[me_idx].life_face_up.remove(0);  // ライフと同じ位置のフラグも
                 state.players[me_idx].life.remove(0)
             } else {
                 state.players[me_idx].deck.remove(0)
@@ -7162,6 +7199,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             let me = &mut state.players[me_idx];
             if from_life {
                 me.life.insert(0, revealed);
+                me.life_face_up.insert(0, false);  // 既定は裏向き
             } else {
                 match rest_remain.as_str() {
                     "top" => me.deck.insert(0, revealed),
@@ -7196,18 +7234,18 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             }
             let is_self = target == me_idx;
             let n = depth.min(state.players[target].life.len());
-            let life = std::mem::take(&mut state.players[target].life);
+            let life = take_life_pairs(&mut state.players[target]);
             let (seen, rest) = life.split_at(n);
             let mut top_grp = vec![];
             let mut bot_grp = vec![];
-            for c in seen {
-                let keep_top = if is_self { is_good(c) } else { !is_good(c) };
-                if keep_top { top_grp.push(c.clone()) } else { bot_grp.push(c.clone()) }
+            for cf in seen {
+                let keep_top = if is_self { is_good(&cf.0) } else { !is_good(&cf.0) };
+                if keep_top { top_grp.push(cf.clone()) } else { bot_grp.push(cf.clone()) }
             }
             let mut newlife = top_grp;
             newlife.extend_from_slice(rest);
             newlife.extend(bot_grp);
-            state.players[target].life = newlife;
+            set_life_pairs(&mut state.players[target], newlife);
             true
         }
         // 「このターンの後に自分のターンを追加で得る」 (effects.py:extra_turn)。 flag のみ。
@@ -7462,6 +7500,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     break;
                 }
                 let c = state.players[opp_idx].life.remove(0);
+                state.players[opp_idx].life_face_up.remove(0);  // ライフと同じ位置のフラグも
                 state.players[opp_idx].trash.push(c);
                 moved += 1;
             }
@@ -7492,6 +7531,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     break;
                 }
                 let c = state.players[opp_idx].life.remove(0);
+                state.players[opp_idx].life_face_up.remove(0);  // ライフと同じ位置のフラグも
                 state.players[opp_idx].hand.push(c);
                 moved += 1;
             }
@@ -7783,6 +7823,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                             break;
                         }
                         let c = state.players[me_idx].life.remove(0);
+                        state.players[me_idx].life_face_up.remove(0);  // ライフと同じ位置のフラグも
                         state.players[me_idx].hand.push(c);
                         moved += 1;
                     }
@@ -8613,6 +8654,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 }
                 let c = me.deck.remove(0);
                 me.life.push(c);
+                me.life_face_up.push(false);  // 既定は裏向き
             }
             true
         }
@@ -8629,6 +8671,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     break;
                 }
                 let c = me.life.remove(0);
+                me.life_face_up.remove(0);  // ライフと同じ位置のフラグも
                 me.trash.push(c);
             }
             true
@@ -8644,6 +8687,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 let me = &mut state.players[me_idx];
                 if !me.life.is_empty() {
                     let c = me.life.remove(0);
+                    me.life_face_up.remove(0);  // ライフと同じ位置のフラグも
                     me.hand.push(c);
                     moved += 1;
                 }
@@ -8656,6 +8700,15 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
         // ライフの上か下から N 枚を手札へ (effects.py:life_top_or_bottom_to_hand)。 AI=place で top/bottom、
         // card は actor(me) の手札へ (owner=opp でも me.hand、 Python 準拠)。 cascade 無 (life_to_hand と別)。
         "life_top_or_bottom_to_hand" => {
+            // ⚠ ST13-003 の 「表向きライフは手札に加わる代わりにデッキの下」 が有効な間は、
+            //   これを **コスト** に使う効果が 「未払い」 になる (公式 cardqa_st_13)。
+            //   Python 側だけ実装済 → Rust は明示 bail (黙って乖離しない)。
+            if state.players[me_idx].face_up_life_to_deck_bottom
+                && state.players[me_idx].life_face_up.iter().any(|f| *f)
+            {
+                note_unknown_key("life_top_or_bottom_to_hand", "ST13-003 ルール置換 未対応");
+                return false;
+            }
             let (owner_opp, count, bottom) = if let Some(o) = v.as_object() {
                 (
                     o.get("owner").and_then(|x| x.as_str()) == Some("opp"),
@@ -8674,8 +8727,10 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     break;
                 }
                 let card = if bottom {
+                    state.players[pi].life_face_up.pop();       // 末尾のフラグも
                     state.players[pi].life.pop().unwrap()
                 } else {
+                    state.players[pi].life_face_up.remove(0);   // 先頭のフラグも
                     state.players[pi].life.remove(0)
                 };
                 state.players[me_idx].hand.push(card);
@@ -8695,6 +8750,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             for c in old {
                 if moved < count && matches_filter(&c, filt.as_ref()) {
                     me.life.push(c);
+                    me.life_face_up.push(false);  // 既定は裏向き
                     moved += 1;
                 } else {
                     me.hand.push(c);
@@ -9194,10 +9250,8 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                         "trash" => me.trash.push(c),
                         "life" | "life_face_up" => {
                             me.life.insert(0, c);
-                            if destination == "life_face_up" {
-                                me.face_up_life_count =
-                                    (me.face_up_life_count + 1).min(me.life.len() as i32);
-                            }
+                            // 「表向きで加える」 (= ST13-002) は入れた札そのものを表向きに
+                            me.life_face_up.insert(0, destination == "life_face_up");
                         }
                         _ => {
                             me.hand.push(c);
@@ -9351,6 +9405,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     return true;
                 }
                 let taken = state.players[opp_idx].life.remove(0);
+                state.players[opp_idx].life_face_up.remove(0);  // ライフと同じ位置のフラグも
                 // ⭐ 「自分のライフが0枚になった時」 は **0 になった瞬間の事象** (cardqa_op_05 /
                 //   OP05-098 エネル)。 効果ダメージ経路も Python `_resolve_life_taken` を通るので
                 //   同じ位置で発火する。 ⚠ 上の 「ライフ空で on_life_zero 持ち → bail」 guard に
@@ -11090,6 +11145,7 @@ pub fn try_replace_ko(
                         break;
                     }
                     let c = pl.life.remove(0);
+                    pl.life_face_up.remove(0);  // ライフと同じ位置のフラグも
                     pl.hand.push(c);
                     moved += 1;
                 }
@@ -11103,6 +11159,7 @@ pub fn try_replace_ko(
                     break;
                 }
                 let c = pl.life.remove(0);
+                pl.life_face_up.remove(0);  // ライフと同じ位置のフラグも
                 pl.trash.push(c);
             }
             // rest_self_don 支払い (effects.py:_pay_replace_cost)。 アクティブドン N 枚をレストへ。
@@ -11678,11 +11735,11 @@ fn try_pay_counter_cost(
                 }
             }
         }
-        if flip_down && me.face_up_life_count.min(me.life.len() as i32) < 1 {
+        if flip_down && me.face_up_life_count().min(me.life.len() as i32) < 1 {
             return Ok(false);
         }
         if flip_up {
-            let fu = me.face_up_life_count.min(me.life.len() as i32);
+            let fu = me.face_up_life_count().min(me.life.len() as i32);
             if (me.life.len() as i32) - fu < 1 {
                 return Ok(false);
             }
@@ -11782,6 +11839,7 @@ fn try_pay_counter_cost(
         let a = lth_total.min(me.life.len() as i32);
         for _ in 0..a {
             let c = me.life.remove(0);
+            me.life_face_up.remove(0);  // ライフと同じ位置のフラグも
             me.hand.push(c);
         }
     }
@@ -11796,11 +11854,15 @@ fn try_pay_counter_cost(
     // reveal_hand_with_filter = 公開のみ (state 変更なし)
     if flip_down {
         let me = &mut state.players[me_idx];
-        me.face_up_life_count = (me.face_up_life_count.min(me.life.len() as i32) - 1).max(0);
+        if let Some(i) = me.life_face_up.iter().position(|f| *f) {
+            me.life_face_up[i] = false;  // 上から順に 1 枚裏向きへ
+        }
     }
     if flip_up {
         let me = &mut state.players[me_idx];
-        me.face_up_life_count = (me.face_up_life_count + 1).min(me.life.len() as i32);
+        if let Some(i) = me.life_face_up.iter().position(|f| !*f) {
+            me.life_face_up[i] = true;   // 上から順に 1 枚表向きへ
+        }
     }
     // trash_self / self_ko / return_self_to_hand: source 自身を場から除去 (effects.py:934)。
     // ⚠ self_ko は KO 扱いで【KO時】/on_self_chara_ko、 trash_self は on_self_chara_leave_by_self_effect
@@ -11904,11 +11966,11 @@ fn can_pay_counter_cost_full(
         return false;
     }
     let lth = gi("life_to_hand");
-    if lth > 0 && (me.life.len() as i32) < lth {
+    if lth > 0 && !life_to_hand_cost_payable(me, lth, false) {
         return false;
     }
     let ltob = gi("life_top_or_bottom_to_hand");
-    if ltob > 0 && (me.life.len() as i32) < ltob {
+    if ltob > 0 && !life_to_hand_cost_payable(me, ltob, true) {
         return false;
     }
     let ttd = gi("trash_to_deck");
@@ -11924,12 +11986,12 @@ fn can_pay_counter_cost_full(
     // trash_self/self_ko: Python は self_inplay is None で払えない判定。 on/opp_attack の source は
     //   常に present なのでここでは payable (実支払いは try_pay が Err = cascade で bail)。
     if obj.get("flip_life_face_down").map_or(false, json_truthy)
-        && me.face_up_life_count.min(me.life.len() as i32) < 1
+        && me.face_up_life_count().min(me.life.len() as i32) < 1
     {
         return false;
     }
     if obj.get("flip_life_face_up").map_or(false, json_truthy) {
-        let fu = me.face_up_life_count.min(me.life.len() as i32);
+        let fu = me.face_up_life_count().min(me.life.len() as i32);
         if (me.life.len() as i32) - fu < 1 {
             return false;
         }
@@ -13200,6 +13262,7 @@ pub fn fire_activate_main(
                     break;
                 }
                 let lc = state.players[me_idx].life.remove(0);
+                state.players[me_idx].life_face_up.remove(0);  // ライフと同じ位置のフラグも
                 state.players[me_idx].hand.push(lc);
                 moved += 1;
             }
@@ -13645,16 +13708,14 @@ pub fn evaluate_static_effects(state: &mut GameState) {
     //   裏向きの新しいライフを表向きと誤認しうる。 保存則チェック (INV-face-up-life) が検出した
     //   = 両エンジンが同じ間違いをしていて差分では見えなかったクラス。
     //   ⚠ overlay 未 load でも正規化する (Python も early return より前で行う)。
-    for p in state.players.iter_mut() {
-        let clamped = p.face_up_life_count.clamp(0, p.life.len() as i32);
-        if clamped != p.face_up_life_count {
-            p.face_up_life_count = clamped;
-        }
-    }
+    // ⚠ 旧モデル (表向き **枚数** だけを持つ) の clamp 正規化は、 per-card フラグ化
+    //   (2026-08-11、 Python と同時) で **構造的に不要** になった (枚数はフラグからの導出値)。
+    //   長さの同期漏れは Python 側 _recompute_static の guard が落として検出する。
     let Some(ov) = overlay() else { return };
     // 全 InPlay の静的フラグをリセット (effects.py:10733-10753)
     for p in state.players.iter_mut() {
-        p.hand_counter_boost = None;
+p.hand_counter_boost = None;
+        p.face_up_life_to_deck_bottom = false;   // ST13-003 のルール置換 (毎回再評価)
         for ip in std::iter::once(&mut p.leader)
             .chain(p.characters.iter_mut())
             .chain(p.stages.iter_mut())
@@ -13771,6 +13832,54 @@ pub fn eff_cost(state: &GameState, me_idx: usize, card: &CardDef) -> i32 {
 }
 
 /// 場のドン返却可能総数 (active+rested+全付与ドン)。 pay_don cost 判定用。
+/// 「ライフ N 枚を手札に加える」 を **発動コスト** として払えるか (effects.py:_life_to_hand_cost_payable)。
+///
+/// ST13-003 モンキー・D・ルフィ(L) 下の表向きライフは手札に加わらない (デッキの下へ) ので
+/// コストにできない (公式 4-10)。 `from_ends` = life_top_or_bottom_to_hand (上下どちらの端からでも取れる)。
+/// ⚠ 「できる：」 型 (optional_cost_then) には使わない。 そちらは公式が 「札は動くが未払い」 と裁定。
+fn life_to_hand_cost_payable(me: &Player, n: i32, from_ends: bool) -> bool {
+    if (me.life.len() as i32) < n {
+        return false;
+    }
+    if !me.face_up_life_to_deck_bottom {
+        return true;
+    }
+    let flags = &me.life_face_up;
+    if !from_ends {
+        return !flags.iter().take(n as usize).any(|f| *f);
+    }
+    let (mut lo, mut hi) = (0isize, flags.len() as isize - 1);
+    let mut got = 0i32;
+    while got < n && lo <= hi {
+        if !flags[lo as usize] {
+            lo += 1;
+            got += 1;
+        } else if !flags[hi as usize] {
+            hi -= 1;
+            got += 1;
+        } else {
+            break;
+        }
+    }
+    got >= n
+}
+
+/// ライフを (card, face_up) の組で取り出す / 書き戻す (effects.py:_life_set_pairs と対)。
+///
+/// ⚠ ライフの並べ替え・抜き取りは **表向きフラグを連れて** 行う。 カードだけ動かすと
+///   「どの札が表向きか」 がすり替わり、 ST13-003 のルール置換が別の札に効く (2026-08-11)。
+fn take_life_pairs(p: &mut Player) -> Vec<(crate::state::CardDef, bool)> {
+    let life = std::mem::take(&mut p.life);
+    let mut flags = std::mem::take(&mut p.life_face_up);
+    flags.resize(life.len(), false);
+    life.into_iter().zip(flags).collect()
+}
+
+fn set_life_pairs(p: &mut Player, pairs: Vec<(crate::state::CardDef, bool)>) {
+    p.life = pairs.iter().map(|cf| cf.0.clone()).collect();
+    p.life_face_up = pairs.iter().map(|cf| cf.1).collect();
+}
+
 fn pay_don_capacity(me: &Player) -> i32 {
     me.don_active + me.don_rested + me.leader.attached_dons
         + me.characters.iter().map(|c| c.attached_dons).sum::<i32>()
@@ -13885,6 +13994,13 @@ fn optional_cost_payable_in_do(state: &GameState, me_idx: usize, ip: &InPlay, ef
                     if (me.life.len() as i64) < n {
                         return false;
                     }
+                    // ST13-003 下の表向きライフは手札に加わらない = コストにできない
+                    if k != "mill_self_life_to_trash"
+                        && !life_to_hand_cost_payable(
+                            me, n as i32, k == "life_top_or_bottom_to_hand")
+                    {
+                        return false;
+                    }
                 }
             }
             if (cs.get("flip_life_face_up").is_some() || cs.get("flip_life_face_down").is_some())
@@ -13948,7 +14064,7 @@ fn can_pay_activate_cost(state: &GameState, me_idx: usize, ip: &InPlay, on_field
     }
     // 「自分のライフN枚を手札に加えることができる：」 (OP01-013 サンジ)。 ライフ不足なら発動不可
     // (= do に置くと 「ライフ0でもタダ撃ち」 になる。 2026-08-11 に Python と同時に新設)。
-    if gi("life_to_hand") > 0 && (me.life.len() as i32) < gi("life_to_hand") {
+    if gi("life_to_hand") > 0 && !life_to_hand_cost_payable(me, gi("life_to_hand"), false) {
         return false;
     }
     if gb("return_self_to_hand") && !on_field {
