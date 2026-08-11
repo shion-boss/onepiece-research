@@ -1513,6 +1513,13 @@ def eval_condition(
             n = int(v)
             if opp is None or not any(getattr(c, "base_cost", 99) <= n for c in opp.characters):
                 return False
+        elif k == "exists_opp_chara_truly_original_power_ge":
+            # 相手の場に **元々のパワー** N 以上のキャラがいるか (ST23-002 シャンクス
+            # 「相手の元々のパワー8000以上のキャラがいる場合」)。
+            # ⚠ 「元々の」 なので印刷値ではなく **書き換え後の元々のパワー** (公式 4-9-2-1)。
+            n = int(v)
+            if opp is None or not any(c.truly_original_power >= n for c in opp.characters):
+                return False
         elif k == "exists_opp_chara_power_ge":
             # 相手の場に (現在) パワー N 以上のキャラがいるか (= ST10-004「相手のパワー5000以上の
             # キャラがいる場合」)。 「元々の」 でなければ現在パワー (InPlay.power) で判定。
@@ -6532,6 +6539,38 @@ def _execute_effect_body_inner(
             me.trash[:] = new_trash
             if found > 0:
                 state.push_log(f"  効果: trash {found} 枚を手札へ")
+        elif k == "trash_to_deck_bottom_then_pump_per":
+            # 「自分のトラッシュから <filter> のカードを **任意の枚数** 好きな順番でデッキの下に
+            #  置く。 置いた枚数 N 枚につき、 <target> は、 このターン中、 パワー+A」
+            # (OP07-091 モンキー・D・ルフィ、 2026-08-11 新設)。
+            # ⚠ 「任意の枚数」 の選択は本来プレイヤーの判断。 AI は該当カードを **全部置く**
+            #   (= パンプ最大化) を既定にする。 置けた枚数が per 未満なら パンプは 0
+            #   (= 従来の 「固定 +1000」 は 0 枚でも乗る誤りだった)。
+            spec = v if isinstance(v, dict) else {}
+            filt = spec.get("filter", {}) or {}
+            per = max(1, int(spec.get("per", 1)))
+            amount = int(spec.get("amount", 0))
+            duration = spec.get("duration", "turn")
+            tgt_spec = spec.get("target", "self")
+            moved = 0
+            keep: list = []
+            for card in me.trash:
+                if _matches_filter(card, filt):
+                    me.deck.append(card)
+                    moved += 1
+                else:
+                    keep.append(card)
+            me.trash = keep
+            if moved:
+                state.push_log(f"  効果: トラッシュ {moved} 枚をデッキの下へ")
+            bonus = (moved // per) * amount
+            if bonus:
+                execute_effect(
+                    {"power_pump": {"target": tgt_spec, "amount": bonus, "duration": duration}},
+                    state, me, opp, self_inplay,
+                )
+            else:
+                state.push_log(f"  効果: 置いた枚数 {moved} < {per} → パワー上昇なし")
         elif k == "trash_to_deck":
             # 自分のトラッシュから filter 一致のカード N 枚をデッキに戻す。
             # spec: {"filter": {...}, "limit": N, "to": "top"|"bottom" (default bottom),

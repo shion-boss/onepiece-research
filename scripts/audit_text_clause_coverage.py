@@ -61,11 +61,12 @@ MARKER_WHEN: dict[str, set[str]] = {
     "ターン終了時": {"end_of_turn", "opp_end_of_turn"},
     "自分のターン開始時": {"on_turn_start"},
     "相手のターン開始時": {"opp_turn_start"},
-    "ドン!!×1": {"on_attached_don"},
-    "ドン‼×1": {"on_attached_don"},
-    "ドン!!×2": {"on_attached_don"},
-    "ドン‼×2": {"on_attached_don"},
+    # ⚠ 【ドン‼×N】 は **when ではなく gate**。 「【ドン‼×1】【アタック時】…」 のように
+    #   後ろのトリガーに掛かるだけなので、 これ単独で when を決めない (= 静的扱い → カード全体
+    #   スコープ)。 決めてしまうと 「【ドン‼×1】【ターン1回】自分がダメージを受けた時…引く」 の
+    #   ような散文トリガーを on_attached_don entry で探して誤検出する (2026-08-11 実測)。
 }
+DON_GATE_MARKERS = {"ドン!!×1", "ドン‼×1", "ドン!!×2", "ドン‼×2", "ドン!!×3", "ドン‼×3"}
 # 静的効果 (マーカー無し / 【自分のターン中】等) は on_attached_don entry に載る規約。
 STATIC_WHENS = {"on_attached_don", "in_hand", "setup_modifier"}
 
@@ -77,12 +78,18 @@ FAMILIES: list[tuple[str, str, set[str]]] = [
     ("mill_deck", r"デッキの上から\d+枚(まで)?を、?トラッシュに置く",
      {"mill_self_top", "mill", "trash_self_deck"}),
     ("to_deck_bottom", r"デッキの下に置く|デッキの一番下に置く",
-     {"deck_bottom", "trash_to_deck", "return_to_deck", "search_top_n", "scry", "reveal"}),
+     # search / search_top_n は rest_remain=bottom を内包する
+     {"deck_bottom", "trash_to_deck", "return_to_deck", "search_top_n", "search",
+      "scry", "reveal", "opp_trash_to_deck"}),
     ("rest", r"レストにする|レストにし、", {"rest", "stay_rested", "keep_opp_rested"}),
     ("untap", r"アクティブにする", {"untap", "add_don", "attach_active"}),
     ("play", r"登場させる|登場させてもよい|レストで登場させる",
-     {"play_", "summon_from_deck", "reveal_top_play", "force_opp_play"}),
-    ("return_hand", r"持ち主の手札に戻す|手札に戻す", {"return_to_hand", "return_self_to_hand"}),
+     # ⚠ 「デッキの上からN枚を見て…登場させる」 は search_top_n(destination=play) で表す
+     {"play_", "summon_from_deck", "reveal_top_play", "force_opp_play", "search_top_n",
+      "reveal_life_top_play", "summon_stage_from_deck_with_feature"}),
+    ("return_hand", r"持ち主の手札に戻す|手札に戻す",
+     {"return_to_hand", "return_self_to_hand", "return_self_chara_to_hand",
+      "return_self_charas_then_pump_per"}),
     ("attach_don", r"ドン‼?\d*枚(まで)?を、?\s*付与する|ドン!!\d*枚(まで)?を、?\s*付与する",
      {"attach_don", "attach_rested_don", "attach_active_don", "attach_opp_don"}),
     ("add_don", r"ドン‼?デッキからドン‼?\d+枚(まで)?を|ドン!!デッキからドン!!\d+枚(まで)?を",
@@ -99,8 +106,14 @@ FAMILIES: list[tuple[str, str, set[str]]] = [
     ("face_down", r"裏向きにする", {"face_down"}),
     ("keyword", r"【(速攻|ブロッカー|ダブルアタック|バニッシュ|ブロック不可)】を得る",
      {"give_keyword", "give_rush", "give_attack_active"}),
-    ("power", r"パワー[+\-−]\d+", {"power_pump", "set_base_power"}),
-    ("cost_mod", r"コスト[+\-−]\d+", {"cost_minus", "set_base_cost", "cost_plus"}),
+    ("power", r"パワー[+\-−]\d+",
+     # 「捨てたカード1枚につき +N」 「レストにしたドン1枚につき +N」 等は専用 primitive
+     {"power_pump", "set_base_power", "optional_discard_hand_for_battle_buff",
+      "rest_self_don_for_battle_buff_per_don", "return_self_charas_then_pump_per",
+      "reveal_self_life_top_pump_per_cost", "opp_may_return_active_don_else_debuff",
+      "trash_to_deck_bottom_then_pump_per"}),
+    ("cost_mod", r"コスト[+\-−]\d+",
+     {"cost_minus", "set_base_cost", "cost_plus", "reduce_play_cost"}),
 ]
 
 # 節から落とす: 括弧内のリマインダー / キーワード単独宣言
@@ -133,9 +146,12 @@ def _blocks(text: str) -> list[tuple[set[str], str]]:
                 out.append((set(STATIC_WHENS), head))
         name = m.group(1)
         whens = MARKER_WHEN.get(name)
-        # 「【登場時】効果」 のような **参照** は トリガーではない
-        after = text[m.end(): m.end() + 2]
-        if whens and not after.startswith("効果"):
+        # 「【登場時】効果」 「【トリガー】を持つカード」 のような **参照** はトリガーではない。
+        # ⚠ 後者を除外しないと、 【登場時】の本文が when=trigger に割り当てられて誤検出する
+        #   (OP03-115 シュトロイゼン 等、 2026-08-11 実測)。
+        after = text[m.end(): m.end() + 3]
+        is_reference = after.startswith("効果") or after.startswith("を持つ")
+        if whens and not is_reference:
             pending |= whens
         # 次のマーカーまでが本文
         nxt = marks[i + 1].start() if i + 1 < len(marks) else len(text)
@@ -256,9 +272,13 @@ def main() -> None:
         seen.add(key)
         uniq.append({**f, "card_id": base})
 
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps({"flags": uniq}, ensure_ascii=False, indent=1) + "\n",
-                   encoding="utf-8")
+    # ⚠ --card / --overlay は **校正・調査用** なので成果物を書かない。
+    #   (書くと 全件結果が 1 枚ぶんや旧 overlay の結果で上書きされ、 「flag 1 件」 の中身が
+    #    別物になる = 2026-08-11 に実際に踏んだ footgun)
+    if not args.card and not args.overlay:
+        OUT.parent.mkdir(parents=True, exist_ok=True)
+        OUT.write_text(json.dumps({"flags": uniq}, ensure_ascii=False, indent=1) + "\n",
+                       encoding="utf-8")
     print(f"節カバレッジ監査: flag {len(uniq)} 件 (ユニークカード "
           f"{len({f['card_id'] for f in uniq})} 枚) → {OUT}")
     print("  family 別:", dict(Counter(f["family"] for f in uniq).most_common()))

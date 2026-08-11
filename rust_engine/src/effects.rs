@@ -381,6 +381,12 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                 let n = v.as_i64().unwrap_or(0);
                 opp.characters.iter().any(|c| c.power() as i64 >= n)
             }
+            // 相手の場に **元々のパワー** N 以上のキャラがいるか (ST23-002 シャンクス)。
+            // ⚠ 「元々の」 = 書き換え後の元々のパワー (公式 4-9-2-1)。
+            "exists_opp_chara_truly_original_power_ge" => {
+                let n = v.as_i64().unwrap_or(0);
+                opp.characters.iter().any(|c| c.truly_original_power() as i64 >= n)
+            }
             // 自分の場のドン (コストエリア) が 0 か 8 以上 (ST10-002 ルフィ)
             "self_field_don_zero_or_ge_8" => {
                 let fd = me.don_active + me.don_rested;
@@ -6879,6 +6885,36 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
         }
         // 自分のトラッシュから filter 一致 N 枚をデッキへ (effects.py:trash_to_deck)。
         // spec {filter, limit, to: top|bottom, shuffle}。 該当 0 枚は不発 (何も起きない = true)。
+        // 「自分のトラッシュから <filter> のカードを **任意の枚数** デッキの下に置く。
+        //  置いた枚数 N 枚につき <target> は このターン中 パワー+A」 (OP07-091、 2026-08-11 新設)。
+        // ⚠ AI は該当カードを **全部置く** (= パンプ最大化)。 Python `trash_to_deck_bottom_then_pump_per`
+        //   と同則 (置けた枚数が per 未満なら パンプ 0)。
+        "trash_to_deck_bottom_then_pump_per" => {
+            let filt = v.get("filter");
+            let per = v.get("per").and_then(|x| x.as_i64()).unwrap_or(1).max(1);
+            let amount = v.get("amount").and_then(|x| x.as_i64()).unwrap_or(0);
+            let duration = v.get("duration").and_then(|x| x.as_str()).unwrap_or("turn").to_string();
+            let tgt = v.get("target").cloned().unwrap_or_else(|| Value::String("self".into()));
+            let mut moved: i64 = 0;
+            let mut rest: Vec<crate::state::CardDef> = vec![];
+            for card in std::mem::take(&mut state.players[me_idx].trash) {
+                if matches_filter(&card, filt) {
+                    state.players[me_idx].deck.push(card);
+                    moved += 1;
+                } else {
+                    rest.push(card);
+                }
+            }
+            state.players[me_idx].trash = rest;
+            let bonus = (moved / per) * amount;
+            if bonus != 0 {
+                let prim = json!({"power_pump": {
+                    "target": tgt, "amount": bonus, "duration": duration
+                }});
+                return execute_effect(&prim, state, me_idx, src);
+            }
+            true
+        }
         "trash_to_deck" => {
             let filt = v.get("filter");
             let limit = v.get("limit").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
