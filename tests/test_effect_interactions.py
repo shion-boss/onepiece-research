@@ -9230,3 +9230,98 @@ def test_counter_events_apply_their_sonogo_clause():
 
     assert run_cp(9) == 1, "トラッシュ9枚で条件を満たさないのに戻している"
     assert run_cp(10) == 0, "トラッシュ10枚で 「その後」 のバウンスが実行されていない"
+
+
+def test_static_cost_modifiers_are_implemented():
+    """「このキャラのコスト+N」 / 「手札のこのカードは…コスト-N」 の静的コスト修正。
+
+    節カバレッジ監査 (`scripts/audit_text_clause_coverage.py`) が検出した 3 枚。 いずれも
+    公式テキストの当該節が overlay から **丸ごと落ちていた**:
+      - OP15-088 パイレーツドッキング6 「このキャラのコスト+6」 (印刷5 → 実効11)
+      - OP12-042 アルビダ 「自分の**元々の**コスト5以上のキャラが2枚以上いる場合、 コスト+1」
+      - ST23-002 シャンクス 「手札のこのカードは、 相手の**元々の**パワー8000以上のキャラが
+        いる場合、 コスト-3」
+    """
+    repo, overlay = _repo(), _overlay()
+    cards = {c["card_id"]: c for c in json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+
+    # OP15-088: 無条件 +6
+    st = _state(repo, overlay)
+    me = st.players[0]
+    c = InPlay.of(repo.get("OP15-088"), sickness=False)
+    me.characters = [c]
+    evaluate_static_effects(st, overlay)
+    assert c.base_cost == int(c.card.cost) + 6, (
+        f"「このキャラのコスト+6」 が効いていない: {c.base_cost} (印刷 {c.card.cost})"
+    )
+
+    # OP12-042: 元々コスト5以上が2枚以上いる時だけ +1
+    cost5 = next(cid for cid, cc in cards.items()
+                 if cc.get("category") == "CHARACTER" and str(cc.get("cost")) == "5")
+
+    def albida_cost(n_big: int) -> int:
+        st2 = _state(repo, overlay)
+        me2 = st2.players[0]
+        a = InPlay.of(repo.get("OP12-042"), sickness=False)
+        me2.characters = [a] + [InPlay.of(repo.get(cost5), sickness=False) for _ in range(n_big)]
+        evaluate_static_effects(st2, overlay)
+        return a.base_cost
+
+    assert albida_cost(0) == 4, "条件を満たさないのにコストが上がっている"
+    assert albida_cost(2) == 5, "元々コスト5以上が2枚いるのに コスト+1 が効いていない"
+
+    # ST23-002: 手札コスト-3 の条件 (元々のパワー基準)
+    st3 = _state(repo, overlay)
+    me3, opp3 = st3.players[0], st3.players[1]
+    weak = InPlay.of(repo.get("OP01-016"), sickness=False)
+    opp3.characters = [weak]
+    assert eval_condition({"exists_opp_chara_truly_original_power_ge": 8000},
+                          st3, me3, None) is False
+    weak.base_power_override = 9000
+    weak.base_power_override_is_original = True
+    assert eval_condition({"exists_opp_chara_truly_original_power_ge": 8000},
+                          st3, me3, None) is True, (
+        "「元々のパワー」 を書き換えた相手キャラが条件に反映されていない (公式 4-9-2-1)"
+    )
+
+
+def test_op07_091_trash_to_deck_pump_is_per_three():
+    """OP07-091 ルフィ: 「置いた枚数 **3枚につき** パワー+1000」 (固定 +1000 ではない)。
+
+    公式: 「【アタック時】相手のコスト2以下のキャラ1枚までをトラッシュに置く。 その後、 自分の
+    トラッシュからコスト4以上のキャラカードを任意の枚数好きな順番でデッキの下に置く。
+    **置いた枚数3枚につき**、 このキャラは、 このターン中、 パワー+1000。」
+
+    ⚠ 2026-08-11 まで overlay は **トラッシュ→デッキ下が丸ごと欠落** し、 パンプも
+      「置いた枚数に依らない固定 +1000」 だった (= 0 枚しか置けなくても +1000 された)。
+    """
+    repo, overlay = _repo(), _overlay()
+    cards = {c["card_id"]: c for c in json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    cost4 = next(cid for cid, c in cards.items()
+                 if c.get("category") == "CHARACTER" and str(c.get("cost")) == "4")
+
+    def run(n_big: int):
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        luffy = InPlay.of(repo.get("OP07-091"), sickness=False)
+        me.characters = [luffy]
+        # cost4 以上 n_big 枚 + 対象外 (cost1) 2 枚
+        me.trash = [repo.get(cost4)] * n_big + [repo.get("OP01-016")] * 2
+        v = InPlay.of(repo.get("OP01-016"), sickness=False)
+        v.base_cost_override = 2
+        opp.characters = [v]
+        deck0, p0 = len(me.deck), luffy.power
+        trigger_on_attack(st, me, opp, luffy, overlay)
+        resolve_triggers(st)
+        while st.pending_choice is not None:
+            resolve_pending_choice(st, [0])
+            resolve_triggers(st)
+        return len(me.deck) - deck0, luffy.power - p0, len(me.trash)
+
+    moved, gain, trash_left = run(2)
+    assert moved == 2 and gain == 0, f"2枚では +0 のはず (置いた={moved} 上昇={gain})"
+    assert trash_left == 2, "対象外 (コスト4未満) のカードまでデッキに戻している"
+    moved, gain, _ = run(3)
+    assert moved == 3 and gain == 1000, f"3枚で +1000 のはず (置いた={moved} 上昇={gain})"
+    moved, gain, _ = run(7)
+    assert moved == 7 and gain == 2000, f"7枚で +2000 のはず (置いた={moved} 上昇={gain})"
