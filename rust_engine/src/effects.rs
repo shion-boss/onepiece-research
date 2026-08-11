@@ -13781,6 +13781,23 @@ fn optional_cost_payable_in_do(state: &GameState, me_idx: usize, ip: &InPlay, ef
                     return false;
                 }
             }
+            // 「相手のキャラ1枚に相手の(レストの)ドンN枚を付与できる：」 (OP15-003 アルビダ 等)。
+            // ⚠ 公式 (cardqa_op_15): 相手キャラ0枚 / 相手レストドン0 なら **発動できない**。
+            //   この key を見ていなかったため 発動でき、 何も起きないまま【ターン1回】だけ消費して
+            //   いた (2026-08-11 に Python と同時に是正)。
+            if let Some(av) = cs.get("attach_opp_don_to_opp_chara") {
+                let opp = &state.players[1 - me_idx];
+                let n = if av.is_object() {
+                    av.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as i32
+                } else {
+                    av.as_i64().unwrap_or(1) as i32
+                };
+                let from_cost = av.get("from_cost_area").and_then(|x| x.as_bool()).unwrap_or(false);
+                let avail = opp.don_rested + if from_cost { opp.don_active } else { 0 };
+                if opp.characters.is_empty() || avail < n {
+                    return false;
+                }
+            }
             // 資源が尽きたら払えない型 (effects.py:_optional_cost_payable_in_do と同条件)
             if let Some(n) = cs.get("trash_self_hand_random").and_then(|v| v.as_i64()) {
                 if (me.hand.len() as i64) < n {

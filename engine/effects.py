@@ -15700,6 +15700,19 @@ def _optional_cost_payable_in_do(
                 n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
                 if len(me.life) < n:
                     return False
+            # 「相手のキャラ1枚に相手の(レストの)ドンN枚を付与できる：」 (OP15-003 アルビダ 等)。
+            # ⚠ 公式 (cardqa_op_15): 「相手のキャラが0枚のときや、 相手のレストのドン‼が相手の
+            #   コストエリアに無い時に、 この【起動メイン】効果で…付与することはできますか？」
+            #   → 「**いいえ、 できません**」。 従来この key を見ておらず、 発動できてしまい
+            #   何も起きないまま **【ターン1回】だけ消費** していた (2026-08-11 是正)。
+            if cs.get("attach_opp_don_to_opp_chara"):
+                _opp = state.players[1 - state.players.index(me)]
+                _v = cs["attach_opp_don_to_opp_chara"]
+                _n = int(_v.get("count", 1)) if isinstance(_v, dict) else int(_v)
+                _cost_area = isinstance(_v, dict) and _v.get("from_cost_area")
+                _avail = _opp.don_rested + (_opp.don_active if _cost_area else 0)
+                if not _opp.characters or _avail < _n:
+                    return False
             if cs.get("mill_self_life_to_trash"):
                 v = cs["mill_self_life_to_trash"]
                 n = int(v.get("amount", 1)) if isinstance(v, dict) else int(v)

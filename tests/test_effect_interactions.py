@@ -8936,3 +8936,69 @@ def test_op04_081_mill_after_ko_is_not_omitted():
         f"「その後 デッキ上2枚をトラッシュ」 が実行されていない "
         f"(deck {deck0}→{len(me.deck)} / trash {trash0}→{len(me.trash)})"
     )
+
+
+def test_op15_003_activate_main_requires_payable_cost():
+    """「相手のキャラ1枚に相手のレストのドン‼1枚を付与できる：」 は **発動コスト**。
+
+    一次情報 (cardqa_op_15 / OP15-003 アルビダ): 「相手のキャラが0枚のときや、 相手のレストの
+    ドン‼が相手のコストエリアに無い時に、 この【起動メイン】効果で自分のリーダーやキャラに
+    自分のドン‼を付与することはできますか？」 → 「**いいえ、 できません**」
+
+    退行前は `_optional_cost_payable_in_do` が `attach_opp_don_to_opp_chara` を見ておらず、
+    **発動できてしまい 何も起きないまま【ターン1回】だけ消費** していた。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def n_options(opp_chara: int, opp_rested_don: int) -> int:
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        a = InPlay.of(repo.get("OP15-003"), sickness=False)
+        me.characters = [a]
+        me.don_rested = 3
+        opp.characters = ([InPlay.of(repo.get("OP01-016"), sickness=False)]
+                          if opp_chara else [])
+        opp.don_rested = opp_rested_don
+        return len([1 for ip, _e in list_activate_main_effects(st, me, overlay) if ip is a])
+
+    assert n_options(0, 3) == 0, "相手キャラ0枚なのに【起動メイン】が出ている"
+    assert n_options(1, 0) == 0, "相手のレストドン0なのに【起動メイン】が出ている"
+    assert n_options(1, 3) == 1, "コストを払える時に【起動メイン】が出ていない"
+
+
+def test_op10_119_attaches_don_only_to_supernova_leader():
+    """OP10-119 ロー: 前半 (ライフに加える) はリーダーの特徴を問わず、 後半のドン付与だけが
+    《超新星》リーダー限定。
+
+    一次情報 (cardqa_op_10): 「自分のリーダーが特徴《超新星》を持たない場合、 この【登場時】効果で
+    手札から特徴《超新星》を持つキャラカード1枚をライフに加えることはできますか？」 → 「**はい**」
+    ⚠ 2026-08-11 まで **後半 「その後、 自分の特徴《超新星》を持つリーダー1枚にレストのドン‼1枚
+      までを、 付与する」 が overlay から丸ごと欠落** していた。
+    """
+    repo, overlay = _repo(), _overlay()
+    cards = {c["card_id"]: c for c in json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    sn_chara = next(cid for cid, c in cards.items()
+                    if c.get("category") == "CHARACTER" and "超新星" in "".join(c.get("features") or ""))
+
+    def run(leader_id: str):
+        st = _state(repo, overlay, leader0=leader_id)
+        me, opp = st.players[0], st.players[1]
+        me.hand = [repo.get(sn_chara)]
+        me.life = []
+        me.don_rested = 3
+        law = InPlay.of(repo.get("OP10-119"), sickness=True)
+        me.characters = [law]
+        trigger_on_play(st, me, opp, law, overlay)
+        resolve_triggers(st)
+        while st.pending_choice is not None:
+            resolve_pending_choice(st, [0])
+            resolve_triggers(st)
+        return len(me.life), me.leader.attached_dons
+
+    life_n, don_n = run("PRB01-001")            # 超新星を持たないリーダー
+    assert life_n == 1, "リーダーが超新星でないとライフに加えられていない (公式 はい)"
+    assert don_n == 0, "超新星でないリーダーにドンが付与されている"
+    life_n2, don_n2 = run("OP01-001")           # 超新星を持つリーダー
+    assert life_n2 == 1 and don_n2 == 1, (
+        f"超新星リーダーへの 「その後」 のドン付与が実行されていない (life={life_n2} don={don_n2})"
+    )
