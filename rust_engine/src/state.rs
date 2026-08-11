@@ -317,28 +317,27 @@ impl InPlay {
     /// core.py InPlay.truly_original_power = 「元々のパワー」。 原則は印刷値だが、
     /// **「元々のパワーを◯◯にする」 効果** (公式 4-9-2-1) で書き換えられていればその値。
     /// ⚠ 素の 「パワーが◯◯になる」 (= `original` フラグ false) は現在パワーだけを変える。
+    /// 「元々のパワー」。 ⚠ **複数の 「元々のパワーを◯◯にする」 が適用されている場合は最も高い値**
+    /// (公式 4-9-2-1、 cardqa_st_34 / ST34-004 リンリン)。 slot 優先順位で 1 つ選ぶと、 後から掛けた
+    /// 低い値が高い値を潰す (2026-08-11 に Python と同時に是正)。
     pub fn truly_original_power(&self) -> i32 {
-        if self.turn_base_power_override_is_original {
-            if let Some(p) = self.turn_base_power_override {
-                return p;
+        let mut best: Option<i32> = None;
+        for (v, is_orig) in [
+            (self.turn_base_power_override, self.turn_base_power_override_is_original),
+            (self.next_turn_base_power_override, self.next_turn_base_power_override_is_original),
+            (
+                self.next_opp_turn_end_base_power_override,
+                self.next_opp_turn_end_base_power_override_is_original,
+            ),
+            (self.base_power_override, self.base_power_override_is_original),
+        ] {
+            if is_orig {
+                if let Some(p) = v {
+                    best = Some(best.map_or(p, |b: i32| b.max(p)));
+                }
             }
         }
-        if self.next_turn_base_power_override_is_original {
-            if let Some(p) = self.next_turn_base_power_override {
-                return p;
-            }
-        }
-        if self.next_opp_turn_end_base_power_override_is_original {
-            if let Some(p) = self.next_opp_turn_end_base_power_override {
-                return p;
-            }
-        }
-        if self.base_power_override_is_original {
-            if let Some(p) = self.base_power_override {
-                return p;
-            }
-        }
-        self.card.power
+        best.unwrap_or(self.card.power)
     }
 
     /// core.py InPlay.power = base + DON+1000(所有者ターンのみ)+ 各 buff。

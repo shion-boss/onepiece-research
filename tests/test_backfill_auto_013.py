@@ -120,13 +120,30 @@ def test_all_eb03_wave13_cards_have_overlay():
 #    【カウンター】自リーダー このバトル +3000
 # --------------------------------------------------------------------------- #
 def test_eb03_038_main_add_rested_don_ai():
-    """メイン do: ドンデッキからレストドン2枚を追加する (AI)。"""
+    """メイン do: ドンデッキからレストドン2枚を追加する (AI)。
+
+    ⚠ 2026-08-11: do 内の条件 `self_chara_only_feature_contains: ジェルマ` は
+      **キャラ0枚では成立しない** ように是正された (公式 cardqa_eb_03: 「自分の場にキャラが
+      0枚の場合、 …追加することはできますか？」 → 「いいえ」)。 従来この test は盤面を空のまま
+      do を直発火しており、 vacuous True に依存していた → 前提を満たす盤面を作る。
+    """
+    import json as _json
+    from engine.core import InPlay as _InPlay
     repo = _repo()
     overlay = _overlay()
-    st = _state(repo, "OP12-062", overlay)  # ジェルマ王国 leader (対象外だが do 直発火)
+    st = _state(repo, "OP12-062", overlay)  # ジェルマ王国 leader
     me, opp = st.players[0], st.players[1]
     me.don_remaining_in_deck = 10
     me.don_rested = 0
+    # 条件: 自キャラが『ジェルマ』を含む特徴のみ + 自ドン ≤ 相手ドン
+    _cards = {c["card_id"]: c for c in _json.loads(
+        (ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    _jerma = next(cid for cid, c in _cards.items()
+                  if c.get("category") == "CHARACTER"
+                  and "ジェルマ" in "".join(c.get("features") or []))
+    me.characters = [_InPlay.of(repo.get(_jerma), sickness=False)]
+    me.don_active = 0
+    opp.don_active = 5
 
     rested_before = me.don_rested
     do, _ = _do(overlay, "EB03-038", "main")

@@ -532,18 +532,25 @@ class InPlay:
 
         ⚠ 素の 「パワーが◯◯になる」 (= 「元々の」 が無い、 OP06-009 シュライヤ) は現在パワー
           だけを変える。 overlay の `original` フラグで書き分ける (True の時だけここに効く)。
-        優先順位は base_power と同じ (turn > next_self_turn_start > next_opp_turn_end > 静的)。
+        ⚠ **複数の 「元々のパワーを◯◯にする」 が同じキャラに適用されている場合は 最も高い値**
+          (公式 4-9-2-1 の逐語、 cardqa_st_34 / ST34-004 リンリン 「元々のパワー0にする」 ×
+          他効果の 「元々のパワー6000にする」 → **6000** が適用される)。
+          duration slot ごとに 1 枚しか持たないモデルなので、 **全 slot の最大値** を採る
+          (優先順位で 1 つ選ぶと 後から掛けた低い値が高い値を潰す = 2026-08-11 に実測で発覚)。
         """
-        if self.turn_base_power_override is not None and self.turn_base_power_override_is_original:
-            return self.turn_base_power_override
-        if (self.next_turn_base_power_override is not None
-                and self.next_turn_base_power_override_is_original):
-            return self.next_turn_base_power_override
-        if (self.next_opp_turn_end_base_power_override is not None
-                and self.next_opp_turn_end_base_power_override_is_original):
-            return self.next_opp_turn_end_base_power_override
-        if self.base_power_override is not None and self.base_power_override_is_original:
-            return self.base_power_override
+        vals = [
+            v for v, is_orig in (
+                (self.turn_base_power_override, self.turn_base_power_override_is_original),
+                (self.next_turn_base_power_override,
+                 self.next_turn_base_power_override_is_original),
+                (self.next_opp_turn_end_base_power_override,
+                 self.next_opp_turn_end_base_power_override_is_original),
+                (self.base_power_override, self.base_power_override_is_original),
+            )
+            if v is not None and is_orig
+        ]
+        if vals:
+            return max(vals)
         return self.card.power
 
     @property

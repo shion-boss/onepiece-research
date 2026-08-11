@@ -8842,3 +8842,97 @@ def test_ko_victim_original_power_uses_rewritten_value():
     top2, drew2 = run(9)   # 手札8枚以上 = 書き換わらない (印刷 4000)
     assert top2 == 4000 and drew2 == 0, \
         f"書き換えが無い時に発動している (元々={top2} / 引いた={drew2})"
+
+
+def test_original_power_rewrite_takes_highest_value():
+    """「元々のパワーを◯◯にする」 が複数適用されたら **最も高い値** (公式 4-9-2-1)。
+
+    一次情報 (総合ルール 4-9-2-1 逐語 + cardqa_st_34 / ST34-004 シャーロット・リンリン
+    「相手のキャラ1枚までを、 このターン中、 元々のパワー0にする」):
+      Q「選んだ相手のキャラが 「元々のパワー6000にする」 などの他の効果で元々のパワーを変更されて
+        いる場合、 そのキャラの元々のパワーはどうなりますか？」
+      → 「同じキャラに適用されている元々のパワーを変更する効果のうち、 **最も高い値** である
+        元々のパワーに適用されます」
+
+    退行前は **後勝ち (last-wins)** で、 後から掛けた 0 が 6000 を潰していた。
+    ⚠ 素の 「パワーが◯◯になる」 (= 「元々の」 が無い) は 4-9-2-1 の対象外 = 後勝ちのまま。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def apply(order, original: bool):
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        v = InPlay.of(repo.get("OP01-016"), sickness=False)
+        opp.characters = [v]
+        for amt in order:
+            execute_effect({"set_base_power_timed": {
+                "target": "one_opponent_character_any", "amount": amt,
+                "duration": "turn", "original": original}}, st, me, opp, None)
+            while st.pending_choice is not None:
+                resolve_pending_choice(st, [0])
+        return v
+
+    assert apply([6000, 0], True).truly_original_power == 6000, "後から掛けた 0 が 6000 を潰している"
+    assert apply([0, 6000], True).truly_original_power == 6000, "高い方が適用されていない"
+    # 対照: 素の 「パワーになる」 は 4-9-2-1 の対象外
+    assert apply([6000, 0], False).power == 0, "original=False まで max になっている (対象外のはず)"
+
+
+def test_chara_only_feature_condition_requires_at_least_one():
+    """「自分のキャラが特徴《X》を持つキャラ **のみの場合**」 は **キャラ0枚では成立しない**。
+
+    一次情報 (cardqa_op_16 / OP16-022 ルフィ): 「自分のキャラが0枚の時、 この【起動メイン】効果で
+    ドン‼をアクティブにできますか？」 → 「**いいえ、 できません**」
+    (cardqa_eb_03 / EB03-038 ごち♡ も同旨: 「自分の場にキャラが0枚の場合、 …ドン‼2枚までを
+     レストで追加することはできますか？」 → 「**いいえ**」)
+
+    退行前は 空集合を vacuous True にしており、 キャラ0枚でも成立していた。
+    同型条件を使う 6 枚 (EB02-010 / OP05-084 / OP05-092 / OP16-022 / EB03-038 / OP11-043) に効く。
+    """
+    repo, overlay = _repo(), _overlay()
+    cards = {c["card_id"]: c for c in json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    jerma = next(cid for cid, c in cards.items()
+                 if c.get("category") == "CHARACTER" and "ジェルマ" in "".join(c.get("features") or ""))
+    st = _state(repo, overlay)
+    me = st.players[0]
+
+    me.characters = []
+    assert eval_condition({"self_chara_only_feature_contains": "ジェルマ"}, st, me, None) is False, \
+        "キャラ0枚で 「〜のみの場合」 が成立している"
+    me.characters = [InPlay.of(repo.get(jerma), sickness=False)]
+    assert eval_condition({"self_chara_only_feature_contains": "ジェルマ"}, st, me, None) is True, \
+        "該当キャラのみなのに成立していない"
+    me.characters.append(InPlay.of(repo.get(_FILLER), sickness=False))
+    assert eval_condition({"self_chara_only_feature_contains": "ジェルマ"}, st, me, None) is False, \
+        "非該当が混ざっているのに成立している"
+
+
+def test_op04_081_mill_after_ko_is_not_omitted():
+    """OP04-081 キャベンディッシュ の 「その後、 自分のデッキの上から2枚をトラッシュに置く」 は必須。
+
+    公式 (cardqa_op_04): 「この【アタック時】効果を発動し、 自分のデッキのカードをトラッシュに
+    置かないことはできますか？」 → 「**いいえ、 できません**」
+    ⚠ 2026-08-11 まで overlay から **丸ごと欠落** していた (KO しか実装が無かった)。
+      コロン前が発動コストなので mill は `optional_cost_then` の effect 末尾 = 払わなければ起きない。
+      掃引で同型は OP04-081 / OP04-091 の 2 枚のみ。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    c = InPlay.of(repo.get("OP04-081"), sickness=False)
+    c.attached_dons = 1
+    me.characters = [c]
+    v = InPlay.of(repo.get("OP01-016"), sickness=False)
+    v.base_cost_override = 1
+    opp.characters = [v]
+    deck0, trash0 = len(me.deck), len(me.trash)
+    trigger_on_attack(st, me, opp, c, overlay)
+    resolve_triggers(st)
+    while st.pending_choice is not None:
+        resolve_pending_choice(st, [0])
+        resolve_triggers(st)
+    assert not opp.characters, "コスト1以下の相手キャラが KO されていない (前提崩れ)"
+    assert len(me.deck) == deck0 - 2 and len(me.trash) == trash0 + 2, (
+        f"「その後 デッキ上2枚をトラッシュ」 が実行されていない "
+        f"(deck {deck0}→{len(me.deck)} / trash {trash0}→{len(me.trash)})"
+    )
