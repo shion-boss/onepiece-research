@@ -9002,3 +9002,166 @@ def test_op10_119_attaches_don_only_to_supernova_leader():
     assert life_n2 == 1 and don_n2 == 1, (
         f"超新星リーダーへの 「その後」 のドン付与が実行されていない (life={life_n2} don={don_n2})"
     )
+
+
+# --------------------------------------------------------------------------- #
+#  2026-08-11 #5 FAQ conformance バッチの回帰テスト
+# --------------------------------------------------------------------------- #
+def test_op07_002_power_to_zero_is_minus_of_current():
+    """素の「パワー0にする」= 現在パワー分の固定マイナス (代入でない)。
+
+    一次情報 (cardqa_op_07、 OP07-002 アイン × OP12-070 サンジ):
+      「パワー8000のサンジを『0にする』とこのターン中 -8000され、 トラッシュのイベントが
+       20枚になり元パワーが 9000 になると パワーは 1000 になる」。
+    是正前は power_pump amount:-99999 で -90999 になっていた (公式は 1000)。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    import json as _json
+    cards = _json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+    ev = next(c["card_id"] for c in cards if c.get("category") == "EVENT")
+    sanji = InPlay.of(repo.get("OP12-070"), sickness=False)
+    opp.characters = [sanji]
+    opp.trash = [repo.get(ev)] * 19
+    from engine.game import _recompute_static
+    from engine.effects import execute_effect
+    _recompute_static(st)
+    assert sanji.power == 8000, f"前提: サンジ @19 events = 8000 (実際 {sanji.power})"
+    execute_effect({"power_pump": {"to_zero": True, "duration": "turn",
+                                   "target": "one_opponent_character_any"}},
+                   st, me, opp, None)
+    _recompute_static(st)
+    assert sanji.power == 0, f"アイン後 @19 events = 0 のはず (実際 {sanji.power})"
+    opp.trash = [repo.get(ev)] * 20
+    _recompute_static(st)
+    assert sanji.power == 1000, (
+        f"元パワーが 9000 に増えたら -8000 で 1000 のはず (実際 {sanji.power})。 "
+        f"代入や -99999 だと 1000 にならない"
+    )
+
+
+def test_no_overlay_power_pump_uses_huge_negative_for_set_to_zero():
+    """掃引: 素の「パワー0にする」 は to_zero で表現し、 -99999 の近似を残さない。"""
+    import json as _json
+    ov = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    offenders = []
+    for cid, ents in ov.items():
+        if not isinstance(ents, list):
+            continue
+        for e in ents:
+            if not isinstance(e, dict):
+                continue
+            for prim in (e.get("do") or []):
+                pp = prim.get("power_pump") if isinstance(prim, dict) else None
+                if isinstance(pp, dict) and pp.get("amount") in (-99999, -9999):
+                    offenders.append(cid)
+    assert not offenders, f"power_pump の巨大マイナス近似が残っている: {offenders}"
+
+
+def test_op10_032_replace_rest_requires_active_holder():
+    """「代わりにこのキャラをレストにできる」 は holder が既レストだと置換できない。
+
+    一次情報 (cardqa_op_10、 OP10-032 たしぎ):
+      「このキャラがレストの時、 自分の緑のキャラが相手の効果で場を離れる場合に、
+       代わりにこのキャラをレストにできますか？」 → 「いいえ、 できません」。
+    """
+    import json as _json
+    from engine.effects import try_replace_ko
+    from engine.game import _recompute_static
+    repo, overlay = _repo(), _overlay()
+    cards = _json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+    green = next(c["card_id"] for c in cards
+                 if c.get("category") == "CHARACTER" and "緑" in (c.get("color") or "")
+                 and c.get("name") != "たしぎ" and "_" not in c["card_id"])
+    for rested, expect in [(False, True), (True, False)]:
+        st = _state(repo, overlay)
+        st.turn_player_idx = 1  # 相手ターン (by_opp_effect の離脱)
+        me, opp = st.players[0], st.players[1]
+        tashigi = InPlay.of(repo.get("OP10-032"), sickness=False)
+        tashigi.rested = rested
+        victim = InPlay.of(repo.get(green), sickness=False)
+        me.characters = [tashigi, victim]
+        _recompute_static(st)
+        saved = try_replace_ko(st, me, opp, victim, overlay,
+                               by_opp_effect=True, leave_kind="ko")
+        assert saved is expect, (
+            f"たしぎ rested={rested}: 置換={saved} 期待={expect} "
+            f"(既レストなら救済不可 = 公式いいえ)"
+        )
+
+
+def test_st06_004_effect_ko_immune_survives_effect_ko():
+    """ST06-004 スモーカー「このキャラは効果でKOされない」 は効果KOで生き残る。
+
+    一次情報 (cardqa_st_06): 「このキャラは OP01-094 カイドウの【登場時】効果によって
+    KOされますか？」 → 「いいえ、 KOされません」。
+    """
+    import json as _json
+    from engine.effects import execute_effect
+    from engine.game import _recompute_static
+    repo, overlay = _repo(), _overlay()
+    cards = _json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+    lead = next(c["card_id"] for c in cards if c.get("category") == "LEADER"
+                and "百獣海賊団" in ((c.get("feature") or "") + "".join(c.get("features") or [])))
+    st = _state(repo, overlay, leader0=lead)
+    me, opp = st.players[0], st.players[1]
+    me.characters = [InPlay.of(repo.get("OP01-094"), sickness=False)]
+    smoker = InPlay.of(repo.get("ST06-004"), sickness=False)
+    plain = InPlay.of(repo.get("OP01-016"), sickness=False)
+    opp.characters = [smoker, plain]
+    _recompute_static(st)
+    execute_effect({"conditional": {"do": [{"ko_all_others": True}],
+                                    "if": {"leader_feature": "百獣海賊団"}}},
+                   st, me, opp, me.characters[0])
+    names = [c.card.name for c in opp.characters]
+    assert "スモーカー" in names, f"効果KO耐性のスモーカーが KO されている: {names}"
+
+
+def test_unconditional_effect_ko_immune_has_overlay_entry():
+    """掃引: 無条件「このキャラは効果でKOされない」 は overlay で set_ko_immune を持つ。"""
+    import json as _json
+    cards = _json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+    ov = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    offenders = []
+    for c in cards:
+        t = c.get("text") or ""
+        if "このキャラは効果でKOされない" not in t:
+            continue
+        s = _json.dumps(ov.get(c["card_id"]), ensure_ascii=False)
+        if "set_ko_immune" not in s and "prevent_ko" not in s:
+            offenders.append(c["card_id"])
+    assert not offenders, (
+        f"無条件『効果でKOされない』なのに overlay に immune が無い: {offenders}"
+    )
+
+
+def test_replace_rest_self_in_do_is_gated_by_cost():
+    """掃引: replace_ko/leave の do に「このキャラをレストにする」があるなら、
+
+    cost に rest_self (払える判定 = holder がアクティブ) を必ず持つ。 これが無いと
+    holder が既レストでも置換がタダで成立し、 場を離れるキャラを救済してしまう
+    (OP10-032 たしぎ の違反)。 実レスト自体は do 側 (トリガー発火のため) に残す。
+    """
+    import json as _json
+    ov = _json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    offenders = []
+    for cid, ents in ov.items():
+        if not isinstance(ents, list):
+            continue
+        for e in ents:
+            if not isinstance(e, dict):
+                continue
+            if e.get("when") not in ("replace_ko", "replace_leave"):
+                continue
+            do = e.get("do") or []
+            if not any(isinstance(p, dict) and p.get("rest") == "self" for p in do):
+                continue
+            cost = e.get("cost") or []
+            if isinstance(cost, dict):
+                cost = [cost]
+            if not any(isinstance(c, dict) and c.get("rest_self") for c in cost):
+                offenders.append(cid)
+    assert not offenders, (
+        f"replace の do に rest:self があるのに cost の rest_self ゲートが無い: {offenders}"
+    )

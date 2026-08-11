@@ -8460,9 +8460,9 @@
    "do": [
     {
      "power_pump": {
-      "amount": -99999,
       "duration": "turn",
-      "target": "one_opponent_character_any"
+      "target": "one_opponent_character_any",
+      "to_zero": true
      }
     }
    ],
@@ -19820,6 +19820,16 @@
   }
  ],
  "OP02-102": [
+  {
+   "_text": "OP02-102 static: このキャラは効果でKOされない",
+   "do": [
+    {
+     "set_ko_immune": "self"
+    }
+   ],
+   "n": 0,
+   "when": "on_attached_don"
+  },
   {
    "_text": "OP02-102 on_attack: コスト0のキャラがいる場合、このキャラは、このバトル中、パワー+2000。",
    "do": [
@@ -44464,9 +44474,9 @@
    "do": [
     {
      "power_pump": {
-      "amount": -99999,
       "duration": "turn",
-      "target": "one_opponent_character_any"
+      "target": "one_opponent_character_any",
+      "to_zero": true
      }
     }
    ],
@@ -61536,7 +61546,12 @@
     "target_color": "緑",
     "target_name_exclude": "たしぎ"
    },
-   "when": "replace_ko"
+   "when": "replace_ko",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ]
   }
  ],
  "OP10-032_p1": [
@@ -61553,7 +61568,12 @@
     "target_color": "緑",
     "target_name_exclude": "たしぎ"
    },
-   "when": "replace_ko"
+   "when": "replace_ko",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ]
   }
  ],
  "OP10-032_p2": [
@@ -61570,7 +61590,12 @@
     "target_color": "緑",
     "target_name_exclude": "たしぎ"
    },
-   "when": "replace_ko"
+   "when": "replace_ko",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ]
   }
  ],
  "OP10-032_r1": [
@@ -61587,7 +61612,12 @@
     "target_color": "緑",
     "target_name_exclude": "たしぎ"
    },
-   "when": "replace_ko"
+   "when": "replace_ko",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ]
   }
  ],
  "OP10-033": [
@@ -70161,7 +70191,12 @@
     "target_cost_le": 5
    },
    "optional": true,
-   "when": "replace_ko"
+   "when": "replace_ko",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ]
   }
  ],
  "OP12-027_r1": [
@@ -70179,7 +70214,12 @@
     "target_cost_le": 5
    },
    "optional": true,
-   "when": "replace_ko"
+   "when": "replace_ko",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ]
   }
  ],
  "OP12-028": [
@@ -71143,6 +71183,9 @@
    "cost": [
     {
      "trash_self_hand_random": 1
+    },
+    {
+     "rest_self": true
     }
    ],
    "do": [
@@ -99824,6 +99867,16 @@
  "ST06-003": [],
  "ST06-004": [
   {
+   "_text": "ST06-004 static: このキャラは効果でKOされない",
+   "do": [
+    {
+     "set_ko_immune": "self"
+    }
+   ],
+   "n": 0,
+   "when": "on_attached_don"
+  },
+  {
    "_text": "on_attached_don n=1: コスト0のキャラがいる場合、このキャラは【ダブルアタック】を得る。(このカードが与えるダメージは2になる)",
    "conditions": [
     {
@@ -110220,7 +110273,12 @@
     "target_truly_original_power_le": 6000
    },
    "optional": true,
-   "when": "replace_leave"
+   "when": "replace_leave",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ]
   }
  ],
  "ST30-011_p1": [
@@ -110238,7 +110296,12 @@
     "target_truly_original_power_le": 6000
    },
    "optional": true,
-   "when": "replace_leave"
+   "when": "replace_leave",
+   "cost": [
+    {
+     "rest_self": true
+    }
+   ]
   }
  ],
  "ST30-012": [
