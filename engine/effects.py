@@ -12535,6 +12535,7 @@ def trigger_on_opp_life_taken(
     defender: Player,
     went_to_hand: bool,
     effects_overlay: dict[str, CardEffectBundle],
+    fire_attacker_side: bool = True,
 ) -> None:
     """ライフ移動時の 2 系トリガーを発火 (公式 10-1-5 直後)。
 
@@ -12550,7 +12551,12 @@ def trigger_on_opp_life_taken(
     """
     if not effects_overlay:
         return
-    _enqueue_field_when(state, attacker, "on_opp_life_taken", effects_overlay)
+    # ⭐ fire_attacker_side=False = 【ダブルアタック】の 2 発目以降。
+    #   「相手のライフに **ダメージを与えた時**」 は 1 アタックにつき 1 回
+    #   (公式 cardqa_op_03、 2026-08-11)。 defender 側 (ライフが手札/トラッシュへ移動した時) は
+    #   **カードごとの事象** なので毎 hit 発火させる。
+    if fire_attacker_side:
+        _enqueue_field_when(state, attacker, "on_opp_life_taken", effects_overlay)
     if went_to_hand:
         _enqueue_field_when(state, defender, "on_self_life_to_hand", effects_overlay)
     else:

@@ -1904,7 +1904,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     return
             if damage == 2:
                 state.push_log(f"  ダブルアタック: 2 ダメージ")
-            for _ in range(damage):
+            for _hit_i in range(damage):
                 if not opp.life:
                     state.push_log(f"  ライフ尽きた、残り {damage} 発目以降は空打ち")
                     break
@@ -1958,7 +1958,14 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     _ = consumed
                     return
                 # AI defender: 旧挙動
-                _resolve_life_taken(state, me, opp, taken)
+                # ⭐ 「相手のライフに **ダメージを与えた時**」 は 1 回のアタックにつき **1 回**
+                #   (公式 cardqa_op_03: 「【ダブルアタック】を持つキャラが相手のライフに2ダメージを
+                #    与えた時に2回発動できますか？」 → 「**いいえ、 1回のみ**」)。
+                #   【ダブルアタック】は 「与えるダメージが 2 になる」 = **1 つのダメージ事象** なので、
+                #   ライフが 2 枚離れても attacker 側の when は 1 回だけ発火させる (2026-08-11 是正、
+                #   従来は hit ごとに発火し OP03-041 ウソップ が 7 枚→14 枚 mill していた)。
+                _resolve_life_taken(state, me, opp, taken,
+                                    fire_opp_life_taken=(_hit_i == 0))
         else:
             state.push_log("  blocked")
         # 公式 7-1-5-1: バトル終了時に「このバトル中」効果をリセット
@@ -2312,6 +2319,7 @@ def _resolve_life_taken(
     taken: "CardDef",
     use_trigger: Optional[bool] = None,
     by_effect: bool = False,
+    fire_opp_life_taken: bool = True,
 ) -> None:
     """1 hit 分 の life→hand / trigger 処理。
 
@@ -2427,6 +2435,7 @@ def _resolve_life_taken(
             from .effects import trigger_on_opp_life_taken
             trigger_on_opp_life_taken(
                 state, me, opp, went_to_hand, state.effects_overlay,
+                fire_attacker_side=fire_opp_life_taken,
             )
     # ⭐ 「自分のライフが0枚になった時」 は **ライフ処理 (= 【トリガー】発動 / 手札に加える)
     #   が終わってから** 発動する (公式 cardqa_op_11、 OP11-102 ケイミー × OP05-098 エネル):

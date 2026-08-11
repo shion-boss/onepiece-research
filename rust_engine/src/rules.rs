@@ -1106,7 +1106,7 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 // per-hit 処理 (Python _resolve_life_taken)。 トリガー発火は board を変えうるので hit ごとに
                 // should_fire を再評価 (一括 pre-check 不可)。 発火は fire_life_trigger (source-gone 安全 subset、
                 // 未対応 trigger は Err bail)。 発火成立で kept_in_hand=false → trash、 不発 → hand。
-                for _ in 0..damage {
+                for hit_i in 0..damage {
                     if state.players[opp].life.is_empty() {
                         break;
                     }
@@ -1170,7 +1170,12 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                         None => return Err("life trigger (unknown) 未対応".into()),
                     };
                     // 公式 10-1-5 直後の life 移動トリガー (trigger_on_opp_life_taken、 went_to_hand で分岐)。
-                    crate::effects::fire_field_when(state, me, "on_opp_life_taken")?;
+                    // ⭐ 「相手のライフに **ダメージを与えた時**」 は 1 アタックにつき **1 回**
+                    //   (公式 cardqa_op_03: 【ダブルアタック】で2ダメージでも 「いいえ、 1回のみ」)。
+                    //   defender 側 (ライフが手札/トラッシュへ移動した時) は カードごとの事象なので毎 hit。
+                    if hit_i == 0 {
+                        crate::effects::fire_field_when(state, me, "on_opp_life_taken")?;
+                    }
                     if went_to_hand {
                         crate::effects::fire_field_when(state, opp, "on_self_life_to_hand")?;
                     } else {

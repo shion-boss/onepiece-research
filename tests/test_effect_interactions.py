@@ -9325,3 +9325,42 @@ def test_op07_091_trash_to_deck_pump_is_per_three():
     assert moved == 3 and gain == 1000, f"3枚で +1000 のはず (置いた={moved} 上昇={gain})"
     moved, gain, _ = run(7)
     assert moved == 7 and gain == 2000, f"7枚で +2000 のはず (置いた={moved} 上昇={gain})"
+
+
+def test_damage_dealt_trigger_fires_once_per_attack():
+    """「相手のライフに **ダメージを与えた時**」 は 1 アタックにつき **1 回**。
+
+    一次情報 (cardqa_op_03): 「この 『相手のライフにダメージを与えた時』 の効果は、
+    【ダブルアタック】を持つキャラが相手のライフに2ダメージを与えた時に2回発動できますか？」
+    → 「**いいえ、 できません。 1回のみ**」
+
+    【ダブルアタック】は 「このカードが与えるダメージは2になる」 = **1 つのダメージ事象** なので、
+    ライフが 2 枚離れても attacker 側の when は 1 回だけ発火する。
+    退行前は hit ごとに発火し、 OP03-041 ウソップ が 7 枚 → **14 枚** mill していた。
+
+    ⚠ defender 側 (ライフが手札/トラッシュへ移動した時) は **カードごとの事象** なので毎 hit 発火。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def milled(double: bool) -> int:
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        u = InPlay.of(repo.get("OP03-041"), sickness=False)
+        u.attached_dons = 1          # 【ドン‼×1】
+        u.turn_buff = 10000          # リーダーを確実に上回る
+        if double:
+            u.granted_keywords.add("ダブルアタック")
+        me.characters = [u]
+        me.deck = [repo.get(_FILLER)] * 40
+        opp.life = [repo.get(_FILLER)] * 4
+        deck0 = len(me.deck)
+        apply_action(st, AttackLeader(attacker_iid=u.instance_id), overlay)
+        while st.pending_choice is not None:
+            resolve_pending_choice(st, [0])
+        return deck0 - len(me.deck)
+
+    assert milled(False) == 7, "通常アタックで 7 枚 mill されていない (前提崩れ)"
+    assert milled(True) == 7, (
+        "【ダブルアタック】で 2 回発動している "
+        f"(mill={milled(True)} 枚、 公式は 1 回のみ = 7 枚)"
+    )
