@@ -5040,6 +5040,14 @@ def _execute_effect_body_inner(
                     picked.append(c)
                 else:
                     remaining.append(c)
+            # ⭐ destination="play" の【登場時】は 「その後、 残りを (トラッシュ/デッキ下) に
+            #   置く」 が完了した **後** に発火する (公式 cardqa_op_03 / OP03-094 空気開扉:
+            #   「この【メイン】効果で登場したキャラの【登場時】は、 その後、 残りをトラッシュに
+            #    置く前に発動しますか？」 → 「いいえ、 残りのカードをトラッシュにおいた後に
+            #    【登場時】効果が発動します」)。 従来は登場ループ内で即 trigger_on_play して
+            #   おり、 remaining を trash/deck 底へ送る前に登場時が解決していた。 登場した
+            #   InPlay を溜めておき、 remaining 処理後にまとめて発火する。
+            played_ips: list[InPlay] = []
             for c in picked:
                 if destination == "play":
                     if c.category == Category.STAGE:
@@ -5056,8 +5064,7 @@ def _execute_effect_body_inner(
                         ip = InPlay.of(c, rested=False, sickness=False)
                         me.stages.append(ip)
                         state.push_log(f"  効果: search_top_n → 登場 {c.name} (ステージ)")
-                        if state.effects_overlay:
-                            trigger_on_play(state, me, opp, ip, state.effects_overlay)
+                        played_ips.append(ip)  # 登場時は remaining 処理後に発火
                         continue
                     if c.category != Category.CHARACTER:
                         # LEADER 等 登場不可 → 手札にもどす (フォールバック)
@@ -5068,8 +5075,7 @@ def _execute_effect_body_inner(
                     ip = InPlay.of(c, rested=rested_flag, sickness=True)
                     me.characters.append(ip)
                     state.push_log(f"  効果: search_top_n → 登場 {c.name}")
-                    if state.effects_overlay:
-                        trigger_on_play(state, me, opp, ip, state.effects_overlay)
+                    played_ips.append(ip)  # 登場時は remaining 処理後に発火
                 elif destination in ("life", "life_face_up"):
                     # 「ライフの上に加える」 (= OP16-119 ティーチ)。 公式 表記なし は裏向き (life 既定)。
                     # life_face_up = 表向きで加える (= ST13-002)。 count-only モデルで表向き +1。
@@ -5142,6 +5148,11 @@ def _execute_effect_body_inner(
                     pass
             if not picked:
                 state.push_log(f"  効果: search_top_n 該当なし")
+            # ⭐ remaining を deck 底/トラッシュへ送った後に、 登場したキャラ/ステージの
+            #   【登場時】を発火 (公式 cardqa_op_03、 上の played_ips コメント参照)。
+            if state.effects_overlay:
+                for _pip in played_ips:
+                    trigger_on_play(state, me, opp, _pip, state.effects_overlay)
         elif k == "declare_cost_reveal_then":
             # 公式 「任意のコストを宣言し、 相手のデッキの上から1枚を公開する。 公開したカードが
             # 宣言したコストと同じ場合、 効果X」 (OP11-066/071/073/074/079/081 ビッグ・マム宣言系)。
@@ -12036,6 +12047,7 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             valid_picks.append(i)
     picked = [seen[i] for i in valid_picks]
     remaining = [c for i, c in enumerate(seen) if i not in seen_i]
+    _human_played_ips: list[InPlay] = []
     for c in picked:
         if destination == "play":
             if c.category != Category.CHARACTER:
@@ -12046,8 +12058,7 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             ip = InPlay.of(c, rested=rested_flag, sickness=True)
             me.characters.append(ip)
             state.push_log(f"  効果: 人間選択 → 登場 {c.name}")
-            if state.effects_overlay:
-                trigger_on_play(state, me, state.opponent, ip, state.effects_overlay)
+            _human_played_ips.append(ip)  # 登場時は remaining 処理後に発火 (cardqa_op_03)
         elif destination == "life":
             # 「ライフの上に加える」 (= OP16-119 ティーチ)。 裏向き (life 既定)。
             me.life.insert(0, c)
@@ -12067,8 +12078,18 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         state.push_log(
             f"  効果: search_top_n 残り{len(remaining)}枚 → トラッシュ"
         )
+        # ⭐ 登場時は remaining をトラッシュに置いた **後** に発火 (公式 cardqa_op_03)。
+        if state.effects_overlay:
+            for _pip in _human_played_ips:
+                trigger_on_play(state, me, state.opponent, _pip, state.effects_overlay)
         state.pending_choice = None
         return
+    # ⭐ bottom 系: reorder halt では remaining 配置が後続 modal に持ち越されるため、
+    #   登場時は今 (deck 底送りの直前) 発火する = 従来挙動を維持 (trash と違い底送りは
+    #   登場時が観測する trash 枚数等に影響しないので実害なし)。
+    if state.effects_overlay:
+        for _pip in _human_played_ips:
+            trigger_on_play(state, me, state.opponent, _pip, state.effects_overlay)
     # bottom 戻し: 人 間 + 2 枚 以上 残 れば reorder modal halt、 1 枚 以下 なら 即 deck 底
     if remaining and len(remaining) >= 2 and _should_human_pick(state):
         state.pending_choice = {

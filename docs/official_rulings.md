@@ -6103,6 +6103,18 @@ static_skip 288 で検出した。
 > 教訓: **「長さが合っている」 は同期の証明にならない**。 desync guard (長さ) は
 > 位置ずれを一切捕まえない。 捕まえたのは 2 実装の差分掃引だった。
 
+### (7) 副産物: cron が同時に escalated にした EB01-052 も同じ移行で解消
+
+cron `optcg-faq-conformance` が本作業と並行して **同じ根 (count モデル)** を踏み、
+`8e1dae473363` を escalated にしていた ( 「相手ライフ並べ替えで表向きは裏に戻すか？」
+→ 公式 「いいえ、 表は表・裏は裏のまま」 )。 per-card 化でそのまま解消。
+- 実測: 前 `[(OP01-013,表),(OP01-016,裏),(OP01-025,表)]` →
+  後 `[(OP01-025,表),(OP01-016,裏),(OP01-013,表)]` = **順番は変わり、 表裏は札に追随**。
+- 回帰: `test_opp_life_reorder_preserves_each_card_orientation`
+- ⚠ 旧モデルの回帰テスト 2 本 (ライフ 0 なのに表向きが残る / 古いカウントが新しい裏向き
+  ライフを表向きにする) は **構造的に起こりえなく** なったので削除し、 意図を
+  `test_face_up_count_is_derived_from_per_card_flags` に畳んだ (= 削りっぱなしにしない)。
+
 ### (6) Rust は 「動的 context」 と 「静的 context」 で **別の match** を持つ
 
 `set_face_up_life_to_deck_bottom_static` を `execute_effect_inner` にだけ足していたため、
@@ -6122,3 +6134,86 @@ static_skip 288 で検出した。
 不変条件は維持 (= 黙って乖離しない)。 ⚠ 表向きライフが 0 枚の ST13-003 戦は素通りするので、
 通常の対戦性能には影響しない。 Rust で ST13-003 の表向きライフを回す必要が出たら
 ここ (ダメージ経路 + 各 life→hand primitive) を実装する。
+
+---
+
+## search_top_n で「登場させる」キャラの【登場時】は「その後、残りを置く」の**後**に発動 (2026-08-11 是正)
+
+**一次情報** (`cardqa_op_03` / qid 8fba21f82b0d、 OP03-094 空気開扉):
+- Q:「この【メイン】効果で登場したキャラの【登場時】効果は、この【メイン】効果の
+  『その後、残りをトラッシュに置く。』を行う前に発動しますか？」
+- A:「**いいえ、残りのカードをトラッシュにおいた後に**【登場時】効果が発動します。」
+
+**是正前の挙動**: `search_top_n` (destination=play) は登場ループの中で **即** `trigger_on_play` を
+呼んでおり、 `remaining` を トラッシュ/デッキ下へ送る **前** に 登場時が解決していた。
+= 登場キャラの登場時が トラッシュ枚数 / デッキ内容を **残り処理前** の状態で観測してしまう。
+
+**Python も Rust も同じ順序で誤っていた** → 差分検証 (MISMATCH) では原理的に沈黙。 公式 Q&A
+という外部オラクルでのみ検出できた (本タスクの想定どおりの発見)。
+
+**是正**:
+- Python `engine/effects.py` `search_top_n` — 登場した InPlay を `played_ips` に溜め、
+  `rest_remain` 処理 (trash/bottom/top_or_bottom) の **後** に `trigger_on_play` を発火。
+  人間選択経路 (`_resolve_pending_choice_inner`) の trash 分岐も同様に後置き。
+- Rust `rust_engine/src/effects.rs` `search_top_n` — `deferred_on_play: Vec<(is_stage,pidx)>` に
+  溜め、 remaining 配置後に `execute_on_play` / `execute_stage_on_play`。
+- destination=play の overlay は **全 23 エントリが limit=1** (全走査で確認)。 remaining 処理は
+  characters/stages vec を触らないので、 登場時に捕捉した `pidx` は不変 = 位置退避で十分。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+`test_search_top_n_play_on_play_fires_after_remaining_to_trash` — 登場キャラの登場時を
+「トラッシュからコスト2以下のキャラ1枚を登場」に差し替え、 remaining 4枚がトラッシュに置かれた
+**後** に登場時が走る (= 1枚釣り上げられる) ことを assert。 是正前は空トラッシュで 0 枚 → 落ちる。
+検証: `rust_parity_check --assert` (match=2129 / MISMATCH=0)、 `rust_effect_smoke_parity --assert`
+(4262 枚 bit 一致)、 `audit_sonogo_order --assert` (逆順 0)。
+
+## 公式どおりで **問題なかった** もの (2026-08-11 FAQ conformance バッチ、 台帳先頭 20 件)
+
+再調査を避けるため conform / n/a を記録:
+
+- **OP07-002 アイン「パワー0にする」** (cardqa_op_07 / 9032245c8553): `to_zero`=現在パワーぶんの
+  turn_buff マイナス。 ハック(印刷5000)が KEEP OUT で +2000(next_opp_turn_end)=7000 の状態にアイン
+  → 自ターン中 5000+2000-7000=0、 次相手ターンは turn_buff 消滅で +2000 残り 7000。 conform
+  (effects.py:4316 コメントに本裁定明記)。
+- **OP07-091 ルフィ** (90b283e575fe): `trash_to_deck_bottom_then_pump_per` per3/amount1000。
+  5枚置き → floor(5/3)*1000 = **+1000**。 conform。
+- **OP15-099 ウルージ** (8d9861655e0b): 起動メイン cost=`flip_life_face_down`。 payability は
+  face_up_life_count>=1 && life>0 を要求 → ライフ0/表向きライフ無しでは払えず optional_cost_then
+  不発。 公式「いいえ」 conform。
+- **OP06-102/111** (8da38e24d4b7): cost `stage_to_deck_bottom` side:either(cost_eq1)=相手の
+  コスト1ステージも対象。 conform。
+- **OP10-099 キッド** (8dfc65b2d534): give_keyword blocker は rested を要求しない → 既アクティブの
+  超新星も blocker 付与可。 conform。
+- **OP10-042 ウソップ** (8e003beca3a4): on_self_chara_ko(opp_turn && hand<=5→draw)。 相手アタック
+  KO でも発火。 conform。
+- **OP03-089 ブランニュー** (8f586e0030a3): search filter feature:海軍 は `not in card.features` の
+  **完全一致** (feature_contains が substring 用の別 key)。 元海軍/NEO海軍 は別トークン→不一致。
+  公式「いいえ」 conform。
+- **op_01【ドン×1】cost軽減** (8f628399a526): hand play cost = max(0, cost-reduce) で 0 未満に
+  ならない。 conform。
+- **OP05-100 エネル** (8f9691cb297f): replace_leave は全離脱種別で発火 (by_opp_effect gate 無し)
+  → 自効果離脱でも代替ライフトラッシュ可。 conform。
+- **ST28-004** (8f9f4f6c284d): cost `return_attached_don_to_cost_rested`:2 は self→他キャラ/リーダー
+  から補充 = 異なる2枚から1枚ずつ払える。 conform。
+- **EB02-010 緑紫ルフィ** (8fc4d9bbf28a): 起動メイン ドン-2(cost)→conditional{self_chara_only_feature
+  麦わら}。 キャラ0枚は「特徴のみ」不成立(既決) → cost 払い後 効果不発。 conform。
+- **OP02-026 サンジ** (900905193742): on_self_chara_played if{no_effect, self_chara_count_le:3}。
+  登場後 len(characters) 判定 = 3枚→登場で4枚>3→不成立→untap 不可。 公式「いいえ」 conform。
+- **OP02-042 ヤマト** (90bea5d762af): alias 光月おでん は card_alt_names.json(alt_names 配下)に登録済、
+  name_matches が参照 → 名前「光月おでん」効果の対象。 conform。
+- **PRB01-001 サンジ** (90d8dd468d95): give_rush target `one_self_chara_no_on_play_cost_le_8`。
+  `_has_on_play` は overlay に when==on_play を持つか判定。【登場時】/【アタック時】複合は
+  on_play+on_attack の2エントリ格納 → 除外。 公式「いいえ」 conform。
+- **op_12 counter** (913cb87a3d1d): 0アクティブドンでも発動可、「代わりに自分のドンをレスト」が
+  active ドン無しで不可 → 後段 -1000 不発 (既決 line1210)。 conform。
+- **OP11-013 プリンス・グルス** (915a64d10780): disable_blocker は on_attack 解決時に power<=2000 を
+  スナップし各対象へ blocker_disabled フラグ。 後でパワー上昇してもフラグ残存 → ブロッカー不可。
+  公式「できない」 conform。
+- **st_02【トリガー】ドンアクティブ化** (8dc210952489): untap_don は min(N, don_rested)=レストドン
+  不足でも 0..N をアクティブ化しトリガー自体は発動。 公式「0枚または1枚を選べる」 conform。
+- **相手手札を裏向きで選ぶ** (8ed585cbd9fe): 非公開(ランダム)選択の確認。 engine 状態変化に一意に
+  落ちない UI/表記確認 → n/a。
+- **EB01-052 ヴィオラ ライフ並び替えの表裏保存** (8e1dae473363): engine のライフ表裏は
+  face_up_life_count の count モデルで per-card 表裏を持たない。 並び替えで集計上「表→裏に戻さない」は
+  満たすが、 表裏混在時の per-card 保存は位置準拠にズレる。 実害は表向き相手ライフの並び替え(稀)に
+  限定、 根治は per-card life orientation=アーキ変更 → **escalated**。

@@ -9572,3 +9572,121 @@ def test_scry_life_keeps_face_up_card_face_up():
     assert me.life[0].card_id == _FILLER, "テスト前提: 上下が入れ替わること"
     up = [c.card_id for c, f in zip(me.life, me.life_face_up) if f]
     assert up == ["OP01-025"], f"表向きフラグが別の札に移っている (表向き={up})"
+
+
+# --------------------------------------------------------------------------- #
+#  search_top_n destination=play の【登場時】は「その後、残りを置く」の後に発動する
+#  一次情報 (cardqa_op_03 / 8fba21f82b0d、 OP03-094 空気開扉):
+#    Q:「この【メイン】効果で登場したキャラの【登場時】効果は、この【メイン】効果の
+#       『その後、残りをトラッシュに置く。』を行う前に発動しますか？」
+#    A:「いいえ、残りのカードをトラッシュにおいた後に【登場時】効果が発動します。」
+#  是正前: search_top_n が登場ループ内で即 trigger_on_play しており、 remaining を
+#          トラッシュに置く **前** に登場時が解決していた (Python/Rust とも同じ誤り =
+#          差分検証では沈黙)。
+# --------------------------------------------------------------------------- #
+def test_search_top_n_play_on_play_fires_after_remaining_to_trash():
+    """登場したキャラの【登場時】は、残りをトラッシュに置いた後に発動する。
+
+    観測方法: 登場キャラ A の【登場時】を「トラッシュからコスト2以下のキャラ1枚を登場」に
+    差し替える。 A と一緒に見た残り4枚 (コスト2のキャラ) がトラッシュに置かれた後に A の
+    登場時が走るなら、 その4枚のうち1枚を釣り上げられる。 是正前は登場時がトラッシュ化の
+    前に走り、 (空トラッシュから) 何も釣れなかった。
+    """
+    from engine.effects import CardEffectBundle
+
+    repo, overlay = _repo(), _overlay()
+    A_ID = "OP02-042"   # ヤマト (キャラ)。 登場時を下記に差し替える
+    T_ID = "OP01-013"   # コスト2キャラ (on_play なし = 釣り上げても再帰しない)
+    # A の overlay を「登場時: トラッシュからコスト2以下のキャラ1枚を登場」に差し替え
+    overlay = dict(overlay)
+    overlay[A_ID] = CardEffectBundle(card_id=A_ID, effects=[{
+        "when": "on_play",
+        "do": [{"play_from_trash": {
+            "filter": {"category": "CHARACTER", "cost_le": 2},
+            "limit": 1, "rested": False,
+        }}],
+    }])
+
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.characters = []
+    me.trash = []                       # トラッシュは空から始める (= 釣り上げ元は remaining のみ)
+    # デッキ上5枚 = [A, T, T, T, T]。 filter=name:ヤマト で A だけ拾い、 残り4枚の T を trash へ
+    me.deck = [repo.get(A_ID)] + [repo.get(T_ID)] * 4 + me.deck
+
+    execute_effect(
+        {"search_top_n": {
+            "depth": 5, "filter": {"name": "ヤマト"}, "limit": 1,
+            "destination": "play", "rest_remain": "trash",
+        }},
+        st, me, opp, None,
+    )
+    resolve_triggers(st)
+
+    played_a = [c for c in me.characters if c.card.card_id == A_ID]
+    grabbed = [c for c in me.characters if c.card.card_id == T_ID]
+    assert len(played_a) == 1, "A (ヤマト) が登場していない (前提が崩れている)"
+    # ★ 是正の核心: remaining の T が先にトラッシュへ → A の登場時が 1 枚釣り上げる。
+    #   是正前は登場時がトラッシュ化前に走り grabbed==0 で落ちる。
+    assert len(grabbed) == 1, (
+        "登場時が『残りをトラッシュに置く』前に走っている "
+        f"(釣り上げ数={len(grabbed)}、 trash残={len(me.trash)})"
+    )
+    assert len(me.trash) == 3, f"trash に 3 枚残るはず (実際 {len(me.trash)})"
+
+
+def test_opp_life_reorder_preserves_each_card_orientation():
+    """EB01-052 ヴィオラ: **相手の**ライフを並べ替えても 表は表・裏は裏 のまま。
+
+    一次情報 (cardqa_eb_01 / 8e1dae473363): 「この【登場時】効果で相手のライフすべてを見て
+    順番を変える際、 表向きのライフは裏向きに戻しますか？」
+    → 「**いいえ、 表向きのライフは表向きのまま、 裏向きのライフは裏向きのまま置きます**」
+
+    ⚠ 旧モデル (表向き **枚数** だけを持つ) では原理的に再現できず escalated だった。
+      per-card 化 (2026-08-11) 後は 「フラグが札に追随するか」 の問題になる。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    # 相手ライフ並べ替えは 「弱い札を上」 = 昇順。 降順で置いて必ず並べ替えが起きるようにする。
+    opp.life = [repo.get(_FILLER), repo.get("OP01-016"), repo.get("OP01-025")]
+    opp.life_face_up = [True, False, True]
+    before = {c.card_id: f for c, f in zip(opp.life, opp.life_face_up)}
+
+    execute_effect({"scry_all_life_reorder": {"owner": "opp"}}, st, me, opp, None)
+
+    after = [(c.card_id, f) for c, f in zip(opp.life, opp.life_face_up)]
+    assert [c for c, _ in after] != list(before), "テスト前提: 並べ替えで順番が変わること"
+    assert all(before[cid] == f for cid, f in after), (
+        f"並べ替えで表裏が入れ替わっている (前={before} 後={after})"
+    )
+
+
+def test_face_up_count_is_derived_from_per_card_flags():
+    """`face_up_life_count` は per-card フラグの **導出値** で、 単独では持たない。
+
+    ⚠ 2026-08-11 の per-card 化で、 旧モデルの 2 本 (ライフ 0 なのに表向き 1 が残る /
+      古いカウントが新しい裏向きライフを表向きにする) は **構造的に起こりえなく** なったので
+      削除した。 その意図をこの 1 本に畳んで残す (= 削りっぱなしにしない)。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    me.life = [repo.get(_FILLER)]
+    me.life_face_up = [True]
+    assert me.face_up_life_count == 1
+
+    me.life.clear()
+    me.life_face_up.clear()               # ライフが尽きた = フラグも一緒に消える
+    evaluate_static_effects(st, overlay)
+    assert me.face_up_life_count == 0, "ライフ 0 なのに表向きが残っている"
+
+    me.life.append(repo.get(_FILLER))     # 効果でライフを積み直す (裏向き)
+    me.life_face_up.append(False)
+    evaluate_static_effects(st, overlay)
+    assert me.face_up_life_count == 0, "新しく置いた裏向きのライフが表向き扱いになっている"
+
+    # 書き込み専用の旧フィールドは残っていない (= 二重の真実を作らない)
+    import pytest as _pytest
+    with _pytest.raises(AttributeError):
+        me.face_up_life_count = 3
