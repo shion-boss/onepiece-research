@@ -467,9 +467,13 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                 let total: i32 = me.characters.iter().map(|c| c.base_cost()).sum();
                 total as i64 >= v.as_i64().unwrap_or(0)
             }
+            // ⚠ **キャラ0枚では成立しない** (公式 cardqa_op_16 / OP16-022: 「自分のキャラが0枚の時、
+            //   この【起動メイン】効果でドン‼をアクティブにできますか？」 → 「いいえ」)。
+            //   2026-08-11 に Python と同時に是正 (従来は vacuous True)。
             "self_chara_only_feature" => {
                 let f = v.as_str().unwrap_or("");
-                me.characters.iter().all(|c| c.card.features.iter().any(|x| x == f))
+                !me.characters.is_empty()
+                    && me.characters.iter().all(|c| c.card.features.iter().any(|x| x == f))
             }
             // 自分の場のドン (コストエリア active+rested) が 0 か 3 以上 (effects.py:self_field_don_zero_or_ge_3)
             "self_field_don_zero_or_ge_3" => {
@@ -2636,7 +2640,7 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
             let is_orig = spec.get("original").and_then(|x| x.as_bool()).unwrap_or(false);
             for (pi, sl) in targets {
                 let ip = get_ip_mut(&mut state.players[pi], sl);
-                ip.base_power_override = Some(amount);
+                ip.base_power_override = Some(if is_orig { ip.base_power_override.filter(|_| ip.base_power_override_is_original).map_or(amount, |c| c.max(amount)) } else { amount });
                 ip.base_power_override_is_original = is_orig;
             }
         }
@@ -2652,21 +2656,21 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
                 let ip = get_ip_mut(&mut state.players[pi], sl);
                 match duration.as_str() {
                     "turn" => {
-                        ip.turn_base_power_override = Some(amount);
+                        ip.turn_base_power_override = Some(if is_orig { ip.turn_base_power_override.filter(|_| ip.turn_base_power_override_is_original).map_or(amount, |c| c.max(amount)) } else { amount });
                         ip.turn_base_power_override_is_original = is_orig;
                     }
                     "next_self_turn_start" => {
-                        ip.next_turn_base_power_override = Some(amount);
+                        ip.next_turn_base_power_override = Some(if is_orig { ip.next_turn_base_power_override.filter(|_| ip.next_turn_base_power_override_is_original).map_or(amount, |c| c.max(amount)) } else { amount });
                         ip.next_turn_base_power_override_is_original = is_orig;
                     }
                     "next_opp_turn_end" | "next_opp_end_phase" => {
-                        ip.next_opp_turn_end_base_power_override = Some(amount);
+                        ip.next_opp_turn_end_base_power_override = Some(if is_orig { ip.next_opp_turn_end_base_power_override.filter(|_| ip.next_opp_turn_end_base_power_override_is_original).map_or(amount, |c| c.max(amount)) } else { amount });
                         ip.next_opp_turn_end_base_power_override_is_original = is_orig;
                         ip.next_opp_turn_end_base_power_override_applier_idx = me_idx as i32;
                         ip.next_opp_turn_end_base_power_override_applied_turn = turn_number;
                     }
                     _ => {
-                        ip.base_power_override = Some(amount);
+                        ip.base_power_override = Some(if is_orig { ip.base_power_override.filter(|_| ip.base_power_override_is_original).map_or(amount, |c| c.max(amount)) } else { amount });
                         ip.base_power_override_is_original = is_orig;
                     }
                 }
@@ -2702,15 +2706,15 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
                 let ip = get_ip_mut(&mut state.players[pi], sl);
                 match duration.as_str() {
                     "turn" => {
-                        ip.turn_base_power_override = Some(copied);
+                        ip.turn_base_power_override = Some(if is_orig_copy { ip.turn_base_power_override.filter(|_| ip.turn_base_power_override_is_original).map_or(copied, |c| c.max(copied)) } else { copied });
                         ip.turn_base_power_override_is_original = is_orig_copy;
                     }
                     "next_self_turn_start" => {
-                        ip.next_turn_base_power_override = Some(copied);
+                        ip.next_turn_base_power_override = Some(if is_orig_copy { ip.next_turn_base_power_override.filter(|_| ip.next_turn_base_power_override_is_original).map_or(copied, |c| c.max(copied)) } else { copied });
                         ip.next_turn_base_power_override_is_original = is_orig_copy;
                     }
                     _ => {
-                        ip.base_power_override = Some(copied);
+                        ip.base_power_override = Some(if is_orig_copy { ip.base_power_override.filter(|_| ip.base_power_override_is_original).map_or(copied, |c| c.max(copied)) } else { copied });
                         ip.base_power_override_is_original = is_orig_copy;
                     }
                 }
@@ -8545,15 +8549,15 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 let ip = get_ip_mut(&mut state.players[pi], sl);
                 match duration.as_str() {
                     "turn" => {
-                        ip.turn_base_power_override = Some(copied);
+                        ip.turn_base_power_override = Some(if is_orig_copy { ip.turn_base_power_override.filter(|_| ip.turn_base_power_override_is_original).map_or(copied, |c| c.max(copied)) } else { copied });
                         ip.turn_base_power_override_is_original = is_orig_copy;
                     }
                     "next_self_turn_start" => {
-                        ip.next_turn_base_power_override = Some(copied);
+                        ip.next_turn_base_power_override = Some(if is_orig_copy { ip.next_turn_base_power_override.filter(|_| ip.next_turn_base_power_override_is_original).map_or(copied, |c| c.max(copied)) } else { copied });
                         ip.next_turn_base_power_override_is_original = is_orig_copy;
                     }
                     _ => {
-                        ip.base_power_override = Some(copied);
+                        ip.base_power_override = Some(if is_orig_copy { ip.base_power_override.filter(|_| ip.base_power_override_is_original).map_or(copied, |c| c.max(copied)) } else { copied });
                         ip.base_power_override_is_original = is_orig_copy;
                     }
                 }

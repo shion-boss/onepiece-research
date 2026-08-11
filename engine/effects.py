@@ -208,6 +208,21 @@ def _cost_trigger_buffer_flush(state: GameState) -> None:
     state._cost_trigger_buffer = []
 
 
+def _apply_original_base_power(target, slot: str, value: int, is_original: bool) -> int:
+    """「元々のパワーを◯◯にする」 の書き込み値を決める (公式 4-9-2-1: **数値の高い効果を適用**)。
+
+    同じ slot に既に **「元々の」** 書き換えが乗っている場合は max を採る。
+    ⚠ 素の 「パワーが◯◯になる」 (is_original=False) は この規則の対象外なので常に上書き。
+    """
+    if not is_original:
+        return value
+    cur = getattr(target, slot, None)
+    cur_is_orig = getattr(target, slot + "_is_original", False)
+    if cur is not None and cur_is_orig:
+        return max(int(cur), int(value))
+    return value
+
+
 def _fire_rested_triggers(
     state: GameState, actor: "Player", opp: "Player", target: "InPlay"
 ) -> None:
@@ -2000,13 +2015,24 @@ def eval_condition(
             if v != me.leader.card.attribute:
                 return False
         elif k == "self_chara_only_feature":
-            # 自分の場のキャラがすべて指定特徴を持つ (空でも True)
+            # 公式 「自分の場のキャラが特徴《X》を持つキャラ **のみの場合**」。
+            # ⚠ **キャラ0枚では成立しない** (2026-08-11 是正、 従来は空を vacuous True にしていた)。
+            #   一次情報 (cardqa_op_16 / OP16-022 ルフィ): 「自分のキャラが0枚の時、 この
+            #   【起動メイン】効果でドン‼をアクティブにできますか？」 → 「**いいえ、 できません**」。
+            #   同型条件を使う 6 枚 (EB02-010 / OP05-084 / OP05-092 / OP16-022 /
+            #   EB03-038 / OP11-043) すべてに効く。
+            if not me.characters:
+                return False
             if not all(v in c.card.features for c in me.characters):
                 return False
         elif k == "self_chara_only_feature_contains":
-            # 自分の場のキャラがすべて『指定文字列を含む特徴』を持つ (空でも True)。
-            # 公式「自分のキャラが『X』を含む特徴を持つキャラのみの場合」 (EB03-038 ジェルマ:
+            # 「自分のキャラが『X』を含む特徴を持つキャラのみの場合」 (EB03-038 ジェルマ:
             #   実特徴は『ジェルマ66』 等のため exact ではなく部分一致で判定)。
+            # ⚠ 上と同じく **キャラ0枚では成立しない** (公式 cardqa_eb_03 / EB03-038:
+            #   「自分の場にキャラが0枚の場合、 …ドン‼2枚までをレストで追加することはできますか？」
+            #   → 「**いいえ、 できません**」)。
+            if not me.characters:
+                return False
             if not all(any(str(v) in f for f in c.card.features) for c in me.characters):
                 return False
         elif k == "self_don_le":
@@ -5614,18 +5640,18 @@ def _execute_effect_body_inner(
             is_original = bool(spec.get("original", False))
             for t in targets:
                 if duration == "turn":
-                    t.turn_base_power_override = amount
+                    t.turn_base_power_override = _apply_original_base_power(t, "turn_base_power_override", amount, is_original)
                     t.turn_base_power_override_is_original = is_original
                 elif duration == "next_self_turn_start":
-                    t.next_turn_base_power_override = amount
+                    t.next_turn_base_power_override = _apply_original_base_power(t, "next_turn_base_power_override", amount, is_original)
                     t.next_turn_base_power_override_is_original = is_original
                 elif duration in ("next_opp_turn_end", "next_opp_end_phase"):
-                    t.next_opp_turn_end_base_power_override = amount
+                    t.next_opp_turn_end_base_power_override = _apply_original_base_power(t, "next_opp_turn_end_base_power_override", amount, is_original)
                     t.next_opp_turn_end_base_power_override_is_original = is_original
                     t.next_opp_turn_end_base_power_override_applier_idx = me_idx
                     t.next_opp_turn_end_base_power_override_applied_turn = state.turn_number
                 else:
-                    t.base_power_override = amount
+                    t.base_power_override = _apply_original_base_power(t, "base_power_override", amount, is_original)
                     t.base_power_override_is_original = is_original
             state.push_log(
                 f"  効果: 元々のパワー={amount} ({duration}) → {[t.card.name for t in targets]}"
@@ -5664,13 +5690,13 @@ def _execute_effect_body_inner(
             is_original = bool(spec.get("original", False))   # 上記 set_base_power_timed と同則
             for t in to_cands:
                 if duration == "turn":
-                    t.turn_base_power_override = copied_power
+                    t.turn_base_power_override = _apply_original_base_power(t, "turn_base_power_override", copied_power, is_original)
                     t.turn_base_power_override_is_original = is_original
                 elif duration == "next_self_turn_start":
-                    t.next_turn_base_power_override = copied_power
+                    t.next_turn_base_power_override = _apply_original_base_power(t, "next_turn_base_power_override", copied_power, is_original)
                     t.next_turn_base_power_override_is_original = is_original
                 else:
-                    t.base_power_override = copied_power
+                    t.base_power_override = _apply_original_base_power(t, "base_power_override", copied_power, is_original)
                     t.base_power_override_is_original = is_original
             state.push_log(
                 f"  効果: 元々のパワー {copied_power} (= {source_ip.card.name}) を "
@@ -12640,7 +12666,7 @@ def evaluate_static_effects(
                         # 「元々の」 か 素の 「パワー」 かを書き分ける (公式 4-9-2-1 / cardqa_op_10)。
                         is_original = bool(spec.get("original", False))
                         for t in targets:
-                            t.base_power_override = amount
+                            t.base_power_override = _apply_original_base_power(t, "base_power_override", amount, is_original)
                             t.base_power_override_is_original = is_original
                         continue
                     # 「相手はこのキャラ以外にアタックできない」 (taunt)
