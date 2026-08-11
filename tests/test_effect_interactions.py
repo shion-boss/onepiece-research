@@ -8733,3 +8733,112 @@ def test_trigger_cannot_be_activated_when_cost_unpayable():
     assert want10 is True and fired10 is True, (
         f"払える時に発動できていない (should_fire={want10} / fired={fired10})"
     )
+
+
+def test_op08_114_don_gated_static_is_implemented():
+    """OP08-114 S-ホーク の【ドン‼×1】静的効果 (斬耐性 + パワー+2000) が実装されている。
+
+    公式: 「【ドン‼×1】自分のライフの枚数が相手より少ない場合、 このキャラは属性(斬)を持つ
+    カードとのバトルでKOされず、 このキャラのパワー+2000。」
+    ⚠ 2026-08-11 まで overlay に **trigger entry しか無く**、 静的効果が丸ごと欠落していた。
+      全カード掃引で 「【ドン‼×N】の静的効果があるのに on_attached_don entry が無い」 のは
+      このカードだけ = 孤立。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def run(don: int, my_life: int, opp_life: int):
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        h = InPlay.of(repo.get("OP08-114"), sickness=False)
+        h.attached_dons = don
+        me.characters = [h]
+        me.life = [repo.get(_FILLER)] * my_life
+        opp.life = [repo.get(_FILLER)] * opp_life
+        evaluate_static_effects(st, overlay)
+        return h
+
+    h = run(1, 1, 3)   # ドン1 + 自ライフ < 相手
+    assert h.power == 5000 + 1000 + 2000, f"+2000 が乗っていない: {h.power}"
+    assert "斬" in (h.ko_immune_battle_attributes_in or set()), "斬とのバトル KO 耐性が無い"
+    h2 = run(1, 3, 1)  # ライフ条件を満たさない
+    assert h2.power == 5000 + 1000 and not h2.ko_immune_battle_attributes_in, \
+        "ライフ条件を満たさないのに効果が乗っている"
+    h3 = run(0, 1, 3)  # ドン無し
+    assert h3.power == 5000 and not h3.ko_immune_battle_attributes_in, \
+        "【ドン‼×1】の gate が効いていない"
+
+
+def test_scry_all_life_reorder_honors_owner():
+    """「**相手の**ライフすべてを見て、 好きな順番で置く」 は相手のライフを並び替える。
+
+    ⚠ 2026-08-11 是正: `owner` キーが **完全に無視** されており、 EB01-052 ヴィオラ
+    (「相手のライフ…」) が **自分のライフを並び替えて** いた。 使用カードは 2 枚だけで、
+    ST13-012 マキノ (「自分のライフ…」) は owner 既定 = self。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.life = [repo.get("OP01-016"), repo.get("OP01-022"), repo.get(_FILLER)]
+    opp.life = [repo.get("OP01-025"), repo.get("OP01-024"), repo.get(_FILLER)]
+    mine_before = [c.card_id for c in me.life]
+    execute_effect({"scry_all_life_reorder": {"owner": "opp"}}, st, me, opp, None)
+    assert [c.card_id for c in me.life] == mine_before, \
+        "owner=opp なのに **自分の** ライフが並び替えられている"
+
+    # EB01-052 の選択肢② (自ライフすべて裏向き) が no-op でないこと
+    bundle = overlay.get("EB01-052")
+    opts = bundle.effects[0]["do"][0]["choice_effect"]["options"]
+    assert all(o["do"] for o in opts), "選択肢に do:[] の no-op が残っている"
+
+
+def test_ko_victim_original_power_uses_rewritten_value():
+    """【KO時】系の 「元々のパワーN以上」 は **KO 時点の (書き換わった) 元々のパワー** で判定する。
+
+    一次情報 (cardqa_op_14、 OP14-053 ビスタ 「【相手のターン中】自分の手札が7枚以下の場合、
+    このキャラの元々のパワーは、 自分のリーダーの元々のパワーと同じパワーになる」 ×
+    リーダー OP13-002 エース 「【ドン‼×1】…自分の**元々のパワー6000以上**のキャラがKOされた時、
+    カード1枚を引く」):
+      Q「…元々のパワーが6000の状態でKOされたことになり、 …カードを引くことはできますか？」
+      → 「**はい、 できます**」
+
+    退行前は 2 つの違反があった:
+      ① `set_base_power_copy` が **コピー元も現在パワー** で写しており、 公式 「自分のリーダーの
+         **元々の** パワーと同じ」 に反して リーダーの付与ドンぶんまで乗っていた (元々6000 → 7000)。
+      ② `victim_truly_original_power_ge` が victim の **印刷値** を見ており、 書き換えを無視していた。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    from engine.effects import trigger_on_ko, trigger_on_self_chara_ko
+
+    def run(hand_n: int):
+        st = _state(repo, overlay, leader0="OP13-002")
+        me, opp = st.players[0], st.players[1]
+        st.turn_player_idx = 1               # 相手のターン中
+        me.leader.attached_dons = 1          # 【ドン‼×1】
+        me.hand = [repo.get(_FILLER)] * hand_n
+        bista = InPlay.of(repo.get("OP14-053"), sickness=False)
+        me.characters = [bista]
+        evaluate_static_effects(st, overlay)
+        top = bista.truly_original_power
+        deck0 = len(me.deck)
+        me.characters.remove(bista)
+        me.trash.append(bista.card)
+        trigger_on_ko(st, me, opp, bista.card, overlay, by_opp_effect=True,
+                      victim_attached_don=0, victim_truly_original_power=top)
+        trigger_on_self_chara_ko(st, me, opp, overlay, victim_card=bista.card)
+        resolve_triggers(st)
+        while st.pending_choice is not None:
+            resolve_pending_choice(st, [0])
+            resolve_triggers(st)
+        return top, deck0 - len(me.deck)
+
+    top, drew = run(3)     # 手札7以下 = 元々のパワーが書き換わる
+    assert top == 6000, (
+        f"コピー元が 「元々のパワー」 になっていない: {top} "
+        "(リーダーの現在パワー = 付与ドン込み を写している)"
+    )
+    assert drew == 1, "書き換わった元々のパワー6000 で【KO時】ドローが発動していない"
+
+    top2, drew2 = run(9)   # 手札8枚以上 = 書き換わらない (印刷 4000)
+    assert top2 == 4000 and drew2 == 0, \
+        f"書き換えが無い時に発動している (元々={top2} / 引いた={drew2})"

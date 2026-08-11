@@ -519,6 +519,12 @@ pub struct GameState {
     pub last_peeked_opp_deck_top: Option<serde_json::Value>,
     #[serde(serialize_with = "ser_opt_card_id")]
     pub last_chara_ko_victim_card: Option<CardDef>,
+    /// KO された **時点** の 「元々のパワー」 (効果で書き換わっている場合がある、 公式 4-9-2-1)。
+    /// Python `state._on_ko_victim_truly_original_power` の対。 CardDef の印刷値では判定できない
+    /// (OP14-053 ビスタ が リーダーの元々のパワーを写して 6000 の状態で KO されるケース)。
+    /// transient (= victim 文脈と同じ寿命) なので digest 対象外。
+    #[serde(skip)]
+    pub rust_ko_victim_truly_original_power: Option<i32>,
     #[serde(serialize_with = "ser_opt_card_id")]
     pub last_opp_chara_played_card: Option<CardDef>,
     #[serde(serialize_with = "ser_opt_card_id")]
