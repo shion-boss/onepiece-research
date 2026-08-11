@@ -5767,3 +5767,96 @@ ST13-003 ルフィ(L) 「表向きライフは手札に加わる代わりにデ�
 Python 約56 + Rust 約32 = **88 箇所**) で両方まとめて解決する専用バッチに合流させる。
 ⚠ 「表向きは常に上 N 枚」 の近似は使えない (OP06-107 モモの助 等が 「ライフの上**か下**に表向きで
 加える」 = 下端にも表向きが生じる)。
+
+## 2026-08-11 #5 — FAQ conformance バッチ (先頭から 20 件、 3 fixed / 16 conform / 1 escalated)
+
+### 【fixed】素の「パワー0にする」 は **現在パワー分の固定マイナス** (OP07-002 アイン / EB04-010 ルルシア王国)
+
+- **一次情報** (cardqa_op_07、 OP07-002 アイン × OP12-070 サンジ): 「相手の場に『サンジ』があり
+  トラッシュにイベント19枚でパワー8000の時、 この【登場時】でサンジのパワーを0にした。 このターン中
+  トラッシュのイベントが20枚になった場合サンジのパワーはいくつ？」 → 「**パワー1000**。 パワー8000の
+  サンジを選んだ場合、 このターン中パワー**-8000**されるため、 19枚の間は0、 20枚で1000になる」。
+- **違反**: overlay が `power_pump amount: -99999` で近似していた。 = 代入でも -8000 でもなく巨大マイナス
+  なので、 サンジの元パワーが後で 9000 に増えても -90999 のまま (公式は 1000)。 「パワー0以下をKO」 の
+  対象になるかどうかで実害 (engine=-90999 は対象、 公式=1000 は非対象)。 Python/Rust とも同じ overlay を
+  読むので **差分検証では原理的に沈黙**。
+- **是正**: `power_pump` に `to_zero: true` フラグを追加 (Python `effects.py` / Rust `effects.rs`)。
+  **対象ごとに** `amount = -(現在パワー)` を適用時点で計算する (代入でないので後のパワー変化が加算される)。
+  overlay 2 枚 (OP07-002 / EB04-010) を `-99999` → `to_zero` に置換。 ⚠ ST34-004 (「**元々の**パワー0
+  にする」) は 4-9-2-1 の set_base_power original で別処理済 (2026-08-11 #4)。
+- **実測**: サンジ 8000 → アイン to_zero → 0、 トラッシュ20枚で 1000 (公式一致)。
+- **掃引**: overlay で `-99999`/`-9999` を持つのは この 2 枚のみ。 素の「パワー0にする」 テキストも
+  この 2 枚 + ST34-004 (元々の) だけ = 孤立。
+
+### 【fixed】「代わりにこのキャラをレストにできる」 は holder がアクティブでなければ行えない (OP10-032 たしぎ 他)
+
+- **一次情報** (cardqa_op_10、 OP10-032 たしぎ): 「このキャラがレストの時、 自分の緑のキャラが相手の
+  効果で場を離れる場合に、 代わりにこのキャラをレストにできますか？」 → 「**いいえ、 できません**」。
+- **違反**: overlay が `do: [{"rest": "self"}]` (cost 無し) で、 replace の payability check
+  (`_can_pay_replace_cost`) を通らず **常に置換成立**。 holder が既レストでも rest は no-op だが
+  キャラを救済していた。 = P-111 (ドンレスト) と同型の 「レストコストが do に落ちている」 バグ。
+  Python/Rust とも同じ overlay = **差分検証では沈黙**。
+- **是正**: overlay の `cost` に **`rest_self`** を追加 (= 払える判定 = holder がアクティブ かつ
+  レスト禁止中でない)。 実際のレストは `do: [{"rest": "self"}]` に**残す** (= execute_effect の
+  rest primitive 経由で 「このキャラがレストになった時」/「キャラが自分の効果でレストになった時」
+  トリガー (OP07-031 バルトロメオ等) を発火させるため、 effects.py:4707)。 `_can_pay_replace_cost`
+  (Python) と Rust replace cost 解析に `rest_self` の payability を追加、 `_pay_replace_cost` は
+  **no-op** (レストは do が担う)。 ⚠ cost へ丸ごと移して do を空にすると このトリガーを取りこぼす。
+- **対象 (掃引で全数)**: replace_ko/leave で `do:[rest:self]` かつ cost 無しは **3 base**:
+  OP10-032 たしぎ (+_p1/_p2/_r1) / OP12-027 コウシロウ (+_r1) / ST30-011 バギー (+_p1)。
+  さらに **OP12-048 ロシナンテ** (「代わりにこのキャラをレストにし、 手札1枚を捨てる」= rest+discard の
+  複合コスト) も掃引テストが検出し、 rest を cost に追加 (既存の discard cost と併存、 既レストでは置換不能)。
+  ⚠ **OP14-034 ルフィ** は同型だが `do:[{"rest":"any_self_chara"}]` (=「代わりに自分のキャラ1枚を
+  レスト」 = holder 自身でなく任意の自キャラ) で、 char-only の replace cost が未実装。 次バッチの候補
+  (自キャラ全レスト時に置換不能とすべきだが今回は未着手 = 別 key が要る)。
+- **実測**: たしぎ rested=True → 置換不成立 (救済せず、 緑キャラは通常離脱) / rested=False → 置換成立。
+
+### 【fixed】無条件「このキャラは効果でKOされない」 の overlay 欠落 (ST06-004 / OP02-102 スモーカー)
+
+- **一次情報** (cardqa_st_06、 ST06-004 スモーカー): 「このキャラは OP01-094 カイドウの【登場時】効果
+  によってKOされますか？」 → 「**いいえ、 KOされません**」。
+- **違反**: カード文 「このキャラは効果でKOされない」 (無条件・静的) が overlay に **一切無く**、
+  スモーカーは効果KO (カイドウ ko_all_others) で普通に KO されていた。 overlay は【ダブルアタック】
+  (ST06-004) / 【アタック時】+2000 (OP02-102) しか実装していなかった。
+- **是正**: overlay に静的 immune entry `{"do":[{"set_ko_immune":"self"}],"n":0,"when":"on_attached_don"}`
+  を追加 (フクロウ OP03-088 と同型、 engine コード変更なし = parity 中立)。
+- **実測**: 百獣リーダーで カイドウ ko_all_others → スモーカー生存。
+- **掃引**: 無条件「効果でKOされない」 で overlay に immune 欠落は この 2 枚のみ。 ⚠ **別型の欠落を検出**
+  (今回は未是正): **OP01-024 ルフィ** 「【ドン‼×2】属性(打)とのバトルではKOされない」 (attribute-battle
+  immune、 `set_immune_attribute_in_battle` が overlay に無い) / **OP12-024 牛鬼丸** 「このキャラがアクティブ
+  の場合、 相手の効果でKOされない」 (active-gated immune が overlay に無い)。 いずれも条件付きで別 primitive/
+  condition を要するため次バッチ候補。 OP10-118 (ターン1回KO耐性) は `set_ko_per_turn_immune` で実装済 (誤検出)。
+
+### 【escalated】「相手のライフにダメージを与えた時」 がダブルアタックで 2 回発火 (op_03、 対象は OP03-041/047/051 等)
+
+- **一次情報** (cardqa_op_03): 「この『相手のライフにダメージを与えた時』の効果は、【ダブルアタック】を
+  持つキャラが相手のライフに2ダメージを与えた時に2回発動できますか？」 → 「**いいえ。 1回のみ**」。
+- **違反 (実測確認)**: `_resolve_life_taken` が ダメージ解決ループ (game.py:1907、 damage=2) で **ライフ
+  カード1枚ごとに** 呼ばれ、 その中で `trigger_on_opp_life_taken` (= `on_opp_life_taken` を enqueue) が
+  発火する。 = ダブルアタック (2枚消費) で **2 回発火**。 該当カードの効果 (デッキ上7枚トラッシュ等) が
+  2 回起きる。
+- **escalated の理由 (rule 11)**: 是正には ダメージ解決ループの trigger 発火位置を **per-attack (1回)** に
+  再構成する必要がある。 だが `_resolve_life_taken` は ① ライフ札自身の【トリガー】(=カードごとに発火) ②
+  `on_self_life_to_hand/trash` (=カードごと) も同時に処理しており、 `on_opp_life_taken` **だけ** を
+  per-attack に分離するには (a) AI 経路 (loop) (b) 人間経路 (`pending_choice` = `life_taken_choice` の
+  resume、 game.py:2466) の両方で 「このアタックで既に発火したか」 を持ち回る必要があり、 Rust ミラーも
+  同時に要る = 関数シグネチャ/データ持ち方の変更。 dedicated pass へ。 ⚠ **conform にしない (違反確定)**。
+
+### conform (16 件、 再調査回避のため要点)
+
+- **OP15-119 ルフィ** (8974adce8ffc): reactive(相手ブロッカー発動時)→【ブロック時】の順 (game.py L1777-1778、 docs 5700 既確認)。
+- **OP13-002 エース(L)** (89c37017a096): ダメージ→ライフ確認/【トリガー】先→その後『ダメージを受けた時』 (_resolve_life_taken 末尾発火、 docs 5425)。
+- **OP03-028 ジャンゴ** (8a51573de70c): untap target = 東の海 filter → 東の海を持たないコスト6以下は候補外。
+- **op_01 メイン** (8a694e06b4d5): ドンデッキ0でも発動可 (add_don=min(n,remaining) で no-op、 発動自体は gate されない)。
+- **カウンター optional discard** (8b35374021c1): 払わない選択可、 その場合 +3000 なし (optional_cost_then)。
+- **OP15-058 エネル** (8b45b4ae9a84): activate_main if{self_turn_number_ge:2} → 第1ターンはドン追加/付与が起きない。
+- **OP15-080 オーズ** (8b4dbf1f060f): 【KO時】cost=trash_to_deck(limit3) で自身含む3枚をデッキ下に置ける → play_self 不発 (登場しない)。実測。
+- **OP02-049 イワンコフ下** (8b931ebe435b): リーダー【ターン終了時】draw 後にキャラ【ターン終了時】discard で引いた札を捨て可 (手札共通pool)。
+- **OP10-003 シュガー** (8ba4f4f47ce4): when=on_self_event_played (イベント発動限定) → 【トリガー】発動ではドン追加不発 (docs 162)。
+- **op_04 カウンターイベント** (8bd743714193): 自ターンのメインフェイズに手札から発動不可 (category=EVENT counter-only)。
+- **OP03-001 エース(L)** (8bde9db1e1ee): アタックされた時 (opp_attack_on_leader、 game.py1589) は _fire_counter_events(1646) より前 = カウンターより前。
+- **OP15-059 アマゾン** (8c0135bc533e): opp_may_return_active_don_else_debuff。相手アクティブドン無→戻せず=『そうしなかった場合』→-2000。
+- **st_14 静的コスト+1** (8c55e12a3ac9): 場のキャラのみ (手札/トラッシュは印刷コスト、 OP08-084 同型)。
+- **OP07-038 ハンコック** (8c561bc8e84f): on_self_chara_leave_by_self_effect + once_per_turn。発動時のみonce消費、 初回decline後に次で発動可。
+- **OP15-119 ルフィ ライフ公開** (8c8915532b55): reveal_self_life_top_pump_per_cost。ライフ表裏は枚数モデルで位置非追跡だが公開+pumpは常に可 = 公式「はい」と結果一致。
+- **op_02 ライフ3以下** (8cf93abfe5fe): 『自分のライフが3以下の場合』=現在のライフ枚数 (self_life_le=len(me.life))。

@@ -4306,29 +4306,36 @@ def _execute_effect_body_inner(
                     t for t in targets
                     if feature_filter in t.card.features
                 ]
+            # 「パワー0にする」 (= 素の) は **現在パワーぶんの固定マイナス** として適用する
+            # (公式 cardqa_op_07 / OP07-002 アイン × OP12-070 サンジ: 「パワー8000のサンジを
+            #  『0にする』とこのターン中 -8000され、 トラッシュのイベントが増えて元パワーが
+            #  9000になると 1000 になる」 = 代入ではなく その時点の現在パワーぶんのマイナス)。
+            # 対象ごとにパワーが違うので amount は per-target で計算する。 EB04-010 も同型。
+            to_zero = bool(v.get("to_zero"))
             for t in targets:
+                amt = -t.power if to_zero else amount
                 if duration == "static":
-                    t.static_buff += amount
+                    t.static_buff += amt
                 elif duration == "battle":
-                    t.battle_buff += amount
+                    t.battle_buff += amt
                 elif duration == "next_self_turn_start":
                     # 「次の自分のターン開始時まで」 = ターン跨ぎ。 REFRESH 時に clear
-                    t.next_turn_buff += amount
+                    t.next_turn_buff += amt
                 elif duration in ("next_opp_turn_end", "next_opp_end_phase"):
                     # 「次の相手のターン (= エンドフェイズ) 終了時まで」
                     # applier-tracking で _reset_turn_buff にてクリア。
                     me_idx = state.players.index(me)
-                    t.next_opp_turn_end_buff += amount
+                    t.next_opp_turn_end_buff += amt
                     t.next_opp_turn_end_applier_idx = me_idx
                     t.next_opp_turn_end_applied_turn = state.turn_number
                 elif duration == "next_self_turn_end":
                     # 「次の自分のターン終了時まで」 = applier の次の自身ターン終了
                     me_idx = state.players.index(me)
-                    t.next_self_turn_end_buff += amount
+                    t.next_self_turn_end_buff += amt
                     t.next_self_turn_end_applier_idx = me_idx
                     t.next_self_turn_end_applied_turn = state.turn_number
                 else:
-                    t.turn_buff += amount
+                    t.turn_buff += amt
             # soshite (= 「その後、 そのカードを〜」) 用に直近 pump 対象を記録。
             # 「リーダーかキャラ1枚+N。 その後、 そのカードを+M」 (OP07-095/OP11-059 等) で
             # target=self_just_buffed が この iid を参照する。
@@ -14562,6 +14569,18 @@ def _can_pay_replace_cost(
             n = int(n_spec) if not isinstance(n_spec, dict) else int(n_spec.get("amount", 1))
             if len(me.life) < n:
                 return False
+        elif "rest_self" in cs:
+            # 「代わりにこのキャラをレストにできる」 (OP10-032 たしぎ / OP12-027 コウシロウ /
+            # ST30-011 バギー)。 一次情報 (cardqa_op_10、 OP10-032): 「このキャラがレストの時、
+            # 自分の緑のキャラが相手の効果で場を離れる場合に、 代わりにこのキャラをレストに
+            # できますか？」 → 「いいえ、できません」。 レストにできるのはアクティブの holder
+            # なので、 既にレスト済 (or レスト禁止中) なら この置換は行えない (= 通常どおり離脱)。
+            if not bool(cs["rest_self"]):
+                continue
+            if (holder_inplay is None or holder_inplay.rested
+                    or holder_inplay.cannot_be_rested_buff
+                    or holder_inplay.static_cannot_be_rested):
+                return False
         elif "rest_self_don" in cs:
             # 「代わりに自分の(アクティブの)ドン‼ N 枚をレストにできる」 (P-111 ロビン /
             # OP10-074 ピーカ)。 公式: 場にアクティブのドンが無い/足りない場合は この置換を
@@ -14611,6 +14630,13 @@ def _pay_replace_cost(
                     break
                 me.trash.append(me.life.pop(0))
             state.push_log(f"  離脱置換コスト: 自ライフ {n} 枚をトラッシュへ")
+            continue
+        if "rest_self" in cs:
+            # 「代わりにこのキャラをレストにできる」 (OP10-032 たしぎ 等)。 rest_self は
+            # **払える判定 (_can_pay_replace_cost) 専用**。 実際のレストは do の `rest: self`
+            # が行う (= execute_effect の rest primitive 経由で 「このキャラがレストになった時」
+            # /「キャラが自分の効果でレストになった時」 トリガーを発火する、 effects.py:4707)。
+            # ここで直接 rested=True にすると そのトリガーを取りこぼす (OP07-031 バルトロメオ等)。
             continue
         if "rest_self_don" in cs:
             # 「代わりに自分の(アクティブの)ドン‼ N 枚をレストにできる」 (P-111 / OP10-074)。
