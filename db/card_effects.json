@@ -2178,6 +2178,7 @@
  ],
  "EB01-052": [
   {
+   "_doc": "2026-08-11 是正: 選択肢②「自分のライフすべてを裏向きにする」 が `do: []` の **no-op** (label に 「engine 未対応」) だった。 primitive `set_all_life_face_down` は EB03-051 で既に実装済で、 使えばよいだけだった。 ⚠ 公式 (cardqa_eb_01): 「自分のライフすべてを裏向きにする時、 自分のライフの順番を変えることはできますか？」 → 「**いいえ**」 = 裏向き化は順序を変えない (set_all_life_face_down は順序不変)。",
    "_text": "EB01-052 【ブロッカー】【登場時】以下から1つを選ぶ。・相手のライフすべてを見て、好きな順番で置く。・自分のライフすべてを裏向きにする。",
    "do": [
     {
@@ -2195,8 +2196,12 @@
         "label": "相手ライフ 並び替え (peek)"
        },
        {
-        "do": [],
-        "label": "自ライフ 裏向き化 (= 効果防止 marker、 engine 未対応)"
+        "do": [
+         {
+          "set_all_life_face_down": true
+         }
+        ],
+        "label": "自ライフ すべて裏向き"
        }
       ]
      }
@@ -2207,6 +2212,7 @@
  ],
  "EB01-052_p1": [
   {
+   "_doc": "2026-08-11 是正: 選択肢②「自分のライフすべてを裏向きにする」 が `do: []` の **no-op** (label に 「engine 未対応」) だった。 primitive `set_all_life_face_down` は EB03-051 で既に実装済で、 使えばよいだけだった。 ⚠ 公式 (cardqa_eb_01): 「自分のライフすべてを裏向きにする時、 自分のライフの順番を変えることはできますか？」 → 「**いいえ**」 = 裏向き化は順序を変えない (set_all_life_face_down は順序不変)。",
    "_text": "EB01-052_p1 【ブロッカー】【登場時】以下から1つを選ぶ。・相手のライフすべてを見て、好きな順番で置く。・自分のライフすべてを裏向きにする。",
    "do": [
     {
@@ -2224,8 +2230,12 @@
         "label": "相手ライフ 並び替え (peek)"
        },
        {
-        "do": [],
-        "label": "自ライフ 裏向き化 (= 効果防止 marker、 engine 未対応)"
+        "do": [
+         {
+          "set_all_life_face_down": true
+         }
+        ],
+        "label": "自ライフ すべて裏向き"
        }
       ]
      }
@@ -16977,6 +16987,25 @@
     }
    ],
    "if": {
+    "self_life_le": 1,
+    "self_turn": true
+   },
+   "n": 0,
+   "when": "on_attached_don"
+  },
+  {
+   "_text": "自ターン中 + 自ライフ1以下、 リーダーが「エドワード・ニューゲート」ならリーダーも パワー+2000 (cardqa_op_02: リーダーの同名も対象、 白ひげ海賊団 clause は キャラのみ)",
+   "do": [
+    {
+     "power_pump": {
+      "amount": 2000,
+      "duration": "static",
+      "target": "self_leader"
+     }
+    }
+   ],
+   "if": {
+    "leader_name": "エドワード・ニューゲート",
     "self_life_le": 1,
     "self_turn": true
    },
@@ -54051,6 +54080,31 @@
  ],
  "OP08-114": [
   {
+   "_doc": "2026-08-11 追加: 公式テキストの【ドン‼×1】静的効果が overlay から **丸ごと欠落** していた (trigger entry しか無く、 KO 耐性も +2000 も未実装)。 全カード掃引で 「【ドン‼×N】の静的効果が あるのに on_attached_don entry が無い」 のは **このカードだけ** = 孤立。 書き方は OP12-036 ゾロ (斬耐性+パワー) / OP03-108 クラッカー (self_life_lt_opp + n:1) に合わせた。",
+   "_text": "OP08-114 S-ホーク 静的【ドン‼×1】: 自分のライフの枚数が相手より少ない場合、このキャラは属性(斬)を持つカードとのバトルでKOされず、このキャラのパワー+2000。",
+   "do": [
+    {
+     "set_immune_attribute_in_battle": {
+      "attributes": [
+       "斬"
+      ],
+      "target": "self"
+     }
+    },
+    {
+     "power_pump": {
+      "amount": 2000,
+      "target": "self"
+     }
+    }
+   ],
+   "if": {
+    "self_life_lt_opp": true
+   },
+   "n": 1,
+   "when": "on_attached_don"
+  },
+  {
    "_text": "OP08-114 trigger: 自分の手札1枚を捨てることができる：自分のライフが2枚以下の場合、このカードを登場させる。 [trig-fix]",
    "do": [
     {
@@ -80340,11 +80394,13 @@
  ],
  "OP14-053": [
   {
+   "_doc": "2026-08-11 是正: 公式は 「このキャラの元々のパワーは、 **自分のリーダーの元々のパワー** と同じパワーになる」 = **コピー元も元々のパワー**。 従来は現在パワーを写しており、 リーダーにドンが付いていると その分まで乗っていた (実測: 元々6000 + ドン1 → 7000)。 → from_original:true を新設。 同 primitive の他 7 枚は コピー元が素の 「同じパワー」 = 現在パワーなので既定 (false) のまま。",
    "_text": "【相手のターン中】 + 自手札7以下、 self.base_power = leader.base_power (static)",
    "do": [
     {
      "set_base_power_copy": {
       "duration": "static",
+      "from_original": true,
       "from_target": "self_leader",
       "original": true,
       "to_target": "self"

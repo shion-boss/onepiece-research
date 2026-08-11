@@ -397,6 +397,9 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
     prev_ko_vdon = getattr(state, "_on_ko_victim_attached_don", 0)
     if "victim_attached_don" in evt.payload:
         state._on_ko_victim_attached_don = int(evt.payload["victim_attached_don"] or 0)
+    prev_ko_vtop = getattr(state, "_on_ko_victim_truly_original_power", None)
+    if "victim_truly_original_power" in evt.payload:
+        state._on_ko_victim_truly_original_power = evt.payload["victim_truly_original_power"]
 
     # on_self_hand_discarded の context (捨てた枚数 / 発動元の特徴) を payload から復元。
     # enqueue 時点の state には残っていない (= ネスト解決だと既に上書き/消去されている)。
@@ -647,6 +650,8 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
             state.last_chara_ko_victim_card = prev_ko_victim
         if "victim_attached_don" in evt.payload:
             state._on_ko_victim_attached_don = prev_ko_vdon
+        if "victim_truly_original_power" in evt.payload:
+            state._on_ko_victim_truly_original_power = prev_ko_vtop
         if when == "on_self_hand_discarded":
             # ⚠ 復元し忘れると 「直近の破棄元特徴」 が **以降の全イベントに残留** し、
             #   無関係な条件が真になる (2026-08-08 に MISMATCH 411 件で検出)。
@@ -1131,7 +1136,7 @@ def _pay_counter_cost(
             if state.effects_overlay:
                 if is_ko:
                     trigger_on_ko(state, me, opp, src.card, state.effects_overlay,
-                                  by_opp_effect=False, victim_attached_don=src.attached_dons, victim_effect_negated=_ip_effect_negated(src))
+                                  by_opp_effect=False, victim_attached_don=src.attached_dons, victim_truly_original_power=src.truly_original_power, victim_effect_negated=_ip_effect_negated(src))
                     trigger_on_self_chara_ko(state, me, opp, state.effects_overlay,
                                              victim_card=src.card)
                 else:
@@ -1702,10 +1707,19 @@ def eval_condition(
             if count < need:
                 return False
         elif k == "victim_truly_original_power_ge":
-            # 直近の KO victim カードの 「元々のパワー」 (= card.power) が N 以上
-            # OP14-041 ハンコック 「自分の元々のパワー5000以上 + 特徴X を持つキャラが KO された時」
+            # 直近の KO victim の 「元々のパワー」 が N 以上
+            # (OP14-041 ハンコック 「自分の元々のパワー5000以上 + 特徴X を持つキャラが KO された時」)。
+            # ⭐ 「元々のパワー」 は **効果で書き換わる** (公式 4-9-2-1) ので、 印刷値 (card.power)
+            #   ではなく **KO 時点の値** を見る (OP14-053 ビスタ が リーダーの元々のパワーを写して
+            #   6000 になった状態で KO されたら OP13-002 エースのドロー条件を満たす = 公式 「はい」)。
+            #   KO 時点の値は payload で運ぶ (2026-08-11)。 無ければ印刷値に fallback。
             vic = getattr(state, "last_chara_ko_victim_card", None)
-            if vic is None or int(getattr(vic, "power", 0) or 0) < int(v):
+            if vic is None:
+                return False
+            _vtop = getattr(state, "_on_ko_victim_truly_original_power", None)
+            if _vtop is None:
+                _vtop = int(getattr(vic, "power", 0) or 0)
+            if int(_vtop) < int(v):
                 return False
         elif k == "victim_feature_in":
             # 直近の KO victim カードの特徴に v (リスト) のいずれかを含むか
@@ -4077,7 +4091,7 @@ def _execute_effect_body_inner(
                     if state.effects_overlay:
                         # 効果による KO も【KO時】を発動 (10-2-1-3)
                         # KO 側 から 見ると 「相手 (= me) の効果」 由来 なので by_opp_effect=True
-                        trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons, victim_effect_negated=_ip_effect_negated(t))
+                        trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons, victim_truly_original_power=t.truly_original_power, victim_effect_negated=_ip_effect_negated(t))
                         # 「相手のキャラが KO された時」 (= 自分の効果で KO した側)
                         trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                         # 「自分のキャラが KO された時」 (= KO された側の場効果)
@@ -4114,7 +4128,7 @@ def _execute_effect_body_inner(
                 _ksc_any = True
                 if state.effects_overlay:
                     # 効果による KO も【KO時】を発動 (10-2-1-3)。 自分の効果なので by_opp_effect=False。
-                    trigger_on_ko(state, me, opp, t.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=t.attached_dons, victim_effect_negated=_ip_effect_negated(t))
+                    trigger_on_ko(state, me, opp, t.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=t.attached_dons, victim_truly_original_power=t.truly_original_power, victim_effect_negated=_ip_effect_negated(t))
                     trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
             if _ksc_any and state.effects_overlay:
                 trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
@@ -4136,7 +4150,7 @@ def _execute_effect_body_inner(
                     me.don_rested += tch.attached_dons
                 ko_count += 1
                 if state.effects_overlay:
-                    trigger_on_ko(state, me, opp, tch.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=tch.attached_dons, victim_effect_negated=_ip_effect_negated(tch))
+                    trigger_on_ko(state, me, opp, tch.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=tch.attached_dons, victim_truly_original_power=tch.truly_original_power, victim_effect_negated=_ip_effect_negated(tch))
                     trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
             if ko_count > 0:
                 execute_effect({"power_pump": {"target": "self_leader",
@@ -5640,7 +5654,13 @@ def _execute_effect_body_inner(
             if not to_cands:
                 state.push_log("  効果: power-copy 適用先なし (不発)")
                 return False
-            copied_power = source_ip.power
+            # ⭐ **コピー元** が 「元々のパワー」 か 現在パワーか は公式テキストで書き分けられている。
+            #   「選んだキャラ/相手のリーダー **と同じパワー**」 = 現在パワー (既定) /
+            #   「自分のリーダーの **元々のパワー** と同じパワー」 = 元々のパワー
+            #   (OP14-053 ビスタ、 唯一の該当カード。 2026-08-11 に `from_original` を新設)。
+            #   ⚠ 現在パワーで写すと ドン付与ぶんまで乗る (実測: リーダー元々6000 + ドン1 → 7000)。
+            from_original = bool(spec.get("from_original", False))
+            copied_power = source_ip.truly_original_power if from_original else source_ip.power
             is_original = bool(spec.get("original", False))   # 上記 set_base_power_timed と同則
             for t in to_cands:
                 if duration == "turn":
@@ -8475,7 +8495,7 @@ def _execute_effect_body_inner(
                         _kao_any = True
                         if state.effects_overlay:
                             # me 側 victim、 me 側 effect → by_opp_effect=False (= 自爆)
-                            trigger_on_ko(state, me, opp, t.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=t.attached_dons, victim_effect_negated=_ip_effect_negated(t))
+                            trigger_on_ko(state, me, opp, t.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=t.attached_dons, victim_truly_original_power=t.truly_original_power, victim_effect_negated=_ip_effect_negated(t))
                             trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
                 else:
                     # 相手キャラ KO 経路
@@ -8502,7 +8522,7 @@ def _execute_effect_body_inner(
                         _kao_any = True
                         if state.effects_overlay:
                             # opp 側 victim、 me 側 effect → victim から 見れば by_opp_effect=True
-                            trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons, victim_effect_negated=_ip_effect_negated(t))
+                            trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons, victim_truly_original_power=t.truly_original_power, victim_effect_negated=_ip_effect_negated(t))
                             trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                             trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
             if _kao_any and state.effects_overlay:
@@ -8560,7 +8580,7 @@ def _execute_effect_body_inner(
                         _kom_any = True
                         if state.effects_overlay:
                             # opp 側 victim、 me 側 effect → by_opp_effect=True
-                            trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons, victim_effect_negated=_ip_effect_negated(t))
+                            trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons, victim_truly_original_power=t.truly_original_power, victim_effect_negated=_ip_effect_negated(t))
                             trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                             trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
             if _kom_any and state.effects_overlay:
@@ -8612,7 +8632,7 @@ def _execute_effect_body_inner(
                 state.push_log(f"  効果: KO {t.card.name} (合計power<={cap})")
                 _kom_any = True
                 if state.effects_overlay:
-                    trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons, victim_effect_negated=_ip_effect_negated(t))
+                    trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons, victim_truly_original_power=t.truly_original_power, victim_effect_negated=_ip_effect_negated(t))
                     trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                     trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
             if _kom_any and state.effects_overlay:
@@ -8807,7 +8827,7 @@ def _execute_effect_body_inner(
                 _ost_any = True
                 if state.effects_overlay:
                     # me 側 victim、 me 側 effect → by_opp_effect=False (= 自分の効果による自陣KO)
-                    trigger_on_ko(state, me, opp, ip.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=ip.attached_dons, victim_effect_negated=_ip_effect_negated(ip))
+                    trigger_on_ko(state, me, opp, ip.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=ip.attached_dons, victim_truly_original_power=ip.truly_original_power, victim_effect_negated=_ip_effect_negated(ip))
                     # 自KO なので on_self_chara_ko (= me 側) を発火
                     trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
             if _ost_any and state.effects_overlay:
@@ -9338,28 +9358,40 @@ def _execute_effect_body_inner(
                 me.deck.insert(0, to_deck)
                 state.push_log(f"  効果: ライフ→デッキ上: {to_deck.name} + ライフ {len(rest)} 枚並べ替え")
         elif k == "scry_all_life_reorder":
-            # 公式: 「自分のライフすべてを見て、 好きな順番で置く」
-            # ST13-012 マキノ 後文 等。 spec: True | {} (引数なし)。 人間なら並べ替えを本人が選択。
-            if not me.life:
+            # 公式: 「自分のライフすべてを見て、 好きな順番で置く」 (ST13-012 マキノ 後文) /
+            #       「**相手の**ライフすべてを見て、 好きな順番で置く」 (EB01-052 ヴィオラ)。
+            # spec: True | {} | {"owner": "self"|"opp"}。
+            # ⚠ 2026-08-11 是正: 従来 `owner` を **完全に無視** して常に me.life を並び替えていた。
+            #   EB01-052 は 「相手のライフ」 が対象なのに **自分のライフを並び替えていた** (実測)。
+            _owner = (v.get("owner") if isinstance(v, dict) else None) or "self"
+            _target_pl = opp if _owner == "opp" else me
+            _who = "相手" if _owner == "opp" else "自分"
+            if not _target_pl.life:
                 return False
-            if _should_human_pick(state) and len(me.life) >= 2:
+            if _should_human_pick(state) and len(_target_pl.life) >= 2:
                 state.pending_choice = {
-                    "kind": "scry_life_reorder", "owner": "self", "depth": len(me.life),
+                    "kind": "scry_life_reorder", "owner": _owner, "depth": len(_target_pl.life),
                     "cards": [{"card_id": c.card_id, "name": c.name,
                                "trigger": bool(getattr(c, "trigger", None)),
                                "counter": int(getattr(c, "counter", 0) or 0),
-                               "power": int(getattr(c, "power", 0) or 0)} for c in me.life],
-                    "description": f"自分のライフ全{len(me.life)}枚を並び替え",
+                               "power": int(getattr(c, "power", 0) or 0)} for c in _target_pl.life],
+                    "description": f"{_who}のライフ全{len(_target_pl.life)}枚を並び替え",
                 }
-                state.push_log(f"  効果: ライフ {len(me.life)} 枚 並び替え 選択 待ち")
+                state.push_log(f"  効果: {_who}ライフ {len(_target_pl.life)} 枚 並び替え 選択 待ち")
                 return True
             def _life_value(card):
                 trig = 1 if getattr(card, "trigger", None) else 0
                 counter = int(getattr(card, "counter", 0) or 0)
                 power = int(getattr(card, "power", 0) or 0)
                 return (trig, counter, power)
-            me.life.sort(key=_life_value, reverse=True)
-            state.push_log(f"  効果: ライフ {len(me.life)} 枚を並べ替え (トリガー/カウンター大優先)")
+            # 自分のライフ = 強い札 (トリガー/カウンター) を **上** に。
+            # 相手のライフ = 並べるのは **こちら** なので、 相手が得をしないよう **弱い札を上** に。
+            _target_pl.life.sort(key=_life_value, reverse=(_owner != "opp"))
+            state.push_log(
+                f"  効果: {_who}ライフ {len(_target_pl.life)} 枚を並べ替え "
+                + ("(相手に不利な順 = 弱い札を上)" if _owner == "opp"
+                   else "(トリガー/カウンター大優先)")
+            )
         elif k == "chara_to_self_life":
             # 公式: 「自分のキャラ1枚までを、 持ち主のライフの上か下に表向きで加える」
             # OP06-107 モモの助 等。 spec: {"target": <target_spec>, "place": "top"|"bottom"|"choice"}
@@ -11264,7 +11296,7 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             if state.effects_overlay:
                 trigger_on_ko(state, owner, opp_player, victim.card,
                               state.effects_overlay, by_opp_effect=bool(choice.get("by_opp_effect")),
-                              victim_attached_don=victim.attached_dons, victim_effect_negated=_ip_effect_negated(victim))
+                              victim_attached_don=victim.attached_dons, victim_truly_original_power=victim.truly_original_power, victim_effect_negated=_ip_effect_negated(victim))
                 trigger_on_opp_chara_ko(state, opp_player, owner, state.effects_overlay)
                 trigger_on_self_chara_ko(state, owner, opp_player, state.effects_overlay)
         elif leave_kind == "return_to_hand":
@@ -13058,7 +13090,7 @@ def _pay_end_of_turn_cost(
                     me.don_rested += c.attached_dons
                 state.push_log(f"  ターン終了コスト: 自KO {c.card.name}")
                 if state.effects_overlay:
-                    trigger_on_ko(state, me, opp, c.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=c.attached_dons, victim_effect_negated=_ip_effect_negated(c))
+                    trigger_on_ko(state, me, opp, c.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=c.attached_dons, victim_truly_original_power=c.truly_original_power, victim_effect_negated=_ip_effect_negated(c))
                     trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
                 break
     # once_per_turn フラグ
@@ -13617,9 +13649,11 @@ def trigger_on_opp_chara_ko(
     if not effects_overlay:
         return
     _vic = getattr(state, "last_chara_ko_victim_card", None)
+    _vtop = getattr(state, "_on_ko_victim_truly_original_power", None)
     _enqueue_field_when(
         state, me, "on_opp_chara_ko", effects_overlay,
-        payload=({"victim_card": _vic} if _vic is not None else None),
+        payload=({"victim_card": _vic,
+                  "victim_truly_original_power": _vtop} if _vic is not None else None),
     )
     # ⚠ **ここでドレインしない** (2026-08-10、 公式 cardqa_op_10)。 1 回の KO から同時に発動する
     #   効果 (victim の【KO時】 / 場の 「キャラがKOされた時」) は **全部 enqueue してから** 解決する。
@@ -13979,9 +14013,11 @@ def trigger_on_self_chara_ko(
     # ⭐ victim 文脈は **イベントに載せて運ぶ** (KO グループは全部 enqueue してから解決するので、
     #   解決時には transient な state.last_chara_ko_victim_card が消えている)。
     _vic = getattr(state, "last_chara_ko_victim_card", None)
+    _vtop = getattr(state, "_on_ko_victim_truly_original_power", None)
     _enqueue_field_when(
         state, victim_owner, "on_self_chara_ko", effects_overlay,
-        payload=({"victim_card": _vic} if _vic is not None else None),
+        payload=({"victim_card": _vic,
+                  "victim_truly_original_power": _vtop} if _vic is not None else None),
     )
     # ⚠ **ここでドレインしない** (2026-08-10、 公式 cardqa_op_10)。 1 回の KO から同時に発動する
     #   効果 (victim の【KO時】 / 場の 「キャラがKOされた時」) は **全部 enqueue してから** 解決する。
@@ -13994,6 +14030,7 @@ def trigger_on_self_chara_ko(
     #   空振りする。 クリアは fire_activate_main が解決後に行う。
     if not getattr(state, "_cost_trigger_buffering", False):
         state.last_chara_ko_victim_card = None
+        state._on_ko_victim_truly_original_power = None
 
 
 def trigger_on_self_chara_leave_by_opp_effect(
@@ -14789,6 +14826,7 @@ def trigger_on_ko(
     by_opp_effect: bool = False,
     victim_attached_don: int = 0,
     victim_effect_negated: bool = False,
+    victim_truly_original_power: Optional[int] = None,
 ) -> None:
     """【KO時】を enqueue。 ko_card は既にトラッシュへ (10-2-17-2)。
     source_iid=None: 場から既に消えているので、 _execute_event 内では self_inplay=None で実行。
@@ -14798,11 +14836,22 @@ def trigger_on_ko(
 
     by_opp_effect: True = 相手の効果由来 KO、 False = バトル / 自分の効果 / cost KO。
         eval_condition で `by_opp_effect` / `by_battle` 条件と突合される。
+    victim_truly_original_power: KO された **時点** の 「元々のパワー」。 効果で書き換えられて
+        いる場合があるので (公式 4-9-2-1 / OP14-053 ビスタ 「このキャラの元々のパワーは、 自分の
+        リーダーの元々のパワーと同じパワーになる」)、 CardDef の印刷値では判定できない。
+        None なら印刷値 (card.power) に fallback。 victim_truly_original_power_ge が読む。
     victim_attached_don: KO された キャラに付与されていたドン枚数。 【ドン‼×N】【KO時】 の
         self_attached_don_ge 条件で 足し戻す (= source 不在で常に False になるのを防ぐ)。
     """
     # payload-aware 条件用 context を先に設定 (= trigger_on_self_chara_ko より先に呼ばれる場合に備える)
+    # ⚠ **早期 return より前** に置く。 victim 自身が【KO時】を持たなくても、 場の
+    #   「キャラがKOされた時」 側は victim 文脈を必要とする (OP14-053 ビスタ は on_ko を持たないが
+    #   リーダー OP13-002 エースの 「元々のパワー6000以上のキャラがKOされた時」 が読む)。
     state.last_chara_ko_victim_card = ko_card
+    state._on_ko_victim_truly_original_power = (
+        int(victim_truly_original_power) if victim_truly_original_power is not None
+        else int(getattr(ko_card, "power", 0) or 0)
+    )
     # このターン中の owner キャラ KO 数を加算 (= OP16-100 opp_chara_ko_this_turn 条件用)。
     # trigger_on_ko は全 KO 経路 (battle/効果/cost) の共通フックなので、 overlay 有無に依らず
     # bundle 早期 return より前で加算する (= vanilla キャラ KO も数える)。
@@ -14838,6 +14887,12 @@ def trigger_on_ko(
                 #   解決前に復元されてしまう → イベントに載せて運ぶ (2026-08-11)。
                 "victim_attached_don": int(victim_attached_don or 0),
                 "victim_card": ko_card,
+                # KO 時点の 「元々のパワー」 (効果で書き換わっている場合がある、 公式 4-9-2-1)。
+                "victim_truly_original_power": (
+                    int(victim_truly_original_power)
+                    if victim_truly_original_power is not None
+                    else int(getattr(ko_card, "power", 0) or 0)
+                ),
             },
         )
         # ⚠ **ここでドレインしない** (2026-08-10 是正、 公式 cardqa_op_10)。
@@ -14857,6 +14912,9 @@ def trigger_on_ko(
         #   クリアは fire_activate_main が解決後に行う。
         if not getattr(state, "_cost_trigger_buffering", False):
             state._on_ko_victim_attached_don = prev_vdon
+            # ⚠ _on_ko_victim_truly_original_power は **ここで戻さない**。
+            #   後続の trigger_on_*_chara_ko が payload に載せ替えるまで生きている必要があるので、
+            #   last_chara_ko_victim_card と同じ寿命 (= trigger_on_self_chara_ko の末尾で clear)。
 
 
 def trigger_on_life_zero(
@@ -16054,7 +16112,7 @@ def _fire_activate_main_inner(
             state.push_log(f"  起動メインコスト: 自KO {target.card.name}")
             if state.effects_overlay:
                 # me 側 victim、 me 側 cost (= 自爆 cost) → by_opp_effect=False
-                trigger_on_ko(state, me, opp, target.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=target.attached_dons, victim_effect_negated=_ip_effect_negated(target))
+                trigger_on_ko(state, me, opp, target.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=target.attached_dons, victim_truly_original_power=target.truly_original_power, victim_effect_negated=_ip_effect_negated(target))
                 # 自KO なので on_self_chara_ko (= me 側) を発火
                 trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
     # rest_self_target_name: 自場の name 一致キャラ/ステージを 1 枚 rest

@@ -1689,7 +1689,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                             trigger_on_ko(
                                 state, opp, me, redirect_target.card,
                                 state.effects_overlay, by_opp_effect=False,
-                                victim_attached_don=redirect_target.attached_dons, victim_effect_negated=_ip_effect_negated(redirect_target),
+                                victim_attached_don=redirect_target.attached_dons, victim_truly_original_power=redirect_target.truly_original_power, victim_effect_negated=_ip_effect_negated(redirect_target),
                             )
                             trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                             trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
@@ -1876,7 +1876,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                         trigger_on_ko(
                             state, opp, me, actual_target.card,
                             state.effects_overlay, by_opp_effect=False,
-                            victim_attached_don=actual_target.attached_dons, victim_effect_negated=_ip_effect_negated(actual_target),
+                            victim_attached_don=actual_target.attached_dons, victim_truly_original_power=actual_target.truly_original_power, victim_effect_negated=_ip_effect_negated(actual_target),
                         )
                         trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                         trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
@@ -2184,7 +2184,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                             trigger_on_self_chara_ko,
                         )
                         # battle KO → by_opp_effect=False
-                        trigger_on_ko(state, opp, me, actual_target.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=actual_target.attached_dons, victim_effect_negated=_ip_effect_negated(actual_target))
+                        trigger_on_ko(state, opp, me, actual_target.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=actual_target.attached_dons, victim_truly_original_power=actual_target.truly_original_power, victim_effect_negated=_ip_effect_negated(actual_target))
                         trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
                         trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
         else:

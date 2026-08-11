@@ -190,6 +190,8 @@ fn do_battle_ko(
 ) -> Result<(), String> {
     let vcid = state.players[victim_owner].characters[victim_idx].card.card_id.clone();
     let vcard = state.players[victim_owner].characters[victim_idx].card.clone();
+    // KO 時点の 「元々のパワー」 (効果で書き換わっている場合がある、 公式 4-9-2-1 / OP14-053 ビスタ)。
+    let vcard_top = state.players[victim_owner].characters[victim_idx].truly_original_power();
     // replace_ko/replace_leave 置換効果 (game.py:1949、 battle KO は by_opp_effect=false)。 対象一致で
     // 置換発動→ KO 阻止 (victim 残存、 on_ko cascade 無し)。 不一致 (by_opp_effect 相違等) は通常 KO へ。
     if crate::effects::try_replace_ko(state, victim_owner, victim_idx, false, "ko")? {
@@ -225,6 +227,7 @@ fn do_battle_ko(
     // game.py 準拠の順: trigger_on_ko (victim 側) → on_opp_chara_ko (攻撃側) → on_self_chara_ko (victim 側)。
     // Python trigger_on_ko が last_chara_ko_victim_card=victim を set (victim_* 条件用)、 cascade 完了後 None。
     state.last_chara_ko_victim_card = Some(vcard);
+    state.rust_ko_victim_truly_original_power = Some(vcard_top);
     // ⭐ 1 回の KO から **同時に** 発動する効果 (victim の【KO時】/ 場の 「キャラがKOされた時」/
     //   「バトルでKOした時」) は **全部発動させてから** キューを流す (公式 cardqa_op_10、
     //   OP10-042 ウソップ(L) × OP10-090 フランキー × OP04-092 レベッカ:
@@ -269,6 +272,7 @@ fn do_battle_ko(
         }
     }
     state.last_chara_ko_victim_card = None;
+    state.rust_ko_victim_truly_original_power = None;
     // KO グループの発動が全部終わってからドレインする (上記の同時発動ルール)。
     state.rust_resolving = ko_prev_resolving;
     if err.is_none() && !ko_prev_resolving {
