@@ -23,16 +23,17 @@
 **詳細ロードマップは [docs/ROADMAP.md](./docs/ROADMAP.md) を参照**。
 Phase 1-7 完了 (= 全カード実装済 + 配備AI = SmartOpponentAI→ExploitBeam)、 [[project_ai_strengthening_plan]] が現役プロジェクト。
 
-> ⚠ **「公式準拠 100%」 は 2026-08-10 時点で 達成していない (= 目標であって現状ではない)**。
-> 公式 Q&A 全 1,205 件の conformance ([[project_faq_conformance_routine]]) で **検査済 544 件
-> (n/a 60 除く) のうち 93 件 = 約 17% が違反 (fixed)**、 conform 451 件。
+> ⚠ **「公式準拠 100%」 は 2026-08-12 時点で 達成していない (= 目標であって現状ではない)**。
+> 公式 Q&A 全 1,205 件の conformance ([[project_faq_conformance_routine]]) で **検査済 769 件
+> (n/a 76 除く 693) のうち 114 件 = 約 16.5% が違反 (fixed)**、 conform 579 件。
 > 壊れていたのは主に **カード個別の効果解釈** (コスト gate 欠落 = タダ撃ち / 対象範囲を片側限定 /
 > 印刷値と現在値の取り違え) で、 中核ルール (ターン進行・DON・ライフ・KO・攻防解決) は概ね正しい。
 > 中核の例外はバトル中断 (2026-08-04 是正)、 **発動コスト由来トリガーの解決順** (2026-08-09 是正、
 > 公式 8-4-1-3〜5 / cardqa_op_14)、 **「元々のパワー」 は効果で書き換わる** (2026-08-10 是正、
-> 公式 4-9-2-1 / EB01-061) の 3 件。
-> **escalated (= 要深掘りで保留) は 0 件** (クラウド cron が残した 7 件 + 2 件も全消化)。
-> **未処理 601 件 = 全体の 49.9% は未検査**。
+> 公式 4-9-2-1 / EB01-061)、 **ライフの表向き/裏向きは 1 枚ごと** (2026-08-11 是正、
+> cardqa_st_13 / ST13-003 + cardqa_eb_01 / EB01-052) の 4 件。
+> **escalated (= 要深掘りで保留) は 0 件**。
+> **未処理 436 件 = 全体の 36.2% は未検査**。
 > 「100%」 と書けるのは台帳が全件 conform/fixed になった時だけ。
 
 ## アーキテクチャ
@@ -56,7 +57,7 @@ onepiece_research/
 ├── web/            # Next.js フロントエンド (TypeScript, App Router)
 │   └── public/cards/   # 全 4,518 枚キャッシュ済 (878MB)
 ├── examples/       # スモークテスト・デモスクリプト (demo_matchup.py / demo_smoke.py / demo_with_effects.py)
-├── tests/          # pytest テスト (1,074 collected)
+├── tests/          # pytest テスト (6,026 collected)
 └── .venv/          # Python 仮想環境 (gitignore 推奨)
 ```
 
@@ -84,7 +85,9 @@ onepiece_research/
       on_opp_life_taken / on_self_life_to_hand/to_trash / on_self_don_returned_to_deck /
       on_opp_blocker_use / on_self_chara_ko / on_opp_chara_ko / opp_attack_on_leader /
       opp_attack_on_chara**
-  - DSL プリミティブ **226 種** (engine/effects.py 内 elif k == "..." パターンで列挙、 [[project_card_implementation_audit]] で 226/226 実装確認済)
+  - DSL プリミティブ **324 種** (engine/effects.py 内 elif k == "..." パターンで列挙。
+    226 種の時点で [[project_card_implementation_audit]] が 226/226 実装確認済、 以降は公式 Q&A
+    conformance で必要になった分を追加している)
 - [x] **Phase 2.5 完了**: カード効果オーバーレイ **全 4,518 カード登録 (100%)** (`db/card_effects.json`)。
   - 効果あり: 3,745 件 (82.9%) — character 78.6% / event 100% / leader 100% / stage 79.1%
   - 効果なし (バニラ/ブロッカーのみ/パラレル空): 773 件 (空配列でマーク済)
@@ -320,6 +323,16 @@ onepiece_research/
   `_recompute_static` (= ownership 反映) が更新する。テストで `InPlay.of()` 直接生成時は
   デフォルト True で動くが、ターン跨ぎを伴うシナリオでは必ず `_recompute_static(state)` を
   呼ぶか、`setup_game` 経由で初期化する
+- **ライフの表向き/裏向きは `Player.life_face_up: list[bool]`** (= `life` と同じ index、
+  2026-08-11 に 「表向き枚数」 の count モデルから移行)。 `face_up_life_count` は **導出プロパティ**
+  (書き込み不可)。 ライフを触る時は **必ず両方を同じ行で対にして** 操作する。
+  - 並べ替え/抜き取りは `_life_set_pairs` (Python) / `take_life_pairs`+`set_life_pairs` (Rust) を通す。
+    `pl.life = [...]` の単独代入は `Player.__setattr__` がフラグを全裏向きに張り直すので、
+    **表向きの札を並べ替えると表向きが消える**。 表向きを保つ時は `life` 代入の **後に**
+    `life_face_up` を代入する
+  - `_recompute_static` に長さ検査の AssertionError がある (退避は `ONEPIECE_LIFE_FLAG_LAX=1`)。
+    ⚠ **長さ一致は同期の証明にならない** — 位置ずれは掃引でしか出ない
+    ([[feedback_length_check_is_not_sync_proof]])
 - **公式ルールの一次情報は `db/rules/*.pdf` + `db/faq/*.json` + `db/banlist/master.json`** に集約済み。
   skill は `.claude/skills/onepiece-tcg-rules/SKILL.md`。ルール裁定や engine の不一致を直す時はまず skill を参照、
   個別カード Q&A は `db/faq/cardqa_*.json` を grep する

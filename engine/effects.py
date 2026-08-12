@@ -736,16 +736,13 @@ def _can_pay_counter_cost(
     # trash_self / self_ko (= このキャラ自身をトラッシュ/KO): source 不在なら払えない。
     if (cost.get("trash_self") or cost.get("self_ko")) and self_inplay is None:
         return False
-    # flip_life_face_down (= 「自分のライフの上か下から1枚を裏向きにできる：」 cost、 ST36-005 キッド):
-    # 表向きのライフが 1 枚以上 必要 (= leader 等で表向きにした分を裏向きに戻す)。
+    # flip_life_face_down / _up: **公式テキストの位置指定どおり** に払えるか判定する
+    # (「上から1枚」 = 一番上のみ / 「上か下から」 = 両端 / 「表向きのライフ1枚」 = 位置自由)。
     if cost.get("flip_life_face_down"):
-        if min(me.face_up_life_count, len(me.life)) < 1:
+        if _flip_life_targets(me, False, cost["flip_life_face_down"]) is None:
             return False
-    # flip_life_face_up (= 「自分のライフの上か下から1枚を表向きにできる：」 cost、 ST36-005 キッド):
-    # 裏向き (= 通常) のライフが 1 枚以上 必要 (= 表向き枚数 < ライフ総数)。
     if cost.get("flip_life_face_up"):
-        fu = min(me.face_up_life_count, len(me.life))
-        if len(me.life) - fu < 1:
+        if _flip_life_targets(me, True, cost["flip_life_face_up"]) is None:
             return False
     return True
 
@@ -1120,21 +1117,11 @@ def _pay_counter_cost(
     if isinstance(rhf, dict):
         cnt = int(rhf.get("count", 1))
         state.push_log(f"  cost: 手札から該当 {cnt} 枚を公開")
-    # flip_life_face_down: ライフ1枚を裏向きに (= face_up_life_count を 1 減らす)、 ST36-005 キッド。
-    # engine のライフモデルは「上か下」 の物理位置を区別せず face_up_life_count で表向き枚数のみ管理。
+    # flip_life_face_down / _up: 公式の位置指定 (上から / 上か下から / 位置自由) に従って裏返す。
     if cost.get("flip_life_face_down"):
-        for _i, _fu in enumerate(me.life_face_up):   # 上から順に 1 枚裏向きへ
-            if _fu:
-                me.life_face_up[_i] = False
-                break
-        state.push_log("  cost: ライフ1枚を裏向き")
-    # flip_life_face_up: ライフ1枚を表向きに (= face_up_life_count を 1 増やす)、 ST36-005 キッド。
+        _flip_life_pay(state, me, False, cost["flip_life_face_down"], "cost")
     if cost.get("flip_life_face_up"):
-        for _i, _fu in enumerate(me.life_face_up):   # 上から順に 1 枚表向きへ
-            if not _fu:
-                me.life_face_up[_i] = True
-                break
-        state.push_log("  cost: ライフ1枚を表向き")
+        _flip_life_pay(state, me, True, cost["flip_life_face_up"], "cost")
     # trash_self / self_ko: source 自身を 場から除去 → トラッシュ。
     if (cost.get("trash_self") or cost.get("self_ko")) and self_inplay is not None:
         is_ko = bool(cost.get("self_ko"))
@@ -10029,16 +10016,15 @@ def _execute_effect_body_inner(
                         can_pay = False
                         break
                 elif "flip_life_face_up" in cs:
-                    # 「自分のライフの上から1枚を表向きにできる：」 cost。 裏向き (= 通常) の
-                    # ライフが 1 枚以上 必要 (= 表向き枚数 < ライフ総数)。 しらほし系。
-                    fu = min(me.face_up_life_count, len(me.life))
-                    if len(me.life) - fu < 1:
+                    # 「自分のライフの **上から** 1枚を表向きにできる：」 = 一番上が裏向きでなければ
+                    # 払えない (公式 cardqa_st_20 / cardqa_op_10)。 位置指定は spec の pos で書き分け。
+                    if _flip_life_targets(me, True, cs["flip_life_face_up"]) is None:
                         can_pay = False
                         break
                 elif "flip_life_face_down" in cs:
-                    # 「自分のライフの上から1枚を裏向きにできる：」 cost。 表向きの
-                    # ライフが 1 枚以上 必要 (= leader 等で表向きにした分を消費)。
-                    if min(me.face_up_life_count, len(me.life)) < 1:
+                    # 「自分のライフの上から1枚を裏向きにできる：」 = 一番上が表向きでなければ払えない
+                    # (公式 cardqa_op_08 / OP08-063)。
+                    if _flip_life_targets(me, False, cs["flip_life_face_down"]) is None:
                         can_pay = False
                         break
                 elif "attach_opp_don_to_opp_chara" in cs:
@@ -10161,18 +10147,12 @@ def _execute_effect_body_inner(
                                    state, me, opp, self_inplay)
                     continue
                 if "flip_life_face_up" in cs:
-                    for _i, _fu in enumerate(me.life_face_up):
-                        if not _fu:
-                            me.life_face_up[_i] = True
-                            break
-                    state.push_log("  効果コスト: ライフ上1枚を表向き")
+                    if not _flip_life_pay(state, me, True, cs["flip_life_face_up"], "効果コスト"):
+                        return False       # 位置指定を満たせない = コスト未払い
                     continue
                 if "flip_life_face_down" in cs:
-                    for _i, _fu in enumerate(me.life_face_up):
-                        if _fu:
-                            me.life_face_up[_i] = False
-                            break
-                    state.push_log("  効果コスト: ライフ上1枚を裏向き")
+                    if not _flip_life_pay(state, me, False, cs["flip_life_face_down"], "効果コスト"):
+                        return False
                     continue
                 if "attach_opp_don_to_opp_chara" in cs:
                     ad_spec = cs["attach_opp_don_to_opp_chara"]
@@ -12601,6 +12581,57 @@ def fire_self_life_to_hand(state: GameState, me: Player) -> None:
     _observer = state.players[1 - state.players.index(me)]
     _enqueue_field_when(state, _observer, "on_opp_life_taken", overlay)
     _maybe_resolve(state)
+
+
+def _flip_life_targets(me, to_face_up: bool, spec):
+    """「ライフの◯◯から N 枚を表向き/裏向きにする」 の対象 index を返す。 払えないなら None。
+
+    ⭐ 公式テキストは **位置を書き分ける** (2026-08-12 是正、 それまでは全部
+      「上から順に最初の該当」 = 位置無視だった):
+      - 「自分のライフの **上から** 1枚を表向きにできる」 (ST20-001 / OP10-099 / P-106 等 23 枚)
+        = **一番上の 1 枚だけ** が対象。 一番上が既に表向きなら **払えない**
+        (公式 cardqa_st_20 / cardqa_op_10: 「一番上が表向きの場合…できますか？」 → 「いいえ」)
+      - 「自分のライフの **上か下から** 1枚を…」 (ST36-005 キッド) = **両端のどちらか**。
+        上下とも既に目的の向きなら払えない (公式 cardqa_st_36)
+      - 「自分の **表向きのライフ** 1枚を裏向きに」 (ST13-009 シャンクス) = **位置自由**
+        (公式 cardqa_st_13: 「好きな位置にある表向きのカードを…できますか？」 → 「はい」)
+
+    ⚠ 「上か下」 「位置自由」 で **どれを選ぶか** は今は決定的に上優先 (= AI 実装)。
+      人間に選ばせる modal は未配線 (= [[feedback_human_ai_option_parity]] に対する既知の穴)。
+    """
+    n, pos = 1, "top"
+    if isinstance(spec, dict):
+        n = int(spec.get("count", 1))
+        pos = str(spec.get("pos", "top"))
+    elif isinstance(spec, int) and not isinstance(spec, bool):
+        n = int(spec)
+    flags = me.life_face_up
+    want = not to_face_up          # 対象は 「これから変える側」 = 現在は逆向き
+    if pos == "top":
+        if len(flags) < n:
+            return None
+        idxs = list(range(n))
+        return idxs if all(flags[i] == want for i in idxs) else None
+    if pos == "top_or_bottom":
+        ends = [0, len(flags) - 1] if len(flags) >= 2 else ([0] if flags else [])
+        cands = [i for i in ends if flags[i] == want]
+        return cands[:n] if len(cands) >= n else None
+    # pos == "any" (= 「表向きのライフ1枚」 等、 位置指定なし)
+    cands = [i for i, f in enumerate(flags) if f == want]
+    return cands[:n] if len(cands) >= n else None
+
+
+def _flip_life_pay(state, me, to_face_up: bool, spec, label: str) -> bool:
+    """flip_life コストを実支払い。 払えなければ False (= 何も変えない)。"""
+    idxs = _flip_life_targets(me, to_face_up, spec)
+    if idxs is None:
+        return False
+    for i in idxs:
+        me.life_face_up[i] = to_face_up
+    state.push_log(
+        f"  {label}: ライフ{len(idxs)}枚を{'表' if to_face_up else '裏'}向き"
+    )
+    return True
 
 
 def _life_set_pairs(pl, pairs) -> None:
@@ -15946,10 +15977,12 @@ def _optional_cost_payable_in_do(
                 n = int(v.get("amount", 1)) if isinstance(v, dict) else int(v)
                 if len(me.life) < n:
                     return False
-            if cs.get("flip_life_face_up") and not me.life:
-                return False
-            if cs.get("flip_life_face_down") and not me.life:
-                return False
+            if cs.get("flip_life_face_up"):
+                if _flip_life_targets(me, True, cs["flip_life_face_up"]) is None:
+                    return False
+            if cs.get("flip_life_face_down"):
+                if _flip_life_targets(me, False, cs["flip_life_face_down"]) is None:
+                    return False
             if cs.get("return_self_to_deck_bottom") or cs.get("return_self_to_trash"):
                 # 自身が場に居る必要 (= 既に場外なら払えない)
                 if inplay not in me.characters and inplay not in me.stages:

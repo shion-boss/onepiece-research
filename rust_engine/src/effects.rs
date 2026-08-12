@@ -3137,11 +3137,8 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
             Some(me.don_active >= n && me.characters.iter().any(|c| c.card.name == name))
         }
         // flip_life は payability あり (effects.py:8515)。 face_up: 裏向きライフ≥1、 face_down: 表向き≥1。
-        "flip_life_face_up" => {
-            let fu = me.face_up_life_count().min(me.life.len() as i32);
-            Some((me.life.len() as i32) - fu >= 1)
-        }
-        "flip_life_face_down" => Some(me.face_up_life_count().min(me.life.len() as i32) >= 1),
+        "flip_life_face_up" => Some(flip_life_targets(me, true, cv).is_some()),
+        "flip_life_face_down" => Some(flip_life_targets(me, false, cv).is_some()),
         "rest_self_chara_filtered" => {
             let filt = cv.get("filter");
             Some(me.characters.iter().any(|c| !c.rested && matches_filter_ip(&c, filt)))
@@ -3570,15 +3567,13 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
             }
         }
         "flip_life_face_up" => {
-            let me = &mut state.players[me_idx];
-            if let Some(i) = me.life_face_up.iter().position(|f| !*f) {
-                me.life_face_up[i] = true;   // 上から順に 1 枚表向きへ
+            if !flip_life_pay(state, me_idx, true, &cv) {
+                return None; // 位置指定を満たせない = コスト未払い
             }
         }
         "flip_life_face_down" => {
-            let me = &mut state.players[me_idx];
-            if let Some(i) = me.life_face_up.iter().position(|f| *f) {
-                me.life_face_up[i] = false;  // 上から順に 1 枚裏向きへ
+            if !flip_life_pay(state, me_idx, false, &cv) {
+                return None;
             }
         }
         "attach_active_don_to_named_chara" => {
@@ -4742,20 +4737,19 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
             }
             true
         }
-        // 自分のライフの表向きカードすべてをトラッシュ (effects.py:6800、 ST13-002)。 count-only モデルで
-        // 表向き札は top に居るので上から face_up_life_count 枚。
+        // 自分のライフの表向きカードすべてをトラッシュ (effects.py:trash_all_face_up_life、 ST13-002)。
+        // ⭐ per-card フラグ化 (2026-08-11) により **位置を問わず表向きの札だけ** を取り除く。
+        //   従来は 「表向きは上から N 枚」 と仮定していたが、 ST13-012 マキノ の並べ替えで崩れる
+        //   (= Python は per-card に是正済で、 ここだけ位置準拠のまま残っていた)。
         "trash_all_face_up_life" => {
-            let me = &mut state.players[me_idx];
-            let n = me.face_up_life_count();
-            for _ in 0..n {
-                if me.life.is_empty() {
-                    break;
-                }
-                let c = me.life.remove(0);
-                me.life_face_up.remove(0);  // ライフと同じ位置のフラグも
-                me.trash.push(c);
+            let pairs = take_life_pairs(&mut state.players[me_idx]);
+            let mut keep = vec![];
+            let mut trashed = vec![];
+            for cf in pairs {
+                if cf.1 { trashed.push(cf.0) } else { keep.push(cf) }
             }
-            me.life_face_up = vec![false; me.life.len()];
+            set_life_pairs(&mut state.players[me_idx], keep);
+            state.players[me_idx].trash.extend(trashed);
             true
         }
         // 自分の手札が N 枚になるように捨てる (effects.py:5563)。 AI は worst_hand_idx から。
@@ -11750,14 +11744,15 @@ fn try_pay_counter_cost(
                 }
             }
         }
-        if flip_down && me.face_up_life_count().min(me.life.len() as i32) < 1 {
+        if flip_down
+            && flip_life_targets(me, false, obj.get("flip_life_face_down").unwrap()).is_none()
+        {
             return Ok(false);
         }
-        if flip_up {
-            let fu = me.face_up_life_count().min(me.life.len() as i32);
-            if (me.life.len() as i32) - fu < 1 {
-                return Ok(false);
-            }
+        if flip_up
+            && flip_life_targets(me, true, obj.get("flip_life_face_up").unwrap()).is_none()
+        {
+            return Ok(false);
         }
     }
     // --- pay。 Python _pay_counter_cost 順: discard_hand→pay_don→rest_don→…。 discard は先頭。 ---
@@ -11868,16 +11863,10 @@ fn try_pay_counter_cost(
     }
     // reveal_hand_with_filter = 公開のみ (state 変更なし)
     if flip_down {
-        let me = &mut state.players[me_idx];
-        if let Some(i) = me.life_face_up.iter().position(|f| *f) {
-            me.life_face_up[i] = false;  // 上から順に 1 枚裏向きへ
-        }
+        flip_life_pay(state, me_idx, false, &obj.get("flip_life_face_down").unwrap().clone());
     }
     if flip_up {
-        let me = &mut state.players[me_idx];
-        if let Some(i) = me.life_face_up.iter().position(|f| !*f) {
-            me.life_face_up[i] = true;   // 上から順に 1 枚表向きへ
-        }
+        flip_life_pay(state, me_idx, true, &obj.get("flip_life_face_up").unwrap().clone());
     }
     // trash_self / self_ko / return_self_to_hand: source 自身を場から除去 (effects.py:934)。
     // ⚠ self_ko は KO 扱いで【KO時】/on_self_chara_ko、 trash_self は on_self_chara_leave_by_self_effect
@@ -12000,14 +11989,13 @@ fn can_pay_counter_cost_full(
     }
     // trash_self/self_ko: Python は self_inplay is None で払えない判定。 on/opp_attack の source は
     //   常に present なのでここでは payable (実支払いは try_pay が Err = cascade で bail)。
-    if obj.get("flip_life_face_down").map_or(false, json_truthy)
-        && me.face_up_life_count().min(me.life.len() as i32) < 1
-    {
-        return false;
+    if let Some(sp) = obj.get("flip_life_face_down").filter(|v| json_truthy(v)) {
+        if flip_life_targets(me, false, sp).is_none() {
+            return false;
+        }
     }
-    if obj.get("flip_life_face_up").map_or(false, json_truthy) {
-        let fu = me.face_up_life_count().min(me.life.len() as i32);
-        if (me.life.len() as i32) - fu < 1 {
+    if let Some(sp) = obj.get("flip_life_face_up").filter(|v| json_truthy(v)) {
+        if flip_life_targets(me, true, sp).is_none() {
             return false;
         }
     }
@@ -13895,6 +13883,60 @@ fn set_life_pairs(p: &mut Player, pairs: Vec<(crate::state::CardDef, bool)>) {
     p.life_face_up = pairs.iter().map(|cf| cf.1).collect();
 }
 
+/// 「ライフの◯◯から N 枚を表向き/裏向きにする」 の対象 index (effects.py:_flip_life_targets と対)。
+///
+/// 公式テキストの位置指定を そのまま実装する (2026-08-12 是正、 それまでは全部
+/// 「上から順に最初の該当」 = 位置無視):
+///   pos="top" (既定)      「自分のライフの **上から** 1枚を…」 = 一番上のみ
+///   pos="top_or_bottom"   「自分のライフの **上か下から** 1枚を…」 = 両端のどちらか (ST36-005)
+///   pos="any"             「自分の **表向きのライフ** 1枚を…」 = 位置自由 (ST13-009)
+/// 払えない (= 対象が足りない) なら None。
+fn flip_life_targets(me: &Player, to_face_up: bool, spec: &Value) -> Option<Vec<usize>> {
+    let (n, pos) = if spec.is_object() {
+        (
+            spec.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize,
+            spec.get("pos").and_then(|x| x.as_str()).unwrap_or("top").to_string(),
+        )
+    } else if let Some(k) = spec.as_i64() {
+        (k.max(1) as usize, "top".to_string())
+    } else {
+        (1usize, "top".to_string())
+    };
+    let flags = &me.life_face_up;
+    let want = !to_face_up; // 対象は 「これから変える側」 = 現在は逆向き
+    let cands: Vec<usize> = match pos.as_str() {
+        "top" => {
+            if flags.len() < n || (0..n).any(|i| flags[i] != want) {
+                return None;
+            }
+            (0..n).collect()
+        }
+        "top_or_bottom" => {
+            let ends: Vec<usize> = if flags.len() >= 2 {
+                vec![0, flags.len() - 1]
+            } else if !flags.is_empty() {
+                vec![0]
+            } else {
+                vec![]
+            };
+            ends.into_iter().filter(|&i| flags[i] == want).collect()
+        }
+        _ => (0..flags.len()).filter(|&i| flags[i] == want).collect(),
+    };
+    if cands.len() < n { None } else { Some(cands[..n].to_vec()) }
+}
+
+/// flip_life コストの実支払い。 払えなければ false (= 何も変えない)。
+fn flip_life_pay(state: &mut GameState, me_idx: usize, to_face_up: bool, spec: &Value) -> bool {
+    let Some(idxs) = flip_life_targets(&state.players[me_idx], to_face_up, spec) else {
+        return false;
+    };
+    for i in idxs {
+        state.players[me_idx].life_face_up[i] = to_face_up;
+    }
+    true
+}
+
 fn pay_don_capacity(me: &Player) -> i32 {
     me.don_active + me.don_rested + me.leader.attached_dons
         + me.characters.iter().map(|c| c.attached_dons).sum::<i32>()
@@ -14018,10 +14060,15 @@ fn optional_cost_payable_in_do(state: &GameState, me_idx: usize, ip: &InPlay, ef
                     }
                 }
             }
-            if (cs.get("flip_life_face_up").is_some() || cs.get("flip_life_face_down").is_some())
-                && me.life.is_empty()
-            {
-                return false;
+            if let Some(sp) = cs.get("flip_life_face_up") {
+                if flip_life_targets(me, true, sp).is_none() {
+                    return false;
+                }
+            }
+            if let Some(sp) = cs.get("flip_life_face_down") {
+                if flip_life_targets(me, false, sp).is_none() {
+                    return false;
+                }
             }
             if let Some(n) = cs.get("return_self_don_to_deck").and_then(|v| v.as_i64()) {
                 if ((me.don_active + me.don_rested) as i64) < n {

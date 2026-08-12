@@ -9690,3 +9690,93 @@ def test_face_up_count_is_derived_from_per_card_flags():
     import pytest as _pytest
     with _pytest.raises(AttributeError):
         me.face_up_life_count = 3
+
+
+# --------------------------------------------------------------------------- #
+#  ライフを表/裏にするコストは 公式テキストの **位置指定** どおりに払う
+#  (2026-08-12。 それまでは全部 「上から順に最初の該当」 = 位置無視だった)
+# --------------------------------------------------------------------------- #
+def test_flip_life_face_up_cost_targets_only_the_top_card():
+    """「自分のライフの **上から** 1枚を表向きにできる：」 は 一番上が表向きなら払えない。
+
+    一次情報 (cardqa_st_20 / ST20-001 カタクリ、 cardqa_op_10 / OP10-099 キッド):
+    「自分のライフの一番上が表向きの場合、 この効果で…付与することはできますか？」 → 「いいえ」
+    ⚠ 「表向きの札が 1 枚でもあるか」 ではなく **一番上そのもの** を見る。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def offers(flags):
+        st = _state(repo, overlay)
+        me = st.players[0]
+        me.life = [repo.get(_FILLER)] * len(flags)
+        me.life_face_up = list(flags)
+        evaluate_static_effects(st, overlay)
+        me.characters = [InPlay.of(repo.get("ST20-001"), sickness=False)]
+        return len([o for o in list_activate_main_effects(st, me, overlay)
+                    if o[0].card.card_id == "ST20-001"])
+
+    assert offers([False, False, False]) == 1, "一番上が裏向きなら払えるはず"
+    assert offers([True, False, False]) == 0, (
+        "一番上が既に表向きなのに発動できている (下段の裏向きを見てしまっている)"
+    )
+    assert offers([False, True, True]) == 1, "一番上が裏向きなら下段が表向きでも払える"
+
+
+def test_flip_life_cost_top_or_bottom_uses_both_ends_only():
+    """「自分のライフの **上か下から** 1枚を…」 (ST36-005 キッド) は **両端のみ**。
+
+    一次情報 (cardqa_st_36): 「自分のライフの一番上と一番下がどちらも表向きの場合、
+    この【起動メイン】効果を発動することはできますか？」 → 「いいえ」
+    (= 中段が裏向きでも、 端が両方とも表向きなら 「表向きにする」 コストは払えない)
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def offers(flags):
+        st = _state(repo, overlay)
+        me = st.players[0]
+        me.life = [repo.get(_FILLER)] * len(flags)
+        me.life_face_up = list(flags)
+        evaluate_static_effects(st, overlay)
+        me.characters = [InPlay.of(repo.get("ST36-005"), sickness=False)]
+        return len([o for o in list_activate_main_effects(st, me, overlay)
+                    if o[0].card.card_id == "ST36-005"])
+
+    assert offers([True, False, True]) == 0, (
+        "上下とも表向きなのに発動できている (中段の裏向きを掴んでいる)"
+    )
+    assert offers([True, False, False]) == 1, "一番下が裏向きなら払えるはず"
+    assert offers([False, True, True]) == 1, "一番上が裏向きなら払えるはず"
+
+
+def test_flip_life_face_down_any_position_for_shanks():
+    """「自分の **表向きのライフ** 1枚を裏向きにできる：」 (ST13-009) は **位置自由**。
+
+    一次情報 (cardqa_st_13): 「この【登場時】効果で、 自分のライフの好きな位置にある
+    表向きのカードを裏向きにすることはできますか？」 → 「**はい**」
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def run(flags):
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        me.life = [repo.get(_FILLER)] * len(flags)
+        me.life_face_up = list(flags)
+        opp.hand = [repo.get(_FILLER)] * 8      # 相手の手札 7 枚以上 = 後文の条件
+        opp.life = [repo.get(_FILLER)] * 3
+        evaluate_static_effects(st, overlay)
+        src = InPlay.of(repo.get("ST13-009"), sickness=True)
+        me.characters = [src]
+        trigger_on_play(st, me, opp, src, overlay)
+        resolve_triggers(st)
+        while st.pending_choice is not None:
+            resolve_pending_choice(st, [0])
+            resolve_triggers(st)
+        return list(me.life_face_up), len(opp.life)
+
+    flags, opp_life = run([False, False, True])   # 表向きは **一番下** だけ
+    assert flags == [False, False, False], f"下段の表向きを裏返せていない ({flags})"
+    assert opp_life == 2, "コストを払えたのに後文 (相手ライフ1枚トラッシュ) が走っていない"
+
+    flags2, opp_life2 = run([False, False, False])  # 表向きが 1 枚も無い = 払えない
+    assert flags2 == [False, False, False]
+    assert opp_life2 == 3, "表向きライフが無いのにコストを払えたことになっている"

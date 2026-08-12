@@ -112,9 +112,9 @@
   "files": [
    "cardqa_st_13.json"
   ],
-  "note": "ST13-009 シャンクス。engineのライフモデルはface_up_life_count(枚数)のみで物理位置を区別しない(core.py:580)→『好きな位置の表向きライフを裏向き』は元々モデル外=位置制約なく整合(公式『はい』)。engine状態変化に落ちない位置確認=n/a。⚠別件記録:overlayがflip_life_face_down costを欠落(表向きライフ不在でもmillする)→docs/official_rulings.mdにフォロー記録。",
+  "note": "ST13-009 シャンクス: 「自分の表向きのライフ1枚を裏向きにできる：」は位置自由 (公式 cardqa_st_13 はい)。overlay に pos:any を明示 (2026-08-12)。実測 表向きが最下段だけ [F,F,T]→[F,F,F] かつ後文 (相手ライフ3→2) が走る / 表向き0枚なら未払いで後文も不発。回帰 test_flip_life_face_down_any_position_for_shanks",
   "q": "この【登場時】効果で、自分のライフの好きな位置にある表向きのカードを裏向きにすることはできますか？",
-  "status": "n/a"
+  "status": "fixed"
  },
  "0444e2f3fa2c": {
   "a": "いいえ、できません。",
@@ -391,9 +391,9 @@
   "files": [
    "cardqa_st_18.json"
   ],
-  "note": "ST20-001 カタクリ activate_main cost=flip_life_face_up(トップライフ1枚を表向きに)→ attach_rested_don。 公式『トップライフが既に表向きなら不可(既に表向きの札を表向きにはできない)』。 engine のライフモデルは face_up_life_count(枚数)のみで物理位置(トップ)を区別しない(ST13-009 と同型の位置非モデル化)。 コストの表向き化はどの裏向きライフでも成立しうるため『トップが表向き』の一意な不成立を engine 状態で再現できない=検証不能。",
+  "note": "ST20-001 カタクリ: 「自分のライフの上から1枚を表向きにできる：」 は一番上そのものが対象。一番上が既に表向きなら払えない (公式 cardqa_st_20 いいえ)。per-card 化で位置が表現可能になり pos:top 既定で実装 (2026-08-12)。実測 上が裏→起動メイン1件 / 上が表→0件。回帰 test_flip_life_face_up_cost_targets_only_the_top_card",
   "q": "自分のライフの一番上のカードが表向きの場合、この【起動メイン】効果で自分のリーダーかキャラ1枚にレストのドン!!1枚までを付与することはできますか？",
-  "status": "n/a"
+  "status": "fixed"
  },
  "0bcfc691e5be": {
   "a": "いいえ、できません。\n(「OP06-034 ヒョウゾウ」の最新のテキストについては、公式HPでの情報をご確認下さい。)",
@@ -607,9 +607,9 @@
   "files": [
    "cardqa_st_13.json"
   ],
-  "note": "ST13-004 ニューゲート scry_all_life_one_to_deck。engineのライフモデルはface_up_life_count(枚数)のみで物理位置ごとの表裏を持たない。reorderはme.lifeを並べ替えるのみでface_up_life_countを触らない=表向きを裏返さない(公式『表向きは表向きのまま』と整合)。位置ごとの表裏は元々モデル外=engine状態変化に落ちない=n/a(ST13-009と同型)",
+  "note": "ST13-004 ニューゲート scry_all_life_one_to_deck: ライフ並べ替えで per-card の表裏が保存される (公式「表向きは表向きのまま」)。count モデルでは位置ごとの表裏を持たず n/a としていたが、per-card 化 (2026-08-11) で表現可能になり、並べ替え経路を (card, face_up) 組で扱うよう是正。回帰 test_life_reorder_carries_face_up_flag_with_the_card",
   "q": "この【登場時】効果で自分のライフすべてを見て順番を変える際、表向きのライフは裏向きに戻しますか？",
-  "status": "n/a"
+  "status": "fixed"
  },
  "0eff9b4a3462": {
   "a": "いいえ、このカードを含めずにライフの枚数を数えます。",
@@ -4012,9 +4012,9 @@
   "files": [
    "cardqa_.json"
   ],
-  "note": "対象カード=OP10-099 ユースタス・キッド/P-106 ルフィ 等【自分のターン終了時】cost=flip_life_face_up(『ライフの上から1枚を表向きにできる』)。engine のライフモデルは face_up_life_count(枚数)のみで位置を区別しない。flip_life_face_up の payability は『裏向きライフが1枚以上』(len-fu>=1)で判定。全ライフ表向きなら正しく不可だが、Q は『一番上が表向き』(位置)=count モデルに一意に落ちない(下段が裏向きなら engine は許可、公式は top 位置ゆえ不可)。ライフ位置の表裏はモデル外=n/a(ST13-004/009 と同型)。",
+  "note": "OP10-099 キッド / P-106 ルフィ 【自分のターン終了時】「ライフの上から1枚を表向きにできる：」も同型。一番上が表向きなら払えない (公式 cardqa_op_10)。実測 上が裏 [F,T,T]→[T,T,T] (発動) / 上が表 [T,F,F]→変化なし。2026-08-12",
   "q": "自分のライフの一番上が表向きのときに、この【自分のターン終了時】効果を使うことはできますか？",
-  "status": "n/a"
+  "status": "fixed"
  },
  "5cf7f863bc3a": {
   "a": "いいえ、できません。",
@@ -4543,9 +4543,9 @@
   "files": [
    "cardqa_st_36.json"
   ],
-  "note": "ST36-005 キッド: engine のライフモデルは face_up_life_count のみで上/下の物理位置を区別しない。『上と下がどちらも表向き(中は裏)』は表現不能で verify 不可",
+  "note": "ST36-005 キッド: 「自分のライフの上か下から1枚を…」= 両端のみ。上下とも表向きなら「表向きにする」コストは払えない (公式 cardqa_st_36 いいえ)。overlay に pos:top_or_bottom を明示 (2026-08-12)。実測 [表,裏,表]→起動メイン0件 / [表,裏,裏]→1件。回帰 test_flip_life_cost_top_or_bottom_uses_both_ends_only",
   "q": "自分のライフの一番上と一番下がどちらも表向きの場合、この【起動メイン】効果を発動することはできますか？",
-  "status": "n/a"
+  "status": "fixed"
  },
  "68b0518a4053": {
   "a": "はい、できます。",

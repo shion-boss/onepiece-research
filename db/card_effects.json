@@ -51812,16 +51812,16 @@
  ],
  "OP08-058": [
   {
+   "_doc": "2026-08-12: 公式は 「自分のライフの**上から2枚**を表向きにできる」。 「上から1枚」×2 で書いていたが、 位置指定 (pos:top = 一番上のみ) を入れると 2 個目が 『一番上は既に表向き』 で払えなくなる。 count:2 に畳んで 「上 2 枚が両方とも裏向きの時だけ払える」 を正しく表す。",
    "_text": "OP08-058 on_attack: ライフ上2枚表向き(任意)→ドン1レスト追加 [grind4]",
    "do": [
     {
      "optional_cost_then": {
       "cost": [
        {
-        "flip_life_face_up": true
-       },
-       {
-        "flip_life_face_up": true
+        "flip_life_face_up": {
+         "count": 2
+        }
        }
       ],
       "effect": [
@@ -51837,16 +51837,16 @@
  ],
  "OP08-058_p1": [
   {
+   "_doc": "2026-08-12: 公式は 「自分のライフの**上から2枚**を表向きにできる」。 「上から1枚」×2 で書いていたが、 位置指定 (pos:top = 一番上のみ) を入れると 2 個目が 『一番上は既に表向き』 で払えなくなる。 count:2 に畳んで 「上 2 枚が両方とも裏向きの時だけ払える」 を正しく表す。",
    "_text": "OP08-058 on_attack: ライフ上2枚表向き(任意)→ドン1レスト追加 [grind4]",
    "do": [
     {
      "optional_cost_then": {
       "cost": [
        {
-        "flip_life_face_up": true
-       },
-       {
-        "flip_life_face_up": true
+        "flip_life_face_up": {
+         "count": 2
+        }
        }
       ],
       "effect": [
@@ -51862,16 +51862,16 @@
  ],
  "OP08-058_p2": [
   {
+   "_doc": "2026-08-12: 公式は 「自分のライフの**上から2枚**を表向きにできる」。 「上から1枚」×2 で書いていたが、 位置指定 (pos:top = 一番上のみ) を入れると 2 個目が 『一番上は既に表向き』 で払えなくなる。 count:2 に畳んで 「上 2 枚が両方とも裏向きの時だけ払える」 を正しく表す。",
    "_text": "OP08-058 on_attack: ライフ上2枚表向き(任意)→ドン1レスト追加 [grind4]",
    "do": [
     {
      "optional_cost_then": {
       "cost": [
        {
-        "flip_life_face_up": true
-       },
-       {
-        "flip_life_face_up": true
+        "flip_life_face_up": {
+         "count": 2
+        }
        }
       ],
       "effect": [
@@ -103782,7 +103782,9 @@
   {
    "_text": "ST13-009 on_play: 自分の表向きのライフ1枚を裏向きにできる：相手の手札が7枚以上ある場合、相手のライフの上から1枚までをトラッシュに置く。 [cost-not-gated] 表向きライフ1枚を裏向きにする任意コストを実装 (未実装でタダ撃ちだった)。 コロン後の「相手の手札が7枚以上ある場合」は 効果のみを gate (cardqa_eb_04 の一般則)。",
    "cost": {
-    "flip_life_face_down": true
+    "flip_life_face_down": {
+     "pos": "any"
+    }
    },
    "do": [
     {
@@ -103805,7 +103807,9 @@
   {
    "_text": "ST13-009_p1 on_play: 自分の表向きのライフ1枚を裏向きにできる：相手の手札が7枚以上ある場合、相手のライフの上から1枚までをトラッシュに置く。 [cost-not-gated] 表向きライフ1枚を裏向きにする任意コストを実装 (未実装でタダ撃ちだった)。 コロン後の「相手の手札が7枚以上ある場合」は 効果のみを gate (cardqa_eb_04 の一般則)。",
    "cost": {
-    "flip_life_face_down": true
+    "flip_life_face_down": {
+     "pos": "any"
+    }
    },
    "do": [
     {
@@ -111593,7 +111597,9 @@
   {
    "_text": "ST36-005 ユースタス・キッド 【相手のアタック時】【ターン1回】自分のライフの上か下から1枚を裏向きにできる：アタックの対象を自分の元々のパワー5000以上の「ユースタス・キッド」にする。 (engine のライフモデルは「上か下」 の物理位置を区別せず表向き枚数 face_up_life_count のみ管理。 flip_life_face_down cost = 表向き1枚を裏向きに)",
    "cost": {
-    "flip_life_face_down": true,
+    "flip_life_face_down": {
+     "pos": "top_or_bottom"
+    },
     "once_per_turn": true
    },
    "do": [
@@ -111623,7 +111629,9 @@
      "optional_cost_then": {
       "cost": [
        {
-        "flip_life_face_up": true
+        "flip_life_face_up": {
+         "pos": "top_or_bottom"
+        }
        }
       ],
       "effect": [
