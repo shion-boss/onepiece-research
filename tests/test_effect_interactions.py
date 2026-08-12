@@ -10373,3 +10373,57 @@ def test_op13_109_replace_needs_face_down_top_life():
     assert not ok2, "一番上が既に表向きなのに置換が成立して KO を免れている"
     ok3, _ = survives([])
     assert not ok3, "ライフ 0 なのに置換が成立している"
+
+
+def test_eb02_035_don_comparison_gate():
+    """EB02-035 サンジ&プリン【登場時】は「自分の場のドン‼が相手の場のドン‼の枚数以下の場合」
+    にのみ 1 ドローする。この don-比較条件が overlay から欠落していた (2026-08-12 是正)。
+
+    一次情報 (cardqa_eb_02, qid `ac39489df89b`, EB02-035):
+      Q: 自分の場のドン7、相手の場のドン6のとき ST18-005 ルフィ太郎の【登場時】ドン-1で
+         自分のドン1枚をドンデッキに戻して このカードを登場させた。この場合、この
+         【登場時】効果でカード1枚を引くことはできますか？
+      A: はい、できます。(ドン-1 で 自ドンが 6 になり 6≦6 を満たすため)
+
+    ⚠ 是正前は条件が `[{self_turn: true}]` のみで、self_don > opp_don でも常にドローしていた。
+    """
+    from engine.effects import trigger_on_play
+    repo, overlay = _repo(), _overlay()
+
+    def draw_count(self_don, opp_don):
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        me.don_active = self_don
+        opp.don_active = opp_don
+        ip = InPlay.of(repo.get("EB02-035"), sickness=True)
+        me.characters.append(ip)
+        h0 = len(me.hand)
+        trigger_on_play(st, me, opp, ip, overlay)
+        resolve_triggers(st)
+        return len(me.hand) - h0
+
+    assert draw_count(7, 6) == 0, "self_don(7) > opp_don(6) なのにドローしている (条件欠落)"
+    assert draw_count(6, 6) == 1, "self_don(6) <= opp_don(6) はドローするはず"
+    assert draw_count(3, 6) == 1, "self_don < opp_don はドローするはず"
+
+
+def test_don_le_opp_don_gate_present_all_cards():
+    """全走査ガード: 「自分の場のドン‼が相手の場のドン‼の枚数以下の場合」を持つ overlay エントリは
+    必ず don-比較条件 (`don_diff_le`) を伴う。EB02-035 で欠落が見つかったため、同型の取りこぼしを防ぐ。
+    """
+    import json as _json
+    from pathlib import Path as _Path
+    ov = _json.load(open(_Path(__file__).resolve().parent.parent / "db" / "card_effects.json"))
+    marker = "自分の場のドン"
+    tail = "以下の場合"
+    missing = []
+    for cid, effs in ov.items():
+        if not isinstance(effs, list):
+            continue
+        for e in effs:
+            t = (e.get("_text") or "").replace(" ", "").replace("!", "‼").replace("！", "‼")
+            # 「自分の場のドン(‼) が相手の場のドン(‼) の枚数以下の場合」 パターンのみ対象
+            if "相手の場のドン" in t and "枚数以下の場合" in t and marker in t:
+                if "don_diff" not in _json.dumps(e, ensure_ascii=False):
+                    missing.append(cid)
+    assert not missing, f"don-比較条件が欠落: {missing}"

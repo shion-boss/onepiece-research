@@ -9431,9 +9431,9 @@
   "files": [
    "cardqa_op_09.json"
   ],
-  "note": "",
+  "note": "OP09-052 on_ko: overlay is on_ko+opp_turn+by_opp_effect, cost discard_hand:1. Timing matches official (paid when KO'd by opp effect during opp turn).",
   "q": "この【相手のターン中】効果の「自分の手札1枚を捨てる」はいつ支払いますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "a8b1eab174ba": {
   "a": "はい、できます。",
@@ -9443,9 +9443,9 @@
   "files": [
    "cardqa_op_07.json"
   ],
-  "note": "",
+  "note": "OP07-059 on_attack keep_opp_rested target='one_opp_chara_or_leader' selects ONE, but official allows up-to-1 opp rested LEADER AND up-to-1 opp rested CHARACTER (up to 2 total). Under-selection. Needs a new target spec (independent leader+char pick) + Rust parity; OP07-059 already in an escalated symbolic-cost-gate batch. Not an auto-fix.",
   "q": "この【アタック時】効果で、相手のレストのリーダーとレストのキャラそれぞれ1枚ずつ、合計2枚を選ぶことはできますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "a8ca4f0066bf": {
   "a": "はい、アタックできません。\nこの効果は、アタックや【ブロッカー】の発動などの、レストにすることが必要な行動をできない状態にする効果です。",
@@ -9471,9 +9471,9 @@
   "files": [
    "cardqa_op_07.json"
   ],
-  "note": "",
+  "note": "OP07-059 (same as a8b1eab174ba): when opp leader is active you can still pick the rested character. Overlay 'one_opp_chara_or_leader' single-pick doesn't model the independent leader+character selection. Needs new target spec + Rust parity. Escalated.",
   "q": "相手のリーダーがアクティブの場合、この【アタック時】効果で相手のレストのキャラ1枚を選ぶことはできますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "a96fa3b80cf4": {
   "a": "はい、できます。",
@@ -9483,9 +9483,9 @@
   "files": [
    "cardqa_op_10.json"
   ],
-  "note": "",
+  "note": "OP10-091: optional_cost_then wrapper; ko 'one_opponent_character_cost_le_1cost' is up-to-1 (0 allowed) and mill_self_top:2 is a separate step that runs regardless. Can decline KO and still mill 2.",
   "q": "この【起動メイン】効果で相手のコスト1以下のキャラをKOせずに、自分のデッキの上から2枚をトラッシュに置くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "a989473035ca": {
   "a": "この場合、【トリガー】効果によって登場したキャラの【登場時】効果と、この【相手のターン中】効果を、このリーダー側のプレイヤーが望む順番で発動することができます。",
@@ -9495,9 +9495,9 @@
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-058: trigger-ordering (登場時 vs 相手ターン中) is the general 'own simultaneous triggers resolved in player-chosen order' rule, not card-specific engine state.",
   "q": "「 【トリガー】ドン!!-1：このカードを登場させる。」などの【トリガー】効果によって、このカードのこの【相手のターン中】効果を発動するとき、【トリガー】効果によって登場したキャラの【登場時】効果とこの【相手のターン中】効果のどちらが先に発動しますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "a99fd7841547": {
   "a": "はい、このリーダーの効果が無効になった時点でデッキが0枚の場合、ゲームに敗北します。",
@@ -9507,9 +9507,9 @@
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-022 ブルック: after deck->0 (deferred via deck_out_defer), opp negates leader with 闇水 -> official says immediate loss at moment of negation. ⑦ fix (2026-08-05) implemented END-phase defer + simultaneous defeat, but NOT the immediate loss re-check when the protecting static is negated mid-turn. Defeat-timing arch change, per escalated defeat-timing note.",
   "q": "自分のターン中、自分がこのリーダー「ブルック」を使用しており、自分のデッキが1枚から0枚になりました。その後、このターン中に相手が「OP09-097 闇水」を発動しこのリーダーの効果を無効にした場合、自分はゲームに敗北しますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "a9be1d96c791": {
   "a": "はい、必ず発動します。",
@@ -9519,9 +9519,9 @@
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "",
+  "note": "OP05-040 鳥カゴ end_of_turn KO: overlay has no 'optional', so it fires mandatorily when self_don_ge:10. Matches '必ず発動'. (Target-scope opponent-only/rested already tracked separately as observation).",
   "q": "この【自分のターン終了時】効果は、自分の場のドン!!が10枚ある場合、自分のターン終了時に必ず発動する効果ですか？",
-  "status": "pending"
+  "status": "conform"
  },
  "aa005b70147e": {
   "a": "はい、できます。",
@@ -9531,9 +9531,9 @@
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-039: return_to_hand(one_self_chara ドレスローザ) then play_from_hand(cost_eq:3 ドレスローザ). The just-returned cost-3 card is eligible to be replayed. Permissive matches.",
   "q": "この【起動メイン】効果で自分の場からコスト3の特徴《ドレスローザ》を持つキャラを手札に戻し、そのままそのカードを登場させることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "aa6c2c63da80": {
   "a": "いいえ、できません。",
@@ -9543,9 +9543,9 @@
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-012 on_attack attach_rested_don owner_of_target:true = always the target's owner's don. Cannot cross-attach opp/own don. Matches 'いいえ'.",
   "q": "この【アタック時】効果で自分のリーダーやキャラに相手のドン!!を付与することや、相手のリーダーやキャラに自分のドン!!を付与することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "aa95f162aca9": {
   "a": "いいえ、できません。",
@@ -9555,9 +9555,9 @@
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-033: rest+schedule untap_don both gated inside if:leader_feature ドンキホーテ海賊団. Without the feature, no don-activate. Matches 'いいえ'.",
   "q": "自分のリーダーが特徴《ドンキホーテ海賊団》を持たない場合、この【登場時】効果で、自分のドン!!1枚までを、アクティブにできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "aac5755332d8": {
   "a": "この場合、【バニッシュ】を失った状態でバトルの処理を行います。",
@@ -9583,9 +9583,9 @@
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "",
+  "note": "OP12-003 etc: reveal_hand_with_filter count:2 filter category:EVENT has no distinctness constraint, so 2 same-number events can both be revealed. Matches 'はい'.",
   "q": "この効果で、同じカードナンバーのイベント2枚を手札から公開することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ab320e134b58": {
   "a": "はい、パワー+2000されています。",
@@ -9595,9 +9595,9 @@
   "files": [
    "cardqa_st_12.json"
   ],
-  "note": "",
+  "note": "ST12-011: power_pump condition (self_hand_count_le:5) checked at on_attack; duration next_self_turn_start. Once granted, buff persists regardless of later hand growth. Matches 'はい'.",
   "q": "自分の手札が5枚のときにこの【アタック時】効果を発動したあと、次の自分のターン開始時までに手札が6枚以上になった場合、このキャラはパワー+2000されていますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ab3e1d1cfeca": {
   "a": "はい、できます。",
@@ -9607,9 +9607,9 @@
   "files": [
    "cardqa_op_09.json"
   ],
-  "note": "",
+  "note": "OP09-061 on_self_don_returned_to_deck (returned_don_count_ge:2 + self_turn + once_per_turn) fires when 2+ don returned via another card (ブラックマリア end-of-turn return during self turn). Matches 'はい'.",
   "q": "このターンにこの【自分のターン中】効果をまだ発動していない時に、「OP08-074 ブラックマリア」の【起動メイン】効果を発動しそのターンの終了時にドン!!を2枚以上ドン!!デッキに戻しました。この時、この【自分のターン中】効果を発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ab6b707bbbec": {
   "a": "いいえ、できません。自分の場にあるこの「錦えもん」と、自分のトラッシュにあるパワー1000の「錦えもん」をそれぞれ1枚ずつデッキの下におくことで、手札のコスト6の「錦えもん」を登場できます。",
@@ -9619,9 +9619,9 @@
   "files": [
    "cardqa_op_10.json"
   ],
-  "note": "",
+  "note": "OP10-027: cost=return_self_to_deck_bottom(this field char)+trash_to_deck(1x 錦えもん power1000). Cannot use two trash 錦えもん. Matches 'いいえ'.",
   "q": "この【起動メイン】効果は、自分のトラッシュにある「錦えもん」2枚をデッキの下に置くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "aba6aa22b14a": {
   "a": "はい、登場もアタックもできます。ただし、【登場時】効果や【アタック時】効果を発動することはできません。",
@@ -9631,9 +9631,9 @@
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP02-062: optional_cost_then(cost trash_self_hand_random:2) is payability-gated; when hand<2 the effect is skipped but 登場/アタック itself is not blocked. Matches 'はい、効果は不発'.",
   "q": "手札が2枚ない場合にこのキャラが登場することやアタックすることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ababf617516c": {
   "a": "はい、できます。",
@@ -9643,9 +9643,9 @@
   "files": [
    "cardqa_op_11.json"
   ],
-  "note": "",
+  "note": "OP11-072 opp_trash_to_deck_bottom:2 uses _order[:count] = takes min(count, available). With 1 in trash, places 1. Matches 'はい'.",
   "q": "相手のトラッシュが1枚の場合、この【起動メイン】効果でそのトラッシュのカード1枚をデッキの下に置くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "abbdd6e7fbb8": {
   "a": "はい、少なくなります。",
@@ -9655,9 +9655,9 @@
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP02-025 reduce_play_cost_filtered_turn persists across a non-matching char play (ロー free play). Already fixed 2026-08-05; verified persistent. Matches 'はい'.",
   "q": "自分のキャラが1枚の時にこの【起動メイン】を発動したあと、「OP01-047 トラファルガー・ロー」の効果でコストを支払わずに手札からコスト3の《ワノ国》を持つキャラを登場しました。この次に手札から登場させる《ワノ国》を持つキャラのコストは1少なくなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ac38d0346bfe": {
   "a": "この場合、「バルトロメオ」のコストは0になります。\n永続効果である「ウソップ」の効果によって、コストが3から4になった状態で、自動効果である「カク」の【登場時】効果を処理しコストが4から1になります。これにより「バルトロメオ」のコストが1以下になり、「ウソップ」の効果によりコストが+1されない状態になるため、コストは0となります。",
@@ -9667,9 +9667,9 @@
   "files": [
    "cardqa_op_10.json"
   ],
-  "note": "",
+  "note": "OP10-042×カク: verified empirically. base 3 → ウソップ static +1 = 4 → カク cost_minus -3 → static +1 gate (cost_ge:2 on base_cost) fails at 0<2 → not re-applied → cost 0. Matches official '0'.",
   "q": "自分の場に元々のコストが3の「OP04-089 バルトロメオ」があり、このリーダーの効果で現在のコストが4になっています。この時、相手のターン中に、相手がこの「バルトロメオ」に「OP07-080 カク」の【登場時】効果を使用しコストが-3されました。この場合、この「バルトロメオ」のコストはいくつになりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ac39489df89b": {
   "a": "はい、できます。",
@@ -9679,9 +9679,9 @@
   "files": [
    "cardqa_eb_02.json"
   ],
-  "note": "",
+  "note": "EB02-035 (+_p1/_p2): on_play draw was missing the don-comparison gate (conditions only had self_turn). Added don_diff_le:0 (self_don<=opp_don). Verified: self_don7>opp6 no draw, 6<=6 draws. Regression + full-sweep guard in test_effect_interactions.py.",
   "q": "自分の場のドン!!が7枚で、相手の場のドン!!が6枚のときに、自分が「ST18-005 ルフィ太郎」を登場させ、「【登場時】ドン!!-1：自分の手札からコスト5以下の紫の特徴《麦わらの一味》を持つキャラカード1枚までを、登場させる。」の効果で、自分のドン!!1枚をドン!!デッキに戻してこのカードを登場させました。この場合、このカードの【登場時】効果でカード1枚を引くことはできますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "ac5253d33ea9": {
   "a": "はい、アタックできます。",
@@ -9691,9 +9691,9 @@
   "files": [
    "cardqa_st_13.json"
   ],
-  "note": "",
+  "note": "ST13-011 on_play if:self_life_le:2 grants 速攻; granted at play, persists even if life later becomes 3. Char can attack same turn. Matches 'はい'.",
   "q": "自分のライフが2枚のときにこのカードが登場し、その後ライフが3枚になった場合、そのターンにこのキャラはアタックできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ac6803e7496a": {
   "a": "いいえ、発動しません。\nこの効果はダメージステップのパワーの比べ合いを解決することで、バトル終了時に発動する効果です。\nバトルの途中(アタックステップ/ブロックステップ/カウンターステップのいずれか)で、バトルをしているキャラが場を離れた場合、その時点でバトルは中断されます。\nその場合、ダメージステップを解決していないので、このキャラの効果は発動しません。",
