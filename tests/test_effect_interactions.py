@@ -10253,3 +10253,51 @@ def test_face_up_overlay_matches_official_text():
             if got != want:
                 bad.append((cid, want, got))
     assert not bad, f"公式テキストの表向き指定と overlay の face_up が食い違う: {bad[:6]}"
+
+
+# --------------------------------------------------------------------------- #
+#  return_self_don_to_match_opp も「ドンがドンデッキに戻された時」を誘発する
+#  一次情報 (cardqa_op_08 / OP08-074 ブラックマリア):
+#    Q: この【起動メイン】効果で自分のターン終了時にドン!!をドン!!デッキに戻した時、
+#       自分のカードの「自分の場のドン!!がドン!!デッキに戻された時、」などの効果は
+#       発動できますか？
+#    A: はい、できます。
+#  是正前: return_self_don_to_match_opp は trigger_on_self_don_returned_to_deck を
+#          呼んでおらず (return_self_don_to_deck / pay_don は呼ぶ)、 両エンジンとも
+#          「戻された時」が沈黙 = 差分検証では検出できない共通バグだった。
+# --------------------------------------------------------------------------- #
+def test_return_don_to_match_opp_fires_on_don_returned_trigger():
+    """自ドン超過分を戻す effect でも on_self_don_returned_to_deck が発火する。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    # OP06-042 = 【自分の場のドン!!がドン!!デッキに戻された時】(自分のターン中) カード1枚を引く。
+    me.characters = [InPlay.of(repo.get("OP06-042"), sickness=False)]
+    me.don_active, me.don_rested = 8, 0
+    opp.don_active, opp.don_rested = 4, 0
+
+    hand_before = len(me.hand)
+    execute_effect({"return_self_don_to_match_opp": True}, st, me, opp, None)
+
+    # 超過 4 枚がドンデッキへ戻り、相手枚数(4)に合わせる
+    assert me.don_active + me.don_rested == 4, "相手のドン枚数に合わせて戻っていない"
+    # 戻された時トリガーで OP06-042 が 1 枚引く
+    assert len(me.hand) == hand_before + 1, (
+        "return_self_don_to_match_opp が on_self_don_returned_to_deck を誘発していない"
+    )
+
+
+def test_return_don_to_match_opp_no_excess_no_trigger():
+    """対照: 相手とドン枚数が同じ (超過なし) なら戻らず、トリガーも発火しない。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.characters = [InPlay.of(repo.get("OP06-042"), sickness=False)]
+    me.don_active, me.don_rested = 4, 0
+    opp.don_active, opp.don_rested = 4, 0
+
+    hand_before = len(me.hand)
+    execute_effect({"return_self_don_to_match_opp": True}, st, me, opp, None)
+
+    assert me.don_active + me.don_rested == 4, "超過なしなのにドンが動いた"
+    assert len(me.hand) == hand_before, "超過0枚なのにトリガーが発火した"
