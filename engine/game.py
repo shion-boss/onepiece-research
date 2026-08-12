@@ -2387,12 +2387,18 @@ def _resolve_life_taken(
             f"= ルール置換のため【トリガー】は発動しない"
         )
         if state.effects_overlay:
-            from .effects import trigger_on_opp_life_taken
-            trigger_on_opp_life_taken(
-                state, me, opp, False, state.effects_overlay,
-                fire_attacker_side=fire_opp_life_taken,
-                went_to_deck=True,   # 行き先はデッキの下 = 手札/トラッシュ系 when は発火しない
-            )
+            if by_effect:
+                # 効果ダメージ経路では 「ダメージを受けた時」 (= 戦闘専用) を発火しない。
+                # 行き先がデッキなので dest="other" = attacker 側の 「相手のライフが離れた時」 のみ。
+                from .effects import _fire_opp_life_left_by_effect
+                _fire_opp_life_left_by_effect(state, me, opp, 1, "other")
+            else:
+                from .effects import trigger_on_opp_life_taken
+                trigger_on_opp_life_taken(
+                    state, me, opp, False, state.effects_overlay,
+                    fire_attacker_side=fire_opp_life_taken,
+                    went_to_deck=True,  # 行き先はデッキの下 = 手札/トラッシュ系 when は発火しない
+                )
         if fire_zero and state.effects_overlay:
             from .effects import trigger_on_life_zero
             trigger_on_life_zero(state, opp, me, state.effects_overlay)

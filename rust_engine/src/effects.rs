@@ -9463,12 +9463,14 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
         // まだ 0 なら declare_winner。 opp 場に on_life_zero があれば回復 cascade 再現不能で bail、 無ければ勝利宣言。
         "deal_opp_leader_damage" => {
             // 相手リーダーに N ダメージ (effects.py:deal_opp_leader_damage)。
-            // ⚠ 2026-08-12: 戦闘ダメージと共有の `rules::resolve_life_taken` に寄せる実験を
-            //   したが、 **AttackCharacter 経由 (on_ko からの効果ダメージ) で MISMATCH 4** が出た。
-            //   by_effect 側は Python が `_fire_opp_life_left_by_effect` (= enqueue + _maybe_resolve)
-            //   を通すのに対し Rust は `fire_field_when` (即時) を使っており、 解決窓の張り方が
-            //   違うためと見ている。 **黙って乖離させない** ため 元の 「トリガー発動時は明示 bail」
-            //   に戻した (= 不変条件は維持、 追従は未完)。
+            // ⚠ 2026-08-12: 戦闘ダメージと共有の `rules::resolve_life_taken` に寄せる実験を **2 回**
+            //   したが、 どちらも **AttackCharacter 経由 (= on_ko からの効果ダメージ、 EB03-055 ロビン
+            //   等) で MISMATCH 4**。 1 回目の仮説 (by_effect の when 発火が enqueue か即時か) は
+            //   `fire_opp_life_left_by_effect` が Python と同じく enqueue+maybe_resolve だったので外れ。
+            //   2 回目は Python 側の by_effect×ST13 分岐を是正した上で再試行したが同じ結果。
+            //   残る差は 「on_life_zero を **いつ** 見るか」 (旧実装は札を取った直後、 共有関数は末尾)
+            //   と 解決窓 (`rust_resolving`) の張り方。 **黙って乖離させない** ため、
+            //   トリガーが発動する局面は 明示 bail のままにする (= 不変条件は維持、 追従は未完)。
             let n = if v.is_object() {
                 v.get("amount").and_then(|x| x.as_i64()).unwrap_or(1)
             } else {
@@ -9488,9 +9490,10 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 let taken_face_up = state.players[opp_idx].life_face_up.remove(0);
                 let taken = state.players[opp_idx].life.remove(0);
                 // ST13-003 のルール置換 (表向き → デッキの下、 【トリガー】不発)。
+                // 効果ダメージなので dest="other" = attacker 側の when のみ (Python と対)。
                 if taken_face_up && state.players[opp_idx].face_up_life_to_deck_bottom {
                     state.players[opp_idx].deck.push(taken);
-                    if fire_opp_life_left_by_effect(state, me_idx, opp_idx, "deck").is_err() {
+                    if fire_opp_life_left_by_effect(state, me_idx, opp_idx, "other").is_err() {
                         return false;
                     }
                     continue;

@@ -6696,3 +6696,24 @@ MISMATCH を残すのは不変条件違反なので **効果ダメージ側は�
 - 失敗の診断をコードコメントに残した (次に触る人が同じ道を再探索しないように)
 
 現状 `rust_parity_check` = **bail 1 / MISMATCH 0** (不変条件は維持、 追従は未完)。
+
+### 2 回目の試行も同じ結果 (2026-08-12、 追記)
+
+1 回目の仮説 「by_effect の when 発火が enqueue か即時か」 は **外れ** だった —
+Rust の `fire_opp_life_left_by_effect` は Python と同じく **enqueue + `maybe_resolve`**
+だった。 その上で Python 側の 「by_effect × ST13-003 置換」 分岐の誤り
+(下記) を是正してから再試行したが、 やはり **AttackCharacter 経由で MISMATCH 4**。
+
+残る差の候補 (次に触る人へ):
+- **`on_life_zero` を見るタイミング**: 旧実装は 「札を取った直後」、 共有関数は 「末尾」
+  (Python 準拠)。 効果ダメージ経路だけ旧タイミングが正しい可能性がある。
+- **解決窓 (`rust_resolving`) の張り方**: 効果ダメージは do-list の中から呼ばれるので、
+  戦闘 (トップレベル) と入れ子の深さが違う。
+
+### ⚠ Python 側の 「by_effect × ST13-003」 分岐を是正
+
+`_resolve_life_taken` の ST13-003 置換分岐が **by_effect を無視** して
+`trigger_on_opp_life_taken` を呼んでおり、 効果ダメージなのに
+`on_self_life_taken` (= 「ダメージを受けた時」、 **戦闘専用**) を発火していた。
+→ by_effect の時は `_fire_opp_life_left_by_effect(dest="other")` を通す
+(= attacker 側の 「相手のライフが離れた時」 のみ)。 Rust も同形に。
