@@ -3101,10 +3101,14 @@ def test_eb03_054_trigger_plays_itself_after_paying_discard():
 
 
 def test_op12_017_search_filter_matches_official_or_clause():
-    """OP12-017: 「**赤のイベント**かコスト3以上の**キャラカード**」 の or を両方満たす。
+    """OP12-017: 「**赤の**イベントか**赤の**コスト3以上のキャラカード」 の or を両方満たす。
 
     ⚠ 2026-08-05 まで filter が `{"cost_ge": 3}` だけで、 赤のイベントが引けず
       コスト3以上のイベント/ステージが誤って引けた。 コストも未実装 (タダ撃ち) だった。
+    ⚠ 2026-08-12: さらに **キャラ側に color が無く、 赤以外のコスト3以上キャラを拾えていた**。
+      公式 (cardqa_op_12) は 「赤以外のコスト3以上のキャラカードを手札に加えられますか？」 →
+      「**いいえ**。 この効果は 『赤のイベント』 か 『赤のコスト3以上のキャラカード』」。
+      = 「赤の」 は **両方に係る**。 この assert はその是正を固定する。
     """
     import json
     ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
@@ -3117,8 +3121,8 @@ def test_op12_017_search_filter_matches_official_or_clause():
     filt = oct_["effect"][0]["search_top_n"]["filter"]
     assert filt.get("or_clauses") == [
         {"category": "EVENT", "color": "赤"},
-        {"category": "CHARACTER", "cost_ge": 3},
-    ], f"公式の 「赤のイベントか コスト3以上のキャラカード」 と一致しない: {filt}"
+        {"category": "CHARACTER", "cost_ge": 3, "color": "赤"},
+    ], f"公式の 「赤のイベントか 赤のコスト3以上のキャラカード」 と一致しない: {filt}"
 
 
 def test_op12_017_not_free_without_rayleigh_or_active_don():
@@ -10123,3 +10127,36 @@ def test_replace_ko_target_rested_is_honoured():
     assert "ナミ" not in board_a, (
         f"アクティブの victim なのに置換が成立している (場={board_a} trash={trash_a})"
     )
+
+
+def test_op12_017_red_applies_to_both_or_clauses():
+    """OP12-017 見聞色の覇気: 「**赤の**イベントかコスト3以上のキャラカード」 の 「赤の」 は両方に係る。
+
+    一次情報 (cardqa_op_12): 「この【メイン】効果で、 赤以外のコスト3以上のキャラカード1枚を
+    手札に加えることはできますか？」 → 「**いいえ、 できません。 この効果は、『赤のイベント』か
+    『赤のコスト3以上のキャラカード』を手札に加えることができる効果です**」
+
+    ⚠ overlay の or_clauses はキャラ側に color が無く、 **青などのコスト3以上キャラを拾えていた**
+      (2026-08-12 是正)。
+    """
+    repo, overlay = _repo(), _overlay()
+    spec = overlay.get("OP12-017").effects[0]["do"][0]["optional_cost_then"]["effect"][0]
+
+    def take(card_id):
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        me.deck = [repo.get(card_id)] + [repo.get(_FILLER)] * 20
+        me.hand = []
+        evaluate_static_effects(st, overlay)
+        execute_effect(spec, st, me, opp, None)
+        return [c.card_id for c in me.hand]
+
+    _cards = json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+    blue = next(c["card_id"] for c in _cards
+                if c["category"] == "CHARACTER" and c.get("color") == "青"
+                and str(c.get("cost")) == "4")
+    red = next(c["card_id"] for c in _cards
+               if c["category"] == "CHARACTER" and c.get("color") == "赤"
+               and str(c.get("cost")) == "4")
+    assert take(blue) == [], "赤以外のコスト3以上キャラを手札に加えられている"
+    assert take(red) == [red], "赤のコスト3以上キャラを加えられない"

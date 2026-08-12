@@ -64,7 +64,11 @@ _LEADER_ZAN = "OP12-020"       # ロロノア・ゾロ LEADER 緑 (属性 斬)
 _FILLER = "ST01-004"           # サンジ cost2 power4000 (麦わらの一味)
 _FILLER_P1000 = "OP16-043"     # ウソップ cost2 power1000
 _RED_EVENT = "EB04-008"        # 歪んだ未来 (赤 EVENT)
-_RAYLEIGH = "ST32-004"         # シルバーズ・レイリー cost4 power5000 (CHARACTER)
+_RAYLEIGH = "ST32-004"         # シルバーズ・レイリー cost4 power5000 (CHARACTER、 緑)
+# ⚠ 2026-08-12: OP12-017 のサーチ filter は公式どおり 「**赤の**イベントか **赤の**
+#   コスト3以上のキャラカード」 (cardqa_op_12)。 緑のレイリーは **サーチ対象外** なので、
+#   サーチ先には赤のコスト4キャラを使う (レイリーはコスト支払い用に場へ置くだけ)。
+_RED_C4 = "EB02-002"           # サボ cost4 (CHARACTER、 赤)
 _LUFFY_SMALL = "ST23-004"      # モンキー・Ｄ・ルフィ 赤 cost1 power2000
 
 
@@ -409,7 +413,7 @@ def test_op12_017_main_search_ai():
     st = _state(repo, _LEADER_GENERIC, overlay)
     me, opp = st.players[0], st.players[1]
     me.hand = []
-    me.deck = [repo.get(_RAYLEIGH)] + [repo.get(_FILLER)] * 20  # 上に cost4 キャラ
+    me.deck = [repo.get(_RED_C4)] + [repo.get(_FILLER)] * 20  # 上に **赤の** cost4 キャラ
     # ⚠ 公式 「【メイン】自分の「シルバーズ・レイリー」1枚にアクティブのドン‼1枚を付与する
     #   ことができる：…」 = コロン前が発動コスト (cardqa_st_06、 2026-08-05 に実装)。
     rayleigh = InPlay.of(repo.get(_RAYLEIGH), sickness=False)
@@ -419,8 +423,8 @@ def test_op12_017_main_search_ai():
     for prim in _eff(overlay, "OP12-017", "main")["do"]:
         execute_effect(prim, st, me, opp, None)
     _drain(st, [0])
-    assert any(c.card_id == _RAYLEIGH for c in me.hand), \
-        "デッキ上4枚から コスト3以上キャラが手札に加わっていない"
+    assert any(c.card_id == _RED_C4 for c in me.hand), \
+        "デッキ上4枚から **赤の** コスト3以上キャラが手札に加わっていない"
     assert rayleigh.attached_dons == 1, "コスト (レイリーにアクティブドン1枚付与) が払われていない"
     assert me.don_active == 0, "アクティブドンが消費されていない"
 
@@ -474,7 +478,7 @@ def test_op12_017_main_search_human_pick():
     st = _state(repo, _LEADER_GENERIC, overlay, human_idx=0)
     me, opp = st.players[0], st.players[1]
     me.hand = []
-    me.deck = [repo.get(_RAYLEIGH), repo.get(_FILLER_P1000)] + [repo.get(_FILLER)] * 15
+    me.deck = [repo.get(_RED_C4), repo.get(_FILLER_P1000)] + [repo.get(_FILLER)] * 15
     me.characters = [InPlay.of(repo.get(_RAYLEIGH), sickness=False)]
     me.don_active = 1
 
@@ -489,8 +493,8 @@ def test_op12_017_main_search_human_pick():
         f"kind が search_top_n でない: {st.pending_choice.get('kind')}"
     resolve_pending_choice(st, [0])
     _drain(st, [])
-    assert any(c.card_id == _RAYLEIGH for c in me.hand), \
-        "人間が選んだ コスト3以上キャラが手札に加わっていない"
+    assert any(c.card_id == _RED_C4 for c in me.hand), \
+        "人間が選んだ **赤の** コスト3以上キャラが手札に加わっていない"
 
 
 # --------------------------------------------------------------------------- #
