@@ -9780,3 +9780,104 @@ def test_flip_life_face_down_any_position_for_shanks():
     flags2, opp_life2 = run([False, False, False])  # 表向きが 1 枚も無い = 払えない
     assert flags2 == [False, False, False]
     assert opp_life2 == 3, "表向きライフが無いのにコストを払えたことになっている"
+
+
+#  FAQ conformance (2026-08-11 batch): コストエリアのドン付与 と 「相手の」条件スコープ
+# --------------------------------------------------------------------------- #
+
+def test_op15_028_attaches_from_active_don_in_cost_area():
+    """cardqa_op_15 (qid 93d5946f56d6):
+        「この【登場時】効果で、相手のアクティブのドン!!を付与することはできますか？」
+        → 「はい、できます。アクティブかレストかに関わらず、コストエリアのドン‼を付与できます」
+
+    OP15-028 ニャーバン兄弟【登場時】は「相手のコストエリアのドン‼1枚まで」を付与する。
+    コストエリア = アクティブ/レスト問わず。 from_cost_area=true で active も source する。
+    是正前は attach_rested_don が don_rested のみを見ており、 相手のドンが全て
+    アクティブだと 0 枚しか付与できなかった (= タダ空振り)。
+    """
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players
+    raw = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    victim = InPlay.of(repo.get(_FILLER), sickness=False)
+    opp.characters = [victim]
+    # 相手のコストエリアのドンは全てアクティブ (レスト 0) の状態
+    opp.don_active = 2
+    opp.don_rested = 0
+    spec = raw["OP15-028"][0]["do"][0]  # {"attach_rested_don": {...}}
+    assert "from_cost_area" in spec["attach_rested_don"]
+    execute_effect(spec, st, me, opp, me.leader)
+    assert victim.attached_dons == 1, victim.attached_dons
+    # active ドンから source した (from_cost_area) → コストエリアの active が 1 減る
+    assert opp.don_active == 1, opp.don_active
+    assert opp.don_rested == 0, opp.don_rested
+
+
+def test_cost_area_don_attach_cards_source_from_active_scan():
+    """全走査ガード: テキストが「コストエリアのドン」を付与するカードは
+    from_cost_area=true (= active も source) でなければならない。
+    「レストのドン」明記カードは rested のみが正しい (from_cost_area 無しで可)。
+    """
+    overlay = _overlay()
+    cards = json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+    byid = {c["card_id"]: c for c in (cards if isinstance(cards, list) else cards["cards"])}
+
+    def attach_specs(entry):
+        found = []
+        def walk(o):
+            if isinstance(o, dict):
+                for kk, vv in o.items():
+                    if kk == "attach_rested_don" and isinstance(vv, dict):
+                        found.append(vv)
+                    walk(vv)
+            elif isinstance(o, list):
+                for x in o:
+                    walk(x)
+        walk(entry)
+        return found
+
+    offenders = []
+    for cid, c in byid.items():
+        t = c.get("text", "") or ""
+        if "コストエリアのドン" not in t:
+            continue
+        for spec in attach_specs(overlay.get(cid) or []):
+            if not spec.get("from_cost_area"):
+                offenders.append(cid)
+    assert not offenders, f"コストエリアのドン付与で from_cost_area 欠落: {sorted(set(offenders))}"
+
+
+def test_op14_120_draw_condition_counts_only_opponent_characters():
+    """cardqa_op_14 (qid 9493e614d556):
+        「相手の場にコスト10以上のキャラだけがいる場合、この【登場時】効果で
+         カード1枚を引くことはできますか？」→ 「はい、できます」
+
+    OP14-120 クロコダイル: 「その後、**相手の**コスト0か8以上のキャラがいる場合、
+    カード1枚を引く」= 相手陣営のみ数える。 是正前は両陣営を数える
+    exists_chara_cost_0_or_ge_8 を使っており、 自分だけ該当キャラがいても引けてしまった。
+    OP14-090/094 は「相手の」修飾が無く両陣営 = exists_chara_cost_0_or_ge_8 のまま。
+    """
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players
+    raw = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+    cond = raw["OP14-120"][0]["do"][1]["conditional"]["if"]
+    assert "exists_opp_chara_cost_0_or_ge_8" in cond
+
+    # 自分だけ cost8、 相手は cost3 のみ → 相手陣営に該当なし → 引けない
+    me.characters = [InPlay.of(repo.get("EB04-003"), sickness=False)]   # base_cost 8
+    opp.characters = [InPlay.of(repo.get("PRB02-004"), sickness=False)]  # base_cost 3
+    assert eval_condition(cond, st, me) is False
+
+    # 相手が cost8 (= 8以上) → 引ける (公式 Q&A の cost10 以上シナリオと同型)
+    opp.characters = [InPlay.of(repo.get("EB04-003"), sickness=False)]   # base_cost 8
+    assert eval_condition(cond, st, me) is True
+
+    # OP14-090 (「相手の」無し) は両陣営を数える → 自分だけ cost8 でも True
+    cond90 = raw["OP14-090"][0]["if"]
+    assert "exists_chara_cost_0_or_ge_8" in cond90
+    me.characters = [InPlay.of(repo.get("EB04-003"), sickness=False)]    # base_cost 8
+    opp.characters = [InPlay.of(repo.get("PRB02-004"), sickness=False)]  # base_cost 3
+    assert eval_condition(cond90, st, me) is True

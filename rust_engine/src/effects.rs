@@ -714,6 +714,13 @@ fn eval_condition(cond: &Value, state: &GameState, me_idx: usize, src: Option<Sl
                     .any(|c| c.base_cost() == 0 || c.base_cost() >= 8);
                 found == v.as_bool().unwrap_or(true)
             }
+            // 「相手のコスト0か8以上のキャラがいる場合」 = 相手陣営のみ (OP14-120 クロコダイル、
+            // cardqa_op_14。 OP14-090/094 は 「相手の」 が無く両陣営 = exists_chara_cost_0_or_ge_8)。
+            "exists_opp_chara_cost_0_or_ge_8" => {
+                let found = opp.characters.iter()
+                    .any(|c| c.base_cost() == 0 || c.base_cost() >= 8);
+                found == v.as_bool().unwrap_or(true)
+            }
             "leader_attribute" | "self_leader_attribute" => me.leader.card.attribute == v.as_str().unwrap_or(""),
             "opp_leader_attribute" => opp.leader.card.attribute == v.as_str().unwrap_or(""),
             "self_life_le" => (me.life.len() as i64) <= v.as_i64().unwrap_or(0),

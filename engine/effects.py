@@ -1715,6 +1715,13 @@ def eval_condition(
             found = any(c.base_cost == 0 or c.base_cost >= 8 for c in all_chara)
             if bool(v) != found:
                 return False
+        elif k == "exists_opp_chara_cost_0_or_ge_8":
+            # 「相手のコスト0か8以上のキャラがいる場合」 = 相手陣営のみ (OP14-120 クロコダイル、
+            # cardqa_op_14)。 OP14-090/094 は 「相手の」 修飾が無く両陣営 = exists_chara_cost_0_or_ge_8。
+            opp_chara = list(opp.characters) if opp else []
+            found = any(c.base_cost == 0 or c.base_cost >= 8 for c in opp_chara)
+            if bool(v) != found:
+                return False
         elif k == "self_chara_feature_count_ge":
             spec = v if isinstance(v, dict) else {}
             feature = spec.get("feature", "")

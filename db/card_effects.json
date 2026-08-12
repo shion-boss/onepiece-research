@@ -83123,7 +83123,7 @@
        }
       ],
       "if": {
-       "exists_chara_cost_0_or_ge_8": true
+       "exists_opp_chara_cost_0_or_ge_8": true
       }
      }
     }
@@ -83161,7 +83161,7 @@
        }
       ],
       "if": {
-       "exists_chara_cost_0_or_ge_8": true
+       "exists_opp_chara_cost_0_or_ge_8": true
       }
      }
     }
@@ -84229,7 +84229,8 @@
      "attach_rested_don": {
       "count": 1,
       "target": "one_opponent_character_any",
-      "to_opp": true
+      "to_opp": true,
+      "from_cost_area": true
      }
     }
    ],
