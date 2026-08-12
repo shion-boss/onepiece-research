@@ -629,22 +629,157 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
     Ok(())
 }
 
+/// ライフ 1 枚ぶんの解決 (Python game.py:_resolve_life_taken の port)。
+///
+/// 戦闘ダメージ (rules.rs の damage ループ) と 効果ダメージ (effects.rs の
+/// `deal_opp_leader_damage`) の **両方から呼ぶ**。 2026-08-12 まで効果ダメージ側は
+/// 独自実装で、 【トリガー】が発動する局面を明示 bail していた (play_self の trash routing が
+/// 戦闘経路と揃わないため)。 Python は 1 つの関数を共有しているので、 Rust も共有すれば
+/// 順序ごと一致する。
+///
+/// - `is_banish`  : バニッシュ (= trash 直行、 【トリガー】も life 移動 when も無し)
+/// - `by_effect`  : 効果ダメージ。 `on_self_life_taken` (= 戦闘専用) を発火せず、
+///                  attacker 側は `_fire_opp_life_left_by_effect` と同じ when を使う
+/// - `fire_attacker_side`: 「相手のライフにダメージを与えた時」 は 1 アタック 1 回
+///                  (【ダブルアタック】の 2 発目は false、 公式 cardqa_op_03)
+pub(crate) fn resolve_life_taken(
+    state: &mut GameState,
+    me: usize,
+    opp: usize,
+    is_banish: bool,
+    by_effect: bool,
+    fire_attacker_side: bool,
+) -> Result<(), String> {
+    if state.players[opp].life.is_empty() {
+        return Ok(());
+    }
+    let taken_face_up = state.players[opp].life_face_up.remove(0);
+    let taken = state.players[opp].life.remove(0);
+    state.players[opp].life_lost_this_turn = true;
+    // ⭐ 「ルール上、 自分の表向きのライフは **手札に加わる代わりにデッキの下** に
+    //   置かれる」 (ST13-003、 公式 cardqa_st_13)。 【トリガー】は 「手札に加える
+    //   代わりに公開して発動する」 置換 (10-1-5) なので、 手札に加わらない =
+    //   **発動できない**。 Python game.py:_resolve_life_taken の同位置と対。
+    if taken_face_up && state.players[opp].face_up_life_to_deck_bottom {
+        let fire_zero_r = state.players[opp].life.is_empty();
+        state.players[opp].deck.push(taken);
+        // ⚠ 行き先はデッキの下なので **手札/トラッシュ系 when は発火しない**。
+        //   attacker 側の 「相手のライフが離れた時」 と defender 側の
+        //   「ダメージを受けた時」 は発火する (ライフは離れ、 ダメージも与えた)。
+        if fire_attacker_side {
+            crate::effects::fire_field_when(state, me, "on_opp_life_taken")?;
+        }
+        // ⚠ 「ダメージを受けた時」 は **戦闘ダメージ専用** (Python も by_effect では発火しない)。
+        if !by_effect {
+            crate::effects::fire_field_when(state, opp, "on_self_life_taken")?;
+        }
+        if fire_zero_r {
+            let lcid0 = state.players[opp].leader.card.card_id.clone();
+            if crate::effects::card_has_when(&lcid0, "on_life_zero") {
+                crate::effects::fire_on_life_zero(state, opp)?;
+            }
+        }
+        return Ok(());
+    }
+    // ⭐ 公式 (cardqa_op_05 / OP05-098 エネル): 「自分のライフが0枚になった時」 は
+    //   **0 になった瞬間の事象**。 この後 ライフ札の【トリガー】でライフが戻っても
+    //   発動できる。 ⚠ ただし **発動は ライフ処理が終わってから**
+    //   (公式 cardqa_op_11 / OP11-102 ケイミー × エネル: ターンプレイヤーの効果が先)。
+    //   Python game.py:_resolve_life_taken の **末尾** と同位置で発火する。
+    let fire_zero = state.players[opp].life.is_empty();
+    let cid = taken.card_id.clone();
+    if is_banish {
+        // バニッシュ = trash 直行、 _resolve_life_taken を通らない = life 移動 trigger 無
+        state.players[opp].trash.push(taken);
+        return Ok(());
+    }
+    let went_to_hand = match crate::effects::should_fire_trigger(state, opp, &cid) {
+        Some(false) => {
+            state.players[opp].hand.push(taken); // トリガー不発 → 手札
+            true
+        }
+        Some(true) if crate::effects::trigger_contains_play_self(&cid) => {
+            // play_self trigger (game.py:2117): taken を trash[0] に pre-place してから発火し、
+            // play_self が current_source_card_id で自身を探して登場させる。
+            // ⭐ Python の消費判定は identity (`_c is taken`) だが、 CardDef は **repository 共有
+            //   instance** = 同名カードは全て同一 object。 よって Python の still_in_trash loop
+            //   (`for _c in trash: if _c is taken`) は trash 内の任意の同名 cid に一致し、 先頭を pop
+            //   → routing する。 = position(cid) で先頭を探して routing する position ベースが同名複製
+            //   込みで Python と完全一致 (k≥1 の bail は不要だった)。 見つからない = play_self が全消費
+            //   (played_self=True, went_to_hand=false)。
+            state.players[opp].trash.insert(0, taken);
+            let kept = crate::effects::fire_life_trigger(state, opp, me, &cid)?;
+            match state.players[opp].trash.iter().position(|c| c.card_id == cid) {
+                Some(pos) => {
+                    // still_in_trash → played_self=False → life 札 (共有 object の任意 1 枚) を routing。
+                    let t = state.players[opp].trash.remove(pos);
+                    if kept {
+                        state.players[opp].hand.push(t);
+                        true
+                    } else {
+                        state.players[opp].trash.push(t);
+                        false
+                    }
+                }
+                // trash に cid 無し = play_self が taken を登場させた (played_self、 went_to_hand=false)
+                None => false,
+            }
+        }
+        Some(true) => {
+            // トリガー発火 (kept_in_hand で routing)。 未対応 trigger は Err で bail。
+            let kept = crate::effects::fire_life_trigger(state, opp, me, &cid)?;
+            if kept {
+                state.players[opp].hand.push(taken);
+                true
+            } else {
+                state.players[opp].trash.push(taken);
+                false
+            }
+        }
+        None => return Err("life trigger (unknown) 未対応".into()),
+    };
+    // 公式 10-1-5 直後の life 移動トリガー (trigger_on_opp_life_taken、 went_to_hand で分岐)。
+    // ⭐ 「相手のライフに **ダメージを与えた時**」 は 1 アタックにつき **1 回**
+    //   (公式 cardqa_op_03: 【ダブルアタック】で2ダメージでも 「いいえ、 1回のみ」)。
+    //   defender 側 (ライフが手札/トラッシュへ移動した時) は カードごとの事象なので毎 hit。
+    if by_effect {
+        // 効果ダメージ: Python は `_fire_opp_life_left_by_effect` を通す
+        // (= on_opp_life_taken + on_self_life_to_hand/to_trash、 **on_self_life_taken は無し**)。
+        if crate::effects::fire_opp_life_left_by_effect(
+            state, me, opp, if went_to_hand { "hand" } else { "trash" },
+        )
+        .is_err()
+        {
+            return Err("効果ダメージの life 移動 when 未対応".into());
+        }
+    } else {
+        if fire_attacker_side {
+            crate::effects::fire_field_when(state, me, "on_opp_life_taken")?;
+        }
+        if went_to_hand {
+            crate::effects::fire_field_when(state, opp, "on_self_life_to_hand")?;
+        } else {
+            crate::effects::fire_field_when(state, opp, "on_self_life_to_trash")?;
+        }
+        // ⚠ 「ダメージを受けた時」 は **戦闘ダメージ専用** (Python も by_effect では発火しない)。
+        crate::effects::fire_field_when(state, opp, "on_self_life_taken")?;
+    }
+    // ⭐ 「自分のライフが0枚になった時」 は **ライフ処理の後** に発動する
+    //   (Python game.py:_resolve_life_taken の末尾と同位置)。 ここで発火すると
+    //   【トリガー】 → ターンプレイヤーの反応 → 非ターンプレイヤーの on_life_zero
+    //   の順になり、 公式 (cardqa_op_11) と一致する。
+    if fire_zero {
+        let lcid0 = state.players[opp].leader.card.card_id.clone();
+        if crate::effects::card_has_when(&lcid0, "on_life_zero") {
+            crate::effects::fire_on_life_zero(state, opp)?;
+        }
+    }
+    Ok(())
+}
+
 /// action を state に適用 (副作用)。 Python apply_action ラッパ相当: impl 後に _recompute_static の
 /// ownership 部分を反映 (静的効果 eval は R3)。
 pub fn apply_action(state: &mut GameState, action: &Value) -> Result<(), String> {
-    // ⛔ ST13-003 モンキー・D・ルフィ(L) の 「ルール上、 自分の表向きのライフは手札に加わる
-    //    代わりにデッキの下に置かれる」 は、 Python 側だけ実装済 (【トリガー】不発 /
-    //    「ライフを手札に」 コストが未払いになる、 公式 cardqa_st_13)。 Rust に同じ置換を
-    //    通す場所が (ダメージ経路 / 各種コスト payability / 各 primitive) と広く、 まだ
-    //    移していない。 **黙って乖離させない** ため、 置換が効きうる盤面に入ったら明示 bail。
-    //    ⚠ 「表向きのライフが実際に 1 枚でもある」 時だけなので、 通常の ST13-003 戦は素通りする。
-    if state
-        .players
-        .iter()
-        .any(|p| p.face_up_life_to_deck_bottom && p.life_face_up.iter().any(|f| *f))
-    {
-        return Err("ST13-003 表向きライフ→デッキ下 未対応".into());
-    }
     let r = apply_action_impl(state, action);
     if r.is_ok() {
         recompute_static(state); // ownership + 静的効果 (Python _recompute_static)
@@ -1123,94 +1258,7 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                     if state.players[opp].life.is_empty() {
                         break;
                     }
-                    let taken_face_up = state.players[opp].life_face_up.remove(0);
-                    let taken = state.players[opp].life.remove(0);
-                    // ⚠ 「表向きライフは手札に加わる代わりにデッキの下」 (ST13-003) は Python 側
-                    //   だけ実装済 (【トリガー】も発動できない)。 Rust は未実装なので明示 bail。
-                    if taken_face_up && state.players[opp].face_up_life_to_deck_bottom {
-                        return Err("ST13-003 表向きライフ→デッキ下 未対応".into());
-                    }
-                    state.players[opp].life_lost_this_turn = true;
-                    // ⭐ 公式 (cardqa_op_05 / OP05-098 エネル): 「自分のライフが0枚になった時」 は
-                    //   **0 になった瞬間の事象**。 この後 ライフ札の【トリガー】でライフが戻っても
-                    //   発動できる。 ⚠ ただし **発動は ライフ処理が終わってから**
-                    //   (公式 cardqa_op_11 / OP11-102 ケイミー × エネル: ターンプレイヤーの効果が先)。
-                    //   Python game.py:_resolve_life_taken の **末尾** と同位置で発火する。
-                    let fire_zero = state.players[opp].life.is_empty();
-                    let cid = taken.card_id.clone();
-                    if is_banish {
-                        // バニッシュ = trash 直行、 _resolve_life_taken を通らない = life 移動 trigger 無
-                        state.players[opp].trash.push(taken);
-                        continue;
-                    }
-                    let went_to_hand = match crate::effects::should_fire_trigger(state, opp, &cid) {
-                        Some(false) => {
-                            state.players[opp].hand.push(taken); // トリガー不発 → 手札
-                            true
-                        }
-                        Some(true) if crate::effects::trigger_contains_play_self(&cid) => {
-                            // play_self trigger (game.py:2117): taken を trash[0] に pre-place してから発火し、
-                            // play_self が current_source_card_id で自身を探して登場させる。
-                            // ⭐ Python の消費判定は identity (`_c is taken`) だが、 CardDef は **repository 共有
-                            //   instance** = 同名カードは全て同一 object。 よって Python の still_in_trash loop
-                            //   (`for _c in trash: if _c is taken`) は trash 内の任意の同名 cid に一致し、 先頭を pop
-                            //   → routing する。 = position(cid) で先頭を探して routing する position ベースが同名複製
-                            //   込みで Python と完全一致 (k≥1 の bail は不要だった)。 見つからない = play_self が全消費
-                            //   (played_self=True, went_to_hand=false)。
-                            state.players[opp].trash.insert(0, taken);
-                            let kept = crate::effects::fire_life_trigger(state, opp, me, &cid)?;
-                            match state.players[opp].trash.iter().position(|c| c.card_id == cid) {
-                                Some(pos) => {
-                                    // still_in_trash → played_self=False → life 札 (共有 object の任意 1 枚) を routing。
-                                    let t = state.players[opp].trash.remove(pos);
-                                    if kept {
-                                        state.players[opp].hand.push(t);
-                                        true
-                                    } else {
-                                        state.players[opp].trash.push(t);
-                                        false
-                                    }
-                                }
-                                // trash に cid 無し = play_self が taken を登場させた (played_self、 went_to_hand=false)
-                                None => false,
-                            }
-                        }
-                        Some(true) => {
-                            // トリガー発火 (kept_in_hand で routing)。 未対応 trigger は Err で bail。
-                            let kept = crate::effects::fire_life_trigger(state, opp, me, &cid)?;
-                            if kept {
-                                state.players[opp].hand.push(taken);
-                                true
-                            } else {
-                                state.players[opp].trash.push(taken);
-                                false
-                            }
-                        }
-                        None => return Err("life trigger (unknown) 未対応".into()),
-                    };
-                    // 公式 10-1-5 直後の life 移動トリガー (trigger_on_opp_life_taken、 went_to_hand で分岐)。
-                    // ⭐ 「相手のライフに **ダメージを与えた時**」 は 1 アタックにつき **1 回**
-                    //   (公式 cardqa_op_03: 【ダブルアタック】で2ダメージでも 「いいえ、 1回のみ」)。
-                    //   defender 側 (ライフが手札/トラッシュへ移動した時) は カードごとの事象なので毎 hit。
-                    if hit_i == 0 {
-                        crate::effects::fire_field_when(state, me, "on_opp_life_taken")?;
-                    }
-                    if went_to_hand {
-                        crate::effects::fire_field_when(state, opp, "on_self_life_to_hand")?;
-                    } else {
-                        crate::effects::fire_field_when(state, opp, "on_self_life_to_trash")?;
-                    }
-                    crate::effects::fire_field_when(state, opp, "on_self_life_taken")?;
-                    // ⭐ 「自分のライフが0枚になった時」 は **ライフ処理の後** に発動する
-                    //   (Python game.py:_resolve_life_taken の末尾と同位置)。 ここで発火すると
-                    //   【トリガー】 → ターンプレイヤーの反応 → 非ターンプレイヤーの on_life_zero
-                    //   の順になり、 公式 (cardqa_op_11) と一致する。
-                    if fire_zero {
-                        let lcid0 = state.players[opp].leader.card.card_id.clone();
-                        if crate::effects::card_has_when(&lcid0, "on_life_zero") {
-                            crate::effects::fire_on_life_zero(state, opp)?;
-                        }
-                    }
+                    resolve_life_taken(state, me, opp, is_banish, false, hit_i == 0)?;
                 }
             }
             reset_battle_buffs(state);

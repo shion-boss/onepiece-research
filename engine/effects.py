@@ -12850,6 +12850,7 @@ def trigger_on_opp_life_taken(
     went_to_hand: bool,
     effects_overlay: dict[str, CardEffectBundle],
     fire_attacker_side: bool = True,
+    went_to_deck: bool = False,
 ) -> None:
     """ライフ移動時の 2 系トリガーを発火 (公式 10-1-5 直後)。
 
@@ -12871,10 +12872,15 @@ def trigger_on_opp_life_taken(
     #   **カードごとの事象** なので毎 hit 発火させる。
     if fire_attacker_side:
         _enqueue_field_when(state, attacker, "on_opp_life_taken", effects_overlay)
-    if went_to_hand:
-        _enqueue_field_when(state, defender, "on_self_life_to_hand", effects_overlay)
-    else:
-        _enqueue_field_when(state, defender, "on_self_life_to_trash", effects_overlay)
+    # ⚠ went_to_deck=True (= ST13-003 のルール置換で **デッキの下** へ行った) の時は
+    #   「手札に加わった時」 も 「トラッシュに置かれた時」 も **発火しない** (行き先が違う)。
+    #   「ダメージを受けた時」 と attacker 側の 「相手のライフが離れた時」 は発火する
+    #   (ライフは確かに離れ、 ダメージも与えられている)。
+    if not went_to_deck:
+        if went_to_hand:
+            _enqueue_field_when(state, defender, "on_self_life_to_hand", effects_overlay)
+        else:
+            _enqueue_field_when(state, defender, "on_self_life_to_trash", effects_overlay)
     _enqueue_field_when(state, defender, "on_self_life_taken", effects_overlay)
     _maybe_resolve(state)
 

@@ -2391,6 +2391,7 @@ def _resolve_life_taken(
             trigger_on_opp_life_taken(
                 state, me, opp, False, state.effects_overlay,
                 fire_attacker_side=fire_opp_life_taken,
+                went_to_deck=True,   # 行き先はデッキの下 = 手札/トラッシュ系 when は発火しない
             )
         if fire_zero and state.effects_overlay:
             from .effects import trigger_on_life_zero

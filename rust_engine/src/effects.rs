@@ -3634,8 +3634,15 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
         }
         // life_top_or_bottom_to_hand / life_to_hand cost: Python fallback = execute_effect (primitive 委譲)。
         "life_top_or_bottom_to_hand" | "life_to_hand" => {
+            // ⭐ 「ライフを手札に加える」 コストは **実際に手札が増えたか** で払えたかを判定する。
+            //   ST13-003 のルール置換 (表向き → デッキの下) や 「ライフを手札に加えられない」
+            //   ロック下では札は動いても手札に入らない = **未払い** (公式 cardqa_st_13 / 4-10)。
+            let before = state.players[me_idx].hand.len();
             if !execute_effect(cs, state, me_idx, src) {
                 return None;
+            }
+            if state.players[me_idx].hand.len() == before {
+                return None; // 1 枚も手札に加わっていない = コスト未払い
             }
         }
         // return_self_chara_to_hand: AI=power 昇順で count 枚を手札へ (元順で append + 付与ドン返却、
@@ -7554,9 +7561,10 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     break;
                 }
                 let c = state.players[opp_idx].life.remove(0);
-                state.players[opp_idx].life_face_up.remove(0);  // ライフと同じ位置のフラグも
-                state.players[opp_idx].hand.push(c);
-                moved += 1;
+                let f = state.players[opp_idx].life_face_up.remove(0);
+                if life_card_to_hand(state, opp_idx, c, f) {
+                    moved += 1;
+                }
             }
             // ⭐ 効果で相手ライフが離れた時も 「相手のライフが離れた時」 は発火する
             // (cardqa_op_08 / OP08-105 ボニー: 「相手の効果によって手札やトラッシュに移動した時…
@@ -8711,12 +8719,13 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             let n = v.as_i64().unwrap_or(0);
             let mut moved = 0;
             for _ in 0..n {
-                let me = &mut state.players[me_idx];
-                if !me.life.is_empty() {
-                    let c = me.life.remove(0);
-                    me.life_face_up.remove(0);  // ライフと同じ位置のフラグも
-                    me.hand.push(c);
-                    moved += 1;
+                if !state.players[me_idx].life.is_empty() {
+                    let c = state.players[me_idx].life.remove(0);
+                    let f = state.players[me_idx].life_face_up.remove(0);
+                    // ST13-003 の置換で手札に入らなかった札は数えない (Python と同じ)。
+                    if life_card_to_hand(state, me_idx, c, f) {
+                        moved += 1;
+                    }
                 }
             }
             if moved > 0 && fire_self_life_to_hand(state, me_idx).is_err() {
@@ -8727,15 +8736,6 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
         // ライフの上か下から N 枚を手札へ (effects.py:life_top_or_bottom_to_hand)。 AI=place で top/bottom、
         // card は actor(me) の手札へ (owner=opp でも me.hand、 Python 準拠)。 cascade 無 (life_to_hand と別)。
         "life_top_or_bottom_to_hand" => {
-            // ⚠ ST13-003 の 「表向きライフは手札に加わる代わりにデッキの下」 が有効な間は、
-            //   これを **コスト** に使う効果が 「未払い」 になる (公式 cardqa_st_13)。
-            //   Python 側だけ実装済 → Rust は明示 bail (黙って乖離しない)。
-            if state.players[me_idx].face_up_life_to_deck_bottom
-                && state.players[me_idx].life_face_up.iter().any(|f| *f)
-            {
-                note_unknown_key("life_top_or_bottom_to_hand", "ST13-003 ルール置換 未対応");
-                return false;
-            }
             let (owner_opp, count, bottom) = if let Some(o) = v.as_object() {
                 (
                     o.get("owner").and_then(|x| x.as_str()) == Some("opp"),
@@ -8749,19 +8749,35 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 return true; // 禁止 = no-op (Python return False も action 継続)
             }
             let pi = if owner_opp { opp_idx } else { me_idx };
+            let mut moved = 0;
             for _ in 0..count {
                 if state.players[pi].life.is_empty() {
                     break;
                 }
-                let card = if bottom {
-                    state.players[pi].life_face_up.pop();       // 末尾のフラグも
-                    state.players[pi].life.pop().unwrap()
+                let (card, was_face_up) = if bottom {
+                    let f = state.players[pi].life_face_up.pop().unwrap_or(false);
+                    (state.players[pi].life.pop().unwrap(), f)
                 } else {
-                    state.players[pi].life_face_up.remove(0);   // 先頭のフラグも
-                    state.players[pi].life.remove(0)
+                    let f = state.players[pi].life_face_up.remove(0);
+                    (state.players[pi].life.remove(0), f)
                 };
-                state.players[me_idx].hand.push(card);
+                // ST13-003 のルール置換で手札に入らなかった札は **未払い** (moved を進めない)。
+                if !life_card_to_hand(state, pi, card, was_face_up) {
+                    continue;
+                }
+                if pi != me_idx {
+                    // 「相手のライフを **自分の** 手札に」 型 (Python 準拠)
+                    let c = state.players[pi].hand.pop().unwrap();
+                    state.players[me_idx].hand.push(c);
+                }
+                moved += 1;
             }
+            // ⚠ ここは **常に true** を返す (= 「対応済」)。 Rust の execute_effect は
+            //   `false = 未対応 → 呼出側で bail` の契約なので、 「0 枚しか動かなかった」 という
+            //   **忠実な結果** を false で返すと do 文脈 (activate_main 等) が bail してしまう
+            //   (2026-08-12 に sweep で bail 4 件として顕在化)。
+            //   「コストとして未払い」 の判定は pay_cost_one 側で **手札が増えたか** を見て行う。
+            let _ = moved;
             true
         }
         // 手札から filter 一致 count 枚までを自ライフ上へ (effects.py:hand_to_self_life)。 AI=先頭一致。 cascade 無。
@@ -9446,6 +9462,13 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
         // 判定は省略=公式簡略、 Python 準拠)。 ライフ 0 で受けると【敗北】= on_life_zero (エネル等回復) を試み、
         // まだ 0 なら declare_winner。 opp 場に on_life_zero があれば回復 cascade 再現不能で bail、 無ければ勝利宣言。
         "deal_opp_leader_damage" => {
+            // 相手リーダーに N ダメージ (effects.py:deal_opp_leader_damage)。
+            // ⚠ 2026-08-12: 戦闘ダメージと共有の `rules::resolve_life_taken` に寄せる実験を
+            //   したが、 **AttackCharacter 経由 (on_ko からの効果ダメージ) で MISMATCH 4** が出た。
+            //   by_effect 側は Python が `_fire_opp_life_left_by_effect` (= enqueue + _maybe_resolve)
+            //   を通すのに対し Rust は `fire_field_when` (即時) を使っており、 解決窓の張り方が
+            //   違うためと見ている。 **黙って乖離させない** ため 元の 「トリガー発動時は明示 bail」
+            //   に戻した (= 不変条件は維持、 追従は未完)。
             let n = if v.is_object() {
                 v.get("amount").and_then(|x| x.as_i64()).unwrap_or(1)
             } else {
@@ -9453,56 +9476,46 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             };
             for _ in 0..n {
                 if state.players[opp_idx].life.is_empty() {
-                    // on_life_zero (回復効果) を持つ相手は cascade 再現不能 → bail。
                     if me_board_has_when(state, opp_idx, "on_life_zero") {
                         return false;
                     }
-                    // 回復手段なし → 効果ダメージで敗北宣言 (declare_winner 相当)。
                     if !state.game_over {
                         state.winner = Some(me_idx);
                         state.game_over = true;
                     }
                     return true;
                 }
+                let taken_face_up = state.players[opp_idx].life_face_up.remove(0);
                 let taken = state.players[opp_idx].life.remove(0);
-                state.players[opp_idx].life_face_up.remove(0);  // ライフと同じ位置のフラグも
-                // ⭐ 「自分のライフが0枚になった時」 は **0 になった瞬間の事象** (cardqa_op_05 /
-                //   OP05-098 エネル)。 効果ダメージ経路も Python `_resolve_life_taken` を通るので
-                //   同じ位置で発火する。 ⚠ 上の 「ライフ空で on_life_zero 持ち → bail」 guard に
-                //   よりここへ来る時点で 相手は on_life_zero を持たない or ライフが残っていた。
+                // ST13-003 のルール置換 (表向き → デッキの下、 【トリガー】不発)。
+                if taken_face_up && state.players[opp_idx].face_up_life_to_deck_bottom {
+                    state.players[opp_idx].deck.push(taken);
+                    if fire_opp_life_left_by_effect(state, me_idx, opp_idx, "deck").is_err() {
+                        return false;
+                    }
+                    continue;
+                }
                 if state.players[opp_idx].life.is_empty() {
                     let lcid0 = state.players[opp_idx].leader.card.card_id.clone();
                     if card_has_when(&lcid0, "on_life_zero")
                         && fire_on_life_zero(state, opp_idx).is_err()
                     {
-                        return false; // 未対応 = 明示 bail (呼出側で Err)
+                        return false;
                     }
                 }
                 let cid = taken.card_id.clone();
-                // ⭐ 効果ダメージでも **ライフ札の【トリガー】は発動できる** (公式 cardqa_eb_03 /
-                //   rules 7-1-4-1-1-2 line 180: 「1ダメージ → 相手はライフ上1枚を手札へ or
-                //   トリガー発動」)。 旧実装は hand.push 直行 = トリガー握り潰し (Python と同型なので
-                //   差分検証では沈黙)。 Python (engine/effects.py:deal_opp_leader_damage →
-                //   game.py:_resolve_life_taken(by_effect=True)) がトリガーを正しく発動する。
-                // ⚠ トリガーが **発動する** 局面は Rust では bail (= Python が source of truth)。
-                //   効果ダメージ経路の play_self trash routing は 戦闘 (rules.rs) と微妙に順序が
-                //   異なり bit 一致が難しい (= 対象 2 枚 / 稀ケース)。 Rust の不変条件
-                //   「Python と bit 一致 or 明示 bail」 に従い、 トリガー発動時は bail する。
-                //   トリガー無し (= 手札へ) の局面だけ inline で bit 一致させる。
                 let went_to_hand = match crate::effects::should_fire_trigger(state, opp_idx, &cid) {
                     Some(false) => {
                         state.players[opp_idx].hand.push(taken);
                         true
                     }
-                    _ => return false,
+                    _ => return false, // トリガー発動局面は Python が source of truth → 明示 bail
                 };
-                // ⭐ 効果で相手ライフが離れた時も 「相手のライフが離れた時」 は発火する
-                // (cardqa_op_08 / OP08-105 ボニー)。 Python `_fire_opp_life_left_by_effect` と対称。
-                // ⚠ `on_self_life_taken` (= ダメージを受けた時) は戦闘ダメージ専用なので発火しない。
-                // enqueue+単一 resolve (inline 直呼び禁止、 fire_self_life_to_hand と同じ理由)。
                 if fire_opp_life_left_by_effect(
                     state, me_idx, opp_idx, if went_to_hand { "hand" } else { "trash" },
-                ).is_err() {
+                )
+                .is_err()
+                {
                     return false;
                 }
             }
@@ -10233,7 +10246,7 @@ fn fire_self_life_to_hand(state: &mut GameState, owner_idx: usize) -> Result<(),
 /// on_opp_life_taken (me 側) + on_self_life_to_hand/on_self_life_to_trash (opp 側、 dest で分岐) を
 /// **enqueue してから 1 回だけ** maybe_resolve する (= fire_self_life_to_hand と同じ理由で
 /// inline 直呼び禁止)。 dest: "hand" | "trash" | それ以外 (= opp 側トリガー無し、 deck 等)。
-fn fire_opp_life_left_by_effect(
+pub(crate) fn fire_opp_life_left_by_effect(
     state: &mut GameState,
     me_idx: usize,
     opp_idx: usize,
@@ -14060,6 +14073,26 @@ fn order_simultaneous_victims(
     let mut out: Vec<usize> = victims.iter().copied().filter(|i| !savers.contains(i)).collect();
     out.extend(savers);
     out
+}
+
+/// ライフから離れた 1 枚を **手札に加える**。 実際に加わったら true
+/// (effects.py:_life_card_to_hand と対)。
+///
+/// ⭐ 「ルール上、 自分の表向きのライフは 手札に加わる **代わりに** デッキの下に置かれる」
+/// (ST13-003、 公式 cardqa_st_13)。 ダメージ経路だけでなく **効果でライフを手札に加える経路**
+/// にも効き、 置換された札は 「手札に加わっていない」 = コストとしては **未払い**。
+fn life_card_to_hand(
+    state: &mut GameState,
+    owner_idx: usize,
+    card: crate::state::CardDef,
+    face_up: bool,
+) -> bool {
+    if face_up && state.players[owner_idx].face_up_life_to_deck_bottom {
+        state.players[owner_idx].deck.push(card);
+        return false;
+    }
+    state.players[owner_idx].hand.push(card);
+    true
 }
 
 fn pay_don_capacity(me: &Player) -> i32 {

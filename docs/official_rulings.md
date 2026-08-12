@@ -6635,3 +6635,64 @@ ST13-017「火炎」竜王。 理由は 「engine は face_up_life_count(枚数)
 
 > 教訓: cron の裁定は **engine 側の前提が変わると陳腐化する**。 「モデルが持っていないから
 > 検証不能」 系の n/a は、 該当モデルを実装したら **必ず洗い直す**。
+
+---
+
+## 2026-08-12 #17 — Rust に ST13-003 のルール置換を実装 (全体 bail 撤去)
+
+#10 で入れた `apply_action` 入口の 「置換が効きうる盤面なら丸ごと bail」 を撤去し、
+**挙動そのものを Rust に実装**した。
+
+- **ダメージ経路** (`rules.rs`): 表向きライフ → デッキの下、 【トリガー】不発。
+- **コスト経路** (`effects.rs: life_top_or_bottom_to_hand`): 置換された札は手札に入らない =
+  **未払い**。
+- 併せて `life_to_hand` / `mill_opp_life_to_hand` も `life_card_to_hand` helper 経由に統一。
+
+掃引の合成デッキに ST13-003 × 表向きライフ の組合せは載らないので、 **狙い撃ちの差分テスト**
+で突合した ([[feedback_sweep_coverage_is_not_interaction_coverage]] の手順):
+ダメージ経路 (上が表向き / 裏向き) と コスト経路 (ST13-012、 全部表向き / 裏向き) の
+**4 ケースすべて MATCH**。
+
+### ⚠ 自分で入れたバグを 1 件是正: 行き先が違うのに `on_self_life_to_trash` を発火していた
+
+#10 の Python 実装で、 置換で **デッキの下** に行った札に対して
+`trigger_on_opp_life_taken(..., went_to_hand=False)` を呼んでいた = 「トラッシュに置かれた時」
+が誤発火していた。 正しくは:
+
+| when | 発火 | 理由 |
+|---|---|---|
+| `on_opp_life_taken` (相手のライフが離れた時) | ○ | ライフは確かに離れている |
+| `on_self_life_taken` (ダメージを受けた時) | ○ | ダメージは与えられている |
+| `on_self_life_to_hand` / `to_trash` | **×** | 行き先はデッキの下 |
+
+`went_to_deck` パラメータを足して是正。
+
+### ⚠ 「未払い」 を false で返したら do 文脈が bail した (計器ではなく契約の問題)
+
+`life_top_or_bottom_to_hand` が 「0 枚しか動かなかった」 を `false` で返すようにしたら、
+sweep の bail が 0 → 4 に増えた (PRB02-016)。 Rust の `execute_effect` は
+**`false` = 未対応 → 呼出側で bail** という契約なので、 「忠実な結果としての 0 枚」 を
+false で表すと do 文脈が降参してしまう。
+→ primitive は常に `true` を返し、 **コスト未払いの判定は `pay_cost_one` 側で
+「手札が実際に増えたか」** で行うようにした。
+
+---
+
+## 2026-08-12 #18 — `deal_opp_leader_damage` の bail 統合は **失敗** (差し戻し、 診断のみ記録)
+
+戦闘ダメージの per-hit ブロック (108 行) を `rules::resolve_life_taken` に抽出し、
+効果ダメージ (`deal_opp_leader_damage`) からも呼んで bail 0 にしようとしたが、
+**`AttackCharacter` 経由 (= on_ko からの効果ダメージ) で MISMATCH 4** が出た。
+
+原因の見立て: Python は by_effect 側で `_fire_opp_life_left_by_effect`
+(= **enqueue + `_maybe_resolve`**) を通すのに対し、 Rust は `fire_field_when` (**即時**) を
+使っており、 解決窓の張り方が違う。 = 「when 発火は enqueue して drain 位置を Python に
+写す」 という rust_engine/CLAUDE.md の既知の落とし穴と同型。
+
+MISMATCH を残すのは不変条件違反なので **効果ダメージ側は明示 bail に差し戻した**。
+ただし以下は残す:
+- `resolve_life_taken` の**抽出そのものは維持** (戦闘経路が使用、 parity 復帰済)
+- 効果ダメージ経路にも **ST13-003 のルール置換を実装**
+- 失敗の診断をコードコメントに残した (次に触る人が同じ道を再探索しないように)
+
+現状 `rust_parity_check` = **bail 1 / MISMATCH 0** (不変条件は維持、 追従は未完)。
