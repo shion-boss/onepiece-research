@@ -11001,6 +11001,10 @@ pub fn try_replace_ko(
             let mut mill_life: usize = 0;
             let mut rest_don_cost: i32 = 0;
             let mut life_to_hand_cost: usize = 0;
+            // 「代わりにライフの上から1枚を表向き/裏向きにできる」 (OP13-109 等) の代償。
+            // 一番上が既にその向きなら払えない = 置換を選べない (公式 cardqa_op_13)。
+            let mut flip_up_spec: Option<Value> = None;
+            let mut flip_down_spec: Option<Value> = None;
             let mut rest_holder_self = false;
             if let Some(cost) = eff.get("cost") {
                 let entries: Vec<&Value> = match cost {
@@ -11068,6 +11072,11 @@ pub fn try_replace_ko(
                                         val.as_i64().unwrap_or(1) as i32
                                     }
                                 }
+                                // 「代わりに自分のライフの上から1枚を **表向きにできる**」
+                                // (OP13-109 ボニー)。 一番上が既に表向きなら実行できない =
+                                // 置換を選べない (公式 cardqa_op_13、 2026-08-12 是正)。
+                                "flip_life_face_up" => flip_up_spec = Some(val.clone()),
+                                "flip_life_face_down" => flip_down_spec = Some(val.clone()),
                                 _ => return Err(format!("replace cost 未対応 ({hcid}:{k})")),
                             }
                         }
@@ -11079,6 +11088,8 @@ pub fn try_replace_ko(
             //   (cardqa_op_15 / OP15-090 ペローナ)。 Python は _batch_already_paid で
             //   can_pay/pay を丸ごと skip するので、 Rust も解析済みコストを 0 にして
             //   payability も支払いも no-op にする (once の再判定/再マークも起きない)。
+            // 「代わりにライフの上から1枚を表向きにできる」 (OP13-109) の代償。
+            let _ = (&flip_up_spec, &flip_down_spec);
             let when_str = eff.get("when").and_then(|v| v.as_str()).unwrap_or("").to_string();
             let batch_already_paid = match htok {
                 Some(t) => state
@@ -11100,6 +11111,19 @@ pub fn try_replace_ko(
                 rest_don_cost = 0;
                 life_to_hand_cost = 0;
                 rest_holder_self = false;
+                flip_up_spec = None;
+                flip_down_spec = None;
+            }
+            // flip_life 代償の payability (= 実行できなければ置換を選べない)。
+            if let Some(sp) = &flip_up_spec {
+                if flip_life_targets(&state.players[victim_owner], true, sp).is_none() {
+                    continue; // 払えない = 置換不発 → 通常離脱
+                }
+            }
+            if let Some(sp) = &flip_down_spec {
+                if flip_life_targets(&state.players[victim_owner], false, sp).is_none() {
+                    continue;
+                }
             }
             if has_once && state.players[victim_owner].replace_opt_used_cards.contains(&hcid) {
                 continue;
@@ -11262,6 +11286,13 @@ pub fn try_replace_ko(
             }
             // mill_self_life_to_trash 支払い (effects.py:12629)。 ライフ上から N 枚をトラッシュへ。
             // ⚠ 効果でのライフ移動なので【トリガー】は発動しない (公式 10-1-5)。
+            // flip_life 代償の支払い (effects.py:_pay_replace_cost)。
+            if let Some(sp) = flip_up_spec.clone() {
+                flip_life_pay(state, victim_owner, true, &sp);
+            }
+            if let Some(sp) = flip_down_spec.clone() {
+                flip_life_pay(state, victim_owner, false, &sp);
+            }
             // life_to_hand 支払い (effects.py:_pay_replace_cost)。 ライフ上から N 枚を手札へ。
             // ⚠ do 版 primitive と同じく 「ライフが手札に加わった」 トリガーを発火する。
             if life_to_hand_cost > 0 {

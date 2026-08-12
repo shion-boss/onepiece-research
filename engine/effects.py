@@ -14915,6 +14915,16 @@ def _can_pay_replace_cost(
             n = int(cs["life_to_hand"])
             if not _life_to_hand_cost_payable(me, n):
                 return False
+        elif "flip_life_face_up" in cs or "flip_life_face_down" in cs:
+            # ⭐ 「代わりに自分のライフの上から1枚を **表向きにできる**」 (OP13-109 ボニー等) は
+            #   置換の **代償** なので、 実行できなければ置換自体を選べない
+            #   (公式 cardqa_op_13: 「一番上が表向きの場合…できますか？」 → 「いいえ」)。
+            if "flip_life_face_up" in cs:
+                if _flip_life_targets(me, True, cs["flip_life_face_up"]) is None:
+                    return False
+            if "flip_life_face_down" in cs:
+                if _flip_life_targets(me, False, cs["flip_life_face_down"]) is None:
+                    return False
             if getattr(me, "prevent_self_life_to_hand_until_turn_end", False):
                 return False   # OP02-023 等で 「ライフを手札に加えられない」 間は払えない
         elif "discard_hand" in cs:
@@ -15067,6 +15077,11 @@ def _pay_replace_cost(
                 trigger_on_self_hand_discarded(
                     state, me, _opp, holder_inplay, discarded, state.effects_overlay
                 )
+        elif "flip_life_face_up" in cs or "flip_life_face_down" in cs:
+            if "flip_life_face_up" in cs:
+                _flip_life_pay(state, me, True, cs["flip_life_face_up"], "置換コスト")
+            if "flip_life_face_down" in cs:
+                _flip_life_pay(state, me, False, cs["flip_life_face_down"], "置換コスト")
         elif "life_to_hand" in cs:
             n = int(cs["life_to_hand"])
             moved = 0

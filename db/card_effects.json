@@ -78060,12 +78060,16 @@
  ],
  "OP13-109": [
   {
+   "_doc": "2026-08-12 是正: 「代わりに自分のライフの上から1枚を **表向きにできる**」 は置換の **代償** なので、 一番上が既に表向きなら実行できず **置換を選べない** (公式 cardqa_op_13: 「一番上が表向きの場合…できますか？」 → 「いいえ」)。 従来は do に flip_life_face_up_effect を置いており、 既に表向きでも 置換が成立して **KO を免れていた**。 cost の flip_life_face_up (pos:top) に移して payability で gate する。",
    "_text": "this 効果離脱 → 自ライフ1表向き (peek)",
-   "do": [
+   "cost": [
     {
-     "flip_life_face_up_effect": 1
+     "flip_life_face_up": {
+      "pos": "top"
+     }
     }
    ],
+   "do": [],
    "if": {
     "by_opp_effect": true,
     "target": "self"

@@ -10335,3 +10335,41 @@ def test_return_opp_don_can_take_attached_don():
     assert run(0, 0, 0, 1) == (0, 0, 0, 0, 1), "リーダーの付与ドンを戻せていない"
     # 場にドンが1枚も無ければ戻せない
     assert run(0, 0, 0, 0) == (0, 0, 0, 0, 0), "無いドンを戻している"
+
+
+def test_op13_109_replace_needs_face_down_top_life():
+    """「代わりに自分のライフの上から1枚を **表向きにできる**」 は 代償が実行できなければ選べない。
+
+    一次情報 (cardqa_op_13 / OP13-109 ボニー): 「自分のライフの一番上が表向きの場合、
+    このキャラが相手の効果で場を離れる代わりに自分のライフの上から1枚を表向きにできますか？」
+    → 「**いいえ、 できません**」
+
+    ⚠ 2026-08-12 まで overlay は `do` に `flip_life_face_up_effect` を置いており、
+      一番上が既に表向きでも **置換が成立して KO を免れて** いた。 cost に移して
+      payability (pos:top) で gate する。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def survives(flags):
+        st = _state(repo, overlay)
+        me, opp = st.players[1], st.players[0]   # opp(=P0) が ボニー の持ち主
+        st.turn_player_idx = 1
+        me.deck = [repo.get(_FILLER)] * 20
+        opp.life = [repo.get(_FILLER)] * len(flags)
+        opp.life_face_up = list(flags)
+        boni = InPlay.of(repo.get("OP13-109"), sickness=False)
+        opp.characters = [boni]
+        evaluate_static_effects(st, overlay)
+        execute_effect({"ko": "all_opponent_characters"}, st, me, opp, None)
+        resolve_triggers(st)
+        while st.pending_choice is not None:
+            resolve_pending_choice(st, [0])
+            resolve_triggers(st)
+        return len(opp.characters) == 1, list(opp.life_face_up)
+
+    ok, flags = survives([False, False, False])
+    assert ok and flags[0] is True, "一番上が裏向きなら 置換して場に残るはず"
+    ok2, _ = survives([True, False, False])
+    assert not ok2, "一番上が既に表向きなのに置換が成立して KO を免れている"
+    ok3, _ = survives([])
+    assert not ok3, "ライフ 0 なのに置換が成立している"

@@ -191,21 +191,41 @@ def test_op13_109_boni_trigger_draw2_discard1_ai():
 
 
 def test_op13_109_boni_replace_leave_flip_life_ai():
-    """相手効果離脱の代替: 自ライフ上1枚を表向きにする (replace_leave の do)。"""
+    """相手効果離脱の代替 = 自ライフ上1枚を表向きにする。 これは **置換のコスト**。
+
+    ⚠ 2026-08-12 是正: 従来 overlay は `do` に flip_life_face_up_effect を置いており、
+      一番上が既に表向きでも **置換が成立して KO を免れて** いた。 公式 (cardqa_op_13) は
+      「一番上が表向きの場合…できますか？」 → 「**いいえ**」。 cost に移して payability
+      (pos:top) で gate する形に変えたので、 本テストも **cost 側** を見る。
+    """
+    import json as _json
     repo = _repo()
     overlay = _overlay()
+    eff = next(e for e in overlay.get("OP13-109").effects
+               if e.get("when") == "replace_leave")
+    assert eff.get("cost") == [{"flip_life_face_up": {"pos": "top"}}], \
+        f"置換の代償が cost に無い (do のままだとタダで置換できる): {eff.get('cost')}"
+    assert not (eff.get("do") or []), "do 側に代償が残っている (二重に表向きになる)"
+
+    # 一番上が裏向き → 代償を払えて 表向きになる
     st = _state(repo, "OP01-001", overlay)
-    me, opp = st.players[0], st.players[1]
+    me = st.players[0]
     me.life = [repo.get(_FILLER)] * 2
-    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
-    me.life_face_up = [i < (0) for i in range(len(me.life))]
+    me.life_face_up = [False, False]
+    from engine.effects import _can_pay_replace_cost, _pay_replace_cost
+    assert _can_pay_replace_cost(st, me, eff["cost"], "OP13-109", None), \
+        "一番上が裏向きなのに代償を払えない"
+    _pay_replace_cost(st, me, eff["cost"], "OP13-109", None)
+    assert me.life_face_up == [True, False], \
+        f"ライフの一番上が表向きになっていない: {me.life_face_up}"
 
-    for prim in _do(overlay, "OP13-109", "replace_leave"):
-        execute_effect(prim, st, me, opp,
-                       InPlay.of(repo.get("OP13-109"), sickness=False))
-
-    assert me.face_up_life_count == 1, \
-        f"replace_leave で自ライフ上1枚が表向きになっていない: {me.face_up_life_count}"
+    # 一番上が既に表向き → 代償を払えない = 置換を選べない (公式 「いいえ」)
+    st2 = _state(repo, "OP01-001", overlay)
+    me2 = st2.players[0]
+    me2.life = [repo.get(_FILLER)] * 2
+    me2.life_face_up = [True, False]
+    assert not _can_pay_replace_cost(st2, me2, eff["cost"], "OP13-109", None), \
+        "一番上が既に表向きなのに置換の代償を払えることになっている"
 
 
 # --------------------------------------------------------------------------- #
