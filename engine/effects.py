@@ -4078,6 +4078,7 @@ def _execute_effect_body_inner(
             )
             if not targets:
                 return False  # 公式 4-10 「対象 0 枚」= 解決不能
+            targets = _reorder_ko_targets(state, me, opp, targets)
             _ko_any = False
             for t in targets:
                 if t in opp.characters:
@@ -5192,8 +5193,16 @@ def _execute_effect_body_inner(
             if not me.deck:
                 state.push_log(f"  効果: reveal_top_then デッキ空 (不発)")
                 return False
+            # ⭐ 公式の 「公開し」 は **カードを動かさない** (2026-08-12 是正)。
+            #   一次情報 (cardqa_st_17 / ST17-001 クロコダイル): 「公開したカードはどうなり
+            #   ますか？」 → 「**公開したカードを含めて** デッキの上から2枚のカードを引き、
+            #   その後自分の手札1枚をデッキの上に置きます」。
+            #   ⚠ 従来は 公開カードを **先にデッキから抜いてから** then を実行していたので、
+            #     「カード2枚を引く」 が 公開カードの **下 2 枚** を引いてしまっていた
+            #     (ST17-001 / OP14-044 / ST22-003 / ST22-006 の 4 枚が同型)。
+            #   移動は 「その後、 公開したカードをデッキの (上/下/トラッシュ) に置く」 の節が
+            #   ある時だけ then/else の **後に** 行う。
             revealed_cards = me.deck[:depth]
-            me.deck = me.deck[depth:]
             matched = any(_matches_filter(c, filt) for c in revealed_cards)
             state.push_log(
                 f"  効果: デッキ上 {depth} 枚公開 → {[c.name for c in revealed_cards]} "
@@ -5205,16 +5214,21 @@ def _execute_effect_body_inner(
             else:
                 for spec in else_specs:
                     execute_effect(spec, state, me, opp, self_inplay)
-            # 公開済カードを rest_remain (マッチ時) / rest_remain_unmatched (非マッチ時) へ
+            # 公開済カードを rest_remain (マッチ時) / rest_remain_unmatched (非マッチ時) へ。
+            # ⚠ then/else が公開カードを引いた/動かした場合は **もうデッキに無い** ので何もしない。
+            #   デッキの先頭がまだ公開カードのままかを 同一オブジェクト参照で確かめる
+            #   (CardDef は card_id 共有インスタンスなので 「先頭 depth 枚がそのまま」 で判定する)。
             rest_remain = rest_remain if matched else rest_remain_unmatched
-            if rest_remain == "top":
-                # 公開順を保持して 上へ戻す (公式: 「~好きな順」 は AI 簡易で revealed 順)
-                me.deck = list(revealed_cards) + me.deck
-            elif rest_remain == "trash":
-                me.trash.extend(revealed_cards)
-            else:
-                # bottom (default)
-                me.deck.extend(revealed_cards)
+            _still_on_top = (
+                len(me.deck) >= depth
+                and all(me.deck[i] is revealed_cards[i] for i in range(depth))
+            )
+            if _still_on_top and rest_remain != "top":
+                del me.deck[:depth]
+                if rest_remain == "trash":
+                    me.trash.extend(revealed_cards)
+                else:
+                    me.deck.extend(revealed_cards)   # bottom (default)
         elif k == "reveal_top_play":
             # 公式: 「デッキの一番上を公開し、 (条件) の場合、 登場させてもよい。 残りをデッキの下/上下に置く」
             # spec: {"filter": {...}, "rested": false, "rest_remain": "bottom"|"top_or_bottom"|"top"}
@@ -8583,6 +8597,17 @@ def _execute_effect_body_inner(
                 ko_targets.append((me, ip))
             for ip in list(opp.characters):
                 ko_targets.append((opp, ip))
+            # 同時 KO は 1 事象。 陣営ごとに 「他を救える置換 holder」 を後回しにする
+            # (cardqa_op_10、 _order_simultaneous_victims 参照)。
+            for _pl in (me, opp):
+                _grp = [ip for pl, ip in ko_targets if pl is _pl]
+                if len(_grp) > 1:
+                    _ordered = _order_simultaneous_victims(
+                        state, _pl, _grp, "ko", by_opp_effect=(_pl is opp))
+                    if [id(x) for x in _ordered] != [id(x) for x in _grp]:
+                        _rest = [(pl, ip) for pl, ip in ko_targets if pl is not _pl]
+                        ko_targets = ([(_pl, ip) for ip in _ordered] if _pl is me else _rest) + \
+                                     (_rest if _pl is me else [(_pl, ip) for ip in _ordered])
             _kao_any = False
             for owner, t in ko_targets:
                 # 自分のキャラ KO 経路 (= 自陣)
@@ -8664,6 +8689,7 @@ def _execute_effect_body_inner(
                 )
                 if state.pending_choice is not None:
                     return True
+                targets = _reorder_ko_targets(state, me, opp, targets)
                 for t in targets:
                     if id(t) in already_kod:
                         continue
@@ -12590,6 +12616,71 @@ def fire_self_life_to_hand(state: GameState, me: Player) -> None:
     _maybe_resolve(state)
 
 
+def _reorder_ko_targets(state, me, opp, targets):
+    """KO の対象列を同時離脱の解決順に並べ替える (単一陣営の複数対象のときだけ)。
+
+    ⚠ 対象が両陣営に跨る spec (ko_all_others 等) は 陣営ごとに別途扱う。 ここは
+      「相手キャラ N 体」 「自キャラ N 体」 のような **単一陣営** の同時 KO 専用。
+    """
+    if len(targets) < 2:
+        return targets
+    if all(t in opp.characters for t in targets):
+        pl, by_opp = opp, True
+    elif all(t in me.characters for t in targets):
+        pl, by_opp = me, False
+    else:
+        return targets
+    return _order_simultaneous_victims(state, pl, targets, "ko", by_opp_effect=by_opp)
+
+
+def _order_simultaneous_victims(state, owner, victims, leave_kind, by_opp_effect):
+    """**同時離脱** の victim を 「持ち主が選ぶ順」 に並べ替える。
+
+    ⭐ 一次情報 (cardqa_op_10、 OP10-032 たしぎ + OP05-030 ロシナンテ):
+      アクティブの たしぎ と ロシナンテ が **同時に KO** される時、
+      ① たしぎ の置換で ロシナンテ を救い (たしぎ はレストになる)
+      ② その後 たしぎ の KO を、 **今レストになった たしぎ** を見た ロシナンテ の置換で救う
+      → 「**レストの たしぎ だけが場に残り、 ロシナンテ はトラッシュ**」。
+
+    engine は victim を **盤面順** で処理していたので、 たしぎ を先に処理すると
+    「たしぎ が先にトラッシュ → ロシナンテ を救うだけで終わり」 になり、 **公式の線が
+    到達不能** だった (実測で場に残るのがロシナンテ = 公式と逆)。
+
+    → victim 自身が 「バッチ内の **他の** victim を救える置換 holder」 なら **後回し** にする。
+      = 先に他を救い、 その結果 (レスト等) を使って自分も救われる = 持ち主が最も損しない順。
+    ⚠ 本来は持ち主の **選択** (公式 「自分の効果は好きな順」)。 人間 modal は未配線なので、
+      ここでは 「最も損しない順」 を決定的に選ぶ (= AI 実装、 既知の穴)。
+    """
+    ov = state.effects_overlay
+    vs = list(victims)
+    if not ov or len(vs) < 2:
+        return vs
+
+    def _saves_another(holder) -> bool:
+        bundle = ov.get(holder.card.card_id)
+        if bundle is None:
+            return False
+        for eff in bundle.effects:
+            when = eff.get("when")
+            if when == "replace_ko":
+                if leave_kind != "ko":
+                    continue
+            elif when != "replace_leave":
+                continue
+            for other in vs:
+                if other is holder:
+                    continue
+                if _replace_ko_match(eff.get("if", {}), holder, other, by_opp_effect):
+                    return True
+        return False
+
+    saver_ids = {id(v) for v in vs if _saves_another(v)}
+    if not saver_ids or len(saver_ids) == len(vs):
+        return vs      # 全員 saver / 誰も saver でない → 並べ替えても意味が無い
+    return ([v for v in vs if id(v) not in saver_ids]
+            + [v for v in vs if id(v) in saver_ids])
+
+
 def _flip_life_targets(me, to_face_up: bool, spec):
     """「ライフの◯◯から N 枚を表向き/裏向きにする」 の対象 index を返す。 払えないなら None。
 
@@ -12683,6 +12774,15 @@ def _life_to_hand_cost_payable(me, n: int, from_ends: bool = False) -> bool:
       = **札は動いてから未払いになる** と裁定しているので、 事前に弾いてはいけない。
     """
     if len(me.life) < n:
+        return False
+    # 「このターン中、 自分は自分の効果でライフを手札に加えられない」 (OP02-004 ニューゲート /
+    # OP02-023) が立っている間は **コストとしても払えない** → 効果の発動自体ができない。
+    # 一次情報 (cardqa_op_02): 「この【登場時】効果を発動したターンに 『自分のライフの上から
+    # 1枚を手札に加えることができる：』 のコストを支払うことはできますか？」
+    # → 「**いいえ、 支払うことはできません。 その発動コストを支払えないため、 効果の発動も
+    #    できません**」。 ⚠ ST13-003 の置換 (= 札は動くが未払い) と違い、 こちらは
+    #    **札が動かない** ので事前に弾くのが正しい。
+    if getattr(me, "prevent_self_life_to_hand_until_turn_end", False):
         return False
     if not getattr(me, "face_up_life_to_deck_bottom", False):
         return True
@@ -15965,6 +16065,10 @@ def _optional_cost_payable_in_do(
                 v = cs.get("life_to_hand") or cs.get("life_top_or_bottom_to_hand")
                 n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
                 if len(me.life) < n:
+                    return False
+                # 「自分の効果でライフを手札に加えられない」 間は 「できる：」 型でも払えない
+                # (公式 cardqa_op_02 / OP02-004。 ⚠ ST13-003 の置換と違い **札が動かない**)。
+                if getattr(me, "prevent_self_life_to_hand_until_turn_end", False):
                     return False
             # 「相手のキャラ1枚に相手の(レストの)ドンN枚を付与できる：」 (OP15-003 アルビダ 等)。
             # ⚠ 公式 (cardqa_op_15): 「相手のキャラが0枚のときや、 相手のレストのドン‼が相手の

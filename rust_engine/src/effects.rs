@@ -3173,7 +3173,9 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
             Some((me.life.len() as i64) >= n)
         }
         // life_to_hand / life_top_or_bottom_to_hand cost: ライフ非空必要 (effects.py:8255)。
-        "life_top_or_bottom_to_hand" | "life_to_hand" => Some(!me.life.is_empty()),
+        "life_top_or_bottom_to_hand" | "life_to_hand" => Some(
+            !me.life.is_empty() && !me.prevent_self_life_to_hand_until_turn_end,
+        ),
         // return_self_chara_to_hand cost: filter 一致の自キャラ ≥count 必要 (effects.py:8450)。
         // rest_own_card: 自分のアクティブなカード N 枚をレスト (Python effects.py の
         // payability と対)。 リーダー + キャラ + ステージ から filter 一致の **アクティブ** を数える。
@@ -4344,7 +4346,23 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
                         .cloned()
                         .unwrap_or(Value::String("one_opponent_character_any".into()))
                 };
-                let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else { return false };
+                let Some(mut targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else { return false };
+                // 同時 KO は 1 事象。 Python (_reorder_ko_targets) は **免疫フィルタの前** に
+                // 単一陣営の対象列を並べ替えるので、 ここも同じ位置で同じ規則を適用する。
+                if targets.len() > 1 {
+                    for owner in [opp_idx, me_idx] {
+                        if targets.iter().all(|&(pi, sl)| pi == owner && matches!(sl, Slot::Char(_))) {
+                            let vs: Vec<usize> = targets
+                                .iter()
+                                .filter_map(|&(_, sl)| if let Slot::Char(i) = sl { Some(i) } else { None })
+                                .collect();
+                            let ordered = order_simultaneous_victims(
+                                state, owner, vs, "ko", owner == opp_idx);
+                            targets = ordered.into_iter().map(|i| (owner, Slot::Char(i))).collect();
+                            break;
+                        }
+                    }
+                }
                 let mut victims: Vec<(usize, usize)> = vec![];
                 for (pi, sl) in targets {
                     let Slot::Char(idx) = sl else { continue };
@@ -7120,9 +7138,12 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             if state.players[me_idx].deck.is_empty() {
                 return true; // デッキ空 = 不発 (再現できている)
             }
+            // ⭐ 公式の 「公開し」 は **カードを動かさない** (effects.py と同じ是正、 2026-08-12)。
+            //   cardqa_st_17 / ST17-001: 「公開したカードを **含めて** デッキの上から2枚を引く」。
+            //   従来は先に drain していたので then の draw が公開カードの下から引いていた。
             let n = depth.min(state.players[me_idx].deck.len());
             let revealed: Vec<crate::state::CardDef> =
-                state.players[me_idx].deck.drain(0..n).collect();
+                state.players[me_idx].deck[..n].to_vec();
             let matched = revealed.iter().any(|c| matches_filter(c, filt));
             let branch = if matched { v.get("then") } else { v.get("else") };
             if let Some(specs) = branch.and_then(|x| x.as_array()) {
@@ -7134,14 +7155,15 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             }
             let effective_rest = if matched { rest_remain.as_str() } else { rest_remain_unmatched.as_str() };
             let me = &mut state.players[me_idx];
-            match effective_rest {
-                "top" => {
-                    let mut d = revealed;
-                    d.extend(std::mem::take(&mut me.deck));
-                    me.deck = d;
+            // ⚠ then/else が公開カードを引いた/動かした場合は **もうデッキに無い** = 何もしない。
+            //   デッキ先頭が公開カードのままかで判定する (Python と同じ条件)。
+            let still_on_top = me.deck.len() >= n && me.deck[..n] == revealed[..];
+            if still_on_top && effective_rest != "top" {
+                me.deck.drain(0..n);
+                match effective_rest {
+                    "trash" => me.trash.extend(revealed),
+                    _ => me.deck.extend(revealed),
                 }
-                "trash" => me.trash.extend(revealed),
-                _ => me.deck.extend(revealed),
             }
             true
         }
@@ -8997,10 +9019,22 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             // object 参照で見る (置換効果 replace_leave が別キャラを場から抜くと index が総ずれする)。
             // Rust は位置 index なので一意トークンで追跡して同じ意味論にする。
             // ⚠ 相手キャラ以外 (自陣/リーダー) は Python が `if t in opp.characters` で弾く = 対象外。
-            let toks: Vec<Option<u64>> = targets
+            // 同時 KO は 1 事象。 置換 holder を兼ねる victim を後回しにする (cardqa_op_10、
+            // order_simultaneous_victims 参照。 Python の _order_simultaneous_victims と同順)。
+            // ⚠ Python の _reorder_ko_targets は **対象が単一陣営の時だけ** 並べ替える。
+            //   (Python 側の `ko` は相手キャラ以外を後段で弾くので、 ここも同条件に揃える)
+            let all_opp = targets.iter().all(|&(pi, sl)| pi == opp_idx && matches!(sl, Slot::Char(_)));
+            let mut vidx: Vec<usize> = targets
                 .iter()
                 .filter(|&&(pi, sl)| pi == opp_idx && matches!(sl, Slot::Char(_)))
-                .map(|&(pi, sl)| tag_src(state, pi, sl))
+                .filter_map(|&(_, sl)| if let Slot::Char(i) = sl { Some(i) } else { None })
+                .collect();
+            if all_opp && targets.len() > 1 {
+                vidx = order_simultaneous_victims(state, opp_idx, vidx, "ko", true);
+            }
+            let toks: Vec<Option<u64>> = vidx
+                .into_iter()
+                .map(|i| tag_src(state, opp_idx, Slot::Char(i)))
                 .collect();
             // ⚠ **複数対象の `ko` は同時離脱**。 Python は _LeaveBatch を開き、 置換の可否を
             //   **バッチ開始時の盤面** で決める (順序非依存。 cardqa_op_10 / OP10-032 たしぎ)。
@@ -10635,6 +10669,7 @@ fn replace_ko_match(
     victim_cur_cost: i32,
     victim_cur_power: i32,
     by_opp_effect: bool,
+    victim_rested: bool,
 ) -> Option<bool> {
     if cond.get("by_opp_effect").and_then(|v| v.as_bool()).unwrap_or(false) && !by_opp_effect {
         return Some(false);
@@ -10743,6 +10778,15 @@ fn replace_ko_match(
             return Some(false);
         }
     }
+    // 「自分の **レストの** キャラがKOされる場合」 (OP05-030 ロシナンテ 等、
+    // effects.py:_replace_ko_match の target_rested)。 ⚠ 2026-08-12 まで Rust は
+    // **このキーを読んでおらず**、 アクティブな victim にも置換が一致していた
+    // (= 差分掃引の合成デッキに該当ペアが無く、 掃引では見えなかったクラス)。
+    if let Some(want) = cond.get("target_rested") {
+        if want.as_bool().unwrap_or(true) != victim_rested {
+            return Some(false);
+        }
+    }
     Some(true)
 }
 
@@ -10767,6 +10811,7 @@ pub fn try_replace_ko(
     let victim_slot = Slot::Char(victim_char_idx);
     let victim_ip = get_ip(&state.players[victim_owner], victim_slot);
     let victim_card = victim_ip.card.clone();
+    let victim_rested = victim_ip.rested;   // 「自分のレストのキャラが…」 (target_rested)
     // 素の 「コスト/パワー N 以下」 は **現在値** (公式 4-9 が定義するのは 「元々の」 の意味だけ)。
     let (victim_cur_cost, victim_cur_power) = (victim_ip.base_cost(), victim_ip.power());
     // holder 走査順: leader → chars → stages (Python と同順、 先頭一致で発動)。
@@ -10840,7 +10885,8 @@ pub fn try_replace_ko(
             }
             let cond = eff.get("if").and_then(|v| v.as_object()).unwrap_or(&empty);
             match replace_ko_match(cond, hslot == victim_slot, &victim_card,
-                                   victim_cur_cost, victim_cur_power, by_opp_effect) {
+                                   victim_cur_cost, victim_cur_power, by_opp_effect,
+                                   victim_rested) {
                 Some(true) => {}
                 Some(false) => continue,
                 None => return Err("replace_ko match 未知 target キー".into()),
@@ -13851,6 +13897,11 @@ fn life_to_hand_cost_payable(me: &Player, n: i32, from_ends: bool) -> bool {
     if (me.life.len() as i32) < n {
         return false;
     }
+    // 「このターン中、 自分は自分の効果でライフを手札に加えられない」 (OP02-004 / OP02-023) は
+    // **コストとしても払えない** = 効果の発動自体ができない (公式 cardqa_op_02)。
+    if me.prevent_self_life_to_hand_until_turn_end {
+        return false;
+    }
     if !me.face_up_life_to_deck_bottom {
         return true;
     }
@@ -13942,6 +13993,63 @@ fn flip_life_pay(state: &mut GameState, me_idx: usize, to_face_up: bool, spec: &
         state.players[me_idx].life_face_up[i] = to_face_up;
     }
     true
+}
+
+/// **同時離脱** の victim を 「持ち主が最も損しない順」 に並べ替える
+/// (effects.py:_order_simultaneous_victims と対)。
+///
+/// 一次情報 (cardqa_op_10): OP10-032 たしぎ と OP05-030 ロシナンテ が同時 KO の時、
+/// ① たしぎ の置換で ロシナンテ を救い (たしぎ はレスト) ② 今レストになった たしぎ の KO を
+/// ロシナンテ の置換で救う → 「レストの たしぎ だけが残り ロシナンテ はトラッシュ」。
+/// 盤面順で処理すると この線が到達不能になるので、 「バッチ内の **他の** victim を救える
+/// 置換 holder」 を後回しにする。
+/// ⚠ 本来は持ち主の選択 (人間 modal は未配線)。 Python と同じ決定的規則で揃える。
+fn order_simultaneous_victims(
+    state: &GameState,
+    owner_idx: usize,
+    victims: Vec<usize>,          // owner の characters index
+    leave_kind: &str,
+    by_opp_effect: bool,
+) -> Vec<usize> {
+    if victims.len() < 2 {
+        return victims;
+    }
+    let Some(ov) = overlay() else { return victims };
+    let saves_another = |hi: usize| -> bool {
+        let holder = &state.players[owner_idx].characters[hi];
+        let Some(effs) = ov.get(&holder.card.card_id) else { return false };
+        for eff in effs {
+            let when = eff.get("when").and_then(|v| v.as_str()).unwrap_or("");
+            if when == "replace_ko" {
+                if leave_kind != "ko" {
+                    continue;
+                }
+            } else if when != "replace_leave" {
+                continue;
+            }
+            let Some(cond) = eff.get("if").and_then(|v| v.as_object()) else { continue };
+            for &vi in &victims {
+                if vi == hi {
+                    continue;
+                }
+                let v = &state.players[owner_idx].characters[vi];
+                if replace_ko_match(cond, false, &v.card, v.base_cost(), v.power(),
+                                    by_opp_effect, v.rested)
+                    == Some(true)
+                {
+                    return true;
+                }
+            }
+        }
+        false
+    };
+    let savers: Vec<usize> = victims.iter().copied().filter(|&i| saves_another(i)).collect();
+    if savers.is_empty() || savers.len() == victims.len() {
+        return victims;
+    }
+    let mut out: Vec<usize> = victims.iter().copied().filter(|i| !savers.contains(i)).collect();
+    out.extend(savers);
+    out
 }
 
 fn pay_don_capacity(me: &Player) -> i32 {

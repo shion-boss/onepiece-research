@@ -9881,3 +9881,245 @@ def test_op14_120_draw_condition_counts_only_opponent_characters():
     me.characters = [InPlay.of(repo.get("EB04-003"), sickness=False)]    # base_cost 8
     opp.characters = [InPlay.of(repo.get("PRB02-004"), sickness=False)]  # base_cost 3
     assert eval_condition(cond90, st, me) is True
+
+
+def test_simultaneous_ko_replace_chain_tashigi_rosinante():
+    """同時 KO の置換連鎖は 「持ち主が最も損しない順」 で解決できる (公式 cardqa_op_10)。
+
+    Q: アクティブの OP10-032 たしぎ と OP05-030 ロシナンテ が同時に KO される時、
+       たしぎ の効果で ロシナンテ が場を離れる代わりに たしぎ をレストにした。 さらに
+       ロシナンテ の効果で、 今レストになった たしぎ が KO される代わりに ロシナンテ を
+       トラッシュに置けますか？
+    A: 「**はい、 できます。 この場合、 レストの『たしぎ』だけが場に残り、
+       『ドンキホーテ・ロシナンテ』はトラッシュに置かれることになります**」
+
+    ⚠ engine は victim を **盤面順** で処理していたので、 たしぎ が先だと
+      「たしぎ が先にトラッシュ → ロシナンテ だけ助かる」 = **公式と逆** になり、
+      公式の線が盤面の並び次第で到達不能だった。 並び順に依らないことまで固定する。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def run(order, prim):
+        st = _state(repo, overlay)
+        me, opp = st.players[1], st.players[0]   # opp(=P0) が victim の持ち主
+        st.turn_player_idx = 1                    # 相手 (P1) のターン中
+        st.turn_number = 10
+        ips = {"t": InPlay.of(repo.get("OP10-032"), sickness=False),
+               "r": InPlay.of(repo.get("OP05-030"), sickness=False)}
+        opp.characters = [ips[k] for k in order]
+        evaluate_static_effects(st, overlay)
+        execute_effect(prim, st, me, opp, None)
+        resolve_triggers(st)
+        while st.pending_choice is not None:
+            resolve_pending_choice(st, [0])
+            resolve_triggers(st)
+        return ([(c.card.name, c.rested) for c in opp.characters],
+                [c.name for c in opp.trash])
+
+    for prim in ({"ko_multi": ["all_opponent_characters"]},
+                 {"ko": "all_opponent_characters"}):
+        for order in (("t", "r"), ("r", "t")):
+            board, trash = run(order, prim)
+            assert board == [("たしぎ", True)], (
+                f"{prim} 並び{order}: 場に残るのが 「レストのたしぎ」 でない ({board})"
+            )
+            assert trash == ["ドンキホーテ・ロシナンテ"], (
+                f"{prim} 並び{order}: トラッシュが ロシナンテ でない ({trash})"
+            )
+
+
+def test_reveal_top_then_draw_includes_the_revealed_card():
+    """「デッキの上から1枚を公開し…カード2枚を引く」 は **公開したカードを含めて** 引く。
+
+    一次情報 (cardqa_st_17 / ST17-001 クロコダイル): 「その公開したカードはどうなりますか？」
+    → 「**公開したカードを含めて** デッキの上から2枚のカードを引き、 その後自分の手札1枚を
+       デッキの上に置きます」
+
+    ⚠ 「公開し」 はカードを動かさない。 engine は公開カードを先にデッキから抜いてから
+      then を実行していたので、 公開カードの **下 2 枚** を引いていた
+      (ST17-001 / OP14-044 / ST22-003 / ST22-006 が同型)。
+    """
+    repo, overlay = _repo(), _overlay()
+    WB = "OP07-119_r1"          # 『白ひげ海賊団』 を持つキャラ
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.deck = [repo.get(WB), repo.get("OP01-016"), repo.get("OP01-022")] + [repo.get(_FILLER)] * 10
+    me.hand = []
+    evaluate_static_effects(st, overlay)
+    src = InPlay.of(repo.get("ST22-003"), sickness=True)   # 【登場時】公開→白ひげなら2ドロー
+    me.characters = [src]
+
+    trigger_on_play(st, me, opp, src, overlay)
+    resolve_triggers(st)
+    while st.pending_choice is not None:
+        resolve_pending_choice(st, [0])
+        resolve_triggers(st)
+
+    assert [c.card_id for c in me.hand] == [WB, "OP01-016"], (
+        f"公開カードを含めて 2 枚引けていない (手札={[c.card_id for c in me.hand]})"
+    )
+    assert me.deck[0].card_id == "OP01-022", "デッキの残りがずれている"
+
+
+def test_life_leave_trigger_fires_for_either_side():
+    """「【自分のターン中】ライフが離れた時」 は **自分/相手どちらのライフでも** 発動する。
+
+    一次情報 (cardqa_op_11 / OP11-041 ナミ): 「この【自分のターン中】効果は、 自分のライフが
+    離れた時にも発動できますか？」 → 「**はい、 できます。 自分のライフか相手のライフかに
+    かかわらず、 発動できます**」
+
+    ⚠ overlay は on_self_life_to_hand だけを配線しており、 **相手のライフが離れた時
+      (= 自分のアタック) に発動していなかった**。 【ターン1回】は when 横断で共有する。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def mk():
+        st = _state(repo, overlay, leader0="OP11-041")
+        me = st.players[0]
+        me.hand = []
+        evaluate_static_effects(st, overlay)
+        return st, me, st.players[1]
+
+    # (1) 相手のライフが離れた時 (= 自分がリーダーにアタック)
+    st, me, opp = mk()
+    atk = InPlay.of(repo.get("EB01-018_p1"), sickness=False)
+    me.characters = [atk]
+    apply_action(st, AttackLeader(attacker_iid=atk.instance_id), overlay)
+    while st.pending_choice is not None:
+        resolve_pending_choice(st, [0])
+    assert len(me.hand) == 1, (
+        f"相手のライフが離れたのに発動していない (手札={len(me.hand)})"
+    )
+
+    # (2) 自分のライフが手札に加わった時 (従来から動く経路)
+    st, me, opp = mk()
+    execute_effect({"life_to_hand": 1}, st, me, opp, None)
+    resolve_triggers(st)
+    while st.pending_choice is not None:
+        resolve_pending_choice(st, [0])
+        resolve_triggers(st)
+    assert len(me.hand) == 2, f"自ライフ→手札 + ドロー1 で 2 枚のはず ({len(me.hand)})"
+
+    # (3) 【ターン1回】は when を跨いで共有される (= 1 ターンに 2 回引けない)
+    st, me, opp = mk()
+    atk = InPlay.of(repo.get("EB01-018_p1"), sickness=False)
+    me.characters = [atk]
+    apply_action(st, AttackLeader(attacker_iid=atk.instance_id), overlay)
+    while st.pending_choice is not None:
+        resolve_pending_choice(st, [0])
+    n1 = len(me.hand)
+    execute_effect({"life_to_hand": 1}, st, me, opp, None)
+    resolve_triggers(st)
+    while st.pending_choice is not None:
+        resolve_pending_choice(st, [0])
+        resolve_triggers(st)
+    assert len(me.hand) == n1 + 1, (
+        "別の when で 2 回目が発動している (【ターン1回】が when 横断で共有されていない)"
+    )
+
+
+def test_life_to_hand_cost_blocked_while_life_gain_is_locked():
+    """「自分の効果でライフを手札に加えられない」 間は **コストとしても払えない**。
+
+    一次情報 (cardqa_op_02 / OP02-004 ニューゲート): 「この【登場時】効果を発動したターンに
+    『自分のライフの上から1枚を手札に加えることができる：』 のコストを支払うことは
+    できますか？」 → 「**いいえ、 支払うことはできません。 その発動コストを支払えないため、
+    効果の発動もできません**」
+    ⚠ ST13-003 の置換 (= 札は動くが未払い) と違い、 こちらは **札が動かない**。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def offers(lock: bool):
+        st = _state(repo, overlay, leader0="OP02-001")
+        me, opp = st.players[0], st.players[1]
+        evaluate_static_effects(st, overlay)
+        me.characters = [InPlay.of(repo.get(_FILLER), sickness=False)]  # 起動メイン: ライフ1枚を手札に
+        if lock:
+            ng = InPlay.of(repo.get("OP02-004"), sickness=True)
+            me.characters.append(ng)
+            trigger_on_play(st, me, opp, ng, overlay)
+            resolve_triggers(st)
+            while st.pending_choice is not None:
+                resolve_pending_choice(st, [0])
+                resolve_triggers(st)
+        life0 = len(me.life)
+        n = len([o for o in list_activate_main_effects(st, me, overlay)
+                 if o[0].card.card_id == _FILLER])
+        return n, len(me.life) == life0
+
+    assert offers(False) == (1, True), "ロック無しで発動できないのはおかしい"
+    assert offers(True) == (0, True), (
+        "ライフ→手札がロックされているのに 「ライフを手札に加える：」 コストの効果を発動できている"
+    )
+
+
+def test_taunt_locks_all_attacks_even_with_active_attack_grant():
+    """taunt (「『X』以外にアタックできない」) は 「アクティブにもアタック可」 でも解けない。
+
+    一次情報 (cardqa_op_11): 「相手の場にレストの OP01-051 ユースタス・キッドがありドン‼が
+    付与されている場合に、 【アタック時】効果でアクティブのキャラにもアタックできるように
+    なった自分のリーダーは、 相手のアクティブの『ユースタス・キッド』ではないキャラに
+    アタックできますか？」 → 「**いいえ、 できません**」
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP11-001")
+    me, opp = st.players[0], st.players[1]
+    kid = InPlay.of(repo.get("OP01-051"), sickness=False, rested=True)
+    kid.attached_dons = 1                       # 【ドン‼×1】で taunt が立つ
+    other = InPlay.of(repo.get("OP01-016"), sickness=False)   # アクティブ、 キッド以外
+    opp.characters = [kid, other]
+    hibari = InPlay.of(repo.get("OP11-010"), sickness=False)
+    me.characters = [hibari]
+    me.don_active = 5
+    evaluate_static_effects(st, overlay)
+    assert kid.attack_taunt, "テスト前提: taunt が立っていること"
+
+    trigger_on_attack(st, me, opp, hibari, overlay)   # リーダーに 「アクティブにもアタック可」
+    resolve_triggers(st)
+    while st.pending_choice is not None:
+        resolve_pending_choice(st, [0])
+        resolve_triggers(st)
+
+    from engine.game import legal_actions
+    targets = [a.target_iid for a in legal_actions(st)
+               if isinstance(a, AttackCharacter) and a.attacker_iid == me.leader.instance_id]
+    assert targets == [kid.instance_id], (
+        "taunt 中なのに キッド 以外のアクティブキャラにアタックできる"
+    )
+
+
+def test_replace_ko_target_rested_is_honoured():
+    """置換の 「自分の **レストの** キャラがKOされる場合」 は レスト状態を見る。
+
+    OP05-030 ロシナンテ 【相手のターン中】自分のレストのキャラがKOされる場合、 代わりに
+    このキャラをトラッシュに置くことができる。
+    ⚠ **アクティブ** のキャラが KO される時は置換できない。 2026-08-12 まで Rust 側は
+      `target_rested` を読んでおらず (Python は読んでいた)、 アクティブ victim にも
+      一致していた = **差分掃引の合成デッキに該当ペアが無く見えなかった** 乖離。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def run(victim_rested: bool):
+        st = _state(repo, overlay)
+        me, opp = st.players[1], st.players[0]
+        st.turn_player_idx = 1
+        st.turn_number = 10
+        victim = InPlay.of(repo.get("OP01-016"), sickness=False, rested=victim_rested)
+        rosi = InPlay.of(repo.get("OP05-030"), sickness=False)
+        opp.characters = [victim, rosi]
+        evaluate_static_effects(st, overlay)
+        execute_effect({"ko": "all_opponent_characters"}, st, me, opp, None)
+        resolve_triggers(st)
+        while st.pending_choice is not None:
+            resolve_pending_choice(st, [0])
+            resolve_triggers(st)
+        return [c.card.name for c in opp.characters], [c.name for c in opp.trash]
+
+    board_r, trash_r = run(True)
+    assert "ナミ" in board_r and "ドンキホーテ・ロシナンテ" in trash_r, (
+        f"レストの victim を ロシナンテ が身代わりで救えていない (場={board_r} trash={trash_r})"
+    )
+    board_a, trash_a = run(False)
+    assert "ナミ" not in board_a, (
+        f"アクティブの victim なのに置換が成立している (場={board_a} trash={trash_a})"
+    )
