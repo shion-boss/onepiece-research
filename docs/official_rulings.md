@@ -6833,3 +6833,64 @@ replace-cost 分岐 line ~15096) も「戻された時」を発火しない。 �
 - **e6796246cf3a / ST10-001**: 前後どちらも 「まで」 なので、 登場させずにデッキ下だけ行える。
 - **e5b9cf47c55e / OP15-023**: 付与する (相手のコストエリアの) ドンを選ぶのは
   **効果を発動したプレイヤー**。
+
+## 2026-08-12 #21 — FAQ conformance バッチ (先頭から 20 件、 17 conform / 2 n/a / 1 escalated)
+
+cron `optcg-faq-conformance`。 engine/overlay は無変更 (= 全件 既存挙動が公式と一致 or 検証範囲外)。
+
+### escalated (1): OP02-089/090/091 【トリガー】 return_opp_don は **付与ドンを戻せない** (a40846154fe9)
+- 公式 (cardqa_op_02): 「この【トリガー】効果で相手はキャラやリーダーに付与されたドン!!を戻すことは
+  できますか？」 → 「**はい、 できます**」。
+- **gap**: `return_opp_don` (effects.py:8421) は `opp.don_rested` / `opp.don_active` (= 自由プール) のみ
+  減算し、 キャラ/リーダーの `attached_dons` を対象にしない。 `attach_don` (effects.py) は
+  `don_active -= n; target.attached_dons += n` = **付与ドンは自由プールから外れる**。 よって相手の
+  自由ドン < 戻す枚数 の局面で、 公式が許す 「付与ドンを戻す」 が engine では不可能 (= 規定枚数を
+  戻せず 0〜不足のまま)。
+- **なぜ escalated**: 是正には (1) return_opp_don が自由プール枯渇後に attached_dons を走査して戻す
+  (2) 相手が どのドンを戻すかの chooser modeling、 の両方が要り、 Python↔Rust 同時修正が必須。
+  当環境は **maturin 不在で Rust ビルド不可** (cargo は在るが `.venv/bin/maturin` 無し) = 片側修正は
+  差分を壊す。 影響カード = return_opp_don 使用 (OP02-085 マゼラン alias / OP02-089/090/091)、
+  発現は **相手の自由ドン < N の稀ケースのみ** (通常は自由ドンから戻すのが相手最適で挙動一致)。
+
+### n/a (2)
+- **OP16-029 ツノッコフ** (a34ae1ebd9f5): シナリオ前提の 「すべてのカード名と特徴と属性を持つ」
+  リーダー効果は **現カードプールに 0 件** (cards.json 全走査) = engine を当該 state に置けず検証不能。
+  ⚠ 将来そうした leader が追加されたら、 条件 `self_chara_filtered_count_ge(name=ウサッコフ)` は
+  **character のみ集計で leader を数えない** ため要見直し (「自分の『X』」 はリーダーも含む)。
+- **OP16-119** (a613afad553b): 「ライフ上に加えるカードを相手に公開するか」 は公開情報の表記問い。
+  engine は公開領域への reveal を state 化せず、 search_top_n は非公開でライフへ置く (= 公式 「公開せず」
+  と挙動整合だが盤面差分に落ちない)。
+
+### 公式どおりで問題なかった (conform 17、 再調査回避のため要点のみ)
+- **OP15-116** (a24a74542968): 【メイン】全体が `if(leader_feature 麦わらの一味)`。 麦わら非所持リーダーでは
+  「その後」 含め不発 = 公式 NO。 card text も 「麦わらの場合」 が全効果を修飾。
+- **PRB02-004** (a2505ca6849a): opp_attack。 攻撃側 on_attack が先行 (effects.py:2066) し source を除去 →
+  `_execute_event` (338-357) が source_iid 不在 (opp_attack は許容外 when) で return = 不発 = 公式 NO。
+- **OP01-062** (a25262f53858): on_self_event_played, once_per_turn + `if(hand_le 4)`。 1枚目 (手札6) は条件外で
+  不発かつ **once_per_turn 未消費** (実発火時のみ消費)、 2枚目 (手札4) で draw = 公式 YES。
+- **OP14-021** (a2833c0e0542): on_self_rested はアタックの自己レストで発火 (game.py:1585/2033)。 任意コスト付き
+  (life_to_hand・もよい) は `costless_only=True` で能動発火せず = **『辞退』= 合法** (rulings 4885/677c149d0045
+  で既決の別課題 = AI 品質、 conformance 違反ではない)。 公式 「発動タイミングを満たす (YES)」 と整合。
+- **ST02-017** (a2fd1be4174b): rest one_opponent_character_any (active 限定なし) = 既レストも選択可、 再 rest は no-op。
+- **OP10-098** (a304d1b1153c): ko_multi 両 target とも `truly_original_cost_le`(印刷コスト) = 公式 「両方とも元々のコスト」。
+- **EB03-008** (a37b669c7760): give_attack_active_chara target=one_self_chara_or_leader_filtered(SWORD) は自身(SWORD)を選択可。
+  速攻は リーダー コビー が別途付与 (Q 前提)。 自身選択の可否は成立 = 公式 YES。
+- **P-011** (a3ae8b9abc1b): one_self_chara_no_effect は bundle.effects 長=0 のみ (effects.py:2954)。 load_effect_overlay
+  (113) は when=trigger 含め全 entry を effects へ格納 → **トリガーのみ持つキャラは len≥1 で除外** = 公式 「含まれない」。
+- **ST07-010** (a3b1027200ce): choice_effect actor=opp の do は **発動者フレーム (me=controller)** で execute
+  (effects.py:3903)。 put_top_to_life は me.deck→me.life = 発動者。 公式 「発動した側のデッキ上→その側のライフ」。
+- **ST22-007** (a3ce87510471): reveal_top_then depth1 rest_remain='top' = 公開後デッキ一番上へ裏向きで戻す = 公式どおり。
+- **OP01-063** (a4a87d843839): activate_main cost rest_self は支払い可 = 起動 legal。 相手手札空で reveal 系は 「不発」
+  return False = 何も起きない = 公式 「起動できるが何も起きない」。
+- **OP16-041** (a5f997192fc7): 場5枚での新規登場に伴う差し替え (3-7-6-1) は `trash_weakest_chara_for_field_full`
+  (core.py:864) が leave/KO トリガーを一切発火しない (3-7-6-1-1)。 「場を離れた時」 leader trigger 不発 = 公式 NO。
+  OP01-014 ジンベエ Q&A が差し替え rule (場5枚でも効果登場は可、 既存1枚をトラッシュ) を裏付け。
+- **OP04-024** (a6540b063ac2): on_play rest one_opponent_character_cost_le_4 は無条件 (ドフラ gate は別 entry)。 = 公式 YES。
+- **OP04-026** (a74c10cd8677): on_attack の schedule_at_self_turn_end{untap_don} は state レベル予約 = source 場残存に依存せず
+  ターン終了時に untap = 公式 YES。
+- **OP12-039** (a76693100da4): main untap self_leader は `if(leader_name='ロロノア・ゾロ')`。 leader_name は exact 一致
+  (effects.py:2092、 contains でない) = ST12-001 「ゾロ&サンジ」 ≠ 「ゾロ」 → 不発 = 公式 NO。
+- **OP03-040/P-117** (a7b046067e82): _resolve_life_taken は 相手【トリガー】を先に解決 (game.py:2447) → その後
+  on_opp_life_taken (2495) = 公式 「【トリガー】処理 → その後この効果」。
+- **OP03-016** (a7b63e96535b): ko は 「1枚まで」=0 選択可、 後続 give_keyword ダブルアタック/+3000 は KO 有無に依存しない
+  別 do step = 公式 「KO しなくてもダブルアタック+3000 を得られる (YES)」。
