@@ -6302,3 +6302,35 @@ OP14-120_p1 の overlay を差し替え。 ⚠ **OP14-090 (ダズ) / OP14-094 (M
   top 限定 payability + 実際にライフを表向きにする効果 + 両engine が必要で範囲外。
 - **95129d358381** OP02「自分のライフの上から 1 枚を手札に加える：」発動コストを登場時と同ターンに
   払えるか。 対象カードを OP02 内で一意特定できず (全走査ヒット無し)、 誤特定回避のため保留。
+
+---
+
+## 公式どおりで **問題なかった** もの (2026-08-12 追加分、 FAQ 全件保証 台帳より 20 件)
+
+新規に engine 実測/コード確認したもの (残りは既存項の再確認):
+
+- **972273c2c355** ST05-017 鎧合体【カウンター】`prevent_ko`(FILM キャラ) — 「効果でもバトルでも
+  KO されないか」→はい。 `ko_immune_until_turn_end` は **効果 KO** (effects.py:4106/8607/8729) と
+  **バトル KO** (game.py:2173) の両経路で honored = 全免疫。 conform。
+- **975267dfd815** OP15-070 フザ【相手のターン中】`set_base_power` 6000 — 「全カード名/特徴/属性を持つ
+  リーダーは 元々のパワー6000 になるか」→はい。 name=「シュラ」filter に一致し base_power を 6000 に
+  **書き換える** (公式 4-9-2-1、 2026-08-10 是正済)。 conform。
+- **982a4b43abd2** OP11-066 シャーロット・オーブン `declare_cost_reveal_then` — 宣言≠公開コストなら
+  `effect` 配列 (ko cost3 + add_rested_don) **全体が不発**。 Python effects.py:5178-5183 / Rust
+  effects.rs:4951 とも一致 gate。 公式「DON 追加も KO もできない」一致。 conform。
+- **98862360223e** PRB02-005 ルフィ `schedule_at_opp_main_phase_start` — 条件
+  (leader_multicolor + opp_don_le7) は **on_play の if = 登場時に判定**し、 成立時に無条件で予約。
+  解決時 (次相手メイン開始時) に opp DON 8+ でもレストする = 公式はい。 予約時判定・解決は無条件。 conform。
+- **9a3f0d52496d** ダブルアタック (2 ダメージ) は **1 つのダメージ事象** — ライフ 1 枚目消化と 2 枚目の
+  間に反応窓は無い (game.py:1921-1994、 2026-08-11 是正で attacker 側 when は `_hit_i==0` のみ発火)。
+  2 ダメージのダメージステップ終了後に【相手のターン中】効果を発動 = 公式「いいえ」一致。 conform。
+- **9c62bffebbd8** OP15-098/105 `replace_ko`/`replace_leave` cost=`life_to_hand` — 自身が相手効果で
+  離れる時にライフ 1 枚を手札で代替可 (2026-08-08 同時離脱 dedup 是正、 cardqa_op_15)。 conform。
+
+既存項の再確認で conform/n/a にしたもの: 976dd1f52a57 (『自分』=効果controller) /
+97b09faa87ab (ライフ数条件の空振り、 L155) / 97e71f4f4dba (リーダー gate 対照、 L984) /
+98578c777333・9b65cc7a1daf (【トリガー】≠イベント発動、 L160) / 98608f178aa1 (任意 discard) /
+99405f625a2d (DON+1000 所有者ターン) / 9a14e4706674 (バトル終了時デッキ下 独立解決) /
+9afea1d19bf1 (発動でカード自身が手札を離れ手札-1) / 9aff223ab9ac (DON 分割不可、 L2423) /
+9b0aa1dd7f72 (イワンコフ gate、 L980) / 9bbb514233ad・9c0a2cd9266f (対象不在でも登場可、 L982) /
+9cdec432f0d0 = **n/a** (ライフ順序変更時の表裏維持、 face_up_life_count のみで位置別表裏を持たない、 L1068)。
