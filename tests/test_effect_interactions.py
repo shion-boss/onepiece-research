@@ -10301,3 +10301,37 @@ def test_return_don_to_match_opp_no_excess_no_trigger():
 
     assert me.don_active + me.don_rested == 4, "超過なしなのにドンが動いた"
     assert len(me.hand) == hand_before, "超過0枚なのにトリガーが発火した"
+
+
+def test_return_opp_don_can_take_attached_don():
+    """「相手は自身の **場の** ドン‼N枚をドン‼デッキに戻す」 の 「場の」 には **付与されたドン** も含む。
+
+    一次情報 (cardqa_op_02 / OP02-089・090・091): 「この【トリガー】効果で相手はキャラや
+    リーダーに **付与された** ドン!!を戻すことはできますか？」 → 「**はい、 できます**」
+
+    ⚠ 2026-08-12 まで コストエリア (自由プール) しか減らしておらず、 自由ドンが足りない盤面で
+      **規定枚数を戻せなかった**。 選ぶのは相手なので、 損の小さい順
+      (レスト → アクティブ → 付与、 付与の中は キャラ → リーダー) で返す。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def run(free_r, free_a, ch_don, ld_don, n=1):
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        opp.don_rested, opp.don_active, opp.don_remaining_in_deck = free_r, free_a, 0
+        c = InPlay.of(repo.get("OP01-016"), sickness=False)
+        c.attached_dons = ch_don
+        opp.characters = [c]
+        opp.leader.attached_dons = ld_don
+        execute_effect({"return_opp_don": n}, st, me, opp, None)
+        return (opp.don_rested, opp.don_active, c.attached_dons,
+                opp.leader.attached_dons, opp.don_remaining_in_deck)
+
+    # レストがあるなら まずレストから (= 相手にとって損が小さい)
+    assert run(1, 2, 1, 1) == (0, 2, 1, 1, 1), "レストのドンより先に他を返している"
+    # 自由ドン 0 でも **キャラの付与ドン** から戻せる (公式 「はい」)
+    assert run(0, 0, 1, 1) == (0, 0, 0, 1, 1), "付与ドンを戻せていない (規定枚数を返せない)"
+    # キャラに付与が無ければ リーダーの付与から
+    assert run(0, 0, 0, 1) == (0, 0, 0, 0, 1), "リーダーの付与ドンを戻せていない"
+    # 場にドンが1枚も無ければ戻せない
+    assert run(0, 0, 0, 0) == (0, 0, 0, 0, 0), "無いドンを戻している"

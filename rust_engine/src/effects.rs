@@ -4615,6 +4615,32 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
             let a = (n - r).min(o.don_active);
             o.don_active -= a;
             o.don_remaining_in_deck += a;
+            // ⭐ 「自身の**場の**ドン‼」 には **付与されたドン** も含まれる
+            //   (公式 cardqa_op_02: 「キャラやリーダーに付与されたドン!!を戻すことはできますか？」
+            //    → 「はい、 できます」)。 自由プールが足りない盤面で規定枚数を戻せるようにする。
+            //   相手が選ぶので損の小さい順: レスト → アクティブ → 付与 (キャラ → リーダー)。
+            let mut removed = r + a;
+            if removed < n {
+                for ci in 0..state.players[opp_idx].characters.len() {
+                    if removed >= n {
+                        break;
+                    }
+                    let take = (n - removed).min(state.players[opp_idx].characters[ci].attached_dons);
+                    if take <= 0 {
+                        continue;
+                    }
+                    state.players[opp_idx].characters[ci].attached_dons -= take;
+                    state.players[opp_idx].don_remaining_in_deck += take;
+                    removed += take;
+                }
+                if removed < n {
+                    let take = (n - removed).min(state.players[opp_idx].leader.attached_dons);
+                    if take > 0 {
+                        state.players[opp_idx].leader.attached_dons -= take;
+                        state.players[opp_idx].don_remaining_in_deck += take;
+                    }
+                }
+            }
             true
         }
         // このキャラ以外の自キャラ全てをデッキ下へ (effects.py:other_self_charas_to_deck_bottom)。

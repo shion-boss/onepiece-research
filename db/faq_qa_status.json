@@ -9321,9 +9321,9 @@
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "OP02-089/090/091 【トリガー】return_opp_don: 公式『相手はキャラ/リーダーに付与されたドンも戻せる(YES)』。engine の return_opp_don(effects.py:8421) は opp.don_rested/don_active(自由プール)のみ減算し attached_dons(キャラ/リーダー付与)は対象外。attach_don(effects.py) は don_active から attached_dons へ移動=付与ドンは自由プールに無い→相手の自由ドン<N の稀ケースで規定枚数を戻せない。是正には両engine の attached-don 対応 return + chooser modeling が要り、当環境は maturin 不在で Rust ビルド不可。影響=return_opp_don 使用カード(OP02-085/089/090/091)、自由ドン<N 時のみ",
+  "note": "OP02-089/090/091【トリガー】「相手の場にドン‼が6枚以上ある場合、相手は自身の場のドン‼1枚をドン‼デッキに戻す」。「自身の**場の**ドン」には**キャラ/リーダーに付与されたドン**も含まれる (公式 cardqa_op_02「付与されたドンを戻すことはできますか？」→はい)。engine は コストエリア(自由プール)しか減らしておらず、自由ドンが規定枚数に満たない盤面で**戻せなかった**。付与ドンへの fallback を Python/Rust 両方に実装 (2026-08-12)。選ぶのは相手なので損の小さい順=レスト→アクティブ→付与(キャラ→リーダー)。実測 自由0+キャラ付与1 → キャラの付与が1減りドンデッキ+1 / 自由0+リーダー付与のみ → リーダーから / 場にドン0 → 戻せない。回帰 test_return_opp_don_can_take_attached_don",
   "q": "この【トリガー】効果で相手はキャラやリーダーに付与されたドン!!を戻すことはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "a4a87d843839": {
   "a": "いいえ、できません。効果を起動することはできますが、何も起きません。",

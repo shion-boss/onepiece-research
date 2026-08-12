@@ -8439,6 +8439,24 @@ def _execute_effect_body_inner(
                 opp.don_active -= take_a
                 opp.don_remaining_in_deck += take_a
                 removed += take_a
+            # ⭐ 「自身の**場の**ドン‼」 には **キャラ/リーダーに付与されたドン** も含まれる
+            #   (公式 cardqa_op_02: 「この【トリガー】効果で相手はキャラやリーダーに付与された
+            #    ドン!!を戻すことはできますか？」 → 「**はい、 できます**」)。
+            #   2026-08-12 まで コストエリア (自由プール) しか減らしておらず、 自由ドンが N 枚に
+            #   満たない盤面で **規定枚数を戻せなかった** (= 公式の 「できます」 を再現できない)。
+            #   ⚠ 選ぶのは **相手** なので、 相手にとって損の小さい順に返す:
+            #     ① レスト (使い道が無い) ② アクティブ ③ 付与済 (= 既にパワーになっている)。
+            #     付与の中では **キャラ → リーダー** の盤面順 (リーダーの +1000 を最後まで残す)。
+            if removed < n:
+                for _ip in list(opp.characters) + [opp.leader]:
+                    if removed >= n:
+                        break
+                    take_d = min(n - removed, int(getattr(_ip, "attached_dons", 0) or 0))
+                    if take_d <= 0:
+                        continue
+                    _ip.attached_dons -= take_d
+                    opp.don_remaining_in_deck += take_d
+                    removed += take_d
             state.push_log(f"  効果: 相手ドン {removed} 枚をドンデッキへ戻す")
         elif k == "opp_discard_own_choice":
             # ⭐ 公式 「**相手は**(自身の)手札N枚を捨てる」 = **手札の持ち主 (相手) が選ぶ**。
