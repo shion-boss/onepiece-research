@@ -82,11 +82,24 @@ def collect() -> tuple[dict, bool]:
             if not q:
                 continue
             k = qid_of(q, a)
+            # ⭐ 2026-08-12: 公式ページの `dd.qaTit` から拾った **カード紐付け** を持ち回る。
+            #   同じ Q&A は 「シリーズ名」 見出しと 「カード名」 見出しの 2 回載るので、
+            #   card_id が付いている方を採る (= 「この【登場時】効果」 がどのカードか特定できる)。
+            #   これが無いと conformance 検査が 「対象カード特定不能」 で n/a / escalated に落ちる
+            #   (実際に P-009 Q304 / OP02-004 の 2 件で発生した)。
+            #   ⚠ **1 つの Q&A が複数カードにぶら下がる** ことがある (同じ文面の効果を持つカードが
+            #     6 枚並ぶ等)。 台帳キーは文面ハッシュなので 1 件に畳まれる → card_ids は **リスト**
+            #     で持つ (先頭 1 枚だけ採ると、 実際には別カードの裁定を見て誤判定しうる)。
+            cid = it.get("card_id")
             if k in uniq:
                 if fn not in uniq[k]["files"]:
                     uniq[k]["files"].append(fn)
+                if cid and cid not in uniq[k].setdefault("card_ids", []):
+                    uniq[k]["card_ids"].append(cid)
             else:
                 uniq[k] = {"q": q, "a": a, "files": [fn]}
+                if cid:
+                    uniq[k]["card_ids"] = [cid]
     if uniq:
         return uniq, True
 
@@ -137,6 +150,9 @@ def sync(db: dict, uniq: dict, from_primary: bool = True) -> dict:
             # のみ) ので、 既存エントリの q/a/files は **上書きしない** (一次由来の pack 名を守る)。
             if from_primary:
                 db[k]["q"], db[k]["a"], db[k]["files"] = v["q"], v["a"], sorted(v["files"])
+                if v.get("card_ids"):
+                    db[k]["card_ids"] = sorted(v["card_ids"])
+                db[k].pop("card_id", None)   # 旧 単数フィールドは廃止
         else:
             db[k] = {**v, "files": sorted(v["files"]), "status": "pending", "note": ""}
     if from_primary:
@@ -199,7 +215,10 @@ def main() -> None:
             print(f"⚠ 残 pending {len(pend)} 件 = バッチ 2 本分を切った。 "
                   f"cron (先頭から) と範囲が重なる → cron を止めるか手動を停める")
         for k, v in take:
-            print(f"\n[{k}] ({len(v['files'])} 弾: {', '.join(v['files'][:3])})")
+            _cids = v.get("card_ids") or []
+            _lbl = ", ".join(_cids[:6]) + (f" 他{len(_cids)-6}枚" if len(_cids) > 6 else "")
+            print(f"\n[{k}] ({len(v['files'])} 弾: {', '.join(v['files'][:3])})"
+                  + (f"  ⭐ カード: {_lbl}" if _cids else "  ⚠ カード紐付けなし"))
             print(f"  Q: {v['q']}")
             print(f"  A: {v['a']}")
 

@@ -8669,15 +8669,19 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             true
         }
         "put_top_to_life" => {
+            // ⭐ 公式は 「デッキの上から N 枚を **ライフの上** に加える」 (該当 50 枚すべて)。
+            //   2026-08-12 是正 (従来は push = ライフの一番下。 Python 側にも 「簡略」 と明記されていた)。
             let n = v.as_i64().unwrap_or(0) as i32;
             let me = &mut state.players[me_idx];
+            let mut moved = 0usize;
             for _ in 0..n {
                 if me.deck.is_empty() {
                     break;
                 }
                 let c = me.deck.remove(0);
-                me.life.push(c);
-                me.life_face_up.push(false);  // 既定は裏向き
+                me.life.insert(moved, c);          // 取った順を保って ライフの上へ
+                me.life_face_up.insert(moved, false);
+                moved += 1;
             }
             true
         }
@@ -8762,18 +8766,24 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
         }
         // 手札から filter 一致 count 枚までを自ライフ上へ (effects.py:hand_to_self_life)。 AI=先頭一致。 cascade 無。
         "hand_to_self_life" => {
-            let (filt, count) = if let Some(o) = v.as_object() {
-                (o.get("filter").cloned(), o.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize)
+            // ⭐ 公式は 「ライフの **上** に加える」 (該当 13 枚すべて)。 2026-08-12 是正
+            //   (従来は push = ライフの一番下)。 「表向きで加える」 カードは spec の face_up。
+            let (filt, count, face_up) = if let Some(o) = v.as_object() {
+                (
+                    o.get("filter").cloned(),
+                    o.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize,
+                    o.get("face_up").and_then(|x| x.as_bool()).unwrap_or(false),
+                )
             } else {
-                (None, v.as_i64().unwrap_or(1) as usize)
+                (None, v.as_i64().unwrap_or(1) as usize, false)
             };
             let me = &mut state.players[me_idx];
             let old = std::mem::take(&mut me.hand);
             let mut moved = 0;
             for c in old {
                 if moved < count && matches_filter(&c, filt.as_ref()) {
-                    me.life.push(c);
-                    me.life_face_up.push(false);  // 既定は裏向き
+                    me.life.insert(moved, c);
+                    me.life_face_up.insert(moved, face_up);
                     moved += 1;
                 } else {
                     me.hand.push(c);

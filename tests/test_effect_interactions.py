@@ -10160,3 +10160,96 @@ def test_op12_017_red_applies_to_both_or_clauses():
                and str(c.get("cost")) == "4")
     assert take(blue) == [], "赤以外のコスト3以上キャラを手札に加えられている"
     assert take(red) == [red], "赤のコスト3以上キャラを加えられない"
+
+
+def test_put_top_to_life_goes_on_top_not_bottom():
+    """「デッキの上から N 枚を **ライフの上** に加える」 は 一番上に置く (該当 50 枚)。
+
+    ⚠ 2026-08-12 まで engine は `life.append` = **ライフの一番下** に置いていた
+      (コード内にも 「技術的には先頭追加だが簡略」 と近似が明記されていた)。
+      上下は実挙動に効く: 次のダメージで最初に離れるのは **上** の札なので、
+      どの【トリガー】が出るか / ST13 系の表向き参照 / ライフ mill 順 がすべて変わる。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    me.deck = [repo.get("OP01-016"), repo.get("OP01-022")] + [repo.get(_FILLER)] * 20
+    me.life = [repo.get("OP01-025")] * 2
+    me.life_face_up = [False, False]
+
+    execute_effect({"put_top_to_life": 2}, st, me, st.players[1], None)
+
+    assert [c.card_id for c in me.life] == [
+        "OP01-016", "OP01-022", "OP01-025", "OP01-025"
+    ], f"ライフの上に (取った順で) 積まれていない: {[c.card_id for c in me.life]}"
+    assert me.life_face_up == [False] * 4, "既定は裏向きのはず"
+
+
+def test_hand_to_self_life_top_and_face_up_flag():
+    """「手札1枚をライフの **上** に加える」 / 「**表向きで** 加える」 を書き分ける。
+
+    ⚠ 2026-08-12 まで engine は 一番下に **裏向きで** 置いていた。 「表向きで加える」 は
+      公式テキストにそう書いてある 7 枚 (EB03-059 / EB04-060 / OP07-097 / OP08-116 /
+      OP09-104 / OP10-103 / OP10-107) だけ。 表向きかどうかは ST13-002 の
+      「表向きライフ全トラッシュ」 / ST13-003 のルール置換 / しらほし系の条件 に直結する。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def run(face_up):
+        st = _state(repo, overlay)
+        me = st.players[0]
+        me.life = [repo.get("OP01-025")] * 2
+        me.life_face_up = [False, False]
+        me.hand = [repo.get("OP01-022")]
+        spec = {"count": 1, "filter": {}}
+        if face_up:
+            spec["face_up"] = True
+        execute_effect({"hand_to_self_life": spec}, st, me, st.players[1], None)
+        return [c.card_id for c in me.life], list(me.life_face_up)
+
+    ids, flags = run(False)
+    assert ids[0] == "OP01-022", f"手札の札がライフの **上** に来ていない: {ids}"
+    assert flags == [False, False, False], "指定が無いのに表向きになっている"
+
+    ids2, flags2 = run(True)
+    assert ids2[0] == "OP01-022" and flags2 == [True, False, False], (
+        f"「表向きで加える」 が反映されていない: {ids2} {flags2}"
+    )
+
+
+def test_face_up_overlay_matches_official_text():
+    """overlay の `hand_to_self_life.face_up` は 公式テキストの 「表向きで」 と 1:1。"""
+    import re as _re
+    cards = {c["card_id"]: c for c in
+             json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+
+    def specs(effs):
+        out = []
+
+        def walk(n):
+            if isinstance(n, list):
+                for x in n:
+                    walk(x)
+            elif isinstance(n, dict):
+                if "hand_to_self_life" in n:
+                    out.append(n["hand_to_self_life"])
+                for v in n.values():
+                    walk(v)
+        walk(effs)
+        return out
+
+    bad = []
+    for cid, effs in ov.items():
+        sp = specs(effs)
+        if not sp:
+            continue
+        text = (cards.get(cid, {}).get("text") or "").replace("\n", " ")
+        if "ライフの上に" not in text:
+            continue          # 別の文脈で使っている (トリガー等) は _text 側で判断済
+        want = "ライフの上に表向きで加え" in text
+        for s in sp:
+            got = bool(s.get("face_up")) if isinstance(s, dict) else False
+            if got != want:
+                bad.append((cid, want, got))
+    assert not bad, f"公式テキストの表向き指定と overlay の face_up が食い違う: {bad[:6]}"

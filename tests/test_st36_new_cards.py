@@ -99,7 +99,10 @@ def test_st36_001_cavendish_on_ko_ai():
 
     assert len(me.hand) == hand_before - 1, "コストの手札1捨てが起きていない"
     assert len(me.life) == life_before + 1, "デッキ上1枚がライフに加わっていない"
-    assert me.life[-1].card_id == "OP01-016", "デッキ最上部がライフに乗るべき"
+    # ⚠ 2026-08-12 是正: 公式は 「デッキの上から1枚までを **ライフの上** に加える」。
+    #   engine は長らく ライフの一番下 (append) に置いており、 本テストも `life[-1]` で
+    #   その近似を正解として固定していた。 上下は次のダメージで最初に離れる札を変える。
+    assert me.life[0].card_id == "OP01-016", "デッキ最上部がライフの **上** に乗るべき"
 
 
 def test_st36_001_cavendish_human_declines():
@@ -139,7 +142,7 @@ def test_st36_002_killer_on_play_with_kid_leader():
 
     assert len(me.life) == life_before + 1, \
         "キッドleader の自ターン登場時にライフが増えていない"
-    assert me.life[-1].card_id == "OP01-016"
+    assert me.life[0].card_id == "OP01-016"   # 公式: ライフの **上** に加える (2026-08-12 是正)
 
 
 def test_st36_002_killer_on_play_no_kid_leader():

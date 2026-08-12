@@ -5612,15 +5612,22 @@ def _execute_effect_body_inner(
                 milled.append(c.name)
             state.push_log(f"  効果: {target} mill {n} → {milled}")
         elif k == "put_top_to_life":
-            # 「自デッキ上 N 枚を 自分のライフへ」
+            # 「自分のデッキの上から N 枚(まで)を、 ライフの **上** に加える」。
+            # ⭐ 2026-08-12 是正: 従来 `me.life.append(...)` = **ライフの一番下** に置いていた
+            #   (コメントも 「技術的には先頭追加だが簡略」 と近似を明記していた)。 該当 50 枚すべての
+            #   公式テキストが 「ライフの **上** に加える」 なので、 先頭へ挿入する。
+            #   ⚠ 上下は実挙動に効く: 次のダメージで最初に離れるのは **上** の札 (= どの【トリガー】が
+            #     出るか / ST13 系の表向き参照 / ライフ mill 順 がすべて変わる)。
             n = int(v)
+            moved = 0
             for _ in range(n):
                 if not me.deck:
                     break
                 c = me.deck.pop(0)
-                me.life.append(c)  # ライフ上 (技術的には先頭追加だが簡略)
-                me.life_face_up.append(False)  # 既定は裏向き
-            state.push_log(f"  効果: デッキ上 {n} 枚をライフへ")
+                me.life.insert(moved, c)          # 取った順を保って ライフの上へ
+                me.life_face_up.insert(moved, False)  # 既定は裏向き
+                moved += 1
+            state.push_log(f"  効果: デッキ上 {n} 枚をライフの上へ")
         elif k == "give_keyword":
             # 動的キーワード付与。spec: {"target": "self", "keyword": "ダブルアタック"}
             #                         or "self" 文字列なら速攻 (デフォルト)
@@ -8866,6 +8873,8 @@ def _execute_effect_body_inner(
             spec = v if isinstance(v, dict) else {"filter": {}, "count": int(v) if isinstance(v, int) else 1}
             filt = spec.get("filter", {})
             count = int(spec.get("count", 1))
+            # 「ライフの上に **表向きで** 加える」 と書いてあるカードだけ表向き (spec の face_up)。
+            _h2l_face_up = bool(spec.get("face_up", False))
             picks_idx: Optional[list[int]] = None
             if isinstance(v, dict) and "_picks_idx" in v:
                 picks_idx = list(v["_picks_idx"])
@@ -8907,18 +8916,23 @@ def _execute_effect_body_inner(
                     if moved >= count:
                         break
                     card = me.hand.pop(i)
-                    me.life.append(card)
-                    me.life_face_up.append(False)  # 既定は裏向き
+                    # ⭐ 公式は 「ライフの **上** に加える」 (該当 13 枚すべて)。 表向き指定は spec の
+                    #   face_up (= 「表向きで加える」 と書いてあるカードだけ true)。 2026-08-12 是正。
+                    me.life.insert(moved, card)
+                    me.life_face_up.insert(moved, _h2l_face_up)
                     moved += 1
-                    state.push_log(f"  効果: {card.name} を自ライフへ")
+                    state.push_log(
+                        f"  効果: {card.name} を自ライフの上へ"
+                        + ("(表向き)" if _h2l_face_up else "")
+                    )
             else:
                 # AI / 候補 <= count: 既存 挙動 (= 先頭 から filter 一致 を 移動)
                 moved = 0
                 new_hand = []
                 for card in me.hand:
                     if moved < count and _matches_filter(card, filt):
-                        me.life.append(card)
-                        me.life_face_up.append(False)  # 既定は裏向き
+                        me.life.insert(moved, card)      # 公式: ライフの **上** に加える
+                        me.life_face_up.insert(moved, _h2l_face_up)
                         moved += 1
                         state.push_log(f"  効果: {card.name} を自ライフへ")
                     else:
