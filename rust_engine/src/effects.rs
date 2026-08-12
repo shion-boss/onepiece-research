@@ -4813,6 +4813,19 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
                 me.don_active -= ret_active;
                 me.don_remaining_in_deck += ret_active;
             }
+            if excess > 0 {
+                // 公式 cardqa_op_08 (OP08-074): 自ドンをドンデッキに戻した時、
+                //   「自分の場のドン!!がドン!!デッキに戻された時」 の効果は発動できる (「はい」)。
+                //   Python(trigger_on_self_don_returned_to_deck) は enqueue → _maybe_resolve なので
+                //   必ず enqueue (inline 発火は対象ズレの原因)。
+                state.last_returned_don_count = excess;
+                if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
+                    enqueue_field_when(state, me_idx, "on_self_don_returned_to_deck");
+                    if maybe_resolve(state).is_err() {
+                        return false;
+                    }
+                }
+            }
             true
         }
         // 「相手のドン N 枚以上付与のレストキャラ M 枚までは次の相手リフレッシュでアクティブにならない」

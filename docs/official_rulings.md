@@ -6741,3 +6741,79 @@ card_id が台帳に載ったので **カード特定が即座** にでき、 �
   **別物**。 書き分けは効いているが **名前が紛らわしい**ので、 触る時は必ず両方を確認する。
 - **e7282edd65ba / OP04-031 ドフラミンゴ**: 対象を選ぶのは **効果を発動したプレイヤー**。
   engine の `_resolve_target` は常に controller 視点で解決する。
+
+---
+
+## 2026-08-12 #19 — `return_self_don_to_match_opp` が「ドンが戻された時」を誘発していなかった (FAQ conformance バッチ、台帳先頭 20 件)
+
+**一次情報** (`db/faq/cardqa_op_08` / OP08-074 ブラックマリア、 qid 9f3055c5da7b):
+
+> Q: この【起動メイン】効果で自分のターン終了時にドン!!をドン!!デッキに戻した時、
+>    自分のカードの「自分の場のドン!!がドン!!デッキに戻された時、」などの効果は発動できますか？
+> A: **はい、できます。**
+
+**是正前の挙動**: `return_self_don_to_match_opp` (OP08-074 = 相手のドン枚数に合わせて自ドンを
+ドンデッキへ戻す) は DON を戻すだけで `trigger_on_self_don_returned_to_deck` を呼んでいなかった。
+`return_self_don_to_deck` / `pay_don` (コスト/効果) は正しく発火するのに、 この 1 primitive だけ
+沈黙していた。 **Python も Rust も同じ overlay を読み同じ手抜きをしていたため差分検証 (MISMATCH=0)
+では原理的に検出できない**。 公式 Q&A (唯一の外部オラクル) でのみ露見した。
+
+**是正**: Python (`engine/effects.py` `return_self_don_to_match_opp`) と Rust
+(`rust_engine/src/effects.rs` 同キー) の両方で、 超過分 (excess>0) を戻した後に
+`trigger_on_self_don_returned_to_deck` を発火 (Rust は `state.last_returned_don_count` を更新して
+`enqueue_field_when` → `maybe_resolve`)。 既存の DON 返却 primitive と同じ発火経路に揃えた。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+`test_return_don_to_match_opp_fires_on_don_returned_trigger` (OP06-042 =「戻された時」でドロー を
+場に置き、 超過返却で hand+1 を assert) + 対照 `_no_excess_no_trigger` (超過0で不発火)。
+
+**隣接だが未修正 (次バッチ候補)**: 離脱置換コストとしての `return_self_don_to_deck`
+(EB04-030 / EB04-031 / OP12-070 / OP14-061 / OP15-069 の 5 枚、 `engine/effects.py` の
+replace-cost 分岐 line ~15096) も「戻された時」を発火しない。 一般則としては同型だが、
+**置換効果 (被KO/被離脱の解決中) にトリガーを差し込む文脈は順序影響が読み切れず、 かつ
+この経路を直接問う公式 Q&A が無い**。 誤った発火順で盤面を壊すリスクを避け、 このバッチでは
+`return_self_don_to_match_opp` のみ是正。 replace-cost 側は専用の調査 (対応する Q&A の特定 or
+置換解決中のトリガー順の裁定) が要る。
+
+### conform / n/a で **問題なかった** もの (再調査回避のため記録、 台帳先頭 20 件)
+
+- **OP16-002 等「パワー8000のキャラ」** (9e5f935e144b): `reveal_hand_with_filter` の `power_eq` は
+  `card.power == 8000` 完全一致 (`effects.py:1485-1492`)。 手札札は印刷値=現在値。 7000/9000 は不一致。
+  公式「8000ちょうど」 conform。
+- **OP09-097/098 negate「デッキに何枚でも入れる」** (9e82bfd9a4aa): 4枚制限/「何枚でも入れる」は
+  デッキ構築ルールで engine が対戦中モデルしない → **n/a**。
+- **OP09-081 リーダー 起動メイン disable** (9edce58d76ac): `disable_opp_on_play_through_opp_turn` は
+  on_play のみ gate (`effects.py:12583`)。 相手が次ターンに登場させた【登場時】は無効 (Q756「いいえ」)、
+  アタック時は不変 (Q757「はい」) と整合。 conform。
+- **OP01-055 イベント レスト2でドロー** (9ee4f638a2ff): `optional_cost_then` で cost(rest2) 辞退可、
+  払わなければ何も起きない。 conform。
+- **OP01-064【アタック時】戻したキャラのカウンター** (9f10e7ede4ea): `return_to_hand` で手札に戻った
+  カードは同バトルのカウンターステップで手札からカウンター使用可 (特別処理不要)。 conform。
+- **OP03-005 起動メイン 自己犠牲** (9f79a256d48f): `trash_at_self_turn_end` flush は現場のキャラのみ
+  反復 (`effects.py:13616`)。 手札/デッキへ移動後は場に無く trash されない。 公式「移動しません」 conform。
+- **OP16-060 センゴク 大将3枚まで登場** (9f7a09230bae): `play_from_hand` limit=3 は「3枚まで」=0..3。
+  人間 modal で 1枚/2枚 選択可。 公式「はい」 conform。
+- **OP15-098 空島ルフィ replace** (9fa8426e33ec): 既決 (docs #OP15-105/098/090、 truly_original_power_ge6000)。 conform。
+- **ST06-015 メイン ドロー→コスト-2** (9fbc5c4f3403): `do:[draw1, cost_minus]` 逐次=引いてから対象選択
+  (「先に書いてある順」)。 conform。
+- **ST11-001【アタック時】FILM サーチ** (9fe0c453083e): `search_top_n` depth=1 limit=1 rest_remain=bottom。
+  FILM1枚追加で残り0枚→bottom は何もしない。 conform。
+- **EB04-001 ボニー 起動メイン** (a0056236fede): 既決 (docs #EB04-001 空cost optional_cost_then、
+  ライフ1/0でも-1000は実行しライフ手札化は辞退)。 conform。
+- **EB01-038 オカマ道【カウンター】redirect** (a08102465356): `redirect_attack one_self_character_any`
+  =自アクティブキャラへ変更可。 既決 docs。 conform。
+- **OP11-041 ナミ リーダー** (a1098ffd6cac): life_to_hand→hand_to_self_life で「ライフが離れた時」発火。
+  既決 docs。 conform。
+- **OP04-004 起動メイン アラバスタ ドン付与** (a161a14315e5): `attach_rested_don` はコストエリアの
+  レストドンを付与。 既にキャラへ付与済のドンを移す効果ではない。 公式「いいえ」 conform。
+- **ST13-001 リーダー ライフ加える** (a1a531366f68): filter `power_ge:7000` は `_matches_filter_ip` で
+  現在パワー (ip.power=ドン込み、 `effects.py:12358`) 判定。 印刷6000→ドンで7000+ は対象。 公式「はい」 conform。
+- **EB04-043 カク replace_ko** (a1bb5cca1808): 同時離脱=全victim残す/トラッシュ3枚デッキ下 の択一。
+  once_per_turn+dedup。 OP15-098 と同型 (既決 docs)。 conform。
+- **OP15-114【登場時】ライフ表向きコスト** (a1d130000eff): cost=`flip_life_face_up` payability は
+  一番上が裏向きライフ必須 (`_flip_life_targets`)。 表向き/ライフ0では払えず optional_cost_then 不発。
+  公式「いいえ」 conform。
+- **OP03-043 ガイモン on_opp_life_taken** (a21b98ca6eca): 与ダメージ時のみ。 効果でライフを手札/
+  トラッシュ移動しても発火せず。 既決 docs。 conform。
+- **OP09-081 リーダーのデッキに登場時カード** (a237030cfbe9): 「登場時カードをデッキに入れられるか」は
+  デッキ構築確認 (engine 非対象) → **n/a**。 無効化自体は Q756 で検証済。

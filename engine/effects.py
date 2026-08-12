@@ -7834,6 +7834,13 @@ def _execute_effect_body_inner(
                 me.don_remaining_in_deck += ret_active
             if excess > 0:
                 state.push_log(f"  効果: 自ドン{excess}をドンデッキへ (相手{opp_total}枚に合わせる)")
+                # 公式 cardqa_op_08 (OP08-074): この起動メインで自ドンをドンデッキに戻した時、
+                #   「自分の場のドン!!がドン!!デッキに戻された時」 等の効果は 発動できる (「はい」)。
+                #   return_self_don_to_deck / pay_don と同様に trigger を発火する。
+                if state.effects_overlay:
+                    trigger_on_self_don_returned_to_deck(
+                        state, me, opp, state.effects_overlay, count=excess
+                    )
         elif k == "swap_base_power_self_leader_chara":
             # 「自分のリーダーとキャラ1枚を選び、 元々のパワーをこのバトル中入れ替える」 (OP14-009)。
             # AI: 最高 power の自キャラと leader を入替。 turn_base_power_override 使用。
