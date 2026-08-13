@@ -6999,3 +6999,79 @@ cron `optcg-faq-conformance`。 engine/overlay は無変更 (= 全件 既存挙�
   (実測 合計 0/3 で起動メイン候補 0)。
 - **e3babc461410 / OP11-012**: 「相手がイベントを発動した時」 は **イベントの効果を解決した後**
   に解決する = イベントの【カウンター】KO を先回りして防げない。
+
+---
+
+## 公式 Q&A conformance バッチ (2026-08-12、 cron `optcg-faq-conformance`)
+
+20 件処理 = **fixed 1 / conform 15 / n/a 1 / escalated 3**。engine コードは無変更、
+`db/card_effects.json` overlay のみ 1 件是正。回帰テスト + 全走査ガードを
+`tests/test_effect_interactions.py` に追加。
+
+### 【fixed】EB02-035 サンジ&プリン【登場時】 — don-比較条件の欠落 (ac39489df89b)
+
+**一次情報** (cardqa_eb_02, qid `ac39489df89b`, EB02-035):
+> Q: 自分の場のドン7、相手の場のドン6のとき、ST18-005 ルフィ太郎の【登場時】ドン-1で
+>    自分のドン1枚をドンデッキに戻して このカードを登場させた。この【登場時】効果で
+>    カード1枚を引くことはできますか？
+> A: はい、できます。
+
+公式テキスト = 「【登場時】自分の場のドン‼が相手の場のドン‼の枚数**以下の場合**、カード1枚を引く」。
+overlay の on_play draw は `conditions:[{self_turn:true}]` **のみ** で don-比較条件が欠落しており、
+self_don > opp_don でも **常にドロー** していた (= タダドロー)。`don_diff_le:0`
+(= self_don − opp_don ≤ 0 = self_don ≤ opp_don) を追加して是正。EB02-035 / _p1 / _p2 の 3 variant。
+`don_diff_le` は Python (effects.py:1954) / Rust (effects.rs:809) の両方に実装済 = overlay-only 是正で
+差分は保たれる。実測: self_don7>opp6 → draw 0、self_don6<=opp6 → draw 1。
+
+⭐ **全走査**: `_text` に 「自分の場のドン‼が相手の場のドン‼の枚数以下の場合」 を含む overlay
+エントリを全掃引 → don-比較条件が付くのは EB02-035 だけが欠落、他 (EB02-041/EB03-035/OP06-061/065/
+067/069/077/OP07-062/065/066/068/069/070/078/OP12-041/073/078/OP10-075/P-093/EB03-038/EB04-038/
+OP05-069/071/OP09-066 等) は全て `don_diff_le` 保持。「相手ドンN枚以上/自場ドンN以上」等の**絶対**
+ドン条件カード (EB02-061/ST18-001/OP03-066/OP08-060 等) は別種条件 (opp_don_ge/self_don_ge) で本件対象外。
+`test_don_le_opp_don_gate_present_all_cards` で恒久ガード。
+
+### 【escalated】OP07-059 フォクシー【アタック時】 — リーダー+キャラの独立2択 (a8b1eab174ba / a9149a4ed513)
+
+**一次情報** (cardqa_op_07, OP07-059):
+> Q1: この【アタック時】で、相手のレストのリーダーとレストのキャラそれぞれ1枚ずつ、合計2枚を
+>     選べますか？ → A: はい、できます。
+> Q2: 相手のリーダーがアクティブの場合、レストのキャラ1枚を選べますか？ → A: はい、できます。
+
+公式テキスト = 「相手のレストの、リーダーとキャラ1枚までを選ぶ」 = **リーダー最大1枚 AND キャラ
+最大1枚 = 最大2枚**の独立選択。overlay は `keep_opp_rested_inplay_next_refresh:
+{target_rest:"one_opp_chara_or_leader"}` = **1枚のみ**の択一で under-select。
+是正には「相手レストのリーダー最大1 + キャラ最大1を独立に選び両方 keep-rested」する新 target spec +
+Rust 追従が要る (関数シグネチャ/データ持ち方に触る)。OP07-059 は既に別件 (コロン前記号コスト gate、
+37枚 escalated バッチ) にも載る。**自動修正の範囲外 → escalated**。
+
+### 【escalated】OP15-022 ブルック — リーダー効果 negate 時の即時デッキアウト敗北 (a99fd7841547)
+
+**一次情報** (cardqa_op_15, OP15-022):
+> Q: ブルック使用中に自分のデッキが1→0になり、その後このターン中に相手が「OP09-097 闇水」で
+>    このリーダーの効果を無効にした場合、敗北しますか？ → A: はい、無効になった時点でデッキが0なら敗北。
+
+ブルックの静的 「デッキ0でも即敗北せずターン終了時に敗北」 (deck_out_defer) が **negate で外れた瞬間**、
+デッキ0なら**即座に**敗北を再判定する必要がある。⑦ (2026-08-05) で END-phase 遅延 + 双方同時敗北は
+実装したが、**保護静的が相手効果で無効化された瞬間の即時敗北再判定は未実装**。敗北タイミング機構の
+変更 (defeat-timing arch) のため、既存の escalated (defeat-timing) 方針どおり **escalated**。
+
+### conform (公式どおり = 是正不要、 再調査回避のため記録、 2026-08-12)
+
+- **a8186897252f** OP09-052: on_ko + opp_turn + by_opp_effect + cost discard_hand:1。コスト支払いタイミングは公式どおり (相手効果でKO時に手札1枚捨て)。
+- **a96fa3b80cf4** OP10-091: optional_cost_then + ko `..._le_1cost` = up-to-1 (0可) + mill_self_top:2 は独立ステップ。KOせずミルのみ可。
+- **a9be1d96c791** OP05-040 鳥カゴ: end_of_turn KO は `optional` 無し = self_don_ge:10 で必ず発動。(対象範囲 相手のみ/レスト非限定 は別途観測済で本 qid の争点外)。
+- **aa005b70147e** OP15-039: return_to_hand(自ドレスローザ) → play_from_hand(cost_eq:3 ドレスローザ)。戻したコスト3を再登場可。
+- **aa6c2c63da80** OP15-012: attach_rested_don owner_of_target:true = 常に対象の持ち主のドン。自他クロス付与不可。
+- **aa95f162aca9** OP04-033: rest+schedule untap_don は if:leader_feature ドンキホーテ海賊団 の中。特徴無しならドン活性化なし。
+- **aad486e25341** OP12-003 系: reveal_hand_with_filter count:2 filter category:EVENT に distinct 制約なし = 同ナンバー2枚公開可。
+- **ab320e134b58** ST12-011: power_pump 条件 self_hand_count_le:5 は on_attack 時判定、duration next_self_turn_start。付与後は手札増えても持続。
+- **ab3e1d1cfeca** OP09-061: on_self_don_returned_to_deck (returned_don_count_ge:2 + self_turn + once_per_turn) はブラックマリア等他カードのドン戻し (自ターン中) でも発火。
+- **ab6b707bbbec** OP10-027: cost = return_self_to_deck_bottom(場のこのキャラ) + trash_to_deck(トラッシュのパワー1000錦えもん1枚)。トラッシュ錦えもん2枚は不可。
+- **aba6aa22b14a** OP02-062: optional_cost_then(cost trash_self_hand_random:2) は payability-gate。手札<2 で効果不発だが登場/アタック自体は可能。
+- **abbdd6e7fbb8** OP02-025: reduce_play_cost_filtered_turn は非マッチキャラ (ロー無償登場) を挟んでも次のワノ国コスト-1が残る (2026-08-05 fixed の再確認)。
+- **ac38d0346bfe** OP10-042×OP07-080 カク: base3 → ウソップ static+1=4 → カク cost_minus-3 → static+1 の gate (cost_ge:2 を base_cost で判定) が 0<2 で不成立 → 再付与されず → コスト0 (実測、公式どおり)。
+- **ac5253d33ea9** ST13-011: on_play if:self_life_le:2 で速攻付与。登場時に付与された速攻はその後ライフ3枚になっても持続、同ターンアタック可。
+
+### n/a (engine 状態変化に落ちない)
+
+- **a989473035ca** OP04-058: 【トリガー】で登場したキャラの【登場時】と本カードの【相手のターン中】の発動順は「自分の同時発動効果は自分が順序決定」の一般トリガー順序則。カード固有の engine 状態変化ではない。

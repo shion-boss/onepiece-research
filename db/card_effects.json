@@ -3866,6 +3866,9 @@
    "conditions": [
     {
      "self_turn": true
+    },
+    {
+     "don_diff_le": 0
     }
    ],
    "do": [
@@ -3898,6 +3901,9 @@
    "conditions": [
     {
      "self_turn": true
+    },
+    {
+     "don_diff_le": 0
     }
    ],
    "do": [
@@ -3930,6 +3936,9 @@
    "conditions": [
     {
      "self_turn": true
+    },
+    {
+     "don_diff_le": 0
     }
    ],
    "do": [
