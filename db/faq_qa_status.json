@@ -9943,9 +9943,9 @@
   "files": [
    "cardqa_op_14.json"
   ],
-  "note": "",
+  "note": "OP14-020 起動メイン: cost(rest_own_card)は無条件で払い、DON活性化+登場禁止はコロン後条件(cost5+キャラ)で gate。overlay conditional 構造どおり。実測: 該当。",
   "q": "自分や相手の場にコスト5以上のキャラがない時に、この【起動メイン】を起動し、自分のカード1枚をレストにすることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b125d21282df": {
   "a": "はい、できます。",
@@ -9955,9 +9955,9 @@
   "files": [
    "cardqa_op_08.json"
   ],
-  "note": "",
+  "note": "OP08-118 登場時: -3000/-2000/KO は3つの独立 target(one_opponent_character_any×2 + one_opponent_character_power_le_3000)=別キャラ選択可。conform。",
   "q": "この【登場時】効果で、パワー-3000するキャラとパワー-2000するキャラと、KOするパワー3000以下のキャラは、それぞれ別のキャラを選べますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b12c05e0ac91": {
   "a": "はい、なります。この場合、「ロロノア・ゾロ」の効果によって代わりにレストになったキャラではなく、この【登場時】効果で選ばれた「ロロノア・ゾロ」が次の相手のリフレッシュフェイズでアクティブにならない状態になります。",
@@ -9967,9 +9967,9 @@
   "files": [
    "cardqa_st_24.json"
   ],
-  "note": "",
+  "note": "ST24-004 登場時が相手 PRB02-006 ゾロ を選び rest→ゾロの replace_rest で代わりに他キャラをレスト。公式: '次の相手リフレッシュでアクティブにならない' は代替レストされたキャラでなく選ばれたゾロに付く。engine の overlay は stay_rested_next_refresh を filter{rested:true} で別選択→代替キャラ(rested)に付き選択ゾロ(非rested)に付かない=乖離。正しくは前段 rest 対象を跨いで束縛が必要=primitive 間の target 束縛(アーキ変更)。かつ rest primitive が replace_rest を経由するかも要検証。escalate。",
   "q": "この【登場時】効果で相手の「PRB02-006 ロロノア・ゾロ」を選び、相手は「ロロノア・ゾロ」の効果で代わりに他の相手のキャラをレストにしました。この場合、この「ロロノア・ゾロ」は次の相手のリフレッシュフェイズでアクティブにならない状態になりますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "b14f323115e3": {
   "a": "はい、発動できます。この場合、リーダーはパワーが-5000になります。",
@@ -9979,9 +9979,9 @@
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-002 起動メイン: リーダーpower既に0でも optional_cost_then の power_pump-5000 は無条件実行→-5000。実測 leader.power=-5000。負値許容 conform。",
   "q": "他の効果で自分のアクティブのリーダーのパワーが0になっているとき、この【起動メイン】効果を発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b21a842820a4": {
   "a": "この場合、そのまま公開したカードをデッキの一番上に裏向きで戻します。",
@@ -9992,9 +9992,9 @@
   "files": [
    "cardqa_st_22.json"
   ],
-  "note": "",
+  "note": "ST22-003/006 登場時 reveal_top_then rest_remain:top → 白ひげ海賊団特徴なしなら公開札をデッキ上へ裏向き戻す。overlay どおり conform。",
   "q": "この【登場時】効果で、自分のデッキの上から1枚を公開し、そのカードが『白ひげ海賊団』を含む特徴を持たないカードであった場合はどうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b2428d967419": {
   "a": "この【登場時】効果を発動したプレイヤーが、相手の手札を裏向きの状態で2枚選びます。",
@@ -10004,9 +10004,9 @@
   "files": [
    "cardqa_st_10.json"
   ],
-  "note": "",
+  "note": "ST10-010 登場時: 相手手札7+ で発動側が裏向き2枚選ぶ=非公開選択(相手が選ぶのではない)。裏向き=無情報選択=random と分布同値。trash_opp_hand_random:2 で conform。",
   "q": "相手の手札が7枚以上ある場合、この【登場時】効果で捨てるカードはどちらのプレイヤーが選びますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b242adcc13f4": {
   "a": "いいえ、されません。自分のトラッシュにカード名が「クロマーリモ」のカードとカード名が「チェス」のカードがそれぞれ1枚以上あるときに、パワーが+2000されます。",
@@ -10016,9 +10016,9 @@
   "files": [
    "cardqa_op_08.json"
   ],
-  "note": "",
+  "note": "OP08-006 静的+2000は self_trash_has_named_all[クロマーリモ,チェス]。チェスマーリモ(自名)では成立しない=公式どおり。conform。",
   "q": "自分のトラッシュに他の「チェスマーリモ」がある場合、このキャラはパワー+2000されますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b261837d67e3": {
   "a": "はい、できます。",
@@ -10028,9 +10028,9 @@
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "",
+  "note": "OP12-020(L) 起動メイン: 相手キャラのブロックでそのキャラとバトル→self_leader_battled_opp_chara_this_turn=True→untap可。2026-08-10 doc どおり conform。",
   "q": "このカードが相手のリーダーにアタックして、相手がキャラの【ブロッカー】を発動し、そのキャラとバトルを行いました。バトルの後、この【起動メイン】効果で、このカードをアクティブにすることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b2632a27a8ef": {
   "a": "いいえ、できません。",
@@ -10040,9 +10040,9 @@
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "",
+  "note": "OP01-047 ロー 登場時 optional_cost_then cost=return_self_chara_to_hand で OP05-100 エネルを戻す→エネルの replace_leave(代わりにライフ1トラッシュ)使用時、公式: 戻し(コスト)未達→cost3登場できない(いいえ)。engine の return_self_chara_to_hand cost handler(effects.py:10618)は me.hand.append+characters除去を直接行い replace_leave 機構を経由しない→エネルは常に手札に戻り cost 成立→cost3 が常に登場(実測: life不変,cost3登場)。cost 起因の離脱を replace_leave/replace_ko/replace_rest 機構に通すのはアーキ変更(cost handler 群が state を直接 mutate)。return_self_chara_to_deck_bottom/ko_self_chara も同型。escalate。",
   "q": "「OP01-047 トラファルガー・ロー」の「自分のキャラ1枚を持ち主の手札に戻すことができる:」でこのキャラを選び、代わりに自分のライフを1枚トラッシュに置いた場合、「OP01-047 トラファルガー・ロー」の効果で、コスト3以下のキャラを手札から登場できますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "b27e3771e8a3": {
   "a": "はい、使用できます。「このキャラ以外の」はカード名ではなくこのキャラ自体を指します。",
@@ -10052,9 +10052,9 @@
   "files": [
    "cardqa_st_01.json"
   ],
-  "note": "",
+  "note": "ST01-005 アタック時: 'このキャラ以外の'=target self_team_except_self(identity除外,名前でない)→同名ジンベエ2枚目を選べる。conform。",
   "q": "このカードが自分の場に2枚ある場合、一方のジンベエでもう一方のジンベエにこの【アタック時】効果を使用できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b2d8fb7bb24b": {
   "a": "はい、加えられます。",
@@ -10064,9 +10064,9 @@
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-041 起動メイン search filter=feature:ワノ国(色制限なし)→緑以外のワノ国も手札に加えられる。conform。",
   "q": "この【起動メイン】効果で、緑以外の特徴《ワノ国》を持つカードを手札に加えられますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b2e029fda5bb": {
   "a": "はい、正しいです。",
@@ -10076,9 +10076,9 @@
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP02-082 バーンディ・ワールド: '数値は正しいですか'=印字値確認。overlay power_pump +792000(pay_don8)で印字どおり忠実。conform。",
   "q": "この【起動メイン】効果の数値は正しいですか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b2e0bff7287f": {
   "a": "はい、できます。",
@@ -10088,9 +10088,9 @@
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "",
+  "note": "OP16-101(EVENT) メイン: PlayEvent が me.trash.append(card) 後に trigger_main_event(8-4-2)→トラッシュ9→10 で self_trash_count_ge:10 成立。実測: 相手cost2キャラKO発火。conform(OP15-097 と同機構)。",
   "q": "自分のトラッシュが9枚の時にこのカードの【メイン】効果を発動し、自分のトラッシュが10枚になりました。この場合、この効果で相手のコスト2以下のキャラ1枚をKOすることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b31263935099": {
   "a": "はい、できます。",
@@ -10101,9 +10101,9 @@
   "files": [
    "cardqa_op_10.json"
   ],
-  "note": "",
+  "note": "OP10-017 ロック登場時→OP10-008 スコッチ登場(場5枚で差替)→スコッチ登場時→別ロック登場、の連鎖可否。公式はい(どのキャラを差替トラッシュするか player 選択)。engine は効果召喚の場5枚時に trash_weakest_chara_for_field_full で最弱を自動トラッシュ(clobber回避のため人間でも自動、core.py:863 doc)→ロックが最弱でなければ場に残り後続スコッチの'ロック不在'条件 False=連鎖不能。player 選択の粒度を効果召喚時に持たせるのはアーキ変更(clobberリスク)。escalate。",
   "q": "「ロック」でも「スコッチ」でもない自分のキャラが4体ある時、「ロック」を登場し【登場時】効果を発動しました。この時、「スコッチ」を登場させるために「ロック」をトラッシュに置いた場合、その「スコッチ」の【登場時】効果でさらに別の「ロック」を登場させることは出来ますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "b313633622d2": {
   "a": "はい、できます。",
@@ -10113,9 +10113,9 @@
   "files": [
    "cardqa_op_09.json"
   ],
-  "note": "",
+  "note": "OP09-032 相手のアタック時: untap:self は現レスト状態に依らず起こす→アタック時効果でレストされた後でもアクティブ化可。conform。",
   "q": "相手のキャラがアタックし、【アタック時】効果でこのキャラがレストになりました。この時、この【相手のアタック時】効果でこのキャラをアクテイブにすることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b33889651cf0": {
   "a": "はい、発動できます。\nデッキを見ている間はデッキ枚数が0枚とはみなされません。",
@@ -10127,9 +10127,9 @@
    "cardqa_op_01.json",
    "cardqa_st_03.json"
   ],
-  "note": "",
+  "note": "OP01-088/ST03-010 look_top_reorder depth3: デッキ2枚以下でもクラッシュせず動作(見ている間0枚扱いにしない)。実測 deck=2/0 とも OK。conform。",
   "q": "デッキが2枚以下の場合、効果は発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b3570581bcc7": {
   "a": "いいえ、されません。この効果は、自分のキャラエリアに『元々のパワー7000以上の「サン五郎」』か『元々のパワー7000以上の「サンジ」』がある場合に、手札のこのカードがコスト-5される効果です。",
@@ -10139,9 +10139,9 @@
   "files": [
    "cardqa_st_26.json"
   ],
-  "note": "",
+  "note": "ST26-001 in_hand_cost_minus:5 条件 truly_original_power_ge:7000。元々P6000サンジ→cond False(コスト-5されない)/P7000→True。実測どおり conform。",
   "q": "自分の場に元々のパワー6000以下の「サンジ」がいる場合、手札のこのカードはコスト-5されますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b37ab3bcc4c3": {
   "a": "いいえ、できません。",
@@ -10151,9 +10151,9 @@
   "files": [
    "cardqa_st_19.json"
   ],
-  "note": "",
+  "note": "ST19-004 起動メイン optional_cost_then cost=trash_to_deck: トラッシュ空で payability False→効果不発(ドン付与されない)。実測 trash=[] で attach 0。conform。",
   "q": "自分のトラッシュのカードが無い場合、この【起動メイン】効果で自分のリーダーかキャラ1枚にレストのドン!!1枚までを付与することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b37b1fa49074": {
   "a": "はい、できます。",
@@ -10163,9 +10163,9 @@
   "files": [
    "cardqa_op_11.json"
   ],
-  "note": "",
+  "note": "OP11-043 相手のアタック時: 条件 self_chara_only_feature_contains:ジェルマ は解決時評価。非ジェルマキャラが先に離脱→残り全ジェルマ→True。実測 alone=True/+非ジェルマ=False。conform。",
   "q": "自分の場にこのキャラと、『ジェルマ』を含む特徴を持たないキャラ1枚がいます。相手のキャラがアタックした時、その【アタック時】効果などで自分の『ジェルマ』を含む特徴を持たないキャラが場を離れた場合、このキャラの【相手のアタック時】効果は発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b3ad86312aa0": {
   "a": "いいえ、できません。",
@@ -10175,9 +10175,9 @@
   "files": [
    "cardqa_prb_01.json"
   ],
-  "note": "",
+  "note": "PRB01-001(L) 起動メイン give_rush target=one_self_chara_no_on_play_cost_le_8。登場時効果を'持つ'キャラは発動有無に依らず _has_on_play で除外→速攻付与不可。conform。",
   "q": "「【登場時】自分の手札1枚を捨てることができる：」などの効果を持つコスト8以下のキャラは、その発動コストを支払わず【登場時】効果を発動しなかった場合、このリーダーの【起動メイン】効果で【速攻】を得ることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b3b4875e3ae1": {
   "a": "はい、勝利します。",

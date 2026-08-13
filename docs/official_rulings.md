@@ -7507,3 +7507,69 @@ overlay の `do` は `optional_cost_then` (cost = 自キャラ1枚を手札へ /
 - **dfa04e60626d** EB03-055: 【KO時】の効果ダメージでも ライフ0 の相手には勝てる。
 - **df8dd284d301** OP06-097: 「相手の手札1枚を捨てる」 は **発動側が裏向きのまま選ぶ** ので、
   `trash_opp_hand_random` (rng で 1 枚) が忠実なモデル。 「相手が選ぶ」 でも 「最悪札」 でもない。
+## 公式どおりで **問題なかった** もの (2026-08-13 バッチ 5)
+
+いずれも overlay 構造 + 最小シナリオ実測で公式回答と一致。engine 変更なし。
+
+- **b0fadb2b8a9c** OP14-020 ミホーク(L) 起動メイン: cost=`rest_own_card`(+once)は無条件で払え、
+  `untap_don:3`+`block_chara_play` は `conditional{self_chara_filtered_count_ge cost_ge:5}` で gate。
+  場にコスト5+キャラが無くても「カード1枚をレスト」だけ行い、ドン活性化と登場禁止は適用されない。公式=はい。
+- **b125d21282df** OP08-118 登場時: -3000 / -2000 / KO は3つの独立した target
+  (`one_opponent_character_any`×2 + `one_opponent_character_power_le_3000`) → それぞれ別キャラを選べる。公式=はい。
+- **b14f323115e3** OP04-002 イガラム 起動メイン: リーダーが他効果で既にパワー0でも
+  `optional_cost_then` の cost `power_pump:-5000(self_leader)` は無条件実行。実測 leader.power=-5000。
+  負のパワーを許容。公式=はい(-5000 になる)。
+- **b21a842820a4** ST22-003 / ST22-006 登場時 `reveal_top_then rest_remain:top`:
+  公開札が『白ひげ海賊団』特徴を持たない場合、そのままデッキの一番上に裏向きで戻す。公式どおり。
+- **b2428d967419** ST10-010 ロー 登場時: 相手手札7枚以上のとき **発動側が裏向きで2枚選ぶ**
+  (相手が選ぶのではない)。裏向き=無情報選択で outcome 分布は random と同値 → `trash_opp_hand_random:2` で忠実。公式どおり。
+- **b242adcc13f4** OP08-006 静的+2000: `self_trash_has_named_all:[クロマーリモ, チェス]`。
+  自名「チェスマーリモ」がトラッシュにあっても成立しない(クロマーリモ 1枚+チェス 1枚が要る)。公式=いいえ。
+- **b261837d67e3** OP12-020(L) 起動メイン: 相手がキャラの【ブロッカー】でブロックしそのキャラとバトルした場合、
+  `self_leader_battled_opp_chara_this_turn`=True → バトル後に起動メインでリーダーをアクティブにできる。公式=はい
+  (2026-08-10 の _doc「実際にバトルした相手で判定」と整合)。
+- **b27e3771e8a3** ST01-005 ジンベエ アタック時: 「このキャラ以外の」は target `self_team_except_self`
+  (identity 除外、カード名でない)。場に2枚あれば一方でもう一方を選べる。公式=はい。
+- **b2d8fb7bb24b** OP01-041 光月モモの助 起動メイン: search filter=`feature:ワノ国`(色制限なし) →
+  緑以外の《ワノ国》カードも手札に加えられる。公式=はい。
+- **b2e029fda5bb** OP02-082 バーンディ・ワールド:「数値は正しいですか」=印字値確認。
+  overlay `power_pump:+792000`(`pay_don:8`)で印字どおり忠実に保持。公式=はい。
+- **b2e0bff7287f** OP16-101(EVENT) メイン: `PlayEvent` が `me.trash.append(card)` 後に
+  `trigger_main_event`(公式 8-4-2) を呼ぶ → トラッシュ9→10 で `conditional{self_trash_count_ge:10}` 成立、
+  相手コスト2以下キャラをKO可。実測: KO発火。公式=はい(OP15-097 と同機構)。
+- **b313633622d2** OP09-032 相手のアタック時: `untap:self` は現在のレスト状態に依らず起こす。
+  相手の【アタック時】で先にレストされても、この効果でアクティブにできる。公式=はい。
+- **b33889651cf0** OP01-088 / ST03-010 `look_top_reorder depth:3`: デッキ2枚以下でもクラッシュせず動作
+  (デッキを見ている間は0枚扱いにしない)。実測 deck=2 / deck=0 とも OK。公式=はい。
+- **b3570581bcc7** ST26-001 おそばマスク `in_hand_cost_minus:5` 条件 `truly_original_power_ge:7000`:
+  元々パワー6000の「サンジ」では成立せず(コスト-5されない)、7000以上で成立。実測 P6000→False / P7000→True。公式=いいえ。
+- **b37ab3bcc4c3** ST19-004 ヒナ 起動メイン `optional_cost_then` cost=`trash_to_deck`:
+  トラッシュが空だと payability False → 効果不発(レストのドンを付与できない)。実測 trash=[] で attach 0。公式=いいえ。
+- **b37b1fa49074** OP11-043 相手のアタック時: 条件 `self_chara_only_feature_contains:ジェルマ` は
+  **解決時**に評価。非ジェルマキャラが先に離脱すれば残り全ジェルマ→True。実測 単独=True / +非ジェルマ=False。公式=はい。
+- **b3ad86312aa0** PRB01-001 サンジ(L) 起動メイン `give_rush` target `one_self_chara_no_on_play_cost_le_8`:
+  【登場時】効果を「持つ」キャラは発動有無に関わらず `_has_on_play` で除外→速攻を付与できない。公式=いいえ。
+
+### escalated (置換効果 × コスト/束縛のアーキ要件、 2026-08-13 バッチ 5)
+
+3 件はいずれも **置換効果 (replace_leave / replace_rest) の適用機構をコスト払いや primitive 間の
+target 束縛に通す必要があり**、 現アーキ (cost handler が state を直接 mutate / 各 primitive が独立に
+target 選択) では一意に直せないため escalate。
+
+- **b2632a27a8ef** OP01-047 ロー 登場時 `optional_cost_then` cost=`return_self_chara_to_hand` で
+  OP05-100 エネルを戻すとき、エネルの `replace_leave`(代わりに自ライフ1をトラッシュ)を使うと公式は
+  「コスト(手札に戻す)未達 → コスト3以下キャラを登場できない=いいえ」。だが engine の
+  `return_self_chara_to_hand` cost handler (effects.py:10618) は `me.hand.append` + characters 除去を
+  **直接**行い replace_leave 機構を経由しない → エネルは常に手札へ戻り cost 成立 → cost3 が常に登場
+  (実測: life 不変・cost3 登場)。**コスト起因の離脱を replace_leave/replace_ko/replace_rest に通す**のは
+  アーキ変更 (cost handler 群の state 直接 mutate)。同型: `return_self_chara_to_deck_bottom` / `ko_self_chara`。
+- **b12c05e0ac91** ST24-004 ロー&ベポ 登場時が相手 PRB02-006 ゾロ を選び rest → ゾロの置換で代わりに
+  他キャラをレスト。公式:「次の相手リフレッシュでアクティブにならない」は代替レストされたキャラでなく
+  **選ばれたゾロ**に付く。engine overlay は `stay_rested_next_refresh` を `filter{rested:true}` で別選択 →
+  代替キャラ(rested)に付き選択ゾロ(非rested)に付かない=乖離。正しくは前段 rest 対象を跨いで束縛する必要
+  (primitive 間の target 束縛=アーキ変更)。加えて rest primitive が replace_rest を経由するかも要検証。
+- **b31263935099** OP10-017 ロック登場時→OP10-008 スコッチ登場(場5枚で差替)→スコッチ登場時→別ロック登場、
+  の連鎖可否。公式=はい(どのキャラを差替でトラッシュするか player 選択)。engine は効果召喚の場5枚時に
+  `trash_weakest_chara_for_field_full` で最弱を **自動**トラッシュ(clobber回避のため人間でも自動、core.py doc) →
+  ロックが最弱でなければ場に残り後続スコッチの「ロック不在」条件 False=連鎖不能。効果召喚時に player 差替選択の
+  粒度を持たせるのはアーキ変更(clobber リスク)。
