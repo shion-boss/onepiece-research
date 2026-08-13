@@ -15750,14 +15750,20 @@ def trigger_lifecard_trigger(
         return False
     if not auto_fire:
         return False
-    # 発動可能な効果が 1 つでもあるか (= 発動成立判定)
-    # ⚠ 「発動できる」 = 条件成立 **かつ 発動コストを払える** (公式 10-1-5 + 4-10)。
-    #   払えないのに宣言すると カードはライフを離れてトラッシュへ行き、 支払いに失敗して
-    #   **何も起きずにカードだけ失う** (2026-08-11 是正)。
-    fireable_exists = any(
-        _trigger_effect_activatable(state, defender, e) for e in trigger_effects
+    # 発動 **宣言** できる効果が 1 つでもあるか。
+    # ⭐ 「効果の条件が不成立」 と 「発動コストが払えない」 は **別物** (2026-08-13 是正):
+    #   - 発動コストを払えない → **発動できない** (公式 4-10 / cardqa_st_22)
+    #   - 「〜の場合」 の条件が不成立 → **発動はできる。 効果が何も起きないだけ**
+    #     (公式 cardqa_op_03 / OP03-033 はっちゃん: 「自分のリーダーが特徴《東の海》を持たない
+    #      場合、この【トリガー】を発動できますか？」 → 「はい、発動できます。【トリガー】を
+    #      発動した場合、このカードは登場せず**トラッシュ**に置きます」)。
+    #     = activate_main の 「コロン後の条件は効果のみを gate」 と同じ一般則。
+    #   ⚠ 条件不成立で発動するのは **損** なので、 AI は should_fire_trigger 側で従来どおり
+    #     見送る (= 自動対戦の挙動は不変)。 ここは 「人間が選べるか」 の合法性判定。
+    declarable_exists = any(
+        _trigger_effect_cost_payable(state, defender, e) for e in trigger_effects
     )
-    if not fireable_exists:
+    if not declarable_exists:
         return False
     state.push_log(f"  TRIGGER: {card.name}")
     defender_idx = state.players.index(defender)
@@ -15815,10 +15821,36 @@ def trigger_lifecard_trigger(
     return True
 
 
+def _trigger_effect_cost_payable(
+    state: GameState, defender: Player, eff: dict
+) -> bool:
+    """【トリガー】1 効果の **発動コストを払えるか** (= 条件は見ない)。
+
+    公式は 「効果の条件が不成立」 と 「発動コストが払えない」 を区別する:
+    - コストを払えない → **発動できない** (4-10 / cardqa_st_22)
+    - 「〜の場合」 が不成立 → **発動はできる。 効果が何も起きないだけ**
+      (cardqa_op_03 / OP03-033: 「はい、発動できます。…このカードは登場せずトラッシュに置きます」)
+
+    → **合法性** の判定はこちら、 **AI が発動すべきか** は `_trigger_effect_activatable`。
+    """
+    cost = eff.get("cost") or {}
+    if not isinstance(cost, dict):
+        return True
+    real_cost = {k: v for k, v in cost.items() if k != "once_per_turn"}
+    if not real_cost:
+        return True
+    # 【トリガー】は場に InPlay を持たない (10-1-5-3: どの領域にも属さない) ので self_inplay=None。
+    return _can_pay_counter_cost(state, defender, None, real_cost)
+
+
 def _trigger_effect_activatable(
     state: GameState, defender: Player, eff: dict
 ) -> bool:
-    """【トリガー】1 効果が **発動できるか** (= 条件成立 かつ 発動コストを払える)。
+    """【トリガー】1 効果を **発動する価値があるか** (= 条件成立 かつ 発動コストを払える)。
+
+    ⚠ これは **AI の判断** 用 (should_fire_trigger)。 合法性 (= 人間が選べるか) は
+      `_trigger_effect_cost_payable` (条件を見ない) が担う。 条件不成立で発動するのは
+      「カードだけ失う」 ので AI は選ばない = 自動対戦の挙動は従来どおり。
 
     公式 (総合ルール 10-1-5 + 4-10): 【トリガー】は 「公開して効果を発動する」 か
     「手札に加える」 かの選択。 **発動を選べるのは効果を発動できる時だけ** で、 発動コストを

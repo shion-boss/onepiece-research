@@ -11836,3 +11836,123 @@ def test_op01_047_cost_bounce_replaced_by_enel_makes_effect_fizzle():
     assert len(me.life) == life_before, "置換していないのにライフが減っている"
     assert any(ip.card.card_id == "OP01-016" for ip in me.characters), \
         "コストを払ったのに登場していない"
+
+
+# --------------------------------------------------------------------------- #
+#  公式 Q&A conformance 実測 (2026-08-13 バッチ 6)
+# --------------------------------------------------------------------------- #
+def test_trigger_can_be_declared_even_when_its_condition_fails():
+    """【トリガー】は 「〜の場合」 が不成立でも **発動できる** (カードはトラッシュへ)。
+
+    一次情報 (cardqa_op_03、 OP03-033 はっちゃん):
+      Q: 自分のリーダーが特徴《東の海》を持たない場合、この【トリガー】を発動できますか？
+      A: **はい、発動できます。**【トリガー】を発動した場合、このカードは登場せず
+         **トラッシュ**に置きます。
+
+    ⭐ 「効果の条件が不成立」 と 「発動コストが払えない」 は別物:
+      コスト不払い → 発動できない (4-10) / 条件不成立 → 発動はできて何も起きない。
+    ⚠ 是正前は条件も合法性 gate に混ぜており、 条件不成立だと **カードが手札に加わって**
+      いた (= 公式より得をしていた)。
+    """
+    import json as _json
+    from engine.game import _resolve_life_taken
+    from engine.effects import should_fire_trigger
+    repo, overlay = _repo(), _overlay()
+    cards = _json.loads((ROOT / "db" / "cards.json").read_text("utf-8"))
+    east = next(c["card_id"] for c in cards
+                if c["category"] == "LEADER" and "東の海" in (c.get("features") or ""))
+
+    def _run(east_leader, use_trigger):
+        st = _state(repo, overlay, leader1=(east if east_leader else "OP01-001"))
+        me, opp = st.players[0], st.players[1]
+        opp.life = [repo.get("OP03-033")]
+        opp.life_face_up = [False]
+        ai_choice = should_fire_trigger(st, opp, repo.get("OP03-033"), overlay)
+        taken = opp.life.pop(0)
+        opp.life_face_up.pop(0)
+        _resolve_life_taken(st, me, opp, taken, use_trigger=use_trigger)
+        resolve_triggers(st)
+        return opp, ai_choice
+
+    # 条件不成立 + 人間が発動を選ぶ → 登場せず **トラッシュ**
+    opp, _ = _run(False, True)
+    assert not opp.characters, "条件不成立なのに登場している"
+    assert not opp.hand, "発動したのに手札に加わっている (公式=トラッシュ)"
+    assert any(c.card_id == "OP03-033" for c in opp.trash), "トラッシュに置かれていない"
+
+    # 条件不成立 + 発動しない → 手札 (対照)
+    opp, _ = _run(False, False)
+    assert any(c.card_id == "OP03-033" for c in opp.hand), "発動しないなら手札のはず"
+
+    # 条件成立 + 発動 → 登場 (対照)
+    opp, _ = _run(True, True)
+    assert any(ip.card.card_id == "OP03-033" for ip in opp.characters), "条件成立で登場していない"
+
+    # ⚠ AI は条件不成立なら見送る (= 自動対戦の挙動は不変)
+    opp, ai_choice = _run(False, None)
+    assert ai_choice is False, "AI が条件不成立の【トリガー】を発動しようとしている"
+    assert any(c.card_id == "OP03-033" for c in opp.hand), "AI 経路で手札に入っていない"
+
+
+def test_st31_003_blocker_is_lost_when_attached_don_drops_mid_attack():
+    """ST31-003: 付与ドン合計が 3 未満になった瞬間に【ブロッカー】と +3000 を失う。"""
+    from engine.game import _recompute_static
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    st.turn_player_idx = 1                       # 【相手のターン中】
+    me = st.players[0]
+    b = InPlay.of(repo.get("ST31-003"), sickness=False)
+    b.attached_dons = 2
+    other = InPlay.of(repo.get(_FILLER), sickness=False)
+    other.attached_dons = 1
+    me.characters = [b, other]
+    _recompute_static(st)
+    assert b.is_blocker_now is True and b.power == 6000, "前提: 合計3で条件成立していない"
+    me.characters.remove(other)                  # = 相手の【アタック時】で場を離れた
+    _recompute_static(st)
+    assert b.is_blocker_now is False, "合計2 になってもブロッカーを保持している"
+    assert b.power == 3000, f"+3000 が残っている (power={b.power})"
+
+
+def test_op13_082_trashes_itself_too():
+    """OP13-082「自分のキャラすべてをトラッシュに置き」 は **このキャラ自身も含む** (cardqa_op_13)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    src = InPlay.of(repo.get("OP13-082"), sickness=False)
+    other = InPlay.of(repo.get(_FILLER), sickness=False)
+    me.characters = [src, other]
+    execute_effect({"trash_all_self_chara": True}, st, me, st.players[1], src)
+    resolve_triggers(st)
+    assert not me.characters, f"自身が場に残っている: {[c.card.card_id for c in me.characters]}"
+    assert any(c.card_id == "OP13-082" for c in me.trash), "自身がトラッシュに無い"
+
+
+def test_op11_086_can_be_played_with_empty_hand():
+    """OP11-086: 手札0枚でも登場できる (【登場時】の強制1枚捨ては空振り、 cardqa_op_11)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    src = InPlay.of(repo.get("OP11-086"), sickness=False)
+    me.characters = [src]
+    me.hand = []
+    trigger_on_play(st, me, st.players[1], src, overlay)
+    resolve_triggers(st)
+    assert src in me.characters, "手札0枚で登場が巻き戻されている"
+    assert not me.hand
+
+
+def test_op06_035_life_to_hand_is_mandatory_even_without_rest_targets():
+    """OP06-035: レスト対象が居なくても 「その後、自ライフ1枚を手札に加える」 は必須 (cardqa_op_06)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    src = InPlay.of(repo.get("OP06-035"), sickness=False)
+    me.characters = [src]
+    opp.characters = []
+    opp.don_active, opp.don_rested = 0, 0        # レストできる対象ゼロ
+    hand_before, life_before = len(me.hand), len(me.life)
+    trigger_on_play(st, me, opp, src, overlay)
+    resolve_triggers(st)
+    assert len(me.hand) == hand_before + 1, "ライフが手札に加わっていない"
+    assert len(me.life) == life_before - 1, "ライフが減っていない"
