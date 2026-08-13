@@ -37957,12 +37957,13 @@
      "set_base_power_copy": {
       "duration": "next_self_turn_start",
       "from_target": "opponent_leader",
-      "original": false,
+      "original": true,
       "to_target": "self"
      }
     }
    ],
-   "when": "on_attack"
+   "when": "on_attack",
+   "_doc": "2026-08-13 是正 (cardqa Q1085 EB03-004/OP06-009): 「相手のリーダーと同じパワーになる」 は 元々のパワーを書き換える効果 (公式: シュライヤの元々のパワーが6000以上になる)。 旧 overlay は original:false = 現在パワーのみ変更で、 「元々のパワー6000以上のキャラ」 条件 (EB03-004 カリーナ) に反映されず違反していた。 original:true に是正。"
   },
   {
    "_text": "OP06-009 シュライヤ on_block: 同上",
@@ -37974,12 +37975,13 @@
      "set_base_power_copy": {
       "duration": "next_self_turn_start",
       "from_target": "opponent_leader",
-      "original": false,
+      "original": true,
       "to_target": "self"
      }
     }
    ],
-   "when": "on_block"
+   "when": "on_block",
+   "_doc": "2026-08-13 是正 (cardqa Q1085 EB03-004/OP06-009): 「相手のリーダーと同じパワーになる」 は 元々のパワーを書き換える効果 (公式: シュライヤの元々のパワーが6000以上になる)。 旧 overlay は original:false = 現在パワーのみ変更で、 「元々のパワー6000以上のキャラ」 条件 (EB03-004 カリーナ) に反映されず違反していた。 original:true に是正。"
   }
  ],
  "OP06-009_p1": [
@@ -37993,12 +37995,13 @@
      "set_base_power_copy": {
       "duration": "next_self_turn_start",
       "from_target": "opponent_leader",
-      "original": false,
+      "original": true,
       "to_target": "self"
      }
     }
    ],
-   "when": "on_attack"
+   "when": "on_attack",
+   "_doc": "2026-08-13 是正 (cardqa Q1085 EB03-004/OP06-009): 「相手のリーダーと同じパワーになる」 は 元々のパワーを書き換える効果 (公式: シュライヤの元々のパワーが6000以上になる)。 旧 overlay は original:false = 現在パワーのみ変更で、 「元々のパワー6000以上のキャラ」 条件 (EB03-004 カリーナ) に反映されず違反していた。 original:true に是正。"
   },
   {
    "_text": "OP06-009_p1 シュライヤ on_block: 同上",
@@ -38010,12 +38013,13 @@
      "set_base_power_copy": {
       "duration": "next_self_turn_start",
       "from_target": "opponent_leader",
-      "original": false,
+      "original": true,
       "to_target": "self"
      }
     }
    ],
-   "when": "on_block"
+   "when": "on_block",
+   "_doc": "2026-08-13 是正 (cardqa Q1085 EB03-004/OP06-009): 「相手のリーダーと同じパワーになる」 は 元々のパワーを書き換える効果 (公式: シュライヤの元々のパワーが6000以上になる)。 旧 overlay は original:false = 現在パワーのみ変更で、 「元々のパワー6000以上のキャラ」 条件 (EB03-004 カリーナ) に反映されず違反していた。 original:true に是正。"
   }
  ],
  "OP06-010": [

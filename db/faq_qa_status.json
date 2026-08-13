@@ -9703,9 +9703,9 @@
   "files": [
    "cardqa_st_02.json"
   ],
-  "note": "",
+  "note": "ST02-010: バトル中断 (2026-08-04是正) により当事者が離脱するとダメージステップ未解決=on_self_battled不発。conform",
   "q": "このキャラとバトルしている相手のキャラが、効果によって、アタックステップ/ブロックステップ/カウンターステップのいずれかのタイミングで場を離れました。その場合、このキャラの効果は発動しますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ac935bd87546": {
   "a": "はい、できます。",
@@ -9715,9 +9715,9 @@
   "files": [
    "cardqa_op_14.json"
   ],
-  "note": "",
+  "note": "OP14-040: 【ターン1回】無しの起動メイン。overlayにonce_per_turn無=コスト払える限り複数回可 (rested don4+手札2で2回)。conform",
   "q": "自分のレストのドン!!が4枚あり、自分の手札が2枚以上ある時、この【起動メイン】を2回発動することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ac9756a3a0df": {
   "a": "はい、できます。",
@@ -9727,9 +9727,9 @@
   "files": [
    "cardqa_op_13.json"
   ],
-  "note": "",
+  "note": "OP13-079: cost=discard_hand_or_trash_filtered_chara。feature filterはキャラbranchのみ、手札破棄branchは任意カード。非天竜人手札も捨てられる=conform",
   "q": "この【起動メイン】効果で、特徴《天竜人》を持たないカードを手札から捨てることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "acc3089db648": {
   "a": "この場合、「・10枚以上ある場合、」から始まる効果と「・20枚以上ある場合、」から始まる効果と「・30枚以上ある場合、」から始まる効果のすべてが適用されます。",
@@ -9739,9 +9739,9 @@
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-092: 10/20/30枚以上を独立on_attached_donで各々gate。トラッシュ30で3条件全True=全tier累積適用。conform",
   "q": "自分のトラッシュが30枚の時、このキャラの効果はどうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ad1f5f2f95d4": {
   "a": "この場合、コスト0になります。",
@@ -9751,9 +9751,9 @@
   "files": [
    "cardqa_op_03.json"
   ],
-  "note": "",
+  "note": "OP03-091: set_base_cost_timed amount0(絶対set)。Kuzan-5は0でfloor、離脱後もset-to-0 durationが残りコスト0。公式どおり=conform",
   "q": "「OP02-121 クザン」が自分の場にあり、「【自分のターン中】相手のキャラすべてをコスト-5。」の効果が発動している時に、相手の元々のコストが6のキャラにこの【登場時】を発動しました。その後、そのターンに「OP02-121 クザン」が場を離れた場合、このキャラのコストは1になりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ad97de277fd0": {
   "a": "いいえ、できません。",
@@ -9763,9 +9763,9 @@
   "files": [
    "cardqa_op_10.json"
   ],
-  "note": "",
+  "note": "OP10-030: overlayにblock_chara_effect_untap_don_turn実装済。flag resetはターン終了処理の後(_reset_turn_buff)なのでウルージ等キャラ効果untap_donは同ターン中不発。conform",
   "q": "この【起動メイン】効果を発動したあと、そのターンの終了時に「OP07-021 ウルージ」の効果でドン!!1枚をアクティブにすることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "adce3a8f4882": {
   "a": "いいえ、できません。",
@@ -9775,9 +9775,9 @@
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "",
+  "note": "OP16-001: give_rush current_power_ge 8000。パワー7000のキャラは閾値未満で速攻付与不可。conform",
   "q": "この【起動メイン】効果で、パワー7000以下の『白ひげ海賊団』を含む特徴を持つキャラが【速攻】を得る事はできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ae191f5e4336": {
   "a": "はい、＋1000されます。この効果はお互いのターン中有効です。",
@@ -9787,9 +9787,9 @@
   "files": [
    "cardqa_st_01.json"
   ],
-  "note": "",
+  "note": "ST01-013: on_attached_don n=1 static +1000、turn gate無。実測(turn_player=opp)で+1000適用確認。両ターン有効=conform",
   "q": "この【ドン!!×1】効果で相手ターン中にもこのキャラのパワーは＋1000されますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ae95a74845f5": {
   "a": "いいえ、できません。",
@@ -9799,9 +9799,9 @@
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP02-089: target any_opp_inplay_n_2はleader+charactersからdistinct最大2。同一キャラ2回選択不可=-6000にできない。conform",
   "q": "「相手のリーダーかキャラ合計2枚まで」でキャラ1枚を2回選び、パワーを合計-6000することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ae9ab33b3398": {
   "a": "はい、レストにできます。",
@@ -9811,9 +9811,9 @@
   "files": [
    "cardqa_.json"
   ],
-  "note": "",
+  "note": "P-008: cost=rest_self、doは相手コスト2以下1枚まで(0可)。実測list_activate_main_effectsで対象0でも起動候補に出る=conform",
   "q": "相手のコスト2以下のキャラがない場合、この【起動メイン】効果でこのキャラをレストにできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ae9dd7cfe550": {
   "a": "はい、＋2000されます。この効果はお互いのターン中有効です。",
@@ -9823,9 +9823,9 @@
   "files": [
    "cardqa_st_02.json"
   ],
-  "note": "",
+  "note": "ST02-003: on_attached_don n=1 +2000 (自場3枚以上)、turn gate無。実測opp turnで+2000適用=両ターン有効=conform",
   "q": "この【ドン!!×1】効果で相手ターン中にもこのキャラのパワーは＋2000されますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "aed838ee6bcc": {
   "a": "いいえ、されません。この場合、「シュライヤ」の元々のパワーが6000以上であるため、「自分の元々のパワー6000以上のキャラクター」がいることになり、「カリーナ」のパワーは+4000されません。",
@@ -9835,9 +9835,9 @@
   "files": [
    "cardqa_eb_03.json"
   ],
-  "note": "",
+  "note": "EB03-004/OP06-009: シュライヤ「相手リーダーと同じパワーになる」は元々のパワーを書換える(cardqa Q1085)。overlay set_base_power_copy original:false→true (OP06-009,_p1)。旧実装はtruly_original未更新でカリーナ+4000条件を崩せず違反。実測4000→6000で是正確認。回帰test+全走査ガード追加",
   "q": "自分の「OP06-009 シュライヤ」が【アタック時】/【ブロック時】効果によって元々のパワー6000以上になっている場合、このキャラは【相手のターン中】効果でパワー+4000されますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "aedbaeb37172": {
   "a": "いいえ、できません。",
@@ -9847,9 +9847,9 @@
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "",
+  "note": "OP06-107: filter exclude_name 光月モモの助。OP01-041モモの助は名前除外でライフに加えられない。conform",
   "q": "このカードの【登場時】効果で、自分の「OP01-041 光月モモの助」をライフに加えることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "aef88db44553": {
   "a": "いいえ、できません。",
@@ -9859,9 +9859,9 @@
   "files": [
    "cardqa_st_21.json"
   ],
-  "note": "",
+  "note": "ST21-015: on_ko play_from_hand filter exclude_name ロロノア・ゾロ。OP01-025等の他ゾロは登場不可。conform",
   "q": "この【KO時】効果で、「OP01-025 ロロノア・ゾロ」などの他の「ロロノア・ゾロ」を登場できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "af890735b661": {
   "a": "はい、できます。",
@@ -9871,9 +9871,9 @@
   "files": [
    "cardqa_op_07.json"
   ],
-  "note": "",
+  "note": "OP07-094: _fire_counter_eventsはcounterカードをtrash追加後(game.py2566)にwhen:counter発動(2568)。トラッシュ9→自身入り10でself_trash_count_ge10成立=CPキャラ戻せる。conform",
   "q": "自分のトラッシュが9枚の時にこの【カウンター】効果を発動しました。この時、自分の特徴『CP』を含むキャラ1枚までを持ち主の手札に戻すことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "af8db90f4ee5": {
   "a": "いいえ、できません。",
@@ -9883,9 +9883,9 @@
   "files": [
    "cardqa_op_07.json"
   ],
-  "note": "",
+  "note": "OP07-026: 効果「相手のレストのキャラかドン‼1枚」。overlayはキャラbranch(stay_rested_next_refresh)のみ実装で「かドン‼」未実装。設問(アクティブのドン選択不可)自体はキャラ限定で満たすが、レストのドンを止める効果が丸ごと欠落。キャラ or ドンの混在単一選択ターゲット primitive が必要(arch)=escalated",
   "q": "この【登場時】効果で、相手のアクティブのドン!!1枚を選ぶことはできますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "afe3c8af2502": {
   "a": "いいえ、できません。",
@@ -9895,9 +9895,9 @@
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP02-110: set_cannot_attack one_opponent_character_cost_le_6。速攻持ちアクティブでもこのターン攻撃不可(set_cannot_attackは速攻を上書きする hard gate)。conform",
   "q": "この【ブロック時】効果で相手のアクティブの【速攻】を持つキャラを選んだ場合,アタックできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b02612fddf04": {
   "a": "自分がダメージを受けます。",
@@ -9907,9 +9907,9 @@
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "",
+  "note": "OP05-022: リーダーの【ブロッカー】でアタック対象化し敗北→自分がダメージ。リーダーはKOでなくライフ-1=コア挙動。conform",
   "q": "自分のこのリーダーの【ブロッカー】を発動し、アタックの対象がこのカードになりました。その後、このリーダーがバトルに負けた場合、どうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b050c3311e39": {
   "a": "はい、登場できます。【登場時】効果で相手のキャラのパワーを下げることはできますが、ライフを手札に加えることはできません。",
@@ -9919,9 +9919,9 @@
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP02-009: on_play do=[life_to_hand,power_pump-4000]。登場自体はgate無=ライフ0でも登場可、life_to_handは可能な限り(0なら無)、power downは適用。conform",
   "q": "自分のライフが1枚もないときや、自分のライフを手札に加えられないとき、このキャラを登場できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b0616938b864": {
   "a": "はい、できます。",
@@ -9931,9 +9931,9 @@
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-052: replace_leave target any_self_chara truly_original_power_le7000。レオ印刷power2000≤7000で自身の離脱にも成立、代わりに自キャラ1枚をデッキ下=conform",
   "q": "このキャラ自身が相手の効果で場を離れる場合、代わりに自分の他のキャラ1枚を持ち主のデッキの下に置くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "b0fadb2b8a9c": {
   "a": "はい、できます。この場合、自分のカード1枚をレストにしたあと、ドン!!はアクティブにはせず、「このターン中、キャラカードを登場できない。」は適用されません。",
