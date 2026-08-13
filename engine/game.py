@@ -481,6 +481,56 @@ def _recompute_static(state: GameState) -> None:
     if state.effects_overlay:
         from .effects import evaluate_static_effects
         evaluate_static_effects(state, state.effects_overlay)
+    # 常在 (= ルール置換) を張り直した **後** に敗北判定処理を回す (公式 9-2)。
+    # 順序が逆だと 「無効化されたリーダーの置換がまだ効いている」 状態で判定してしまう。
+    _check_rule_defeat(state)
+
+
+def _check_rule_defeat(state: GameState) -> None:
+    """公式 9-2 敗北判定処理 (= ルール処理) のうち **デッキ0枚** (9-2-1-2) を解決する。
+
+    一次情報:
+    - 1-2-1-1-2 / 1-2-2-2 / 9-2-1-2: 「いずれかのプレイヤーの**デッキのカードが０枚**の場合、
+      そのプレイヤーはゲームの敗北条件を満たしています」
+    - 1-2-2 + 9-1-2: 敗北条件を満たしたら **次にルール処理を行う時点** で敗北し、 ルール処理は
+      「他の行動の実行中であっても、 それが発生した時点で即座に解決」 する
+    - 9-2-1: 複数プレイヤーが同時に満たしていれば **敗北条件を満たしている全員** が敗北 (= 引き分け)
+    - cardqa_st_03 (ST03-005): 「デッキが0枚となり、 デッキが0枚になったプレイヤーはゲームに敗北します」
+
+    ⚠ 「ドローできなかった時に負ける」 ではない。 2026-08-13 まで engine は ドローフェイズで
+      draw が失敗した時だけ敗北させており、 **デッキを0枚にしてもその場では負けなかった**
+      (= ミルで0枚にされても次の自分のドローまで生き延びた)。
+
+    ルール置換 (= リーダーの常在効果、 evaluate_static_effects が毎回張り直す):
+    - `deck_out_wins`  — OP03-040 ナミ / P-117: 敗北する代わりに **勝利**
+    - `deck_out_defer` — OP15-022 ブルック: 即敗北せず **そのターン終了時** に敗北
+      (END フェイズ側で解決。 公式 「デッキが0枚になったターン終了時に敗北する」)
+
+    ⚠ 呼び出し粒度は **アクション境界 + 人間 modal 解決後** (= `_recompute_static` 経由)。
+      公式の 「即座」 は do 配列の途中も含むが、 途中で止めても止めなくても **勝敗の結果は
+      変わらない** (負ける側がその間に選択を挟めないため) のでこの粒度で足りる。
+    """
+    if state.game_over:
+        return
+    empty = [i for i, p in enumerate(state.players) if not p.deck]
+    if not empty:
+        return
+    # 勝利置換が最優先 (= 敗北条件を満たすが敗北せず勝利する)
+    for i in empty:
+        if getattr(state.players[i], "deck_out_wins", False):
+            state.declare_winner(i, f"{state.players[i].name} deckout-win (OP03-040)")
+            return
+    losers = [i for i in empty if not getattr(state.players[i], "deck_out_defer", False)]
+    if not losers:
+        return
+    if len(losers) == 2:
+        state.game_over = True
+        state.winner = None
+        state.push_log("GAME OVER (draw): 両者 デッキ0 → 同時敗北 (公式 9-2-1)")
+        return
+    state.declare_winner(
+        1 - losers[0], f"{state.players[losers[0]].name} deckout (公式 9-2-1-2)"
+    )
 
 
 def _battle_attr_bonus(combatant, opponent) -> int:

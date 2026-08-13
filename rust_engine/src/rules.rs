@@ -24,6 +24,44 @@ fn each_inplay_mut(p: &mut Player) -> impl Iterator<Item = &mut InPlay> {
 pub fn recompute_static(state: &mut GameState) {
     update_ownership_flags(state);
     crate::effects::evaluate_static_effects(state);
+    // 常在 (= ルール置換) を張り直した **後** に敗北判定 (公式 9-2、 game.py:_check_rule_defeat)。
+    check_rule_defeat(state);
+}
+
+/// 公式 9-2 敗北判定処理のうち **デッキ0枚** (9-2-1-2)。 game.py:_check_rule_defeat のミラー。
+/// 1-2-2 + 9-1-2 = 敗北条件を満たしたら次のルール処理 (= 即座) に敗北する。
+/// ルール置換 deck_out_wins (OP03-040) / deck_out_defer (OP15-022) は静的なので
+/// evaluate_static_effects が毎回張り直す (= 無効化されたら消える)。
+pub fn check_rule_defeat(state: &mut GameState) {
+    if state.game_over {
+        return;
+    }
+    let empty: Vec<usize> = (0..state.players.len())
+        .filter(|&i| state.players[i].deck.is_empty())
+        .collect();
+    if empty.is_empty() {
+        return;
+    }
+    // 勝利置換が最優先 (= 敗北条件を満たすが敗北せず勝利する)
+    for &i in &empty {
+        if state.players[i].deck_out_wins {
+            declare_winner(state, i);
+            return;
+        }
+    }
+    let losers: Vec<usize> = empty
+        .into_iter()
+        .filter(|&i| !state.players[i].deck_out_defer)
+        .collect();
+    if losers.is_empty() {
+        return;
+    }
+    if losers.len() == 2 {
+        state.game_over = true;
+        state.winner = None;
+        return;
+    }
+    declare_winner(state, 1 - losers[0]);
 }
 
 /// game.py:_update_ownership_flags = 各 InPlay の owner_idx/is_owners_turn を再計算 (DON+1000 ゲート)。

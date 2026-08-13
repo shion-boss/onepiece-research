@@ -433,7 +433,12 @@ def test_op02_069_death_wink_trigger_bounce_cost_le7_ai():
 #    捨てる。 その後、 自分の手札3枚までを捨てる。
 # --------------------------------------------------------------------------- #
 def test_op02_070_newkama_land_activate_main_with_ivankov_ai():
-    """起動メイン (リーダーがイワンコフ): ステージレスト → 1ドロー1捨て + 手札3捨て (AI 自動)。"""
+    """起動メイン (リーダーがイワンコフ): ステージレスト → 1ドロー1捨て + 手札3枚**まで**捨て。
+
+    ⚠ 2026-08-13 是正: 「3枚まで」 は 公式 (cardqa_op_02 / 総合ルール 1-3-5-1) では
+      **0枚を選べる**。 是正前の overlay は [approx] で常に3枚強制にしており、
+      このテストはその近似を正解として固定していた。 AI は見返りが無ければ 0 枚。
+    """
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, overlay, leader_id="OP02-049")  # エンポリオ・イワンコフ (LEADER)
@@ -450,9 +455,9 @@ def test_op02_070_newkama_land_activate_main_with_ivankov_ai():
     _drain_choices(st, pick=[0])
 
     assert stage.rested is True, "起動メインコストでステージがレストされるべき"
-    # +1 ドロー -1 捨て -3 捨て = net -3 → 4 - 3 = 1
-    assert len(me.hand) == 1, \
-        f"1ドロー1捨て + 手札3捨て の net が合わない: {len(me.hand)} (期待 1)"
+    # +1 ドロー -1 捨て(強制) -0 捨て(「3枚まで」) = net 0 → 4
+    assert len(me.hand) == 4, \
+        f"1ドロー1捨て + 「3枚まで」0枚 の net が合わない: {len(me.hand)} (期待 4)"
 
 
 def test_op02_070_newkama_land_activate_main_no_ivankov():

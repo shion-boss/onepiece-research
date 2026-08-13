@@ -7161,3 +7161,151 @@ OP06-009 以外に original!=true は無かった。
 ### escalated (自動修正の範囲外)
 
 - **af8db90f4ee5** OP07-026 ジュエリー・ボニー: 効果文 「相手の、**レストのキャラかドン‼**1枚までは、次のリフレッシュでアクティブにならない」。 overlay は キャラ branch (`stay_rested_next_refresh`) のみ実装で **「かドン‼」 branch が丸ごと欠落**。 設問 (相手の**アクティブ**のドンは選べるか → いいえ) 自体は キャラ限定なので満たすが、 **レストのドンをアクティブ化させない効果が未実装**。 「キャラ or ドン の混在単一選択」 ターゲット spec が無く、 追加は arch 変更 (新 target primitive) が要る → escalated。 `keep_opp_rested_don_next_refresh` primitive は存在するが 混在選択への配線が無い。
+
+## 「手札N枚**まで**を捨てる」 は 0 枚を選べる (2026-08-13 是正、 OP02-059 / OP02-070 / OP09-059)
+
+**一次情報** (cardqa_op_02、 OP02-059 ボア・ハンコック / OP02-070 ニューカマーランド):
+
+> Q: 「その後、自分の手札3枚までを捨てる。」の効果で、捨てる枚数に0枚を選ぶことはできますか？
+> A: **はい、できます**。**0枚から3枚まで**のうち好きな枚数の手札を捨てます。
+
+**是正前の挙動**: overlay が `[approx: 手札3枚まで=最大3として trash_self_hand_random:3]` と
+**近似を明記** しており、 実測で手札 5 → 2 = **常に 3 枚強制**。 0 枚を選べなかった。
+engine 側にも 「limit=N だけでは 『N 枚強制』 と 『N 枚まで』 を区別できない」 とコメントがあり、
+人間が modal を空で返しても **強制側に倒して最悪札を捨てる fallback** が走っていた。
+
+**是正**: spec に `up_to` フラグを新設して両者を区別する。
+
+| 公式文面 | overlay | 人間 | AI |
+|---|---|---|---|
+| 「手札N枚を捨てる」 | `{"trash_self_hand_random": N}` | 候補 > N の時だけ modal (0 枚は不可) | 常に N 枚 |
+| 「手札N枚**まで**を捨てる」 | `{"trash_self_hand_random": {"amount": N, "up_to": true}}` | 手札があれば必ず modal、 **0 枚を honor** | `_ai_up_to_discard_count` |
+
+⭐ **AI の枚数選択**: 「まで」 は任意なので、 **手札を減らす見返りが無ければ 0 枚** が正しい
+(手札は資源)。 見返り = 自分の場に【自分の手札が捨てられた時】(`on_self_hand_discarded`) を持つ
+カードが居ること。 その時だけ最大枚数まで捨てる。 ⚠ 「トラッシュを貯めたい」 型 (= `self_trash_count_ge`
+条件) は **見ない** — 盤面外の条件まで数えると 「捨てる」 が常に得に見え、 「まで」 が実質強制に戻る。
+Python `_ai_up_to_discard_count` と Rust の同ロジックを 1:1 で対にしている。
+
+**併せて是正した同居バグ** (OP09-059 湯けむり殺人事件):
+「自分の手札2枚までを捨てる。**捨てた枚数と同じ枚数**を、自分のデッキの上からトラッシュに置く」 の
+後半が **固定 2 枚** だった (= 0 枚捨てても 2 枚 mill する)。 `mill_self_top` に `per_last_discard`
+を足し、 直前の `trash_self_hand_random` が **実際に捨てた枚数** を読むようにした。
+そのための新 canonical field = `GameState.last_self_hand_discard_amount` (Python `core.py` /
+Rust `state.rs` の両方)。 ⚠ `last_discard_count` (= イベント context) は
+`trigger_on_self_hand_discarded` が発火後 0 に戻すので **後続 do からは読めない**。 人間 modal を
+挟むと `_continuation` で do 配列が再開されるため、 クリアしない別 field が要る。
+
+**全走査**: 公式テキストが 「手札N枚までを捨てる」 のカードは **3 枚** (OP02-059 / OP02-070 /
+OP09-059、 パラレル込み 5 エントリ)。 全て `up_to` 化済。 いずれもメタ 16 デッキ未採用 = matrix 影響なし。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+- `test_up_to_hand_discard_human_can_choose_zero` / `_partial`
+- `test_plain_hand_discard_is_still_forced` (対照: 「まで」 無しは 0 枚不可)
+- `test_op02_059_hancock_attack_does_not_force_three_discards`
+- `test_op09_059_mills_exactly_as_many_as_discarded`
+- `test_up_to_hand_discard_ai_uses_max_when_payoff_on_board`
+- `test_no_approx_marker_left_for_up_to_hand_discard` (全走査)
+
+## 「相手の、レストのキャラかドン‼1枚まで」 は **混在単一選択** (2026-08-13 是正、 OP07-026)
+
+**一次情報** (cardqa_op_07 Q654 / Q655、 OP07-026 ジュエリー・ボニー):
+
+> Q: この【登場時】効果で、相手の**アクティブ**のドン!!1枚を選ぶことはできますか？ → **いいえ**
+> Q: この【登場時】効果で、相手の**付与された状態**のドン!!1枚を選ぶことはできますか？ → **いいえ**
+
+効果文は 「相手の、**レストのキャラかドン‼**1枚までは、次の相手のリフレッシュフェイズで
+アクティブにならない」。 = 候補は **相手のレストのキャラ** と **コストエリアのレストのドン** の
+どちらか 1 枚 (アクティブのドン / 付与中のドンは候補外)。
+
+**是正前の挙動**: overlay がキャラ branch (`stay_rested_next_refresh` + `filter: {rested: true}`)
+だけで **「かドン‼」 が丸ごと欠落**。 相手にレストのキャラが居ないと **不発** だった。
+設問そのもの (アクティブのドンを選べるか → いいえ) は キャラ限定なので偶然満たしていた
+= **Q&A に conform しているのに実装が欠けている** 型。
+
+**是正**: `rest` の `one_opp_chara_or_don` と同型の **primitive 内 inline 分岐**
+`one_opp_rested_chara_or_don` を `stay_rested_next_refresh` に新設した。
+ドンは `InPlay` ではないので通常の target spec (= InPlay のリストを返す) では表現できない。
+
+| | 挙動 |
+|---|---|
+| 候補 (キャラ) | 相手の **レストの** キャラ全部 (= 既に効果が乗っている札も合法に選べる) |
+| 候補 (ドン) | `don_rested - next_refresh_kept_rested_don > 0` の時に 1 枚 |
+| 人間 | キャラの target modal → **skip (0 picks) でドンを選ぶ** |
+| AI | 効果未適用のキャラを優先 → power 降順 → 居なければレストドン 1 枚 |
+
+**同じ文面の全走査** — 「キャラかドン‼」 は base 9 枚。 うち **2 枚が未実装だった**:
+
+| カード | 是正前 | 是正後 |
+|---|---|---|
+| OP07-026 ジュエリー・ボニー | キャラのみ | `one_opp_rested_chara_or_don` |
+| OP06-020 ホーディ (リーダー) | `one_opponent_character_cost_le_3` | `one_opp_chara_or_don` + `cost_le: 3` |
+| OP06-035 / OP12-037 / EB03-061 / OP09-036 / ST26-002 | `one_opp_chara_or_don` | 実装済 (変更なし) |
+| EB03-012 お玉 | `choice_effect` (キャラ / ドン の 2 択) | 実装済 (変更なし) |
+| ST32-001 錦えもん | `rest_self_leader_filtered_or_don` (コスト側・自陣) | 実装済 (変更なし) |
+
+⚠ **OP07-026 はメタ 16 デッキ中 8 デッキに採用** = 配備 AI の手が変わる → **matrix は要再計算**
+(もともと uniform agnostic 化で stale)。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+- `test_op07_026_prefers_rested_character` / `_falls_back_to_rested_don`
+- `test_op07_026_active_don_is_never_a_target` (公式 Q654)
+- `test_op07_026_human_can_choose_don_over_character`
+- `test_op07_026_kept_don_actually_stays_rested_through_refresh`
+- `test_op06_020_hordy_can_rest_opponent_don`
+
+## デッキ 0 枚は **その場で** 敗北 (2026-08-13 是正、 中核ルール 9-2-1-2)
+
+**一次情報** (`db/rules/rule_comprehensive_20260109.pdf`):
+
+> **1-2-1-1-2 / 1-2-2-2 / 9-2-1-2**: 「いずれかのプレイヤーの**デッキのカードが０枚**の場合、
+>   そのプレイヤーはゲームの敗北条件を満たしています」
+> **1-2-2**: 敗北条件を満たしている場合、**次にルール処理を行う時点**で敗北する
+> **9-1-2**: 「ルール処理は他の行動の実行中であっても、**それが発生した時点で即座に**解決を行います」
+> **9-2-1**: 敗北条件を満たしている**すべてのプレイヤー**がゲームに敗北します (= 同時なら引き分け)
+
+cardqa_st_03 (ST03-005) が挙動を明示している:
+
+> 但し、【アタック時】効果が必ず発動し可能な限りカードを2枚引くため、**デッキが0枚となり、
+> デッキが0枚になったプレイヤーはゲームに敗北します**。
+
+**是正前の挙動**: engine はデッキアウト敗北を **ドローフェイズで `draw()` が失敗した時だけ**
+判定していた。 つまり 「デッキを 0 枚にされても、 **次の自分のドローまで生き延びる**」。
+公式は 「引けなかった時」 ではなく 「**0 枚になった時**」 が敗北条件。
+
+**もう 1 つの欠落**: ルール置換 `deck_out_wins` (OP03-040 ナミ / P-117 = 敗北の代わりに勝利) と
+`deck_out_defer` (OP15-022 ブルック = そのターン終了時に敗北) は **リーダーの常在効果** なのに、
+`evaluate_static_effects` の毎回リセット対象に入っておらず **一度立つと永久に残っていた**。
+その結果、 リーダーを無効化されても置換が効き続けた。
+
+**是正**:
+1. `evaluate_static_effects` の per-player リセットに `deck_out_wins` / `deck_out_defer` を追加
+   (= 効果無効を食らったら置換が消える。 negate されたカードは静的走査からも除外済)。
+2. `game._check_rule_defeat` (公式 9-2 敗北判定処理) を新設し、 **静的効果を張り直した後** に
+   `_recompute_static` から呼ぶ。 ⭐ **順序が要点**: 先に判定すると 「無効化されたリーダーの
+   置換がまだ効いている」 状態で判定してしまう。 この順序にすると
+   「無効化 → 置換消滅 → **同じルール処理で** 敗北」 が自然に出る。
+3. 優先順位は 勝利置換 > 遅延置換 > 敗北。 敗北者が 2 人なら引き分け (9-2-1)。
+
+これで以下の公式 Q&A が **同時に** 満たされる:
+
+| Q&A | 内容 |
+|---|---|
+| cardqa_op_15 (OP15-022) | ブルックの効果が **無効になった時点で** デッキ0枚 → **敗北** |
+| cardqa_op_09 / cardqa_op_10 (OP09-097 闇水 / OP10-098) | ナミの効果を無効にされたターンにデッキ0 → **敗北** (勝利しない) |
+| cardqa_st_03 (ST03-005) | 効果でデッキが0枚になった時点で敗北 |
+| cardqa_op_15 (OP15-022) | 両者ブルックで両者0枚 → **同時敗北** (引き分け) |
+
+⚠ **呼び出し粒度**: アクション境界 + 人間 modal 解決後 (= `_recompute_static` 経由)。 公式の
+「即座」 は do 配列の途中も含むが、 途中で止めても止めなくても **勝敗の結果は変わらない**
+(負ける側がその間に選択を挟めない) のでこの粒度で足りる。
+
+⚠ **self-play / matrix への影響**: デッキ 50 枚 + 40 ターン上限なので通常の対戦では滅多に
+到達しないが、 到達した場合は **1 ターン早く決着する** (= 旧実装は次の自分のドローまで猶予が
+あった)。 matrix は要再計算 (もともと stale)。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+- `test_deck_zero_is_immediate_defeat`
+- `test_op15_022_brook_defers_deck_out_defeat` / `_loses_immediately_when_leader_negated`
+- `test_op03_040_nami_wins_on_deck_out` / `_loses_when_negated`
+- `test_both_players_deck_zero_is_a_draw`

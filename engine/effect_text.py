@@ -454,6 +454,8 @@ def _do_prim_jp(k: str, v: Any, full: dict) -> str:  # full = 親 dict
         return "デッキ底に戻した枚数分カードを引く"
     if k == "trash_self_hand_random":
         n = v if isinstance(v, int) else (v.get("count", v.get("amount", 1)) if isinstance(v, dict) else 1)
+        if isinstance(v, dict) and v.get("up_to"):
+            return f"自分の手札{n}枚までをトラッシュ"
         return f"自分の手札からランダムに{n}枚をトラッシュ"
     if k == "trash_opp_hand_random":
         n = v if isinstance(v, int) else (v.get("count", v.get("amount", 1)) if isinstance(v, dict) else 1)
@@ -794,7 +796,10 @@ def _do_prim_jp(k: str, v: Any, full: dict) -> str:  # full = 親 dict
     if k == "mill":
         return f"自分のデッキの上{v}枚をトラッシュに"
     if k == "mill_self_top":
-        return f"自分のデッキの上{v}枚をトラッシュに"
+        if isinstance(v, dict) and v.get("per_last_discard"):
+            return "捨てた枚数と同じ枚数を自分のデッキの上からトラッシュに"
+        n = v.get("amount", 1) if isinstance(v, dict) else v
+        return f"自分のデッキの上{n}枚をトラッシュに"
     if k == "self_hand_to_deck_bottom":
         return f"自分の手札{v}枚をデッキの下に"
     if k == "self_hand_to_size":

@@ -968,6 +968,39 @@ def _worst_hand_idx(hand: list, known: Optional[list] = None) -> int:
     )
 
 
+def _board_has_when(state: GameState, me: Player, when: str) -> bool:
+    """me の場 (リーダー + キャラ + ステージ) に 指定 when の効果を持つカードが居るか。
+    Rust の `me_board_has_when` と同じ走査 (= 両エンジンで同じ判断をさせる)。"""
+    overlay = getattr(state, "effects_overlay", None)
+    if not overlay:
+        return False
+    for ip in [me.leader, *me.characters, *me.stages]:
+        bundle = overlay.get(ip.card.card_id)
+        if bundle is None:
+            continue
+        if any(e.get("when") == when for e in bundle.effects):
+            return True
+    return False
+
+
+def _ai_up_to_discard_count(state: GameState, me: Player, n: int) -> int:
+    """公式 「自分の手札 N 枚**まで**を捨てる」 で AI が捨てる枚数 (= 0..N)。
+
+    「まで」 は **任意** なので、 手札を減らす見返りが無いなら 0 が正しい (手札は資源)。
+    見返り = 自分の場に【自分の手札が捨てられた時】(on_self_hand_discarded) を持つカードが
+    居る場合 (= OP12-040 クザン 等の追加ドロー)。 その時は最大枚数まで捨てる。
+
+    ⚠ 「トラッシュを貯めたい」 型 (= self_trash_count_ge 条件を持つデッキ) は ここでは
+      見ない。 盤面に出ていない手札/デッキの条件まで数えると 「捨てる」 が常に得に見え、
+      「まで」 を 実質 強制 に 戻して しまう。 必要なら per-deck の AI hint 側で扱う。
+    """
+    if n <= 0 or not me.hand:
+        return 0
+    if _board_has_when(state, me, "on_self_hand_discarded"):
+        return min(n, len(me.hand))
+    return 0
+
+
 def _don_return_sources(me: Player) -> list:
     """ドン返却の選択元(area active/rested + 各キャラ/リーダーの付与ドン)。 UI modal 用。"""
     sources: list = []
@@ -3945,11 +3978,19 @@ def _execute_effect_body_inner(
             # (= 公式 ルール 「捨てる」 の 通常 意味。 「ランダム」 表記 なし)。
             # 2026-05-31: 人間 acting + 候補 > N で modal halt → 人間 が pick。
             # AI / 候補 <= N は 旧 「random」 挙動 (= 簡略、 ただし 候補 全部 捨てる ので 影響 軽微)。
+            # up_to=True は 公式 「手札 N 枚**まで**を捨てる」 (= 0 枚 も 選べる、
+            # cardqa_op_02 「はい、 0枚から3枚までのうち好きな枚数の手札を捨てます」)。
+            # 素 の 「N 枚 を 捨てる」 は 強制 なので up_to を 立てない。
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            up_to = bool(v.get("up_to")) if isinstance(v, dict) else False
             picks_idx = None
             if isinstance(v, dict) and "_picked_hand_idxs" in v:
                 picks_idx = list(v["_picked_hand_idxs"])
-            if picks_idx is None and _should_human_pick(state) and len(me.hand) > n and n > 0:
+            # 人間 modal を 出す 条件: 強制 なら 「候補 > N」 の 時 だけ (= 候補 <= N は
+            # 全部 捨てる ので 選択 の 余地 が 無い)。 「N 枚 まで」 は 枚数 自体 が 選択 なので
+            # 候補 <= N でも 出す (= 0 枚 を 選ぶ 権利)。
+            _need_pick = (len(me.hand) > n) if not up_to else (len(me.hand) > 0)
+            if picks_idx is None and _should_human_pick(state) and _need_pick and n > 0:
                 state.pending_choice = {
                     "kind": "self_hand_discard_pick",
                     "primitive_kind": "trash_self_hand_random",
@@ -3965,10 +4006,11 @@ def _execute_effect_body_inner(
                         for i, c in enumerate(me.hand)
                     ],
                     "limit": n,
+                    "up_to": up_to,
                     "source_iid": self_inplay.instance_id if self_inplay else None,
                 }
                 state.push_log(
-                    f"  効果: 自手札 {n} 枚 トラッシュ → 人間 選択 待ち "
+                    f"  効果: 自手札 {n} 枚{'まで' if up_to else ''} トラッシュ → 人間 選択 待ち "
                     f"(候補 {len(me.hand)} 枚)"
                 )
                 return True
@@ -3982,11 +4024,16 @@ def _execute_effect_body_inner(
                     actually_discarded += 1
             else:
                 # AI / 候補 <= n: 最悪札から捨てる(random だと beam の value 評価が薄まる)。
-                for _ in range(n):
+                # 「N 枚 まで」 は 枚数 も AI の 選択 → _ai_up_to_discard_count で 決める。
+                take = _ai_up_to_discard_count(state, me, n) if up_to else n
+                for _ in range(take):
                     if not me.hand:
                         break
                     me.trash.append(me.hand.pop(_worst_hand_idx(me.hand, me.known_hand_card_ids)))
                     actually_discarded += 1
+            # 「捨てた枚数と同じ枚数」 系 (= OP09-059) が 直後 の do で 読む 実績値。
+            # last_discard_count (= イベント context) と 違い、 trigger 解決後 も 消さない。
+            state.last_self_hand_discard_amount = actually_discarded
             state.push_log(f"  効果: 自手札 {actually_discarded} 枚 トラッシュ")
             if actually_discarded > 0 and state.effects_overlay:
                 trigger_on_self_hand_discarded(
@@ -6793,6 +6840,60 @@ def _execute_effect_body_inner(
             # (= 旧実装は dict を "one_opponent_character_any" に潰しており、 ① {type,filter} 指定の
             #  filter 無視 ② 人間 target_pick 再実行時 _iid_picks 無視で無限 target_pick 再表示、 の
             #  人間UXバグがあった。 OP07-026/OP15-077/ST24-004 等)
+            # 「相手の、 **レストのキャラかドン‼** 1枚まで」 (= OP07-026 ジュエリー・ボニー) は
+            # キャラ と ドン の **混在単一選択**。 ドンは InPlay ではないので通常の target spec で
+            # 表現できず、 rest の one_opp_chara_or_don と同じく primitive 内で分岐する。
+            # 一次情報 (cardqa_op_07 Q654/Q655): 相手の **アクティブ** のドンは選べない /
+            # **付与された** ドンも選べない → 候補は **コストエリアのレストのドン** のみ。
+            if (
+                v == "one_opp_rested_chara_or_don"
+                or (isinstance(v, dict) and v.get("type") == "one_opp_rested_chara_or_don")
+            ):
+                iid_picks = v.get("_iid_picks") if isinstance(v, dict) else None
+                # 候補 = 相手の **レストの** キャラ全部 (= 既に効果が乗っている札も 合法に選べる)。
+                rested_charas = [c for c in opp.characters if c.rested]
+                # 人間 acting + キャラ候補あり かつ 他にも選択肢がある (= キャラ複数 or ドンも可)
+                # → キャラ から選ばせる modal。 選ばない (= 空 picks) なら ドン 側 へ。
+                if iid_picks is None and rested_charas and (
+                    opp.don_rested > opp.next_refresh_kept_rested_don or len(rested_charas) > 1
+                ):
+                    if _maybe_request_target_pick(
+                        state, rested_charas, 1, "stay_rested_next_refresh",
+                        {"type": "one_opp_rested_chara_or_don"}, self_inplay,
+                        description="相手レストキャラ から 1 枚 (skip で 相手レストドン 1 枚)",
+                    ):
+                        return True
+                if iid_picks:
+                    target = next((c for c in rested_charas if c.instance_id in iid_picks), None)
+                    if target is not None:
+                        target.stay_rested_next_refresh = True
+                        state.push_log(f"  効果: 次リフレッシュ非アクティブ → 相手キャラ {target.card.name}")
+                        return True
+                _don_avail = opp.don_rested - opp.next_refresh_kept_rested_don
+                if iid_picks is not None and not iid_picks:
+                    # 人間が 「キャラを選ばない」 → ドン 1 枚
+                    if _don_avail > 0:
+                        opp.next_refresh_kept_rested_don += 1
+                        state.push_log("  効果: 次リフレッシュ非アクティブ → 相手レストドン 1 枚")
+                        return True
+                    state.push_log("  効果: 次リフレッシュ非アクティブ → 対象なし (不発)")
+                    return False
+                # AI 優先順位: 相手レストキャラ (= 復帰させたくない脅威) > レストドン。
+                # 既に効果が乗っている札は 二重掛けが無駄なので後回し、 その上で power 降順
+                # (= rest の one_opp_chara_or_don と同順)。
+                rested_charas.sort(key=lambda ip: (1 if ip.stay_rested_next_refresh else 0, -ip.power))
+                if rested_charas:
+                    rested_charas[0].stay_rested_next_refresh = True
+                    state.push_log(
+                        f"  効果: 次リフレッシュ非アクティブ → 相手キャラ {rested_charas[0].card.name}"
+                    )
+                elif _don_avail > 0:
+                    opp.next_refresh_kept_rested_don += 1
+                    state.push_log("  効果: 次リフレッシュ非アクティブ → 相手レストドン 1 枚")
+                else:
+                    state.push_log("  効果: 次リフレッシュ非アクティブ → 対象なし (不発)")
+                    return False
+                return True
             target_spec = v if isinstance(v, (str, dict)) else "one_opponent_character_any"
             targets = _resolve_target(target_spec, state, me, opp, self_inplay, outer_kind="stay_rested_next_refresh", outer_value=target_spec)
             for t in targets:
@@ -7269,7 +7370,13 @@ def _execute_effect_body_inner(
             state.push_log(f"  効果: レスト不能 → {[t.card.name for t in targets]}")
         elif k == "mill_self_top":
             # 自分のデッキ上 N 枚をトラッシュに置く。
-            n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
+            # per_last_discard=True は 公式 「**捨てた枚数と同じ枚数**を、 自分のデッキの上から
+            # トラッシュに置く」 (= OP09-059 湯けむり殺人事件)。 直前の trash_self_hand_random が
+            # 実際に捨てた枚数を読む (= 0 枚 なら 0 枚)。
+            if isinstance(v, dict) and v.get("per_last_discard"):
+                n = int(getattr(state, "last_self_hand_discard_amount", 0))
+            else:
+                n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
             milled = []
             for _ in range(n):
                 if not me.deck:
@@ -11230,11 +11337,14 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         hand_idxs = [int(candidates[i]["hand_idx"]) for i in valid_picks]
         state.pending_choice = None
         if not hand_idxs:
-            # 公式 「N 枚 捨てる」 は 強制 (= 拒否 不可)、 ただし 「~枚 まで」 なら 0 OK。
-            # ここ で 0 を 許す と 「~枚 捨てる」 強制 でも スキップ できて しまう。
-            # しかし limit=N で N 枚 強制 か N 枚 まで か は overlay spec で 区別 不可能。
-            # 安全 策: AI fallback で 既 完了 した の と 同 結 果 を 出す ため、
-            # 候補 数 が limit 以上 ある なら 残り は random で 補完 する。
+            # 公式 「N 枚 捨てる」 は 強制 (= 拒否 不可)、 「N 枚 **まで**」 なら 0 枚 可
+            # (cardqa_op_02: 「はい、 0枚から3枚までのうち好きな枚数の手札を捨てます」)。
+            # overlay の up_to フラグ で 両者 を 区別 する (2026-08-13、 旧: 区別 不能 で
+            # 強制 側 に 倒して いた = 「まで」 でも 0 を 選べ なかった)。
+            if choice.get("up_to"):
+                state.last_self_hand_discard_amount = 0
+                state.push_log("  効果: 自手札 0 枚 トラッシュ (= 「まで」 で 0 枚 を 選択)")
+                return
             limit = int(choice.get("limit", 1))
             for _ in range(limit):
                 if not me.hand:
@@ -11245,9 +11355,12 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         # discard_only: 既に draw 等が済んでいる系(draw_per_self_chara_then_discard / self_hand_to_size)
         # は primitive を再実行せず、 選んだ手札を捨てるだけ(= 再 draw を防ぐ)。
         if choice.get("discard_only"):
+            _dc = 0
             for hi in sorted(set(hand_idxs), reverse=True)[: int(choice.get("limit", len(hand_idxs)))]:
                 if 0 <= hi < len(me.hand):
                     me.trash.append(me.hand.pop(hi))
+                    _dc += 1
+            state.last_self_hand_discard_amount = _dc
             state.push_log(f"  効果: 人間選択 → 自手札 {len(hand_idxs)} 枚 トラッシュ")
             return
         if isinstance(primitive_value, dict):
@@ -12940,6 +13053,12 @@ def evaluate_static_effects(
     for player in state.players:
         player.hand_counter_boost = None   # 手札 counter 静的ブースト (OP16-118) も毎回再評価
         player.face_up_life_to_deck_bottom = False   # ST13-003 のルール置換 (毎回再評価)
+        # デッキ0枚 (公式 9-2-1-2) の敗北条件に対する **ルール置換** も静的効果なので毎回張り直す。
+        # ⚠ 2026-08-13 まで リセットしておらず、 **一度立つと永久に残っていた**。 その結果
+        #   OP15-022 ブルック / OP03-040 ナミ のリーダー効果が無効化 (OP09-097 闇水 等) されても
+        #   置換が効き続けた (cardqa_op_15 / cardqa_op_09 = 「無効になった時点でデッキが0枚なら敗北」)。
+        player.deck_out_wins = False       # OP03-040 ナミ / P-117: 敗北の代わりに勝利
+        player.deck_out_defer = False      # OP15-022 ブルック: そのターン終了時に敗北
         for ip in [player.leader, *player.characters, *player.stages]:
             ip.static_buff = 0
             ip.static_ko_immune = False

@@ -10569,3 +10569,367 @@ def test_set_base_power_copy_always_sets_original_power_all_cards():
                 if node["set_base_power_copy"].get("original") is not True:
                     bad.append(cid)
     assert not bad, f"set_base_power_copy が元々のパワーを書き換えない (original!=true): {bad}"
+
+
+# --------------------------------------------------------------------------- #
+#  「自分の手札 N 枚**まで**を捨てる」 は 0 枚を選べる (2026-08-13)
+#
+#  一次情報 (cardqa_op_02、 OP02-059 ボア・ハンコック / OP02-070 ニューカマーランド):
+#    Q: 「その後、自分の手札3枚までを捨てる。」の効果で、捨てる枚数に0枚を選べますか？
+#    A: はい、できます。**0枚から3枚まで**のうち好きな枚数の手札を捨てます。
+#
+#  是正前: overlay が [approx: 手札3枚まで=最大3として trash_self_hand_random:3] と
+#  近似を明記しており、 実測で **常に 3 枚強制**。 0 枚を選べなかった。
+# --------------------------------------------------------------------------- #
+def test_up_to_hand_discard_human_can_choose_zero():
+    """人間は 「手札3枚まで捨てる」 で 0 枚 (= modal で何も選ばない) を選べる。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, human_idx=0)
+    me = st.players[0]
+    me.hand = [repo.get(_FILLER) for _ in range(5)]
+    execute_effect({"trash_self_hand_random": {"amount": 3, "up_to": True}},
+                   st, me, st.players[1], None)
+    assert st.pending_choice is not None, "「まで」 なのに人間に枚数の選択が出ていない"
+    assert st.pending_choice["kind"] == "self_hand_discard_pick"
+    assert st.pending_choice.get("up_to") is True
+    resolve_pending_choice(st, [])          # = 0 枚を選ぶ
+    assert len(me.hand) == 5, "0 枚を選んだのに手札が減っている"
+    assert len(me.trash) == 0
+
+
+def test_up_to_hand_discard_human_can_choose_partial():
+    """同じ効果で 1 枚だけ捨てる (= 0 < k < N) も選べる。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, human_idx=0)
+    me = st.players[0]
+    me.hand = [repo.get(_FILLER) for _ in range(5)]
+    execute_effect({"trash_self_hand_random": {"amount": 3, "up_to": True}},
+                   st, me, st.players[1], None)
+    resolve_pending_choice(st, [2])
+    assert len(me.hand) == 4 and len(me.trash) == 1
+
+
+def test_plain_hand_discard_is_still_forced():
+    """対照: 「まで」 の無い 「手札N枚を捨てる」 は 0 枚を選べない (= 強制)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, human_idx=0)
+    me = st.players[0]
+    me.hand = [repo.get(_FILLER) for _ in range(5)]
+    execute_effect({"trash_self_hand_random": 2}, st, me, st.players[1], None)
+    assert st.pending_choice is not None
+    assert not st.pending_choice.get("up_to")
+    resolve_pending_choice(st, [])          # 見送ろうとしても
+    assert len(me.hand) == 3, "強制のはずの手札破棄をスキップできている"
+
+
+def test_op02_059_hancock_attack_does_not_force_three_discards():
+    """OP02-059 ハンコック【アタック時】: draw1 + 強制1捨て の後、 3枚までは AI 既定 0 枚。
+
+    公式は 0〜3 から選べる。 見返り (【自分の手札が捨てられた時】) が場に無いので
+    AI は 0 枚を選ぶ = 手札は draw+1 / 強制捨て-1 で増減なし。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    me.characters = [InPlay.of(repo.get("OP02-059"), sickness=False)]
+    me.hand = [repo.get(_FILLER) for _ in range(5)]
+    trigger_on_attack(st, me, st.players[1], me.characters[0], overlay)
+    resolve_triggers(st)
+    assert len(me.hand) == 5, f"0〜3 の選択なのに強制で捨てている (手札 {len(me.hand)})"
+    assert len(me.trash) == 1, "強制の 1 枚捨てが起きていない"
+
+
+def test_op09_059_mills_exactly_as_many_as_discarded():
+    """OP09-059 湯けむり殺人事件: 「捨てた枚数と同じ枚数」 をデッキ上からトラッシュ。
+
+    是正前は mill が固定 2 枚で、 捨てた枚数と連動していなかった。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, human_idx=0)
+    me = st.players[0]
+    me.hand = [repo.get(_FILLER) for _ in range(4)]
+    me.characters = [InPlay.of(repo.get(_FILLER), sickness=False)]
+    deck_before = len(me.deck)
+    ent = [e for e in overlay["OP09-059"].effects if e.get("when") == "counter"][0]
+    from engine.effects import run_do_array
+    run_do_array(list(ent["do"]), st, me, st.players[1], me.characters[0])
+    # 1 段目 = power_pump の対象選択 modal → 自キャラを選ぶ
+    while st.pending_choice is not None and st.pending_choice["kind"] != "self_hand_discard_pick":
+        resolve_pending_choice(st, [0])
+    assert st.pending_choice is not None, "手札破棄の選択が出ていない"
+    resolve_pending_choice(st, [1])          # 1 枚だけ捨てる
+    assert len(me.hand) == 3, "捨て枚数が選択どおりでない"
+    assert len(me.deck) == deck_before - 1, (
+        f"mill が捨てた枚数と一致しない (deck {deck_before} → {len(me.deck)}、 捨て 1 枚)"
+    )
+
+
+def test_up_to_hand_discard_ai_uses_max_when_payoff_on_board():
+    """AI は【自分の手札が捨てられた時】の見返りが場にある時だけ最大まで捨てる。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    payoff = next(
+        (cid for cid, b in overlay.items()
+         if any(e.get("when") == "on_self_hand_discarded" for e in b.effects)
+         and str(getattr(repo.get(cid).category, "value", repo.get(cid).category)).upper()
+             == "CHARACTER"),
+        None,
+    )
+    assert payoff, "on_self_hand_discarded を持つキャラが overlay に無い (前提が崩れている)"
+    me.characters = [InPlay.of(repo.get(payoff), sickness=False)]
+    me.hand = [repo.get(_FILLER) for _ in range(5)]
+    execute_effect({"trash_self_hand_random": {"amount": 3, "up_to": True}},
+                   st, me, st.players[1], None)
+    assert len(me.hand) == 2, f"見返りがあるのに捨てていない (手札 {len(me.hand)})"
+
+
+def test_no_approx_marker_left_for_up_to_hand_discard():
+    """全走査: 公式テキストが 「手札N枚までを捨てる」 のカードは overlay も up_to。"""
+    import re as _re
+    cards = {c["card_id"]: c for c in json.loads((ROOT / "db" / "cards.json").read_text("utf-8"))}
+    effs = json.loads((ROOT / "db" / "card_effects.json").read_text("utf-8"))
+    pat = _re.compile(r"手札(\d+)枚まで(?:を)?[^。]{0,4}?捨て")
+
+    def _walk_nodes(o):
+        if isinstance(o, dict):
+            yield o
+            for vv in o.values():
+                yield from _walk_nodes(vv)
+        elif isinstance(o, list):
+            for vv in o:
+                yield from _walk_nodes(vv)
+
+    bad = []
+    for cid, card in cards.items():
+        txt = " ".join(filter(None, [card.get("text"), card.get("trigger")]))
+        m = pat.search(txt)
+        if not m:
+            continue
+        n = int(m.group(1))
+        ok = False
+        for node in _walk_nodes(effs.get(cid, [])):
+            if isinstance(node, dict):
+                spec = node.get("trash_self_hand_random")
+                if isinstance(spec, dict) and spec.get("up_to") and int(spec.get("amount", 0)) == n:
+                    ok = True
+        if not ok:
+            bad.append(cid)
+    assert not bad, f"「手札N枚までを捨てる」 が up_to になっていない: {bad}"
+
+
+# --------------------------------------------------------------------------- #
+#  「相手の、レストのキャラかドン‼1枚まで」 = キャラ と ドン の混在単一選択
+#  (2026-08-13 是正、 OP07-026 ジュエリー・ボニー)
+#
+#  一次情報 (cardqa_op_07 Q654/Q655):
+#    Q: この【登場時】効果で、相手の**アクティブ**のドン!!1枚を選ぶことはできますか？ → いいえ
+#    Q: この【登場時】効果で、相手の**付与された状態**のドン!!1枚を選ぶことはできますか？ → いいえ
+#  = 候補は 相手の **レストのキャラ** と **コストエリアのレストのドン** のみ。
+#
+#  是正前: overlay が キャラ branch のみ (one_opponent_character_filtered) で
+#  「かドン‼」 が丸ごと欠落していた。
+# --------------------------------------------------------------------------- #
+def test_op07_026_prefers_rested_character():
+    """レストのキャラが居ればそれを選ぶ (AI 優先順位: キャラ > ドン)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    victim = InPlay.of(repo.get(_FILLER), sickness=False)
+    victim.rested = True
+    opp.characters = [victim]
+    opp.don_active, opp.don_rested = 3, 2
+    me.characters = [InPlay.of(repo.get("OP07-026"), sickness=False)]
+    trigger_on_play(st, me, opp, me.characters[0], overlay)
+    resolve_triggers(st)
+    assert victim.stay_rested_next_refresh is True
+    assert opp.next_refresh_kept_rested_don == 0, "キャラを選んだのにドンも止めている"
+
+
+def test_op07_026_falls_back_to_rested_don():
+    """レストのキャラが居なければ **レストのドン** 1 枚を止める (是正前は不発だった)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    opp.characters = []
+    opp.don_active, opp.don_rested = 3, 2
+    me.characters = [InPlay.of(repo.get("OP07-026"), sickness=False)]
+    trigger_on_play(st, me, opp, me.characters[0], overlay)
+    resolve_triggers(st)
+    assert opp.next_refresh_kept_rested_don == 1, "レストのドンを止められていない"
+
+
+def test_op07_026_active_don_is_never_a_target():
+    """公式 Q654: **アクティブ** のドンは選べない (= レストのドンが 0 なら不発)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    opp.characters = []
+    opp.don_active, opp.don_rested = 5, 0
+    me.characters = [InPlay.of(repo.get("OP07-026"), sickness=False)]
+    trigger_on_play(st, me, opp, me.characters[0], overlay)
+    resolve_triggers(st)
+    assert opp.next_refresh_kept_rested_don == 0
+    assert opp.don_active == 5 and opp.don_rested == 0, "アクティブのドンを触っている"
+
+
+def test_op07_026_human_can_choose_don_over_character():
+    """人間は modal でキャラを選ばない (= skip) ことで **ドン** を選べる。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, human_idx=0)
+    me, opp = st.players[0], st.players[1]
+    victim = InPlay.of(repo.get(_FILLER), sickness=False)
+    victim.rested = True
+    opp.characters = [victim]
+    opp.don_active, opp.don_rested = 1, 2
+    me.characters = [InPlay.of(repo.get("OP07-026"), sickness=False)]
+    trigger_on_play(st, me, opp, me.characters[0], overlay)
+    resolve_triggers(st)
+    assert st.pending_choice is not None, "混在選択なのに人間に modal が出ていない"
+    resolve_pending_choice(st, [])          # = キャラを選ばない
+    assert victim.stay_rested_next_refresh is False
+    assert opp.next_refresh_kept_rested_don == 1, "skip したのにドンが選ばれていない"
+
+
+def test_op07_026_kept_don_actually_stays_rested_through_refresh():
+    """止めたドンが 次のリフレッシュフェイズで実際にアクティブにならない。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    opp = st.players[1]
+    opp.don_active, opp.don_rested = 0, 3
+    opp.next_refresh_kept_rested_don = 1
+    # 自ターンを終える → 相手ターン開始 (= リフレッシュフェイズ) まで進める
+    st.turn_player_idx = 0
+    apply_action(st, EndPhase())
+    assert opp.next_refresh_kept_rested_don == 0, "リフレッシュを通過していない (前提が崩れている)"
+    # レスト 3 枚 のうち 1 枚 は 起きない。 active 側 は ドンフェイズ の 追加 を 含むので
+    # 「レストが 1 枚 残る」 ことだけを見る (= 効果の本体)。
+    assert opp.don_rested == 1, (
+        f"止めたドンがアクティブになっている (rested={opp.don_rested}、 期待 1)"
+    )
+
+
+def test_op06_020_hordy_can_rest_opponent_don():
+    """OP06-020 ホーディ (リーダー)【起動メイン】も 「キャラかドン‼」 = ドンをレストにできる。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP06-020")
+    me, opp = st.players[0], st.players[1]
+    opp.characters = []
+    opp.don_active, opp.don_rested = 4, 0
+    me.don_active = 5
+    effs = list_activate_main_effects(st, me, overlay)
+    assert effs, "OP06-020 の起動メインが候補に出ていない"
+    fire_activate_main(st, me, opp, effs[0][0], effs[0][1])
+    resolve_triggers(st)
+    assert opp.don_active == 3 and opp.don_rested == 1, (
+        f"相手ドンをレストにできていない (active={opp.don_active} rested={opp.don_rested})"
+    )
+
+
+# --------------------------------------------------------------------------- #
+#  デッキ 0 枚 = 敗北条件 (公式 9-2-1-2)、 判定は **即座** (2026-08-13 是正)
+#
+#  一次情報 (総合ルール rule_comprehensive_20260109):
+#    1-2-1-1-2 / 1-2-2-2 / 9-2-1-2  「自分のデッキのカードが０枚になる」 = 敗北条件
+#    1-2-2                          敗北条件を満たしたら **次にルール処理を行う時点** で敗北
+#    9-1-2                          ルール処理は 「他の行動の実行中であっても、 それが発生した
+#                                    時点で即座に解決」
+#    9-2-1                          複数プレイヤーが同時に満たせば **全員** 敗北 (= 引き分け)
+#  cardqa_st_03 (ST03-005): 「デッキが0枚となり、 デッキが0枚になったプレイヤーはゲームに敗北します」
+#
+#  是正前: engine はドローフェイズで draw に失敗した時だけ敗北させており、 デッキを 0 枚に
+#  しても **その場では負けなかった** (= 次の自分のドローまで生き延びた)。
+# --------------------------------------------------------------------------- #
+def _deckout_state(repo, overlay, leader0, deck0=2):
+    st = _state(repo, overlay, leader0=leader0)
+    st.players[0].deck = [repo.get(_FILLER)] * deck0
+    from engine.game import _recompute_static
+    _recompute_static(st)
+    return st
+
+
+def test_deck_zero_is_immediate_defeat():
+    """自分の効果でデッキを 0 枚にしたら **その場で** 敗北する。"""
+    repo, overlay = _repo(), _overlay()
+    st = _deckout_state(repo, overlay, "OP01-001")
+    me, opp = st.players[0], st.players[1]
+    execute_effect({"mill_self_top": 2}, st, me, opp, None)
+    from engine.game import _recompute_static
+    _recompute_static(st)
+    assert not me.deck
+    assert st.game_over is True, "デッキ0枚でも敗北していない (公式 9-2-1-2)"
+    assert st.winner == 1, f"敗北したのは P0 のはず (winner={st.winner})"
+
+
+def test_op15_022_brook_defers_deck_out_defeat():
+    """OP15-022 ブルック: 「デッキが0枚でも敗北せず、 0枚になったターン終了時に敗北」。"""
+    repo, overlay = _repo(), _overlay()
+    st = _deckout_state(repo, overlay, "OP15-022")
+    me, opp = st.players[0], st.players[1]
+    assert me.deck_out_defer is True, "ブルックのルール置換が張られていない"
+    execute_effect({"mill_self_top": 2}, st, me, opp, None)
+    from engine.game import _recompute_static
+    _recompute_static(st)
+    assert st.game_over is False, "ブルックなのに即敗北している"
+    apply_action(st, EndPhase())
+    assert st.game_over is True and st.winner == 1, "ターン終了時に敗北していない"
+
+
+def test_op15_022_brook_loses_immediately_when_leader_negated():
+    """公式 cardqa_op_15: ブルックの効果が **無効になった時点** でデッキ0枚なら敗北する。
+
+    Q: 自分のデッキが1枚から0枚になった。その後 このターン中に相手が「OP09-097 闇水」を
+       発動しこのリーダーの効果を無効にした場合、自分はゲームに敗北しますか？
+    A: はい、このリーダーの効果が無効になった時点でデッキが0枚の場合、ゲームに敗北します。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _deckout_state(repo, overlay, "OP15-022")
+    me, opp = st.players[0], st.players[1]
+    execute_effect({"mill_self_top": 2}, st, me, opp, None)
+    from engine.game import _recompute_static
+    _recompute_static(st)
+    assert st.game_over is False, "前提: ブルックが効いている間は敗北しない"
+    me.leader.granted_keywords.add("効果無効")     # = OP09-097 闇水
+    _recompute_static(st)
+    assert me.deck_out_defer is False, "無効化されてもルール置換が残っている"
+    assert st.game_over is True and st.winner == 1, \
+        "リーダーが無効になった時点で敗北していない (cardqa_op_15)"
+
+
+def test_op03_040_nami_wins_on_deck_out():
+    """OP03-040 ナミ: 「デッキが0枚になった場合、 敗北する代わりに勝利する」。"""
+    repo, overlay = _repo(), _overlay()
+    st = _deckout_state(repo, overlay, "OP03-040")
+    me, opp = st.players[0], st.players[1]
+    execute_effect({"mill_self_top": 2}, st, me, opp, None)
+    from engine.game import _recompute_static
+    _recompute_static(st)
+    assert st.game_over is True and st.winner == 0, "ナミがデッキ0で勝利していない"
+
+
+def test_op03_040_nami_loses_when_negated():
+    """公式 cardqa_op_09 / cardqa_op_10: ナミの効果を無効にされたターンにデッキ0 → **敗北**。"""
+    repo, overlay = _repo(), _overlay()
+    st = _deckout_state(repo, overlay, "OP03-040")
+    me, opp = st.players[0], st.players[1]
+    me.leader.granted_keywords.add("効果無効")     # = OP09-097 闇水 / OP10-098
+    from engine.game import _recompute_static
+    _recompute_static(st)
+    assert me.deck_out_wins is False, "無効化されても勝利置換が残っている"
+    execute_effect({"mill_self_top": 2}, st, me, opp, None)
+    _recompute_static(st)
+    assert st.game_over is True and st.winner == 1, \
+        "無効化されたナミがデッキ0で勝ってしまっている (公式=敗北)"
+
+
+def test_both_players_deck_zero_is_a_draw():
+    """公式 9-2-1: 敗北条件を満たしている **全員** が敗北 = 引き分け。"""
+    repo, overlay = _repo(), _overlay()
+    st = _deckout_state(repo, overlay, "OP01-001")
+    me, opp = st.players[0], st.players[1]
+    opp.deck = []
+    execute_effect({"mill_self_top": 2}, st, me, opp, None)
+    from engine.game import _recompute_static
+    _recompute_static(st)
+    assert st.game_over is True and st.winner is None, \
+        f"両者デッキ0 は引き分けのはず (winner={st.winner})"

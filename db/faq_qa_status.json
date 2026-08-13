@@ -9507,9 +9507,9 @@
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "OP15-022 ブルック: after deck->0 (deferred via deck_out_defer), opp negates leader with 闇水 -> official says immediate loss at moment of negation. ⑦ fix (2026-08-05) implemented END-phase defer + simultaneous defeat, but NOT the immediate loss re-check when the protecting static is negated mid-turn. Defeat-timing arch change, per escalated defeat-timing note.",
+  "note": "OP15-022 ブルック: 自ターン中にデッキが 1→0 になった後、 相手が OP09-097 闇水 でこのリーダーの効果を 無効にしたら **無効になった時点で** 敗北する (公式)。 深掘りで **中核ルールの欠落 2 件** が原因と判明: (1) engine はデッキ0枚の敗北を **ドローフェイズで draw に失敗した時だけ** 判定しており、 公式 9-2-1-2 / 1-2-1-1-2 「デッキのカードが0枚になる = 敗北条件」 + 1-2-2/9-1-2 「次のルール処理 = 発生時点で即座に」 を実装していなかった (= ミルで0枚にされても次の自分のドローまで生き延びた。 cardqa_st_03 が明示: 「デッキが0枚となり、デッキが0枚になったプレイヤーはゲームに敗北します」)。 (2) ルール置換 deck_out_wins (OP03-040 ナミ/P-117) / deck_out_defer (OP15-022 ブルック) が evaluate_static_effects の **リセット対象に入っておらず、 一度立つと永久に残っていた** = リーダーを 無効化されても置換が効き続けた。 是正 (2026-08-13): 静的リセットに 2 フラグを追加 + game._check_rule_defeat (公式 9-2 敗北判定処理) を新設し _recompute_static の **静的再計算の後** に呼ぶ。 順序が要点で、 これにより 「無効化 → 置換消滅 → 同じルール処理で敗北」 が自然に出る。 両者0枚は引き分け (9-2-1)。 Rust もミラー (rules::check_rule_defeat + 静的リセット、 parity MISMATCH=0 / effect smoke 4262枚 bit一致維持)。 回帰 test 6本。 ⚠ 併せて cardqa_op_09/op_10 の 「無効化されたナミはデッキ0で敗北」 も同時に満たすようになった。",
   "q": "自分のターン中、自分がこのリーダー「ブルック」を使用しており、自分のデッキが1枚から0枚になりました。その後、このターン中に相手が「OP09-097 闇水」を発動しこのリーダーの効果を無効にした場合、自分はゲームに敗北しますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "a9be1d96c791": {
   "a": "はい、必ず発動します。",
@@ -9883,9 +9883,9 @@
   "files": [
    "cardqa_op_07.json"
   ],
-  "note": "OP07-026: 効果「相手のレストのキャラかドン‼1枚」。overlayはキャラbranch(stay_rested_next_refresh)のみ実装で「かドン‼」未実装。設問(アクティブのドン選択不可)自体はキャラ限定で満たすが、レストのドンを止める効果が丸ごと欠落。キャラ or ドンの混在単一選択ターゲット primitive が必要(arch)=escalated",
+  "note": "OP07-026 ジュエリー・ボニー 【登場時】「相手の、レストのキャラかドン‼1枚まで」 = キャラとドンの **混在単一選択**。 是正前は overlay が キャラ branch (stay_rested_next_refresh + filter rested) のみで 「かドン‼」 が丸ごと欠落 (= 相手にレストのキャラが居ないと不発)。 設問 (アクティブのドンを選べるか → いいえ) 自体は満たしていた。 是正 (2026-08-13): rest の one_opp_chara_or_don と同型の inline 分岐 one_opp_rested_chara_or_don を stay_rested_next_refresh に新設 (ドンは InPlay でないので target spec では表現できない)。 候補 = 相手のレストのキャラ全部 + コストエリアの **レストの** ドン (公式 Q654/Q655: アクティブのドン・付与されたドンは選べない)。 人間= キャラ modal を skip するとドンを選ぶ / AI= 効果未適用のキャラを優先し power 降順 → 無ければレストドン1枚。 併せて 同じ 「キャラかドン‼」 文面で キャラ branch のみだった **OP06-020 ホーディ (リーダー)** も one_opp_chara_or_don + cost_le:3 に是正 (残り 7 枚 OP06-035/OP12-037/EB03-012/EB03-061/OP09-036/ST26-002/ST32-001 は実装済を確認)。 Rust もミラー実装 (parity MISMATCH=0 / effect smoke 4262枚 bit一致維持、 bail 増やさず)。 回帰 test 6本。 ⚠ OP07-026 は メタ 16 デッキ中 8 デッキ に採用 = **AI の手が変わるので matrix は要再計算** (元々 stale)。",
   "q": "この【登場時】効果で、相手のアクティブのドン!!1枚を選ぶことはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "afe3c8af2502": {
   "a": "いいえ、できません。",
@@ -13224,9 +13224,9 @@
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "OP02-059 ハンコック / OP02-070 イワンコフ「その後、自分の手札3枚**まで**を捨てる」で **0枚を選べる** (公式 cardqa_op_02: 「はい、0枚から3枚までのうち好きな枚数」)。engine は overlay に [approx: 手札3枚まで=最大3として trash_self_hand_random:3] と **近似を明記** しており、実測 手札5→2 = **常に3枚強制**。0枚を選べない。是正には『0〜N から枚数を選ぶ』primitive の新設 (人間 modal + AI の枚数選択) と Rust ミラーが要り、当セッションの残りコンテキストでは検証まで到達できないため escalated。⚠ 近似が overlay に明記されている = 意図的な手抜きなので、同型 (「N枚まで捨てる」) を全走査してから直すこと",
+  "note": "OP02-059 ハンコック / OP02-070 イワンコフ / OP09-059 湯けむり殺人事件 「自分の手札N枚**まで**を捨てる」 で **0枚を選べる** (cardqa_op_02: 「はい、0枚から3枚までのうち好きな枚数」)。 是正前は overlay に [approx: 手札3枚まで=最大3として trash_self_hand_random:3] と近似を明記しており **常に最大枚数強制**。 是正 (2026-08-13): spec に up_to フラグを新設し 強制/「まで」 を区別 (旧: limit=N だけでは区別不能で 強制側に倒していた)。 人間= 候補<=N でも modal を出し 0枚選択を honor / AI= _ai_up_to_discard_count (場に on_self_hand_discarded の見返りが無ければ 0枚、 あれば最大)。 併せて OP09-059 の 「捨てた枚数と同じ枚数をデッキ上からトラッシュ」 が固定2枚だったのを mill_self_top.per_last_discard で 実績連動に是正 (新 state field last_self_hand_discard_amount、 Rust もミラー)。 全走査: 公式テキストが 「手札N枚までを捨てる」 のカードは 3枚 (パラレル込 5エントリ) で全て up_to 化、 メタデッキ未採用 = matrix 影響なし。 Rust parity MISMATCH=0 / effect smoke 4262枚 bit一致維持。 回帰 test 6本 (tests/test_effect_interactions.py)。",
   "q": "「その後、自分の手札3枚までを捨てる。」の効果で、捨てる枚数に0枚を選ぶことはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "e3dfb3d5f3ad": {
   "a": "はい、できます。",

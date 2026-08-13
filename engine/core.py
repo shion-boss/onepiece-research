@@ -951,6 +951,10 @@ class GameState:
     # actor_source_feature_contains 条件と draw_per_self_hand_discarded primitive で使用。
     last_discard_source_inplay: Optional[object] = None
     last_discard_count: int = 0
+    # 直近の trash_self_hand_random が **実際に捨てた枚数** (= 「捨てた枚数と同じ枚数」 参照用、
+    # OP09-059)。 last_discard_count と違い イベント解決後もクリアしない (= 同じ do 配列の
+    # 後続 primitive / 人間 modal を挟んだ continuation から読めるようにするため)。
+    last_self_hand_discard_amount: int = 0
     # 直近に「自分の場のドンがドンデッキに戻された」 枚数 (= returned_don_count_ge 条件、 EB02-035/P-077)。
     last_returned_don_count: int = 0
     # 直近の「相手のデッキ上を見た」 私的情報 (= peek_opp_deck_top primitive、 OP11-070 等)。

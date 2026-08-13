@@ -623,7 +623,13 @@ def test_op02_058_buggy_search_human_pick():
 #    1枚を捨てる。その後、自分の手札3枚までを捨てる。
 # --------------------------------------------------------------------------- #
 def test_op02_059_hancock_on_attack_draw_discard_ai():
-    """アタック時: 1ドロー + 手札1捨て + さらに手札3枚まで捨て (AI 自動、 対象選択なし)。"""
+    """アタック時: 1ドロー + 手札1捨て(強制) + さらに手札3枚**まで**捨て。
+
+    ⚠ 2026-08-13 是正: 「3枚まで」 は 公式 (cardqa_op_02) では **0枚を選べる**。
+      是正前は overlay が [approx] で 常に 3 枚強制 にしており、 このテストは
+      **その近似を正解として固定していた**。 AI は 見返り (場に on_self_hand_discarded)
+      が無ければ 0 枚 を選ぶ = net は draw+1 / 強制捨て-1 で ±0。
+    """
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, overlay)
@@ -637,13 +643,15 @@ def test_op02_059_hancock_on_attack_draw_discard_ai():
                        InPlay.of(repo.get("OP02-059"), sickness=False))
     _drain_choices(st)
 
-    # +1 ドロー -1 捨て -3 捨て = net -3 → 5 - 3 = 2
-    assert len(me.hand) == 2, \
-        f"1ドロー + 手札1捨て + 手札3捨て の net が合わない: {len(me.hand)} (期待 2)"
+    # +1 ドロー -1 捨て -0 捨て (= 「3枚まで」 で 0 枚) = net 0 → 5
+    assert len(me.hand) == 5, \
+        f"1ドロー + 手札1捨て + 「3枚まで」0枚 の net が合わない: {len(me.hand)} (期待 5)"
+    assert len(me.trash) == 1, \
+        f"強制の 1 枚捨てだけが起きるはず: trash {len(me.trash)} (期待 1)"
 
 
 def test_op02_059_hancock_on_attack_small_hand_ai():
-    """手札が少ない場合: 手札3枚までの捨ては 上限 min で 打ち切られ crash しない。"""
+    """手札が少ない場合も crash しない (「3枚まで」 は AI 既定 0 枚)。"""
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, overlay)
@@ -657,6 +665,6 @@ def test_op02_059_hancock_on_attack_small_hand_ai():
                        InPlay.of(repo.get("OP02-059"), sickness=False))
     _drain_choices(st)
 
-    # 2 + 1(draw) - 1 - min(3, 2) = 3 - 1 - 2 = 0
-    assert len(me.hand) == 0, \
-        f"少ない手札での 捨て切り が想定通りでない: {len(me.hand)} (期待 0)"
+    # 2 + 1(draw) - 1(強制) - 0(「3枚まで」) = 2
+    assert len(me.hand) == 2, \
+        f"少ない手札での挙動が想定通りでない: {len(me.hand)} (期待 2)"

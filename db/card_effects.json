@@ -18217,7 +18217,7 @@
  ],
  "OP02-059": [
   {
-   "_text": "OP02-059 on_attack: カード1枚を引き、自分の手札1枚を捨てる。その後、自分の手札3枚までを捨てる。 [approx: 手札3枚まで=最大3として trash_self_hand_random:3]",
+   "_text": "OP02-059 on_attack: カード1枚を引き、自分の手札1枚を捨てる。その後、自分の手札3枚までを捨てる。",
    "do": [
     {
      "draw": 1
@@ -18226,7 +18226,10 @@
      "trash_self_hand_random": 1
     },
     {
-     "trash_self_hand_random": 3
+     "trash_self_hand_random": {
+      "amount": 3,
+      "up_to": true
+     }
     }
    ],
    "when": "on_attack"
@@ -18234,7 +18237,7 @@
  ],
  "OP02-059_p1": [
   {
-   "_text": "OP02-059_p1 on_attack: カード1枚を引き、自分の手札1枚を捨てる。その後、自分の手札3枚までを捨てる。 [approx: 手札3枚まで=最大3として trash_self_hand_random:3]",
+   "_text": "OP02-059_p1 on_attack: カード1枚を引き、自分の手札1枚を捨てる。その後、自分の手札3枚までを捨てる。",
    "do": [
     {
      "draw": 1
@@ -18243,7 +18246,10 @@
      "trash_self_hand_random": 1
     },
     {
-     "trash_self_hand_random": 3
+     "trash_self_hand_random": {
+      "amount": 3,
+      "up_to": true
+     }
     }
    ],
    "when": "on_attack"
@@ -18251,7 +18257,7 @@
  ],
  "OP02-059_p2": [
   {
-   "_text": "OP02-059_p2 on_attack: カード1枚を引き、自分の手札1枚を捨てる。その後、自分の手札3枚までを捨てる。 [approx: 手札3枚まで=最大3として trash_self_hand_random:3]",
+   "_text": "OP02-059_p2 on_attack: カード1枚を引き、自分の手札1枚を捨てる。その後、自分の手札3枚までを捨てる。",
    "do": [
     {
      "draw": 1
@@ -18260,7 +18266,10 @@
      "trash_self_hand_random": 1
     },
     {
-     "trash_self_hand_random": 3
+     "trash_self_hand_random": {
+      "amount": 3,
+      "up_to": true
+     }
     }
    ],
    "when": "on_attack"
@@ -18728,7 +18737,10 @@
         "trash_self_hand_random": 1
        },
        {
-        "trash_self_hand_random": 3
+        "trash_self_hand_random": {
+         "amount": 3,
+         "up_to": true
+        }
        }
       ],
       "if": {
@@ -38375,7 +38387,10 @@
    },
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_3"
+     "rest": {
+      "type": "one_opp_chara_or_don",
+      "cost_le": 3
+     }
     },
     {
      "prevent_self_life_to_hand_turn": true
@@ -38392,7 +38407,10 @@
    },
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_3"
+     "rest": {
+      "type": "one_opp_chara_or_don",
+      "cost_le": 3
+     }
     },
     {
      "prevent_self_life_to_hand_turn": true
@@ -38409,7 +38427,10 @@
    },
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_3"
+     "rest": {
+      "type": "one_opp_chara_or_don",
+      "cost_le": 3
+     }
     },
     {
      "prevent_self_life_to_hand_turn": true
@@ -45444,14 +45465,11 @@
  ],
  "OP07-026": [
   {
-   "_text": "ジュエリー・ボニー 登場時: 相手レストキャラ1枚は次リフレッシュでアクティブ化されない",
+   "_text": "OP07-026 【登場時】相手の、レストのキャラかドン‼1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
    "do": [
     {
      "stay_rested_next_refresh": {
-      "filter": {
-       "rested": true
-      },
-      "type": "one_opponent_character_filtered"
+      "type": "one_opp_rested_chara_or_don"
      }
     }
    ],
@@ -45460,14 +45478,11 @@
  ],
  "OP07-026_p1": [
   {
-   "_text": "OP07-026_p1: ジュエリー・ボニー 登場時: 相手レストキャラ1枚は次リフレッシュでアクティブ化されない",
+   "_text": "OP07-026_p1 【登場時】相手の、レストのキャラかドン‼1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
    "do": [
     {
      "stay_rested_next_refresh": {
-      "filter": {
-       "rested": true
-      },
-      "type": "one_opponent_character_filtered"
+      "type": "one_opp_rested_chara_or_don"
      }
     }
    ],
@@ -45476,14 +45491,11 @@
  ],
  "OP07-026_r1": [
   {
-   "_text": "OP07-026_r1: ジュエリー・ボニー 登場時: 相手レストキャラ1枚は次リフレッシュでアクティブ化されない",
+   "_text": "OP07-026_r1 【登場時】相手の、レストのキャラかドン‼1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
    "do": [
     {
      "stay_rested_next_refresh": {
-      "filter": {
-       "rested": true
-      },
-      "type": "one_opponent_character_filtered"
+      "type": "one_opp_rested_chara_or_don"
      }
     }
    ],
@@ -57370,10 +57382,15 @@
      }
     },
     {
-     "trash_self_hand_random": 2
+     "trash_self_hand_random": {
+      "amount": 2,
+      "up_to": true
+     }
     },
     {
-     "mill_self_top": 2
+     "mill_self_top": {
+      "per_last_discard": true
+     }
     }
    ],
    "when": "counter"

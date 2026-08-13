@@ -538,6 +538,10 @@ pub struct GameState {
     // 直近トリガー context (action 間では通常 None)。 card ref は card_id に畳む (Python canonical と一致)
     pub last_discard_source_inplay: Option<InPlay>,
     pub last_discard_count: i32,
+    /// 直近の trash_self_hand_random が **実際に捨てた枚数** (Python `last_self_hand_discard_amount`)。
+    /// 公式 「捨てた枚数と同じ枚数を…」 (OP09-059) が読む。 last_discard_count (= イベント context、
+    /// 発火後 0 に戻す) と違い、 同じ do 配列の後続 primitive が読めるようクリアしない = digest 対象。
+    pub last_self_hand_discard_amount: i32,
     pub last_returned_don_count: i32,
     pub last_peeked_opp_deck_top: Option<serde_json::Value>,
     #[serde(serialize_with = "ser_opt_card_id")]

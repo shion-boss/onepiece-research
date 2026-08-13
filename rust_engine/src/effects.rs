@@ -7537,8 +7537,14 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
         }
         // 自デッキ上 N 枚を trash (effects.py:6059)。
         "mill_self_top" => {
+            // per_last_discard = 公式 「**捨てた枚数と同じ枚数**を、 自分のデッキの上から
+            // トラッシュに置く」 (OP09-059)。 直前の trash_self_hand_random の実績値を読む。
             let n = if let Some(o) = v.as_object() {
-                o.get("amount").and_then(|x| x.as_i64()).unwrap_or(1) as i32
+                if o.get("per_last_discard").and_then(|x| x.as_bool()).unwrap_or(false) {
+                    state.last_self_hand_discard_amount
+                } else {
+                    o.get("amount").and_then(|x| x.as_i64()).unwrap_or(1) as i32
+                }
             } else {
                 v.as_i64().unwrap_or(1) as i32
             };
@@ -8869,6 +8875,21 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             } else {
                 v.as_i64().unwrap_or(1)
             };
+            // up_to = 公式 「手札 N 枚**まで**を捨てる」 (= 0 枚 も 選べる、 cardqa_op_02)。
+            // AI の 枚数 選択 は Python `_ai_up_to_discard_count` と 同一ロジック:
+            //   見返り (場に on_self_hand_discarded) が無ければ 0 枚、 あれば最大まで。
+            let up_to = v.is_object() && v.get("up_to").and_then(|x| x.as_bool()).unwrap_or(false);
+            let n = if up_to {
+                if n <= 0 || state.players[me_idx].hand.is_empty() {
+                    0
+                } else if me_board_has_when(state, me_idx, "on_self_hand_discarded") {
+                    n.min(state.players[me_idx].hand.len() as i64)
+                } else {
+                    0
+                }
+            } else {
+                n
+            };
             // 人間 modal (_picked_hand_idxs) は self-play では無し = AI 経路のみ実装。
             let mut discarded = 0;
             for _ in 0..n {
@@ -8881,6 +8902,8 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 me.trash.push(c);
                 discarded += 1;
             }
+            // 「捨てた枚数と同じ枚数」 系 (= OP09-059) が 直後 の do で 読む 実績値。
+            state.last_self_hand_discard_amount = discarded as i32;
             if discarded > 0 {
                 state.players[me_idx].hand_discarded_by_effect_this_turn = true;
                 if fire_hand_discarded_n(state, me_idx, src, discarded).is_err() {
@@ -8964,6 +8987,38 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
         }
         // 次リフレッシュ非アクティブ (effects.py:5599)。 selecting target。
         "stay_rested_next_refresh" => {
+            // one_opp_rested_chara_or_don (effects.py、 OP07-026 ジュエリー・ボニー):
+            // 「相手の、 **レストのキャラかドン‼** 1枚まで」 = キャラ と ドン の混在単一選択。
+            // 一次情報 cardqa_op_07 Q654/Q655: 相手の **アクティブ** のドン / **付与された** ドンは
+            // 選べない → 候補は コストエリアの **レストの** ドンのみ。
+            // ドンは Slot でないので resolve_target を通さず inline (rest の one_opp_chara_or_don と同型)。
+            // AI 順は Python と 1:1: 既に効果が乗った札を後回し → power 降順 → 無ければレストドン 1 枚。
+            let is_rested_chara_or_don = v.as_str() == Some("one_opp_rested_chara_or_don")
+                || v.get("type").and_then(|x| x.as_str()) == Some("one_opp_rested_chara_or_don");
+            if is_rested_chara_or_don {
+                let chosen = {
+                    let opp = &state.players[opp_idx];
+                    let mut cands: Vec<usize> = (0..opp.characters.len())
+                        .filter(|&i| opp.characters[i].rested)
+                        .collect();
+                    cands.sort_by_key(|&i| {
+                        (
+                            if opp.characters[i].stay_rested_next_refresh { 1 } else { 0 },
+                            -opp.characters[i].power(),
+                        )
+                    });
+                    cands.first().copied()
+                };
+                if let Some(i) = chosen {
+                    state.players[opp_idx].characters[i].stay_rested_next_refresh = true;
+                } else {
+                    let opp = &mut state.players[opp_idx];
+                    if opp.don_rested - opp.next_refresh_kept_rested_don > 0 {
+                        opp.next_refresh_kept_rested_don += 1;
+                    }
+                }
+                return true;
+            }
             let Some(targets) = resolve_target(Some(v), me_idx, opp_idx, src, state) else { return false };
             for (pi, sl) in targets {
                 get_ip_mut(&mut state.players[pi], sl).stay_rested_next_refresh = true;
@@ -13882,6 +13937,11 @@ pub fn evaluate_static_effects(state: &mut GameState) {
     for p in state.players.iter_mut() {
 p.hand_counter_boost = None;
         p.face_up_life_to_deck_bottom = false;   // ST13-003 のルール置換 (毎回再評価)
+        // デッキ0枚 (公式 9-2-1-2) の敗北条件に対するルール置換も静的 = 毎回張り直す。
+        // 一度立つと残る実装だと、 リーダーを無効化されても置換が効き続ける
+        // (cardqa_op_15 / cardqa_op_09 = 「無効になった時点でデッキが0枚なら敗北」)。
+        p.deck_out_wins = false;    // OP03-040 ナミ / P-117
+        p.deck_out_defer = false;   // OP15-022 ブルック
         for ip in std::iter::once(&mut p.leader)
             .chain(p.characters.iter_mut())
             .chain(p.stages.iter_mut())
