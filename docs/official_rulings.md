@@ -7430,3 +7430,56 @@ Python (`optional_cost_then`) と Rust (`effects.rs` 同ブロック) に 1:1 �
 - `test_ai_declines_optional_self_mill_that_would_deck_out` / `test_ai_still_fires_optional_self_mill_when_safe`
 - `test_deck_out_wins_leader_still_mills_itself_to_zero` (ナミは撃って勝つ)
 - `test_all_optional_self_mill_texts_are_optional_in_overlay` (全走査)
+
+## 発動コストの自 KO も **置換効果を通る** / 置換されたらコスト未払い (2026-08-13 是正、 OP05-087)
+
+**一次情報** (cardqa_op_05、 OP05-087 ハクバ × OP04-082 キュロス):
+
+> Q: この【アタック時】効果で自分のキャラ1枚をKOするとき、自分の「OP04-082 キュロス」を選び、
+>    KOする代わりに自分のリーダーか「コリーダコロシアム」をレストにした場合はどうなりますか？
+> A: この場合、自分の「キュロス」はKOされず、**この効果で相手のキャラ1枚をコスト-5することは
+>    できません**。
+
+**是正前の挙動**: 発動コストの自 KO (`ko_self_chara`) が **置換効果 (`replace_ko`) を一切見て
+いなかった**。 キュロスは問答無用でトラッシュされ、 その上でコスト-5 まで走っていた
+(= 置換を使う選択肢自体が engine に存在しなかった)。
+
+**是正**: cost 経路 (`optional_cost_then` 内) と do 経路 (`ko_self_chara` primitive) の両方で
+`try_replace_ko` を通す。 さらに **置換で KO が成立しなかった枚数が要求数に届かなければ
+「コストを支払えていない」 = 効果は発動しない** (公式 4-10) として `return False`。
+
+⭐ 一般則として押さえる: **「〜をKOできる：」 の KO も普通の KO なので置換効果がかかる**。
+置換を使うと **コストが未払いになり、 コロン以降は起きない**。
+
+**恒久ガード**: `test_op05_087_cost_ko_replaced_by_kyros_makes_effect_fizzle` /
+`test_op05_087_without_replacement_pays_and_applies` (対照)
+
+## 「このターン中、**次に**登場させる…」 は **1 枚だけ** (2026-08-13 是正、 OP02-025)
+
+**是正前の挙動**: `reduce_play_cost_filtered_turn` のコメントに 「(近似: 当ターン中の該当全play)」 と
+**近似が明記されたまま** 消費されておらず、 同じターンの 2 枚目・3 枚目の該当キャラも割引されていた。
+素の `play_cost_reduction` (OP12-061 = 同じく 「次に」) は登場時に消費済で、 filtered 側だけ抜けていた。
+
+**是正**: `game._consume_filtered_turn_reduction` を新設し、 PlayCharacter / PlayEvent / PlayStage の
+3 経路で **マッチする entry を 1 件だけ pop** する。 Rust も `consume_filtered_turn_reduction` でミラー。
+「次に」 の無い恒久軽減 (`play_cost_reductions_filtered` = OP05-097 等) は別リストなので触らない。
+
+実測 (OP02-025、 「コスト3以上の《ワノ国》キャラ -1」):
+
+| 手順 | 支払い | 意味 |
+|---|---|---|
+| cost3 ワノ国 1 枚目 | -2 | 割引が乗る |
+| cost3 ワノ国 2 枚目 | -3 | **割引は消費済** (公式 「次に」) |
+| cost1 ワノ国 (対象外) | -1 | 割引を消費しない |
+| その後の cost3 ワノ国 | -2 | 割引は残っている (cardqa_op_02 = 「はい、少なくなります」) |
+
+## 公式どおりで **問題なかった** もの (2026-08-13 バッチ 3)
+
+- **e145886c21fa** ST13-003 × OP06-116: 「相手に1ダメージ → その後 自ライフ上1枚を手札に加える」 で、
+  表向きライフはルール置換により **デッキの下** へ (手札に加わらない)。
+- **e11e82a99451** ST21-003: 「ブロッカーを発動できない」 は **選んだキャラのアタック限定**。
+  他のキャラ / リーダーのアタックは通常どおりブロックできる。
+- **e110716721f2** OP01-014: 自キャラ 5 枚でも【ブロック時】の登場は発動でき、 3-7-6-1 で 1 枚を
+  トラッシュに置いて登場する。
+- **e0feb16e2ffa** OP02-121 × OP02-106: 静的コスト-5 と ターン中コスト-2 が重なったキャラから
+  クザンが離れると **静的分だけ消える** (印刷 7 → 5)。

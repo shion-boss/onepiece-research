@@ -11327,3 +11327,198 @@ def test_all_optional_self_mill_texts_are_optional_in_overlay():
                                for o in _walk(ent.get("do") or []) if "optional_cost_then" in o):
                         bad.append(cid)
     assert not bad, f"「置いてもよい」 なのに強制の mill_self_top が残っている: {sorted(set(bad))}"
+
+
+# --------------------------------------------------------------------------- #
+#  公式 Q&A conformance 実測 (2026-08-13 バッチ 3)
+# --------------------------------------------------------------------------- #
+def test_op05_087_cost_ko_replaced_by_kyros_makes_effect_fizzle():
+    """発動コストの自KO が置換されたら **コスト未払い** = 効果は起きない。
+
+    一次情報 (cardqa_op_05、 OP05-087 ハクバ × OP04-082 キュロス):
+      Q: 【アタック時】で自キャラ1枚をKOするとき「キュロス」を選び、KOする代わりに
+         自分のリーダーか「コリーダコロシアム」をレストにした場合はどうなりますか？
+      A: この場合、自分の「キュロス」はKOされず、**この効果で相手のキャラ1枚を
+         コスト-5することはできません**。
+
+    是正前: 発動コストの自KO が置換効果 (replace_ko) を一切見ておらず、 キュロスが
+    問答無用でトラッシュされ、 コスト-5 まで走っていた。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    atk = InPlay.of(repo.get("OP05-087"), sickness=False)
+    atk.attached_dons = 1                     # 【ドン!!×1】gate
+    kyros = InPlay.of(repo.get("OP04-082"), sickness=False)
+    me.characters = [atk, kyros]
+    victim = InPlay.of(repo.get("OP02-013"), sickness=False)
+    opp.characters = [victim]
+    from engine.game import _recompute_static
+    _recompute_static(st)
+    printed = victim.base_cost
+
+    trigger_on_attack(st, me, opp, atk, overlay)
+    resolve_triggers(st)
+
+    assert kyros in me.characters, "置換したのにキュロスが KO されている"
+    assert me.leader.rested is True, "置換のコスト (リーダーをレスト) が払われていない"
+    assert victim.base_cost == printed, \
+        f"コスト未払いなのにコスト-5 が適用されている ({printed} → {victim.base_cost})"
+
+
+def test_op05_087_without_replacement_pays_and_applies():
+    """対照: 置換を持たないキャラを犠牲にすればコスト-5 は通る。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    atk = InPlay.of(repo.get("OP05-087"), sickness=False)
+    atk.attached_dons = 1
+    fodder = InPlay.of(repo.get(_FILLER), sickness=False)
+    me.characters = [atk, fodder]
+    victim = InPlay.of(repo.get("OP02-013"), sickness=False)
+    opp.characters = [victim]
+    from engine.game import _recompute_static
+    _recompute_static(st)
+    printed = victim.base_cost
+    trigger_on_attack(st, me, opp, atk, overlay)
+    resolve_triggers(st)
+    assert fodder not in me.characters, "犠牲が KO されていない"
+    assert victim.base_cost == printed - 5, "コスト-5 が適用されていない"
+
+
+def test_op02_025_next_reduction_applies_to_only_one_card():
+    """OP02-025: 「このターン中、**次に**登場させる…1枚」 = 1 枚だけ割引 (cardqa_op_02)。
+
+    ⚠ 是正前は primitive のコメントに 「(近似: 当ターン中の該当全play)」 と明記されたまま
+      消費しておらず、 2 枚目以降も割引されていた。
+    """
+    import json as _json
+    from engine.effects import list_activate_main_effects, fire_activate_main
+    from engine.game import PlayCharacter, apply_action
+    repo, overlay = _repo(), _overlay()
+
+    def _i(x):
+        try:
+            return int(x)
+        except (TypeError, ValueError):
+            return None
+
+    cards = _json.loads((ROOT / "db" / "cards.json").read_text("utf-8"))
+    wano = [c for c in cards
+            if c["category"] == "CHARACTER" and "ワノ国" in (c.get("features") or "")
+            and _i(c.get("cost")) is not None
+            and "_p" not in c["card_id"] and "_r" not in c["card_id"]]
+    w1 = next(c["card_id"] for c in wano if _i(c["cost"]) == 1)
+    w3 = next(c["card_id"] for c in wano if _i(c["cost"]) == 3)
+
+    def _setup(hand_ids):
+        st = _state(repo, overlay, leader0="OP02-025")
+        me = st.players[0]
+        me.hand = [repo.get(c) for c in hand_ids]
+        me.don_active = 12
+        effs = list_activate_main_effects(st, me, overlay)
+        fire_activate_main(st, me, st.players[1], *effs[0])
+        resolve_triggers(st)
+        return st, me
+
+    st, me = _setup([w3, w3])
+    d = me.don_active
+    apply_action(st, PlayCharacter(hand_idx=0))
+    assert me.don_active == d - 2, "1 枚目に -1 の割引が効いていない"
+    d = me.don_active
+    apply_action(st, PlayCharacter(hand_idx=0))
+    assert me.don_active == d - 3, "「次に」 なのに 2 枚目も割引されている"
+
+    # 対象外 (コスト3未満) のワノ国を挟んでも割引は残る (= 公式 「はい、少なくなります」)
+    st, me = _setup([w1, w3])
+    d = me.don_active
+    apply_action(st, PlayCharacter(hand_idx=0))
+    assert me.don_active == d - 1, "対象外カードが割引を受けている"
+    d = me.don_active
+    apply_action(st, PlayCharacter(hand_idx=0))
+    assert me.don_active == d - 2, "対象外カードを挟んだら割引が消えている"
+
+
+def test_st21_003_blocker_ban_is_per_selected_attacker():
+    """ST21-003 の 「ブロッカーを発動できない」 は **選んだキャラのアタック限定** (cardqa_st_21)。"""
+    import json as _json
+    repo, overlay = _repo(), _overlay()
+    cards = _json.loads((ROOT / "db" / "cards.json").read_text("utf-8"))
+
+    def _i(x):
+        try:
+            return int(x)
+        except (TypeError, ValueError):
+            return None
+
+    mugi = next(c["card_id"] for c in cards
+                if c["category"] == "CHARACTER"
+                and "麦わらの一味" in (c.get("features") or "")
+                and (_i(c.get("power")) or 0) >= 6000
+                and "_p" not in c["card_id"])
+    st = _state(repo, overlay)
+    me = st.players[0]
+    chosen = InPlay.of(repo.get(mugi), sickness=False)
+    other = InPlay.of(repo.get(_FILLER), sickness=False)
+    src = InPlay.of(repo.get("ST21-003"), sickness=False)
+    me.characters = [chosen, other, src]
+    trigger_on_play(st, me, st.players[1], src, overlay)
+    resolve_triggers(st)
+    assert chosen.attacker_prevents_blocker_until_turn_end is True, \
+        "選んだキャラにブロッカー封じが乗っていない"
+    assert other.attacker_prevents_blocker_until_turn_end is False, \
+        "選んでいないキャラまでブロッカー封じになっている"
+    assert me.leader.attacker_prevents_blocker_until_turn_end is False, \
+        "リーダーまでブロッカー封じになっている"
+
+
+def test_st13_003_life_to_hand_goes_to_deck_bottom_after_effect_damage():
+    """ST13-003 下では 「自分のライフの上から1枚を手札に加える」 が **デッキの下** になる。
+
+    一次情報 (cardqa_st_13 × OP06-116 排撃): 「相手に1ダメージ与えたあと、自分のライフを
+    1枚デッキの下に置きます」。
+    """
+    from engine.effects import run_do_array
+    from engine.game import _recompute_static
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="ST13-003")
+    me, opp = st.players[0], st.players[1]
+    me.life = [repo.get("OP01-016")]
+    me.life_face_up = [True]
+    opp.life = [repo.get(_FILLER)]
+    opp.life_face_up = [False]
+    _recompute_static(st)
+    assert me.face_up_life_to_deck_bottom is True, "前提: ルール置換が張られていない"
+    deck_before, hand_before = len(me.deck), len(me.hand)
+
+    ent = [e for e in overlay["OP06-116"].effects if e.get("when") == "main"][0]
+    opt2 = ent["do"][0]["choice_effect"]["options"][1]
+    run_do_array(list(opt2["do"]), st, me, opp, None)
+    resolve_triggers(st)
+
+    assert len(opp.life) == 0, "相手に 1 ダメージが入っていない"
+    assert len(me.hand) == hand_before, "表向きライフが手札に加わってしまっている"
+    assert len(me.deck) == deck_before + 1 and me.deck[-1].card_id == "OP01-016", \
+        "表向きライフがデッキの下に置かれていない"
+
+
+def test_op01_014_on_block_play_works_with_full_field():
+    """自キャラ5枚でも【ブロック時】の登場は発動でき、 1 枚をトラッシュして登場する。"""
+    from engine.effects import trigger_on_block
+    from engine.game import _recompute_static
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    blocker = InPlay.of(repo.get("OP01-014"), sickness=False)
+    blocker.attached_dons = 1                  # 【ドン!!×1】gate
+    me.characters = [blocker] + [InPlay.of(repo.get("OP02-013"), sickness=False)
+                                 for _ in range(4)]
+    me.hand = [repo.get("OP01-016")]
+    _recompute_static(st)
+    assert len(me.characters) == 5, "前提: 場が 5 枚でない"
+    trigger_on_block(st, me, st.players[1], blocker, overlay)
+    resolve_triggers(st)
+    assert len(me.characters) == 5, "場が 5 枚を超えている"
+    assert any(ip.card.card_id == "OP01-016" for ip in me.characters), \
+        "場が満杯だと登場が空振りしている (公式=1枚トラッシュして登場)"
+    assert len(me.trash) == 1, "差し替えでトラッシュに置かれていない"

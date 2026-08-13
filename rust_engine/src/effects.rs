@@ -14075,6 +14075,20 @@ pub fn eff_cost(state: &GameState, me_idx: usize, card: &CardDef) -> i32 {
     (card.cost - me.play_cost_reduction - in_hand_cost_minus(state, me_idx, card) - filtered).max(0)
 }
 
+/// ターン限定 filter 軽減を **1 枚分だけ** 消費 (game.py:_consume_filtered_turn_reduction)。
+/// 公式 「このターン中、 **次に** 自分が手札から登場させる (filter) キャラ…」 (OP02-025) = 1 枚だけ。
+/// 「次に」 の無い恒久軽減 (play_cost_reductions_filtered) は触らない。
+pub fn consume_filtered_turn_reduction(state: &mut GameState, me_idx: usize, card: &CardDef) {
+    let me = &mut state.players[me_idx];
+    if let Some(i) = me
+        .play_cost_reductions_filtered_turn
+        .iter()
+        .position(|r| matches_filter(card, r.get("filter")))
+    {
+        me.play_cost_reductions_filtered_turn.remove(i);
+    }
+}
+
 /// 場のドン返却可能総数 (active+rested+全付与ドン)。 pay_don cost 判定用。
 /// 「ライフ N 枚を手札に加える」 を **発動コスト** として払えるか (effects.py:_life_to_hand_cost_payable)。
 ///

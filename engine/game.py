@@ -1427,6 +1427,26 @@ def _compute_filtered_cost_reduction(me: Player, card: CardDef) -> int:
     return total
 
 
+def _consume_filtered_turn_reduction(me: Player, card: CardDef) -> None:
+    """ターン限定 filter 軽減 (`play_cost_reductions_filtered_turn`) を **1 枚分だけ** 消費する。
+
+    ⭐ 公式テキストは 「このターン中、 **次に** 自分が手札から登場させる (filter) キャラカードの
+      支払うコストは N 少なくなる」 (OP02-025 錦えもん) = **1 枚だけ**。
+      ⚠ 2026-08-13 まで primitive のコメントに 「(近似: 当ターン中の該当全play)」 と明記されたまま
+        消費しておらず、 同じターンに 2 枚目・3 枚目の該当キャラも割引されていた。
+      素の `play_cost_reduction` (OP12-061 = 同じく 「次に」) は登場時に消費されており、
+      こちらだけ抜けていた。
+
+    ⚠ 「次に」 の無い恒久軽減 (`play_cost_reductions_filtered` = OP05-097 等) は別リストなので
+      触らない。
+    """
+    from .effects import _matches_filter
+    for i, r in enumerate(me.play_cost_reductions_filtered_turn):
+        if _matches_filter(card, r.get("filter", {})):
+            me.play_cost_reductions_filtered_turn.pop(i)
+            return
+
+
 def _compute_in_hand_cost_minus(state: GameState, me: Player, card: CardDef) -> int:
     """手札時のカード固有コスト軽減 (overlay の when:"in_hand" + cost_minus)。
     apply_action でも legal_actions と同じ計算を共有するためのモジュールレベル helper。"""
@@ -1500,6 +1520,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         # 軽減の使用分を消費 (累積値が複数キャラ登場でも次の登場には残る簡略化)
         consumed = card.cost - eff_cost
         me.play_cost_reduction = max(0, me.play_cost_reduction - consumed)
+        _consume_filtered_turn_reduction(me, card)   # 「次に」 = 1 枚だけ (OP02-025)
         ip = InPlay.of(card, rested=False, sickness=not card.is_rush)
         me.characters.append(ip)
         me.cards_played_count += 1
@@ -1525,6 +1546,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         me.don_active -= eff_cost
         consumed = card.cost - eff_cost
         me.play_cost_reduction = max(0, me.play_cost_reduction - consumed)
+        _consume_filtered_turn_reduction(me, card)   # 「次に」 = 1 枚だけ (OP02-025)
         me.trash.append(card)
         me.cards_played_count += 1
         # per-turn イベント最大コスト (= OP15-002 等「このターン中コストN以上のイベント使用」)。
@@ -1556,6 +1578,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         me.don_active -= eff_cost
         consumed = card.cost - eff_cost
         me.play_cost_reduction = max(0, me.play_cost_reduction - consumed)
+        _consume_filtered_turn_reduction(me, card)   # 「次に」 = 1 枚だけ (OP02-025)
         ip = InPlay.of(card, rested=False, sickness=False)
         me.stages.append(ip)
         me.cards_played_count += 1

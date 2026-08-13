@@ -4201,6 +4201,13 @@ def _execute_effect_body_inner(
             for t in victims:
                 if t not in me.characters:
                     continue
+                # 「このキャラがKOされる場合、 代わりに〜」 は **自分の効果による自KO** にも
+                # かかる (= OP04-082 キュロス、 cardqa_op_05)。 2026-08-13 追加。
+                if state.effects_overlay and try_replace_ko(
+                    state, me, opp, t, state.effects_overlay, by_opp_effect=False
+                ):
+                    state.push_log(f"  効果: 自キャラKO が置換された → {t.card.name} は場に残る")
+                    continue
                 me.characters.remove(t)
                 me.trash.append(t.card)
                 _note_public_departure(state, me, t.card)
@@ -10722,18 +10729,40 @@ def _execute_effect_body_inner(
                     if _maybe_pick_self_chara_cost(state, me, self_inplay, cands, kc_count, "ko",
                                                    list(cost_specs[_ci + 1:]) + list(effect_specs)):
                         return True  # 人間選択待ち(continuation で残りコスト+効果)
-                    to_ko = {c.instance_id for c in cands[:kc_count]}
                     new_chars_before = list(me.characters)
-                    new_chars = []
-                    for c in me.characters:
-                        if c.instance_id in to_ko:
-                            me.trash.append(c.card)
-                            state.push_log(f"  効果コスト: 自キャラKO → {c.card.name}")
-                            if c.attached_dons > 0:
-                                me.don_rested += c.attached_dons
-                        else:
-                            new_chars.append(c)
-                    me.characters = new_chars
+                    # ⭐ 「このキャラがKOされる場合、 代わりに〜」 の置換効果は **発動コストの KO にも**
+                    #   かかる (公式 cardqa_op_05: OP05-087 ハクバ の【アタック時】コストで
+                    #   OP04-082 キュロス を選び、 キュロスの置換 (代わりにリーダー/コリーダコロシアムを
+                    #   レスト) を使った場合 → 「キュロスはKOされず、 この効果で相手キャラをコスト-5する
+                    #   ことはできません」)。 2026-08-13 まで 置換を一切見ずに問答無用でトラッシュしていた。
+                    _ko_done = 0
+                    for c in list(cands[:kc_count]):
+                        if c not in me.characters:
+                            continue
+                        if state.effects_overlay and try_replace_ko(
+                            state, me, opp, c, state.effects_overlay, by_opp_effect=False
+                        ):
+                            state.push_log(
+                                f"  効果コスト: 自キャラKO が置換された → {c.card.name} は場に残る"
+                            )
+                            continue
+                        me.characters.remove(c)
+                        me.trash.append(c.card)
+                        state.push_log(f"  効果コスト: 自キャラKO → {c.card.name}")
+                        if c.attached_dons > 0:
+                            me.don_rested += c.attached_dons
+                        _ko_done += 1
+                    if _ko_done < kc_count:
+                        # 置換で KO が成立しなかった = **コストを支払えていない** → 効果は発動しない
+                        # (公式 4-10 / cardqa_op_05)。
+                        state.push_log(
+                            "  効果コスト: 自キャラKO が成立せず (置換) → 効果は不発"
+                        )
+                        if state.effects_overlay and len(me.characters) != len(new_chars_before):
+                            trigger_on_self_chara_leave_by_self_effect(
+                                state, me, opp, state.effects_overlay
+                            )
+                        return False
                     # ⚠ 「自分の効果で自分のキャラが場を離れた」 = leave-by-self トリガーの対象
                     #   (公式 cardqa_op_16 / OP16-041: 虜の矢 OP07-056 のコストで自キャラが
                     #    手札に戻った時も 「場を離れた時」 効果は発動する = はい)。

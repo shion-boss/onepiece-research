@@ -884,6 +884,8 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             p.don_active -= eff_cost;
             let consumed = card.cost - eff_cost;
             p.play_cost_reduction = (p.play_cost_reduction - consumed).max(0);
+            crate::effects::consume_filtered_turn_reduction(state, me, &card); // 「次に」=1枚 (OP02-025)
+            let p = &mut state.players[me];
             let sickness = !card.is_rush();
             p.characters.push(InPlay::of(card.clone(), sickness));
             p.cards_played_count += 1;
@@ -1633,6 +1635,8 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             p.don_active -= eff_cost;
             let consumed = card.cost - eff_cost;
             p.play_cost_reduction = (p.play_cost_reduction - consumed).max(0);
+            crate::effects::consume_filtered_turn_reduction(state, me, &card); // 「次に」=1枚 (OP02-025)
+            let p = &mut state.players[me];
             let card_id = card.card_id.clone();
             let ccost = card.cost;
             p.trash.push(card);
@@ -1667,6 +1671,8 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             p.don_active -= eff_cost;
             let consumed = card.cost - eff_cost;
             p.play_cost_reduction = (p.play_cost_reduction - consumed).max(0);
+            crate::effects::consume_filtered_turn_reduction(state, me, &card); // 「次に」=1枚 (OP02-025)
+            let p = &mut state.players[me];
             p.stages.push(InPlay::of(card.clone(), false)); // stage は召喚酔い無
             p.cards_played_count += 1;
             let played_idx = p.stages.len() - 1;
