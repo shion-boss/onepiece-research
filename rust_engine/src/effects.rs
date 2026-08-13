@@ -5877,8 +5877,22 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             if cands.is_empty() {
                 return true; // Python は return False = 忠実な no-op
             }
-            cands.sort_by(|a, b| b.1.cmp(&a.1)); // _threat_key = power 降順 (stable)
-            for (sl, _) in cands.into_iter().take(limit) {
+            // ⭐ 公式は 「相手のレストの、 **リーダーとキャラ1枚まで**」 = リーダー枠 1 と
+            //   キャラ枠 limit の **独立した 2 枠** (合計 2 枚まで、 cardqa_op_07「はい」)。
+            //   2026-08-13 まで 「合わせて limit 枚」 の単一選択で、 リーダーを選ぶとキャラを
+            //   選べなかった (Python と同時是正)。
+            let leader_slot: Vec<Slot> = if state.players[opp_idx].leader.rested {
+                vec![Slot::Leader]
+            } else {
+                vec![]
+            };
+            let mut chara: Vec<(Slot, i32)> =
+                cands.into_iter().filter(|(sl, _)| !matches!(sl, Slot::Leader)).collect();
+            chara.sort_by(|a, b| b.1.cmp(&a.1)); // _threat_key = power 降順 (stable)
+            for sl in leader_slot
+                .into_iter()
+                .chain(chara.into_iter().take(limit).map(|(sl, _)| sl))
+            {
                 get_ip_mut(&mut state.players[opp_idx], sl).stay_rested_next_refresh = true;
             }
             true

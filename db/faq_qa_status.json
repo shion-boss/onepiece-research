@@ -9443,9 +9443,9 @@
   "files": [
    "cardqa_op_07.json"
   ],
-  "note": "OP07-059 on_attack keep_opp_rested target='one_opp_chara_or_leader' selects ONE, but official allows up-to-1 opp rested LEADER AND up-to-1 opp rested CHARACTER (up to 2 total). Under-selection. Needs a new target spec (independent leader+char pick) + Rust parity; OP07-059 already in an escalated symbolic-cost-gate batch. Not an auto-fix.",
+  "note": "OP07-059 フォクシー【アタック時】…相手のレストの、**リーダーとキャラ1枚まで**を選ぶ。これは『リーダー1枚まで』と『キャラ1枚まで』の**独立した2枠**(合計2枚まで、公式 cardqa_op_07 はい)。engine は『リーダー+キャラから1枚だけ』の単一選択でモデル化しており、**リーダーを選ぶとキャラを選べなかった**。keep_opp_rested_inplay_next_refresh を2枠独立に是正 (Python/Rust 両方、2026-08-13)。実測 リーダー+キャラともレスト→(True,[True,False])=計2枚。回帰 test_keep_opp_rested_picks_leader_and_character_independently",
   "q": "この【アタック時】効果で、相手のレストのリーダーとレストのキャラそれぞれ1枚ずつ、合計2枚を選ぶことはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "a8ca4f0066bf": {
   "a": "はい、アタックできません。\nこの効果は、アタックや【ブロッカー】の発動などの、レストにすることが必要な行動をできない状態にする効果です。",
@@ -9471,9 +9471,9 @@
   "files": [
    "cardqa_op_07.json"
   ],
-  "note": "OP07-059 (same as a8b1eab174ba): when opp leader is active you can still pick the rested character. Overlay 'one_opp_chara_or_leader' single-pick doesn't model the independent leader+character selection. Needs new target spec + Rust parity. Escalated.",
+  "note": "OP07-059 (a8b1eab174ba と同カード): 相手のリーダーがアクティブの場合でもレストのキャラ1枚は選べる。是正前から conform だった (単一選択でもキャラ側は選べていた)。実測 リーダー アクティブ + キャラ2枚レスト → キャラ1枚に stay_rested。公式はい と一致",
   "q": "相手のリーダーがアクティブの場合、この【アタック時】効果で相手のレストのキャラ1枚を選ぶことはできますか？",
-  "status": "escalated"
+  "status": "conform"
  },
  "a96fa3b80cf4": {
   "a": "はい、できます。",

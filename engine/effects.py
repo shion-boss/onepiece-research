@@ -8047,7 +8047,7 @@ def _execute_effect_body_inner(
             cands = [c for c in opp.characters
                      if c.rested and c.attached_dons >= don_ge and _cost_ok(c)]
             if iid_picks is not None:
-                chosen = [c for c in cands if c.instance_id in iid_picks][:limit]
+                chosen = [c for c in cands if c.instance_id in iid_picks][:_pick_max]
             elif len(cands) > limit and _maybe_request_target_pick(
                 state, cands, limit, "keep_opp_rested_chara_with_don_ge_next_refresh",
                 v, self_inplay,
@@ -8159,26 +8159,33 @@ def _execute_effect_body_inner(
             target_spec = spec_val.get("target_rest", "one_opp_chara_or_leader")
             limit = int(spec_val.get("limit", 1))
             iid_picks = spec_val.get("_iid_picks")
-            # target_rest は「one_opp_chara_or_leader」 想定。 シンプル: opp.leader + chara から rested 1 枚
+            # ⭐ 公式テキストは 「相手のレストの、 **リーダーとキャラ1枚まで** を選ぶ」 =
+            #   **リーダー 1 枚まで** と **キャラ 1 枚まで** の **独立した 2 枠** (合計 2 枚まで)。
+            #   一次情報 (cardqa_op_07): 「レストのリーダーとレストのキャラそれぞれ1枚ずつ、
+            #   合計2枚を選ぶことはできますか？」 → 「**はい、 できます**」
+            #   ⚠ 2026-08-13 まで 「リーダー + キャラ から 1 枚だけ」 の単一選択でモデル化しており、
+            #     **リーダーを選ぶとキャラを選べない** (= 合計 1 枚) 状態だった。
             cands = []
             if opp.leader.rested:
                 cands.append(opp.leader)
-            for c in opp.characters:
-                if c.rested:
-                    cands.append(c)
+            _chara_cands = [c for c in opp.characters if c.rested]
+            cands.extend(_chara_cands)
             if not cands:
                 return False
+            _leader_slot = [opp.leader] if opp.leader.rested else []
+            _pick_max = len(_leader_slot) + limit
             if iid_picks is not None:
                 chosen = [c for c in cands if c.instance_id in iid_picks][:limit]
-            elif len(cands) > limit and _maybe_request_target_pick(
-                state, cands, limit, "keep_opp_rested_inplay_next_refresh",
+            elif len(cands) > _pick_max and _maybe_request_target_pick(
+                state, cands, _pick_max, "keep_opp_rested_inplay_next_refresh",
                 v, self_inplay,
-                description=f"相手 レスト リーダー or キャラ {limit} 枚 まで 選択",
+                description=f"相手 レスト リーダー 1 枚まで + キャラ {limit} 枚まで 選択",
             ):
                 return False
             else:
-                cands.sort(key=_threat_key)  # 脅威度優先 + power tie-break
-                chosen = cands[:limit]
+                # 枠ごとに独立して埋める (リーダー枠 1 + キャラ枠 limit)
+                _cc = sorted(_chara_cands, key=_threat_key)
+                chosen = _leader_slot + _cc[:limit]
             for c in chosen:
                 c.stay_rested_next_refresh = True
             state.push_log(f"  効果: stay_rested → {[c.card.name for c in chosen]}")

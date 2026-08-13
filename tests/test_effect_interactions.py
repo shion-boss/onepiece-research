@@ -10427,3 +10427,37 @@ def test_don_le_opp_don_gate_present_all_cards():
                 if "don_diff" not in _json.dumps(e, ensure_ascii=False):
                     missing.append(cid)
     assert not missing, f"don-比較条件が欠落: {missing}"
+
+
+def test_keep_opp_rested_picks_leader_and_character_independently():
+    """「相手のレストの、 **リーダーとキャラ1枚まで**」 は **独立した 2 枠** (合計 2 枚まで)。
+
+    一次情報 (cardqa_op_07 / OP07-059):
+    - 「レストのリーダーとレストのキャラそれぞれ1枚ずつ、 合計2枚を選ぶことはできますか？」
+      → 「**はい、 できます**」
+    - 「相手のリーダーがアクティブの場合、 レストのキャラ1枚を選ぶことはできますか？」
+      → 「**はい、 できます**」
+
+    ⚠ 2026-08-13 まで 「リーダー + キャラ から 1 枚だけ」 の単一選択でモデル化しており、
+      **リーダーを選ぶとキャラを選べなかった** (= 合計 1 枚)。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def run(leader_rested, n_chara_rested):
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        opp.leader.rested = leader_rested
+        opp.characters = [InPlay.of(repo.get("OP01-016"), sickness=False,
+                                    rested=(i < n_chara_rested)) for i in range(2)]
+        evaluate_static_effects(st, overlay)
+        execute_effect({"keep_opp_rested_inplay_next_refresh":
+                        {"target_rest": "one_opp_chara_or_leader"}}, st, me, opp, None)
+        return (opp.leader.stay_rested_next_refresh,
+                [c.stay_rested_next_refresh for c in opp.characters])
+
+    ld, ch = run(True, 2)
+    assert ld and ch[0], f"リーダーとキャラの **両方** を選べていない (計2枚): {ld} {ch}"
+    ld2, ch2 = run(False, 2)
+    assert (not ld2) and ch2[0], "リーダーがアクティブでもキャラ1枚は選べるはず"
+    ld3, ch3 = run(True, 0)
+    assert ld3 and not any(ch3), "レストのキャラが居ないのに選んでいる"
