@@ -11631,3 +11631,144 @@ def test_op03_047_on_play_both_clauses_are_optional():
         f"どちらかの選択が人間に出ていない: {kinds}"
     assert victim in opp.characters, "見送ったのにキャラが戻されている"
     assert len(me.deck) == deck_before, "見送ったのにデッキが削れている"
+
+
+# --------------------------------------------------------------------------- #
+#  公式 Q&A conformance 実測 (2026-08-13 バッチ 5)
+# --------------------------------------------------------------------------- #
+def test_op12_061_discount_is_filtered_and_one_shot():
+    """OP12-061: 「次に登場させる**コスト4以上の「トラファルガー・ロー」**のコストは2少なくなる」。
+
+    ⚠ 是正前は overlay が **filter 無しの素の reduce_play_cost** で、
+      ① 「ロー」 以外にも効き ② コスト3の「ロー」 (対象外) が割引を食い潰していた。
+    公式 (cardqa_op_12): コスト3の「ロー」 を挟んでも 次のコスト4以上の「ロー」 は -2 される。
+    """
+    import json as _json
+    from engine.effects import list_activate_main_effects, fire_activate_main
+    from engine.game import PlayCharacter, apply_action
+    repo, overlay = _repo(), _overlay()
+
+    def _i(x):
+        try:
+            return int(x)
+        except (TypeError, ValueError):
+            return None
+
+    cards = _json.loads((ROOT / "db" / "cards.json").read_text("utf-8"))
+    low = next(c["card_id"] for c in cards
+               if c["name"] == "トラファルガー・ロー" and c["category"] == "CHARACTER"
+               and _i(c.get("cost")) == 3)
+    high = next(c["card_id"] for c in cards
+                if c["name"] == "トラファルガー・ロー" and c["category"] == "CHARACTER"
+                and (_i(c.get("cost")) or 0) >= 4)
+
+    def _setup(hand_ids):
+        st = _state(repo, overlay, leader0="OP12-061")
+        me = st.players[0]
+        me.hand = [repo.get(c) for c in hand_ids]
+        me.don_active = 14
+        effs = list_activate_main_effects(st, me, overlay)
+        fire_activate_main(st, me, st.players[1], *effs[0])
+        resolve_triggers(st)
+        return st, me
+
+    st, me = _setup([low, high])
+    d = me.don_active
+    apply_action(st, PlayCharacter(hand_idx=0))
+    assert me.don_active == d - repo.get(low).cost, \
+        "コスト3の「ロー」 (対象外) が割引を受けている"
+    d = me.don_active
+    apply_action(st, PlayCharacter(hand_idx=0))
+    assert me.don_active == d - (repo.get(high).cost - 2), \
+        "対象外カードを挟んだら割引が消えている"
+
+    # 「ロー」 以外は割引されない
+    st, me = _setup(["OP02-013"])
+    d = me.don_active
+    apply_action(st, PlayCharacter(hand_idx=0))
+    assert me.don_active == d - repo.get("OP02-013").cost, \
+        "名前が違うカードまで割引されている"
+
+
+def test_op06_009_copies_leader_power_then_adds_don():
+    """OP06-009 シュライヤ: 相手リーダー 5000 + 付与ドン1 → パワー 6000 (cardqa_op_06)。"""
+    import json as _json
+    from engine.game import _recompute_static
+    repo, overlay = _repo(), _overlay()
+    cards = _json.loads((ROOT / "db" / "cards.json").read_text("utf-8"))
+    l5000 = next(c["card_id"] for c in cards
+                 if c["category"] == "LEADER" and c.get("power") == "5000")
+    st = _state(repo, overlay, leader1=l5000)
+    me, opp = st.players[0], st.players[1]
+    c = InPlay.of(repo.get("OP06-009"), sickness=False)
+    c.attached_dons = 1
+    me.characters = [c]
+    _recompute_static(st)
+    assert opp.leader.power == 5000, "前提: 相手リーダーが 5000 でない"
+    trigger_on_attack(st, me, opp, c, overlay)
+    resolve_triggers(st)
+    _recompute_static(st)
+    assert c.power == 6000, f"パワーが 6000 になっていない ({c.power})"
+    assert c.truly_original_power == 5000, \
+        "「同じパワーになる」 は元々のパワーを書き換えるはず"
+
+
+def test_st02_008_cannot_rest_attached_don():
+    """ST02-008: レストにできるのは **コストエリア** のドンだけ (cardqa_st_02 = 付与ドンは不可)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    victim = InPlay.of(repo.get("OP01-016"), sickness=False)
+    victim.attached_dons = 3
+    opp.characters = [victim]
+    opp.don_active, opp.don_rested = 0, 0
+    atk = InPlay.of(repo.get("ST02-008"), sickness=False)
+    atk.attached_dons = 1
+    me.characters = [atk]
+    trigger_on_attack(st, me, opp, atk, overlay)
+    resolve_triggers(st)
+    assert victim.attached_dons == 3, "付与ドンをレストにしている"
+    assert opp.don_active == 0 and opp.don_rested == 0, "コストエリアが動いている"
+
+
+def test_op12_034_search_accepts_non_green_slash_card():
+    """OP12-034: 「属性(斬)を持つカード**か**緑のイベント」 = 緑以外の斬カードも可 (cardqa_op_12)。"""
+    import json as _json
+    repo, overlay = _repo(), _overlay()
+    cards = _json.loads((ROOT / "db" / "cards.json").read_text("utf-8"))
+    slash = next(c["card_id"] for c in cards
+                 if c.get("attribute") == "斬" and "緑" not in (c.get("color") or "")
+                 and c["category"] == "CHARACTER")
+    lslash = next(c["card_id"] for c in cards
+                  if c["category"] == "LEADER" and c.get("attribute") == "斬")
+    st = _state(repo, overlay, leader0=lslash)
+    me = st.players[0]
+    me.deck = [repo.get(slash)] + [repo.get(_FILLER)] * 20
+    src = InPlay.of(repo.get("OP12-034"), sickness=False)
+    me.characters = [src]
+    trigger_on_play(st, me, st.players[1], src, overlay)
+    resolve_triggers(st)
+    assert any(c.card_id == slash for c in me.hand), \
+        f"緑以外の 属性(斬) カード ({slash}) が手札に加わっていない"
+
+
+def test_op15_075_pump_applies_with_no_opponent_characters():
+    """OP15-075: 相手キャラ 0 枚でも 「自リーダーかキャラ +1000」 は実行できる (cardqa_op_15)。"""
+    import json as _json
+    from engine.effects import run_do_array
+    from engine.game import _recompute_static
+    repo, overlay = _repo(), _overlay()
+    cards = _json.loads((ROOT / "db" / "cards.json").read_text("utf-8"))
+    enel = next(c["card_id"] for c in cards
+                if c["category"] == "LEADER" and c["name"] == "エネル")
+    st = _state(repo, overlay, leader0=enel)
+    me, opp = st.players[0], st.players[1]
+    me.don_active = 5
+    opp.characters = []
+    _recompute_static(st)
+    before = me.leader.power
+    ent = [e for e in overlay["OP15-075"].effects if e.get("when") == "main"][0]
+    run_do_array(list(ent["do"]), st, me, opp, None)
+    resolve_triggers(st)
+    assert me.leader.power == before + 1000, \
+        f"相手キャラが居ないと pump まで不発になっている ({before} → {me.leader.power})"

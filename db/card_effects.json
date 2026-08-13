@@ -71896,7 +71896,13 @@
    },
    "do": [
     {
-     "reduce_play_cost": 2
+     "reduce_play_cost_filtered_turn": {
+      "amount": 2,
+      "filter": {
+       "name": "トラファルガー・ロー",
+       "cost_ge": 4
+      }
+     }
     }
    ],
    "when": "activate_main"
@@ -71930,7 +71936,13 @@
    },
    "do": [
     {
-     "reduce_play_cost": 2
+     "reduce_play_cost_filtered_turn": {
+      "amount": 2,
+      "filter": {
+       "name": "トラファルガー・ロー",
+       "cost_ge": 4
+      }
+     }
     }
    ],
    "when": "activate_main"
