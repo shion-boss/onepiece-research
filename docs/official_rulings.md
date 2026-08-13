@@ -7748,3 +7748,63 @@ OP11-101 (`chara_to_self_life target:victim`) は 離脱本人 (victim) を対�
   レスト効果で対象化可 (engine に阻む制約なし)。
 - **OP11-044**: `power_pump target all_self_chara_filtered` は発動時点の該当キャラのみに turn buff。
   その後登場のキャラは対象外 (静的常在でなく一回 buff)。
+
+## 2026-08-13 #26 — FAQ conformance バッチ (先頭から 20 件、 15 conform / 3 n/a / 2 escalated)
+
+engine 無改変 (台帳 + 本ドキュメントのみ)。全件 実測 or コード検査で判定。
+
+### escalated (2)
+
+- **ba5d1d161c8c — OP14-020 緑ミホーク 起動メインコスト「自分のカード1枚をレストにできる」に DON!! が含まれない。**
+  公式 cardqa_op_14: このコストの対象は **リーダー/キャラ/ステージ/ドン!! の4種**。engine の
+  `rest_own_card` プールは `[me.leader] + me.characters + me.stages` のみ (effects.py 16308 payability /
+  17117 modal 解決) で **DON!! を選択肢に含まない**。乖離: 盤面カードが全レストで DON!! だけアクティブな
+  状態で engine は「払えない」、公式は「DON!! をレストして払える」。かつ OP14-020 の狙い(DON!!1枚レスト→
+  DON!!3枚アクティブ=実質ランプ)を engine では選べず戦略的にも劣化。影響は OP14-020/_p1/OP14-036 の
+  3 エントリのみだが、**DON!! は InPlay オブジェクトでなく `don_active`/`don_rested` のカウント管理**のため、
+  InPlay プールに乗らず cost 対象としての特別分岐 (payability + human modal 候補 + 解決 + Rust ミラー) が要る
+  = アーキ変更につき escalated。focused 対応時は「DON!! を rest_own_card の cost 対象にする」新経路を両エンジンに。
+
+- **b90bc64e1eb8 — OP09-081 タグの設問が PRB01-001 サンジの起動メイン再使用可否を問い、対象特定が割れる。**
+  設問文が「相手リーダー PRB01-001 サンジ」の起動メインを次ターンのキャラに使えるか、を問うており、
+  タグ付けされた OP09-081(disable_opp_on_play 効果)と噛み合わない。一意に engine アサーションへ落とせず要 focused。
+
+### n/a (3、DON!! は fungible で「どれを選ぶか」は状態に無影響)
+
+- **b8cfffdc668c — OP15-025**: 付与するドン!!を選ぶのは発動側。DON!! は全て同一 → 選択に状態差なし。
+  枚数2/対象=相手キャラは `attach_rested_don count2 to_opp` で正しくモデル化済。
+- **b8dd0290bd43 — OP02-085**: 相手が戻すドン!!を自身で選ぶ。fungible で状態差なし。`return_opp_don` で正しい。
+- **bb2cc802a161 — OP15-015**: 付与ドン!!を発動側が選ぶ。fungible。付与1+その後 power-1000 は overlay 正しい。
+
+### conform (15、再調査回避のため要点のみ)
+
+- **b960a72fee34 — EB01-028**: counter の return_to_hand は `chooser:opp` 済 (2026-08-06 是正)。相手が選ぶ=公式。
+- **b97ab384f4e9 — OP14-001**: `swap_self_power` は各 InPlay に `turn_base_power_override` を独立設定。片方が
+  場を離れても他方の override は保持=ターン中入替のまま(公式=元に戻らない)。
+- **b9b0f698091a — ST30-001**: 相手ターン中効果の対象は `all_self_chara_filtered(name in エース/ルフィ)`=
+  リーダーは対象外。よって leader は +3000 されない(公式=いいえ)。
+- **b9b5f40b38e5 — OP02-063**: `trash_to_hand filter cost_eq:1`=コスト1ちょうど。cost0 イベントは取れない。
+- **b9d4e87bcc57 — OP04-038**: counter で `rest one_opponent_inplay_any` → `ko …cost_le_6`=レストにした
+  コスト6以下キャラをそのまま KO 可(公式=はい)。
+- **b9e4640d197c — OP04-011**: `reveal_top_then` に optional なし=公開は強制(公式=必ず公開)。
+- **ba7b9de6de38 — OP13-051**: on_ko draw2 if `leader_name=ボア・ハンコック` or 多色。OP07-038 は名前が
+  ボア・ハンコック=条件成立で 2 枚引ける(公式=はい)。
+- **ba90749c0c5c — OP02-014**: `give_attack_active_chara`(DON1)はアクティブキャラへのアタックを追加。通常の
+  レストキャラへのアタックは元から可=引き続きアタック可(公式=はい)。
+- **bacc141f1c0e — OP02-113**: on_attack で cost-2 後 `conditional +2000 if exists_chara_cost_le:0`。別の
+  コスト0キャラが居れば条件成立で +2000(公式=はい)。
+- **bad94a16ced9 — ST29-016/OP14-060**: `redirect_attack` は `pending_attack_redirect` を立てるだけで
+  ブロック不可を参照しない(ブロック不可は blocker priority のみ)。効果による対象変更はブロックと別=
+  ブロック不可持ちのアタックでも対象変更可(公式=はい)。
+- **bbaf2cf3e125 — OP09-031**: end_of_turn untap if `self_rested_chara_count_ge:2` は各コピー解決時に if
+  再評価(**実測**)。2枚レスト→1枚目 untap 後は残レスト1→2枚目は条件不成立=1枚のみ(公式=いいえ、1枚のみ)。
+- **b8a27f2b27a4 — OP03-118/ST07-015**: ダブルアタックは damage ループで 1hit 毎に life pop→
+  `_resolve_life_taken` でトリガー inline 解決。1ダメージ目のトリガーが解決(ライフ追加)してから2ダメージ目
+  処理=公式どおり(既存の cardqa_op_03 準拠コメントあり)。
+- **b97bc24a2807 — OP16-034**: `self_distinct_chara_name_count`=`len({c.card.name})`。OP16-034/OP13-031(ロー)/
+  EB04-038(印刷名「ロシナンテ＆ロー」)は印刷名3種で distinct=3→+3000(公式=はい)。alias は名を増やす方向=
+  count を減らさない。
+- **b9e047192efe — OP06-048**: `on_opp_blocker_use`(mill4)配線済。ブロッカー宣言時、ターンプレイヤー
+  (OP06-048所有者)のトリガーが先=先に4枚トラッシュ、その後クロコダイル block時でデッキ下(active-player-first)。
+- **b8fe2bec8fe0 — OP04-064**: on_play=`add_rested_don1`→`conditional draw if self_don_ge6`(加算後に判定)。
+  don5 から登場で don6 到達→1ドロー(**実測**)。リーダー OP04-058 で don5 にしてから登場で引ける(公式=はい)。
