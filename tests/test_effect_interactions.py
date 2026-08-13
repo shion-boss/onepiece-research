@@ -11772,3 +11772,67 @@ def test_op15_075_pump_applies_with_no_opponent_characters():
     resolve_triggers(st)
     assert me.leader.power == before + 1000, \
         f"相手キャラが居ないと pump まで不発になっている ({before} → {me.leader.power})"
+
+
+def test_op01_047_cost_bounce_replaced_by_enel_makes_effect_fizzle():
+    """発動コストの 「自キャラを手札に戻す」 が置換されたら **コスト未払い** = 効果は起きない。
+
+    一次情報 (cardqa_op_05、 OP01-047 ロー × OP05-100 エネル):
+      Q: 「自分のキャラ1枚を持ち主の手札に戻すことができる:」 でこのキャラ (エネル) を選び、
+         代わりに自分のライフを1枚トラッシュに置いた場合、 コスト3以下のキャラを手札から
+         登場できますか？
+      A: **いいえ、できません。**
+
+    ⚠ AI 経路 (cost handler) だけでなく **人間 modal の解決経路 (self_chara_cost_pick) も
+      独自にカードを動かしており置換を迂回していた**。 置換の 「使う/使わない」 は modal で
+      後から決まるので、 その解決後に盤面を見てコストの成否を判定する。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def _run(pick_card_id, use_replace):
+        st = _state(repo, overlay, human_idx=0)
+        me = st.players[0]
+        src = InPlay.of(repo.get("OP01-047"), sickness=False)
+        enel = InPlay.of(repo.get("OP05-100"), sickness=False)
+        other = InPlay.of(repo.get(_FILLER), sickness=False)
+        me.characters = [src, enel, other]
+        me.hand = [repo.get("OP01-016")]        # cost1 = 登場候補
+        me.don_active = 10
+        life_before = len(me.life)
+        trigger_on_play(st, me, st.players[1], src, overlay)
+        resolve_triggers(st)
+        for _ in range(8):
+            pc = st.pending_choice
+            if pc is None:
+                break
+            kind = pc.get("kind")
+            if kind == "self_chara_cost_pick":
+                cands = pc.get("candidates", [])
+                idx = [i for i, c in enumerate(cands) if c.get("card_id") == pick_card_id]
+                picks = [idx[0]] if idx else [0]
+            elif kind in ("replace_ko_optional", "replace_leave_optional"):
+                picks = [1 if use_replace else 0]
+            elif kind in ("optional_cost_confirm",):
+                picks = [1]
+            elif kind == "play_from_hand_pick":
+                picks = [0]
+            else:
+                picks = []
+            resolve_pending_choice(st, picks)
+        return st, me, life_before
+
+    # A) エネルを選び 置換を使う → エネルは場に残り、 コスト3以下の登場は **起きない**
+    st, me, life_before = _run("OP05-100", use_replace=True)
+    assert any(ip.card.card_id == "OP05-100" for ip in me.characters), \
+        "置換したのにエネルが場を離れている"
+    assert len(me.life) == life_before - 1, "置換のコスト (ライフ1枚トラッシュ) が払われていない"
+    assert not any(ip.card.card_id == "OP01-016" for ip in me.characters), \
+        "コスト未払いなのに手札からキャラが登場している"
+    assert any(c.card_id == "OP01-016" for c in me.hand), "登場候補が手札から消えている"
+
+    # B) 対照: 置換を使わなければ 手札に戻り、 効果は通る
+    st, me, life_before = _run("OP05-100", use_replace=False)
+    assert any(c.card_id == "OP05-100" for c in me.hand), "エネルが手札に戻っていない"
+    assert len(me.life) == life_before, "置換していないのにライフが減っている"
+    assert any(ip.card.card_id == "OP01-016" for ip in me.characters), \
+        "コストを払ったのに登場していない"

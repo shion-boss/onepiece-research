@@ -10630,25 +10630,40 @@ def _execute_effect_body_inner(
                     if _maybe_pick_self_chara_cost(state, me, self_inplay, cands, rh_count, "hand",
                                                    list(cost_specs[_ci + 1:]) + list(effect_specs)):
                         return True
-                    moved = 0
-                    targets_to_move = set()
-                    for c in cands:
-                        if moved < rh_count:
-                            targets_to_move.add(c.instance_id)
-                            moved += 1
                     new_chars_before = list(me.characters)
-                    new_chars = []
-                    for c in me.characters:
-                        if c.instance_id in targets_to_move:
-                            me.hand.append(c.card)
+                    # ⭐ 「このキャラが場を離れる場合、 代わりに〜」 の置換効果は **発動コストの離脱にも**
+                    #   かかる (公式 cardqa_op_05: OP01-047 ロー のコストで OP05-100 エネルを選び、
+                    #   エネルの置換 (代わりにライフ1枚をトラッシュ) を使った場合 → 「コスト3以下の
+                    #   キャラを手札から登場できますか」 → **いいえ**)。 2026-08-13 まで置換を見ずに
+                    #   問答無用で手札へ戻していた。 KO コスト (ko_self_chara) と同型。
+                    _rh_done = 0
+                    for c in list(cands[:rh_count]):
+                        if c not in me.characters:
+                            continue
+                        if state.effects_overlay and try_replace_ko(
+                            state, me, opp, c, state.effects_overlay,
+                            by_opp_effect=False, leave_kind="return_to_hand",
+                        ):
                             state.push_log(
-                                f"  効果コスト: 自キャラ → 手札 ({c.card.name})"
+                                f"  効果コスト: 自キャラ→手札 が置換された → {c.card.name} は場に残る"
                             )
-                            if c.attached_dons > 0:
-                                me.don_rested += c.attached_dons
-                        else:
-                            new_chars.append(c)
-                    me.characters = new_chars
+                            continue
+                        me.characters.remove(c)
+                        me.hand.append(c.card)
+                        state.push_log(f"  効果コスト: 自キャラ → 手札 ({c.card.name})")
+                        if c.attached_dons > 0:
+                            me.don_rested += c.attached_dons
+                        _rh_done += 1
+                    if _rh_done < rh_count:
+                        # 置換で離脱が成立しなかった = **コスト未払い** → 効果は発動しない (公式 4-10)。
+                        state.push_log(
+                            "  効果コスト: 自キャラ→手札 が成立せず (置換) → 効果は不発"
+                        )
+                        if state.effects_overlay and len(me.characters) != len(new_chars_before):
+                            trigger_on_self_chara_leave_by_self_effect(
+                                state, me, opp, state.effects_overlay
+                            )
+                        return False
                     # ⚠ 「自分の効果で自分のキャラが場を離れた」 = leave-by-self トリガーの対象
                     #   (公式 cardqa_op_16 / OP16-041: 虜の矢 OP07-056 のコストで自キャラが
                     #    手札に戻った時も 「場を離れた時」 効果は発動する = はい)。
@@ -10956,7 +10971,21 @@ def resolve_pending_choice(state: GameState, picks: list[int]) -> None:
     if choice is None:
         return
     cont = choice.get("_continuation")
+    state._cancel_continuation = False   # type: ignore[attr-defined]
     _resolve_pending_choice_inner(state, picks)
+    # 発動コストで犠牲にするキャラの 「離脱置換を使うか」 を人間に訊いていた場合、 その選択が
+    # 解決した時点で **盤面を見て** コストが払えたかを判定する (= victim が場に残っていれば
+    # 置換成立 = コスト未払い → コロン以降は実行しない。 公式 4-10 / cardqa_op_05)。
+    _watch = getattr(state, "_cost_sacrifice_watch", None)
+    if _watch is not None and state.pending_choice is None:
+        state._cost_sacrifice_watch = None   # type: ignore[attr-defined]
+        _owner = state.players[int(_watch["owner_idx"])]
+        if any(ip.instance_id == _watch["iid"] for ip in _owner.characters):
+            state.push_log("  効果コスト: 離脱が置換された → コスト未払いのため効果は不発")
+            state._cancel_continuation = True   # type: ignore[attr-defined]
+    if getattr(state, "_cancel_continuation", False):
+        state._cancel_continuation = False   # type: ignore[attr-defined]
+        cont = None
     # 召喚等で場が変わった可能性 → 常在効果を再計算する。 apply_action は finally で
     # _recompute_static するが、 人間 modal 解決 (= play_from_trash 等) はその境界の外で
     # 起きるため、 召喚キャラの静的能力 (条件付き速攻・KO耐性等) が反映されない。
@@ -11212,10 +11241,35 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         picks_iids = {cands[i]["iid"] for i in (picks or []) if 0 <= i < len(cands)}
         state.pending_choice = None
         moved = 0
+        _leave_kind = {"ko": "ko", "hand": "return_to_hand",
+                       "deck_bottom": "return_to_deck_bottom"}.get(action, "ko")
+        _left_any = False
         for c in list(me.characters):
             if moved >= limit:
                 break
             if c.instance_id in picks_iids:
+                # ⭐ 「このキャラが KO される/場を離れる場合、 代わりに〜」 は **発動コストの離脱にも**
+                #   かかる (公式 cardqa_op_05: OP01-047 ロー のコストで OP05-100 エネルを選び、
+                #   エネルの置換を使った場合 → コスト未達で 「登場できません」)。
+                #   ⚠ AI 経路 (cost handler 側) は 2026-08-13 に対応済だったが、 **人間 modal の
+                #     解決経路はここで独自にカードを動かしており置換を迂回していた**。
+                if state.effects_overlay and try_replace_ko(
+                    state, me, opp, c, state.effects_overlay,
+                    by_opp_effect=False, leave_kind=_leave_kind,
+                ):
+                    if state.pending_choice is not None:
+                        # 置換の 「使う / 使わない」 を人間に訊いている最中。 コストが払えたかは
+                        # まだ決まらないので、 **その選択が解決した後に盤面で判定** する
+                        # (= victim が場に残っていれば置換成立 = コスト未払い)。
+                        state._cost_sacrifice_watch = {   # type: ignore[attr-defined]
+                            "iid": c.instance_id,
+                            "owner_idx": state.players.index(me),
+                        }
+                        return
+                    state.push_log(
+                        f"  効果コスト: 自キャラ {action} が置換された → {c.card.name} は場に残る"
+                    )
+                    continue
                 me.characters.remove(c)
                 if c.attached_dons > 0:
                     me.don_rested += c.attached_dons
@@ -11227,6 +11281,14 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
                     me.deck.append(c.card)
                 state.push_log(f"  効果コスト: 自キャラ {action} → {c.card.name}")
                 moved += 1
+                _left_any = True
+        if _left_any and state.effects_overlay:
+            trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
+        if moved < limit:
+            # 置換で離脱が成立しなかった = **コスト未払い** → コロン以降 (= _continuation に
+            # 退避された残りコスト + 効果) は実行しない (公式 4-10)。
+            state.push_log(f"  効果コスト: 自キャラ {action} が成立せず (置換) → 効果は不発")
+            state._cancel_continuation = True
         return
 
     if kind == "give_keyword_choice":

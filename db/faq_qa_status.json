@@ -10040,9 +10040,9 @@
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "OP01-047 ロー 登場時 optional_cost_then cost=return_self_chara_to_hand で OP05-100 エネルを戻す→エネルの replace_leave(代わりにライフ1トラッシュ)使用時、公式: 戻し(コスト)未達→cost3登場できない(いいえ)。engine の return_self_chara_to_hand cost handler(effects.py:10618)は me.hand.append+characters除去を直接行い replace_leave 機構を経由しない→エネルは常に手札に戻り cost 成立→cost3 が常に登場(実測: life不変,cost3登場)。cost 起因の離脱を replace_leave/replace_ko/replace_rest 機構に通すのはアーキ変更(cost handler 群が state を直接 mutate)。return_self_chara_to_deck_bottom/ko_self_chara も同型。escalate。",
+  "note": "OP01-047 ロー【登場時】「自分のキャラ1枚を持ち主の手札に戻すことができる：手札からコスト3以下のキャラ1枚までを登場」 の **コスト** で OP05-100 エネル を選び、 エネルの置換 (代わりに自ライフ1枚をトラッシュ) を使った場合 → 公式=「いいえ、できません」 (= コスト未達なので コロン以降が起きない)。 是正 (2026-08-13): ① cost handler (return_self_chara_to_hand) を try_replace_ko 経由にし、 離脱が成立しなければ return False (= OP05-087/ko_self_chara と同型)。 ② ⚠ さらに **人間 modal の解決経路 (self_chara_cost_pick) が独自にカードを動かしており置換を迂回** していたので、 そちらも try_replace_ko 経由に。 置換の 「使う/使わない」 は modal で後から決まるため、 _cost_sacrifice_watch に victim を控え、 modal chain が解決した時点で **盤面を見て** コストの成否を判定し、 未払いなら _continuation (= コロン以降) を破棄する (_cancel_continuation)。 実測: (A) 置換を使う → エネル場に残る + ライフ-1 + コスト3以下は登場しない (公式どおり) / (B) 置換を使わない → エネルが手札に戻り 登場する / (C) 対照 別キャラ選択で従来どおり。 Rust parity MISMATCH=0 維持。 回帰 test 追加。",
   "q": "「OP01-047 トラファルガー・ロー」の「自分のキャラ1枚を持ち主の手札に戻すことができる:」でこのキャラを選び、代わりに自分のライフを1枚トラッシュに置いた場合、「OP01-047 トラファルガー・ロー」の効果で、コスト3以下のキャラを手札から登場できますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "b27e3771e8a3": {
   "a": "はい、使用できます。「このキャラ以外の」はカード名ではなくこのキャラ自体を指します。",
