@@ -54,7 +54,7 @@ onepiece_research/
 ├── scraper/        # 公式サイトから全弾スクレイプ (Python)
 ├── engine/         # ルールエンジン + AI + 対戦ハーネス (Python)
 ├── api/            # FastAPI で engine をラップする HTTP API (Python)
-├── db/             # cards.json / cards.sqlite / card_effects.json (4,518 全登録, 効果あり 3,745)
+├── db/             # cards.json / cards.sqlite / card_effects.json (4,776 全登録, 効果あり 4,309)
 │                   #   + rules/ (公式PDF) / faq/ (公式Q&A) / banlist/ (禁止リスト)
 │                   #   + matchup_matrix.json (事前計算 N×N 勝率)
 ├── decks/          # メタ(環境)デッキ JSON、 16 デッキ pool。 メタ判定は `db/meta_decks.json` 登録制
@@ -64,7 +64,7 @@ onepiece_research/
 ├── images/         # 全カード画像 (必要時 scripts/cache_all_images.py で取得)
 ├── scripts/        # 補助スクリプト (scrape / cache / matrix / overlay / audit / weight tuning)
 ├── web/            # Next.js フロントエンド (TypeScript, App Router)
-│   └── public/cards/   # 全 4,518 枚キャッシュ済 (878MB)
+│   └── public/cards/   # 全 4,776 枚キャッシュ済
 ├── examples/       # スモークテスト・デモスクリプト (demo_matchup.py / demo_smoke.py / demo_with_effects.py)
 ├── tests/          # pytest テスト (6,026 collected)
 └── .venv/          # Python 仮想環境 (gitignore 推奨)
@@ -86,7 +86,7 @@ onepiece_research/
 
 ## 開発フェーズと現状
 
-- [x] **Phase 1 完了**: カードDB(全54弾4,518枚、`cards.json` / `cards.sqlite`)
+- [x] **Phase 1 完了**: カードDB(全61 series / 59 弾 4,776 枚、`cards.json` / `cards.sqlite`)
 - [x] **Phase 2 完了**: ルールエンジン(コアデータ構造、ターン進行、攻防、効果DSL)
   - 主要トリガー (R44-R64 拡張済): 登場/アタック/起動メイン/KO時/ターン終了時/ブロック時/相手アタック時/トリガー/カウンター/メインイベント
     + **on_self_chara_leave_by_self_effect / on_self_rested / on_self_hand_discarded /
@@ -97,14 +97,14 @@ onepiece_research/
   - DSL プリミティブ **324 種** (engine/effects.py 内 elif k == "..." パターンで列挙。
     226 種の時点で [[project_card_implementation_audit]] が 226/226 実装確認済、 以降は公式 Q&A
     conformance で必要になった分を追加している)
-- [x] **Phase 2.5 完了**: カード効果オーバーレイ **全 4,518 カード登録 (100%)** (`db/card_effects.json`)。
-  - 効果あり: 3,745 件 (82.9%) — character 78.6% / event 100% / leader 100% / stage 79.1%
+- [x] **Phase 2.5 完了**: カード効果オーバーレイ **全 4,776 カード登録 (100%)** (`db/card_effects.json`)。
+  - 効果あり: 4,309 件 (90.2%)
   - 効果なし (バニラ/ブロッカーのみ/パラレル空): 773 件 (空配列でマーク済)
   - **`_unimplemented` マーカー: 0 件達成 🎯 (R56 で完全消去、 残:なし)**
   - audit sev≥5 = 0、 sev=3-4 = 0 (R59) — `db/audit_acknowledged.json` で intrinsic 除外
   - engine 厳密化 audit 10/10 pass (`scripts/audit_engine_strictness.py`)
   - cardqa vs overlay 整合性 0 漏れ (X5、 `scripts/verify_overlay_vs_cardqa.py`)
-  - 全 4,518 カード 公式テキストとの **突合作業は完了** (2026-05-22、 [[project_card_implementation_audit]] + [[project_dsl_jp_audit_complete]])
+  - 全カード 公式テキストとの **突合作業は完了** (2026-05-22、 [[project_card_implementation_audit]] + [[project_dsl_jp_audit_complete]])
     ⚠ **「整合 100%」 ではない**。 当時の監査は **すべて自己参照** だった:
       overlay vs cardqa マーカー / overlay vs FAQ 要約 / engine 厳密化 audit /
       **Python↔Rust 差分 (= 同じ overlay を読む 2 実装)** / **backfill テスト (= 現 overlay から生成)**。
@@ -208,7 +208,7 @@ onepiece_research/
     カウンター分布 / 特徴Top / activate_main 一覧)
   - `/meta` matchup matrix ビューア
   - `/faq` 公式FAQ + cardqa 検索
-- [x] **画像配信**: 全 4,518 枚を `web/public/cards/` にキャッシュ済 (878MB)。
+- [x] **画像配信**: 全 4,776 枚を `web/public/cards/` にキャッシュ済。
   `<CardImage>` で 404 → 公式 URL フォールバック。
 - [x] **Phase 4.5 完了 (R70+R71)**: **PlanningAI** (ターン全体プラン beam search)
   - `engine/plan_search.py`: beam search + fast_clone (= CardDef/InPlay の __deepcopy__ 共有で 3.3x 高速化)
@@ -394,7 +394,7 @@ onepiece_research/
 主要データ (`db/`):
 
 - `cards.json` / `cards.sqlite`: カード DB (正は cards.json)
-- `card_effects.json`: 効果オーバーレイ (4,518 全カード、 _unimplemented = 0)
+- `card_effects.json`: 効果オーバーレイ (4,776 全カード、 _unimplemented = 0)
 - `audit_acknowledged.json`: audit script で intrinsic 除外する issue リスト (R59 追加)
 - `matchup_matrix.json`: N×N 勝率行列 (16×16 = 256 セル、 mirror 除く 240 セル計算)
   - **方針: 表示用 matrix は 配備 AI (= uniform ExploitBeam + agnostic value + per-deck config) で 計算する** (= /meta で 公開する データを 実際の対戦相手 AI に 揃える)。 ⚠ **現配備 = uniform agnostic value (21dim) + beam** (2026-07-22 c23c939 で per-deck v6 を撤回・退避、 上の value 節参照)。 **matrix は uniform agnostic で要再計算 (現行の `ExploitBeam_v6` 産は stale = v6 は退避済で実際には agnostic に fallback している)**。 再計算: `compute_matchup_matrix.py --ai-mode exploitbeam --incremental --workers 12 --n-games 20` (= 先攻/後攻は cell内で交互、 A vs B と B vs A 両方計算)。 旧 ExploitBeam_v6 / ExploitBeam_vd / SmartOpponentAI_deployed / GoalDirectedAI 産は全て stale。
