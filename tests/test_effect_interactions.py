@@ -11522,3 +11522,112 @@ def test_op01_014_on_block_play_works_with_full_field():
     assert any(ip.card.card_id == "OP01-016" for ip in me.characters), \
         "場が満杯だと登場が空振りしている (公式=1枚トラッシュして登場)"
     assert len(me.trash) == 1, "差し替えでトラッシュに置かれていない"
+
+
+# --------------------------------------------------------------------------- #
+#  公式 Q&A conformance 実測 (2026-08-13 バッチ 4)
+# --------------------------------------------------------------------------- #
+def test_op01_047_bounces_exactly_once():
+    """OP01-047 ロー: 「自分のキャラ1枚を手札に戻すことができる：手札からコスト3以下を登場」。
+
+    ⚠ 是正前は overlay の do に **optional_cost_then の後ろに素の return_to_hand が残って
+      おり、 バウンスが 2 回起きていた** (= コストで戻した上に、 もう 1 枚を無償で戻す)。
+    公式 (cardqa_op_01): 「戻したキャラカードをそのまま登場させることはできますか」 → はい。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    src = InPlay.of(repo.get("OP01-047"), sickness=False)
+    a = InPlay.of(repo.get("OP01-016"), sickness=False)   # cost1 = コストで戻る側
+    b = InPlay.of(repo.get(_FILLER), sickness=False)      # cost2 = 巻き添えになってはいけない
+    me.characters = [src, a, b]
+    me.don_active = 10
+    trigger_on_play(st, me, st.players[1], src, overlay)
+    resolve_triggers(st)
+    board = [ip.card.card_id for ip in me.characters]
+    assert board.count("OP01-016") == 1, "戻したキャラが登場し直していない"
+    assert _FILLER in board, "2 枚目のキャラまで手札に戻されている (二重バウンス)"
+    assert len(me.characters) == 3, f"場のキャラ数が変わっている: {board}"
+
+
+def test_st10_001_play_clause_runs_even_without_bounce_target():
+    """ST10-001: 相手にパワー3000以下が居なくても 「登場させる」 側は実行できる (cardqa_st_10)。"""
+    from engine.effects import list_activate_main_effects, fire_activate_main
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="ST10-001")
+    me, opp = st.players[0], st.players[1]
+    opp.characters = [InPlay.of(repo.get("OP02-013"), sickness=False)]   # power 7000
+    me.hand = [repo.get("OP01-016")]
+    me.don_active = 8
+    effs = list_activate_main_effects(st, me, overlay)
+    assert effs, "起動メインが候補に出ていない"
+    fire_activate_main(st, me, opp, *effs[0])
+    resolve_triggers(st)
+    assert any(ip.card.card_id == "OP01-016" for ip in me.characters), \
+        "対象が居ないと登場側まで不発になっている"
+    assert len(opp.characters) == 1, "対象外の相手キャラを動かしている"
+
+
+def test_op02_110_selecting_current_attacker_does_not_cancel_battle():
+    """OP02-110【ブロック時】でアタック中のキャラを選んでもバトルは進行する (cardqa_op_02)。"""
+    from engine.game import AttackCharacter, _recompute_static
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    st.turn_player_idx = 1                       # 相手のターン
+    me, opp = st.players[0], st.players[1]
+    blocker = InPlay.of(repo.get("OP02-110"), sickness=False)   # power 6000
+    weak = InPlay.of(repo.get("OP01-016"), sickness=False)
+    me.characters = [blocker, weak]
+    attacker = InPlay.of(repo.get("OP01-016"), sickness=False)  # cost1 = 効果の対象になれる
+    attacker.attached_dons = 6                                  # power 8000
+    opp.characters = [attacker]
+    _recompute_static(st)
+    apply_action(st, AttackCharacter(attacker_iid=attacker.instance_id,
+                                     target_iid=weak.instance_id,
+                                     blocker_iid=blocker.instance_id))
+    assert attacker.cannot_attack_until_turn_end is True, \
+        "アタッカーに 「このターン中アタックできない」 が乗っていない"
+    assert blocker not in me.characters, \
+        "宣言済のバトルが中断されている (公式=通常通り進行してブロッカーが KO される)"
+
+
+def test_eb03_055_on_ko_damage_wins_against_zero_life():
+    """EB03-055【KO時】1 ダメージ: ライフ0 の相手に与えれば勝利する (cardqa_eb_03)。"""
+    from engine.effects import trigger_on_ko
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    st.turn_player_idx = 1                       # 【相手のターン中】
+    me, opp = st.players[0], st.players[1]
+    opp.life, opp.life_face_up = [], []
+    c = InPlay.of(repo.get("EB03-055"), sickness=False)
+    me.characters = [c]
+    me.characters.remove(c)
+    me.trash.append(c.card)
+    trigger_on_ko(st, me, opp, c.card, overlay, by_opp_effect=True)
+    resolve_triggers(st)
+    assert st.game_over is True and st.winner == 0, \
+        f"ライフ0 への効果ダメージで勝てていない (winner={st.winner})"
+
+
+def test_op03_047_on_play_both_clauses_are_optional():
+    """OP03-047【登場時】: 「1枚まで戻す」 も 「置いてもよい」 も人間は見送れる (cardqa_op_03)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, human_idx=0)
+    me, opp = st.players[0], st.players[1]
+    src = InPlay.of(repo.get("OP03-047"), sickness=False)
+    victim = InPlay.of(repo.get("OP01-016"), sickness=False)
+    me.characters = [src]
+    opp.characters = [victim]
+    deck_before = len(me.deck)
+    trigger_on_play(st, me, opp, src, overlay)
+    resolve_triggers(st)
+    kinds = []
+    for _ in range(5):
+        if st.pending_choice is None:
+            break
+        kinds.append(st.pending_choice.get("kind"))
+        resolve_pending_choice(st, [])           # 戻さない / 置かない
+    assert "target_pick" in kinds and "optional_cost_confirm" in kinds, \
+        f"どちらかの選択が人間に出ていない: {kinds}"
+    assert victim in opp.characters, "見送ったのにキャラが戻されている"
+    assert len(me.deck) == deck_before, "見送ったのにデッキが削れている"
