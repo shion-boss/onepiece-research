@@ -195,6 +195,9 @@ class DeckList:
                     f"{card.card_id} ({card_colors})"
                 )
 
+        # リーダーの 「ルール上、〜デッキに入れることができない」 構築制限
+        problems.extend(_check_leader_deck_restriction(self))
+
         # 禁止 / 制限 / 禁止ペアの検証 (大会公式ルール)
         if banlist is None:
             banlist = _load_banlist()
@@ -205,6 +208,53 @@ class DeckList:
                 problems.extend(_check_standard_block(self, banlist))
 
         return problems
+
+
+def _check_leader_deck_restriction(deck: "DeckList") -> list[str]:
+    """リーダーの 「ルール上、〜デッキに入れることができない」 を検証する。
+
+    ⭐ **コストは印刷値で判定する** (公式 cardqa_op_12、 OP12-001 シルバーズ・レイリー):
+      Q: 「ST23-001 ウタ」のような、元々のコストが5以上で、効果によってコストが4以下に
+         下がるカードをデッキに入れることはできますか？
+      A: **いいえ、できません。**
+      = 構築時に効果は無いので、 判定は `CardDef.cost` (= 印刷コスト)。
+
+    対象は 3 リーダーのみ (全カードの公式テキスト走査で確認):
+    - OP12-001 シルバーズ・レイリー: 「コスト5以上のカードをデッキに入れることができない」
+    - OP13-079 イム: 「コスト2以上のイベントをデッキに入れることができ(ない)」
+    - P-117 ナミ: 「特徴《東の海》を持つカードしかデッキに入れることができ(ない)」
+    """
+    lid = _base_id(deck.leader.card_id)
+    problems: list[str] = []
+    if lid == "OP12-001":
+        for card in deck.main:
+            if (card.cost or 0) >= 5:
+                problems.append(
+                    f"リーダー {deck.leader.name} はコスト5以上のカードを"
+                    f"デッキに入れられない: {card.card_id} (コスト{card.cost})"
+                )
+    elif lid == "OP13-079":
+        for card in deck.main:
+            if card.category == Category.EVENT and (card.cost or 0) >= 2:
+                problems.append(
+                    f"リーダー {deck.leader.name} はコスト2以上のイベントを"
+                    f"デッキに入れられない: {card.card_id} (コスト{card.cost})"
+                )
+    elif lid == "P-117":
+        for card in deck.main:
+            if "東の海" not in (card.features or ()):
+                problems.append(
+                    f"リーダー {deck.leader.name} は特徴《東の海》を持つカードしか"
+                    f"デッキに入れられない: {card.card_id}"
+                )
+    # 同じカードが 4 枚入っていれば 4 件出るので、 重複を畳んで返す (= 読みやすさ)。
+    seen: set[str] = set()
+    out: list[str] = []
+    for p in problems:
+        if p not in seen:
+            seen.add(p)
+            out.append(p)
+    return out
 
 
 def _base_id(card_id: str) -> str:

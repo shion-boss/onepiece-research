@@ -22465,7 +22465,14 @@
    "_text": "OP03-040 on_opp_life_taken: 【ドン×1】相手ライフにダメージ→デッキ上1trash(任意)",
    "do": [
     {
-     "mill_self_top": 1
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 1
+       }
+      ]
+     }
     }
    ],
    "if": {
@@ -22489,7 +22496,14 @@
    "_text": "OP03-040 on_opp_life_taken: 【ドン×1】相手ライフにダメージ→デッキ上1trash(任意)",
    "do": [
     {
-     "mill_self_top": 1
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 1
+       }
+      ]
+     }
     }
    ],
    "if": {
@@ -22503,7 +22517,14 @@
    "_text": "OP03-041 【ドン!!×1】このキャラのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から7枚をトラッシュに置いてもよい。",
    "do": [
     {
-     "mill_self_top": 7
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 7
+       }
+      ]
+     }
     }
    ],
    "if": {
@@ -22518,7 +22539,14 @@
    "_text": "OP03-041_p1 【ドン!!×1】このキャラのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から7枚をトラッシュに置いてもよい。",
    "do": [
     {
-     "mill_self_top": 7
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 7
+       }
+      ]
+     }
     }
    ],
    "if": {
@@ -22549,12 +22577,19 @@
   {
    "_doc": "公式は 「このキャラを **トラッシュに置く**」 = KO ではない (【KO時】は発動せず、 被KO数にも数えない)。 2026-08-04 に self_ko → trash_self へ是正 (差分ハーネスの when 拡張で発覚)。",
    "_text": "OP03-043 相手のライフにダメージを与えた時、自分のデッキの上から3枚をトラッシュに置いてもよい。そうした場合、このキャラをトラッシュに置く。",
-   "cost": {
-    "trash_self": true
-   },
    "do": [
     {
-     "mill_self_top": 3
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 3
+       },
+       {
+        "return_self_to_trash": true
+       }
+      ]
+     }
     }
    ],
    "optional": true,
@@ -22674,7 +22709,14 @@
      "return_to_hand": "one_character_either_cost_le_3"
     },
     {
-     "mill_self_top": 2
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 2
+       }
+      ]
+     }
     }
    ],
    "when": "on_play"
@@ -22683,7 +22725,14 @@
    "_text": "OP03-047 【ドン!!×1】このキャラのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から7枚をトラッシュに置いてもよい。",
    "do": [
     {
-     "mill_self_top": 7
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 7
+       }
+      ]
+     }
     }
    ],
    "if": {
@@ -22701,7 +22750,14 @@
      "return_to_hand": "one_character_either_cost_le_3"
     },
     {
-     "mill_self_top": 2
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 2
+       }
+      ]
+     }
     }
    ],
    "when": "on_play"
@@ -22710,7 +22766,14 @@
    "_text": "OP03-047 【ドン!!×1】このキャラのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から7枚をトラッシュに置いてもよい。",
    "do": [
     {
-     "mill_self_top": 7
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 7
+       }
+      ]
+     }
     }
    ],
    "if": {
@@ -22795,7 +22858,14 @@
    "_text": "OP03-050 on_ko: 自分のデッキの上から1枚をトラッシュに置いてもよい。",
    "do": [
     {
-     "mill_self_top": 1
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 1
+       }
+      ]
+     }
     }
    ],
    "when": "on_ko"
@@ -22806,7 +22876,14 @@
    "_text": "OP03-051 on_opp_life_taken: 【ドン×1】相手ライフにダメージ→デッキ上7枚trash(任意)",
    "do": [
     {
-     "mill_self_top": 7
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 7
+       }
+      ]
+     }
     }
    ],
    "if": {
@@ -22818,7 +22895,14 @@
    "_text": "OP03-051 on_ko: デッキ上3枚trash(任意)",
    "do": [
     {
-     "mill_self_top": 3
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 3
+       }
+      ]
+     }
     }
    ],
    "when": "on_ko"
@@ -22856,7 +22940,14 @@
      }
     },
     {
-     "mill_self_top": 1
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 1
+       }
+      ]
+     }
     }
    ],
    "when": "counter"
@@ -22868,7 +22959,14 @@
      "draw": 1
     },
     {
-     "mill_self_top": 1
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 1
+       }
+      ]
+     }
     }
    ],
    "when": "trigger"
@@ -39917,7 +40015,14 @@
    "_text": "OP06-048 【自分のターン中】相手が【ブロッカー】かイベントを発動した時、自分のリーダーが特徴《東の海》を持つ場合、自分のデッキの上から4枚をトラッシュに置いてもよい。",
    "do": [
     {
-     "mill_self_top": 4
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 4
+       }
+      ]
+     }
     }
    ],
    "if": {
@@ -39931,7 +40036,14 @@
    "_text": "OP06-048 on_opp_blocker_use 版 (同効果): 相手の【ブロッカー】発動時。",
    "do": [
     {
-     "mill_self_top": 4
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 4
+       }
+      ]
+     }
     }
    ],
    "if": {
@@ -95232,7 +95344,14 @@
    "_text": "P-117 【ドン‼×1】このリーダーのアタックで相手ライフにダメージを与えた時、自デッキ上1枚をトラッシュ(してもよい)。",
    "do": [
     {
-     "mill_self_top": 1
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 1
+       }
+      ]
+     }
     }
    ],
    "if": {

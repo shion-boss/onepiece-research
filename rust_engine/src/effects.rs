@@ -8517,6 +8517,24 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     }
                 }
             }
+            // ⭐ AI は 「発動すると自分が負ける」 任意効果を選ばない (effects.py と 1:1)。
+            //   公式 9-2-1-2 でデッキ 0 枚は その場で敗北 = 任意の自デッキ削り (OP03-041 ウソップ
+            //   「デッキの上から7枚をトラッシュに置いてもよい」 等) を残り枚数以上で撃つのは自殺。
+            //   deck_out_wins (OP03-040 ナミ / P-117) は デッキ0で勝つので除外しない。
+            if should_fire && !state.players[me_idx].deck_out_wins {
+                for es in &effect {
+                    let Some(ms) = es.get("mill_self_top") else { continue };
+                    let n = if ms.is_object() {
+                        ms.get("amount").and_then(|x| x.as_i64()).unwrap_or(1)
+                    } else {
+                        ms.as_i64().unwrap_or(1)
+                    };
+                    if n >= state.players[me_idx].deck.len() as i64 {
+                        should_fire = false;
+                        break;
+                    }
+                }
+            }
             // 不発 = Python は return False (state 不変)。 overlay に if_prev_succeeded は 0 件なので
             // 返り値は次 prim に影響しない → no-op を true (match) 扱いにできる (payability は read-only)。
             if !should_fire {

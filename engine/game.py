@@ -2559,6 +2559,10 @@ def resume_pending_attack_hit(state: GameState, use_trigger: bool) -> None:
     """pending_attack_hits 状態 から user 選択 を 反映 して 1 hit 解決。
 
     use_trigger: True = trigger 使う、 False = 使わない (= 手札 add のみ)。
+
+    ⭐ by_effect=True は **効果ダメージ** 経路 (= effects.deal_effect_damage が pause した)。
+      公式 10-1-5-2 「【トリガー】は発動しないことも選べる」 を効果ダメージでも人間に渡すため
+      (2026-08-13)。 バトルではないので battle_buff のリセットは行わず、 残り発数を続けて解決する。
     """
     pa = state.pending_attack_hits
     if pa is None:
@@ -2566,6 +2570,20 @@ def resume_pending_attack_hit(state: GameState, use_trigger: bool) -> None:
     defender_idx = pa["defender_idx"]
     opp = state.players[defender_idx]
     me = state.players[1 - defender_idx]
+    if pa.get("by_effect"):
+        src_idx = int(pa.get("damage_source_idx", 1 - defender_idx))
+        me = state.players[src_idx]
+        remaining = int(pa.get("remaining_damage", 0))
+        state.pending_attack_hits = None
+        if opp.life:
+            taken = opp.life.pop(0)
+            taken_face_up = bool(opp.life_face_up.pop(0))
+            _resolve_life_taken(state, me, opp, taken, use_trigger=use_trigger,
+                                by_effect=True, taken_face_up=taken_face_up)
+        if remaining > 0 and not state.game_over:
+            from .effects import deal_effect_damage
+            deal_effect_damage(state, me, opp, remaining)
+        return
     if not opp.life:
         state.pending_attack_hits = None
         # 人間 defender の life_taken_choice pause 経路は AttackLeader 本体の末尾

@@ -4786,9 +4786,24 @@ def _execute_effect_body_inner(
             if iid_picks is not None:
                 chosen = [ip for ip in actives if ip.instance_id in iid_picks][:n]
             else:
+                # ⭐ 人間は 「場のカードを選ばない = 残りをドン‼で払う」 で **あえてドンを選べる**
+                #   (= 4 ゾーンのうちドンだけで払う も 合法)。 modal に払える枚数を明示する。
+                #   ドンが足りない場合は 最低限 場から選ぶ必要があるので それも書く。
+                _min_board = max(0, n - me.don_active)
+                _desc = f"自リーダー / キャラ / ステージ から {n} 枚 を レスト"
+                if me.don_active > 0:
+                    _desc += (
+                        f" (選ばなかった分は アクティブのドン‼ {me.don_active} 枚 から支払う"
+                        + (f"。 ドンが足りないので 最低 {_min_board} 枚 は場から選ぶ" if _min_board else "")
+                        + ")"
+                    )
+                # ⚠ primitive_value は **必ず dict** で渡す。 overlay の素の int (= {"rest_self_cards": 2})
+                #   をそのまま渡すと、 modal 解決側 (target_pick) が非 dict を
+                #   {"_iid_picks": [...]} に置き換えるので **count が落ちて 1 になる**
+                #   (= 2 枚レストのコストが 1 枚で済む。 cost_minus の amount 消失と同型のバグ)。
                 if len(actives) > n and _maybe_request_target_pick(
-                    state, actives, n, "rest_self_cards", v, self_inplay,
-                    description=f"自リーダー / キャラ / ステージ から {n} 枚 を レスト",
+                    state, actives, n, "rest_self_cards", {"count": n}, self_inplay,
+                    description=_desc,
                 ):
                     return False
                 actives.sort(key=lambda ip: ip.power)
@@ -4801,6 +4816,19 @@ def _execute_effect_body_inner(
             if don_rest:
                 me.don_active -= don_rest
                 me.don_rested += don_rest
+            # ⚠ 「N 枚をレストにできる：」 は **発動コスト** なので N 枚ぴったり払う必要がある。
+            #   人間が modal で N 枚未満しか選ばず、 かつドンでも埋まらないと **過少払いのまま
+            #   効果だけ発動** してしまう (2026-08-13 是正、 実測: 場3/ドン0 で 1 枚しか選ばないと
+            #   1 枚レストで +2000 が乗っていた)。 払える札は payability 判定で保証済なので、
+            #   不足分は残りのアクティブ札 (power 低い順 = 温存優先) から自動で埋める。
+            _short = n - len(chosen) - don_rest
+            if _short > 0:
+                _rest_pool = sorted(
+                    (ip for ip in actives if not ip.rested), key=lambda ip: ip.power
+                )
+                for ip in _rest_pool[:_short]:
+                    ip.rested = True
+                    chosen.append(ip)
             state.push_log(
                 f"  効果: 自カード{n}枚レスト → {[ip.card.name for ip in chosen]}"
                 + (f" + ドン{don_rest}枚" if don_rest else "")
@@ -6458,20 +6486,12 @@ def _execute_effect_body_inner(
             #   旧実装は opp.hand.append で直行 = トリガーを握り潰していた (= 「ダメージを与える」
             #   と 「ライフを手札に加える」 を混同、 両エンジンが同型なので差分検証では沈黙)。
             #   → 戦闘と同じ per-hit 処理 (_resolve_life_taken) を by_effect=True で通す。
-            from .game import _resolve_life_taken
+            #   ⭐ 【トリガー】は 「発動しないことも選べる」 (公式 10-1-5-2)。 戦闘ダメージ経路は
+            #     人間 defender に life_taken_choice modal を出しているので、 効果ダメージでも
+            #     同じ選択権を渡す (2026-08-13、 [[feedback_human_ai_option_parity]])。
             n = int(v) if not isinstance(v, dict) else int(v.get("amount", 1))
-            for _ in range(n):
-                if not opp.life:
-                    if state.effects_overlay:
-                        trigger_on_life_zero(state, opp, me, state.effects_overlay)
-                    if not opp.life:
-                        state.declare_winner(
-                            state.players.index(me), f"{opp.name} life=0 (効果ダメージ)")
-                        return True
-                    continue
-                taken = opp.life.pop(0)
-                opp.life_face_up.pop(0)  # ライフと同じ位置の表向きフラグも取り出す
-                _resolve_life_taken(state, me, opp, taken, by_effect=True)
+            if deal_effect_damage(state, me, opp, n):
+                return True     # 人間の【トリガー】確認 待ち (= 残りは resume が続ける)
             state.push_log(f"  効果: 相手リーダーに {n} ダメージ")
         elif k == "force_opp_play_from_hand":
             # OP13-119: 「相手は自身の手札から (cost_le) キャラ1枚までを登場させる」 (opp 報酬)。
@@ -8496,6 +8516,14 @@ def _execute_effect_body_inner(
                 chosen = cands[:count]
             for ip in chosen:
                 ip.rested = True
+            # ⚠ 発動コストなので count 枚ぴったり払う (人間が modal で少なく選んでも過少払いに
+            #   しない)。 rest_self_cards と違い filter 付きなのでドンでは払えない
+            #   (= ドンは特徴を持たない) → 不足分は候補から power 低い順で自動補充。
+            _short = count - len(chosen)
+            if _short > 0:
+                for ip in sorted((c for c in cands if not c.rested), key=lambda x: x.power)[:_short]:
+                    ip.rested = True
+                    chosen.append(ip)
             state.push_log(
                 f"  効果: 自カード {count}枚レスト → {[ip.card.name for ip in chosen]}"
             )
@@ -10246,6 +10274,24 @@ def _execute_effect_body_inner(
                 for es in effect_specs:
                     if "hand_to_self_life" in es and not me.hand:
                         should_fire = False
+                        break
+            # ⭐ AI は 「発動すると自分が負ける」 任意効果を選ばない (2026-08-13)。
+            #   公式 9-2-1-2 でデッキ 0 枚は **その場で敗北** なので、 任意の自デッキ削り
+            #   (OP03-041 ウソップ 「デッキの上から7枚をトラッシュに置いてもよい」 等) を
+            #   残り枚数以上で撃つのは自殺。 人間は modal で選べるが AI は自動なのでここで守る。
+            #   ⚠ deck_out_wins (OP03-040 ナミ / P-117) は **デッキ0で勝つ** ので除外しない。
+            if should_fire and not getattr(me, "deck_out_wins", False):
+                for es in effect_specs:
+                    _ms = es.get("mill_self_top") if isinstance(es, dict) else None
+                    if _ms is None:
+                        continue
+                    _ms_n = int(_ms.get("amount", 1)) if isinstance(_ms, dict) else int(_ms)
+                    if _ms_n >= len(me.deck):
+                        should_fire = False
+                        state.push_log(
+                            f"  効果: 任意の自デッキ削り {_ms_n} 枚 を見送り "
+                            f"(残 {len(me.deck)} 枚 = デッキ0で敗北するため)"
+                        )
                         break
             if not should_fire:
                 state.push_log(f"  効果: optional_cost_then 不発 (cost不能 or 効果空)")
@@ -15493,6 +15539,74 @@ def trigger_on_ko(
             # ⚠ _on_ko_victim_truly_original_power は **ここで戻さない**。
             #   後続の trigger_on_*_chara_ko が payload に載せ替えるまで生きている必要があるので、
             #   last_chara_ko_victim_card と同じ寿命 (= trigger_on_self_chara_ko の末尾で clear)。
+
+
+def deal_effect_damage(state: GameState, me: Player, opp: Player, n: int) -> bool:
+    """効果ダメージ (= 「相手のリーダーに N ダメージを与える」) を N 発解決する。
+
+    戦闘ダメージ (game.py の AttackLeader) と同じ per-hit 処理を `by_effect=True` で通す
+    (公式 cardqa_eb_03 / rules 7-1-4-1-1-2: 効果ダメージでもライフ札の【トリガー】は発動する)。
+
+    ⭐ 【トリガー】は **発動しないことも選べる** (公式 10-1-5-2)。 戦闘経路は人間 defender に
+      `life_taken_choice` modal を出して選ばせているので、 効果ダメージでも同じ選択権を渡す。
+      pause した場合 **True** を返し、 残り発数を `state.pending_attack_hits` に残す
+      (= `game.resume_pending_attack_hit` が選択を反映して続きを回す)。 呼び出し側の do 配列は
+      `run_do_array` が `_continuation` に退避するので、 後続 primitive も選択後に走る。
+
+    戻り値: True = 人間の選択待ちで中断した / False = N 発すべて解決した (or 勝敗確定)。
+    """
+    from .game import _resolve_life_taken
+    opp_idx = state.players.index(opp)
+    for i in range(n):
+        if state.game_over:
+            return False
+        if not opp.life:
+            if state.effects_overlay:
+                trigger_on_life_zero(state, opp, me, state.effects_overlay)
+            if not opp.life:
+                state.declare_winner(
+                    state.players.index(me), f"{opp.name} life=0 (効果ダメージ)")
+                return False
+            continue
+        is_human_defender = (
+            state.human_player_idx is not None and opp_idx == state.human_player_idx
+        )
+        if is_human_defender:
+            top = opp.life[0]
+            top_face_up = bool(opp.life_face_up[0])
+            has_trigger = bool(
+                state.effects_overlay
+                and state.effects_overlay.get(top.card_id)
+                and any(e.get("when") == "trigger"
+                        for e in state.effects_overlay[top.card_id].effects)
+                # ST13-003 下の表向きライフは手札に加わらない = 【トリガー】は選べない
+                # (= 訊いてから握り潰さない。 game.py の戦闘経路と同じ gate)。
+                and not (top_face_up and getattr(opp, "face_up_life_to_deck_bottom", False))
+            )
+            state.pending_attack_hits = {
+                "attacker_iid": None,
+                "target_kind": "leader",
+                "defender_idx": opp_idx,
+                "remaining_damage": n - i - 1,
+                "is_banish": False,
+                "by_effect": True,
+                "damage_source_idx": state.players.index(me),
+                "taken_card_id": top.card_id,
+            }
+            state.pending_choice = {
+                "kind": "life_taken_choice",
+                "card_id": top.card_id,
+                "name": top.name,
+                "has_trigger": has_trigger,
+            }
+            state.push_log(
+                f"  効果ダメージ: {opp.name} ライフ受け取り 確認 待ち ({top.name})"
+            )
+            return True
+        taken = opp.life.pop(0)
+        opp.life_face_up.pop(0)  # ライフと同じ位置の表向きフラグも取り出す
+        _resolve_life_taken(state, me, opp, taken, by_effect=True)
+    return False
 
 
 def trigger_on_life_zero(

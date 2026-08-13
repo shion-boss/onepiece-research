@@ -517,25 +517,39 @@ def test_multiple_self_trash_opp_attack_go_to_trash_in_board_order():
 #      ⚠ OP03-043 ガイモンの overlay が `self_ko` になっており (公式は 「トラッシュに置く」)、
 #        被 KO 数が誤って増えていた。 2026-08-04 に `trash_self` へ是正。
 # --------------------------------------------------------------------------- #
-def test_trash_self_cost_is_not_a_ko():
-    """自身をトラッシュに置くコストは KO ではない (被 KO 数が増えない)。"""
-    from engine.effects import _pay_counter_cost
+def test_trash_self_is_not_a_ko():
+    """自身を 「トラッシュに置く」 は KO ではない (被 KO 数が増えない)。
+
+    ⚠ 2026-08-13 に OP03-043 ガイモンの overlay を作り直した。 公式テキストは
+      「デッキの上から3枚をトラッシュに置いて**もよい**。**そうした場合**、このキャラを
+      トラッシュに置く」 = ① 任意 ② 自身を落とすのは mill の **後** (結果) であって
+      発動コストではない。 旧 overlay は entry の cost に trash_self を置いており
+      **順序が逆 (自身が先に落ちる) で、 しかも任意でなかった**。
+    """
+    from engine.effects import run_do_array
 
     repo, overlay = _repo(), _overlay()
     eff = next(e for e in overlay.get("OP03-043").effects
                if e.get("when") == "on_opp_life_taken")
-    assert eff["cost"] == {"trash_self": True}, (
-        f"公式は 「このキャラをトラッシュに置く」 なので trash_self のはず: {eff['cost']}"
+    assert "cost" not in eff, (
+        f"自身のトラッシュは発動コストではない (「そうした場合」 = 結果): {eff.get('cost')}"
     )
+    oct_spec = eff["do"][0]["optional_cost_then"]
+    assert oct_spec["cost"] == [], "任意効果なのでコストは空のはず"
+    assert any("return_self_to_trash" in e for e in oct_spec["effect"]), \
+        "「そうした場合、このキャラをトラッシュに置く」 が effect 側に無い"
 
     st = _state(repo, overlay)
     me, opp = st.players[0], st.players[1]
     src = InPlay.of(repo.get("OP03-043"), sickness=False)
     me.characters = [src]
-    _pay_counter_cost(st, me, opp, src, eff["cost"])
+    deck_before = len(me.deck)
+    run_do_array(list(eff["do"]), st, me, opp, src)
+    resolve_triggers(st)
 
-    assert src not in me.characters, "コストで自身が場を離れていない"
-    assert me.trash and me.trash[-1].card_id == "OP03-043", "トラッシュに置かれていない"
+    assert len(me.deck) == deck_before - 3, "デッキ上3枚がトラッシュされていない"
+    assert src not in me.characters, "「そうした場合」 で自身がトラッシュに置かれていない"
+    assert any(c.card_id == "OP03-043" for c in me.trash), "自身がトラッシュに無い"
     assert me.chara_ko_taken_this_turn == 0, (
         "「トラッシュに置く」 は KO ではないので 被 KO 数を増やしてはいけない"
         f" (現在 {me.chara_ko_taken_this_turn})"
@@ -10933,3 +10947,383 @@ def test_both_players_deck_zero_is_a_draw():
     _recompute_static(st)
     assert st.game_over is True and st.winner is None, \
         f"両者デッキ0 は引き分けのはず (winner={st.winner})"
+
+
+# --------------------------------------------------------------------------- #
+#  人間の選択権 (= [[feedback_human_ai_option_parity]]) の穴 2 件 (2026-08-13 是正)
+# --------------------------------------------------------------------------- #
+def test_rest_self_cards_cost_is_always_paid_in_full():
+    """「自分のカードN枚をレストにできる：」 は **発動コスト** = N 枚ぴったり払う。
+
+    ⚠ 是正前: 人間が modal で N 枚未満しか選ばないと **その枚数しかレストされずに効果だけ発動**
+      していた。 原因は modal 解決側 (target_pick) が 非 dict の primitive_value を
+      {"_iid_picks": ...} に置き換えるため **count が落ちて 1 になる** こと
+      (overlay は {"rest_self_cards": 2} = 素の int)。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, human_idx=0)
+    me = st.players[0]
+    me.characters = [InPlay.of(repo.get("OP14-029"), sickness=False),
+                     InPlay.of(repo.get(_FILLER), sickness=False)]
+    me.don_active, me.don_rested = 0, 0
+    execute_effect({"rest_self_cards": 2}, st, me, st.players[1], me.characters[0])
+    assert st.pending_choice is not None
+    resolve_pending_choice(st, [0])          # 1 枚しか選ばない
+    board_rested = sum(1 for ip in [me.leader, *me.characters] if ip.rested)
+    assert board_rested + me.don_rested == 2, (
+        f"コスト2枚が払い切られていない (場 {board_rested} + ドン {me.don_rested})"
+    )
+
+
+def test_rest_self_cards_human_can_pay_entirely_with_don():
+    """公式 cardqa_op_14: 「自分のカード」 は リーダー/キャラ/ステージ/**ドン‼** の 4 ゾーン。
+    人間は場のカードを選ばないことで **あえてドンだけで払える**。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, human_idx=0)
+    me = st.players[0]
+    me.characters = [InPlay.of(repo.get("OP14-029"), sickness=False),
+                     InPlay.of(repo.get(_FILLER), sickness=False)]
+    me.don_active, me.don_rested = 5, 0
+    execute_effect({"rest_self_cards": 2}, st, me, st.players[1], me.characters[0])
+    assert "ドン" in st.pending_choice.get("description", ""), \
+        "ドンで払える旨が modal に出ていない"
+    resolve_pending_choice(st, [])           # 場から 1 枚も選ばない
+    assert all(not ip.rested for ip in [me.leader, *me.characters]), "場が勝手にレストされた"
+    assert me.don_active == 3 and me.don_rested == 2, \
+        f"ドン 2 枚で払えていない (active={me.don_active} rested={me.don_rested})"
+
+
+def test_effect_damage_lets_human_decline_life_trigger():
+    """公式 10-1-5-2 「【トリガー】は発動しないことも選べる」 を **効果ダメージ** でも人間に渡す。
+
+    ⚠ 是正前: 戦闘ダメージ経路だけ life_taken_choice modal を出しており、
+      効果ダメージ (deal_opp_leader_damage) は should_fire_trigger で自動発動していた。
+    """
+    from engine.effects import run_do_array
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    st.human_player_idx = 1                   # = 防御側が人間
+    me, opp = st.players[0], st.players[1]
+    opp.life = [repo.get("OP09-059"), repo.get("OP09-059"), repo.get(_FILLER)]
+    opp.life_face_up = [False] * 3
+    run_do_array([{"deal_opp_leader_damage": 2}, {"draw": 1}], st, me, opp, None)
+    assert st.pending_choice is not None, "効果ダメージで人間に確認が出ていない"
+    assert st.pending_choice["kind"] == "life_taken_choice"
+    assert st.pending_choice["has_trigger"] is True
+    assert st.pending_attack_hits["remaining_damage"] == 1, "残り発数が保持されていない"
+    hand_before = len(opp.hand)
+    resolve_pending_choice(st, [0])           # 1 発目: トリガーを **使わない**
+    assert len(opp.hand) == hand_before + 1, "使わないなら手札に加わるはず"
+    assert st.pending_choice is not None, "2 発目の確認が出ていない"
+    resolve_pending_choice(st, [1])           # 2 発目: トリガーを **使う**
+    assert st.pending_choice is None
+    assert len(opp.life) == 1, f"2 発分ライフが減っていない (life={len(opp.life)})"
+    assert len(me.hand) == 1, "選択で中断した do 配列の後続 (draw) が再開されていない"
+
+
+def test_effect_damage_ai_defender_is_unchanged():
+    """対照: 防御側が AI なら従来どおり自動 (= modal を挟まない)。"""
+    from engine.effects import run_do_array
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    opp.life = [repo.get("OP09-059"), repo.get("OP09-059"), repo.get(_FILLER)]
+    opp.life_face_up = [False] * 3
+    run_do_array([{"deal_opp_leader_damage": 2}, {"draw": 1}], st, me, opp, None)
+    assert st.pending_choice is None, "AI 防御なのに選択待ちで止まっている"
+    assert len(opp.life) == 1 and len(me.hand) == 1
+
+
+# --------------------------------------------------------------------------- #
+#  公式 Q&A conformance 実測 (2026-08-13 バッチ、 台帳 末尾から)
+#  「公式どおりで問題なかった」 ものも、 後から壊れないよう固定する。
+# --------------------------------------------------------------------------- #
+def test_op13_077_uses_printed_power_not_current():
+    """OP13-077: 「相手の**元々の**、パワー4000以下」 = 印刷パワー (公式 4-9)。
+
+    元々 7000 / 現在 3000 のキャラは KO できない (cardqa_op_13 = 「いいえ、できません」)。
+    """
+    from engine.effects import run_do_array
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    victim = InPlay.of(repo.get("OP02-013"), sickness=False)   # 印刷 7000
+    victim.turn_buff = -4000                                    # 現在 3000
+    opp.characters = [victim]
+    me.leader.attached_dons = 1
+    me.don_active = 3
+    ent = [e for e in overlay["OP13-077"].effects if e.get("when") == "main"][0]
+    run_do_array(list(ent["do"]), st, me, opp, None)
+    resolve_triggers(st)
+    assert victim in opp.characters, "元々のパワー 7000 のキャラを KO してしまっている"
+
+
+def test_op14_069_second_option_needs_no_leader_feature():
+    """OP14-069 の 2 つ目の選択肢 (レスト不可) はリーダー特徴に依存しない (cardqa_op_14 = はい)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP01-001")      # 非《ドンキホーテ海賊団》
+    me, opp = st.players[0], st.players[1]
+    me.don_active = 5
+    victim = InPlay.of(repo.get("OP01-016"), sickness=False)
+    opp.characters = [victim]
+    src = InPlay.of(repo.get("OP14-069"), sickness=False)
+    me.characters = [src]
+    trigger_on_play(st, me, opp, src, overlay)
+    resolve_triggers(st)
+    assert victim in opp.characters, "リーダー特徴が無いのに KO 側が走っている"
+    assert victim.cannot_be_rested_buff is True, "レスト不可の選択肢が実行されていない"
+
+
+def test_op09_084_granted_blocker_survives_effect_negation():
+    """付与済みの【ブロッカー】は 「効果を無効にする」 で消えない (cardqa_op_09 = いいえ)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP09-001")
+    me, opp = st.players[0], st.players[1]
+    c = InPlay.of(repo.get("OP09-084"), sickness=False)
+    me.characters = [c]
+    execute_effect({"give_keyword": {"duration": "next_opp_turn_end",
+                                     "keywords": ["ブロッカー"], "target": "self"}},
+                   st, me, opp, c)
+    from engine.game import _recompute_static
+    _recompute_static(st)
+    assert c.is_blocker_now is True, "前提: ブロッカーが付与されていない"
+    execute_effect({"disable_effect": {"duration": "turn", "target": "one_opponent_character_any"}},
+                   st, opp, me, None)
+    _recompute_static(st)
+    assert "効果無効" in c.granted_keywords, "前提: 無効化が乗っていない"
+    assert c.is_blocker_now is True, "付与済みブロッカーが無効化で消えている"
+
+
+def test_op03_099_pump_applies_even_with_no_life_to_scry():
+    """OP03-099: 見るライフが 0 枚でも 「その後 +1000」 は走る (cardqa_op_03 = はい)。"""
+    from engine.effects import run_do_array
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP03-099")
+    me, opp = st.players[0], st.players[1]
+    me.life, me.life_face_up = [], []
+    opp.life, opp.life_face_up = [], []
+    me.leader.attached_dons = 1
+    from engine.game import _recompute_static
+    _recompute_static(st)
+    before = me.leader.power
+    ent = [e for e in overlay["OP03-099"].effects if e.get("when") == "on_attack"][0]
+    run_do_array(list(ent["do"]), st, me, opp, me.leader)
+    assert me.leader.power == before + 1000, \
+        f"ライフ 0 枚で +1000 が乗っていない ({before} → {me.leader.power})"
+
+
+def test_on_play_does_not_fire_when_source_sacrificed_by_field_limit():
+    """場 5 枚上限 (公式 3-7-6-1) で犠牲になったキャラの【登場時】は発動しない。
+
+    cardqa_op_06 / cardqa_op_10: 「キャラA」 をアクティブ登場 → 「キャラB」 登場の犠牲で
+    「キャラA」 がトラッシュ → 「キャラA」 の【登場時】は発動できない (= いいえ)。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    big = "OP02-013"          # power 7000 = 犠牲に選ばれにくい埋め草
+    me.deck = [repo.get(big)] * 20
+    me.characters = [InPlay.of(repo.get(big), sickness=False) for _ in range(3)]
+    moria = InPlay.of(repo.get("OP06-086"), sickness=False)
+    me.characters.append(moria)                       # = モリア込みで 4 枚
+    me.trash = [repo.get("OP04-101"),                 # A: cost2 power1000【登場時】1ドロー
+                repo.get("OP01-010")]                 # B: cost1 power3000 効果なし
+    hand_before = len(me.hand)
+    trigger_on_play(st, me, st.players[1], moria, overlay)
+    resolve_triggers(st)
+    board = [ip.card.card_id for ip in me.characters]
+    assert "OP04-101" not in board, "前提: キャラA が犠牲になっていない (テストの前提が崩れた)"
+    assert "OP01-010" in board, "前提: キャラB が登場していない"
+    assert len(me.hand) == hand_before, \
+        "犠牲になったキャラの【登場時】が発動している (公式=発動できない)"
+
+
+def test_op01_080_on_ko_draw_cannot_be_declined():
+    """OP01-080【KO時】カード1枚を引く は強制 (cardqa_op_01 = 引かない選択はできない)。"""
+    from engine.effects import trigger_on_ko
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, human_idx=0)
+    me, opp = st.players[0], st.players[1]
+    c = InPlay.of(repo.get("OP01-080"), sickness=False)
+    me.characters = [c]
+    hand_before = len(me.hand)
+    me.characters.remove(c)
+    me.trash.append(c.card)
+    trigger_on_ko(st, me, opp, c.card, overlay, by_opp_effect=True)
+    resolve_triggers(st)
+    assert st.pending_choice is None, "強制のはずの【KO時】に拒否 modal が出ている"
+    assert len(me.hand) == hand_before + 1, "【KO時】のドローが起きていない"
+
+
+def test_leader_deck_construction_restrictions():
+    """リーダーの 「ルール上、〜デッキに入れることができない」 を構築チェックで弾く。
+
+    一次情報 (cardqa_op_12、 OP12-001 シルバーズ・レイリー): 「元々のコストが5以上で、
+    効果によってコストが4以下に下がるカード (ST23-001 ウタ) を入れられますか」 → **いいえ**。
+    = 判定は **印刷コスト**。
+    """
+    from engine.deck import DeckList
+    repo = _repo()
+
+    def _deck(leader, card_ids):
+        return DeckList(name="t", leader=repo.get(leader),
+                        main=[repo.get(c) for c in card_ids], slug="t")
+
+    bad = _deck("OP12-001", ["ST23-001"] * 4 + ["OP01-016"] * 46)
+    assert repo.get("ST23-001").cost >= 5, "前提: ST23-001 の印刷コストが 5 以上でない"
+    assert any("コスト5以上" in p for p in bad.validate(banlist={})), \
+        "OP12-001 でコスト5以上のカードが弾かれていない"
+    ok = _deck("OP12-001", ["OP01-016"] * 50)
+    assert not any("コスト5以上" in p for p in ok.validate(banlist={})), \
+        "コスト4以下のみの構築が誤って弾かれている"
+    nami = _deck("P-117", ["OP01-016"] * 50)
+    assert any("東の海" in p for p in nami.validate(banlist={})), \
+        "P-117 で非《東の海》カードが弾かれていない"
+
+
+def test_scry_all_life_preserves_face_up_flags():
+    """ライフを並べ替える効果は 表向き/裏向きを **札ごとに** 保つ (cardqa_st_13)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    me.life = [repo.get("OP01-016"), repo.get("OP02-013"), repo.get("OP01-025")]
+    me.life_face_up = [True, False, True]
+    execute_effect({"scry_all_life_one_to_deck": True}, st, me, st.players[1], None)
+    resolve_triggers(st)
+    face_up_ids = {"OP01-016", "OP01-025"}
+    for card, flag in zip(me.life, me.life_face_up):
+        assert (card.card_id in face_up_ids) == flag, \
+            f"{card.card_id} の表向きフラグが入れ替わっている (flag={flag})"
+
+
+def test_op05_084_static_turns_off_when_non_tenryubito_enters():
+    """OP05-084: 自場が《天竜人》のみでなくなった瞬間にコスト-4 は消える (cardqa_op_05 = いいえ)。"""
+    from engine.game import _recompute_static
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.characters = [InPlay.of(repo.get("OP05-084"), sickness=False)]
+    opp.characters = [InPlay.of(repo.get("OP02-013"), sickness=False)]   # 印刷コスト 7
+    _recompute_static(st)
+    assert opp.characters[0].base_cost == 3, "前提: 天竜人のみでコスト-4 が乗っていない"
+    me.characters.append(InPlay.of(repo.get(_FILLER), sickness=False))   # 非《天竜人》
+    _recompute_static(st)
+    assert opp.characters[0].base_cost == 7, \
+        "非《天竜人》が場に出たのにコスト-4 が残っている"
+
+
+# --------------------------------------------------------------------------- #
+#  「デッキの上からN枚をトラッシュに置いて**もよい**」 は任意 (2026-08-13 是正)
+#
+#  一次情報 (cardqa_op_03、 OP03-054): 「この【カウンター】効果で自分のリーダーを+2000し、
+#    自分のデッキを1枚トラッシュに置かないことを選べますか？」 → **はい、選べます。**
+#  総合ルール 1-3-5-1 も 「上限が定められている場合、 下限指定が無い限り 0 を選べる」。
+#
+#  是正前: overlay が素の mill_self_top = **強制**。 2026-08-13 に 「デッキ0枚=即敗北」 を
+#  実装したので、 強制の自デッキ削り (OP03-041 ウソップ 7 枚) は **自滅を強制** しうる。
+# --------------------------------------------------------------------------- #
+def _op03_041_do(overlay):
+    return [e for e in overlay["OP03-041"].effects
+            if e.get("when") == "on_opp_life_taken"][0]["do"]
+
+
+def test_optional_self_mill_human_can_decline():
+    """人間は 「デッキの上から7枚をトラッシュに置いてもよい」 を見送れる。"""
+    from engine.effects import run_do_array
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, human_idx=0)
+    me = st.players[0]
+    me.deck = [repo.get(_FILLER)] * 20
+    run_do_array(list(_op03_041_do(overlay)), st, me, st.players[1], None)
+    assert st.pending_choice is not None, "任意なのに人間に確認が出ていない"
+    assert st.pending_choice["kind"] == "optional_cost_confirm"
+    resolve_pending_choice(st, [0])           # 見送り
+    assert len(me.deck) == 20, "見送ったのにデッキが削れている"
+
+
+def test_optional_self_mill_human_can_accept():
+    """対照: 発動を選べば公式どおり 7 枚トラッシュされる。"""
+    from engine.effects import run_do_array
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, human_idx=0)
+    me = st.players[0]
+    me.deck = [repo.get(_FILLER)] * 20
+    run_do_array(list(_op03_041_do(overlay)), st, me, st.players[1], None)
+    resolve_pending_choice(st, [1])           # 発動
+    assert len(me.deck) == 13, f"7 枚トラッシュされていない (deck={len(me.deck)})"
+
+
+def test_ai_declines_optional_self_mill_that_would_deck_out():
+    """AI は 「撃つと自分が負ける」 任意の自デッキ削りを見送る (公式 9-2-1-2)。"""
+    from engine.effects import run_do_array
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    me.deck = [repo.get(_FILLER)] * 5          # 7 > 5 = 撃つと 0 枚
+    run_do_array(list(_op03_041_do(overlay)), st, me, st.players[1], None)
+    resolve_triggers(st)
+    assert len(me.deck) == 5, "自滅する自デッキ削りを撃っている"
+    assert st.game_over is False
+
+
+def test_ai_still_fires_optional_self_mill_when_safe():
+    """対照: デッキに余裕があれば AI は従来どおり撃つ (= self-play / matrix 中立)。"""
+    from engine.effects import run_do_array
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    me.deck = [repo.get(_FILLER)] * 20
+    run_do_array(list(_op03_041_do(overlay)), st, me, st.players[1], None)
+    resolve_triggers(st)
+    assert len(me.deck) == 13, f"安全な局面で撃っていない (deck={len(me.deck)})"
+
+
+def test_deck_out_wins_leader_still_mills_itself_to_zero():
+    """OP03-040 ナミ (デッキ0で勝利) は残り少なくても撃つ = そのまま勝つ。"""
+    from engine.effects import run_do_array
+    from engine.game import _recompute_static
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP03-040")
+    me = st.players[0]
+    me.deck = [repo.get(_FILLER)] * 1
+    _recompute_static(st)
+    assert me.deck_out_wins is True, "前提: 勝利置換が張られていない"
+    ent = [e for e in overlay["OP03-040"].effects
+           if e.get("when") == "on_opp_life_taken"][0]
+    run_do_array(list(ent["do"]), st, me, st.players[1], None)
+    resolve_triggers(st)
+    _recompute_static(st)
+    assert not me.deck
+    assert st.game_over is True and st.winner == 0, "ナミがデッキ0で勝っていない"
+
+
+def test_all_optional_self_mill_texts_are_optional_in_overlay():
+    """全走査: 公式テキストが 「…トラッシュに置いてもよい」 の mill は overlay でも任意。"""
+    cards = {c["card_id"]: c for c in json.loads((ROOT / "db" / "cards.json").read_text("utf-8"))}
+    effs = json.loads((ROOT / "db" / "card_effects.json").read_text("utf-8"))
+
+    def _walk(o):
+        if isinstance(o, dict):
+            yield o
+            for vv in o.values():
+                yield from _walk(vv)
+        elif isinstance(o, list):
+            for vv in o:
+                yield from _walk(vv)
+
+    bad = []
+    for cid, ents in effs.items():
+        card = cards.get(cid)
+        if not card:
+            continue
+        txt = " ".join(filter(None, [card.get("text"), card.get("trigger")]))
+        if "トラッシュに置いてもよい" not in txt:
+            continue
+        # optional_cost_then の中に入っていない素の mill_self_top が残っていないか
+        for ent in ents:
+            for node in _walk(ent.get("do") or []):
+                if isinstance(node, dict) and "mill_self_top" in node and "optional_cost_then" not in node:
+                    if not any("mill_self_top" in str(o.get("optional_cost_then", ""))
+                               for o in _walk(ent.get("do") or []) if "optional_cost_then" in o):
+                        bad.append(cid)
+    assert not bad, f"「置いてもよい」 なのに強制の mill_self_top が残っている: {sorted(set(bad))}"

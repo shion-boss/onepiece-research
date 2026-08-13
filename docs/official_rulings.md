@@ -7309,3 +7309,124 @@ cardqa_st_03 (ST03-005) が挙動を明示している:
 - `test_op15_022_brook_defers_deck_out_defeat` / `_loses_immediately_when_leader_negated`
 - `test_op03_040_nami_wins_on_deck_out` / `_loses_when_negated`
 - `test_both_players_deck_zero_is_a_draw`
+
+## 人間の選択権の穴 2 件 (2026-08-13 是正)
+
+[[feedback_human_ai_option_parity]] 「人間と AI は同一の選択肢を持つ」 に対する既知の穴のうち、
+台帳の note に残っていた 2 件を解消した。
+
+### (1) 「自分のカードN枚をレストにできる：」 のコストが **過少払い** できた (OP14-029 等 13 エントリ)
+
+一次情報 (cardqa_op_14、 OP14-029 たしぎ): 「この効果は、 自分の場にある、 リーダー、 キャラ、
+ステージ、 **ドン!!** のうち合計2枚をアクティブからレストにすることで発動します」。
+
+**是正前**: 人間が target modal で N 枚未満しか選ばないと **その枚数しかレストされずに効果だけ
+発動** した (実測: 場 3 / ドン 0 で 1 枚だけ選ぶ → 1 枚レストで +2000 が乗る)。
+
+⭐ **根因は 「素の int spec が modal 再実行で count を失う」**。 overlay は `{"rest_self_cards": 2}`
+= 素の int で、 `target_pick` の解決側は **非 dict の primitive_value を
+`{"_iid_picks": [...]}` に置き換える** ため、 再実行時に `count` が既定の 1 に落ちていた。
+`cost_minus` の amount 消失 (既知) と同型のバグ。
+
+**是正**: modal を立てる時に `primitive_value` を **必ず dict** (`{"count": n}`) で渡す。
+併せて、 人間の選択が足りない場合は ①アクティブのドン ②残りのアクティブ札 (power 低い順) の
+順で **必ず N 枚ぴったり払う** ようにし、 modal の description に
+「選ばなかった分はアクティブのドン‼から支払う (ドンが足りないので最低 M 枚は場から選ぶ)」 を出す。
+= 人間は **場から 0 枚選ぶことで 「あえてドンで払う」** を選べる (= ledger の残課題そのもの)。
+
+全走査: 素の int spec を渡していたのは `rest_self_cards` のみ (13 エントリ)。
+`rest_self_cards_filtered` / `rest` / `set_cannot_attack` / `set_cannot_rest` は dict か
+count 1 相当の文字列なので count 消失は起きない。
+
+### (2) 効果ダメージで【トリガー】を **発動しない選択** ができなかった
+
+一次情報 (総合ルール 10-1-5-2): 「【トリガー】は**発動しないことも選べます**。その場合、その
+カードは公開せずに、手札に加えます」。
+
+**是正前**: 戦闘ダメージ経路 (`AttackLeader`) だけが人間 defender に `life_taken_choice` modal を
+出しており、 **効果ダメージ** (`deal_opp_leader_damage`、 EB03-055 ロビン等) は
+`should_fire_trigger` で **AI 判定のまま自動発動** していた。
+
+**是正**: 効果ダメージのループを `effects.deal_effect_damage` に切り出し、 人間 defender なら
+1 発ごとに **同じ `life_taken_choice` modal** を立てて中断する。 残り発数は
+`state.pending_attack_hits["remaining_damage"]` に持ち、 `game.resume_pending_attack_hit` が
+`by_effect` 分岐で選択を反映 → 残りを続けて解決する。 中断した do 配列の後続 primitive は
+`run_do_array` の `_continuation` が再開する。
+
+- UI 変更は **不要** (`pending_payload.kind` で分岐しているので既存 modal を再利用)
+- バトルではないので `by_effect` 分岐では `_reset_battle_buffs` を呼ばない
+- AI defender の挙動は不変 (= self-play / matrix 中立)。 `pending_attack_hits` は
+  `state_snapshot._EXCLUDE` なので Rust digest にも影響しない
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+- `test_rest_self_cards_cost_is_always_paid_in_full`
+- `test_rest_self_cards_human_can_pay_entirely_with_don`
+- `test_effect_damage_lets_human_decline_life_trigger`
+- `test_effect_damage_ai_defender_is_unchanged` (対照)
+
+## 公式どおりで **問題なかった** もの (2026-08-13 バッチ 2、 台帳 末尾から)
+
+いずれも実測で公式回答と一致。 後から壊れないよう `tests/test_effect_interactions.py` に固定した
+(下記 ⭐ 付き) か、 既存テストで担保されている。
+
+- **e3dfb3d5f3ad** ST10-001 × OP05-100 エネル: ロー起動メイン (相手をデッキ下 → 自手札からルフィ登場) の
+  最中、 エネルの離脱置換は **ルフィが登場する前** に解決される (do 配列順) ので有効。
+  実測: ルフィ不在 → エネルが場に残り相手ライフ 3→2 / 対照でルフィを先に置くと置換が無効化。
+- **e387ed0e8672** OP11-084 クザン: 「アクティブのキャラにもアタックできる」 は **アタック宣言時の
+  対象拡張** で、 登場酔いを解除しない。 そのターン登場したキャラの合法アタックは 0 件。
+- **e36b343362aa** OP10-098: `disable_effect` で無効化されたキャラの【KO時】は発動しない
+  (既存 `test_negated_character_ko_does_not_fire_on_ko` と同経路)。
+- **e34fecd1c8d4** OP05-079 ヴィオラ: 「**相手は**自身のトラッシュの3枚を…デッキの下に置く」 =
+  相手が選ぶ。 `_worst_trash_order` で 高コスト札を温存して低コストから出す (2026-08-07 是正済)。
+- **e349abf3f242** ST30-001: リーダー -2000 は `self_chara_truly_original_power_ge: 7000` で gate 済。
+  自キャラ 0 枚なら発動しない (6000 のまま)。
+- **e30ac6e78cb4** OP09-018: 「合計が4000以下」 に 4000 ちょうどを含む。 4000 → KO / 5000 → KO されない。
+- ⭐ **e23a9b8789e5** OP13-077: 「**元々の**パワー4000以下」 = 印刷値。 元々 7000 / 現在 3000 は KO 不可。
+- ⭐ **e2b6561cd2a4** OP14-069: 2 つ目の選択肢 (レスト不可) はリーダー特徴に依存しない
+  (《ドンキホーテ海賊団》gate は 1 つ目の KO のみ)。
+- ⭐ **e2ec0af879df** OP09-084: **付与済み**の【ブロッカー】は 「効果を無効にする」 で消えない
+  (無効化はカードの *効果* を止めるもので、 付与し終えたキーワードは対象外)。
+- ⭐ **e2e49773d800** OP03-099 カタクリ: 「ライフの上から1枚**まで**を見て」 は 0 枚可で、
+  「その後 +1000」 は独立に走る。 両者ライフ 0 枚でも +1000。
+- ⭐ **e2d3d98bf9f8** OP06-086 モリア / OP10-058 レベッカ: 場 5 枚上限 (3-7-6-1) の犠牲になった
+  「キャラA」 の【登場時】は発動しない (= 登場時は enqueue され、 解決時に発動元が場に居ない)。
+- ⭐ **e2eeb26b6efb** OP01-080: 【KO時】1ドローは **強制** (「できる」 の語が無い)。 人間にも拒否 modal は出ない。
+
+## 「デッキの上からN枚をトラッシュに置いて**もよい**」 は任意 (2026-08-13 是正、 9 枚)
+
+**一次情報** (cardqa_op_03、 OP03-054 ウソーーップ輪ごーむっ!!!):
+
+> Q: この【カウンター】効果で自分のリーダーを+2000し、自分のデッキを1枚トラッシュに置かない
+>    ことを選べますか？
+> A: **はい、選べます。**
+
+総合ルール **1-3-5-1** も一般則を置いている: 「カードやルールにより 『〜まで』 のように上限の数が
+定められている場合、 特に下限の数の指定がない限り **０を選ぶことができます**」。
+
+**是正前の挙動**: overlay が素の `mill_self_top` = **強制**。 「置いてもよい」 の 「もよい」 が
+落ちていた。 ⚠ 同日に 「デッキ0枚 = その場で敗北」 (9-2-1-2) を実装したので、 強制の自デッキ削り
+(OP03-041 ウソップ の 7 枚) は **自滅を強制** しうる状態だった。
+
+**全走査**: 公式テキストに 「トラッシュに置いてもよい」 を含み、 overlay が強制だったのは
+**9 枚 / 17 エントリ** — OP03-040 ナミ / OP03-041 ウソップ / OP03-043 ガイモン / OP03-047 ゼフ /
+OP03-050 ブードル / OP03-051 ベルメール / OP03-054 / OP06-048 ゼフ / P-117 ナミ (パラレル込)。
+⚠ **OP11-082 アラマキ は 「その後、…トラッシュに置く」 = 「もよい」 が無い** ので強制のまま (正しい)。
+「〜置くことが**できる**：」 (コロン = 発動コスト) の 4 枚は既に `optional_cost_then` で正しかった。
+
+**表現**: EB04-001 ボニーと同じ **空コストの `optional_cost_then`** (`cost: []`)。
+人間は `optional_cost_confirm` で 「効果を発動しますか？」、 AI は従来どおり自動発動。
+
+⭐ **AI の自滅ガードを新設**: 任意効果の `mill_self_top` が **残デッキ枚数以上** なら AI は見送る。
+デッキ 0 枚は敗北条件 (9-2-1-2) なので 「撃つと負ける任意効果」 を選ぶことはありえない。
+`deck_out_wins` (OP03-040 ナミ / P-117) は **デッキ0で勝つ** ので除外 = 従来どおり撃つ。
+Python (`optional_cost_then`) と Rust (`effects.rs` 同ブロック) に 1:1 で実装。
+
+**OP03-043 ガイモン** は 「3枚をトラッシュに置いてもよい。**そうした場合**、このキャラをトラッシュに
+置く」。 旧 overlay は entry の `cost` に `trash_self` を置いており **順序が逆 (自身が先に落ちる) で
+任意でもなかった**。 `optional_cost_then(cost=[], effect=[mill 3, return_self_to_trash])` に是正。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+- `test_optional_self_mill_human_can_decline` / `_can_accept`
+- `test_ai_declines_optional_self_mill_that_would_deck_out` / `test_ai_still_fires_optional_self_mill_when_safe`
+- `test_deck_out_wins_leader_still_mills_itself_to_zero` (ナミは撃って勝つ)
+- `test_all_optional_self_mill_texts_are_optional_in_overlay` (全走査)
