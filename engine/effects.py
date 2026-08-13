@@ -14862,6 +14862,97 @@ def trigger_on_block(
 
 
 
+# 置換効果 (replace_ko / replace_leave) の do が 対象を取る primitive の 集合。
+# これらは 「代わりに X をレスト / デッキ下 / KO / ライフへ」 の 実行本体で、
+# **対象が存在しなければ 代替行動を遂行できない** = 置換を選べない (= 本来の離脱が起こる)。
+_REPLACE_DO_TARGETED = frozenset({
+    "rest", "rest_multi", "return_to_hand", "return_to_hand_multi",
+    "return_to_deck_bottom", "return_to_deck_bottom_multi",
+    "ko", "ko_multi", "chara_to_self_life", "chara_to_opp_life",
+})
+_REPLACE_DO_REST_LIKE = frozenset({"rest", "rest_multi"})
+
+
+def _replace_do_candidate_pool(spec, owner: "Player", opp: "Player"):
+    """置換 do の target spec から **未 truncate の候補プール** を返す。
+    未知 spec は None (= 判定不能 → 呼び出し側で保守的に許可)。
+    公式一次情報: OP07-042 ゲッコー・モリア (cardqa_op_07)「'ゲッコー・モリア'以外の
+      キャラがいない時、代わりに場を離れない事はできますか？」→「いいえ、できません。」
+      OP07-029 バジル・ホーキンス (cardqa_op_07)「相手の場にアクティブのキャラがない
+      場合…」→「いいえ、できません。」= 代替行動 (レスト等) の対象が居なければ置換不可。
+    """
+    filt: dict = {}
+    t = spec
+    if isinstance(spec, dict):
+        t = spec.get("type") or spec.get("target")
+        filt = spec.get("filter", {}) or {}
+    if t in ("one_opponent_character_any", "any_opponent_character",
+             "one_opp_chara_any"):
+        return list(opp.characters)
+    if t in ("one_self_character_any", "any_self_chara", "one_self_chara",
+             "one_self_character"):
+        return list(owner.characters)
+    if t in ("one_self_chara_filtered", "one_self_character_filtered",
+             "all_self_chara_filtered"):
+        return [ip for ip in owner.characters if _matches_filter_ip(ip, filt)]
+    if t in ("one_opponent_character_filtered", "any_opponent_character_filtered",
+             "all_opponent_chara_filtered"):
+        return [ip for ip in opp.characters if _matches_filter_ip(ip, filt)]
+    return None
+
+
+def _replace_do_performable(do_specs, owner: "Player", opp: "Player") -> bool:
+    """置換効果の do (代替行動) が 実際に遂行可能か。 対象を取る primitive のうち
+    候補が空でないもの (rest はアクティブ限定) が 1 つでもあれば True。
+    do が空 / 非対象 primitive を含む / 判定不能 spec は 保守的に True。
+    対象 primitive のみで構成され、 その全てが空対象の時だけ False (= 置換を選べない)。
+    """
+    if not do_specs:
+        return True
+    saw_targeted_empty = False
+    for prim in do_specs:
+        if not isinstance(prim, dict):
+            return True
+        for k, v in prim.items():
+            if k not in _REPLACE_DO_TARGETED:
+                return True  # 非対象行動を含む do は遂行可能
+            # self / victim 参照 (= 発動元/離脱本人) は 常に存在する
+            spec = v
+            _t = v.get("target") if isinstance(v, dict) else v
+            if _t in ("self", "victim") or (
+                isinstance(v, dict) and v.get("type") in ("self", "victim")
+            ):
+                return True
+            # 相手の 「カード / キャラかドン」 系 (盤面 + ドンの複合)
+            if spec in ("one_opp_chara_or_don", "one_opp_card_any"):
+                active_ch = [
+                    c for c in opp.characters
+                    if not c.rested and not c.cannot_be_rested_buff
+                    and not c.static_cannot_be_rested
+                ]
+                if active_ch or opp.don_active > 0:
+                    return True
+                if spec == "one_opp_card_any" and (
+                    not opp.leader.rested and not opp.leader.static_cannot_be_rested
+                ):
+                    return True
+                saw_targeted_empty = True
+                continue
+            pool = _replace_do_candidate_pool(spec, owner, opp)
+            if pool is None:
+                return True  # 未知 spec → 保守的に許可 (従来挙動)
+            if k in _REPLACE_DO_REST_LIKE:
+                pool = [
+                    c for c in pool
+                    if not c.rested and not c.cannot_be_rested_buff
+                    and not c.static_cannot_be_rested
+                ]
+            if pool:
+                return True
+            saw_targeted_empty = True
+    return not saw_targeted_empty
+
+
 def try_replace_ko(
     state: GameState,
     owner: Player,
@@ -14961,6 +15052,18 @@ def try_replace_ko(
                 #   状態を後の victim の判定に使えない。 このバッチでは 「代替しない」 と確定させる。
                 #   ⚠ victim 依存の条件 (_replace_ko_match の target_*) は victim ごとに判定する
                 #     ので、 ここで凍結するのは **extra_cond (= victim 非依存)** だけ。
+                if _batch is not None:
+                    _batch[_bkey] = False
+                continue
+            # ⭐ 置換 do (代替行動) の 遂行可能性 gate (公式 cardqa_op_07)。
+            #   「代わりに X をレスト/デッキ下/KO する」 の 対象が居なければ 代替行動を
+            #   遂行できない = 置換を選べない → 本来の離脱が起こる。
+            #   OP07-042 ゲッコー・モリア (「ゲッコー・モリア」以外のキャラ無し) /
+            #   OP07-029 バジル・ホーキンス (相手アクティブキャラ無し) の裁定 = 「いいえ」。
+            #   cost の payability と同じ思想 (P-111 / ST09-010) を do 側にも適用する。
+            #   ⚠ Python も Rust も 同じ穴 (対象0でも置換成立) を共有しており、 差分検証では
+            #     沈黙していた (公式 Q&A だけが検出できた領域)。
+            if not _replace_do_performable(eff.get("do", []), owner, opp):
                 if _batch is not None:
                     _batch[_bkey] = False
                 continue

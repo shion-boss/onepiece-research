@@ -11956,3 +11956,120 @@ def test_op06_035_life_to_hand_is_mandatory_even_without_rest_targets():
     resolve_triggers(st)
     assert len(me.hand) == hand_before + 1, "ライフが手札に加わっていない"
     assert len(me.life) == life_before - 1, "ライフが減っていない"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  置換効果 (replace_ko / replace_leave) の **代替行動 (do) が遂行不能なら置換を選べない**
+#  一次情報 (cardqa_op_07):
+#   - OP07-042 ゲッコー・モリア 「自分の『ゲッコー・モリア』以外のキャラがいない時、
+#       この【ターン1回】効果でこのキャラが場を離れない事はできますか？」→「いいえ、できません。」
+#   - OP07-029 バジル・ホーキンス 「相手の場にアクティブのキャラがない場合、この【ターン1回】
+#       効果でこのキャラが場を離れない事はできますか？」→「いいえ、できません。」
+#  = 「代わりに X をレスト/デッキ下/KO する」 の対象が居なければ 代替行動を遂行できず、
+#    置換を選べない (= 本来の離脱が起こる)。 是正前は do の対象0でも try_replace_ko が True を
+#    返し KO/離脱を回避できていた (= Python も Rust も同じ穴を共有 = 差分検証では沈黙、
+#    公式 Q&A だけが検出できた領域)。
+# ─────────────────────────────────────────────────────────────────────────────
+def test_op07_042_replace_leave_needs_valid_deck_bottom_target():
+    """OP07-042: 「ゲッコー・モリア」以外のキャラが居なければ 置換 (デッキ下) を選べない。"""
+    from engine.effects import try_replace_ko
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP06-080")  # 王下七武海 リーダー
+    me, opp = st.players[0], st.players[1]
+    moria = InPlay.of(repo.get("OP07-042"), sickness=False)
+    me.characters = [moria]  # モリア自身のみ = 「以外のキャラ」不在
+    replaced = try_replace_ko(st, me, opp, moria, overlay, by_opp_effect=True, leave_kind="ko")
+    assert replaced is False, "対象不在で置換成立してはいけない (cardqa_op_07)"
+    assert moria in me.characters, "置換不成立でも本来の離脱はこの後 呼出側が行う"
+    # 対照: 別キャラが居れば置換成立 (別キャラがデッキ下へ、 モリアは残る)
+    st = _state(repo, overlay, leader0="OP06-080")
+    me, opp = st.players[0], st.players[1]
+    moria = InPlay.of(repo.get("OP07-042"), sickness=False)
+    other = InPlay.of(repo.get("OP01-013"), sickness=False)
+    me.characters = [moria, other]
+    replaced = try_replace_ko(st, me, opp, moria, overlay, by_opp_effect=True, leave_kind="ko")
+    assert replaced is True, "別キャラが居れば置換成立"
+    assert other not in me.characters, "別キャラがデッキ下へ"
+
+
+def test_op07_029_replace_leave_needs_active_opp_target():
+    """OP07-029: 相手のアクティブキャラが居なければ 置換 (相手キャラをレスト) を選べない。"""
+    from engine.effects import try_replace_ko
+    repo, overlay = _repo(), _overlay()
+    # 相手キャラ皆無 → 置換不成立
+    st = _state(repo, overlay, leader0="OP06-080")
+    me, opp = st.players[0], st.players[1]
+    hawkins = InPlay.of(repo.get("OP07-029"), sickness=False)
+    me.characters = [hawkins]
+    opp.characters = []
+    assert try_replace_ko(st, me, opp, hawkins, overlay, by_opp_effect=True, leave_kind="ko") is False
+    # 相手キャラは居るが全てレスト済 → レストにできない = 置換不成立
+    st = _state(repo, overlay, leader0="OP06-080")
+    me, opp = st.players[0], st.players[1]
+    hawkins = InPlay.of(repo.get("OP07-029"), sickness=False)
+    me.characters = [hawkins]
+    rested = InPlay.of(repo.get("OP01-013"), sickness=False)
+    rested.rested = True
+    opp.characters = [rested]
+    assert try_replace_ko(st, me, opp, hawkins, overlay, by_opp_effect=True, leave_kind="ko") is False
+    # 対照: 相手アクティブキャラが居れば置換成立 (そのキャラがレストに)
+    st = _state(repo, overlay, leader0="OP06-080")
+    me, opp = st.players[0], st.players[1]
+    hawkins = InPlay.of(repo.get("OP07-029"), sickness=False)
+    me.characters = [hawkins]
+    active = InPlay.of(repo.get("OP01-013"), sickness=False)
+    opp.characters = [active]
+    assert try_replace_ko(st, me, opp, hawkins, overlay, by_opp_effect=True, leave_kind="ko") is True
+    assert active.rested is True, "相手アクティブキャラがレストされる"
+
+
+def test_replace_do_target_gate_full_scan():
+    """overlay 全走査: do が **対象を取る primitive のみ** で構成される replace_ko/replace_leave
+    は、 空盤面 (= 対象皆無) では _replace_do_performable が False を返す (= 置換不可) こと。
+    self/victim 参照・非対象 primitive・判定不能 spec を含む do は 従来どおり True (許可)。
+    同型の取りこぼし (= 対象0でもタダで KO/離脱を回避) が他カードに残らないことを保証する。
+    """
+    from engine.effects import (
+        _replace_do_performable,
+        _REPLACE_DO_TARGETED,
+    )
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    me.characters = []
+    opp.characters = []
+    me.don_active = 0
+    opp.don_active = 0
+
+    def _self_or_victim(v):
+        t = v.get("target") if isinstance(v, dict) else v
+        if isinstance(v, dict) and v.get("type") in ("self", "victim"):
+            return True
+        return t in ("self", "victim")
+
+    checked = 0
+    for cid, bundle in overlay.items():
+        for eff in bundle.effects:
+            if eff.get("when") not in ("replace_ko", "replace_leave"):
+                continue
+            do = eff.get("do", [])
+            if not do:
+                continue
+            # do が 「対象を取る primitive のみ」 かつ self/victim 参照を含まないか
+            keys = [k for prim in do if isinstance(prim, dict) for k in prim]
+            if not keys or any(k not in _REPLACE_DO_TARGETED for k in keys):
+                continue
+            if any(
+                _self_or_victim(v)
+                for prim in do if isinstance(prim, dict)
+                for v in prim.values()
+            ):
+                continue
+            # 空盤面 (対象皆無) では 遂行不能 = False であるべき
+            assert _replace_do_performable(do, me, opp) is False, (
+                f"{cid}: 空盤面で置換 do が遂行可能と判定された "
+                f"(対象0でも KO/離脱を回避できる穴)"
+            )
+            checked += 1
+    # OP07-042 / OP07-029 / OP05-032 / OP10-037 / OP14-034 等が該当
+    assert checked >= 4, f"走査対象が少なすぎる (checked={checked}) = スキャン失効の疑い"

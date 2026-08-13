@@ -7678,3 +7678,73 @@ target 選択) では一意に直せないため escalate。
 - **ddf1cd55e48b** OP13-082: 「自分のキャラすべてをトラッシュに置き」 は **発動元自身も含む**。
 - **ddebdb29293c** OP11-086: 【登場時】の強制 1 枚捨ては手札 0 枚なら空振りするだけで、 登場自体は妨げない。
 - **ddd7d2a83385** OP06-035: 前段が 「まで」 (= 0 枚可) でも 後段の 「その後、 自ライフ1枚を手札に加える」 は必須。
+
+---
+
+## 2026-08-13: 置換効果の代替行動 (do) は 対象が居なければ選べない (OP07-042 / OP07-029)
+
+**一次情報 (cardqa_op_07)**:
+- OP07-042 ゲッコー・モリア:「自分の『ゲッコー・モリア』以外のキャラがいない時、この【ターン1回】
+  効果でこのキャラが場を離れない事はできますか？」→**「いいえ、できません。」**
+- OP07-029 バジル・ホーキンス:「相手の場にアクティブのキャラがない場合、この【ターン1回】効果で
+  このキャラが場を離れない事はできますか？」→**「いいえ、できません。」**
+
+**論点**: 置換効果 (`replace_ko` / `replace_leave`) の 「代わりに X をレスト/デッキ下/KO する」
+という **代替行動 (do)** の対象が盤面に居ない場合、 その代替行動を遂行できない = 置換を選べず、
+**本来の離脱 (KO 等) が起こる**。 コスト側の払えない判定 (P-111 ロビン / ST09-010 エース =
+アクティブドン/ライフ不足で置換不可) と 同じ思想を、 **do 側 (代替行動の対象)** にも適用する。
+
+**違反していた挙動**: `try_replace_ko` は 条件一致後に do を無条件実行して `True` (離脱キャンセル) を
+返しており、 do の対象が 0 でも **置換成立で KO/離脱を回避できていた**。
+- OP07-042: 自分のキャラがモリア自身のみ (= 「以外のキャラ」不在) でも KO 回避
+- OP07-029: 相手のアクティブキャラが皆無でも 離脱回避
+- ⚠ **Python も Rust も同じ穴を共有** = Python↔Rust 差分検証では原理的に沈黙。 公式 Q&A
+  (唯一の外部オラクル) だけが検出できた領域。
+
+**是正**: do の遂行可能性 gate を追加。
+- Python: `engine/effects.py` に `_replace_do_performable(do, owner, opp)` を新設し、 `try_replace_ko`
+  の条件一致後・コスト処理前に呼ぶ。 対象を取る primitive (`rest`/`return_to_deck_bottom`/`ko`/
+  `chara_to_self_life` 等) のみで構成され、 その全てが空対象 (rest はアクティブ限定) の時だけ
+  `False` を返して 置換不成立とする。 `self`/`victim` 参照・非対象 primitive・判定不能 spec は
+  従来どおり許可。
+- Rust: `rust_engine/src/effects.rs` に `replace_do_performable` / `replace_prim_has_target` を同一
+  意味論で移植し、 `try_replace_ko` の同じ位置に gate。 bit 一致を維持。
+
+**影響カード (overlay 全走査)**: do が対象を取る primitive のみの replace は OP07-042 / OP07-029 /
+OP05-032 / OP10-037 / OP14-034 等。 OP15-052 (`return_to_deck_bottom one_self_character_any`) と
+OP11-101 (`chara_to_self_life target:victim`) は 離脱本人 (victim) を対象に含むため 常に遂行可能で
+挙動不変。 `rest: self` 系 (OP10-032 / OP12-027 / OP12-048 / ST30-011) は self 参照で挙動不変。
+
+**回帰テスト**: `tests/test_effect_interactions.py::test_op07_042_replace_leave_needs_valid_deck_bottom_target`
+/ `test_op07_029_replace_leave_needs_active_opp_target` / `test_replace_do_target_gate_full_scan`
+(overlay 全走査で 同型の取りこぼしが他カードに残らないことを保証)。
+
+## 2026-08-13: 検証済で問題なかった Q&A (conform、 再調査防止の記録)
+
+以下は engine が公式どおりで **是正不要** と確認したもの (再調査しないための記録):
+
+- **OP09-118 ゴール・D・ロジャー**: 相手がブロッカーを発動した時、 自分か相手のライフが 0 なら勝利。
+  `on_opp_blocker_use` + `life_zero_either` で `win_game`。 実測: 自ライフ0で相手ブロッカー→winner=0、
+  両者ライフ有→非勝利。 「このキャラ以外のアタックに対する」 ブロッカーでも発火 (トリガー無条件)。
+- **OP10-058 レベッカ**: `reveal_hand_play_split` は 1 枚だけ公開時 active 登場 (余剰のみ rest)。
+  公式「1枚のみ公開→アクティブで登場」。
+- **OP15-025 クロ / OP08-074 ブラックマリア**: `schedule_at_self_turn_end` は player object の
+  予約キューに積まれ ターン終了で flush = **発動元の離脱/効果無効化と独立**に実行される。
+- **OP06-042 レイジュ leader / ST10-014 ワイヤー**: `on_self_don_returned_to_deck` は 自効果でも
+  相手効果でも ドンがドンデッキに戻れば発火 (effects.py:1086/5625/6477 = 自 / 7599 = 相手経路)。
+- **OP04-018 メマーイダンス**: `power_pump -2000 × 最大2体` は別々のキャラに適用。 1 体に合算 -4000 不可
+  (実測: 1 体のみでも -2000 のみ)。
+- **OP01-046**: `on_attack` の leader gate 不一致でも アタック自体は常に可能 (効果 no-op)。
+- **EB04-043**: `replace_ko` target=`any_self_chara` が自身を含む = 自身の離脱で発動可。 do=`trash_to_deck`
+  (非対象 prim) なので新設 gate の影響なし。
+- **P-009 / OP02-026**: `optional` フラグ無し = 強制効果 (発動しない選択不可)。
+- **OP15-119 ルフィ**: `reveal_self_life_top_pump_per_cost` は `if me.life` ガードで ライフ0なら pump 無し。
+- **ST06-012**: 発動コスト `{discard_hand, rest_self}` は不可分 (一部支払い/全部払えねば発動不可)。
+- **ST20-005**: `opp_discard_own_choice` は手札不足でも可能分のみ捨てる。 chooser=opp (2026-08-07 是正済)。
+- **ST03-010**: `look_top_reorder to:choice` は 3 枚まとめて上/下に置く = 分割 (1上/2下) しない。
+- **ST07-010 / ST20-005**: 相手選択肢の `mill_opp_life_to_trash` = カード所有者の対戦相手 (効果を
+  発動していない側) のライフをトラッシュ。
+- **ST24-002**: `opp_attack` でアクティブにしたドンは通常のアクティブドン = 同アタック中に別カードの
+  レスト効果で対象化可 (engine に阻む制約なし)。
+- **OP11-044**: `power_pump target all_self_chara_filtered` は発動時点の該当キャラのみに turn buff。
+  その後登場のキャラは対象外 (静的常在でなく一回 buff)。

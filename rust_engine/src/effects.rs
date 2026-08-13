@@ -10942,6 +10942,87 @@ fn replace_ko_match(
     Some(true)
 }
 
+/// 置換 do (代替行動) が 対象を取る primitive の集合 (Python `_REPLACE_DO_TARGETED` の mirror)。
+/// これらは 対象が居なければ 遂行できず = 置換を選べない (= 本来の離脱が起こる)。
+const REPLACE_DO_TARGETED: &[&str] = &[
+    "rest", "rest_multi", "return_to_hand", "return_to_hand_multi",
+    "return_to_deck_bottom", "return_to_deck_bottom_multi",
+    "ko", "ko_multi", "chara_to_self_life", "chara_to_opp_life",
+];
+
+/// 置換 do の 1 primitive が 有効な対象を持つか。 Some(true/false) = 判定可、 None = 未知 spec
+/// (→ 呼出側で 保守的に許可)。 Python `_replace_do_candidate_pool` + rest 生存フィルタの mirror。
+fn replace_prim_has_target(
+    state: &GameState, owner_idx: usize, k: &str, v: &Value,
+) -> Option<bool> {
+    let opp_idx = 1 - owner_idx;
+    let owner = &state.players[owner_idx];
+    let opp = &state.players[opp_idx];
+    // spec type と filter を取り出す (string / {type,filter} / {target} の 3 形式)。
+    let t = if v.is_object() {
+        v.get("type").or_else(|| v.get("target")).and_then(|x| x.as_str())
+    } else {
+        v.as_str()
+    };
+    let filt = if v.is_object() { v.get("filter") } else { None };
+    let restable = |ip: &InPlay| {
+        !ip.rested && !ip.cannot_be_rested_buff && !ip.static_cannot_be_rested
+    };
+    let rest_like = k == "rest" || k == "rest_multi";
+    match t {
+        // self / victim 参照 (= 発動元 / 離脱本人) は 常に存在する
+        Some("self") | Some("victim") => Some(true),
+        Some("one_opponent_character_any") | Some("any_opponent_character")
+        | Some("one_opp_chara_any") => {
+            Some(opp.characters.iter().any(|c| if rest_like { restable(c) } else { true }))
+        }
+        Some("one_self_character_any") | Some("any_self_chara") | Some("one_self_chara")
+        | Some("one_self_character") => {
+            Some(owner.characters.iter().any(|c| if rest_like { restable(c) } else { true }))
+        }
+        Some("one_self_chara_filtered") | Some("one_self_character_filtered")
+        | Some("all_self_chara_filtered") => Some(owner.characters.iter().any(|c| {
+            matches_filter_ip(c, filt) && (!rest_like || restable(c))
+        })),
+        Some("one_opponent_character_filtered") | Some("any_opponent_character_filtered")
+        | Some("all_opponent_chara_filtered") => Some(opp.characters.iter().any(|c| {
+            matches_filter_ip(c, filt) && (!rest_like || restable(c))
+        })),
+        Some("one_opp_chara_or_don") => {
+            Some(opp.characters.iter().any(restable) || opp.don_active > 0)
+        }
+        Some("one_opp_card_any") => Some(
+            opp.characters.iter().any(restable)
+                || opp.don_active > 0
+                || (!opp.leader.rested && !opp.leader.static_cannot_be_rested),
+        ),
+        _ => None, // 未知 spec → 保守的に許可
+    }
+}
+
+/// 置換効果の do (代替行動) が 遂行可能か。 Python `_replace_do_performable` の忠実ミラー。
+/// 対象 primitive のみで構成され、 その全てが空対象の時だけ false (= 置換を選べない)。
+fn replace_do_performable(state: &GameState, owner_idx: usize, dos: &[Value]) -> bool {
+    if dos.is_empty() {
+        return true;
+    }
+    let mut saw_targeted_empty = false;
+    for prim in dos {
+        let Some(o) = prim.as_object() else { return true };
+        for (k, v) in o {
+            if !REPLACE_DO_TARGETED.contains(&k.as_str()) {
+                return true; // 非対象行動を含む do は遂行可能
+            }
+            match replace_prim_has_target(state, owner_idx, k, v) {
+                None => return true,        // 未知 spec → 保守的に許可
+                Some(true) => return true,  // 有効な対象あり
+                Some(false) => saw_targeted_empty = true,
+            }
+        }
+    }
+    !saw_targeted_empty
+}
+
 /// game.py:try_replace_ko の port (置換効果 replace_ko/replace_leave)。 victim は KO しようとするキャラ。
 /// Ok(true)=置換発動 (KO/離脱を阻止= victim 残存)、 Ok(false)=該当なし (通常 KO 続行)、 Err=再現不能 bail。
 /// ⚠ Phase A: 対象一致した replace は cost/do 未実装で bail。 不一致 (by_opp_effect 相違 / filter 外) だけ
@@ -11073,6 +11154,21 @@ pub fn try_replace_ko(
                         continue;
                     }
                     None => return Err("replace_ko extra_cond unknown".into()),
+                }
+            }
+            // ⭐ 置換 do (代替行動) の 遂行可能性 gate (公式 cardqa_op_07、 OP07-042 / OP07-029)。
+            //   「代わりに X をレスト/デッキ下/KO する」 の 対象が居なければ 代替行動を遂行できず
+            //   = 置換を選べない → 本来の離脱が起こる。 Python `_replace_do_performable` の mirror。
+            //   ⚠ Python も Rust も 同じ穴 (対象0でも置換成立) を共有しており、 差分検証では沈黙して
+            //     いた (公式 Q&A だけが検出できた領域)。 両側を同時に是正して bit 一致を保つ。
+            {
+                let dos_pre: Vec<Value> =
+                    eff.get("do").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+                if !replace_do_performable(state, victim_owner, &dos_pre) {
+                    if let Some(t) = htok {
+                        state.rust_leave_batch_declined.push((t, when_key.clone()));
+                    }
+                    continue;
                 }
             }
             // 対象一致 = 置換発動 (Phase B)。 cost は once_per_turn (canonical 追跡) + discard_hand_with_filter
