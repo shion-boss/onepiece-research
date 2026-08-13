@@ -8359,8 +8359,11 @@ def test_truly_original_power_is_rewritten_by_moto_effects():
     根拠: 総合ルール 4-9-2-1 「**元々のパワーをある数値にする効果**が複数あり…数値の高い
     効果を適用します」 = 元々のパワーは効果で書き換わる。
 
-    ⚠ 素の 「パワーが◯◯になる」 (= 「元々の」 が無い、 OP06-009 シュライヤ) は現在パワー
-      だけを変え、 「元々のパワーN以下」 の判定には影響しない (overlay の original フラグ)。
+    ⭐ 「パワーが◯◯になる」 (= 特定値に SET する効果) は 語に 「元々の」 が **無くても**
+      元々のパワーを書き換える (cardqa Q1085 = OP06-009 シュライヤ 「相手のリーダーと同じ
+      パワーになる」 も 元々のパワーが変わる)。 「元々の」 の有無で 印刷値/現在値 を書き分ける
+      のは **条件** (「パワーN以下」 等) の話であって、 SET 効果には効かない。 例外は
+      「パワー0にする」 (公式 4-12 = 現在パワー分のマイナス)。
     """
     repo, overlay = _repo(), _overlay()
 
@@ -8394,14 +8397,20 @@ def test_truly_original_power_is_rewritten_by_moto_effects():
         "元々のパワーが2000超になったのに 「元々2000以下」 でKO対象のまま (cardqa_op_10 違反)"
     )
 
-    # --- 素の 「パワーになる」 (OP06-009 シュライヤ) は元々のパワーを変えない ---
+    # --- 「パワーになる」 (OP06-009 シュライヤ) も元々のパワーを書き換える (cardqa Q1085) ---
+    #   シュライヤの 「相手のリーダーと同じパワーになる」 は 「元々の」 の語が無くても
+    #   元々のパワーを書き換える (= 特定値 SET は 4-9-2-1)。 旧テストは original:false を
+    #   前提に 「印刷値のまま」 を assert していたが、 Q1085 で公式違反と判明し是正 (2026-08-13)。
     st2, me2, opp2, shu = setup("OP06-009")
     printed = shu.card.power
     trigger_on_attack(st2, me2, opp2, shu, overlay)
     resolve_triggers(st2)
-    assert shu.truly_original_power == printed, (
-        "「元々の」 が無い 「パワーになる」 が truly_original_power を書き換えている "
-        "(= 元々のパワー判定を巻き込んでいる)"
+    assert shu.truly_original_power == opp2.leader.power, (
+        "「パワーになる」 が truly_original_power を 相手リーダーと同じに書き換えていない "
+        "(cardqa Q1085: 特定値 SET は元々のパワーを書き換える)"
+    )
+    assert shu.truly_original_power != printed, (
+        "元々のパワーが印刷値のまま (Q1085 違反 = original:false のバグ)"
     )
 
 
@@ -10427,3 +10436,102 @@ def test_don_le_opp_don_gate_present_all_cards():
                 if "don_diff" not in _json.dumps(e, ensure_ascii=False):
                     missing.append(cid)
     assert not missing, f"don-比較条件が欠落: {missing}"
+
+
+def test_op06009_shuraiya_power_becomes_sets_truly_original_power():
+    """cardqa Q1085 (EB03-004 カリーナ / OP06-009 シュライヤ):
+
+    Q: 自分の「OP06-009 シュライヤ」が【アタック時】/【ブロック時】効果によって元々のパワー
+       6000以上になっている場合、このキャラは【相手のターン中】効果でパワー+4000されますか？
+    A: いいえ、されません。この場合、「シュライヤ」の元々のパワーが6000以上であるため、
+       「自分の元々のパワー6000以上のキャラクター」がいることになり、「カリーナ」の
+       パワーは+4000されません。
+
+    = 「(相手のリーダーと)同じパワーになる」 は **元々のパワーを書き換える** 効果。
+    旧 overlay は set_base_power_copy に original:false を付けており、現在パワーだけ変えて
+    truly_original_power を更新しなかったため、上記条件を崩せず違反していた (2026-08-13 是正)。
+    """
+    repo = _repo()
+    overlay = _overlay()
+    # カリーナのリーダー = 多色 (EB04-001 赤/黄)。 相手リーダーは任意。
+    st = _state(repo, overlay, leader0="EB04-001", leader1="OP01-001")
+    me, opp = st.players[0], st.players[1]
+
+    # 相手リーダーの現在パワーを 6000 にしておく (シュライヤの copy 元)
+    opp.leader.turn_base_power_override = 6000
+
+    shu = InPlay.of(repo.get("OP06-009"), sickness=False)
+    me.characters.append(shu)
+    kar = InPlay.of(repo.get("EB03-004"), sickness=False)
+    me.characters.append(kar)
+
+    # シュライヤの on_attack overlay 効果を実行 (= 相手リーダーと同じパワー=6000 になる)
+    bundle = overlay["OP06-009"].effects
+    on_attack = next(e for e in bundle if e.get("when") == "on_attack")
+    for prim in on_attack["do"]:
+        execute_effect(prim, st, me, opp, shu)
+
+    assert shu.truly_original_power >= 6000, (
+        f"シュライヤの元々のパワーが書き換わっていない: {shu.truly_original_power} "
+        "(original:false のままだと 4000 のまま = 違反)"
+    )
+
+    # 相手のターン中、 カリーナの静的 +4000 を評価
+    st.turn_player_idx = 1
+    evaluate_static_effects(st, overlay)
+    assert kar.power == repo.get("EB03-004").power, (
+        f"カリーナに +4000 が乗っている: {kar.power} "
+        "(元々のパワー6000以上のシュライヤがいるので +4000 されないのが公式)"
+    )
+
+
+def test_op06009_shuraiya_control_low_power_karina_gets_pump():
+    """対照テスト: シュライヤの元々のパワーが 6000 未満なら、カリーナは +4000 される。"""
+    repo = _repo()
+    overlay = _overlay()
+    st = _state(repo, overlay, leader0="EB04-001", leader1="OP01-001")
+    me, opp = st.players[0], st.players[1]
+    # 相手リーダー 5000 (< 6000)
+    opp.leader.turn_base_power_override = 5000
+    shu = InPlay.of(repo.get("OP06-009"), sickness=False)
+    me.characters.append(shu)
+    kar = InPlay.of(repo.get("EB03-004"), sickness=False)
+    me.characters.append(kar)
+    bundle = overlay["OP06-009"].effects
+    on_attack = next(e for e in bundle if e.get("when") == "on_attack")
+    for prim in on_attack["do"]:
+        execute_effect(prim, st, me, opp, shu)
+    assert shu.truly_original_power < 6000
+    st.turn_player_idx = 1
+    evaluate_static_effects(st, overlay)
+    assert kar.power == repo.get("EB03-004").power + 4000, (
+        f"6000未満のキャラしかいないのにカリーナが +4000 されていない: {kar.power}"
+    )
+
+
+def test_set_base_power_copy_always_sets_original_power_all_cards():
+    """全走査ガード: 「(選んだキャラと)同じパワーになる」= set_base_power_copy は **常に**
+    元々のパワーを書き換える (cardqa Q1085)。 overlay の全 set_base_power_copy ノードは
+    original:true でなければならない (original:false / 欠落 = 現在パワーのみ = 違反)。
+    """
+    import json as _json
+    from pathlib import Path as _Path
+
+    ov = _json.load(open(_Path(__file__).resolve().parent.parent / "db" / "card_effects.json"))
+
+    def _walk(o):
+        if isinstance(o, dict):
+            yield o
+            for v in o.values():
+                yield from _walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                yield from _walk(v)
+
+    bad = []
+    for cid, effs in ov.items():
+        for node in _walk(effs):
+            if isinstance(node, dict) and isinstance(node.get("set_base_power_copy"), dict):
+                if node["set_base_power_copy"].get("original") is not True:
+                    bad.append(cid)
+    assert not bad, f"set_base_power_copy が元々のパワーを書き換えない (original!=true): {bad}"

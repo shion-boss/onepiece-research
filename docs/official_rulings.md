@@ -7075,3 +7075,63 @@ Rust 追従が要る (関数シグネチャ/データ持ち方に触る)。OP07-
 ### n/a (engine 状態変化に落ちない)
 
 - **a989473035ca** OP04-058: 【トリガー】で登場したキャラの【登場時】と本カードの【相手のターン中】の発動順は「自分の同時発動効果は自分が順序決定」の一般トリガー順序則。カード固有の engine 状態変化ではない。
+
+## 「(選んだキャラと)同じパワーになる」 は **元々のパワーを書き換える** (2026-08-13 是正、 EB03-004/OP06-009)
+
+**一次情報** (cardqa Q1085、 EB03-004 カリーナ):
+
+> Q: 自分の「OP06-009 シュライヤ」が【アタック時】/【ブロック時】効果によって**元々のパワー
+>    6000以上**になっている場合、このキャラは【相手のターン中】効果でパワー+4000されますか？
+> A: **いいえ、されません**。この場合、「シュライヤ」の**元々のパワーが6000以上であるため**、
+>    「自分の元々のパワー6000以上のキャラクター」がいることになり、「カリーナ」のパワーは
+>    +4000されません。
+
+シュライヤの効果文は 「相手のリーダーと**同じパワーになる**」 (= 「元々の」 の語が **無い**)。
+にもかかわらず公式は **これを 元々のパワー の書き換えとして扱う**。
+
+⭐ **教訓**: 「元々の」 の語の有無で 印刷値/現在値 を書き分けるのは **条件** (「パワーN以下」 等) の話。
+**「◯◯になる」 (= 特定値に SET する) 効果は、 語に 「元々の」 が無くても 元々のパワーを書き換える**
+(公式 4-9-2-1 の 「元々のパワーをある数値にする効果」)。 「パワー+X」 (= 修正) とは別物。
+唯一の例外は 「パワー0にする」 (公式 4-12 = 現在パワー分のマイナス継続効果)。
+
+**是正前の挙動**: OP06-009 (と parallel _p1) の overlay `set_base_power_copy` が `original: false`
+だった (= 現在パワーだけ変え、 `truly_original_power` を更新しない)。 その結果 EB03-004 カリーナの
+`self_chara_no_truly_original_power_ge: 6000` が シュライヤ (元々 4000) を数えず 「6000以上のキャラ
+不在」 = カリーナに +4000 が乗ってしまった (= 公式違反)。 実測: original:false で
+truly_original_power=4000 / original:true で 6000。 現在パワーは どちらも 6000 で不変。
+
+**是正**: overlay の該当 4 ノード (OP06-009 / OP06-009_p1 × on_attack/on_block) を
+`original: true` に。 **engine コードは変更不要** (Python `set_base_power_copy` も Rust も
+`original` フラグを既に honor し、 データ (overlay JSON) を両エンジンが同じに読む)。 差分安全。
+
+**全走査**: overlay の `set_base_power_copy` は全 14 ノード。 是正後は **全て original:true**
+(= 「同じパワーになる」 は常に元々のパワー set なので original:false / 欠落 は原理的に違反)。
+OP06-009 以外に original!=true は無かった。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+- `test_op06009_shuraiya_power_becomes_sets_truly_original_power` (+ 対照 `_control_low_power_karina_gets_pump`)
+- `test_set_base_power_copy_always_sets_original_power_all_cards` (全走査: 全 set_base_power_copy は original:true)
+
+## 公式どおりで **問題なかった** もの (2026-08-13 バッチ、 FAQ 全件保証 台帳より)
+
+- **ac6803e7496a** ST02-010: バトル中断 (2026-08-04是正) で 当事者離脱 → ダメージステップ未解決 → on_self_battled 不発。
+- **ac935bd87546** OP14-040: 【ターン1回】無しの起動メイン。 overlay に once_per_turn 無 = コスト払える限り複数回可 (rested don 4 + 手札 2 で 2 回)。
+- **ac9756a3a0df** OP13-079: cost `discard_hand_or_trash_filtered_chara`。 feature filter は 場のキャラ branch のみ、 手札破棄 branch は任意カード。 非天竜人の手札も捨てられる。
+- **acc3089db648** OP15-092: トラッシュ 10/20/30枚以上を独立 on_attached_don で各々 gate。 30枚で 3 条件全 True = 全 tier 累積適用。
+- **ad1f5f2f95d4** OP03-091: set_base_cost_timed amount0 (絶対 set)。 Kuzan -5 は 0 で floor、 Kuzan 離脱後も set-to-0 duration が残りコスト 0。
+- **ad97de277fd0** OP10-030: overlay に `block_chara_effect_untap_don_turn` 実装済。 flag reset は ターン終了処理の**後** (_reset_turn_buff、 game.py:866) なので、 同ターンの end_of_turn ウルージ等キャラ効果 untap_don は不発。
+- **adce3a8f4882** OP16-001: give_rush `current_power_ge: 8000`。 パワー7000 のキャラは閾値未満で速攻付与不可。
+- **ae191f5e4336** ST01-013 / **ae9dd7cfe550** ST02-003: on_attached_don n=1 の static パワー付与に turn gate 無。 実測 (turn_player=opp) で適用 = **両ターン有効** (公式 「お互いのターン中有効」)。
+- **ae95a74845f5** OP02-089: target `any_opp_inplay_n_2` は leader+characters から **distinct** 最大2。 同一キャラ 2 回選択不可 = -6000 にできない。
+- **ae9ab33b3398** P-008: cost=rest_self、 do は相手コスト2以下1枚まで (0 可)。 実測 list_activate_main_effects で 対象 0 でも起動候補に出る。
+- **aedbaeb37172** OP06-107: filter exclude_name 光月モモの助 → OP01-041 モモの助は名前除外でライフに加えられない。
+- **aef88db44553** ST21-015: on_ko play_from_hand filter exclude_name ロロノア・ゾロ → OP01-025 等の他ゾロは登場不可。
+- **af890735b661** OP07-094: `_fire_counter_events` は counter カードを trash 追加**後** (game.py:2566) に when:counter 発動 (2568)。 トラッシュ 9 → 自身入りで 10 → self_trash_count_ge:10 成立 = CPキャラを戻せる。
+- **afe3c8af2502** OP02-110: set_cannot_attack `one_opponent_character_cost_le_6`。 速攻持ちアクティブでも このターン攻撃不可 (set_cannot_attack は速攻を上書きする hard gate)。
+- **b02612fddf04** OP05-022: リーダーの【ブロッカー】でアタック対象化し敗北 → 自分がダメージ。 リーダーは KO でなくライフ-1 = コア挙動。
+- **b050c3311e39** OP02-009: on_play do=[life_to_hand, power_pump-4000]。 登場自体 gate 無 = ライフ0でも登場可、 life_to_hand は可能な限り (0なら無)、 power down は適用。
+- **b0616938b864** OP15-052: replace_leave target any_self_chara `truly_original_power_le:7000`。 レオ印刷 power 2000 ≤ 7000 で **自身の離脱にも成立**、 代わりに自キャラ1枚をデッキ下。
+
+### escalated (自動修正の範囲外)
+
+- **af8db90f4ee5** OP07-026 ジュエリー・ボニー: 効果文 「相手の、**レストのキャラかドン‼**1枚までは、次のリフレッシュでアクティブにならない」。 overlay は キャラ branch (`stay_rested_next_refresh`) のみ実装で **「かドン‼」 branch が丸ごと欠落**。 設問 (相手の**アクティブ**のドンは選べるか → いいえ) 自体は キャラ限定なので満たすが、 **レストのドンをアクティブ化させない効果が未実装**。 「キャラ or ドン の混在単一選択」 ターゲット spec が無く、 追加は arch 変更 (新 target primitive) が要る → escalated。 `keep_opp_rested_don_next_refresh` primitive は存在するが 混在選択への配線が無い。
