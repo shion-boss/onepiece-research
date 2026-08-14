@@ -7671,6 +7671,17 @@ def _execute_effect_body_inner(
             )
             if not src_cid:
                 continue
+            # OP09-081 ティーチ: 「相手の【登場時】効果は無効になる」 は、 相手が
+            # 【トリガー】で自身の【登場時】を再発火する経路 (= fire_self_effect
+            # when_kind="on_play"、 OP08-106 ナミ 等) にも及ぶ。
+            # 公式 (cardqa_op_09): 無効化中は【トリガー】発動は選べるが【登場時】は
+            # 発動しない (何も起きずカードはトラッシュへ)。 trigger_on_play と同じ gate を
+            # ここにも敷かないと、 コピー経路だけ無効化を素通りしてタダ発火してしまう。
+            if when_kind == "on_play" and me.opp_on_play_disabled_through_opp_turn:
+                state.push_log(
+                    f"  効果コピー: 【登場時】無効 (OP09-081 相手効果) → 発動せず"
+                )
+                continue
             depth = getattr(state, "_fire_self_depth", 0)
             if depth >= 2:
                 state.push_log(f"  効果コピー: 再帰深度上限 (skip)")

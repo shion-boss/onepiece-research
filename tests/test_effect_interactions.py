@@ -12073,3 +12073,37 @@ def test_replace_do_target_gate_full_scan():
             checked += 1
     # OP07-042 / OP07-029 / OP05-032 / OP10-037 / OP14-034 等が該当
     assert checked >= 4, f"走査対象が少なすぎる (checked={checked}) = スキャン失効の疑い"
+
+
+# --------------------------------------------------------------------------- #
+#  OP09-081 ティーチ: 「相手の【登場時】効果は無効になる」 は【トリガー】経由の
+#  自身【登場時】再発火にも及ぶ (fire_self_effect when_kind="on_play")。
+#  一次情報 (cardqa_op_09 / bc3c4dfda176):
+#    「自分がこの【起動メイン】効果を使用したターンに、相手がダメージを受け、そのライフが
+#     「OP08-106 ナミ」でした。この場合、「OP08-106 ナミ」の「【トリガー】このカードの
+#     【登場時】効果を発動する。」の効果はどうなりますか？」
+#    →「この場合、相手は…【トリガー】を発動することを選ぶことはできますが、【登場時】効果は
+#      発動しないため何も起きず…トラッシュに置かれます。」
+#  = 無効化中は トリガー経由の【登場時】も不発。 コピー経路 (fire_self_effect) が gate を
+#    素通りしていた (trigger_on_play にはあるが fire_self_effect には無かった) のを是正。
+# --------------------------------------------------------------------------- #
+def test_op09_081_disable_covers_trigger_fired_on_play():
+    repo, overlay = _repo(), _overlay()
+
+    def _fire(disable: bool):
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        # me = ナミ所有者。 手札に【トリガー】持ち (発動コストの捨て札) + 相手にコスト2キャラ。
+        me.hand = [repo.get("EB04-020")]
+        opp.characters = [InPlay.of(repo.get(_FILLER))]
+        me.opp_on_play_disabled_through_opp_turn = disable
+        nami = InPlay.of(repo.get("OP08-106"))
+        execute_effect({"fire_self_effect": {"when_kind": "on_play"}}, st, me, opp, nami)
+        return len(opp.characters)
+
+    # 対照: 無効化されていなければ【登場時】が発動し 相手コスト2キャラが KO される
+    assert _fire(disable=False) == 0, "前提が崩れている: ナミ【登場時】が KO を発火していない"
+    # 本題: OP09-081 の無効化中は トリガー経由の【登場時】も不発 = KO は起きない
+    assert _fire(disable=True) == 1, (
+        "OP09-081 無効化中なのに【トリガー】経由の【登場時】が発動して KO した (公式違反)"
+    )

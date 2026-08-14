@@ -8262,6 +8262,15 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 .map(|ip| ip.card.card_id.clone())
                 .or_else(|| state.current_source_card_id.clone());
             let Some(cid) = cid_opt else { return true };
+            // OP09-081 ティーチ: 「相手の【登場時】効果は無効になる」 は【トリガー】経由の
+            // 自身【登場時】再発火 (fire_self_effect when_kind="on_play"、 OP08-106 ナミ 等) にも及ぶ。
+            // Python (effects.py fire_self_effect) と同じ gate。 trigger_on_play の
+            // opp_on_play_disabled_through_opp_turn チェックがコピー経路だけ素通りするのを防ぐ。
+            if when_kind == "on_play"
+                && state.players[me_idx].opp_on_play_disabled_through_opp_turn
+            {
+                return true;
+            }
             // 再帰は深度 2 で打ち切り (Python の state._fire_self_depth 相当)
             let depth = FIRE_SELF_DEPTH.load(std::sync::atomic::Ordering::Relaxed);
             if depth >= 2 {

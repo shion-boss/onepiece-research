@@ -7808,3 +7808,77 @@ engine 無改変 (台帳 + 本ドキュメントのみ)。全件 実測 or コ�
   (OP06-048所有者)のトリガーが先=先に4枚トラッシュ、その後クロコダイル block時でデッキ下(active-player-first)。
 - **b8fe2bec8fe0 — OP04-064**: on_play=`add_rested_don1`→`conditional draw if self_don_ge6`(加算後に判定)。
   don5 から登場で don6 到達→1ドロー(**実測**)。リーダー OP04-058 で don5 にしてから登場で引ける(公式=はい)。
+
+## 2026-08-14 #27 — FAQ conformance バッチ (先頭から 20 件、 17 conform / 1 fixed / 1 n/a / 1 escalated)
+
+engine 1 件是正 (OP09-081 の無効化コピー漏れ)。 残りは実測 or コード検査で判定。
+
+### 【fixed】bc3c4dfda176 — OP09-081 ティーチ: 無効化が【トリガー】経由の【登場時】を素通り
+
+一次情報 (cardqa_op_09): 「OP09-081 の【起動メイン】を使ったターン、相手が受けたライフが
+OP08-106 ナミで、ナミの『【トリガー】このカードの【登場時】効果を発動する』はどうなるか」
+→「【トリガー】発動は選べるが【登場時】は発動せず何も起きずトラッシュへ」。
+
+`fire_self_effect` (ナミのトリガーが自身【登場時】を再発火する経路) が
+`opp_on_play_disabled_through_opp_turn` の gate を持たず、無効化中でも【登場時】を実行して
+相手キャラを KO していた (実測で確認: disable=True でも opp char KO)。gate は `trigger_on_play`
+(effects.py:12865) にはあったがコピー経路だけ素通り。→ Python `fire_self_effect` と Rust
+`fire_self_effect` の両方に `when_kind=="on_play" && opp_on_play_disabled…` の gate を追加。
+回帰テスト `test_op09_081_disable_covers_trigger_fired_on_play` (disable=False で KO 発火 /
+disable=True で不発 の対照)。overlay 全走査は不要 (gate は共有 primitive に敷いたので
+fire_self_effect 経由の全【登場時】コピーを一律カバー)。
+
+### 【escalated】bd2219ce7445 — OP02-002 ガープ: effect 由来のドン付与が on_self_don_attached を発火しない
+
+一次情報 (cardqa_op_02): ST01-011 ブルックでレストのドン2枚をガープに付与した時、相手キャラを
+-2 できるか → はい。 = 付与2枚分ガープの効果 (ドン付与時 相手コスト-1) が2回発火して -2。
+engine の `attach_rested_don`/`attach_don`/`attach_active_don` primitive は `attached_dons` に
+加算するだけで `trigger_on_self_don_attached` を一切呼ばない (effects.py 7056-)。よって effect
+経由のドン付与ではガープが 0 回発火 = 現状 -0 (公式 -2)。action 経路 (game.py 1601/1613) は
+呼ぶが n に関わらず 1 回のみ。是正には (1) 全 attach 系 primitive が付与ドン数だけ trigger を
+per-DON 発火 (2) action 経路も per-DON 化 が必要。かつ発火する trigger (cost_minus= 対象を取る)
+を primitive 内から複数回発火すると human-modal (pending_choice) の逐次解決を両エンジンで bit
+一致させる要があり、これはアーキ変更。consumer は OP02-002/_p1 のみ (全走査で確認) だが producer
+側改修 + per-DON modal 整合が自動修正の範囲外につき escalated。
+
+### n/a (1)
+
+- **bda3b61e2e71 — EB02-012 ガイモン / EB02-033 クラバウターマン**: 「すべてのカード名と特徴と
+  属性を持つカードとして扱う」リーダーの下でブロッカーを得るか。当該リーダーは現行カードDBに
+  存在しない (全走査で0件)。前提の仮想リーダーが無く engine 状態に落とせず検証不能。
+
+### conform (16、公式どおり = 是正不要、再調査回避のため要点のみ)
+
+- **bc1fe1cbf4df — P-032 センゴク**: set_base_cost target=all_opponent_characters は場のキャラのみ
+  (resolver は opp.characters を走査)。トラッシュ/手札のキャラは対象外。
+- **bc46fb7ef66e — P-007 ルフィ**: set_immune_attribute_in_battle attrs=[打]→
+  ko_immune_battle_attributes_in={打}。属性(打)を持つ相手とのバトルのみKO耐性、非(打)には通常どおりKO。
+- **bc59d5a422f4 — OP06-086 モリア**: play_from_trash 1枚目 rested:false(アクティブ)/2枚目 rested:true。
+  1枚だけ登場ならアクティブ側。
+- **bc8ed5c04f28 — OP11-102 ケイミー**: trigger_lifecard_trigger は先にトリガー効果 (2億V雷神
+  put_top_to_life) を _maybe_resolve → その後 opp_event_or_trigger_fired を発火 (effects.py
+  15898-15906)。OP11-102 の if opp_life_ge:2 はライフ再追加後(=2枚)に評価され成立=両ライフをトラッシュ可。
+- **bcbfa073bad5 — OP02-013**: power_pump -3000 は無条件 do、give 速攻 は if leader_features_any:
+  [白ひげ海賊団] で gate。リーダー非該当でも -3000 は発動、速攻のみ不可。
+- **bd51ada5ad87 — OP06-061**: on_play if don_diff_le:0 は発動時のみ判定、power_pump/give_keyword
+  とも duration:turn。発動後にドン枚数が変わっても -2000/速攻 は維持 (OP11-058 と同型)。
+- **bdb5e07c706f — ST22-003**: reveal_top_then depth1 filter 白ひげ海賊団 rest_remain:top then draw2。
+  公開札はトップ維持→引く2に含まれる。
+- **bdc14db93771 — ST12-011**: on_attack +2000 に once_per_turn 無し。1ターン2回アタックで +4000。
+- **bdc8bdfe9466 — OP13-008/047/060**: replace_ko→return_self_to_trash は me.characters から除去し
+  トラッシュへ直接置くだけ (KO処理を経由しない)。よって「キャラがKOされた時」等は発動せず、任意(optional)。
+- **bdd22e92e5ea — OP16-077**: search_top_n の後に trash_self_hand_random 1 が独立 do。海軍を0/1枚しか
+  取れなくても手札1枚捨ては無条件。
+- **be7a69482b0f — OP01-041**: search_top_n depth5 filter ワノ国 rest_remain:bottom。該当0枚なら手札
+  追加0、見た札はデッキ下 (並び替えは fungible)。
+- **be9e6bc03d46 — PRB02-010**: conditions=[leader ビッグ・マム, opp_don_count_ge:6] が効果全体を gate。
+  opp ドン5以下では発動不可 = drawだけ飛ばして登場のみは不可。
+- **bec5e3e9ea6c — ST07-015**: choice_effect actor:opp、mill_opp_life_to_trash は効果所有者(発動側)から
+  見た相手 = 発動していない側のライフをトラッシュ。
+- **becf405e3321 — OP01-113 ホールデム**: on_ko add_rested_don 1。「1枚まで」の0選択は無償ランプの辞退で
+  常に劣位 (engine は最大=1 を追加=唯一の合理手)。AI/評価に意味ある状態差を生まず公式の選択権を実質満たす。
+- **bf02f9e9f99c — OP06-043**: optional_cost_then の cost に discard_hand+return_to_deck_bottom
+  (mandatory)。両陣営にコスト2以下キャラが無ければ払えず発動不可 (2026-08-10 是正済)。
+- **bf35d5814dfc — ST05-005**: add_rested_don は不足分をドンデッキ残数でキャップ。ドンデッキ1枚でも追加可。
+- **c01d23972fa0 — EB03-061**: do=[untap_don 1, rest one_opp_chara_or_don cost_le4] の逐次実行。自レスト
+  ドン無しでも untap は空振り、相手レストは実行 (cost ではない)。

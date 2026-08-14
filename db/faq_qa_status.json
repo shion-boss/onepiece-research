@@ -10671,9 +10671,9 @@
   "files": [
    "cardqa_.json"
   ],
-  "note": "",
+  "note": "P-032: set_base_cost target=all_opponent_characters は場のキャラのみ (resolver は opp.characters を走査)。トラッシュ/手札は対象外=公式どおり。",
   "q": "この【自分のターン中】効果で相手のトラッシュや手札にあるキャラカードのコストは-2されますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "bc3c4dfda176": {
   "a": "この場合、相手は「OP08-106 ナミ」の【トリガー】を発動することを選ぶことはできますが、【登場時】効果は発動しないため何も起きず「OP08-106 ナミ」はトラッシュに置かれます。",
@@ -10683,9 +10683,9 @@
   "files": [
    "cardqa_op_09.json"
   ],
-  "note": "",
+  "note": "OP09-081 ティーチ: fire_self_effect(when_kind=on_play) が opp_on_play_disabled_through_opp_turn の gate を素通りしていた。OP08-106 ナミ等の【トリガー】経由 自身【登場時】再発火が、OP09-081 の無効化中でもタダ発火し相手キャラをKOしていた。effects.py fire_self_effect と rust_engine fire_self_effect の両方に trigger_on_play と同じ gate を追加。回帰テスト test_op09_081_disable_covers_trigger_fired_on_play 追加。",
   "q": "自分がこの【起動メイン】効果を使用したターンに、相手がダメージを受け、そのライフが「OP08-106 ナミ」でした。この場合、「OP08-106 ナミ」の「【トリガー】このカードの【登場時】効果を発動する。」の効果はどうなりますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "bc46fb7ef66e": {
   "a": "はい、KOされます。この効果は属性(打)を持つリーダーと、属性(打)を持つキャラからのみKOされない効果です。",
@@ -10695,9 +10695,9 @@
   "files": [
    "cardqa_.json"
   ],
-  "note": "",
+  "note": "P-007: set_immune_attribute_in_battle attrs=[打] → ko_immune_battle_attributes_in={打}。属性(打)を持つ相手とのバトルのみKO耐性、非(打)キャラには通常どおりKOされる=公式どおり。",
   "q": "このキャラは属性(打)を持たないキャラとのバトルでKOされますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "bc59d5a422f4": {
   "a": "いいえ、アクティブで登場します。",
@@ -10707,9 +10707,9 @@
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "",
+  "note": "OP06-086: play_from_trash 1枚目 rested:false(アクティブ)/2枚目 rested:true。1枚だけ登場ならアクティブ側=公式どおり。",
   "q": "この【登場時】効果でキャラカードを1枚だけ登場させた場合、そのキャラはレストで登場しますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "bc8ed5c04f28": {
   "a": "はい、できます。",
@@ -10719,9 +10719,9 @@
   "files": [
    "cardqa_op_11.json"
   ],
-  "note": "",
+  "note": "OP11-102: trigger_lifecard_trigger は先にトリガー効果(2億V雷神 put_top_to_life)を _maybe_resolve → その後 opp_event_or_trigger_fired を発火。OP11-102 の if opp_life_ge:2 はライフ再追加後(=2枚)に評価され成立=お互いのライフをトラッシュ可=公式どおり(effects.py 15898-15906 で順序確認)。",
   "q": "ライフが2枚の相手にダメージを与え、相手が「OP05-115 2億V雷神」の【トリガー】効果を発動して自身のデッキの上から1枚をライフの上に加えました。この場合、この【自分のターン中】効果でお互いのライフの上から1枚をトラッシュに置けますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "bcbfa073bad5": {
   "a": "はい、発動できます。この場合、【速攻】を得ることはできません。",
@@ -10731,9 +10731,9 @@
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP02-013: power_pump -3000 は無条件 do、give 速攻 は if leader_features_any:[白ひげ海賊団] で gate。リーダー非該当でも -3000 は発動、速攻のみ不可=公式どおり。",
   "q": "自分のリーダーが『白ひげ海賊団』を含む特徴を持たない場合、「相手のキャラ2枚までを、このターン中、パワー-3000。」の効果を発動することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "bd2219ce7445": {
   "a": "はい、できます。",
@@ -10743,9 +10743,9 @@
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP02-002 ガープ: effect 由来のドン付与(attach_rested_don 等)が on_self_don_attached を全く発火しない(effects.py 7056- は attached_dons に加算するのみ、trigger 呼び出し無し)。ST01-011 ブルックで2枚付与→ガープ効果が0回発火=現状 -0(公式は -2)。是正には (1)全 attach 系 primitive が付与ドン数だけ trigger を発火 (2)action 経路も per-DON 化 が必要で、対象を取る trigger(cost_minus)を primitive 内から複数回発火すると human-modal(pending_choice)の逐次解決を両エンジンで bit 一致させる必要=アーキ変更。consumer は OP02-002 のみだが producer 側改修+per-DON 発火の modal 整合が範囲外につき escalated。",
   "q": "「ST01-011 ブルック」の【登場時】効果で、自分のレストのドン!!2枚をこのリーダーに付与しました。この時、相手のキャラのコストを-2することはできますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "bd51ada5ad87": {
   "a": "この場合、そのターン中は選んだ相手のキャラのパワーは-2000され、このキャラは【速攻】を得た状態のままになります。",
@@ -10755,9 +10755,9 @@
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "",
+  "note": "OP06-061: on_play if don_diff_le:0 で発動時のみ判定、power_pump/give_keyword とも duration:turn。発動後にドン枚数が変わっても -2000/速攻 は維持=公式どおり(OP11-058 と同型)。",
   "q": "この【登場時】効果を発動し、相手のキャラ1枚をパワー-2000しこのキャラが【速攻】を得た後、そのターン中に自分の場のドン‼が相手の場のドン‼の枚数より多い枚数になった場合、この【登場時】効果はどうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "bda3b61e2e71": {
   "a": "はい、できます。",
@@ -10768,9 +10768,9 @@
   "files": [
    "cardqa_eb_02.json"
   ],
-  "note": "",
+  "note": "EB02-012/033: 「すべてのカード名と特徴と属性を持つカードとして扱う」リーダーは現行カードDBに存在しない(全走査で0件)。前提となる仮想リーダーが無く engine 状態に落とせないため検証不能。",
   "q": "自分のリーダーが「このリーダーはすべてのカード名と特徴と属性を持つカードとして扱う。」の効果を持つリーダーの場合、自分のこのキャラは【ブロッカー】を得ることはできますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "bdb5e07c706f": {
   "a": "この場合、公開したカードを含めてデッキの上から2枚のカードを引きます。",
@@ -10780,9 +10780,9 @@
   "files": [
    "cardqa_st_22.json"
   ],
-  "note": "",
+  "note": "ST22-003: reveal_top_then depth1 filter 白ひげ海賊団 rest_remain:top then draw2。公開札はトップ維持→引く2に含まれる=公式どおり。",
   "q": "この【登場時】効果で、自分のデッキの上から1枚を公開し、そのカードが『白ひげ海賊団』を含む特徴を持つカードであった場合、その公開したカードはどうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "bdc14db93771": {
   "a": "はい、できます。",
@@ -10792,9 +10792,9 @@
   "files": [
    "cardqa_st_12.json"
   ],
-  "note": "",
+  "note": "ST12-011: on_attack +2000 に once_per_turn 無し。1ターンに2回アタックすれば +2000×2=+4000=公式どおり。",
   "q": "この【アタック時】効果を1ターンに2回発動した場合、このキャラは合計でパワー+4000することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "bdc8bdfe9466": {
   "a": "はい、できます。この場合、このキャラはKOされずにトラッシュに置かれます。これによって「キャラがKOされた時」などの効果は発動しません。",
@@ -10806,9 +10806,9 @@
   "files": [
    "cardqa_op_13.json"
   ],
-  "note": "",
+  "note": "OP13-008/047/060: replace_ko→return_self_to_trash は me.characters から除去しトラッシュへ直接置くだけ(KO処理を経由しない)。よって「キャラがKOされた時」等は発動せず、任意(optional)=公式どおり。",
   "q": "このキャラが相手の効果でKOされる場合、このキャラの効果でこのキャラ自身をトラッシュに置くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "bdd22e92e5ea": {
   "a": "はい、捨てます。",
@@ -10818,9 +10818,9 @@
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "",
+  "note": "OP16-077: search_top_n の後に trash_self_hand_random 1 が独立 do。海軍を0/1枚しか取れなくても手札1枚捨ては無条件=公式どおり。",
   "q": "この【メイン】効果で、特徴《海軍》を持つカードを1枚だけ公開し手札に加えた場合や、1枚も公開しなかった場合、自分の手札1枚を捨てますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "be7a69482b0f": {
   "a": "デッキの上から見たカード全てを好きな順番に並び替え、デッキの下に置きます。",
@@ -10830,9 +10830,9 @@
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-041: search_top_n depth5 filter ワノ国 rest_remain:bottom。該当0枚なら手札追加0、見た札はデッキ下(並び替えは fungible)=公式どおり。",
   "q": "この【起動メイン】効果で、手札に加えられるカードがなかった場合はどうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "be9e6bc03d46": {
   "a": "いいえ、できません。",
@@ -10842,9 +10842,9 @@
   "files": [
    "cardqa_prb_02.json"
   ],
-  "note": "",
+  "note": "PRB02-010: conditions=[leader ビッグ・マム, opp_don_count_ge:6] が効果全体を gate。opp ドン5以下では発動不可=drawだけ飛ばして登場のみは不可=公式どおり。",
   "q": "相手のドン!!が5枚以下の時に、カード2枚を引かずに、自分の手札からパワー6000から8000の特徴《ビッグ・マム海賊団》を持つキャラカード1枚までを、登場させることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "bec5e3e9ea6c": {
   "a": "この【メイン】効果を発動していない側のプレイヤーのライフの一番上のカードをトラッシュに置きます。",
@@ -10854,9 +10854,9 @@
   "files": [
    "cardqa_st_07.json"
   ],
-  "note": "",
+  "note": "ST07-015: choice_effect actor:opp、mill_opp_life_to_trash は効果所有者(発動側)から見た相手=発動していない側のライフをトラッシュ=公式どおり。",
   "q": "自分がこの【メイン】効果を発動し、対戦相手が「・相手のライフの上から1枚をトラッシュに置く。」を選んだ場合、どちらのプレイヤーのライフをトラッシュに置きますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "becf405e3321": {
   "a": "はい、選べます。",
@@ -10866,9 +10866,9 @@
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-113: on_ko add_rested_don 1。「1枚まで」の0選択は無償ランプの辞退で常に劣位(engine は最大=1を追加=唯一の合理手)。AI/評価に意味ある状態差を生まず、公式の選択権を実質満たす=conform。",
   "q": "このキャラがKOされたとき、この【KO時】効果でドン!!カードを追加しないことを選べますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "bf02f9e9f99c": {
   "a": "いいえ、できません。",
@@ -10878,9 +10878,9 @@
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "",
+  "note": "OP06-043: optional_cost_then の cost に discard_hand+return_to_deck_bottom(mandatory)。両陣営にコスト2以下キャラが無ければ払えず発動不可=公式どおり(2026-08-10 是正済)。",
   "q": "自分か相手の場にコスト2以下のキャラがない場合、この【起動メイン】効果を発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "bf35d5814dfc": {
   "a": "はい、追加できます。",
@@ -10890,9 +10890,9 @@
   "files": [
    "cardqa_st_05.json"
   ],
-  "note": "",
+  "note": "ST05-005: add_rested_don は不足分をドンデッキ残数でキャップ。ドンデッキ1枚でも追加可=公式どおり。",
   "q": "ドン!!デッキが1枚のとき、この【起動メイン】効果でドン!!をコストエリアに追加できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "c01d23972fa0": {
   "a": "はい、できます。",
@@ -10902,9 +10902,9 @@
   "files": [
    "cardqa_eb_03.json"
   ],
-  "note": "",
+  "note": "EB03-061: do=[untap_don 1, rest one_opp_chara_or_don cost_le4] の逐次実行。自レストドン無しでも untap は空振り、相手レストは実行=公式どおり(cost ではない)。",
   "q": "自分のコストエリアにレストのドン!!が無い場合、この【起動メイン】効果で、相手のコスト4以下のキャラかドン‼1枚までをレストにすることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "c06678fdbf31": {
   "a": "はい、できます。",
