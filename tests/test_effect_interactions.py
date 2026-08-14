@@ -12206,3 +12206,103 @@ def test_op06_115_trigger_only_fires_at_life_zero():
 
     assert _cond(0) is True, "ライフ0で発動できない (条件が厳しすぎる)"
     assert _cond(2) is False, "ライフ2でも発動する (自ライフ0条件が省略されている = 公式違反)"
+
+
+# --------------------------------------------------------------------------- #
+#  reveal_top_play: 公開したカードを登場させなかった場合、 デッキの **一番上** に戻す
+#  (テキストに「デッキの下に置く」の明示が無いカード)。
+#  一次情報 (OP01-060 / cardqa_op_01 c46c5af6d7b9):
+#    「この【アタック時】効果で公開したカードを登場させなかった場合、そのカードは表向きの
+#      ままですか？」→「いいえ、裏向きの状態でデッキの一番上にもどします。」
+#  = 相手にできない/登場させないカードは 底ではなく **上** に残る (次のドローが変わる)。
+#  同じ一般則に属する OP12-058 も「下に置く」文言が無いので上に残す。
+#  「その後、残りをデッキの下に置く」と明記するカード (OP06-119 / OP07-048 等) だけが bottom。
+# --------------------------------------------------------------------------- #
+def test_reveal_top_play_non_played_card_returns_to_top():
+    from engine.effects import execute_effect
+
+    repo, overlay = _repo(), _overlay()
+    # 非マッチ (王下七武海でない) を top に置いて OP01-060 の reveal_top_play を発火。
+    # 非マッチカードは登場せず、 rest_remain に従い戻る。 公式 = 一番上。
+    for cid, spec in (
+        ("OP01-060", overlay.get("OP01-060")),
+        ("OP12-058", overlay.get("OP12-058")),
+    ):
+        # overlay から reveal_top_play spec を掘り出す
+        def _find(o):
+            if isinstance(o, dict):
+                if "reveal_top_play" in o:
+                    return o["reveal_top_play"]
+                for vv in o.values():
+                    r = _find(vv)
+                    if r:
+                        return r
+            elif isinstance(o, list):
+                for x in o:
+                    r = _find(x)
+                    if r:
+                        return r
+            return None
+        rtp = _find([e.effects if hasattr(e, "effects") else e for e in [spec]])
+        assert rtp is not None, cid
+        assert rtp.get("rest_remain") == "top", (
+            f"{cid}: テキストに「下に置く」が無いので公開札は一番上に戻すべき (公式違反)"
+        )
+
+    # 挙動テスト: 非マッチ札が top に残る (bottom に落ちない)。
+    st = _state(repo, overlay)
+    me = st.players[0]
+    marker = repo.get("OP01-002")   # 王下七武海 でない (= 非マッチ) を top に
+    me.deck = [marker] + [repo.get(_FILLER)] * 20
+    opp = st.players[1]
+    execute_effect(
+        {"reveal_top_play": {"filter": {"cost_le": 4, "feature": "王下七武海"},
+                             "rest_remain": "top", "rested": True}},
+        st, me, opp, None,
+    )
+    assert me.deck[0].card_id == "OP01-002", (
+        "非マッチの公開札は一番上に戻すべき (bottom に落ちてはならない)"
+    )
+
+
+def test_reveal_top_play_rest_remain_matches_text_placement():
+    """overlay 全走査: reveal_top_play の rest_remain が公式テキストの指示と一致する。
+
+    テキストが「デッキの下に置く」= bottom、「上か下/上または下に置く」= top_or_bottom、
+    どちらの明示も無い = top (公開しただけで動かさない → 一番上に残る、 公式 cardqa_op_01)。
+    自己参照でなく **カードの公式テキスト** を基準にした全走査ガード。
+    """
+    cards = {c["card_id"]: c for c in
+             json.loads((ROOT / "db" / "cards.json").read_text(encoding="utf-8"))}
+    ov = json.loads((ROOT / "db" / "card_effects.json").read_text(encoding="utf-8"))
+
+    def _rtp_specs(o):
+        out = []
+        if isinstance(o, dict):
+            if "reveal_top_play" in o and isinstance(o["reveal_top_play"], dict):
+                out.append(o["reveal_top_play"])
+            for vv in o.values():
+                out += _rtp_specs(vv)
+        elif isinstance(o, list):
+            for x in o:
+                out += _rtp_specs(x)
+        return out
+
+    violations = []
+    for cid, effs in ov.items():
+        base = cards.get(cid.split("_")[0], {})
+        txt = base.get("effect") or base.get("text") or ""
+        for spec in _rtp_specs(effs):
+            rr = spec.get("rest_remain", "bottom")
+            if "デッキの下に置" in txt or "残りをデッキの下" in txt:
+                expect = "bottom"
+            elif "上か下" in txt or "上または下" in txt:
+                expect = "top_or_bottom"
+            else:
+                expect = "top"
+            if rr != expect:
+                violations.append((cid, rr, expect, txt[:40]))
+    assert not violations, (
+        "reveal_top_play の rest_remain がテキストの配置指示と不一致:\n"
+        + "\n".join(f"  {c}: rest_remain={r} 期待={e} | {t}" for c, r, e, t in violations)
+    )

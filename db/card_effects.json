@@ -13898,7 +13898,7 @@
              "cost_le": 4,
              "feature": "王下七武海"
             },
-            "rest_remain": "bottom",
+            "rest_remain": "top",
             "rested": true
            }
           }
@@ -13936,7 +13936,7 @@
              "cost_le": 4,
              "feature": "王下七武海"
             },
-            "rest_remain": "bottom",
+            "rest_remain": "top",
             "rested": true
            }
           }
@@ -13974,7 +13974,7 @@
              "cost_le": 4,
              "feature": "王下七武海"
             },
-            "rest_remain": "bottom",
+            "rest_remain": "top",
             "rested": true
            }
           }
@@ -71763,7 +71763,7 @@
        "feature_contains": "白ひげ海賊団"
       },
       "played_keyword": "速攻",
-      "rest_remain": "bottom"
+      "rest_remain": "top"
      }
     }
    ],
