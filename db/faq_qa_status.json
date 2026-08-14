@@ -11411,9 +11411,9 @@
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-024 相手ターン中(ターン1回)相手キャラ登場時レスト。_check_and_set_once_per_turn(effects.py:1189)はトリガー発火時に鍵を消費(対象0でも)。1体目登場で消費→2体目登場では再発火せずレスト不可。公式『次の登場キャラをレストにできない=No』conform",
   "q": "この【相手のターン中】効果をまだ使用していないターンに、登場した相手のキャラをこの【相手のターン中】効果でレストにせず、その次に登場したキャラをレストにできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "c8149ecc28b8": {
   "a": "はい、できます。",
@@ -11423,9 +11423,9 @@
   "files": [
    "cardqa_op_03.json"
   ],
-  "note": "",
+  "note": "OP03-066 登場時②:ドン7時に2レスト(場のドンは減らない)+1追加=場8→self_don_ge(effects.py:1615 は active+rested+付与の合計)が8で成立→cost4以下KO可。公式YES conform",
   "q": "自分の場のドン!!が7枚の時にこの【登場時】効果を発動し、ドン!!デッキからドン!!を追加しました。この時、相手のコスト4以下のキャラ1枚をKOすることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "c8412db1d116": {
   "a": "いいえ、できません。",
@@ -11435,9 +11435,9 @@
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-098 空島ルフィ replace_leave: 支払い life_to_hand:1 が cost(effects.py:9866)。ライフ0で払えず置換不成立→キャラは離れる。公式『残せない=No』conform",
   "q": "自分のライフが0枚の時に、自分の元々のパワー6000以上の特徴《空島》を持つキャラが相手の効果やバトルによって場を離れる場合、代わりにそのキャラを場に残すことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "c8c4b1f57a85": {
   "a": "いいえ、このターンの終了時までアタックできない効果です。この場合、「次の相手のターン終了時」は現在の相手ターンの終了時です。",
@@ -11447,9 +11447,9 @@
   "files": [
    "cardqa_op_08.json"
   ],
-  "note": "",
+  "note": "OP08-112 set_cannot_attack duration=next_opp_turn_end は cannot_attack_through_opp_turn を立て、対象所有者(=相手)のターン終了時にクリア(game.py:640-645)。相手ターン中に発動=そのターン終了時にクリア。公式『このターンの終了時まで』conform",
   "q": "相手のターン中に、自分がこの【トリガー】効果でこのカードの【登場時】効果を発動しました。この場合、この【登場時】の「次の相手のターン終了時まで、アタックできない。」は、このターンと次の自分のターンの後、その次の相手のターン終了時までアタックできない効果ですか？",
-  "status": "pending"
+  "status": "conform"
  },
  "c9209e4ea5da": {
   "a": "はい、発動できます。",
@@ -11461,9 +11461,9 @@
   "files": [
    "cardqa_st_04.json"
   ],
-  "note": "",
+  "note": "ST04-014/015/017 メイン draw1+add_don1。add_don は min(n, don_remaining_in_deck)(effects.py:5577)でデッキ0なら0追加、効果はブロックされず発動。公式『発動できる』conform",
   "q": "ドン!!デッキにカードがない場合も効果は発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "c9ae6e944cbb": {
   "a": "この場合、公開したカードを含めてデッキの上から2枚のカードを引き、手札1枚を捨てます。",
@@ -11473,9 +11473,9 @@
   "files": [
    "cardqa_st_22.json"
   ],
-  "note": "",
+  "note": "ST22-006 登場時 reveal_top_then(depth1,filter白ひげ海賊団,rest_remain:top,then[draw2,trash1])。公開カードを含めデッキ上2枚を引く挙動は既是正(docs 6391 同型OP14-044/ST22-003)。公式どおり conform",
   "q": "この【登場時】効果で、自分のデッキの上から1枚を公開し、そのカードが『白ひげ海賊団』を含む特徴を持つカードであった場合、その公開したカードはどうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "c9af2b07e455": {
   "a": "いいえ、できません。",
@@ -11485,9 +11485,9 @@
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-075 『何枚でも入れる』でも50枚上限は別ルール(51枚不可)。デッキ構築規則でありゲーム内状態変化に落ちない。deckbuilder が50枚cap強制。n/a",
   "q": "このカードをデッキに51枚以上入れることはできますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "c9debb26cf51": {
   "a": "はい、できます。",
@@ -11497,9 +11497,9 @@
   "files": [
    "cardqa_op_16.json"
   ],
-  "note": "",
+  "note": "OP16-057 カウンター: 『インペルダウンの囚人2枚以上』条件。self_chara_filtered_count_ge(effects.py:1894)はキャラのみ数えリーダー非算入。前提『すべてのカード名を持つリーダー』は現カードプールに不在(DB全走査で0件)→engine シナリオ構築不能 n/a。⚠将来そのリーダー実装時はcountにリーダー算入が必要(OP03-036則)",
   "q": "自分のリーダーが「すべてのカード名と特徴と属性を持つ」と書かれた効果を持ち、自分のキャラの「インペルダウンの囚人」が1枚のみある場合、この効果で自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000することはできますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "ca1b805a77dd": {
   "a": "いいえ、できません。",
@@ -11509,9 +11509,9 @@
   "files": [
    "cardqa_op_07.json"
   ],
-  "note": "",
+  "note": "OP07-097 起動メイン: エッグヘッドを『ライフ表向き追加 or 登場』。登場は play_from_hand filter category:CHARACTER でイベント不可。イベントは登場も発動もできない。公式No conform",
   "q": "この【起動メイン】効果で、自分の手札のコスト5以下の特徴《エッグヘッド》を持つイベントカードを、自分の場に登場させることや、発動させることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ca2aa84a837c": {
   "a": "いいえ、できません。",
@@ -11521,9 +11521,9 @@
   "files": [
    "cardqa_op_11.json"
   ],
-  "note": "",
+  "note": "OP11-022 起動メイン cost=[rest_self_don, flip_life_face_up]。flip_life_face_up は _flip_life_targets(effects.py:12991,do-block払性 effects.py:10250)で一番上が既に表向きなら払えない。ライフ上が表向き時は登場不可。公式No conform",
   "q": "自分のライフの一番上が表向きのときに、この【起動メイン】効果を発動することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ca9eca9f46c8": {
   "a": "いいえ、できません。",
@@ -11533,9 +11533,9 @@
   "files": [
    "cardqa_st_10.json"
   ],
-  "note": "",
+  "note": "ST10-002 起動メイン。『ゲーム開始時ドン0』は engine の main phase 状態でない(起動メインは main phase のみ提供、到達可能な自 main phase では DON≥1で0-branch 不到達)。engine 状態に落ちない n/a",
   "q": "ゲーム開始時で自分の場にドン!!がないとき、この【起動メイン】でドン!!デッキからドン!!1枚までをアクティブで追加することはできますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "caebf230dbac": {
   "a": "この場合、1ダメージ目とトリガーの処理を行い、次に2ダメージ目とトリガーの処理を行ったあと、この「自分がダメージを受けた時」効果を発動します。",
@@ -11545,9 +11545,9 @@
   "files": [
    "cardqa_op_13.json"
   ],
-  "note": "",
+  "note": "OP13-002 リーダー『ダメージを受けた時』ドロー。ダメージ→ライフ確認/トリガー→その後発火の順は _resolve_life_taken 末尾で実装済(docs 5848)。ダブルアタック2ダメージも各ダメージ+トリガー処理後に発火。conform",
   "q": "自分が【ダブルアタック】により2ダメージを受けて【トリガー】を発動する時、このリーダーの「自分がダメージを受けた時」効果はいつ発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cb200fd71c5a": {
   "a": "はい、発動できますが、効果は何も起きません。",
@@ -11557,9 +11557,9 @@
   "files": [
    "cardqa_st_06.json"
   ],
-  "note": "",
+  "note": "ST06-015 トリガー opp_discard_own_choice:1。相手手札0でも発火し捨てる札が無いだけ(no-op)。公式『発動できるが何も起きない』conform",
   "q": "相手の手札がない場合、この【トリガー】効果を発動させることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cb9b5836bff6": {
   "a": "いいえ、できません。",
@@ -11569,9 +11569,9 @@
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-019 自ターン終了時 untap_don:2。untap_don(effects.py:5592)は me.don_rested/don_active のコストエリアのみ操作、キャラ付与ドン(c.attached_dons)は触らない。公式『付与ドンをアクティブに=No』conform",
   "q": "この【自分のターン終了時】効果でキャラに付与されているドン!!をアクティブにすることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cbd922b81b14": {
   "a": "はい、できます。この場合、相手のキャラ1枚までを、このターン中、コスト-4し、自分のデッキの上から2枚をトラッシュに置いた後、選んだキャラはKOされません。",
@@ -11581,9 +11581,9 @@
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-079 起動メイン『自分のドレスローザキャラ1枚をKO』。ko_self_chara(do,effects.py:4184)が『効果でKOされない』(static_ko_immune/ko_immune_until_turn_end/ko_immune_through_opp_turn)を無視して除去=公式違反(cardqa_op_04『選べるが選んだキャラはKOされない』)。Python/Rust両方が同じ間違い(差分検証は沈黙)。両engineに免疫skipを追加、回帰テスト3本追加(免疫survives+control+turn/opp_turnスコープ)。cost版(effects.py:10195)は元々免疫を除外していた対称",
   "q": "この【起動メイン】効果の「自分の特徴《ドレスローザ》を持つキャラ1枚を、KOする。」で、「効果でKOされない。」の効果を持つキャラを選ぶことはできますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "cbed64814ac4": {
   "a": "いいえ、できません。",
@@ -11593,9 +11593,9 @@
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-112 起動メイン: give_attack_active_chara(=アクティブにもアタック可)付与。登場ターンのキャラは召喚酔いでアタック不可、この効果は速攻を与えない。発動してもアタックできない。公式No conform",
   "q": "このキャラが登場したターンに【起動メイン】効果を発動し、アタックすることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cc045abcc6b2": {
   "a": "いいえ、できません。この効果は、自分と相手がそれぞれのアタックステップにおいて、現在のコストが3か4であるキャラによるアタックが宣言できなくなる効果です。",
@@ -11605,9 +11605,9 @@
   "files": [
    "cardqa_.json"
   ],
-  "note": "",
+  "note": "P-084 static: leaderバギーで cost3,4キャラ全アタック不可。set_cannot_attack_filtered_static filter or_clauses[cost_eq3,cost_eq4] は _matches_filter_ip 経由で現在コスト判定(effects.py:12613 に本カードを明記)。元コスト2以下/5以上でも現コスト3,4なら不可。公式No conform",
   "q": "自分の場にこの「P-084 バギー」があり、自分のリーダーが「バギー」の場合に、元々のコストが2以下か5以上で、他の効果によって現在のコストが3か4になっているキャラは、アタックすることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cc1d8f5400ac": {
   "a": "いいえ、できません。",
@@ -11617,9 +11617,9 @@
   "files": [
    "cardqa_st_29.json"
   ],
-  "note": "",
+  "note": "ST29-007 KO時 optional_cost_then cost=[life_top_or_bottom_to_hand:1] effect=[hand_to_self_life:1]。ライフ0で cost 払えず(effects.py:9866 で me.life 空なら can_pay=False)→手札をライフに置けない。公式『ライフ加えずに手札をライフに=No』conform",
   "q": "自分のライフが0枚の際にこのキャラがKOされた場合、この【KO時】効果でライフを手札に加えずに、自分の手札1枚をライフの上に加えることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cc277bef8e87": {
   "a": "はい、発動できます。",
@@ -11629,9 +11629,9 @@
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-026 カウンターでアタッカーKO後もカウンター発動可。バトル中断は _battle_aborted(game.py:2354)をカウンターフェイズ**終了後**(ダメージステップ直前)に判定する設計(docs 94-115)で、カウンターステップ中はアタッカーKO後も別カウンターを継続して打てる。公式cardqa_op_01『その後カウンター発動できる=Yes』conform",
   "q": "この【カウンター】効果でアタックしているキャラをKOした場合、その後、自分は【カウンター】を発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cc7ed387d6d4": {
   "a": "はい、この場合、この「OP04-119 ドンキホーテ・ロシナンテ」はKOされますが、自分のアクティブの元々のコストが5のキャラはKOされません。",
@@ -11641,9 +11641,9 @@
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-119 ロシナンテ 相手ターン中レスト時 set_ko_immune(元コスト5・非レスト自キャラ)=static。同一効果で本体(レスト)と元コスト5(アクティブ)を同時KOでも、static_ko_immune はアクション境界の recompute で確定済でありko loopでは snapshot 値。元コスト5キャラは免疫でKO回避、本体は死ぬ。公式『本体KO・元コスト5は残る』conform",
   "q": "相手のターン中に、レストのこのキャラと、自分のアクティブの元々のコストが5のキャラが、1つの効果で同時にKOされる時、この【相手のターン中】効果によって自分のアクティブの元々のコストが5のキャラはKOされませんか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cd055b38532d": {
   "a": "はい、できます。\n(このカードの最新のテキストについては、公式HPでの情報をご確認下さい。)",

@@ -4201,6 +4201,15 @@ def _execute_effect_body_inner(
             for t in victims:
                 if t not in me.characters:
                     continue
+                # 「効果でKOされない」 キャラは **自分の効果による自KO でも残る**
+                # (公式 cardqa_op_04 / OP04-079 オオロンブス: 「効果でKOされない」 を持つ
+                #  ドレスローザ キャラを 必須自KO の対象に選べるが、 選んだキャラはKOされない)。
+                # ⚠ 「相手の効果で離れない」 (protect_from_opp_effect) は 自KO には効かないので
+                #   ここでは見ない。 「効果でKOされない」 系 (static/turn/opp_turn) だけを見る。
+                if (t.ko_immune_until_turn_end or t.static_ko_immune
+                        or t.ko_immune_through_opp_turn):
+                    state.push_log(f"  KO 耐性: {t.card.name} は効果で KO されない (自KOでも残る)")
+                    continue
                 # 「このキャラがKOされる場合、 代わりに〜」 は **自分の効果による自KO** にも
                 # かかる (= OP04-082 キュロス、 cardqa_op_05)。 2026-08-13 追加。
                 if state.effects_overlay and try_replace_ko(

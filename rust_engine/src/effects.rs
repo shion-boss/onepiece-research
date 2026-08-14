@@ -7097,6 +7097,17 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             let mut ko_any = false;
             for tok in toks {
                 let Slot::Char(i) = find_tagged(state, me_idx, tok) else { continue };
+                // 「効果でKOされない」 は **自分の効果による自KO でも残る**
+                // (公式 cardqa_op_04 / OP04-079 オオロンブス)。 「相手の効果で離れない」
+                // (protect_from_opp_effect) は 自KO には効かないので見ない。
+                {
+                    let c = &state.players[me_idx].characters[i];
+                    if c.ko_immune_until_turn_end || c.static_ko_immune
+                        || c.ko_immune_through_opp_turn
+                    {
+                        continue;
+                    }
+                }
                 let vcid = state.players[me_idx].characters[i].card.card_id.clone();
                 note_ko_victim_negated(state, me_idx, i);
                 let ip = state.players[me_idx].characters.remove(i);

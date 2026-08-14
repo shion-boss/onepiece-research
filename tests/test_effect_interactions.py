@@ -12306,3 +12306,67 @@ def test_reveal_top_play_rest_remain_matches_text_placement():
         "reveal_top_play の rest_remain がテキストの配置指示と不一致:\n"
         + "\n".join(f"  {c}: rest_remain={r} 期待={e} | {t}" for c, r, e, t in violations)
     )
+
+
+# --------------------------------------------------------------------------- #
+#  自分の効果による必須自KO (ko_self_chara) も 「効果でKOされない」 を尊重する。
+#  公式 cardqa_op_04 / OP04-079 オオロンブス。 2026-08-14 是正 (それ以前は
+#  ko_self_chara が static_ko_immune / ko_immune_* を無視して除去 = 公式違反、
+#  Python/Rust 両方が同じ間違い = 差分検証では原理的に沈黙するクラス)。
+# --------------------------------------------------------------------------- #
+def test_ko_self_chara_leaves_ko_immune_target():
+    """必須自KO の対象に選んだ 「効果でKOされない」 キャラは 場に残る。
+
+    一次情報 (cardqa_op_04、 OP04-079【起動メイン】「自分の特徴《ドレスローザ》を持つ
+    キャラ1枚を、KOする」):
+      Q: 「効果でKOされない。」の効果を持つキャラを選ぶことはできますか？
+      A: はい、できます。… 選んだキャラはKOされません。
+    → 相手の効果KO (ko primitive) と同じく、 自分の効果による自KO でも免疫が効く。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    immune = InPlay.of(repo.get("OP04-077_p1"), sickness=False)  # イデオ = 特徴《ドレスローザ》
+    immune.static_ko_immune = True
+    me.characters = [immune]
+    execute_effect(
+        {"ko_self_chara": {"count": 1, "filter": {"feature": "ドレスローザ"}}},
+        st, me, st.players[1], None,
+    )
+    assert immune in me.characters, (
+        "効果でKOされないキャラが 自KO で除去された (公式 cardqa_op_04 違反)"
+    )
+
+
+def test_ko_self_chara_kos_non_immune_target():
+    """対照: 免疫が無ければ 同じ必須自KO で ちゃんと KO される (テストの妥当性確認)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    victim = InPlay.of(repo.get("OP04-077_p1"), sickness=False)
+    me.characters = [victim]
+    execute_effect(
+        {"ko_self_chara": {"count": 1, "filter": {"feature": "ドレスローザ"}}},
+        st, me, st.players[1], None,
+    )
+    assert victim not in me.characters, "免疫が無いのに 自KO で除去されていない"
+
+
+def test_ko_self_chara_leaves_turn_and_opp_turn_ko_immune():
+    """全走査ガード: static だけでなく turn/next_opp_turn スコープの免疫も自KOで残る。
+
+    ko_self_chara は 3 種の 「効果でKOされない」 (static_ko_immune /
+    ko_immune_until_turn_end / ko_immune_through_opp_turn) を すべて尊重する。
+    """
+    repo, overlay = _repo(), _overlay()
+    for flag in ("ko_immune_until_turn_end", "ko_immune_through_opp_turn"):
+        st = _state(repo, overlay)
+        me = st.players[0]
+        ip = InPlay.of(repo.get("OP04-077_p1"), sickness=False)
+        setattr(ip, flag, True)
+        me.characters = [ip]
+        execute_effect(
+            {"ko_self_chara": {"count": 1, "filter": {"feature": "ドレスローザ"}}},
+            st, me, st.players[1], None,
+        )
+        assert ip in me.characters, f"{flag} のキャラが 自KO で除去された (公式違反)"

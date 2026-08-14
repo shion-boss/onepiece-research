@@ -144,6 +144,95 @@ Rust もスナップショットで忠実にミラーしていたため **差分
 
 ---
 
+## 必須自KO (`ko_self_chara`) も **「効果でKOされない」を尊重する** (2026-08-14 是正)
+
+**一次情報** (`db/faq/cardqa_op_04`、 OP04-079 オオロンブス【起動メイン】
+「その後、 自分の特徴《ドレスローザ》を持つキャラ1枚を、 KOする」):
+
+> Q: この効果の 「自分の特徴《ドレスローザ》を持つキャラ1枚を、 KOする。」 で、
+>   「効果でKOされない。」 の効果を持つキャラを選ぶことはできますか？
+> A: **はい、 できます。** この場合、 相手のキャラ1枚までを…コスト-4し、 自分のデッキの
+>   上から2枚をトラッシュに置いた後、 **選んだキャラはKOされません。**
+
+= 相手の効果KO (`ko` primitive) と同じく、 **自分の効果による自KO でも
+「効果でKOされない」 は残る**。 対象には選べる (= まだ場に居るので選択自体は合法) が、
+KO の解決だけがスキップされる。
+
+**是正前の挙動**: `ko` primitive (effects.py:4141) と optional_cost_then の cost 版
+`ko_self_chara` (effects.py:10195) は免疫 3 種
+(`static_ko_immune` / `ko_immune_until_turn_end` / `ko_immune_through_opp_turn`) を
+見ていたが、 **do 版の `ko_self_chara` (effects.py:4184) だけが免疫を無視して除去** していた。
+`try_replace_ko` (置換) は見ていたが、 素の 「効果でKOされない」 (置換でなく無効化) は素通し。
+**Python も Rust (effects.rs:7066) も同じ間違い** = 差分検証では原理的に検出できないクラス
+(overlay 起点でなく engine handler 起点の取りこぼし)。
+
+**実装**: 両 engine の do 版 `ko_self_chara` の victim ループで、 除去前に免疫 3 種を確認して
+スキップする (= `ko` primitive の opp-char 分岐と同じ 3 flag)。 ⚠ 「相手の効果で離れない」
+(`protect_from_opp_effect`) は **自KO には効かない** ので見ない (opp 限定の免疫)。
+
+**恒久ガード**: `tests/test_effect_interactions.py`
+`test_ko_self_chara_leaves_ko_immune_target` (static) +
+`test_ko_self_chara_leaves_turn_and_opp_turn_ko_immune` (turn/opp_turn スコープ全走査) +
+`test_ko_self_chara_kos_non_immune_target` (対照)。 是正前コードで前2本が落ちることを確認済。
+
+---
+
+## 公式どおりで **問題なかった** もの (2026-08-14 バッチ、 FAQ 全件保証 台帳より)
+
+engine の状態変化として実測し、 公式どおりと確認したもの (再調査を避けるための記録):
+
+- **OP03-066 (c8149ecc28b8)** — ②(ドン2レスト)後に1追加。 レストは場のドンを減らさない
+  ので 場7→+1=8。 `self_don_ge` (effects.py:1615) は `don_active+don_rested+付与` の
+  **合計** を数えるので 8 で成立 → コスト4以下KO可。 公式 YES。
+- **OP15-098 (c8412d) / ST29-007 (cc1d8f) / OP15-098 の空島ルフィ** — ライフ→手札 系を
+  **発動コスト** に持つ効果は ライフ0 で払えず、 : 以降が不発
+  (effects.py:9866 = optional_cost_then の life 払性 / cost 版は
+  `_life_to_hand_cost_payable` effects.py:13072)。 公式 「ライフ0では残せない/置けない = No」。
+- **OP08-112 (c8c4b1)** — `set_cannot_attack` duration=`next_opp_turn_end` は
+  `cannot_attack_through_opp_turn` を立て、 **対象所有者のターン終了時** にクリア
+  (game.py:640-645)。 相手ターン中に発動すれば そのターン終了時にクリア =
+  公式 「このターンの終了時まで」。
+- **OP11-022 (ca2aa8)** — 起動メインの cost `flip_life_face_up` は 一番上が既に表向きなら
+  払えない (`_flip_life_targets`、 effects.py:12991 / 10250)。 公式 No。
+- **OP04-019 (cb9b58)** — `untap_don` (effects.py:5592) は コストエリアのドンのみ操作し
+  **キャラ付与ドンは触らない**。 公式 「付与ドンをアクティブに = No」。
+- **OP04-024 (c7e03b)** — 相手ターン中(ターン1回)は `_check_and_set_once_per_turn`
+  (effects.py:1189) が **発火時に** 鍵を消費 (対象0でも)。 1体目登場で消費 → 2体目には
+  再発火しない。 公式 「次の登場キャラをレストにできない = No」。
+- **P-084 (cc045a)** — `set_cannot_attack_filtered_static` の or_clauses コスト判定は
+  `_matches_filter_ip` 経由で **現在コスト** (effects.py:12613 に本カードを明記)。 公式 No。
+- **OP04-119 (cc7ed3)** — レスト時の `set_ko_immune` は static。 `static_ko_immune` は
+  アクション境界の recompute で確定し ko ループ中は snapshot 値なので、 本体(レスト)と
+  元コスト5(アクティブ)の同時KOでも 元コスト5は免疫で残り 本体は死ぬ。 公式どおり。
+- **OP01-026 (cc277b)** — カウンターでアタッカーKO後もカウンター継続可。 バトル中断は
+  カウンターフェイズ **終了後** に判定 (docs 上記 「バトル中断」 節、 game.py:2354)。 公式 Yes。
+- **ST04-014/015/017 (c9209e)** — `add_don` は `min(n, don_remaining_in_deck)`
+  (effects.py:5577)。 デッキ0でも効果はブロックされず (draw は起きて add 0)。 公式 「発動できる」。
+- **ST06-015 (cb200f)** — トリガーは相手手札0でも発火、 捨てる札が無いだけ。 公式
+  「発動できるが何も起きない」。
+- **OP07-097 (ca1b80)** — 登場は `play_from_hand` category:CHARACTER。 イベントは登場も
+  発動もできない。 公式 No。
+- **OP01-112 (cbed64)** — `give_attack_active_chara` は速攻を与えないので 登場ターンの
+  キャラは 発動してもアタック不可。 公式 No。
+- **OP13-002 (caebf2)** — リーダー 「ダメージを受けた時」 は ダメージ→ライフ/トリガー→
+  その後 の順で発火 (docs 既記録、 `_resolve_life_taken` 末尾)。 ダブルアタック2ダメージも
+  各ダメージ処理後。 公式どおり。
+- **ST22-006 (c9ae6e)** — `reveal_top_then` は 公開カードを含めデッキ上2枚を引く
+  (docs 既是正、 同型 OP14-044/ST22-003)。 公式どおり。
+
+### engine 状態変化に落ちない / シナリオ構築不能 (n/a)
+
+- **OP01-075 (c9af2b)** — 「何枚でも入れる」 でも 50 枚上限は別ルール。 デッキ構築規則で
+  ゲーム内状態に落ちない。
+- **ST10-002 (ca9eca)** — 「ゲーム開始時ドン0」 は engine の main phase 状態でない
+  (起動メインは main phase のみ、 到達可能な自 main phase では DON≥1)。
+- **OP16-057 (c9debb)** — 前提 「すべてのカード名を持つリーダー」 が現カードプールに不在
+  (DB 全走査 0 件) → engine シナリオ構築不能。 ⚠ `self_chara_filtered_count_ge`
+  (effects.py:1894) はキャラのみ数える (リーダー非算入)。 将来そのリーダーが実装される
+  なら OP03-036 則で リーダー算入が必要になる (今は該当カード無しで無害)。
+
+---
+
 ## 公式どおりで **問題なかった** もの (再調査を避けるための記録)
 
 - **【バニッシュ】の適用範囲** — 「【バニッシュ】は、**アタックによるダメージで**ライフから
