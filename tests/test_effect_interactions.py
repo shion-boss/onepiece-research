@@ -12107,3 +12107,102 @@ def test_op09_081_disable_covers_trigger_fired_on_play():
     assert _fire(disable=True) == 1, (
         "OP09-081 無効化中なのに【トリガー】経由の【登場時】が発動して KO した (公式違反)"
     )
+
+
+# --------------------------------------------------------------------------- #
+#  「〜を手札に加えることができる：効果」 = ライフ→手札 は **発動コスト** (：の前)。
+#  ライフが 0 枚なら払えない → 効果ごと発動できない (公式 4-10)。
+#  ⚠ 2026-08-14 是正: overlay が life_to_hand を `do` 側に置いていたため、 ライフ 0 でも
+#    コストを踏み倒して効果本体 (KO / パワー付与 / ドン活性) が撃てていた (= タダ撃ち)。
+#  一次情報:
+#    OP15-100 (cardqa_op_15 c152d8daa8b9):「自分のライフが0枚の場合、この【登場時】効果で
+#      相手のコスト6以下のキャラ1枚までをKOすることはできますか？」→「いいえ、できません。」
+#    OP15-100/OP05-060 は life_to_hand、 PRB02-016 は life_top_or_bottom_to_hand。
+# --------------------------------------------------------------------------- #
+def _vanilla_cost6_opp_char(repo):
+    return InPlay.of(repo.get("EB03-019"), sickness=False)  # ワンダ = 効果なし cost6
+
+
+def test_op15_100_life_to_hand_is_cost_no_free_ko_at_life_zero():
+    repo, overlay = _repo(), _overlay()
+
+    def _run(life_n):
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        me.life = [repo.get(_FILLER)] * life_n
+        me.life_face_up = [False] * life_n
+        me.don_active = 10
+        opp.characters = [_vanilla_cost6_opp_char(repo)]
+        src = InPlay.of(repo.get("OP15-100"), sickness=True)
+        me.characters.append(src)
+        trigger_on_play(st, me, opp, src, overlay)
+        return len(opp.characters)
+
+    # 対照: ライフ 3 → コスト (自ライフ1手札) を払って KO 成立
+    assert _run(3) == 0, "前提崩壊: ライフありで OP15-100 の KO が発火していない"
+    # 本題: ライフ 0 → コスト払えず発動不可 = 相手キャラは KO されない
+    assert _run(0) == 1, "ライフ0でもタダ撃ちで KO した (life_to_hand が do 側 = 公式違反)"
+
+
+def test_life_to_hand_cost_not_left_in_do_full_scan():
+    """全走査: 公式テキストで 「(ライフを)手札に加えることができる：」 が **発動コスト** の
+    カードは、 life_to_hand / life_top_or_bottom_to_hand を `cost` に持ち `do` に残さない。
+
+    ：の前 (= 発動コスト) を do に置くと ライフ 0 でタダ撃ちになる。 「その後」 で連鎖する
+    effect 側 (OP15-116 / OP15-033 / OP15-115 / OP06-035 等) は do のままで正しいので、
+    ここでは **コスト型と確定した 3 枚 (+parallel)** だけを対象に厳密検査する。
+    """
+    import json
+    from pathlib import Path
+
+    ov = json.load(open(Path(__file__).resolve().parent.parent / "db" / "card_effects.json",
+                       encoding="utf-8"))
+    # (card_id, life_key) — 公式テキストで 「…手札に加えることができる：」 の前=コスト
+    cost_type = [
+        ("OP15-100", "life_to_hand"),
+        ("OP05-060", "life_to_hand"),
+        ("PRB02-016", "life_top_or_bottom_to_hand"),
+        ("PRB02-016_p1", "life_top_or_bottom_to_hand"),
+    ]
+    for cid, key in cost_type:
+        effs = ov.get(cid)
+        assert effs, f"{cid} が overlay に無い"
+        found_in_cost = False
+        for e in effs:
+            do = e.get("do") or []
+            assert not any(isinstance(p, dict) and key in p for p in do), (
+                f"{cid}: {key} が do に残っている (= ライフ0タダ撃ち。 cost へ移すこと)"
+            )
+            if key in (e.get("cost") or {}):
+                found_in_cost = True
+        assert found_in_cost, f"{cid}: {key} が cost に無い"
+
+
+# --------------------------------------------------------------------------- #
+#  【トリガー】「自分のライフが0枚の場合、…」 の条件節を省略しない。
+#  overlay が条件を落としていると ライフ>0 でも誤発火する。
+#  一次情報 (OP06-115 / cardqa_op_06 c3e4bcdbd550):
+#    「自分のライフが0枚、自分の手札が0枚の時に、この【トリガー】効果を発動し、自分のデッキの
+#      上から1枚までを、ライフの上に加えることはできますか？」→「はい、できます。」
+#  = ライフ0 でのみ発動する条件効果。 ライフ>0 では発動してはならない。
+# --------------------------------------------------------------------------- #
+def test_op06_115_trigger_only_fires_at_life_zero():
+    from engine.effects import eval_all_conditions
+
+    repo, overlay = _repo(), _overlay()
+    trig = None
+    for e in overlay.get("OP06-115").effects:
+        if e.get("when") == "trigger":
+            trig = e
+            break
+    assert trig is not None
+
+    def _cond(life_n):
+        st = _state(repo, overlay)
+        me = st.players[0]
+        me.life = [repo.get(_FILLER)] * life_n
+        me.life_face_up = [False] * life_n
+        return eval_all_conditions(trig, st, me, None)
+
+    assert _cond(0) is True, "ライフ0で発動できない (条件が厳しすぎる)"
+    assert _cond(2) is False, "ライフ2でも発動する (自ライフ0条件が省略されている = 公式違反)"

@@ -92,8 +92,14 @@ def test_life_cost_paid():
 
 
 def test_trash_self_paid():
-    """OP15-100: trash_self を払って (= 自身トラッシュ) 効果発動。"""
+    """OP15-100: trash_self + 自ライフ1手札 を払って (= 自身トラッシュ) 効果発動。
+
+    公式テキストは 「このキャラをトラッシュに置き、自分のライフの上から1枚を手札に加える
+    ことができる：」 = ：の前が発動コスト。 ライフ 1 枚以上ないと発動できない (cardqa_op_15、
+    2026-08-14 是正) ので、 コストが払える前提としてライフを与える。"""
     s, me, opp, repo, overlay = _fresh()
+    me.life = [_low_cost_chara(repo)]
+    me.life_face_up = [False]
     opp.characters = [InPlay.of(repo.get("OP04-077"), sickness=False)]
     src = InPlay.of(repo.get("OP15-100"), sickness=True)
     me.characters.append(src)

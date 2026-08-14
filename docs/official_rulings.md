@@ -7882,3 +7882,64 @@ per-DON 発火 (2) action 経路も per-DON 化 が必要。かつ発火する t
 - **bf35d5814dfc — ST05-005**: add_rested_don は不足分をドンデッキ残数でキャップ。ドンデッキ1枚でも追加可。
 - **c01d23972fa0 — EB03-061**: do=[untap_don 1, rest one_opp_chara_or_don cost_le4] の逐次実行。自レスト
   ドン無しでも untap は空振り、相手レストは実行 (cost ではない)。
+
+---
+
+## 2026-08-14 FAQ conformance batch (pending 146→126、 20 件処理)
+
+### fixed (2 件)
+
+- **OP15-100 「ライフ→手札」 は発動コスト (：の前)、 ライフ0でタダ撃ち KO していた** — cardqa_op_15 c152d8daa8b9。
+  公式:「自分のライフが0枚の場合、この【登場時】効果で相手のコスト6以下のキャラ1枚までをKOすることは
+  できますか？」→「いいえ、できません。」 テキスト「このキャラをトラッシュに置き、自分のライフの上から1枚を
+  手札に加えることができる：相手のコスト6以下のキャラ1枚までを、KOする。」= ：の前が発動コスト。 overlay が
+  `life_to_hand` を `do` 側に置いていたため、 ライフ0でもコストを踏み倒して KO が撃てていた (実測 life0で KO=1)。
+  → `cost` へ移動 (`{trash_self, life_to_hand:1}`)。 修正後 life0で KO=0。
+  **全走査**で同型 (テキストで「手札に加えることができる：」の前=コスト) を検出:
+  - OP05-060 (`life_to_hand`、 起動メイン「ライフ上1手札→ドン1活性」) も同様に修正。
+  - PRB02-016 (`life_top_or_bottom_to_hand`、 起動メイン「ライフ上下1手札→+3000」) も修正。
+    activate_main の payability (`_can_pay_activate_cost` / Rust `can_pay_activate_cost`) が
+    `life_top_or_bottom_to_hand` を見ていなかったので **両エンジンに gate を追加**。
+  「その後」で連鎖する effect 側の life_to_hand (OP15-116 / OP15-033 / OP15-115 / OP06-035 / OP11-072 /
+  EB02-061) は do のままで正しい (：の後=効果)。 回帰: `test_op15_100_life_to_hand_is_cost_no_free_ko_at_life_zero`
+  + 全走査 `test_life_to_hand_cost_not_left_in_do_full_scan`。
+
+- **OP06-115 【トリガー】の「自分のライフが0枚の場合」条件節が欠落、 ライフ>0で誤発火** — cardqa_op_06 c3e4bcdbd550。
+  テキスト「自分のライフが0枚の場合、自分のデッキの上から1枚までを、ライフの上に加える。その後、自分の手札
+  1枚を捨てる。」 overlay の trigger エントリに `if` が無く、 ライフ>0でも put_top_to_life + 手札捨てが
+  発火していた (実測 life2で fire=True)。 → `if:{self_life_le:0}` を追加 (トリガー本体はライフを離れた後に
+  評価されるので残ライフ=0枚判定)。 修正後 life0=発動/life2=不発。 全走査で同型の「自ライフ0条件」欠落トリガーは
+  本件のみ。 回帰: `test_op06_115_trigger_only_fires_at_life_zero`。
+
+### escalated (2 件)
+
+- **OP15-071 all-names リーダーが named-target buff を受けるか** — c069133c5e38。 「自『オーム』すべてとこのキャラ」に
+  ダブルアタック/相手ターン中 元々パワー6000。 overlay target=`all_self_chara_named`=キャラ限定でリーダー非対象
+  (通常リーダーでは正しい)。 Q は「すべてのカード名/特徴/属性を持つ」特殊リーダー時、 リーダーもオーム名を持つ→
+  リーダーも対象 (公式 はい)。 named-target がリーダーの all-names を含む解決が必要=極ニッチ + `resolve_target`
+  拡張要 (アーキ寄り) → escalated。
+
+- **ST05-010 「打とバトル時+3000」の累積/持続** — cardqa c28d829f2b9c。 公式:打に2回アタックされると +3000 が
+  ターン中累積し合計+6000。 engine は `set_battle_pump_vs_attribute`=バトル中のみ有効な静的補正で実装しており、
+  各バトル独立に+3000 (累積/持続しない)。 修正には `on_self_battled` 誘発でターン持続 power_pump を積むモデルへの
+  変更 (発火機構/データ持ち方の変更=アーキ)。 該当は ST05-010 + parallel の 2 枚のみ → escalated。
+
+### conform (16 件、 問題なし)
+
+- **OP14-034** c06678fdbf31: replace_ko の代替=rest target=`any_self_chara`。 KOされようとするキャラ自身も含む→自身レスト可。
+- **OP13-118** c08663332dbd: 【登場時】は if:leader_multicolor。 緑単色なら条件false→untap/制限とも不発→元々コスト5以上を登場可 (Qと一致)。
+  ⚠ 潜在gap: 多色時の「元々コスト5以上を登場できない」制限節が overlay 未実装 (cost-filter付き block は新field要=別途対応)。
+- **ST07-010** c0f186c5d592: 相手が選ぶ choice、 相手ライフ0でも「相手ライフ上1トラッシュ」を選択可 (効果対象の有無でgateしない、 実測 crashせず選べる/何も起きない)。
+- **OP12-099** c110d2b5959a: 【自分のターン中】ライフ離れた時1ドロー=自/相手どちらでも発動 (2026-08-12に3when複製済)。
+- **OP09-086** c11679f1220c: 「自トラッシュ4枚につき+1000」= duration:static=盤面から常時再計算、 trash枚数変動を都度反映。
+- **OP05-062** c1a69ce43954: 「自場ドン10ならブロッカー」= static条件、 DON10→blocker/DON9→無し (実測)。 登場後DON減で発動不可 (公式 いいえ) と一致。
+- **EB01-045** c22d6ae2bb47: 【登場時】速攻付与 duration=turn、 付与後に相手コスト0が消えても持続=アタック可。
+- **OP15-022** c2b6fa1bab93: デッキ0到達=そのターン終了時に敗北 (一度0の事実で確定)、 engine のデッキ0敗北判定と一致。
+- **OP15-116** c310ba66f5db: mill_self_life/trash_hand は「その後」連鎖の effect (gateでない)、 ライフ0/手札0でも put_top_to_life は進む。
+- **OP05-092** c3273165faa8: 「自場天竜人のみなら相手全キャラcost-6」= static、 非天竜人登場で条件false→cost-6適用されず (実測 only=True/mixed=False)。
+- **OP02-050** c34f3374c667: 「手札1枚以下で+2000」= static、 カウンター発動で手札1以下になれば都度再評価で+2000。
+- **OP09-093/097** c37073edf285: 相手リーダー効果無効化とデッキ0敗北は独立 (敗北はルール条件)、 相手デッキ0→相手敗北と一致。
+- **EB02-055** c38a3aa6c73a: 【トリガー】self_life_le:2 はトリガー本体がライフを離れた後に評価=自身除外の残りライフ判定 (公式 いいえ と一致)。
+- **P-001** c38b33f86c94: 【ドン×2】速攻、 アタック宣言後にドンが外れても合法性は宣言時点で確定=遡って無効化されずバトル続行。
+- **ST03-005** c420bc300190: 【ドン×1】【アタック時】強制2ドロー+2捨て、 デッキ1以下でアタック→強制ドローでデッキ0→敗北。
+- **ST02-013** c4278745d223: 【自分のターン終了時】untap self、 既にアクティブなら no-op=何も起きない。

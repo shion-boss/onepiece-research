@@ -16236,6 +16236,11 @@ def _can_pay_activate_cost(
     life_n = int(cost.get("life_to_hand", 0) or 0)
     if life_n > 0 and not _life_to_hand_cost_payable(me, life_n):
         return False
+    # 「自分のライフの上か下から N 枚を手札に加えることができる：」 (PRB02-016 等)。 上と同型で、
+    # 前が発動コストなのでライフ不足 (< N) なら払えない → 起動メインの候補に出さない。
+    life_ends_n = int(cost.get("life_top_or_bottom_to_hand", 0) or 0)
+    if life_ends_n > 0 and not _life_to_hand_cost_payable(me, life_ends_n, from_ends=True):
+        return False
     if cost.get("rest_self"):
         # 公式 (3 弾で繰り返し): 「レストにできない」 は **レストにすることが必要な行動**
         # (アタック /【ブロッカー】発動 / レストを要するコストの支払い) をできなくする。
@@ -16755,9 +16760,13 @@ def _fire_activate_main_inner(
         # (= U2 観戦コメント T1 由来)。 push_log し ない と state.rested が 「起動メイン: X」
         # snap 後 silent に true 化 する ので、 観戦者 は cost 払い タイミング を 見失う。
         # life_to_hand N: 自分のライフの上から N 枚を手札に加える (= 発動コスト)。
+        # life_top_or_bottom_to_hand も同型のコスト (PRB02-016 「ライフの上か下から1枚を
+        # 手札に加えることができる：」)。 支払い path では _pay_counter_cost と同様に上から取る
+        # (= 「上か下から」 の選択はコスト簡略化で top 固定)。
         # ⚠ ライフ移動なので 「自分のライフが手札に加わった時」 系の when を発火する
         #   (life_to_hand primitive と同じ helper を通す)。
-        life_cost_n = int(cost.get("life_to_hand", 0) or 0)
+        life_cost_n = (int(cost.get("life_to_hand", 0) or 0)
+                       + int(cost.get("life_top_or_bottom_to_hand", 0) or 0))
         if life_cost_n > 0:
             moved = 0
             for _ in range(life_cost_n):

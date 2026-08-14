@@ -33958,12 +33958,10 @@
   {
    "_text": "OP05-060 起動メイン(ターン1,ライフ上1手札):自場ドンが0か3以上ならドン1アクティブ追加",
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": true,
+    "life_to_hand": 1
    },
    "do": [
-    {
-     "life_to_hand": 1
-    },
     {
      "conditional": {
       "do": [
@@ -33984,12 +33982,10 @@
   {
    "_text": "OP05-060 起動メイン(ターン1,ライフ上1手札):自場ドンが0か3以上ならドン1アクティブ追加",
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": true,
+    "life_to_hand": 1
    },
    "do": [
-    {
-     "life_to_hand": 1
-    },
     {
      "conditional": {
       "do": [
@@ -34010,12 +34006,10 @@
   {
    "_text": "OP05-060 起動メイン(ターン1,ライフ上1手札):自場ドンが0か3以上ならドン1アクティブ追加",
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": true,
+    "life_to_hand": 1
    },
    "do": [
-    {
-     "life_to_hand": 1
-    },
     {
      "conditional": {
       "do": [
@@ -34036,12 +34030,10 @@
   {
    "_text": "OP05-060 起動メイン(ターン1,ライフ上1手札):自場ドンが0か3以上ならドン1アクティブ追加",
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": true,
+    "life_to_hand": 1
    },
    "do": [
-    {
-     "life_to_hand": 1
-    },
     {
      "conditional": {
       "do": [
@@ -34062,12 +34054,10 @@
   {
    "_text": "OP05-060 起動メイン(ターン1,ライフ上1手札):自場ドンが0か3以上ならドン1アクティブ追加",
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": true,
+    "life_to_hand": 1
    },
    "do": [
-    {
-     "life_to_hand": 1
-    },
     {
      "conditional": {
       "do": [
@@ -44163,7 +44153,10 @@
      "trash_self_hand_random": 1
     }
    ],
-   "when": "trigger"
+   "when": "trigger",
+   "if": {
+    "self_life_le": 0
+   }
   }
  ],
  "OP06-115_p1": [
@@ -44201,7 +44194,10 @@
      "trash_self_hand_random": 1
     }
    ],
-   "when": "trigger"
+   "when": "trigger",
+   "if": {
+    "self_life_le": 0
+   }
   }
  ],
  "OP06-115_r1": [
@@ -44239,7 +44235,10 @@
      "trash_self_hand_random": 1
     }
    ],
-   "when": "trigger"
+   "when": "trigger",
+   "if": {
+    "self_life_le": 0
+   }
   }
  ],
  "OP06-116": [
@@ -87070,12 +87069,10 @@
   {
    "_text": "OP15-100 on_play: このキャラをトラッシュに置き、自分のライフの上から1枚を手札に加えることができる：相手のコスト6以下のキャラ1枚までを、KOする。",
    "cost": {
-    "trash_self": true
+    "trash_self": true,
+    "life_to_hand": 1
    },
    "do": [
-    {
-     "life_to_hand": 1
-    },
     {
      "ko": "one_opponent_character_cost_le_6cost"
     }
@@ -96323,12 +96320,10 @@
   {
    "_text": "PRB02-016 activate_main: このキャラをレストにし、自分のライフの上か下から1枚を手札に加えることができる：自分のリーダーかキャラ1枚までを、このターン中、パワー+3000。",
    "cost": {
-    "rest_self": true
+    "rest_self": true,
+    "life_top_or_bottom_to_hand": 1
    },
    "do": [
-    {
-     "life_top_or_bottom_to_hand": 1
-    },
     {
      "power_pump": {
       "amount": 3000,
@@ -96353,12 +96348,10 @@
   {
    "_text": "PRB02-016_p1 activate_main: このキャラをレストにし、自分のライフの上か下から1枚を手札に加えることができる：自分のリーダーかキャラ1枚までを、このターン中、パワー+3000。",
    "cost": {
-    "rest_self": true
+    "rest_self": true,
+    "life_top_or_bottom_to_hand": 1
    },
    "do": [
-    {
-     "life_top_or_bottom_to_hand": 1
-    },
     {
      "power_pump": {
       "amount": 3000,

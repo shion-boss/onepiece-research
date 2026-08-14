@@ -13571,7 +13571,7 @@ pub fn fire_activate_main(
     if let Some(c) = &cost {
         if let Some(o) = c.as_object() {
             for k in o.keys() {
-                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card" | "ko_self_with_filter" | "trash_self" | "trash_to_deck" | "discard_hand_or_trash_filtered_chara" | "discard_hand" | "return_self_to_hand" | "discard_hand_with_filter" | "reveal_hand_with_filter" | "rest_self_target_name" | "rest_self_target" | "life_to_hand") {
+                if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card" | "ko_self_with_filter" | "trash_self" | "trash_to_deck" | "discard_hand_or_trash_filtered_chara" | "discard_hand" | "return_self_to_hand" | "discard_hand_with_filter" | "reveal_hand_with_filter" | "rest_self_target_name" | "rest_self_target" | "life_to_hand" | "life_top_or_bottom_to_hand") {
                     note_unknown_key("activate_cost", k);
                     return Err(format!("activate_main cost 未対応: {k} ({card_id})"));
                 }
@@ -13598,7 +13598,10 @@ pub fn fire_activate_main(
         }
         // life_to_hand N: ライフの上から N 枚を手札へ (= 発動コスト、 Python と同順で rest_self の前)。
         // 公式 OP01-013 サンジ 「自分のライフ1枚を手札に加えることができる：」 (2026-08-11 新設)。
-        let life_cost_n = c.get("life_to_hand").and_then(|v| v.as_i64()).unwrap_or(0);
+        // life_top_or_bottom_to_hand も同型コスト (PRB02-016)。 支払いは上から取る
+        // (Python _fire_activate_main_inner / _pay_counter_cost と同様に top 固定)。
+        let life_cost_n = c.get("life_to_hand").and_then(|v| v.as_i64()).unwrap_or(0)
+            + c.get("life_top_or_bottom_to_hand").and_then(|v| v.as_i64()).unwrap_or(0);
         if life_cost_n > 0 {
             let mut moved = 0;
             for _ in 0..life_cost_n {
@@ -14569,6 +14572,12 @@ fn can_pay_activate_cost(state: &GameState, me_idx: usize, ip: &InPlay, on_field
     // 「自分のライフN枚を手札に加えることができる：」 (OP01-013 サンジ)。 ライフ不足なら発動不可
     // (= do に置くと 「ライフ0でもタダ撃ち」 になる。 2026-08-11 に Python と同時に新設)。
     if gi("life_to_hand") > 0 && !life_to_hand_cost_payable(me, gi("life_to_hand"), false) {
+        return false;
+    }
+    // 「自分のライフの上か下から N 枚を手札に加えることができる：」 (PRB02-016)。 上と同型、
+    // ライフ不足なら発動不可 (effects.py:_can_pay_activate_cost と対、 2026-08-14 新設)。
+    if gi("life_top_or_bottom_to_hand") > 0
+        && !life_to_hand_cost_payable(me, gi("life_top_or_bottom_to_hand"), true) {
         return false;
     }
     if gb("return_self_to_hand") && !on_field {
