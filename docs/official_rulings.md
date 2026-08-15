@@ -8093,3 +8093,91 @@ Rust の `reveal_top_play` は `rest_remain=="top"` を `me.deck.insert(0, revea
   その後の「ライフ上1枚を手札に加える」(「まで」無し=必須)は必ず行う。
 - **ST02-008** (cardqa_st_02): 既にレストのドンを「相手ドン1枚まで」で選べる(何も起きない) = n/a
   (観測可能な盤面差分なし)。
+
+---
+
+## 「相手の」 修飾なしの bounce/return は **両陣営** = 自陣キャラも対象 (2026-08-15 是正)
+
+**一次情報** (cardqa_op_04 cd9f7fb15360、 OP04-055 疫災弾):
+- 「この【メイン】効果で自分のコスト4以下のキャラをデッキの下に置くことはできますか？」
+  → 「**はい、できます。**」
+
+**一般則** (CLAUDE.md / 2026-08-04 の 「相手の」 監査と同根): 公式が対象に **「相手の」 を書かず**
+「コストN以下のキャラ1枚まで**を、持ち主の**デッキの下/手札に(戻す/置く)」 と書く効果は、
+**自陣キャラも選べる両陣営対象**。 「持ち主の」 (= owner's) という語自体が 「対象は相手とは限らない」
+ことを含意する。
+
+**是正前の違反**: overlay が対象を `one_opponent_character(_any)?_cost_le_N` に縛り、 自陣キャラを
+選べなかった。 2026-08-04 の 「相手の」 監査は **filter ベース** を掃いたが、 **target-spec 文字列**
+(`one_opponent_character_*_cost_le`) は掃き漏らしていた。 engine 側は `return_to_deck_bottom` /
+`return_to_hand` primitive が **両陣営 target を owner のゾーンへ正しく routing** する実装を既に
+持っており (effects.py:6626-6631 / 4886-4894)、 `one_character_either_cost_le_N` spec も
+Python (effects.py:3200) / Rust (effects.rs:1532) 双方が現在コストで実装済。 = **overlay の
+target-spec を差し替えるだけ** で是正。 AI の auto-pick は従来どおり相手優先 (`_either_pick_one`、
+自陣は 「まで」 なので 0 枚 = 差し出さない) なので **AI 挙動は実質不変**、 human modal のみ両陣営提示。
+
+**全走査で是正した 13 枚** (base): OP04-055 / OP02-064 / OP03-049 / OP05-045 / OP07-052 /
+OP08-055 / OP11-050 / OP13-059 / EB01-026 / OP01-089 / OP08-047 / OP14-049 / ST17-002
+(いずれも 「持ち主の…戻す/置く」 + 「相手の」 なし。 parallel 含む overlay エントリも同時是正)。
+
+⚠ **「1枚を」 (= 必須) と 「1枚まで」 (= 任意0枚可) を書き分ける**:
+- **OP04-055** だけ 「コスト4以下のキャラ**1枚を**」 = 発動コスト内の**必須1枚** (「まで」 なし)。
+  AI の either auto-pick は 「相手不在なら 0 枚」 が既定なので、 必須形では
+  `one_inplay_either_filtered` + **`mandatory: true`** の dict 形にして 「相手不在なら自陣から
+  選ぶ」 分岐を使う (**OP06-043 アラマキ と同型**)。 単なる string spec だと相手不在時に
+  コスト不払い扱いになり公式違反。
+- 残り 12 枚は 「コストN以下のキャラ**1枚まで**」 = 任意 (0枚可) なので
+  `one_character_either_cost_le_N` の string 形で正しい (AI 0枚 = 公式どおり)。
+- 恒久ガード `test_all_either_target_cards_are_optional_up_to_n` が 「必須形が either spec を
+  mandatory フラグ無しで使う」 のを検出する (2026-08-15: either 節の cost 閾値でその節を特定して
+  「まで」 有無を見るよう精緻化。 別節の self コスト 「1枚を」 の誤検出を除去)。
+
+**opp-only のままで正しいと確認したもの** (誤修正しないための記録):
+- **「相手は自身の…戻す」** 系 (EB01-028 / OP06-051 / OP09-058 / P-055): 「相手が自分のキャラを戻す」
+  = 相手陣限定で正しい。 「相手の」 substring は無いが 「相手は」 で相手スコープ。
+- **【トリガー】節** の bounce (OP07-055 等): 【トリガー】文面は cards.json の text に含まれず
+  「相手」 判定が偽陰性になるが、 実際のトリガー文には 「相手の」 があり opp-only で正しい。
+- **OP10-056**: 効果節に 「相手のコスト4以下のキャラ…」 と明記 (cards.json text 全文で確認)。
+- **相手の元々のコスト/パワー…** (OP11-061 / OP12-042 / EB03-021 等): 「相手の」 明記で opp-only 正。
+
+**escalated (別途対応)**: **EB03-025 ヒナ** 「元々のパワー6000のキャラ1枚まで…持ち主の手札に戻す」
+は両陣営だが、 `one_character_either_truly_original_power_eq_N` spec が Python/Rust 双方に未実装
+(印刷パワー判定の either 版が要る = engine 追加 + Rust ミラー + rebuild)。 overlay 差し替えだけでは
+是正できないため escalate。 影響 1 枚 (+parallel)。
+
+**恒久ガード** (`tests/test_effect_interactions.py`):
+- `test_op04_055_bounce_target_offers_own_character` (human modal に自陣キャラが候補として並ぶ)
+- `test_bounce_no_aite_modifier_targets_either_side_sweep` (overlay 全走査: 「相手」 を含まない
+  bounce 効果が opp-only target に縛られていないこと。 EB03-025 は escalate として allowlist、
+  trigger 節は偽陰性回避で除外)
+
+## その他 本バッチで conform 確認 (再調査防止の記録、 2026-08-15)
+
+engine が公式どおりと実測確認した項目 (いずれも is既に正しく、 是正不要):
+- **OP06-009 シュライヤ**: set_base_power_copy でブロック時にリーダー同値(8000)化した後も
+  カウンターでパワー上乗せ可 (counter step の power_pump は base power と独立加算)。
+- **OP12-040 クザン** ← **OP12-053 ボルサリーノ**: 相手効果での離場を replace_leave (代わりに手札
+  1枚捨て) で置換すると、 その捨てが `trigger_on_self_hand_discarded(source=holder=海軍)` を発火し、
+  リーダーの `actor_source_feature_contains:海軍` が match してドロー (effects.py:15502-15518、
+  cardqa_op_12 documented)。
+- **OP12-016 レイリー / EB04-018 メガロ / OP08-058 プリン**: それぞれ 「アクティブドン2枚付与」
+  「rest_self」 「上2枚を表向き」 のコスト payability が満たせなければ発動不可 (公式: コストの一部
+  でも払えなければ発動不可)。 OP08-058 は 2026-08-12 に flip_life_face_up count:2 化で是正済。
+- **OP02-066 インペルダウンオールスター**: リーダーが特徴を持たなくてもコスト(手札2捨て)は払え、
+  ドローだけ条件不成立で不発 (optional_cost_then + conditional)。
+- **EB04-015 ジンベエ**: 【KO時】の rest_self_cards は、 KO 本体が trigger_on_ko 発火前に場から
+  除去済 (effects.py:1164→1180) なので自分自身を rest 対象に選べない。
+- **EB02-022 ウソップ**: 【登場時】entry-level `if self_chara_power_ge_count_le{power:5000,count:2}`
+  は on_play 解決時に自身が場(power5000)にいるので count に含む (= 公式 「このウソップ含めて2枚以下」)。
+- **OP04-118 ビビ**: 静的 give_keyword(速攻) は毎 recompute で target 再解決 (現在コスト
+  `_matches_filter_ip`)、 コスト3未満に落ちれば速攻喪失 → 召喚酔いでアタック不可。
+- **OP01-035 お菊 / OP01-049 ベポ / P-084 バギー / OP02-071 マゼラン / OP03-054 ウソーーップ /
+  OP10-118 ルフィ / OP12-041 サンジ / OP15-020 火拳 / ST21-015→OP09-013 ヤソップ**:
+  いずれも実測で公式どおり (詳細は db/faq_qa_status.json の note)。
+
+**escalated: OP05-032 ピーカ** (同時KO の replace_ko rest 対象): 「同時KOされた co-victim を rest して
+自分(Peeka)を救えるか」 → 公式 「はい」。 だが実測(probe)で **order-dependent** = ko_multi は victim を
+逐次除去し、 高value の co-victim が先に KO 除去されると Peeka の rest do 時に不在 → Peeka も KO。
+`_order_simultaneous_victims` は 「他 victim を救う holder」 のみ front-load し、 「co-victim を rest 資源に
+して自分を救う」 パターンを扱わない。 根治は victim 順序ヒューリスティックの拡張 (Python+Rust) =
+既知の穴 (人間の順序選択が未配線)。 影響は同型の replace_ko (自救 + 他 victim を資源に取る) カードに限定。

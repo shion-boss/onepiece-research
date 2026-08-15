@@ -11653,9 +11653,9 @@
   "files": [
    "cardqa_op_06.json"
   ],
-  "note": "",
+  "note": "OP06-009 シュライヤ: ブロック時に set_base_power_copy でリーダー同値(8000)にした後もカウンターでパワー上乗せ可。 counter step の power_pump は set_base_power と独立に加算されるので engine は許容 = 公式どおり。",
   "q": "ドン!!が付与されパワーが8000になっている相手のリーダーがアタックした時、このキャラの【ブロッカー】を発動しこの【ブロック時】効果でこのキャラのパワーが8000になりました。この後、カウンタ－を使用してこのキャラのパワーを更に上昇させることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cd4806665893": {
   "a": "はい、できます。",
@@ -11665,9 +11665,9 @@
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "",
+  "note": "OP12-040 クザン: OP12-053 ボルサリーノの replace_leave (代わりに手札1枚捨て) が trigger_on_self_hand_discarded(source=holder=ボルサリーノ=海軍) を発火し、 リーダーの if actor_source_feature_contains 海軍 が match してドロー。 effects.py:15502-15518 で明示実装+cardqa_op_12 documented。",
   "q": "相手のカードの効果で自分の場の「OP12-053 ボルサリーノ」が場を離れるときに、「ボルサリーノ」の効果で代わりに自分の手札1枚を捨てました。この時、自分のこのリーダーの効果でカードを引くことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cd637d959769": {
   "a": "いいえ、できません。",
@@ -11677,9 +11677,9 @@
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "",
+  "note": "OP12-016 レイリー: 【メイン】コスト=アクティブドン2枚付与。 payability (effects.py:10287) が me.don_active<2 で can_pay=False。 アクティブドン≤1では発動不可 = 公式どおり。",
   "q": "自分のアクティブのドン!!が1枚以下の場合、この【メイン】効果を発動することはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cd9f7fb15360": {
   "a": "はい、できます。",
@@ -11689,9 +11689,9 @@
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-055 疫災弾: 「コスト4以下のキャラ1枚を、持ち主のデッキの下に置く」 は相手の修飾なし=両陣営(自陣も対象、公式Q&A「自分のコスト4以下のキャラを置けますか→はい」)。 発動コスト内の必須1枚(「まで」でない)なので one_inplay_either_filtered + mandatory:true の dict 形に是正(OP06-043 アラマキと同型、 相手不在なら自陣から選ぶ)。 return_to_deck_bottom は両陣営を owner のデッキへ正しく routing。 同型パターンを全走査、 「まで」の12枚は one_character_either_cost_le 文字列形に是正(OP02-064/OP03-049/OP05-045/OP07-052/OP08-055/OP11-050/OP13-059/EB01-026/OP01-089/OP08-047/OP14-049/ST17-002)。 EB03-025(元々のパワー6000 either)は spec 未実装で escalate。",
   "q": "この【メイン】効果で自分のコスト4以下のキャラをデッキの下に置くことはできますか？",
-  "status": "pending"
+  "status": "fixed"
  },
  "cda059a66241": {
   "a": "いいえ、できません。この効果は【メイン】効果を持つイベントの【メイン】効果を発動できます。",
@@ -11701,9 +11701,9 @@
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "",
+  "note": "OP12-041 サンジ: 【起動メイン】play_event_from_hand は手札イベントの【メイン】効果を発動。 【カウンター】/【トリガー】効果は各文脈でのみ発火し main 発動経路では起きない = 公式どおり。",
   "q": "この【起動メイン】効果で、イベントの持つ【カウンター】効果や【トリガー】効果を発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cde21f0dd7a8": {
   "a": "パワー+1000されます。",
@@ -11713,9 +11713,9 @@
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP02-071 マゼラン: on_self_don_returned_to_deck + once_per_turn で +1000 (turn)。 ドン2枚同時返却でも 1 イベント=+1000 (once_per_turn)、 +2000 にならない = 公式どおり。",
   "q": "「ドン!!-2」でドン!!を同時に2枚ドン!!デッキに戻した場合、このリーダーのパワーはどうなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ce69f8d97e47": {
   "a": "トリガーを発動することを選んだ場合、カードを必ず1枚引きます。その後、デッキの上から1枚をトラッシュに置くか置かないかを選びます。",
@@ -11725,9 +11725,9 @@
   "files": [
    "cardqa_op_03.json"
   ],
-  "note": "",
+  "note": "OP03-054 ウソーーップ輪ごーむっ: 【トリガー】do=[draw:1, optional_cost_then(mill_self_top:1)]。 draw は必須、 その後の 1枚トラッシュのみ任意 = 公式どおり。",
   "q": "この【トリガー】効果の「カード1枚を引き、自分のデッキの上から1枚をトラッシュに置いてもよい。」とはどこまでを選択できる効果ですか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ce7bc288ca1a": {
   "a": "はい、できます。",
@@ -11737,9 +11737,9 @@
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "",
+  "note": "OP05-032 ピーカ: 同時KOされた co-victim を replace_ko の rest 対象にできるか。 実測(probe)で order-dependent = co-victim (高value) が先に KO 除去され Peeka の rest do 時に不在 → Peeka も KO。 _order_simultaneous_victims は 'saves ANOTHER' のみ front-load し 'rest a co-victim to save SELF' パターンを扱わない。 根治は victim 順序ヒューリスティックの拡張(Python+Rust)= 既知の穴(人間の順序選択 未配線)。 escalate。",
   "q": "このキャラと同時にKOされた自分の3コスト以上のキャラをレストにし、このキャラがKOされないことはできますか？",
-  "status": "pending"
+  "status": "escalated"
  },
  "ce9faf252de9": {
   "a": "いいえ、できません。",
@@ -11749,9 +11749,9 @@
   "files": [
    "cardqa_eb_04.json"
   ],
-  "note": "",
+  "note": "EB04-018 メガロ: 【登場時】コスト=rest_self。 payability (effects.py:9959) が self_inplay.rested で can_pay=False。 レスト状態で登場したら発動不可 = 公式どおり(レストにできない=レストが必要な行動不可)。",
   "q": "「キャラカードをレストで登場させる」などの効果によって、このキャラがレストの状態で登場する場合、この【登場時】効果で相手のキャラをKOできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cea0d9e8a9c9": {
   "a": "いいえ、できません。",
@@ -11761,9 +11761,9 @@
   "files": [
    "cardqa_op_10.json"
   ],
-  "note": "",
+  "note": "OP10-118 ルフィ: set_ko_per_turn_immune はターン1回自動適用 (ko_multi 8901-8903 で remaining>0 なら無条件 skip)。 プレイヤーが KO を選ぶ余地なし = 公式どおり(いいえ)。",
   "q": "自分のこのキャラがターンに初めて相手の効果でKOされるとき、自分はこのキャラがKOされることを選ぶことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ced2c1bb9f41": {
   "a": "はい、できます。その場合、カード2枚を引くことはできません。",
@@ -11773,9 +11773,9 @@
   "files": [
    "cardqa_op_02.json"
   ],
-  "note": "",
+  "note": "OP02-066 インペルダウンオールスター: 【メイン】optional_cost_then(cost=trash_self_hand_random:2, effect=conditional(draw2 if leader_feature インペルダウン))。 リーダーが特徴を持たなくてもコスト(手札2捨て)は支払え、 ドローだけ不発 = 公式どおり。",
   "q": "自分のリーダーが特徴《インペルダウン》を持たない場合、この【メイン】効果の発動コストで手札を捨てることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cf0a44ab62ff": {
   "a": "いいえ、できません。",
@@ -11785,9 +11785,9 @@
   "files": [
    "cardqa_eb_04.json"
   ],
-  "note": "",
+  "note": "EB04-015 ジンベエ: 【KO時】rest_self_cards コスト。 KO された本体は trigger_on_ko 発火前に me.characters から除去済(effects.py:1164→1180)なので rest 対象に自分自身を選べない = 公式どおり(いいえ)。",
   "q": "このキャラがKOされた時、【KO時】効果でこのキャラ自身をレストにすることはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cf42e3055328": {
   "a": "はい、この「EB02-022 ウソップ」を含めて、自分のパワー5000以上のキャラが2枚以下である必要があります。",
@@ -11797,9 +11797,9 @@
   "files": [
    "cardqa_eb_02.json"
   ],
-  "note": "",
+  "note": "EB02-022 ウソップ: 【登場時】entry-level if=self_chara_power_ge_count_le{power:5000,count:2}。 on_play 解決時ウソップは既に場(power5000)にいるので me.characters に含まれ count に自身が入る = 公式どおり(このウソップ含めて2枚以下)。",
   "q": "「自分のパワー5000以上のキャラが2枚以下の場合、」とは、このキャラを含めて2枚以下ですか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cf4e0e4d7565": {
   "a": "いいえ、できません。アタックの対象を決め、アタックの宣言を行った後に【アタック時】効果が発動し解決されます。",
@@ -11809,9 +11809,9 @@
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-035 お菊: アタック対象は宣言時に確定し、 その後 on_attack 効果(rest)が解決される(engine の declare→trigger 順)。 rest したキャラを遡ってアタック対象にはできない = 公式どおり(いいえ)。",
   "q": "このキャラがアタックした時、このキャラの【アタック時】効果によってレストにしたキャラをアタックの対象にできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cf5f0c54b0d3": {
   "a": "いいえ、できません。",
@@ -11821,9 +11821,9 @@
   "files": [
    "cardqa_op_08.json"
   ],
-  "note": "",
+  "note": "OP08-058 プリン: 【アタック時】cost=flip_life_face_up{count:2}。 2026-08-12 是正で count:2 = 上2枚が両方裏向きの時のみ払える。 1枚以上表向きなら払えず発動不可 = 公式どおり(いいえ)。",
   "q": "自分のライフの上から2枚のうち、1枚以上がすでに表向きの場合、この【アタック時】効果は発動できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cf948322dff4": {
   "a": "いいえ、アタックできません。",
@@ -11833,9 +11833,9 @@
   "files": [
    "cardqa_op_04.json"
   ],
-  "note": "",
+  "note": "OP04-118 ビビ: 静的 give_keyword(速攻, all_self_chara_filtered{赤,cost_ge:3})。 evaluate_static_effects が毎 recompute で target を再解決し static_granted_keywords をクリア→再付与、 filter は _matches_filter_ip(現在コスト base_cost)。 コスト3未満に落ちたら速攻喪失→召喚酔いでアタック不可 = 公式どおり(いいえ)。",
   "q": "【速攻】を持っておらず、このキャラの効果で【速攻】を得たキャラが、登場したターン中に他の効果でコスト3未満になった場合、そのターンにアタックできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cfac0d95dbc3": {
   "a": "はい、できます。その場合、アタックしているキャラが場にいないため、バトルは何も起きずに終了します。",
@@ -11845,9 +11845,9 @@
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-049 ベポ: 場5枚時 play_from_hand は trash_weakest_chara_for_field_full で差替、 アタッカー除去時はバトル中断(2026-08-04 fix)。 ルール上アタッカー自身を差替対象にすることは禁止されておらず(AI は最弱 auto、 human は選択)、 中断も handle = 公式どおり(差替+バトル終了)。",
   "q": "自分のキャラが5枚ある場合、この【アタック時】効果でキャラを登場させるときにベポ自身をトラッシュに置けますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cfb64617489d": {
   "a": "はい、自分のキャラであっても相手のキャラであってもアタックできません。",
@@ -11857,9 +11857,9 @@
   "files": [
    "cardqa_.json"
   ],
-  "note": "",
+  "note": "P-084 バギー: set_cannot_attack_filtered_static{filter:cost 3 or 4, scope:both} + if leader_name バギー。 scope=both で自陣・相手陣双方のコスト3,4キャラがアタック不可 = 公式どおり(はい、両方)。",
   "q": "自分のこのカードの「自分のリーダーが「バギー」の場合、コスト3と4のキャラすべては、アタックできない。」効果によって、自分のコスト3のキャラとコスト4のキャラはアタックできない状態になりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "cfc3876a9b53": {
   "a": "自分のリーダーは、相手の現在のターン終了時までパワー+1000されます。「次の相手のターン終了時まで」と書かれている効果が相手のターン中に発動した場合、その効果はその相手の現在のターン終了時に終了します。",
@@ -11869,9 +11869,9 @@
   "files": [
    "cardqa_st_21.json"
   ],
-  "note": "",
+  "note": "ST21-015→OP09-013 ヤソップ: power_pump duration=next_opp_turn_end。 相手ターン中の発火は 2026-08-10 是正(applied_turn<=turn_number)で当該相手ターン終了時に消える(game.py:662-668、 公式 OP01-085 と同則) = 公式どおり(相手の現在ターン終了時まで)。",
   "q": "相手のターン中に、この【KO時】効果で「OP09-013 ヤソップ」を登場させ、「【登場時】自分のリーダー1枚までを、次の相手のターン終了時まで、パワー+1000。」の効果を発動しました。この場合、自分のリーダーはいつまでパワー+1000されますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "d0a00929b13c": {
   "a": "この場合、自分の手札を1枚捨てることはできますが、「そうした場合、相手のパワー0以下のキャラ1枚までを、KOする。」を行うことはできません。",
@@ -11881,9 +11881,9 @@
   "files": [
    "cardqa_op_15.json"
   ],
-  "note": "",
+  "note": "OP15-020 火拳: optional_cost_then(cost=discard_hand:2, effect=ko one_opponent_character_power_le_0)。 payability(effects.py:9990) が len(hand)<2 で can_pay=False → KO 不発。 手札1枚では KO を行えない = 公式どおり。",
   "q": "自分の手札が1枚以下の時、この効果のうち「その後、自分の手札2枚を捨ててもよい。そうした場合、相手のパワー0以下のキャラ1枚までを、KOする。」を、1枚の手札を捨てて行うことはできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "d199fed64ed7": {
   "a": "いいえ、できません。",

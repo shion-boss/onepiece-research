@@ -1035,14 +1035,15 @@
    "_text": "don×1 on_attack: 自分の手札が1枚以下の場合、コスト3以下のキャラ1枚までを、持ち主の手札に戻す",
    "do": [
     {
-     "return_to_hand": "one_opponent_character_cost_le_3cost"
+     "return_to_hand": "one_character_either_cost_le_3cost"
     }
    ],
    "if": {
     "self_attached_don_ge": 1,
     "self_hand_count_le": 1
    },
-   "when": "on_attack"
+   "when": "on_attack",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only から one_character_either_cost_le に是正。"
   }
  ],
  "EB01-027": [
@@ -14874,13 +14875,14 @@
    "_text": "OP01-089 counter: 自分のリーダーが特徴《王下七武海》を持つ場合、コスト5以下のキャラ1枚までを、持ち主の手札に戻す。",
    "do": [
     {
-     "return_to_hand": "one_opponent_character_cost_le_5cost"
+     "return_to_hand": "one_character_either_cost_le_5cost"
     }
    ],
    "if": {
     "leader_feature": "王下七武海"
    },
-   "when": "counter"
+   "when": "counter",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only から one_character_either_cost_le に是正。"
   }
  ],
  "OP01-090": [
@@ -18414,7 +18416,7 @@
       ],
       "effect": [
        {
-        "return_to_deck_bottom": "one_opponent_character_cost_le_2"
+        "return_to_deck_bottom": "one_character_either_cost_le_2"
        },
        {
         "schedule_self_return_to_deck_bottom_at_battle_end": true
@@ -18426,7 +18428,8 @@
    "if": {
     "self_attached_don_ge": 1
    },
-   "when": "on_attack"
+   "when": "on_attack",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型パターン、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only spec から one_character_either_cost_le に是正。"
   }
  ],
  "OP02-065": [
@@ -22804,13 +22807,14 @@
    "_text": "OP03-049 on_play: 自分のデッキが20枚以下の場合、コスト3以下のキャラ1枚までを、持ち主の手札に戻す。",
    "do": [
     {
-     "return_to_hand": "one_opponent_character_cost_le_3"
+     "return_to_hand": "one_character_either_cost_le_3"
     }
    ],
    "if": {
     "self_deck_count_le": 20
    },
-   "when": "on_play"
+   "when": "on_play",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型パターン、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only spec から one_character_either_cost_le に是正。"
   }
  ],
  "OP03-050": [
@@ -28727,7 +28731,16 @@
         }
        },
        {
-        "return_to_deck_bottom": "one_opponent_character_any_cost_le_4"
+        "return_to_deck_bottom": {
+         "filter": {
+          "category_in": [
+           "CHARACTER"
+          ],
+          "cost_le": 4
+         },
+         "mandatory": true,
+         "type": "one_inplay_either_filtered"
+        }
        }
       ],
       "effect": [
@@ -28743,7 +28756,8 @@
      }
     }
    ],
-   "when": "main"
+   "when": "main",
+   "_doc": "2026-08-15 是正 (cardqa_op_04 cd9f7fb15360): 「コスト4以下のキャラ1枚を、持ち主のデッキの下に置く」 は 相手の 修飾なし=両陣営。 公式Q&A「この【メイン】効果で自分のコスト4以下のキャラをデッキの下に置くことはできますか？→はい」。 opp-only spec を either に是正。"
   },
   {
    "_text": "OP04-055 trigger: このカードの【メイン】効果を発動する。",
@@ -33552,10 +33566,11 @@
    },
    "do": [
     {
-     "return_to_deck_bottom": "one_opponent_character_any_cost_le_2"
+     "return_to_deck_bottom": "one_character_either_cost_le_2"
     }
    ],
-   "when": "activate_main"
+   "when": "activate_main",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型パターン、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only spec から one_character_either_cost_le に是正。"
   }
  ],
  "OP05-046": [
@@ -46797,7 +46812,7 @@
    "_text": "OP07-052 on_play: 自分の場に特徴《アマゾン・リリー》か《九蛇海賊団》を持つキャラが2枚以上いる場合、コスト2以下のキャラ1枚までを、持ち主のデッキの下に置く。",
    "do": [
     {
-     "return_to_deck_bottom": "one_opponent_character_any_cost_le_2"
+     "return_to_deck_bottom": "one_character_either_cost_le_2"
     }
    ],
    "if": {
@@ -46811,7 +46826,8 @@
      }
     }
    },
-   "when": "on_play"
+   "when": "on_play",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型パターン、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only spec から one_character_either_cost_le に是正。"
   }
  ],
  "OP07-053": [
@@ -51586,13 +51602,14 @@
       ],
       "effect": [
        {
-        "return_to_hand": "one_opponent_character_cost_le_6cost"
+        "return_to_hand": "one_character_either_cost_le_6cost"
        }
       ]
      }
     }
    ],
-   "when": "on_play"
+   "when": "on_play",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only から one_character_either_cost_le に是正。"
   }
  ],
  "OP08-047_p1": [
@@ -51608,13 +51625,14 @@
       ],
       "effect": [
        {
-        "return_to_hand": "one_opponent_character_cost_le_6cost"
+        "return_to_hand": "one_character_either_cost_le_6cost"
        }
       ]
      }
     }
    ],
-   "when": "on_play"
+   "when": "on_play",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only から one_character_either_cost_le に是正。"
   }
  ],
  "OP08-048": [],
@@ -51793,13 +51811,14 @@
       ],
       "effect": [
        {
-        "return_to_deck_bottom": "one_opponent_character_cost_le_6"
+        "return_to_deck_bottom": "one_character_either_cost_le_6"
        }
       ]
      }
     }
    ],
-   "when": "main"
+   "when": "main",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型パターン、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only spec から one_character_either_cost_le に是正。"
   }
  ],
  "OP08-056": [
@@ -66975,13 +66994,14 @@
       ],
       "effect": [
        {
-        "return_to_hand": "one_opponent_character_cost_le_1"
+        "return_to_hand": "one_character_either_cost_le_1"
        }
       ]
      }
     }
    ],
-   "when": "on_attack"
+   "when": "on_attack",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型パターン、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only spec から one_character_either_cost_le に是正。"
   }
  ],
  "OP11-051": [
@@ -76171,13 +76191,14 @@
       ],
       "effect": [
        {
-        "return_to_hand": "one_opponent_character_cost_le_6"
+        "return_to_hand": "one_character_either_cost_le_6"
        }
       ]
      }
     }
    ],
-   "when": "main"
+   "when": "main",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型パターン、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only spec から one_character_either_cost_le に是正。"
   },
   {
    "_text": "OP13-059 trigger: カード1枚を引く。",
@@ -80827,10 +80848,11 @@
      "draw": 2
     },
     {
-     "return_to_hand": "one_opponent_character_cost_le_7cost"
+     "return_to_hand": "one_character_either_cost_le_7cost"
     }
    ],
-   "when": "on_play"
+   "when": "on_play",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only から one_character_either_cost_le に是正。"
   },
   {
    "_text": "OP14-049 効果で自分の手札が捨てられた時、このキャラは、このターン中、【速攻】を得る。",
@@ -80857,10 +80879,11 @@
      "draw": 2
     },
     {
-     "return_to_hand": "one_opponent_character_cost_le_7cost"
+     "return_to_hand": "one_character_either_cost_le_7cost"
     }
    ],
-   "when": "on_play"
+   "when": "on_play",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only から one_character_either_cost_le に是正。"
   },
   {
    "_text": "OP14-049_p1 効果で自分の手札が捨てられた時、このキャラは、このターン中、【速攻】を得る。",
@@ -106083,7 +106106,7 @@
         "conditional": {
          "do": [
           {
-           "return_to_hand": "one_opponent_character_cost_le_4cost"
+           "return_to_hand": "one_character_either_cost_le_4cost"
           }
          ],
          "if": {
@@ -106095,7 +106118,8 @@
      }
     }
    ],
-   "when": "on_play"
+   "when": "on_play",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only から one_character_either_cost_le に是正。"
   }
  ],
  "ST17-002_p1": [
@@ -106114,7 +106138,7 @@
         "conditional": {
          "do": [
           {
-           "return_to_hand": "one_opponent_character_cost_le_4cost"
+           "return_to_hand": "one_character_either_cost_le_4cost"
           }
          ],
          "if": {
@@ -106126,7 +106150,8 @@
      }
     }
    ],
-   "when": "on_play"
+   "when": "on_play",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only から one_character_either_cost_le に是正。"
   }
  ],
  "ST17-002_r1": [
@@ -106145,7 +106170,7 @@
         "conditional": {
          "do": [
           {
-           "return_to_hand": "one_opponent_character_cost_le_4cost"
+           "return_to_hand": "one_character_either_cost_le_4cost"
           }
          ],
          "if": {
@@ -106157,7 +106182,8 @@
      }
     }
    ],
-   "when": "on_play"
+   "when": "on_play",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only から one_character_either_cost_le に是正。"
   }
  ],
  "ST17-003": [

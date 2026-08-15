@@ -1819,13 +1819,35 @@ def test_all_either_target_cards_are_optional_up_to_n():
             src = "trigger" if eff.get("when") == "trigger" else "text"
             text = re.sub(r"[(（][^)）]*[)）]", "",
                           re.sub(r"\s+", "", card.get(src) or ""))
-            m = re.search(r"キャラ\d*枚(まで)?", text)
             # ⭐ spec に "mandatory": true があれば 「相手が居なければ自陣から選ぶ」 分岐が
             #   実装済 (= この監査が求めている対応そのもの) なので対象外。
             #   OP06-043 アラマキ が第 1 号 (2026-08-10、 発動コストの必須両陣営ターゲット)。
             has_mandatory_flag = '"mandatory": true' in json.dumps(eff, ensure_ascii=False)
-            if m and not m.group(1) and not has_mandatory_flag:
-                mandatory.append(f"{cid}: {text[:70]}")
+            if has_mandatory_flag:
+                continue
+            # ⚠ **either-target 節そのもの** を見る。 カード全体の最初の 「キャラN枚」 を拾うと、
+            #   別節 (= 「自分のキャラ1枚を戻す」 等の self コスト) の 「1枚を」 を誤検出する
+            #   (2026-08-15: OP08-047/OP13-059/ST17-002 で顕在化。 これらの either-target は
+            #    「コストN以下のキャラ1枚まで」 で 「まで」 付き = optional で正しい)。
+            #   either-spec の cost 閾値 N を取り出し、 「コストN以下のキャラ…(まで)?」 の
+            #   **その節** で 「まで」 有無を判定する。
+            eff_json = json.dumps(eff, ensure_ascii=False)
+            thresholds = re.findall(r"one_character_either(?:_except_self)?_(?:any_)?cost_le_(\d+)",
+                                    eff_json)
+            thresholds += re.findall(r'"cost_le":\s*(\d+)', eff_json)
+            checked = False
+            for n in thresholds:
+                cm = re.search(r"コスト%s以下のキャラ\d*枚(まで)?" % re.escape(n), text)
+                if cm:
+                    checked = True
+                    if not cm.group(1):
+                        mandatory.append(f"{cid}: {text[:70]}")
+            if not checked:
+                # cost 閾値で節を特定できない either-spec (power_eq 等) は
+                # 「まで」 が text 内に 1 つでもあれば optional either-target ありとみなす。
+                m = re.search(r"キャラ\d*枚まで", text)
+                if not m:
+                    mandatory.append(f"{cid}: {text[:70]}")
     assert not mandatory, (
         "必須形 「キャラN枚を」 が両陣営 spec を使っている。 AI の 「相手が居なければ 0 枚」 は "
         "この形ではルール違反になるので、 必須なら自陣から選ぶ分岐が要る:\n  "
@@ -12370,3 +12392,102 @@ def test_ko_self_chara_leaves_turn_and_opp_turn_ko_immune():
             st, me, st.players[1], None,
         )
         assert ip in me.characters, f"{flag} のキャラが 自KO で除去された (公式違反)"
+
+
+# =========================================================================== #
+#  「相手の」 修飾なし の bounce/return 対象は 両陣営 (2026-08-15、 cardqa_op_04)
+#  一次情報 (cardqa_op_04 cd9f7fb15360、 OP04-055 疫災弾):
+#    「この【メイン】効果で自分のコスト4以下のキャラをデッキの下に置くことはできますか？」
+#    → 「はい、できます。」
+#  = 公式が 「相手の」 を書かず 「持ち主のデッキの下/手札」 と書く bounce は 自陣も対象。
+# =========================================================================== #
+def test_op04_055_bounce_target_offers_own_character():
+    """OP04-055 が使う one_character_either_cost_le_4 は 自陣キャラも対象に含める。
+
+    人間操作時、 自陣コスト4キャラと相手コスト4キャラが居れば modal 候補に
+    **両方** が並ぶ (旧 one_opponent_character_any_cost_le_4 では自陣が欠落していた)。
+    """
+    from engine.effects import _resolve_target
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, human_idx=0)
+    me, opp = st.players[0], st.players[1]
+    own = InPlay.of(repo.get("OP01-018"), sickness=False)   # cost4 CHARACTER
+    assert repo.get("OP01-018").cost == 4
+    enemy = InPlay.of(repo.get("OP01-018"), sickness=False)
+    me.characters = [own]
+    opp.characters = [enemy]
+    st.pending_choice = None
+    res = _resolve_target(
+        "one_character_either_cost_le_4", st, me, opp, None,
+        outer_kind="return_to_deck_bottom",
+        outer_value="one_character_either_cost_le_4",
+    )
+    # 人間操作なので modal (pending_choice) が立ち、 候補に自陣 own が含まれる
+    assert st.pending_choice is not None, "人間に bounce 対象の選択が問われていない"
+    cands = st.pending_choice.get("candidates", [])
+    iids = {c.get("iid") for c in cands}
+    assert own.instance_id in iids, "自陣キャラが bounce 候補に含まれていない (両陣営違反)"
+    assert enemy.instance_id in iids, "相手キャラも候補に含まれるべき"
+    assert res == [], "modal 待ち中は空 list を返す"
+
+
+def test_bounce_no_aite_modifier_targets_either_side_sweep():
+    """全走査ガード: 「相手の」 修飾なしで 「持ち主の(デッキ/手札)に戻す/置く」 と書く
+    bounce/return 効果が、 overlay で opp-only の cost_le target に縛られていないこと。
+
+    公式一般則 (cardqa_op_04): 「相手の」 が無い 「キャラ1枚まで」 は両陣営。 対象を
+    one_opponent_character_*_cost_le に限定すると 自陣キャラを選べず公式違反になる。
+    trigger 節は cards.json の text に含まれず 「相手の」 判定が偽陰性になるので除外。
+    EB03-025 は 元々のパワー6000 (truly_original_power) で either 版 target spec が
+    engine に未実装のため escalate 済 (別途対応)。
+    """
+    import json as _json
+    import re as _re
+    from pathlib import Path as _Path
+    root = _Path(__file__).resolve().parent.parent
+    cards = {c["card_id"]: c for c in _json.load(open(root / "db" / "cards.json"))}
+    ov = _json.load(open(root / "db" / "card_effects.json"))
+    ESCALATED = {"EB03-025"}   # truly_original_power either spec 未実装
+
+    def _walk_bounce_opp(o):
+        found = []
+        if isinstance(o, dict):
+            for k, v in o.items():
+                if k in ("return_to_hand", "return_to_deck_bottom",
+                         "return_to_hand_multi", "return_to_deck_bottom_multi"):
+                    s = _json.dumps(v, ensure_ascii=False)
+                    m = _re.search(r"one_opponent_character(?:_any)?_cost_le_\d+", s)
+                    if m:
+                        found.append(m.group(0))
+                found += _walk_bounce_opp(v)
+        elif isinstance(o, list):
+            for x in o:
+                found += _walk_bounce_opp(x)
+        return found
+
+    violations = []
+    for cid, entries in ov.items():
+        base = cid.split("_")[0]
+        if base in ESCALATED:
+            continue
+        if not isinstance(entries, list):
+            continue
+        c = cards.get(base) or cards.get(cid)
+        if not c:
+            continue
+        full_text = c.get("effect") or c.get("text") or ""
+        for e in entries:
+            if not isinstance(e, dict):
+                continue
+            if e.get("when") == "trigger":
+                continue   # trigger 節は text に無く偽陰性
+            opp_targets = _walk_bounce_opp(e.get("do", []))
+            if not opp_targets:
+                continue
+            # opp-only target を使いつつ full_text に 「相手」 が全く無い = 両陣営違反の疑い
+            if "相手" not in full_text:
+                violations.append((cid, e.get("when"), opp_targets, full_text[:50]))
+    assert not violations, (
+        "「相手の」 修飾なしの bounce が opp-only target に縛られている (両陣営違反): "
+        + "; ".join(f"{v[0]}({v[1]}) {v[2]}" for v in violations)
+    )
