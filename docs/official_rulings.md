@@ -8243,3 +8243,84 @@ engine が公式どおりと実測確認した項目 (いずれも is既に正�
   パワー条件ゲート無し = 現在パワー0以下でもターン1回未使用なら置換使用可 (= 場に残る)。
 - **P-032 センゴク** (d5880b91d356): `set_base_cost(-2, on_attached_don 静的)` と つる
   `cost_minus(timed)` は別レイヤ。 empirical: cost3→(P-032)1→(つる)0(floor)→(P-032離脱)1。
+
+---
+
+## 2026-08-15 バッチ (20 件、 conform×16 / n/a×2 / escalated×2)
+
+engine 挙動を実測または overlay 構造で確認。 fixed=0 (台帳/docs のみの回)。
+
+### escalated (アーキ変更が必要 = バッチ範囲外)
+
+- **OP03-090** (d8fd4940cd72、 cardqa_op_03): 「このカードと、 コスト4以下の『CP』を含む
+  特徴を持つ自分のキャラが **同時にKOされた** 場合、 この【KO時】効果でこのカードと同時に
+  KOされたカードを登場させることはできますか？ → はい」。 公式は **同時KOを1事象** として
+  扱うので、 全 victim が trash に入ってから on_ko が解決されるべき。 だが現 engine の KO 経路
+  (effects.py 8813 付近の `ko`/`ko_all_others` ループ) は **victim ごとに `remove→trash→
+  trigger_on_ko` を逐次実行** する。 `_order_simultaneous_victims` は replace_ko holder を後回し
+  にするだけで、 **on_ko-play-from-trash holder (OP03-090)** は先に発火しうる → 共KO 札がまだ
+  trash に無い。 realizable な同時KO (相手が OP01-094 ko_all_others を撃つ) の実測でも盤面が
+  不整合 (KO済カードが trash に無く盤上に残る)。 **根治 = 全同時 victim を trash してから
+  on_ko を一括発火する** = `ko`/`ko_multi`/`ko_all_others`/battle-KO/power-0-KO の全経路を
+  「収集→trash 一括→トリガー一括」 に組み替えるアーキ変更。 影響が広く、 Python↔Rust 両方の
+  同型改修を要するため escalated。
+- **PRB02-006** (d8f9f831e8f0、 cardqa_prb_02): 【相手のターン中】このキャラ (ゾロ) が相手の
+  キャラ効果でレストになる場合、 代わりに **同時に選ばれている別キャラ A** をレストにできるか
+  → はい (A のみレスト、 ゾロはアクティブ)。 相手 OP06-035 ホーディの **複数体同時レスト**
+  (アクティブ2体を選ぶ) と replace_rest の代替対象選択が絡む。 同時レストの解決順と、 「同じ
+  ホーディ効果で既に選ばれている A」 を置換先に選べるかの検証には専用シナリオ + 解決順の
+  掘り下げが要る (OP03-090 と同種の同時-事象アーキ問題)。 バッチ範囲外。
+
+### n/a (engine 挙動に落ちない / 盤面生成不能)
+
+- **OP06-074** (d739d4c7403a、 cardqa_op_06): 効果を無効にしたキャラを "元々の効果がないキャラ"
+  として扱うか → いいえ。 `negate_effect` は runtime の無効化フラグのみで、 「印刷上効果なし」
+  とは別レイヤ (engine は両者を混同する状態を持たない)。 定義質問。
+- **OP16-058** (d87da9ac9e1f、 cardqa_op_16): 「自分の『インペルダウンの囚人』すべて」 は
+  **カード名指し**。 リーダーに 「すべてのカード名と特徴と属性を持つ」 効果を与えるカードは
+  **プールに0枚** (全走査確認) → リーダーがその名を持つ盤面は生成不能で engine 検証不能。
+  キャラ対象の realizable ケース (`set_base_power_timed original:true, all_self_chara_named`) は
+  conform。
+
+### conform (実測 / 構造確認)
+
+- **OP01-020/041/051/063** (d63d9ef16b8e): rest-cost の起動メインは **召喚酔いを見ない**
+  (`_can_pay_activate_cost` は rested/cannot_be_rested のみ判定)。 登場ターンでも発動可を実測
+  (sickness=True でも `list_activate_main_effects` が列挙、 rested 済なら非列挙)。 アタックのみ
+  召喚酔い制約を受ける。
+- **OP12-048** (d8d3948a699b): replace_leave の cost に `rest_self`。 `_can_pay_replace_cost` が
+  rested/cannot_be_rested_buff/static_cannot_be_rested で払えないと判定 → レスト済なら
+  「このキャラをレストにし…」 の置換は発動できず通常離脱 (公式=いいえ)。 2026-08-04 の
+  「レストにできない=レストを要する行動不可」 一般則の replace 経路での確認。
+- **OP09-098 / OP10-098** (d819476985ba): 【トリガー】の `disable_effect(duration:turn)` は
+  `granted_keywords 効果無効` を付与し、 静的効果ループ (effects.py 13256) が効果無効カードを
+  スキップ → ナミ **OP03-040 の `set_deck_out_wins` が解除** され通常のデッキ切れ敗北に戻る。
+  実測: リーダーに効果無効付与で `deck_out_wins` True→False。 デッキ切れ勝利はリーダー効果
+  なので無効化で消える (ゲームルールでなく)。
+- **P-081** (d7da63777fed): `return_self_to_hand` コストを払った **後** に conditional
+  (青クロスギルド≥3) を評価。 自身含めちょうど3枚→戻すと2枚→登場せず を実測 (盤面3→2、
+  新規登場なし)。
+- **P-082 cost5 クロスギルド** は上テストの資材。
+- **OP14-044** (d812723aa1c8): `reveal_top(depth1, rest_remain:top)` → `draw2`(公開カード含む)
+  → `trash1`。 実測でデッキ-2 (公開カードも引かれる) / 手札 net+1。
+- **OP07-064** (d838443e6359): `in_hand cost_minus 3 (if don_diff_le -2)`。 実測でドン差≤-2 時に
+  減算3 (印刷6→3、 ≤5) = ST10-001 ロー効果 (コスト5以下登場) で登場可。 in_hand 修正は登場
+  経路に依らず現在コストに反映。
+- **OP03-027** (d6048e900a39): ブチ登場は leader_feature 東の海 + self_chara_named_absent ブチ の
+  両条件ゲート。 リーダー東の海不所持なら登場せず。
+- **ST10-006** (d69025b2188c): ko 対象は power≤8000 の相手キャラ全般、 ブロッカー発動キャラに
+  限定されない。
+- **OP11-040** (d7248e18e13a): on_turn_start `if self_don_ge 8`。 ドン7以下では search 不発 =
+  「発動できるが何も起きない」。
+- **ST02-003** (d7806876bcac): `power_pump duration=static`。 ダメージステップ時点のキャラ数で
+  再計算。
+- **OP12-028** (d7b0d80174b1): filter or_clauses 第1節 = attribute 斬 (色制限なし) → 緑以外の
+  斬カードも取れる。
+- **OP02-093** (d8123a907b12): cost_minus 後の conditional `exists_chara_cost_le 0` → leader+1000。
+  -1 したキャラ以外のコスト0キャラで条件成立。
+- **OP16-063** (d874e65a027e): `disable_blocker target one_opponent_character_any`。 ブロッカー
+  未所持キャラも選べる (後で得ても発動不可)。
+- **ST04-017** (d8ccfd0a40ae): `optional_cost_then(cost:rest_self)`。 リーダー百獣海賊団
+  不所持でも rest を払って発動可、 conditional で add_rested_don が gate = 何も起きない。
+- **OP11-097** (d92fa77f4d98): counter の `trash_to_hand` はトラッシュのマッチカードを対象
+  (除外なし)。 直前にカウンター使用したコスト3以下黒キャラも trash にあり取れる。
