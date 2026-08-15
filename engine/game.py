@@ -622,6 +622,7 @@ def _reset_turn_buff(state: GameState) -> None:
             ip.turn_base_power_override_is_original = False
         player.play_cost_reduction = 0
         player.block_chara_play_until_turn_end = False
+        player.block_hand_play_until_turn_end = False
         # OP09-081 effect: 自ターン 開始 で 「相手 on_play 無効」 flag reset (= 設定 player から 見て 1 周)
         player.opp_on_play_disabled_through_opp_turn = False
         player.block_self_draw_until_turn_end = False
@@ -997,7 +998,12 @@ def legal_actions(state: GameState) -> list[Action]:
         return max(0, base)
 
     # キャラ登場禁止 (OP14-020 ミホーク等のペナルティでこのターン中ブロック)
-    chara_play_blocked = me.block_chara_play_until_turn_end
+    # block_hand_play_until_turn_end (OP13-028) = 手札からの通常プレイ禁止 (= キャラ通常登場も含む)。
+    # ⚠ 効果登場 (_char_summon_blocked) は block_hand_play_until_turn_end を見ないので許可される。
+    chara_play_blocked = (
+        me.block_chara_play_until_turn_end or me.block_hand_play_until_turn_end
+    )
+    hand_play_blocked = me.block_hand_play_until_turn_end  # OP13-028: イベント/ステージの通常プレイも禁止
     _cost_block = me.block_chara_play_cost_ge_threshold  # 元々コスト≥閾値 を登場禁止 (-1=なし)
 
     def _cost_play_blocked(c) -> bool:
@@ -1050,6 +1056,8 @@ def legal_actions(state: GameState) -> list[Action]:
     for i, c in enumerate(me.hand):
         if c.category != Category.EVENT:
             continue
+        if hand_play_blocked:
+            continue  # OP13-028: 手札からのイベント発動も禁止
         if _eff_cost(c) > me.don_active:
             continue
         # overlay に main 効果がある場合のみ発動候補に (空効果の event でもプレイ可)
@@ -1059,6 +1067,8 @@ def legal_actions(state: GameState) -> list[Action]:
     for i, c in enumerate(me.hand):
         if c.category != Category.STAGE:
             continue
+        if hand_play_blocked:
+            continue  # OP13-028: 手札からのステージ通常登場も禁止
         if _eff_cost(c) > me.don_active:
             continue
         actions.append(PlayStage(hand_idx=i))

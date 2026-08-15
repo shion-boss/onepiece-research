@@ -9758,6 +9758,12 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             state.players[me_idx].block_chara_play_until_turn_end = true;
             true
         }
+        // 「手札からカードをプレイできない」(OP13-028 シャンクス)。 通常プレイのみ禁止し、 効果登場は許可。
+        // cardqa_op_13 (db0c0c0d2ab9): 別の効果による 「登場させる」 は禁止しない。
+        "block_hand_play_turn" => {
+            state.players[me_idx].block_hand_play_until_turn_end = true;
+            true
+        }
         // 「その後、 このバトル終了時、 このキャラを持ち主のデッキの下に置く」 (effects.py:6934、
         // OP02-064 ボン・クレー)。 発動元に flag を立てるだけで、 実際の移動は バトル終了フック
         // (rules.rs:reset_battle_buffs) が行う。 発動元が場に居ない (Detached) 時は Python も
@@ -10650,7 +10656,7 @@ fn on_trigger_prim_safe(key: &str) -> bool {
             | "reduce_play_cost_filtered_turn" | "trash_opp_hand_random"
             | "set_all_life_face_down" | "hand_to_deck_bottom"
             | "schedule_self_trash_at_turn_end" | "set_ko_immune_timed"
-            | "opp_hand_to_size" | "block_chara_play_cost_ge" | "draw_to_hand_size"
+            | "opp_hand_to_size" | "block_chara_play_cost_ge" | "block_hand_play_turn" | "draw_to_hand_size"
             | "block_self_attack_leader_turn" | "draw_per_hand_to_deck_bottom"
             | "reveal_opp_hand" | "power_pump_per_target_attached_don" | "swap_opp_power"
             | "set_ko_per_turn_immune" | "bounce_self_chara_then_play_diff_color"
@@ -14673,7 +14679,11 @@ pub fn legal_actions(state: &GameState) -> Vec<Value> {
     out.push(json!({"t": "EndPhase"}));
 
     let field_full = me.characters.len() >= 5;
-    let chara_play_blocked = me.block_chara_play_until_turn_end;
+    // block_hand_play_until_turn_end (OP13-028) = 手札からの通常プレイ禁止 (キャラ通常登場も含む)。
+    // ⚠ 効果登場 (char_summon_blocked) は block_hand_play_until_turn_end を見ないので許可される。
+    let chara_play_blocked =
+        me.block_chara_play_until_turn_end || me.block_hand_play_until_turn_end;
+    let hand_play_blocked = me.block_hand_play_until_turn_end;
     let cost_block = me.block_chara_play_cost_ge_threshold;
     let cost_play_blocked = |c: &CardDef| cost_block >= 0 && c.cost >= cost_block;
 
@@ -14703,11 +14713,17 @@ pub fn legal_actions(state: &GameState) -> Vec<Value> {
     }
 
     for (i, c) in me.hand.iter().enumerate() {
+        if hand_play_blocked {
+            break; // OP13-028: 手札からのイベント発動も禁止
+        }
         if c.category == Category::Event && eff_cost(state, me_idx, c) <= me.don_active {
             out.push(json!({"t": "PlayEvent", "hand_idx": i}));
         }
     }
     for (i, c) in me.hand.iter().enumerate() {
+        if hand_play_blocked {
+            break; // OP13-028: 手札からのステージ通常登場も禁止
+        }
         if c.category == Category::Stage && eff_cost(state, me_idx, c) <= me.don_active {
             out.push(json!({"t": "PlayStage", "hand_idx": i}));
         }

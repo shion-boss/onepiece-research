@@ -6786,9 +6786,17 @@ def _execute_effect_body_inner(
             if removed > 0:
                 state.push_log(f"  効果: 相手ステージ {removed} 枚を KO")
         elif k == "block_chara_play_turn":
-            # このターン中、 自分はキャラを登場できない (= 自陣 chara play 禁止)。 OP12-014 等。
+            # このターン中、 自分はキャラを登場できない (= 自陣 chara play 禁止)。 OP14-024 錦えもん等。
+            # 公式「キャラカードを登場できない」= 通常プレイも **効果登場も** 一律禁止。
             me.block_chara_play_until_turn_end = True
             state.push_log(f"  効果: このターン中、 自キャラ登場禁止")
+        elif k == "block_hand_play_turn":
+            # このターン中、 自分は 「手札からカードをプレイできない」 (OP13-028 シャンクス)。
+            # 公式 (cardqa_op_13, db0c0c0d2ab9): 通常コストを支払っての手札からのキャラ/ステージ登場・
+            # イベント発動のみ禁止する効果で、 別の効果による 「登場させる」 (effect summon) は禁止しない。
+            # → block_chara_play_until_turn_end とは別フラグにし、 _char_summon_blocked では見ない。
+            me.block_hand_play_until_turn_end = True
+            state.push_log(f"  効果: このターン中、 手札からの通常プレイ禁止 (効果登場は可)")
         elif k == "in_hand_cost_minus" or k == "in_hand_cost_plus":
             # 手札中の自身のカードコスト軽減/増加 (= overlay の in_hand effect で使用)。
             # execute_effect 経由ではなく game.py の _in_hand_cost_minus で別経路扱い。

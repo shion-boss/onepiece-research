@@ -8324,3 +8324,116 @@ engine 挙動を実測または overlay 構造で確認。 fixed=0 (台帳/docs 
   不所持でも rest を払って発動可、 conditional で add_rested_don が gate = 何も起きない。
 - **OP11-097** (d92fa77f4d98): counter の `trash_to_hand` はトラッシュのマッチカードを対象
   (除外なし)。 直前にカウンター使用したコスト3以下黒キャラも trash にあり取れる。
+
+
+## 2026-08-15 pending 消化バッチ (台帳 d93〜dc9、 1 fixed / 14 conform / 2 n/a / 3 escalated)
+
+### 【fixed】OP13-028 シャンクス「手札からカードをプレイできない」が effect summon を過剰ブロック
+
+**一次情報** (cardqa_op_13, qid `db0c0c0d2ab9`):
+
+> Q: この【登場時】効果を発動し、手札からカードをプレイできない状態となっているターンに、
+>    「手札からキャラカード1枚までを、登場させる」などと書かれた別の効果によって自分のキャラを
+>    登場させることはできますか？
+> A: はい、できます。この効果は、通常のコストを支払って、手札からキャラやステージを登場させることや
+>    イベントの効果を発動することを禁止する効果です。
+
+OP13-028【登場時】=「自分のドン‼すべてを、アクティブにする。その後、自分は、このターン中、
+手札からカードをプレイできない。」
+
+**是正前の挙動**: overlay が `block_chara_play_turn` (= `block_chara_play_until_turn_end`) を使用。
+このフラグは `_char_summon_blocked` (effects.py:3710) が参照し、 **effect summon (`play_from_hand`)
+まで一律ブロック**していた。 = 別効果の「登場させる」も潰す公式違反。 Python/Rust とも同じ overlay を
+読むので差分検証では沈黙。
+
+**書き分け** (公式):
+- 「キャラ(カード)を登場できない」 (EB03-024 / OP14-024) = 通常プレイも **効果登場も** 一律禁止
+  → `block_chara_play_turn` (= `block_chara_play_until_turn_end`、 `_char_summon_blocked` が見る)
+- 「手札からカードをプレイできない」 (OP13-028) = **通常プレイ (キャラ/イベント/ステージ) のみ** 禁止。
+  効果登場は許可 → 新 primitive `block_hand_play_turn` (= `block_hand_play_until_turn_end`)
+
+**実装** (Python + Rust 同時):
+- 新フラグ `Player.block_hand_play_until_turn_end` (core.rs/state.rs)、 Phase.END でリセット。
+- 新 primitive `block_hand_play_turn`。 OP13-028 (+ `_p1`) の overlay を移行。
+- legal_actions: 通常キャラ/イベント/ステージ play を `block_hand_play_until_turn_end` で gate
+  (キャラは `block_chara_play_until_turn_end` と OR)。 `_char_summon_blocked` は新フラグを **見ない**
+  ので effect summon は通る。 従来 event/stage は無 gate だったが公式どおり通常プレイ禁止に含める。
+
+**恒久ガード**:
+- `test_op13_028_hand_play_block_allows_effect_summon` (通常 play 全禁止 + effect summon 可)。
+- `test_hand_play_block_vs_summon_block_overlay_sweep` (全 overlay 走査: 「プレイできない」は
+  `block_hand_play_turn`、 「登場できない」は登場ブロック primitive を使うことを assert)。
+
+**掃引**: 「手札からカードをプレイできない」= OP13-028 のみ (base 1 枚 + `_p1`)。 「登場できない」系は
+EB03-024 / OP14-024 が `block_chara_play_turn`、 OP13-023 が `block_chara_play_cost_ge` で分離済。
+
+### 【escalated】EB04-044 コビー: ターン終了時の一時登場離脱で replace_leave が未発火 (確証バグ)
+
+**一次情報** (cardqa_eb_04, qid `dc9672a5d522`):
+
+> Q: 自分の「OP11-092 ヘルメッポ」の【登場時】効果でこのキャラを登場させ、そのターンの終了時に
+>    このキャラが場を離れる場合、このキャラの【ターン1回】効果で代わりに自分の手札1枚を捨て、
+>    このキャラを場に残すことはできますか？
+> A: はい、できます。
+
+**確証**: 海軍リーダー + コビー (`return_to_deck_bottom_at_turn_end=True`) + 手札1枚で END phase を
+進めると、 コビーはデッキ下へ戻り手札は減らず = replace_leave が発火しない (実測)。 game.py の turn-end
+flush (`return_to_deck_bottom_at_turn_end` / `trash_at_self_turn_end` の除去、 13929付近) が置換機構
+`try_replace_ko(leave_kind="return_to_deck_bottom")` を通さず直接 remove しているため。
+
+**escalated 理由**: 修正は turn-end flush を replace_leave サブシステム (バッチ判定 / 人間選択の
+pending_choice / `_replace_leave_active_holders` ループ防止) に両エンジンで配線する変更。 flush の
+ordering + pending 処理 + Rust ミラーを同時に触るため、 単独バッチでフル parity 検証すべく保留。
+影響 = replace_leave を持ち、 かつターン終了時強制離脱 (一時登場 / 自己トラッシュ) しうるキャラ。
+
+### 【escalated】OP15-022 ブルック: デッキアウト遅延敗北の別Q
+
+qid `db1dccb31129` (デッキ1→0→1+ 後に相手が闇水でリーダー効果を無効化→ターン終了時敗北)。
+既 escalated の「ブルックの遅延デッキアウト敗北ルールが未実装」(敗北判定アーキ変更) と同一機構。
+
+### 【escalated】OP07-019 緑ボニー: 3枚ネストのトリガースタック順序
+
+qid `d9fb3f34388f`。 ドフラミンゴ【アタック時】でジンベエ登場 → 本カード【相手のアタック時】→
+ジンベエ【登場時】 の順。 相手のアタック時がジンベエ登場時より先に解決するため、 ジンベエ登場時が
+出すキャラはレスト対象外。 3枚同時 + ネスト on_play キュー順序の確証に自信不足で保留。
+
+### 【conform】問題なかったもの (実測/構造確認)
+
+- **OP02-024 モビー・ディック号** (`d9359f112434`): 「エドワード・ニューゲート名 OR 白ひげ特徴」の
+  単一 power_pump(+2000)。 両条件一致キャラも +2000 一回のみ (+4000 にならない)。
+- **OP01-114** (`d938deb0b256`): 捨てるカードは相手 (手札の持ち主) が選ぶ = `opp_discard_own_choice`
+  (2026-08-07 chooser 是正済)。
+- **OP01-118 ウル頭銃** (`d986160191e7`): counter の draw は do 内の必須効果 (optional でない)。
+  引かない選択は不可。
+- **OP05-003 イナズマ** (`d9c6b92c3b5a`): アタック可否条件 (パワー7000以上キャラ存在) はアタック宣言時の
+  現盤面で判定。 登場後に条件消失ならアタック不可 (既記録)。
+- **OP15-076 エネル** (`daec77748323`): pay_don1 は条件不成立でも払え、 draw は leader=エネル 条件下。
+  相手キャラ0枚でも power_pump(0対象可)で発動可 ([cost-not-gated])。
+- **OP16-097** (`db0c0756ebfd`): search_from_trash(0可) → play_from_hand(cost2以下) は独立逐次。
+  トラッシュから加えなくても登場可。
+- **EB03-027** (`dbf73b12f2a8`): `return_to_hand one_character_either_truly_original_power_eq_7000`。
+  元々パワー7000ちょうどのみ対象、 7000未満は戻せない。
+- **EB03-051 スムージー** (`dc061691f63f`): if has_face_up_life → [ko(1枚まで), set_all_life_face_down]。
+  KO対象不在でも その後のライフ裏向きは走る (既記録)。
+- **OP09-001** (`dc1dbb1adc08`): opp_attack の once_per_turn 任意トリガー。 初回アタックで発動せず次の
+  アタックで発動可 (初回強制でない)。
+- **OP02-013 エース** (`dcc9553f7b61`): power_pump -3000(0可) と give_keyword 速攻(leader 白ひげ条件)は
+  独立。 -3000 しなくても速攻取得可 (既記録)。
+- **OP06-038 一大・三千・大千・世界** (`d9d2352d4e7e`): counter イベント (cost1)。 `_fire_counter_events`
+  が発動効果より前に `don_rested += card.cost` (game.py:2665)、 `self_rested_cards_count_ge` は
+  don_rested を数える (effects.py:2167)。 既存レスト7 + コストのドン1 = 8 で条件成立 → +4000。 実測確認。
+- **OP06-006 サガ** (`dadc6bf5d968`): `schedule_at_self_turn_end` は Player に予約され END phase で
+  self_inplay=None で flush。 発動元が場を離れても予約は生き、 他の FILM キャラをトラッシュ。 実測確認。
+- **EB04-016 トリ** (`dc93b0b03db4`): 起動メインの `block_chara_effect_untap_don_until_turn_end` は
+  untap_don gate (effects.py:5612) で self_inplay がキャラ (OP07-021 の自ターン終了時=キャラ効果) の時
+  no-op。 ターン終了時のドン活性化不可。
+- **OP06-072 コゼット** (`dc1690dca8ab`): ブロッカーは on_attached_don n=0 の静的付与 (if don_diff_le -2
+  + leader ジェルマ66) → static_granted_keywords。 `_recompute_static` 毎に再評価。 実測: diff-2 で
+  ブロッカー有 → 相手アタック時ドン減で diff-1 になると即消滅 → ブロック不可。
+
+### 【n/a】engine の状態差分に落ちない手順/定義質問
+
+- **OP05-058** (`dad22a998e5e`): コスト3以下キャラをデッキ下に置く順番を誰が選ぶか (ターンプレイヤー先→
+  相手)。 engine は deck 下配置順を player-choice として意味的にモデルしない。
+- **OP13-079 黒イム** (`db41280fdc0e`): 両者同リーダー時のゲーム開始時ステージ登場順 (先攻後攻選択者が
+  先)。 ターン順の定義質問。

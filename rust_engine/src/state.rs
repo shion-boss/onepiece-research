@@ -457,6 +457,10 @@ pub struct Player {
     pub play_cost_reductions_filtered: Vec<serde_json::Value>,
     pub play_cost_reductions_filtered_turn: Vec<serde_json::Value>,
     pub block_chara_play_until_turn_end: bool,
+    /// 「手札からカードをプレイできない」(OP13-028 シャンクス)。 通常プレイ (キャラ/イベント/ステージ)
+    /// のみ禁止し、 別の効果による effect summon は禁止しない (cardqa_op_13, db0c0c0d2ab9)。
+    #[serde(default)]
+    pub block_hand_play_until_turn_end: bool,
     pub cannot_attack_leader_until_turn_end: bool,
     pub block_chara_play_cost_ge_threshold: i32,
     pub opp_on_play_disabled_through_opp_turn: bool,

@@ -75320,7 +75320,7 @@
      "untap_don": "all"
     },
     {
-     "block_chara_play_turn": true
+     "block_hand_play_turn": true
     }
    ],
    "when": "on_play"
@@ -75334,7 +75334,7 @@
      "untap_don": "all"
     },
     {
-     "block_chara_play_turn": true
+     "block_hand_play_turn": true
     }
    ],
    "when": "on_play"

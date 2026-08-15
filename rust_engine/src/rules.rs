@@ -354,6 +354,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
         }
         p.play_cost_reduction = 0;
         p.block_chara_play_until_turn_end = false;
+        p.block_hand_play_until_turn_end = false;
         p.opp_on_play_disabled_through_opp_turn = false;
         p.block_self_draw_until_turn_end = false;
         p.block_chara_effect_untap_don_until_turn_end = false;

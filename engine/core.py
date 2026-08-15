@@ -748,7 +748,13 @@ class Player:
     # ターン refresh でクリア。 _eff_cost に加算。
     play_cost_reductions_filtered_turn: list = field(default_factory=list)
     # ターン中、キャラ登場を禁止するフラグ (OP14-020 緑ミホーク等のペナルティ)。Phase.END でリセット
+    # 公式「キャラカードを登場できない」= 通常プレイも効果登場も一律禁止 (_char_summon_blocked 参照)。
     block_chara_play_until_turn_end: bool = False
+    # ターン中、手札からカードを **プレイ (= 通常コスト支払い)** できないフラグ (OP13-028 シャンクス)。
+    # 公式「手札からカードをプレイできない」= 通常プレイ (キャラ/イベント/ステージ) のみ禁止し、
+    # 別の効果による「登場させる」(effect summon) は禁止しない (cardqa_op_13, db0c0c0d2ab9)。
+    # → legal_actions の通常プレイ gate のみで見る。 _char_summon_blocked は **見ない**。Phase.END でリセット
+    block_hand_play_until_turn_end: bool = False
     # 「自分は、 このターン中、 リーダーにアタックできない」 (OP06-026 等)。
     # action 生成で AttackLeader を除外。 ターン開始 refresh でクリア。
     cannot_attack_leader_until_turn_end: bool = False

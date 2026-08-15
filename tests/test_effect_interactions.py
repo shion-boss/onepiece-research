@@ -12543,3 +12543,103 @@ def test_op10_003_self_turn_end_untap_don_fires_before_power_revert():
     assert donq.power == 7000
     advance_phase(st)
     assert p0.don_active == 1, "バフ込み6000以上のドンキホーテ海賊団がいる自ターン終了時に untap_don が発動していない"
+
+
+def test_op13_028_hand_play_block_allows_effect_summon():
+    """OP13-028 シャンクス:【登場時】「その後、自分は、このターン中、手札からカードをプレイできない」。
+
+    公式 (cardqa_op_13, qid db0c0c0d2ab9):
+      Q: この【登場時】効果を発動し、手札からカードをプレイできない状態となっているターンに、
+         「手札からキャラカード1枚までを、登場させる」などと書かれた別の効果によって
+         自分のキャラを登場させることはできますか？
+      A: はい、できます。この効果は、通常のコストを支払って、手札からキャラやステージを
+         登場させることやイベントの効果を発動することを禁止する効果です。
+
+    → 「手札からカードをプレイできない」= 通常プレイ (キャラ/イベント/ステージ) のみ禁止。
+      別効果による effect summon (play_from_hand) は **禁止しない**。
+    是正前 (block_chara_play_turn 共用) は _char_summon_blocked が同一フラグを見て
+    effect summon まで潰していた (= タダ撃ちならぬ「タダ登場も禁止」の過剰ブロック)。
+    """
+    from engine.game import legal_actions, PlayCharacter, PlayEvent, PlayStage
+    repo, ov = _repo(), _overlay()
+    st, p0, p1 = _board_fi(repo, ov, [], [], turn=0)
+    p0.don_active = 10
+    # 手札に キャラ / イベント / ステージ を 1 枚ずつ
+    p0.hand = [repo.get("OP01-013"), repo.get("EB01-009"), repo.get("OP04-096")]
+
+    # OP13-028 の on_play do (untap_don all + block_hand_play_turn) を発火
+    execute_effect({"block_hand_play_turn": True}, st, p0, p1, None)
+    assert p0.block_hand_play_until_turn_end is True
+    assert p0.block_chara_play_until_turn_end is False, (
+        "block_hand_play は block_chara_play とは別フラグでなければならない"
+    )
+
+    la = legal_actions(st)
+    assert not any(isinstance(a, PlayCharacter) for a in la), "通常キャラ登場が禁止されていない"
+    assert not any(isinstance(a, PlayEvent) for a in la), "通常イベント発動が禁止されていない"
+    assert not any(isinstance(a, PlayStage) for a in la), "通常ステージ登場が禁止されていない"
+
+    # 別効果による effect summon (play_from_hand) は許可される
+    n_before = len(p0.characters)
+    execute_effect({"play_from_hand": {"filter": {"category": "CHARACTER"}, "limit": 1}},
+                   st, p0, p1, None)
+    guard = 0
+    while st.pending_choice is not None and guard < 5:
+        resolve_pending_choice(st, [0]); guard += 1
+    assert len(p0.characters) == n_before + 1, (
+        "手札プレイ禁止中でも別効果の登場は可能でなければならない (cardqa_op_13)"
+    )
+
+
+def test_hand_play_block_vs_summon_block_overlay_sweep():
+    """全 overlay 走査: 「手札からカードをプレイできない」系と「(キャラ)登場できない」系が
+    正しい primitive を使っているか。
+
+    公式の書き分け (cardqa_op_13):
+      - 「手札からカードをプレイできない」 (OP13-028) = 通常プレイのみ禁止 → block_hand_play_turn
+      - 「キャラ(カード)を登場できない」 (EB03-024 / OP14-024 等) = 効果登場も禁止 → block_chara_play_turn
+    過去にこの2型が block_chara_play_turn を共用しており、 前者で effect summon が過剰ブロック
+    されていた。 取りこぼしが他カードに再発しないよう全走査で固定する。
+    """
+    ov = json.load(open("db/card_effects.json", encoding="utf-8"))
+    cards = {c["card_id"]: c for c in json.load(open("db/cards.json", encoding="utf-8"))}
+
+    def prims_in(ents):
+        found = set()
+        def scan(d):
+            if isinstance(d, dict):
+                for kk, vv in d.items():
+                    if kk in ("block_hand_play_turn", "block_chara_play_turn",
+                              "block_chara_play", "block_chara_play_cost_ge"):
+                        found.add(kk)
+                    scan(vv)
+            elif isinstance(d, list):
+                for x in d:
+                    scan(x)
+        scan(ents)
+        return found
+
+    for cid, ents in ov.items():
+        if not isinstance(ents, list):
+            continue
+        prims = prims_in(ents)
+        if not prims:
+            continue
+        base = cid.split("_")[0]
+        text = (cards.get(base, {}) or {}).get("text", "") or ""
+        if "手札からカードをプレイできない" in text:
+            assert "block_hand_play_turn" in prims, (
+                f"{cid}: 「手札からカードをプレイできない」は block_hand_play_turn を使うべき (prims={prims})"
+            )
+            assert "block_chara_play_turn" not in prims and "block_chara_play" not in prims, (
+                f"{cid}: 「プレイできない」に登場ブロック primitive を使ってはならない (prims={prims})"
+            )
+        elif ("キャラカードを登場できない" in text or "キャラを登場できない" in text):
+            # 効果登場も禁止する型 = block_chara_play(_turn) か cost_ge のいずれか
+            assert ("block_chara_play_turn" in prims or "block_chara_play" in prims
+                    or "block_chara_play_cost_ge" in prims), (
+                f"{cid}: 「登場できない」は登場ブロック primitive を使うべき (prims={prims})"
+            )
+            assert "block_hand_play_turn" not in prims, (
+                f"{cid}: 「登場できない」に block_hand_play_turn (通常プレイのみ禁止) を使ってはならない"
+            )
