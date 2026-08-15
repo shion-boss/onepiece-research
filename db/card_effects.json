@@ -60763,20 +60763,22 @@
  "OP10-003": [
   {
    "_text": "OP10-003 【自分のターン終了時】自分のパワー6000以上の特徴《ドンキホーテ海賊団》を持つキャラがいる場合、自分のドン‼1枚までを、アクティブにする。【相手のターン中】【ターン1回】自分がイベントを発動した時、ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
-   "conditions": [
-    {
-     "opp_turn": true
-    }
-   ],
    "do": [
     {
      "untap_don": 1
     }
    ],
    "if": {
-    "opp_turn": true
+    "self_chara_filtered_count_ge": {
+     "count": 1,
+     "filter": {
+      "feature": "ドンキホーテ海賊団",
+      "current_power_ge": 6000
+     }
+    }
    },
-   "when": "end_of_turn"
+   "when": "end_of_turn",
+   "_doc": "2026-08-15 是正 (cardqa_op_10): 旧 overlay は if:{opp_turn:true} で 自ターン終了時 (end_of_turn = turn_player 視点) に決して発動せず、 かつ 「パワー6000以上の特徴《ドンキホーテ海賊団》キャラがいる場合」 条件が欠落していた。 バフ込み現在パワーで判定 (公式: パワーが元に戻るより前に発動 = trigger_end_of_turn は _reset_turn_buff より前)。"
   },
   {
    "_text": "【相手のターン中】【ターン1回】自分がイベントを発動した時、ドン!!デッキからドン!!1枚までを、アクティブで追加",
@@ -60797,20 +60799,22 @@
  "OP10-003_p1": [
   {
    "_text": "OP10-003_p1 【自分のターン終了時】自分のパワー6000以上の特徴《ドンキホーテ海賊団》を持つキャラがいる場合、自分のドン‼1枚までを、アクティブにする。【相手のターン中】【ターン1回】自分がイベントを発動した時、ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
-   "conditions": [
-    {
-     "opp_turn": true
-    }
-   ],
    "do": [
     {
      "untap_don": 1
     }
    ],
    "if": {
-    "opp_turn": true
+    "self_chara_filtered_count_ge": {
+     "count": 1,
+     "filter": {
+      "feature": "ドンキホーテ海賊団",
+      "current_power_ge": 6000
+     }
+    }
    },
-   "when": "end_of_turn"
+   "when": "end_of_turn",
+   "_doc": "2026-08-15 是正 (cardqa_op_10): 旧 overlay は if:{opp_turn:true} で 自ターン終了時 (end_of_turn = turn_player 視点) に決して発動せず、 かつ 「パワー6000以上の特徴《ドンキホーテ海賊団》キャラがいる場合」 条件が欠落していた。 バフ込み現在パワーで判定 (公式: パワーが元に戻るより前に発動 = trigger_end_of_turn は _reset_turn_buff より前)。"
   },
   {
    "_text": "【相手のターン中】【ターン1回】自分がイベントを発動した時、ドン!!デッキからドン!!1枚までを、アクティブで追加",
@@ -60831,20 +60835,22 @@
  "OP10-003_p2": [
   {
    "_text": "OP10-003_p2 【自分のターン終了時】自分のパワー6000以上の特徴《ドンキホーテ海賊団》を持つキャラがいる場合、自分のドン‼1枚までを、アクティブにする。【相手のターン中】【ターン1回】自分がイベントを発動した時、ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
-   "conditions": [
-    {
-     "opp_turn": true
-    }
-   ],
    "do": [
     {
      "untap_don": 1
     }
    ],
    "if": {
-    "opp_turn": true
+    "self_chara_filtered_count_ge": {
+     "count": 1,
+     "filter": {
+      "feature": "ドンキホーテ海賊団",
+      "current_power_ge": 6000
+     }
+    }
    },
-   "when": "end_of_turn"
+   "when": "end_of_turn",
+   "_doc": "2026-08-15 是正 (cardqa_op_10): 旧 overlay は if:{opp_turn:true} で 自ターン終了時 (end_of_turn = turn_player 視点) に決して発動せず、 かつ 「パワー6000以上の特徴《ドンキホーテ海賊団》キャラがいる場合」 条件が欠落していた。 バフ込み現在パワーで判定 (公式: パワーが元に戻るより前に発動 = trigger_end_of_turn は _reset_turn_buff より前)。"
   },
   {
    "_text": "【相手のターン中】【ターン1回】自分がイベントを発動した時、ドン!!デッキからドン!!1枚までを、アクティブで追加",

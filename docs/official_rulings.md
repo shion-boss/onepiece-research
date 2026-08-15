@@ -8181,3 +8181,65 @@ engine が公式どおりと実測確認した項目 (いずれも is既に正�
 `_order_simultaneous_victims` は 「他 victim を救う holder」 のみ front-load し、 「co-victim を rest 資源に
 して自分を救う」 パターンを扱わない。 根治は victim 順序ヒューリスティックの拡張 (Python+Rust) =
 既知の穴 (人間の順序選択が未配線)。 影響は同型の replace_ko (自救 + 他 victim を資源に取る) カードに限定。
+
+## 2026-08-15 バッチ (faq-conformance routine, cardqa 20 件)
+
+### 是正 (fixed)
+
+- **OP10-003 シュガー 【自分のターン終了時】ドン untap** (cardqa_op_10 d27137156709):
+  「自分のパワー6000以上の特徴《ドンキホーテ海賊団》を持つキャラがいる場合、自分のドン‼1枚
+  までを、アクティブにする」。 旧 overlay は `if:{opp_turn:true}` かつ「6000以上のドンキホーテ
+  海賊団キャラがいる場合」条件が**丸ごと欠落**していた。 `end_of_turn` は turn_player 視点で
+  発火する (effects.py 表 L44) ので、 自ターン終了時には opp_turn が常に False =
+  **この効果は一度も発動しなかった**。 `self_chara_filtered_count_ge{feature:ドンキホーテ海賊団,
+  current_power_ge:6000}` に是正 (バフ込み現在パワーで判定 = 公式「パワーが元に戻るより前に
+  発動」。 `trigger_end_of_turn` は `_reset_turn_buff` より前 = game.py 889 < 916)。
+  全 3 variant (base/_p1/_p2) を是正。 empirical: 素5000→不発 / +2000バフ7000→untap_don 発火。
+  回帰テスト = `test_op10_003_self_turn_end_untap_don_fires_before_power_revert`。
+
+### 問題なし (conform) — 記録して再調査を防ぐ
+
+- **OP11-041 ナミ** (d199fed64ed7): EB01-052 ヴィオラの登場時 (相手ライフを見て並べ替え =
+  `scry_all_life_reorder`) はライフを場から離さないので、 リーダーの【自分のターン中】
+  「ライフが離れた時」 draw は発動しない。 並べ替え ≠ 離脱。
+- **OP04-099 おリン** (d22f43fa3b75): 【トリガー】自身登場 (self_life_le:1)。 game.py で
+  `taken = life.pop` (L2000) がトリガー発火 (L2483) より前に走るので、 ライフ2枚で1ダメージ
+  受けた瞬間はライフ1枚 = self_life_le:1 成立 → 登場可。
+- **OP05-003 イナズマ** (d2444e8239f9): 速攻付与は `on_attached_don(n=0)` 静的効果で
+  `evaluate_static_effects` が毎 recompute 再評価。 7000以上のキャラが後から出ても条件成立で
+  速攻を得てアタック可。
+- **EB01-028** (d25004b78ff2): power_pump も return_to_hand も同一 `if:{leader_feature:
+  インペルダウン}` 配下。 リーダーが特徴を持たなければ相手のアクティブキャラ戻しも起きない。
+- **OP02-064** (d26561d51524): bounce 対象は `one_character_either_cost_le_2` (両陣営、
+  2026-08-15 是正済) = 自キャラも手札に戻せる。
+- **OP09-052 マルコ** (d26de33e18fd): `cost:{discard_hand:1}, optional:true`。 手札を捨てない
+  (= 登場しない) 選択が可能。
+- **OP12-061 ロシナンテ** (d2c331638f72): `reduce_play_cost_filtered_turn(name:ロー,cost_ge:4)`。
+  別カードでコスト未払い登場は reduction を消費せず、 次に払って登場するローが -2。 Q の答え
+  (はい) と一致。
+- **OP05-082 しらほし** (d2cc99314b17): `cost:{rest_self,trash_to_deck:2}` は常に払え、 do の
+  相手手札捨ては `conditional{opp_hand_count_ge:6}`。 相手手札5以下でもトラッシュ2枚デッキ底は
+  実行され、 相手の手札捨てだけ起きない。
+- **OP15-009 コビー** (d2e356a6d4fe): 同時離脱バッチ (`_leave_batch`, cardqa_op_15) が置換の
+  代価 (リーダー -2000) を **1 回だけ** 適用。 empirical: 2枚同時KO→leader delta -2000
+  (not -4000) / 両方生存。 do に置いた -2000 もバッチが dedupe する。
+- **OP04-066 ミス・バレンタイン** (d3276cf2250a): `search_top_n` filter は
+  `feature_contains:B・W` のみで自名除外なし = 他のミス・バレンタインも手札に加えられる。
+- **ST02-010 ホーキンス** (d378abacf5bb): アタック時に self untap (ドン1+)。 ブロッカーで
+  アタック対象が変わっても untap は解決済でアクティブのまま。
+- **OP06-074** (d38bebbfffe1): `negate_effect` は効果無効のみで「対象に選べない」フラグは
+  立てない = 同ターン他カードで対象選択可。
+- **OP04-031** (d39545bf2471): `stay_rested_next_refresh` は untap を skip するだけ
+  (game.py 744-747)。 既にアクティブなキャラは rested にされず active のまま。
+- **P-004** (d455d671417b): ブロックでアタック対象がブロッカーに移った後、 ドンが外れ
+  ブロッカーを失っても redirect は戻らない (解決済リダイレクトは不可逆)。
+- **ST25-003** (d4925ef5aaee): 同時KOバッチ (OP15-090 と同型)。 empirical: クロスギルド2枚
+  同時KO→手札 -1 / 両方生存。
+- **OP10-016** (d4c0850d36fa): `do=[attach_rested_don(2), power_pump(-1000, one_opponent_
+  character_any=最大1)]`。 相手キャラ不在で -1000 が空振りでもドン付与は独立に実行。
+- **OP02-023** (d52cf93a2fa4): `prevent_self_life_to_hand_until_turn_end` は life_to_hand を
+  **コストとしても** 払えなくする (effects.py 13101、 cardqa_op_02 を明記引用)。 engine 既に正。
+- **PRB02-002** (d57540df7bf2): `replace_leave cost:[once_per_turn], do:[power_pump -2000 self]`。
+  パワー条件ゲート無し = 現在パワー0以下でもターン1回未使用なら置換使用可 (= 場に残る)。
+- **P-032 センゴク** (d5880b91d356): `set_base_cost(-2, on_attached_don 静的)` と つる
+  `cost_minus(timed)` は別レイヤ。 empirical: cost3→(P-032)1→(つる)0(floor)→(P-032離脱)1。

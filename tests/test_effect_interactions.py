@@ -12491,3 +12491,55 @@ def test_bounce_no_aite_modifier_targets_either_side_sweep():
         "「相手の」 修飾なしの bounce が opp-only target に縛られている (両陣営違反): "
         + "; ".join(f"{v[0]}({v[1]}) {v[2]}" for v in violations)
     )
+
+
+def test_op10_003_self_turn_end_untap_don_fires_before_power_revert():
+    """OP10-003 シュガー 【自分のターン終了時】: パワー6000以上の特徴《ドンキホーテ海賊団》
+    キャラがいる場合、自分のドン‼1枚をアクティブにする。 バフで6000に達したキャラも
+    「パワーが元に戻るより前に発動」 する (cardqa_op_10 d27137156709)。
+
+    一次情報 (cardqa_op_10): 「この【自分のターン終了時】の『自分のパワー6000以上の特徴
+    《ドンキホーテ海賊団》を持つキャラがいる場合、』の効果は、『このターン中、パワー+2000。』
+    などの効果で上昇したパワーが元に戻るより前に発動しますか？」 → 「はい、…元に戻るより前に
+    発動します。」
+
+    ⚠ 是正前は overlay が if:{opp_turn:true} + 6000以上条件欠落で、 end_of_turn
+    (= turn_player 視点で発火) に条件 opp_turn が常に False → **自ターン終了時に決して
+    発動しなかった**。 このテストは是正前コードで落ちる (untap されない)。
+    """
+    repo, overlay = _repo(), _overlay()
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP10-003"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    for p in (p0, p1):
+        p.life = [repo.get(_FILLER)] * 3
+        p.deck = [repo.get(_FILLER)] * 10
+    donq = InPlay.of(repo.get("OP14-065"), sickness=False)  # 素パワー5000 のドンキホーテ海賊団
+    p0.characters = [donq]
+    st = GameState(players=[p0, p1], phase=Phase.END, rng=random.Random(1),
+                   effects_overlay=overlay)
+    st.turn_player_idx, st.turn_number = 0, 5
+    p0.don_active, p0.don_rested = 0, 3
+    evaluate_static_effects(st, overlay)
+
+    # 素の 5000 では条件不成立 → untap されない。
+    from engine.game import advance_phase
+    st_a = GameState(players=[Player(name="A", leader=InPlay.of(repo.get("OP10-003"), sickness=False)),
+                              Player(name="B", leader=InPlay.of(repo.get("OP01-001"), sickness=False))],
+                     phase=Phase.END, rng=random.Random(1), effects_overlay=overlay)
+    for p in st_a.players:
+        p.life = [repo.get(_FILLER)] * 3
+        p.deck = [repo.get(_FILLER)] * 10
+    st_a.players[0].characters = [InPlay.of(repo.get("OP14-065"), sickness=False)]
+    st_a.turn_player_idx, st_a.turn_number = 0, 5
+    st_a.players[0].don_active, st_a.players[0].don_rested = 0, 3
+    evaluate_static_effects(st_a, overlay)
+    advance_phase(st_a)
+    assert st_a.players[0].don_active == 0, "素5000で発動してはいけない (6000以上条件)"
+
+    # +2000 バフで 7000 → 条件成立、 バフが戻るより前 (trigger_end_of_turn は
+    # _reset_turn_buff より前) に untap_don が発動する。
+    execute_effect({"power_pump": {"amount": 2000, "duration": "turn", "target": "self"}},
+                   st, p0, p1, donq)
+    assert donq.power == 7000
+    advance_phase(st)
+    assert p0.don_active == 1, "バフ込み6000以上のドンキホーテ海賊団がいる自ターン終了時に untap_don が発動していない"
