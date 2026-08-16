@@ -12643,3 +12643,69 @@ def test_hand_play_block_vs_summon_block_overlay_sweep():
             assert "block_hand_play_turn" not in prims, (
                 f"{cid}: 「登場できない」に block_hand_play_turn (通常プレイのみ禁止) を使ってはならない"
             )
+
+
+# =========================================================================== #
+#  FAQ 全件保証 バッチ (2026-08-16): cardqa_op_05 / op_01。 外部オラクル
+#  (公式 Q&A) と engine 挙動を突き合わせ、 conform を回帰で固定する。
+# =========================================================================== #
+def test_op05_031_attacker_counts_as_rested_char():
+    """OP05-031 バッファロー【アタック時】: 「自分のレストのキャラが2枚以上いる場合、
+    自分のレストのコスト1のキャラ1枚までを、アクティブにする。」
+
+    一次情報 (cardqa_op_05): 「アタックしているこのキャラを合わせて、自分のレストのキャラが
+    2枚の場合、この【アタック時】効果で自分のレストのコスト1のキャラ1枚をアクティブにできますか？」
+    → 「はい、できます。」
+    = アタックで自身がレストになった状態を条件のカウントに含める。engine は
+    game.py で attacker.rested=True を trigger_on_attack より先に立てるので、
+    self_rested_chara_count_ge:2 は attacker を含めて数える。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    atk = InPlay.of(repo.get("OP05-031"), sickness=False)
+    atk.rested = True  # アタック宣言でレスト (game.py L1653/2104 と同じ)
+    # コスト1のキャラ (レスト) を 1 枚。 これで attacker と合わせてレスト 2 枚。
+    cost1_id = next(c["card_id"] for c in json.loads(
+        (ROOT / "db" / "cards.json").read_text(encoding="utf-8"))
+        if c.get("category") == "CHARACTER" and str(c.get("cost")) == "1")
+    target = InPlay.of(repo.get(cost1_id), sickness=False)
+    target.rested = True
+    me.characters = [atk, target]
+    assert eval_condition({"self_rested_chara_count_ge": 2}, st, me, opp), (
+        "アタックしている自身(レスト)を含めてレストのキャラ2枚で条件成立すべき"
+    )
+    trigger_on_attack(st, me, opp, atk, overlay)
+    assert not target.rested, (
+        "コスト1のキャラをアクティブにできるべき (公式 cardqa_op_05: はい、できます)"
+    )
+
+
+def test_op01_072_power_recomputed_from_current_hand_at_damage_step():
+    """OP01-072 スマイリー【ドン!!×1】【自分のターン中】: 「自分の手札1枚につき、この
+    キャラはパワー+1000。」
+
+    一次情報 (cardqa_op_01): 「このキャラのアタックに相手がカウンターを使用し、その効果で
+    自分の手札の枚数が増減した場合、このキャラのパワーは変化しますか？」→「はい、変化します。
+    ダメージステップに移行した時点でのパワー値によって、バトルの結果が決定されます。」
+    = 手札連動の静的パワーは現在手札で毎回再評価される (evaluate_static_effects)。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me, opp = st.players[0], st.players[1]
+    sm = InPlay.of(repo.get("OP01-072"), sickness=False)
+    sm.attached_dons = 1  # 【ドン!!×1】成立
+    me.characters = [sm]
+    # base 1000 + DON!!×1 の +1000 + 手札 N × 1000
+    me.hand = [repo.get(_FILLER)] * 3
+    evaluate_static_effects(st, overlay)
+    assert sm.power == 1000 + 1000 + 3000, f"手札3で 5000 のはず (got {sm.power})"
+    me.hand = [repo.get(_FILLER)] * 5  # カウンター効果で手札が増えた
+    evaluate_static_effects(st, overlay)
+    assert sm.power == 1000 + 1000 + 5000, (
+        f"手札が5に増えたらパワーも再計算されるべき (got {sm.power}, "
+        "公式 cardqa_op_01: ダメージステップ移行時点のパワーで決定)"
+    )
+    me.hand = [repo.get(_FILLER)] * 1  # 手札が減った
+    evaluate_static_effects(st, overlay)
+    assert sm.power == 1000 + 1000 + 1000, f"手札1で 3000 のはず (got {sm.power})"

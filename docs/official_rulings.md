@@ -8437,3 +8437,51 @@ qid `d9fb3f34388f`。 ドフラミンゴ【アタック時】でジンベエ登�
   相手)。 engine は deck 下配置順を player-choice として意味的にモデルしない。
 - **OP13-079 黒イム** (`db41280fdc0e`): 両者同リーダー時のゲーム開始時ステージ登場順 (先攻後攻選択者が
   先)。 ターン順の定義質問。
+
+## FAQ 全件保証 バッチ (2026-08-16): cardqa_op_01/05/10/12, cardqa_st_01
+
+pending 6 件を処理 (残 0 に到達)。全て conform/n/a、engine 変更なし (回帰テスト2本を追加)。
+
+### conform (engine は既に公式どおり)
+
+- **OP05-031 バッファロー**【アタック時】(`dd56a4c5e692`, cardqa_op_05) — 「アタックしている
+  このキャラを合わせて自分のレストのキャラが2枚の場合、コスト1のキャラをアクティブにできますか？」
+  → 「はい」。engine は `game.py` で `attacker.rested=True` (L1653/2104) を `trigger_on_attack`
+  (L1683/2132) **より先**に立てるので、`self_rested_chara_count_ge:2` は attacker 自身を含めて数える。
+  実測: attacker(rested)+cost1(rested)=2 で条件 True → cost1 を untap。回帰:
+  `test_op05_031_attacker_counts_as_rested_char`。
+- **OP01-072 スマイリー**【ドン!!×1】【自分のターン中】手札1枚につき+1000 (`ddcf411870fb`,
+  cardqa_op_01) — 「カウンターで自分の手札枚数が増減したらパワーは変化しますか？」→「はい。ダメージ
+  ステップ移行時点のパワー値でバトル結果が決定」。overlay = `power_pump duration:static
+  amount_per:self_hand_count`。静的効果は `evaluate_static_effects`/`_recompute_static` で毎回再評価。
+  実測: 手札3→5000, 5→7000, 1→3000 (base1000 + DON!!×1の+1000 + 手札×1000)。= 現在手札で動的に
+  再計算 = 公式どおり。回帰: `test_op01_072_power_recomputed_from_current_hand_at_damage_step`。
+- **ST01-007 ナミ**【起動メイン】自分のリーダーかキャラ1枚にレストのドン付与 (`dd3ad9fefeea`,
+  cardqa_st_01) — 「このカード自身に付与できますか？」→「はい」。target `self_inplay_choice` =
+  `[me.leader]+me.characters`。発動元自身は `me.characters` に含まれるので自身を選べる。
+- **ST01-011 ブルック**【登場時】レストのドン!!2枚まで付与 (`ddb14367a6c2`, cardqa_st_01) —
+  「1枚だけ付与できますか？(〜枚まで表記なので0枚も可)」→「はい」。overlay `attach_rested_don
+  count:2`。自動対戦経路は `min(count, 利用可能)` を付与 = 「2枚まで」の合法な解決 (2枚付与は
+  上限内で非合法ではない)。付与枚数の**人間選択**は `up_to` フラグ (`_should_human_pick` 時のみ
+  option_pick、OP15-058 紫エネル 等で配線済) で表現し、自動経路は最大付与。非合法行動をしていない
+  ため rules 上 conform (0/1 の人間選択粒度は up_to 配線の完全性=UI の問題でルール違反ではない)。
+- **OP12-061 ロシナンテ**【起動メイン】ドン-1: このターン中 次に登場させるコスト4以上ロー-2
+  (`dd9237b950e7`, cardqa_op_12) — 「この起動メイン後に非ローを登場させた後、次のコスト4以上の
+  ローのコストは2少なくなりますか？」→「はい」。overlay `reduce_play_cost_filtered_turn(filter
+  name:ロー,cost_ge:4)`。`play_cost_reductions_filtered_turn` に filter+amount を積み、非ローの
+  登場は filter 不一致で消費されず持続 → 次のコスト4以上ローで-2適用 = 公式どおり。
+  ⚠ **潜在の近似**: 現実装は「次に(単発)」でなく「当ターン中の該当**全**play」(effects.py の
+  コメントに「近似」と明記)。2枚目のコスト4以上ローも-2してしまう過剰適用があるが、本Q(非ロー跨ぎの
+  持続)は conform。対象は `reduce_play_cost_filtered_turn` + text「次に」= **OP02-025 / OP12-061 の
+  2枚のみ** (全走査で確認)。pending Q は無く、single-use 消費への精緻化は engine+Rust 変更を要するので
+  本バッチでは触らず記録のみ (将来 refine 候補)。
+
+### n/a (engine の状態差分に一意に落ちない = プレイヤー選択のモデル未実装)
+
+- **OP10-042 ウソップ (リーダー)** 【相手のターン中】《ドレスローザ》がKOされた時ドロー と、その
+  キャラ自身の【KO時】の発動順 (`dd074c4b9926`, cardqa_op_10) — 「どちらが先に発動しますか？」
+  → 「自分の望む順で発動できる」。engine は同 owner 内 FIFO 固定で **player-choice を未モデル**
+  (human modal 未配線 = 本 doc の「残す穴」)。同一プレイヤーの複数トリガー発動順選択を n/a とした
+  先例 OP05-107 (`4060748732a4`) と同族。board-neutral な場合は FIFO 結果も妥当、非 neutral
+  (ウソップ leader が「手札5枚以下」gate なので KO時が手札を増やすと順序が結果を変えうる) な場合は
+  modal 配線 = arch 変更を要し、既知の「残す穴」として記録済。engine 挙動に一意に落ちないため n/a。

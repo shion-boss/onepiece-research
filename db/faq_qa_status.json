@@ -12644,9 +12644,9 @@
   "files": [
    "cardqa_op_10.json"
   ],
-  "note": "",
+  "note": "OP10-042 ウソップ リーダー【相手のターン中】《ドレスローザ》KO時ドロー と そのキャラ自身の【KO時】の発動順: 公式=自分の望む順(プレイヤー選択)。engine は同owner FIFO 固定で player-choice を未モデル(human modal 未配線、docs L6471 の '残す穴')。同一プレイヤー複数トリガーの発動順選択は OP05-107(4060748732a4)を n/a とした先例と同族。board-neutralな場合は FIFO結果も妥当、非neutral(leaderがhand≤5 gate)な場合は modal配線=arch要で 残す穴として既記録。engine挙動に一意に落ちないため n/a。",
   "q": "自分の特徴《ドレスローザ》を持つキャラが【KO時】を持っている場合、そのキャラが相手のターンにKOされた時この【相手のターン中】効果と【KO時】はどちらが先に発動しますか？",
-  "status": "pending"
+  "status": "n/a"
  },
  "dd3ad9fefeea": {
   "a": "はい、付与できます。",
@@ -12656,9 +12656,9 @@
   "files": [
    "cardqa_st_01.json"
   ],
-  "note": "",
+  "note": "ST01-007 ナミ【起動メイン】自分のリーダーかキャラ1枚にレストのドン付与: target self_inplay_choice = [me.leader]+me.characters。発動元自身(ナミ)は me.characters に含まれるので自身を対象に選べる。公式=はい付与できる。conform。",
   "q": "このカード自身にこの【起動メイン】効果でドン!!を付与できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "dd56a4c5e692": {
   "a": "はい、できます。",
@@ -12668,9 +12668,9 @@
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "",
+  "note": "OP05-031 バッファロー【アタック時】: アタックで自身がレストになった状態を含めて自分のレストのキャラ2枚以上で発動。engine: game.py で attacker.rested=True(L1653/2104) が trigger_on_attack(L1683/2132) より先。self_rested_chara_count_ge:2 は me.characters の rested を数え attacker を含む。実測: attacker(rested)+cost1(rested)=2 で条件True→cost1をuntap。conform。",
   "q": "アタックしているこのキャラを合わせて、自分のレストのキャラが2枚の場合、この【アタック時】効果で自分のレストのコスト1のキャラ1枚をアクティブにできますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "dd9237b950e7": {
   "a": "はい、少なくなります。",
@@ -12680,9 +12680,9 @@
   "files": [
    "cardqa_op_12.json"
   ],
-  "note": "",
+  "note": "OP12-061 ロシナンテ【起動メイン】ドン-1: このターン中 次に登場させるコスト4以上ロー -2: overlay reduce_play_cost_filtered_turn(filter name:ロー,cost_ge:4)。play_cost_reductions_filtered_turn に filter+amount を積み、非ローの登場では filter 不一致で消費されず持続→次のコスト4以上ローで-2適用=公式どおり(はい)。⚠ 現実装は '次に(単発)' でなく '当ターン中の該当全play' 近似(effects.py コメント明記)で2枚目のローも-2する潜在的過剰適用があるが、本Q(非ロー跨ぎの持続)は conform。過剰適用は OP02-025/OP12-061 の2枚のみ、pending Q無し、docs に記録。",
   "q": "この【起動メイン】を発動した後、手札から「トラファルガー・ロー」ではないキャラを登場させました。この次に手札から登場させるコスト4以上の「トラファルガー・ロー」のコストは2少なくなりますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ddb14367a6c2": {
   "a": "はい、付与できます。”~枚まで”と表記されている場合、0枚を選ぶことができます。",
@@ -12692,9 +12692,9 @@
   "files": [
    "cardqa_st_01.json"
   ],
-  "note": "",
+  "note": "ST01-011 ブルック【登場時】自分のリーダーかキャラ1枚にレストのドン2枚まで付与: overlay attach_rested_don count:2。'N枚まで'=0/1/2 選択可。engine の自動対戦経路は min(count, 利用可能) を付与=合法な解決(2枚まで付与は許容範囲内)。付与枚数の人間選択は up_to フラグ(_should_human_pick 時のみ option_pick、OP15-058 紫エネル 等で配線済)で表現、自動経路では最大付与。非合法行動はしていないので rules 上 conform(人間UIの選択粒度は up_to 配線の完全性の問題でありルール違反ではない)。",
   "q": "この【登場時】効果でレストのドン!!を1枚だけ付与できますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ddcf411870fb": {
   "a": "はい、変化します。ダメージステップに移行した時点でのパワー値によって、バトルの結果が決定されます。",
@@ -12704,9 +12704,9 @@
   "files": [
    "cardqa_op_01.json"
   ],
-  "note": "",
+  "note": "OP01-072 スマイリー【ドン×1】【自分のターン中】手札1枚につきパワー+1000: power_pump duration:static amount_per:self_hand_count。静的効果は evaluate_static_effects/_recompute_static で毎回再評価。実測: 手札3→5000, 5→7000, 1→3000(base1000+don1000+hand*1000)= 現在手札で動的再計算。ダメージステップ移行時点のパワーで決定=公式どおり。conform。",
   "q": "このキャラのアタックに相手がカウンターを使用し、その効果で自分の手札の枚数が増減した場合、このキャラのパワーは変化しますか？",
-  "status": "pending"
+  "status": "conform"
  },
  "ddd7d2a83385": {
   "a": "はい、ライフ1枚を手札に加える必要があります。",
