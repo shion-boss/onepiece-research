@@ -13127,3 +13127,41 @@ def test_simultaneous_ko_is_one_event_replacement_and_on_ko():
         "同時KOされた札を【KO時】で登場できていない "
         f"(場={[ip.card.card_id for ip in me.characters]} trash={[c.card_id for c in me.trash]})"
     )
+
+
+def test_st05_010_battle_attr_pump_accumulates_for_the_turn():
+    """「属性X とバトルする時、このターン中 +N」 は **バトルごとに累積** する。
+
+    一次情報 (cardqa / ST05-010 ゼット):
+      Q: このキャラが属性(打)を持つキャラによって **2回アタックされた** とき、
+         そのターン中パワーは合計 **+6000** されますか？
+      A: **はい、+6000されます。**
+
+    ⚠ 是正前は power 計算時に毎回 +3000 を足す 「バトル中だけの補正」 で、
+      同ターンの別バトルに残らず **累積もしなかった**。
+    """
+    import json as _json
+    from engine.game import AttackCharacter, _recompute_static
+    repo, overlay = _repo(), _overlay()
+    cards = _json.loads((ROOT / "db" / "cards.json").read_text("utf-8"))
+    hitters = [c["card_id"] for c in cards
+               if c["category"] == "CHARACTER" and c.get("attribute") == "打"
+               and "_p" not in c["card_id"] and "_r" not in c["card_id"]][:2]
+    assert len(hitters) == 2, "属性(打) のキャラが 2 枚見つからない"
+
+    st = _state(repo, overlay)
+    st.turn_player_idx = 1                      # 相手のターン (= 被アタック)
+    me, opp = st.players[0], st.players[1]
+    z = InPlay.of(repo.get("ST05-010"), sickness=False)
+    me.characters = [z]
+    a1 = InPlay.of(repo.get(hitters[0]), sickness=False)
+    a2 = InPlay.of(repo.get(hitters[1]), sickness=False)
+    opp.characters = [a1, a2]
+    _recompute_static(st)
+    base = z.power
+
+    apply_action(st, AttackCharacter(attacker_iid=a1.instance_id, target_iid=z.instance_id))
+    assert z.power == base + 3000, f"1 回目の +3000 が残っていない ({base} → {z.power})"
+    apply_action(st, AttackCharacter(attacker_iid=a2.instance_id, target_iid=z.instance_id))
+    assert z.power == base + 6000, \
+        f"2 回バトルしても累積していない (期待 {base + 6000}、 実際 {z.power})"

@@ -127,7 +127,11 @@ fn board_has_when(p: &Player, when: &str) -> bool {
         .any(|ip| crate::effects::card_has_when(&ip.card.card_id, when))
 }
 
-/// game.py:_battle_attr_bonus = combatant が「属性X とバトル時+N」を持ち opponent が属性X の時 +N。
+/// game.py:_battle_attr_bonus = combatant が「属性X とバトルする時 +N」を持ち opponent が属性X の時 N。
+/// ⚠ **バトル中だけの補正ではない**。 公式 (ST05-010 ゼット / cardqa) は 「このターン中 +3000」 で、
+///   2 回バトルすれば **合計 +6000** = 発動のたびに turn_buff に累積する。
+///   Python は `_apply_battle_attr_pump` が turn_buff へ積む。 Rust はこのケースを
+///   **明示 bail** にして 「黙って違う状態を作らない」 を守る (該当 2 枚のみ = self-play 影響は無視できる)。
 fn battle_attr_bonus(combatant: &InPlay, opponent: &InPlay) -> i32 {
     let attr = &opponent.card.attribute;
     if attr.is_empty() {
@@ -1294,6 +1298,13 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
 
             if is_blocked {
                 // ブロッカー vs アタッカー (勝てば blocker KO、 負ければ生存、 リーダーへの damage 無)
+                if !attacker.battle_pump_vs_attribute.is_empty()
+                    || !state.players[opp].characters[blk_idx].battle_pump_vs_attribute.is_empty()
+                {
+                    // 「属性X とバトルする時、 このターン中 +N」 は turn_buff への **累積**
+                    // (Python _apply_battle_attr_pump)。 Rust 未追従 → 明示 bail。
+                    return Err("battle_pump_vs_attribute の turn 累積は Rust 未実装".into());
+                }
                 let (atk_power, def_power, immune) = {
                     let blocker = &state.players[opp].characters[blk_idx];
                     let ap = atk_power_base + battle_attr_bonus(&attacker, blocker);
@@ -1613,6 +1624,11 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 return Ok(());
             }
             // === バトル解決 (attr bonus 両方向) ===
+            if !attacker.battle_pump_vs_attribute.is_empty()
+                || !state.players[opp].characters[actual_idx].battle_pump_vs_attribute.is_empty()
+            {
+                return Err("battle_pump_vs_attribute の turn 累積は Rust 未実装".into());
+            }
             let (atk_power, def_power, immune) = {
                 let target = &state.players[opp].characters[actual_idx];
                 let ap = attacker.power() + battle_attr_bonus(&attacker, target);

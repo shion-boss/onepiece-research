@@ -539,12 +539,37 @@ def _check_rule_defeat(state: GameState) -> None:
 
 
 def _battle_attr_bonus(combatant, opponent) -> int:
-    """ST05-010: combatant が 「属性X とバトル時+N」 を持ち opponent が属性X を持つ場合 +N。"""
+    """combatant が 「属性X とバトルする時 +N」 を持ち opponent が属性X を持つなら N を返す。
+
+    ⚠ **バトル中だけの補正ではない**。 公式テキスト (ST05-010 ゼット) は
+      「属性(打)を持つキャラとバトルする時、 このキャラは、 **このターン中**、 パワー+3000」 で、
+      cardqa は 「属性(打)を持つキャラによって **2回アタックされた** とき、 そのターン中パワーは
+      合計+6000されますか」 → **はい、+6000されます** と裁定している (= 発動のたびに累積)。
+    → 実際の適用は `_apply_battle_attr_pump` が **turn_buff に積む**。 この関数は金額の算出のみ。
+    """
     bpa = getattr(combatant, "battle_pump_vs_attribute", None)
     if not bpa:
         return 0
     opp_attr = opponent.card.attribute or ""
     return int(bpa.get(opp_attr, 0)) if opp_attr else 0
+
+
+def _apply_battle_attr_pump(state, attacker, defender) -> None:
+    """バトル開始時に 「属性X とバトルする時、 このターン中 +N」 を **turn_buff に積む**。
+
+    ⚠ 旧実装は power 計算時に毎回 +N を足す 「バトル中だけの補正」 だったので、
+      同ターンの別バトルに残らず **累積もしなかった** (公式は 2 回で +6000)。
+    """
+    for a, b in ((attacker, defender), (defender, attacker)):
+        if a is None or b is None:
+            continue
+        amount = _battle_attr_bonus(a, b)
+        if amount:
+            a.turn_buff += amount
+            state.push_log(
+                f"  効果: {a.card.name} は 属性({b.card.attribute}) とバトル → "
+                f"このターン中 パワー+{amount} (累積)"
+            )
 
 
 def _battle_ko_immune_by_attribute(defender: InPlay, attacker: InPlay) -> bool:
@@ -1966,8 +1991,13 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
             )
         # ブロックされた場合: 勝てばブロッカーが KO、 負ければ生存 (リーダーへのダメージなし)
         if is_blocked:
-            atk_power += _battle_attr_bonus(attacker, actual_target)
-            defender_power += _battle_attr_bonus(actual_target, attacker)
+            # 「属性X とバトルする時、 このターン中 +N」 は **ターン持続で累積** する
+            # (cardqa / ST05-010: 2 回バトルで合計 +6000)。 バトル開始時に turn_buff へ積み、
+            # このバトルの power にも反映する。
+            _pre_atk, _pre_def = attacker.turn_buff, actual_target.turn_buff
+            _apply_battle_attr_pump(state, attacker, actual_target)
+            atk_power += attacker.turn_buff - _pre_atk
+            defender_power += actual_target.turn_buff - _pre_def
             if atk_power >= defender_power:
                 _vs_leader_immune = (
                     actual_target.battle_ko_immune_vs_leader
@@ -2299,8 +2329,11 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 f"  counter +{counter_added} → "
                 f"{actual_target.card.name}(P={defender_power})"
             )
-        atk_power += _battle_attr_bonus(attacker, actual_target)
-        defender_power += _battle_attr_bonus(actual_target, attacker)
+        # 「属性X とバトルする時、 このターン中 +N」 は **ターン持続で累積** (ST05-010)
+        _pre_atk, _pre_def = attacker.turn_buff, actual_target.turn_buff
+        _apply_battle_attr_pump(state, attacker, actual_target)
+        atk_power += attacker.turn_buff - _pre_atk
+        defender_power += actual_target.turn_buff - _pre_def
         if atk_power >= defender_power:
             if actual_target.ko_immune_until_turn_end:
                 state.push_log(f"  KO 耐性: {actual_target.card.name} は KO されない")
