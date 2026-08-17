@@ -12709,3 +12709,252 @@ def test_op01_072_power_recomputed_from_current_hand_at_damage_step():
     me.hand = [repo.get(_FILLER)] * 1  # 手札が減った
     evaluate_static_effects(st, overlay)
     assert sm.power == 1000 + 1000 + 1000, f"手札1で 3000 のはず (got {sm.power})"
+
+
+# --------------------------------------------------------------------------- #
+#  escalated 消化 (2026-08-17)
+# --------------------------------------------------------------------------- #
+def test_op15_022_deferred_defeat_survives_deck_refill_and_negation():
+    """OP15-022 ブルック: 遅延敗北の義務は **0 枚到達で確定** し、後から取り消せない。
+
+    一次情報 (cardqa_op_15、 2 問とも 「はい、敗北します」):
+      Q1: デッキが0枚になったターンに、他の効果でデッキが1枚以上になった場合、
+          そのターン終了時に敗北しますか？
+      Q2: デッキが1枚から0枚になり、その後 他の効果でデッキが1枚以上になり、
+          さらに相手が「OP09-097 闇水」でこのリーダーの効果を無効にした場合、
+          このターンの終了時に敗北しますか？
+
+    ⚠ 是正前は END フェイズで `not p.deck` (= 今 0 枚か) を見ていたため、
+      **デッキが補充されると敗北を免れていた**。 `deck_hit_zero_this_turn` で
+      「0 枚になった事実」 を記憶する。
+    """
+    from engine.game import EndPhase, _recompute_static
+    repo, overlay = _repo(), _overlay()
+
+    def _run(refill, negate):
+        st = _state(repo, overlay, leader0="OP15-022")
+        me = st.players[0]
+        me.deck = [repo.get(_FILLER)]
+        _recompute_static(st)
+        assert me.deck_out_defer is True, "前提: ブルックのルール置換が張られていない"
+        execute_effect({"mill_self_top": 1}, st, me, st.players[1], None)
+        _recompute_static(st)
+        assert st.game_over is False, "ブルックなのに 0 枚で即敗北している"
+        if refill:
+            me.deck = [repo.get(_FILLER)] * 2
+        if negate:
+            me.leader.granted_keywords.add("効果無効")
+        _recompute_static(st)
+        immediate = st.game_over
+        if not st.game_over:
+            apply_action(st, EndPhase())
+        return st, immediate
+
+    st, _ = _run(refill=False, negate=False)
+    assert st.game_over and st.winner == 1, "素の遅延敗北が成立していない"
+
+    st, _ = _run(refill=True, negate=False)
+    assert st.game_over and st.winner == 1, \
+        "デッキを補充したら敗北を免れている (公式=はい、敗北します)"
+
+    st, _ = _run(refill=True, negate=True)
+    assert st.game_over and st.winner == 1, \
+        "補充 + 無効化で敗北を免れている (公式=はい、敗北します)"
+
+    # 対照: 補充せずに無効化されたら **その時点で** 即敗北 (置換が消えてデッキ0のため)
+    st, immediate = _run(refill=False, negate=True)
+    assert immediate is True, "無効化された時点で即敗北していない"
+
+
+def test_deck_hit_zero_flag_does_not_leak_to_next_turn():
+    """対照: 「0枚になった」 フラグはターン終了時の判定で消える (次ターンへ持ち越さない)。"""
+    from engine.game import EndPhase, _recompute_static
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP15-022")
+    me = st.players[0]
+    _recompute_static(st)
+    assert me.deck_hit_zero_this_turn is False
+    apply_action(st, EndPhase())
+    assert me.deck_hit_zero_this_turn is False
+    assert st.game_over is False, "0 枚になっていないのに敗北している"
+
+
+def test_prb01_001_target_excludes_cards_that_have_a_disabled_on_play():
+    """PRB01-001 サンジ: 「【登場時】効果を**持たない**キャラ」 は **カードの素性** で判定する。
+
+    一次情報 (cardqa): 相手が OP09-081 ティーチの【起動メイン】で 【登場時】を無効化された
+    状態でも、【登場時】効果を持つキャラには この【起動メイン】を使えない → **いいえ**。
+    = 「無効になっている」 と 「持たない」 は別物。
+    """
+    import json as _json
+    from engine.effects import list_activate_main_effects, fire_activate_main
+    from engine.game import _recompute_static
+    repo, overlay = _repo(), _overlay()
+    cards = _json.loads((ROOT / "db" / "cards.json").read_text("utf-8"))
+    effs_raw = _json.loads((ROOT / "db" / "card_effects.json").read_text("utf-8"))
+
+    def _i(x):
+        try:
+            return int(x)
+        except (TypeError, ValueError):
+            return None
+
+    def _ents(cid):
+        e = effs_raw.get(cid)
+        return e if isinstance(e, list) else []
+
+    with_on_play = next(c["card_id"] for c in cards
+                        if c["category"] == "CHARACTER" and (_i(c.get("cost")) or 99) <= 8
+                        and any(x.get("when") == "on_play" for x in _ents(c["card_id"])))
+    without_on_play = next(c["card_id"] for c in cards
+                           if c["category"] == "CHARACTER" and (_i(c.get("cost")) or 99) <= 8
+                           and not any(x.get("when") == "on_play" for x in _ents(c["card_id"])))
+
+    def _run(disabled):
+        st = _state(repo, overlay, leader0="PRB01-001", leader1="OP09-081")
+        me, opp = st.players[0], st.players[1]
+        tgt = InPlay.of(repo.get(with_on_play), sickness=True)
+        other = InPlay.of(repo.get(without_on_play), sickness=True)
+        me.characters = [tgt, other]
+        if disabled:
+            execute_effect({"disable_opp_on_play_through_opp_turn": True}, st, opp, me, None)
+        _recompute_static(st)
+        acts = list_activate_main_effects(st, me, overlay)
+        assert acts, "PRB01-001 の起動メインが候補に出ていない"
+        fire_activate_main(st, me, opp, *acts[0])
+        resolve_triggers(st)
+        return tgt, other
+
+    for disabled in (False, True):
+        tgt, other = _run(disabled)
+        assert tgt.is_rush_now is False, \
+            f"【登場時】を持つキャラに速攻が付いている (disabled={disabled})"
+        assert other.is_rush_now is True, \
+            f"【登場時】を持たないキャラに速攻が付いていない (disabled={disabled})"
+
+
+def test_eb04_044_replacement_applies_to_turn_end_departure():
+    """「場を離れる場合、代わりに〜」 は **ターン終了時の離脱にも** かかる。
+
+    一次情報 (cardqa_eb_04、 EB04-044 コビー × OP11-092 ヘルメッポ):
+      Q: 「ヘルメッポ」の【登場時】効果でこのキャラを登場させ、そのターンの終了時に
+         このキャラが場を離れる場合、このキャラの【ターン1回】効果で代わりに
+         自分の手札1枚を捨て、このキャラを場に残すことはできますか？
+      A: **はい、できます。**
+
+    ⚠ 是正前は ターン終了時の一時登場キャラ回収が置換機構を通さず、
+      問答無用でデッキ下へ送っていた。
+    """
+    import json as _json
+    from engine.game import EndPhase, _recompute_static
+    repo, overlay = _repo(), _overlay()
+    cards = _json.loads((ROOT / "db" / "cards.json").read_text("utf-8"))
+    navy = next(c["card_id"] for c in cards
+                if c["category"] == "LEADER" and "海軍" in (c.get("features") or ""))
+
+    def _run(leader, empty_hand_before_end):
+        st = _state(repo, overlay, leader0=leader)
+        me = st.players[0]
+        src = InPlay.of(repo.get("OP11-092"), sickness=False)
+        me.characters = [src]
+        me.trash = [repo.get("EB04-044")]
+        me.hand = [repo.get(_FILLER)]
+        _recompute_static(st)
+        trigger_on_play(st, me, st.players[1], src, overlay)
+        resolve_triggers(st)
+        assert any(ip.card.card_id == "EB04-044" for ip in me.characters), \
+            "前提: コビーが一時登場していない"
+        if empty_hand_before_end:
+            me.hand = []
+        apply_action(st, EndPhase())
+        return me
+
+    # 海軍リーダー + 手札あり → 置換を使って場に残る
+    me = _run(navy, False)
+    assert any(ip.card.card_id == "EB04-044" for ip in me.characters), \
+        "置換を使えるのにデッキ下へ送られている (公式=場に残れる)"
+
+    # 対照: 海軍リーダーでない → 条件不成立で置換できない
+    me = _run("OP01-001", False)
+    assert not any(ip.card.card_id == "EB04-044" for ip in me.characters)
+    assert me.deck[-1].card_id == "EB04-044", "デッキの下に置かれていない"
+
+    # 対照: 海軍でも手札が無ければ置換コストを払えない
+    me = _run(navy, True)
+    assert not any(ip.card.card_id == "EB04-044" for ip in me.characters), \
+        "コストを払えないのに置換が成立している"
+    assert me.deck[-1].card_id == "EB04-044"
+
+
+def test_op14_020_rest_own_card_cost_accepts_don():
+    """「自分のカード1枚をレストにできる：」 の 「カード」 は **ドン‼ も含む** (cardqa_op_14)。
+
+      Q: この【起動メイン】効果の「自分のカード1枚をレストにできる」とは、
+         どのカードをレストにする効果ですか？
+      A: 自分の場にある、**リーダー、キャラ、ステージ、ドン!!のうち1枚**を
+         アクティブからレストにすることで発動します。
+
+    ⚠ 是正前は pool が leader+characters+stages のみで **ドンを選べなかった**
+      (= 場のカードが全部レストだと発動できなかった)。
+    """
+    from engine.effects import list_activate_main_effects, fire_activate_main
+    from engine.game import _recompute_static
+    repo, overlay = _repo(), _overlay()
+
+    def _setup(n_chars, don_active):
+        st = _state(repo, overlay, leader0="OP14-020")
+        me = st.players[0]
+        # 「コスト5以上のキャラがいる場合」 の条件用に cost7 を使う
+        me.characters = [InPlay.of(repo.get("OP02-013"), sickness=False) for _ in range(n_chars)]
+        me.don_active, me.don_rested = don_active, 0
+        _recompute_static(st)
+        return st, me
+
+    # (a) 場に非リーダーが居る → そちらを使う (ドンは温存)
+    st, me = _setup(1, 5)
+    acts = [x for x in list_activate_main_effects(st, me, overlay)
+            if x[0].card.card_id == "OP14-020"]
+    assert acts, "起動メインが候補に出ていない"
+    fire_activate_main(st, me, st.players[1], *acts[0])
+    resolve_triggers(st)
+    assert me.characters[0].rested is True and me.leader.rested is False
+    assert me.don_active == 5, "ドンを無駄に消費している"
+
+    # (b) 場がリーダーだけ → **ドンで払える** (是正の本体)
+    st, me = _setup(0, 5)
+    acts = [x for x in list_activate_main_effects(st, me, overlay)
+            if x[0].card.card_id == "OP14-020"]
+    assert acts, "ドンで払えるのに起動メインが候補から消えている"
+    fire_activate_main(st, me, st.players[1], *acts[0])
+    resolve_triggers(st)
+    assert me.leader.rested is False, "ドンで払えるのにリーダーをレストにしている"
+    assert (me.don_active, me.don_rested) == (4, 1), \
+        f"ドン 1 枚がレストになっていない (active={me.don_active} rested={me.don_rested})"
+
+    # (c) 対照: ドンも無ければリーダーをレストにする (それも合法)
+    st, me = _setup(0, 0)
+    acts = [x for x in list_activate_main_effects(st, me, overlay)
+            if x[0].card.card_id == "OP14-020"]
+    assert acts
+    fire_activate_main(st, me, st.players[1], *acts[0])
+    resolve_triggers(st)
+    assert me.leader.rested is True
+
+
+def test_op14_036_counter_cost_accepts_don():
+    """対照 (optional_cost_then 経路): OP14-036 も 「自分のカード」 にドンを含む。"""
+    from engine.game import _recompute_static
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    me = st.players[0]
+    me.leader.rested = True          # 場のカードは全部レスト
+    me.don_active, me.don_rested = 3, 0
+    _recompute_static(st)
+    before = me.leader.power
+    ent = [e for e in overlay["OP14-036"].effects if e.get("when") == "counter"][0]
+    from engine.effects import run_do_array
+    run_do_array(list(ent["do"]), st, me, st.players[1], None)
+    resolve_triggers(st)
+    assert (me.don_active, me.don_rested) == (2, 1), \
+        f"ドンでコストを払えていない (active={me.don_active} rested={me.don_rested})"
+    assert me.leader.power == before + 4000, "コストを払ったのに +4000 が乗っていない"

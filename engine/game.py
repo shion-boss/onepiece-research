@@ -513,6 +513,11 @@ def _check_rule_defeat(state: GameState) -> None:
     if state.game_over:
         return
     empty = [i for i, p in enumerate(state.players) if not p.deck]
+    # ⭐ 「デッキが0枚に **なった**」 事実を記録する (OP15-022 の遅延敗北はこれで確定し、
+    #   後からデッキが戻っても取り消されない。 END フェイズの判定がこのフラグを読む)。
+    for i in empty:
+        if getattr(state.players[i], "deck_out_defer", False):
+            state.players[i].deck_hit_zero_this_turn = True
     if not empty:
         return
     # 勝利置換が最優先 (= 敗北条件を満たすが敗北せず勝利する)
@@ -898,10 +903,20 @@ def advance_phase(state: GameState) -> None:
         #   自分と相手のデッキがどちらも0枚になった場合、 このターンの終了時にどのプレイヤーが
         #   敗北しますか？」 → A「**どちらのプレイヤーも同時にゲームに敗北します。**」
         #   → 両者該当なら引き分け (= winner=None / 両者敗北)。
+        #   ⭐ 判定は **「今デッキが0枚か」 ではなく 「このターンに0枚になったか」** (2026-08-17 是正)。
+        #   公式 (cardqa_op_15) は 「デッキ0のターンに他の効果でデッキが1枚以上に戻っても
+        #   そのターン終了時に敗北しますか」 → 「はい」。 = 遅延敗北の義務は 0 枚到達で確定し、
+        #   後からデッキが戻っても (リーダー効果を無効にされても) 取り消されない。
+        #   ⚠ 旧実装は `not p.deck` を見ていたので **補充されると敗北を免れていた**。
+        #   ⚠ END フェイズ中に 0 枚になった場合 (= ターン終了時効果でミル等) はフラグが立つ前に
+        #     ここへ来るので、 **今 0 枚か** も併せて見る (どちらか成立で敗北)。
         _deck_out = [
             i for i, p in enumerate(state.players)
-            if getattr(p, "deck_out_defer", False) and not p.deck
+            if getattr(p, "deck_hit_zero_this_turn", False)
+            or (getattr(p, "deck_out_defer", False) and not p.deck)
         ]
+        for _p in state.players:
+            _p.deck_hit_zero_this_turn = False   # 判定はターンごと (次ターンへ持ち越さない)
         if _deck_out and not state.game_over:
             if len(_deck_out) == 2:
                 state.game_over = True

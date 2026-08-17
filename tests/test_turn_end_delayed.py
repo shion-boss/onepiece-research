@@ -22,7 +22,13 @@ from engine.effects import (
 )
 
 ROOT = Path(__file__).resolve().parent.parent
-SWORD = "EB04-044"  # SWORD キャラ (cost<=8)
+SWORD = "OP11-004"  # SWORD キャラ (cost<=8)。
+# ⚠ 2026-08-17: 以前は EB04-044 コビーを使っていたが、 コビーは
+#   「場を離れる場合、代わりに手札1枚を捨てることができる」 置換を持つ。
+#   ターン終了時の離脱も置換を通るようになった (公式 cardqa_eb_04) ため、
+#   海軍リーダー (OP11-001) 下では場に残ってしまいこのテストの主旨から外れる。
+#   → 置換を持たない SWORD キャラに差し替え。 コビー側の挙動は
+#   test_eb04_044_replacement_applies_to_turn_end_departure が担保する。
 
 
 def _repo():

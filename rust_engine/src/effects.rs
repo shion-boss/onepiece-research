@@ -3189,6 +3189,12 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
                 if !c.rested && matches_filter_ip(c, filt)
                     && !c.cannot_be_rested_buff && !c.static_cannot_be_rested { cnt += 1; }
             }
+            // ⭐ 公式 (cardqa_op_14 / OP14-020): 「自分のカード」 = リーダー/キャラ/ステージ/**ドン‼**。
+            //    ドンは InPlay でないので pool に乗らない → 頭数/支払いに足す。
+            //    ⚠ filter 付きは除外 (ドンは特徴/コストを持たない)。
+            if filt.map_or(true, |f| f.as_object().map_or(true, |o| o.is_empty())) {
+                cnt += me.don_active.max(0) as usize;
+            }
             Some(cnt >= n)
         }
         "return_self_chara_to_hand" => {
@@ -3786,10 +3792,27 @@ fn pay_cost_one(cs: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> 
                     }
                 }
             }
-            if pool.len() < n { return None; }
+            let no_filt = filt.map_or(true, |f| f.as_object().map_or(true, |o| o.is_empty()));
+            let don_avail = if no_filt { state.players[me_idx].don_active.max(0) as usize } else { 0 };
+            if pool.len() + don_avail < n { return None; }
+            // AI 順: 非リーダー (power 昇順) → ドン‼ → リーダー (effects.py と 1:1)。
+            // リーダーをレストにするとアタックを失うのでドンより後回し。
             pool.sort_by(|a, b| (a.0, a.1).cmp(&(b.0, b.1)));
-            for (_, _, sl) in pool.into_iter().take(n) {
+            let non_leader: Vec<Slot> = pool.iter().filter(|p| !p.0).map(|p| p.2).collect();
+            let mut chosen: Vec<Slot> = non_leader.into_iter().take(n).collect();
+            let short = n - chosen.len();
+            if short > 0 && don_avail < short {
+                if let Some(l) = pool.iter().find(|p| p.0) { chosen.push(l.2); }
+            }
+            let board_used = chosen.len().min(n);
+            for sl in chosen.into_iter().take(n) {
                 get_ip_mut(&mut state.players[me_idx], sl).rested = true;
+            }
+            let don_pay = (n - board_used).min(don_avail) as i32;
+            if don_pay > 0 {
+                let p = &mut state.players[me_idx];
+                p.don_active -= don_pay;
+                p.don_rested += don_pay;
             }
         }
         "return_self_chara_to_hand" => {
@@ -13825,13 +13848,28 @@ pub fn fire_activate_main(
                     }
                 }
             }
-            if pool.len() < ro_n {
+            let ro_no_filt = ro_filt.map_or(true, |f| f.as_object().map_or(true, |o| o.is_empty()));
+            let ro_don_avail = if ro_no_filt { state.players[me_idx].don_active.max(0) as usize } else { 0 };
+            if pool.len() + ro_don_avail < ro_n {
                 return Err("rest_own_card 支払い不能".into());
             }
-            // (is_leader?1:0, power) 昇順 (安定 = pool 順 tie-break)
+            // AI 順: 非リーダー (power 昇順) → ドン‼ → リーダー (effects.py と 1:1)。
             pool.sort_by(|a, b| (a.0 as i32, a.1).cmp(&(b.0 as i32, b.1)));
-            for (_, _, sl) in pool.into_iter().take(ro_n) {
+            let non_leader: Vec<Slot> = pool.iter().filter(|p| !p.0).map(|p| p.2).collect();
+            let mut chosen: Vec<Slot> = non_leader.into_iter().take(ro_n).collect();
+            let short = ro_n - chosen.len();
+            if short > 0 && ro_don_avail < short {
+                if let Some(l) = pool.iter().find(|p| p.0) { chosen.push(l.2); }
+            }
+            let board_used = chosen.len().min(ro_n);
+            for sl in chosen.into_iter().take(ro_n) {
                 get_ip_mut(&mut state.players[me_idx], sl).rested = true;
+            }
+            let don_pay = (ro_n - board_used).min(ro_don_avail) as i32;
+            if don_pay > 0 {
+                let p = &mut state.players[me_idx];
+                p.don_active -= don_pay;
+                p.don_rested += don_pay;
             }
         }
         // ko_self_with_filter (effects.py:13560): filter 一致の自キャラ 先頭 1 枚を自KO。 AI は候補[0]。
@@ -14654,7 +14692,11 @@ fn can_pay_activate_cost(state: &GameState, me_idx: usize, ip: &InPlay, on_field
         let pool = std::iter::once(&me.leader).chain(me.characters.iter()).chain(me.stages.iter())
             .filter(|ip| !ip.rested && matches_filter_ip(&ip, ro_filt))
             .count();
-        if pool < n {
+        // 「自分のカード」 = リーダー/キャラ/ステージ/**ドン‼** (cardqa_op_14)
+        let don_avail = if ro_filt.map_or(true, |f| f.as_object().map_or(true, |o| o.is_empty())) {
+            me.don_active.max(0) as usize
+        } else { 0 };
+        if pool + don_avail < n {
             return false;
         }
     }

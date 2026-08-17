@@ -39,6 +39,13 @@ pub fn check_rule_defeat(state: &mut GameState) {
     let empty: Vec<usize> = (0..state.players.len())
         .filter(|&i| state.players[i].deck.is_empty())
         .collect();
+    // 「デッキが0枚に **なった**」 事実を記録 (OP15-022 の遅延敗北はこれで確定し、
+    // 後からデッキが戻っても取り消されない)。 END フェイズの判定がこのフラグを読む。
+    for &i in &empty {
+        if state.players[i].deck_out_defer {
+            state.players[i].deck_hit_zero_this_turn = true;
+        }
+    }
     if empty.is_empty() {
         return;
     }
@@ -583,9 +590,17 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
         Phase::End => {
             // ⭐ 遅延デッキアウト敗北 (OP15-022): 「デッキが0枚になったターン終了時に敗北」。
             //   両者該当なら **同時敗北** = 引き分け (cardqa_op_15、 game.py と同順)。
+            // ⭐ 「今0枚か」 ではなく 「このターンに0枚になったか」 で判定 (game.py と一致、
+            //    cardqa_op_15: 補充しても / 無効化されても そのターン終了時に敗北)。
+            // ⚠ END フェイズ中に 0 枚になった場合はフラグが立つ前にここへ来るので、
+            //    **今 0 枚か** も併せて見る (game.py と同条件)。
             let deck_out: Vec<usize> = (0..state.players.len())
-                .filter(|&i| state.players[i].deck_out_defer && state.players[i].deck.is_empty())
+                .filter(|&i| state.players[i].deck_hit_zero_this_turn
+                    || (state.players[i].deck_out_defer && state.players[i].deck.is_empty()))
                 .collect();
+            for p in state.players.iter_mut() {
+                p.deck_hit_zero_this_turn = false; // 判定はターンごと
+            }
             if !deck_out.is_empty() && !state.game_over {
                 if deck_out.len() == 2 {
                     state.game_over = true;
@@ -616,34 +631,56 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
                 r?;
             }
             // 2. return_to_deck_bottom_at_turn_end: 一時登場キャラを持ち主デッキ下へ (付与ドン→レスト)。
-            //    trigger 発火なし (単純 cleanup、 effects.py:11424)。 board 順で処理。
+            // ⭐ 「このキャラが場を離れる場合、 代わりに〜」 の置換は **ターン終了時の離脱にも** かかる
+            //    (公式 cardqa_eb_04 / EB04-044 コビー)。 effects.py と同順・同 leave_kind でミラー。
             {
-                let p = &mut state.players[me];
                 let mut i = 0;
-                while i < p.characters.len() {
-                    if p.characters[i].return_to_deck_bottom_at_turn_end {
-                        let ip = p.characters.remove(i);
-                        let don = ip.attached_dons;
-                        p.deck.push(ip.card);
-                        p.don_rested += don;
-                    } else {
+                while i < state.players[me].characters.len() {
+                    if !state.players[me].characters[i].return_to_deck_bottom_at_turn_end {
                         i += 1;
+                        continue;
                     }
+                    if crate::effects::try_replace_ko(state, me, i, false, "return_to_deck_bottom")? {
+                        // 置換成立 = 場に残る。 一時登場の期限は消化済 (Python と一致)。
+                        if i < state.players[me].characters.len() {
+                            state.players[me].characters[i].return_to_deck_bottom_at_turn_end = false;
+                        }
+                        i += 1;
+                        continue;
+                    }
+                    if i >= state.players[me].characters.len() {
+                        continue;   // 置換の do 内で既に場を離れた
+                    }
+                    let p = &mut state.players[me];
+                    let ip = p.characters.remove(i);
+                    let don = ip.attached_dons;
+                    p.deck.push(ip.card);
+                    p.don_rested += don;
                 }
             }
-            // 3. trash_at_self_turn_end: 自己犠牲 (trash、 effects.py:11434)。 trigger 発火なし。
+            // 3. trash_at_self_turn_end: 自己犠牲 (trash、 effects.py:11434)。
             {
-                let p = &mut state.players[me];
                 let mut i = 0;
-                while i < p.characters.len() {
-                    if p.characters[i].trash_at_self_turn_end {
-                        let ip = p.characters.remove(i);
-                        let don = ip.attached_dons;
-                        p.trash.push(ip.card);
-                        p.don_rested += don;
-                    } else {
+                while i < state.players[me].characters.len() {
+                    if !state.players[me].characters[i].trash_at_self_turn_end {
                         i += 1;
+                        continue;
                     }
+                    if crate::effects::try_replace_ko(state, me, i, false, "trash")? {
+                        if i < state.players[me].characters.len() {
+                            state.players[me].characters[i].trash_at_self_turn_end = false;
+                        }
+                        i += 1;
+                        continue;
+                    }
+                    if i >= state.players[me].characters.len() {
+                        continue;
+                    }
+                    let p = &mut state.players[me];
+                    let ip = p.characters.remove(i);
+                    let don = ip.attached_dons;
+                    p.trash.push(ip.card);
+                    p.don_rested += don;
                 }
             }
             // on-field end_of_turn (me) / opp_end_of_turn (opp)。 Python trigger_end_of_turn と同じく

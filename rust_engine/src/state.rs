@@ -480,6 +480,11 @@ pub struct Player {
     /// デッキが0枚になったターン終了時に敗北する」 (core.py Player.deck_out_defer のミラー)。
     #[serde(default)]
     pub deck_out_defer: bool,
+    /// 「デッキが0枚に **なった**」 事実を そのターン中 記憶する (core.py Player.deck_hit_zero_this_turn)。
+    /// 公式 (cardqa_op_15): デッキ0のターンに補充しても / リーダー効果を無効にされても
+    /// そのターン終了時に敗北する = 遅延敗白の義務は 0 枚到達で確定する。
+    #[serde(default)]
+    pub deck_hit_zero_this_turn: bool,
     pub prevent_self_life_to_hand_until_turn_end: bool,
     pub hand_discarded_by_effect_this_turn: bool,
     pub delayed_at_opp_main_phase_start: Vec<serde_json::Value>,

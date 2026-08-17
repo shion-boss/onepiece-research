@@ -10097,7 +10097,9 @@ def _execute_effect_body_inner(
                         and not getattr(ip, "static_cannot_be_rested", False)
                         and _matches_filter_ip(ip, _ro_filt)
                     ]
-                    if len(_ro_pool) < _ro_n:
+                    # 「自分のカード」 = リーダー/キャラ/ステージ/**ドン‼** (cardqa_op_14、 上記と同則)
+                    _ro_avail = len(_ro_pool) + (max(0, me.don_active) if not _ro_filt else 0)
+                    if _ro_avail < _ro_n:
                         can_pay = False
                         break
                 elif "stage_to_deck_bottom" in cs:
@@ -10601,10 +10603,27 @@ def _execute_effect_body_inner(
                         and not getattr(ip, "static_cannot_be_rested", False)
                         and _matches_filter_ip(ip, _ro_filt)
                     ]
-                    _ro_pool.sort(key=lambda ip: (0 if ip is not me.leader else 1, ip.power))
-                    for ip in _ro_pool[:_ro_n]:
+                    # AI 順: 非リーダー (power 昇順) → ドン‼ → リーダー (activate_main 側と同順)。
+                    _non_leader = sorted(
+                        (ip for ip in _ro_pool if ip is not me.leader), key=lambda ip: ip.power
+                    )
+                    _pick = _non_leader[:_ro_n]
+                    _short = _ro_n - len(_pick)
+                    _don_avail = me.don_active if not _ro_filt else 0
+                    if _short > 0 and _don_avail < _short and me.leader in _ro_pool:
+                        _pick = _pick + [me.leader]
+                    _ro_done = 0
+                    for ip in _pick[:_ro_n]:
                         ip.rested = True
                         state.push_log(f"  効果コスト: 自レスト {ip.card.name}")
+                        _ro_done += 1
+                    # ⭐ 場のカードで足りない分は **アクティブのドン‼** をレストにして払う
+                    #   (公式 cardqa_op_14: 「自分のカード」 = リーダー/キャラ/ステージ/ドン‼)。
+                    _ro_don = min(max(0, _ro_n - _ro_done), me.don_active) if not _ro_filt else 0
+                    if _ro_don:
+                        me.don_active -= _ro_don
+                        me.don_rested += _ro_don
+                        state.push_log(f"  効果コスト: 自ドン‼ {_ro_don} 枚レスト")
                     continue
                 if "stage_to_deck_bottom" in cs:
                     # 公式: ステージ N 枚を **持ち主の** デッキの下へ (= 相手のステージなら相手のデッキ)。
@@ -13926,8 +13945,21 @@ def trigger_end_of_turn(
             finally:
                 state._scheduled_src_category = _prev_sched_cat
     # 2. 一時登場キャラ を 持ち主のデッキの下へ戻す (= OP11-092 ヘルメッポ)。
+    # ⭐ 「このキャラが場を離れる場合、 代わりに〜」 の置換効果は **ターン終了時の離脱にも** かかる
+    #   (公式 cardqa_eb_04 / EB04-044 コビー: ヘルメッポの一時登場でコビーが出て、 ターン終了時に
+    #    場を離れる時 コビーの【ターン1回】置換 (手札1枚を捨てて場に残る) を使えるか → 「はい、できます」)。
+    #   ⚠ 2026-08-17 まで置換機構を通さず問答無用でデッキ下/トラッシュへ送っていた。
     for ip in [c for c in list(me.characters)
                if getattr(c, "return_to_deck_bottom_at_turn_end", False)]:
+        if state.effects_overlay and try_replace_ko(
+            state, me, opp, ip, state.effects_overlay,
+            by_opp_effect=False, leave_kind="return_to_deck_bottom",
+        ):
+            state.push_log(f"  ターン終了時: {ip.card.name} の離脱が置換された (場に残る)")
+            ip.return_to_deck_bottom_at_turn_end = False   # 一時登場の期限は消化済
+            continue
+        if ip not in me.characters:
+            continue      # 置換の do 内で既に場を離れた
         me.characters.remove(ip)
         me.deck.append(ip.card)
         if ip.attached_dons > 0:
@@ -13937,6 +13969,15 @@ def trigger_end_of_turn(
     # 2b. 「このターン終了時、このキャラをトラッシュ」 自己犠牲 (= OP03-005 サッチ)。
     for ip in [c for c in list(me.characters)
                if getattr(c, "trash_at_self_turn_end", False)]:
+        if state.effects_overlay and try_replace_ko(
+            state, me, opp, ip, state.effects_overlay,
+            by_opp_effect=False, leave_kind="trash",
+        ):
+            state.push_log(f"  ターン終了時: {ip.card.name} の離脱が置換された (場に残る)")
+            ip.trash_at_self_turn_end = False
+            continue
+        if ip not in me.characters:
+            continue
         me.characters.remove(ip)
         me.trash.append(ip.card)
         if ip.attached_dons > 0:
@@ -16343,7 +16384,15 @@ def _can_pay_activate_cost(
             ip for ip in ([me.leader] + list(me.characters) + list(me.stages))
             if ip is not None and not ip.rested and _matches_filter_ip(ip, _ro_filt)
         ]
-        if len(_ro_pool) < _ro_n:
+        # ⭐ 公式 (cardqa_op_14 / OP14-020): 「自分のカード1枚をレストにできる」 の 「カード」 は
+        #   **リーダー / キャラ / ステージ / ドン‼ の 4 種**。 ドンは InPlay でなく枚数管理なので
+        #   pool に乗らない → ここで頭数に足す (rest_self_cards の 4 ゾーン化と同型)。
+        #   ⚠ filter 付きの時は除外 (ドンは特徴/コストを持たないので filter に一致しない)。
+        if not _ro_filt:
+            _ro_avail = len(_ro_pool) + max(0, me.don_active)
+        else:
+            _ro_avail = len(_ro_pool)
+        if _ro_avail < _ro_n:
             return False
     # 選択コスト: 「特徴X を持つキャラ か 手札1枚をトラッシュ」 (= OP13-079 イム leader)。
     # spec: {"discard_hand_or_trash_filtered_chara": {"filter": {"feature": "天竜人"}, "n": 1}}
@@ -17156,7 +17205,9 @@ def _fire_activate_main_inner(
             ip for ip in ([me.leader] + list(me.characters) + list(me.stages))
             if ip is not None and not ip.rested and _matches_filter_ip(ip, ro_filt)
         ]
-        if ro_pool:
+        # ⭐ 「自分のカード」 = リーダー/キャラ/ステージ/**ドン‼** (公式 cardqa_op_14 / OP14-020)。
+        #   ドンは InPlay でないので pool に乗らない → 場のカードで足りない分をドンで払う。
+        if ro_pool or (not ro_filt and me.don_active > 0):
             chosen = []
             if "rest_own_iids" in cost_picks:
                 _want = set(cost_picks["rest_own_iids"])
@@ -17186,18 +17237,34 @@ def _fire_activate_main_inner(
                         "prior_picks": dict(cost_picks),
                         "limit": ro_n,
                         "primitive_kind": "rest_own_card",
-                        "description": "起動メインコスト: レストにする自分のカードを選択",
+                        "description": ("起動メインコスト: レストにする自分のカードを選択"
+                                        " (選ばなかった分はアクティブのドン‼で支払う)"),
                     }
                     state.push_log(
                         f"  起動メインコスト 候補 {len(ro_pool)} 枚 → 人間 選択 待ち (= 自レスト任意)"
                     )
                     return
-            if not chosen:
-                ro_pool.sort(key=lambda ip: (0 if ip is not me.leader else 1, ip.power))
-                chosen = ro_pool[:ro_n]
+            if not chosen and "rest_own_iids" not in cost_picks:
+                # AI 順: **非リーダーの場のカード (power 昇順) → ドン‼ → リーダー**。
+                # ⚠ リーダーをレストにするとそのターンのアタックを失うので、 ドンより後回し
+                #   (ドンは 1 枚レストしても攻撃力に直結しない)。
+                _non_leader = sorted(
+                    (ip for ip in ro_pool if ip is not me.leader), key=lambda ip: ip.power
+                )
+                chosen = _non_leader[:ro_n]
+                _short = ro_n - len(chosen)
+                _don_avail = me.don_active if not ro_filt else 0
+                if _short > 0 and _don_avail < _short and me.leader in ro_pool:
+                    chosen = chosen + [me.leader]      # ドンでも足りない時だけリーダー
             for ip in chosen:
                 ip.rested = True
                 state.push_log(f"  起動メインコスト: 自レスト {ip.card.name}")
+            # 場のカードで足りない分 (= 人間が少なく選んだ / pool が空) は アクティブのドン‼ で払う。
+            ro_don = min(max(0, ro_n - len(chosen)), me.don_active) if not ro_filt else 0
+            if ro_don:
+                me.don_active -= ro_don
+                me.don_rested += ro_don
+                state.push_log(f"  起動メインコスト: 自ドン‼ {ro_don} 枚レスト")
     # once_per_turn フラグ (明示指定時のみ。 既定 True の近似は 2026-08-04 に撤去)
     if cost.get("once_per_turn", False):
         setattr(inplay, "_act_used", True)
