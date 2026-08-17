@@ -11737,9 +11737,9 @@
   "files": [
    "cardqa_op_05.json"
   ],
-  "note": "OP05-032 ピーカ: 同時KOされた co-victim を replace_ko の rest 対象にできるか。 実測(probe)で order-dependent = co-victim (高value) が先に KO 除去され Peeka の rest do 時に不在 → Peeka も KO。 _order_simultaneous_victims は 'saves ANOTHER' のみ front-load し 'rest a co-victim to save SELF' パターンを扱わない。 根治は victim 順序ヒューリスティックの拡張(Python+Rust)= 既知の穴(人間の順序選択 未配線)。 escalate。",
+  "note": "OP05-032 ピーカ: 同時KOされた自分のコスト3以上のキャラをレストして、 このキャラが KO されないことができる (公式 はい)。 ⭐ **同時 KO は 1 事象** として 3 相で解くよう是正 (2026-08-17): A) 免疫/置換の判定を **まだ誰も場を離れていない盤面** で行う → B) 生き残らなかった victim を **まとめて** トラッシュへ → C) その後で【KO時】系を発火。 是正前は victim ごとに 「置換→trash→KO時」 を **逐次** 実行しており、 (a) OP05-032 ピーカ の置換 (同時KOされた自キャラをレスト) は co-victim が既に場を離れていて対象にできず、 (b) OP03-090 ブルーノ の【KO時】(トラッシュから登場) は co-victim がまだトラッシュに入っておらず選べなかった。 ko_all_others (= 実現可能な同時KOの本体、 OP01-094 カイドウ等) を Python/Rust 1:1 で 3 相化。 Rust は判定相で peek_tagged (非消費) を使い、 除去相で find_tagged に切り替える。 parity MISMATCH=0 / effect smoke 4308 枚 bit 一致 維持。 回帰 test 1 本 (両ケース入り)。",
   "q": "このキャラと同時にKOされた自分の3コスト以上のキャラをレストにし、このキャラがKOされないことはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "ce9faf252de9": {
   "a": "いいえ、できません。",
@@ -12380,9 +12380,9 @@
   "files": [
    "cardqa_op_03.json"
   ],
-  "note": "OP03-090: 同時KOは1事象=共KO札がtrashに入ってからon_ko解決すべき。現engineはvictimごとにtrash->on_ko逐次発火し、realizableな同時KO(OP01-094 ko_all_others)で盤面不整合。全同時victimをtrash後にon_ko一括発火=全KO経路のアーキ変更が必要。",
+  "note": "OP03-090 ブルーノ: このカードと同時にKOされたコスト4以下『CP』キャラを【KO時】でトラッシュから登場できる (公式 はい)。 ⭐ **同時 KO は 1 事象** として 3 相で解くよう是正 (2026-08-17): A) 免疫/置換の判定を **まだ誰も場を離れていない盤面** で行う → B) 生き残らなかった victim を **まとめて** トラッシュへ → C) その後で【KO時】系を発火。 是正前は victim ごとに 「置換→trash→KO時」 を **逐次** 実行しており、 (a) OP05-032 ピーカ の置換 (同時KOされた自キャラをレスト) は co-victim が既に場を離れていて対象にできず、 (b) OP03-090 ブルーノ の【KO時】(トラッシュから登場) は co-victim がまだトラッシュに入っておらず選べなかった。 ko_all_others (= 実現可能な同時KOの本体、 OP01-094 カイドウ等) を Python/Rust 1:1 で 3 相化。 Rust は判定相で peek_tagged (非消費) を使い、 除去相で find_tagged に切り替える。 parity MISMATCH=0 / effect smoke 4308 枚 bit 一致 維持。 回帰 test 1 本 (両ケース入り)。",
   "q": "このカードと、コスト4以下の『CP』を含む特徴を持つ自分のキャラが同時にKOされた場合、この【KO時】効果でこのカードと同時にKOされたカードを登場させることはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "d92fa77f4d98": {
   "a": "はい、できます。",

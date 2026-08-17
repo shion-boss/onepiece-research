@@ -6161,9 +6161,15 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 let t = tag_src(state, opp_idx, Slot::Char(i));
                 toks.push((opp_idx, t));
             }
+            // ⭐ **同時 KO は 1 事象** = 3 相 (effects.py と 1:1、 cardqa_op_03 / cardqa_op_05):
+            //   A) 免疫 / 置換の判定 (= まだ誰も場を離れていない盤面で)
+            //   B) 生き残らなかった victim を **まとめて** トラッシュへ
+            //   C) その後で【KO時】系を発火
             let mut ko_any = false;
+            // A) 判定 (置換の do が盤面を動かすので、 その都度 tok で引き直す)
+            let mut dead_toks: Vec<(usize, Option<u64>)> = vec![];
             for (pi, tok) in toks {
-                let Slot::Char(idx) = find_tagged(state, pi, tok) else { continue };
+                let Slot::Char(idx) = peek_tagged(state, pi, tok) else { continue };
                 let by_opp = pi == opp_idx; // victim から見て「相手の効果」か
                 {
                     let t = &mut state.players[pi].characters[idx];
@@ -6183,27 +6189,37 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     Ok(false) => {}
                     Err(_) => return false,
                 }
+                dead_toks.push((pi, tok));
+            }
+            // B) まとめてトラッシュへ (= 【KO時】が解決する時点で全員がトラッシュに居る)
+            struct KoInfo { pi: usize, cid: String, card: CardDef, top: i32, by_opp: bool }
+            let mut ko_infos: Vec<KoInfo> = vec![];
+            for (pi, tok) in dead_toks {
+                let Slot::Char(idx) = find_tagged(state, pi, tok) else { continue };
+                let by_opp = pi == opp_idx;
                 let vcid = state.players[pi].characters[idx].card.card_id.clone();
                 note_ko_victim_negated(state, pi, idx);
                 let ip = state.players[pi].characters.remove(idx);
                 let don = ip.attached_dons;
-                let _ko_vic = ip.card.clone();
-                let _ko_vtop = ip.truly_original_power(); // KO 時点の元々のパワー (公式 4-9-2-1) // KO victim 文脈 (victim_truly_original_power_ge / victim_feature_in 用)
+                let card = ip.card.clone();
+                let top = ip.truly_original_power(); // KO 時点の元々のパワー (公式 4-9-2-1)
                 state.players[pi].trash.push(ip.card);
                 state.players[pi].don_rested += don;
-                if by_opp {
-                }
                 ko_any = true;
-                state.last_chara_ko_victim_card = Some(_ko_vic);
-                state.rust_ko_victim_truly_original_power = Some(_ko_vtop); // Python は payload で victim を運ぶ (2026-08-11)
-                if fire_on_ko(state, pi, &vcid, by_opp).is_err() {
+                ko_infos.push(KoInfo { pi, cid: vcid, card, top, by_opp });
+            }
+            // C) 全員がトラッシュに入ってから【KO時】系を発火
+            for info in ko_infos {
+                state.last_chara_ko_victim_card = Some(info.card);
+                state.rust_ko_victim_truly_original_power = Some(info.top);
+                if fire_on_ko(state, info.pi, &info.cid, info.by_opp).is_err() {
                     return false;
                 }
                 // 相手 victim のときだけ 発動側の【相手のキャラがKOされた時】が発火する。
-                if by_opp && fire_field_when(state, me_idx, "on_opp_chara_ko").is_err() {
+                if info.by_opp && fire_field_when(state, me_idx, "on_opp_chara_ko").is_err() {
                     return false;
                 }
-                if fire_field_when(state, pi, "on_self_chara_ko").is_err() {
+                if fire_field_when(state, info.pi, "on_self_chara_ko").is_err() {
                     return false;
                 }
                 state.last_chara_ko_victim_card = None;

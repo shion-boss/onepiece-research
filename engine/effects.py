@@ -8852,9 +8852,18 @@ def _execute_effect_body_inner(
                         _rest = [(pl, ip) for pl, ip in ko_targets if pl is not _pl]
                         ko_targets = ([(_pl, ip) for ip in _ordered] if _pl is me else _rest) + \
                                      (_rest if _pl is me else [(_pl, ip) for ip in _ordered])
+            # ⭐ **同時 KO は 1 事象** = 3 相で解く (2026-08-17 是正、 公式 cardqa_op_03 / cardqa_op_05):
+            #   A) 免疫 / 置換の判定 (= **まだ誰も場を離れていない** 盤面で行う)
+            #   B) 生き残らなかった victim を **まとめて** トラッシュへ
+            #   C) その後で【KO時】系を発火
+            # ⚠ 旧実装は victim ごとに 「置換→trash→KO時」 を **逐次** 実行していたため:
+            #   - OP05-032 ピーカ の置換 (同時KOされた自キャラをレスト) が、 先に処理された
+            #     co-victim が既に場を離れていて対象にできなかった (公式 「はい、できます」)
+            #   - OP03-090 ブルーノ の【KO時】(トラッシュから登場) が、 同時KOされた札が
+            #     まだトラッシュに入っておらず選べなかった (公式 「はい、できます」)
             _kao_any = False
+            _kao_dead: list[tuple[Player, InPlay]] = []
             for owner, t in ko_targets:
-                # 自分のキャラ KO 経路 (= 自陣)
                 if owner is me:
                     if t.ko_per_turn_immune_remaining > 0:
                         t.ko_per_turn_immune_remaining -= 1
@@ -8867,19 +8876,7 @@ def _execute_effect_body_inner(
                         state, me, opp, t, state.effects_overlay, by_opp_effect=False
                     ):
                         continue
-                    if t in me.characters:
-                        me.characters.remove(t)
-                        me.trash.append(t.card)
-                        if t.attached_dons > 0:
-                            me.don_rested += t.attached_dons
-                        state.push_log(f"  効果: KO {t.card.name} (自陣)")
-                        _kao_any = True
-                        if state.effects_overlay:
-                            # me 側 victim、 me 側 effect → by_opp_effect=False (= 自爆)
-                            trigger_on_ko(state, me, opp, t.card, state.effects_overlay, by_opp_effect=False, victim_attached_don=t.attached_dons, victim_truly_original_power=t.truly_original_power, victim_effect_negated=_ip_effect_negated(t))
-                            trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
                 else:
-                    # 相手キャラ KO 経路
                     if t.protect_from_opp_effect:
                         state.push_log(f"  保護効果: {t.card.name}")
                         continue
@@ -8894,18 +8891,37 @@ def _execute_effect_body_inner(
                         state, opp, me, t, state.effects_overlay, by_opp_effect=True
                     ):
                         continue
-                    if t in opp.characters:
-                        opp.characters.remove(t)
-                        opp.trash.append(t.card)
-                        if t.attached_dons > 0:
-                            opp.don_rested += t.attached_dons
-                        state.push_log(f"  効果: KO {t.card.name} (相手)")
-                        _kao_any = True
-                        if state.effects_overlay:
-                            # opp 側 victim、 me 側 effect → victim から 見れば by_opp_effect=True
-                            trigger_on_ko(state, opp, me, t.card, state.effects_overlay, by_opp_effect=True, victim_attached_don=t.attached_dons, victim_truly_original_power=t.truly_original_power, victim_effect_negated=_ip_effect_negated(t))
-                            trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
-                            trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
+                _kao_dead.append((owner, t))
+            # B) まとめてトラッシュへ (= 【KO時】が解決する時点で全員がトラッシュに居る)
+            _kao_info: list[tuple[Player, InPlay, int, int, bool]] = []
+            for owner, t in _kao_dead:
+                if t not in owner.characters:
+                    continue      # 置換の do 等で既に場を離れた
+                owner.characters.remove(t)
+                owner.trash.append(t.card)
+                if t.attached_dons > 0:
+                    owner.don_rested += t.attached_dons
+                state.push_log(
+                    f"  効果: KO {t.card.name} ({'自陣' if owner is me else '相手'})"
+                )
+                _kao_any = True
+                _kao_info.append(
+                    (owner, t, t.attached_dons, t.truly_original_power, _ip_effect_negated(t))
+                )
+            # C) 全員がトラッシュに入ってから【KO時】系を発火
+            if state.effects_overlay:
+                for owner, t, _don, _pow, _neg in _kao_info:
+                    if owner is me:
+                        trigger_on_ko(state, me, opp, t.card, state.effects_overlay,
+                                      by_opp_effect=False, victim_attached_don=_don,
+                                      victim_truly_original_power=_pow, victim_effect_negated=_neg)
+                        trigger_on_self_chara_ko(state, me, opp, state.effects_overlay)
+                    else:
+                        trigger_on_ko(state, opp, me, t.card, state.effects_overlay,
+                                      by_opp_effect=True, victim_attached_don=_don,
+                                      victim_truly_original_power=_pow, victim_effect_negated=_neg)
+                        trigger_on_opp_chara_ko(state, me, opp, state.effects_overlay)
+                        trigger_on_self_chara_ko(state, opp, me, state.effects_overlay)
             if _kao_any and state.effects_overlay:
                 trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
         elif k == "ko_multi":

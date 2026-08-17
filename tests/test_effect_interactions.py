@@ -13064,3 +13064,66 @@ def test_op02_002_don_attached_trigger_fires_per_don():
     resolve_triggers(st)
     _recompute_static(st)
     assert victim.base_cost == printed - 1
+
+
+def test_simultaneous_ko_is_one_event_replacement_and_on_ko():
+    """**同時 KO は 1 事象**: 置換は誰も場を離れる前に判定し、【KO時】は全員トラッシュ後に発火。
+
+    一次情報:
+      (a) cardqa_op_05 / OP05-032 ピーカ:
+          「このキャラと同時にKOされた自分の3コスト以上のキャラをレストにし、
+           このキャラがKOされないことはできますか？」 → **はい、できます。**
+      (b) cardqa_op_03 / OP03-090 ブルーノ:
+          「このカードと、コスト4以下の『CP』を含む特徴を持つ自分のキャラが同時にKOされた場合、
+           この【KO時】効果でこのカードと同時にKOされたカードを登場させることはできますか？」
+          → **はい、できます。**
+
+    ⚠ 是正前は victim ごとに 「置換 → trash → 【KO時】」 を **逐次** 実行していたため、
+      (a) は co-victim が先に場を離れて置換の対象にできず、
+      (b) は co-victim がまだトラッシュに入っておらず選べなかった。
+    """
+    import json as _json
+    repo, overlay = _repo(), _overlay()
+    cards = _json.loads((ROOT / "db" / "cards.json").read_text("utf-8"))
+
+    def _i(x):
+        try:
+            return int(x)
+        except (TypeError, ValueError):
+            return None
+
+    cp4 = next(c["card_id"] for c in cards
+               if c["category"] == "CHARACTER" and "CP" in (c.get("features") or "")
+               and (_i(c.get("cost")) or 99) <= 4
+               and "_p" not in c["card_id"] and "_r" not in c["card_id"])
+    cost3 = next(c["card_id"] for c in cards
+                 if c["category"] == "CHARACTER" and (_i(c.get("cost")) or 0) >= 3
+                 and c["name"] != "ピーカ"
+                 and "_p" not in c["card_id"] and "_r" not in c["card_id"])
+
+    # (a) ピーカ: 同時KOされた co-victim をレストして自分は残る
+    st = _state(repo, overlay)
+    me = st.players[0]
+    peeka = InPlay.of(repo.get("OP05-032"), sickness=False)
+    covictim = InPlay.of(repo.get(cost3), sickness=False)
+    src = InPlay.of(repo.get(_FILLER), sickness=False)
+    me.characters = [peeka, covictim, src]
+    execute_effect({"ko_all_others": True}, st, me, st.players[1], src)
+    resolve_triggers(st)
+    assert peeka in me.characters, \
+        "同時KOされた co-victim を置換の対象にできず ピーカが KO されている"
+
+    # (b) ブルーノ: 同時KOされた札を【KO時】でトラッシュから登場
+    st = _state(repo, overlay)
+    me = st.players[0]
+    bruno = InPlay.of(repo.get("OP03-090"), sickness=False)
+    cp = InPlay.of(repo.get(cp4), sickness=False)
+    src = InPlay.of(repo.get(_FILLER), sickness=False)
+    me.characters = [bruno, cp, src]
+    me.trash = []
+    execute_effect({"ko_all_others": True}, st, me, st.players[1], src)
+    resolve_triggers(st)
+    assert any(ip.card.card_id == cp4 for ip in me.characters), (
+        "同時KOされた札を【KO時】で登場できていない "
+        f"(場={[ip.card.card_id for ip in me.characters]} trash={[c.card_id for c in me.trash]})"
+    )
