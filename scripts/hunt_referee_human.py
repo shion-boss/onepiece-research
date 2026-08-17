@@ -13,7 +13,7 @@ baseline 不要) なので、 人間セッションの **settled 点 (action待�
 すれば全構造チェックが効く。
 
 tactic = field-flood: キャラ展開 + 効果発動 (= 召喚) を最優先、 攻撃を避けて場を埋め、
-field_full_select_trash を反復させて 「満杯フィールドへの召喚」 を最大ストレス。
+field_full_sacrifice_pick を反復させて 「満杯フィールドへの召喚」 を最大ストレス。
 
   python scripts/hunt_referee_human.py [N_PER_PAIR]
 """
@@ -59,7 +59,7 @@ def modal_pick(pl, rng):
         o = list(range(len(cs)))
         rng.shuffle(o)
         return o
-    if k == "field_full_select_trash":
+    if k == "field_full_sacrifice_pick":
         # 満杯フィールドで トラッシュ対象を選ぶ: 先頭を選んで 場を回す (= 召喚を継続させる)
         cs = pl.get("candidates") or pl.get("cards") or []
         return [0] if cs else []

@@ -880,22 +880,41 @@ class Player:
         これは ルール処理 であり KO ではないので 【KO 時】 トリガーは発火しない (3-7-6-1-1)。
         付与ドンはレストでコストエリアに戻る (6-5-5-4 と同様)。
 
-        ⚠ owner_idx は API 互換の ため 残すが **人間でも自動 trash する** (= 旧 2026-05-30 の
-        「人間は field_full_select_trash modal で選ばせる」 defer は撤去)。 理由: この helper は
-        効果召喚 (reveal_top_play / summon_from_deck / play_from_trash 等、 effects.py 19 箇所)
-        専用で、 caller は trash 後に **新 chara を append + trigger_on_play を同期発火** する。
-        defer すると pending_choice=field_full_select_trash を立てた直後に on_play が自身の modal
-        (例: ウソ八 の rest 選択) で **それを clobber** し → trash が永久に失われ **場 6 体** に
-        なる (= 2026-06-05 RuleReferee×人間 field-flood hunt が「キャラエリア超過 6>5」 で検出)。
-        メイン PlayCharacter は action に sacrifice_iid を載せ trash→append→on_play 順で正しく
-        人間に選ばせる (game.py) ので 人間の差替選択は そちらで保持される。
+        ⭐ **差し替えるキャラは 「持ち主が選ぶ」** (公式 3-7-6-1)。 人間の選択は
+        `state.field_full_sacrifice_iids` (= 効果側が **召喚前に** 立てた
+        `field_full_sacrifice_pick` modal の結果) を **キューとして先頭から消費** する。
+        キューが空の時 (= AI / 候補が 1 枚 / 未対応経路) だけ 最弱を自動 trash する。
+
+        一次情報 (cardqa_op_10、 OP10-017 ロック × OP10-008 スコッチ): 「ロック」 でも
+        「スコッチ」 でもない自分のキャラが 4 体ある時、 ロックを登場 → 【登場時】でスコッチを
+        登場させる為に **ロック自身をトラッシュに置いた場合**、 そのスコッチの【登場時】で
+        さらに別のロックを登場させられるか → 「**はい、できます。**」。 最弱自動 trash だけだと
+        ロックが最弱でない限りこの線が **原理的に打てない** ので、 選択を人間に返す
+        (2026-08-17 是正、 旧 escalated b31263935099)。
+
+        ⚠ 選択の modal は **召喚 primitive が副作用を出す前に** 立てる (= その primitive を
+        `primitive_value` ごと replay する)。 ここで defer すると caller が trash 直後に
+        **新 chara を append + trigger_on_play を同期発火** するため、 on_play 自身の modal が
+        pending_choice を **clobber** し trash が失われて **場 6 体** になる
+        (= 2026-06-05 RuleReferee×人間 field-flood hunt が「キャラエリア超過 6>5」 で検出)。
+        メイン PlayCharacter は action に sacrifice_iid を載せる (game.py) ので別経路。
 
         戻り値: trash したキャラ (いなければ None)。
         """
         if self.field_count() < self.MAX_CHARACTERS:
             return None
-        # 効果召喚の field-full は 自動 最 弱 trash (= 人間でも同期 trash で ≤5 を保証、 clobber 回避)
-        sacrifice = min(self.characters, key=lambda ip: (ip.power, ip.card.cost))
+        sacrifice = None
+        if state is not None:
+            queue = getattr(state, "field_full_sacrifice_iids", None)
+            while queue:
+                iid = queue.pop(0)
+                picked = next((ip for ip in self.characters if ip.instance_id == iid), None)
+                if picked is not None:
+                    sacrifice = picked
+                    break
+        if sacrifice is None:
+            # キューが空 (= AI / 候補 1 枚 / 未対応経路) → 最弱を自動 trash
+            sacrifice = min(self.characters, key=lambda ip: (ip.power, ip.card.cost))
         self.characters.remove(sacrifice)
         self.trash.append(sacrifice.card)
         if sacrifice.attached_dons > 0:
@@ -968,6 +987,10 @@ class GameState:
     # OP09-059)。 last_discard_count と違い イベント解決後もクリアしない (= 同じ do 配列の
     # 後続 primitive / 人間 modal を挟んだ continuation から読めるようにするため)。
     last_self_hand_discard_amount: int = 0
+    # 場 5 枚での差し替え (公式 3-7-6-1) で **人間が選んだ** 犠牲キャラの instance_id キュー。
+    # 効果召喚 primitive が召喚前に field_full_sacrifice_pick modal で埋め、
+    # Player.trash_weakest_chara_for_field_full が先頭から消費する (空 = 最弱 自動)。
+    field_full_sacrifice_iids: list = field(default_factory=list)
     # 直近に「自分の場のドンがドンデッキに戻された」 枚数 (= returned_don_count_ge 条件、 EB02-035/P-077)。
     last_returned_don_count: int = 0
     # 直近の「相手のデッキ上を見た」 私的情報 (= peek_opp_deck_top primitive、 OP11-070 等)。

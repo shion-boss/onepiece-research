@@ -8647,3 +8647,69 @@ Rust も 1:1 でミラー (判定相は `peek_tagged` = 非消費、 除去相�
 
 ⚠ Rust は turn 累積を未追従にし、 該当カードがバトルに絡んだら **明示 bail**
 (= 黙って違う状態を作らない。 該当は ST05-010 + パラレルの 2 枚のみ)。
+
+## 「そのキャラ」 は **レストに選ばれた方** を指す (ST24-004 × PRB02-006)
+
+**一次情報** (cardqa_st_24 / ST24-004 ロー&ベポ、 cardqa_prb_02 / PRB02-006 ロロノア・ゾロ):
+
+> Q: この【登場時】効果で相手の「PRB02-006 ロロノア・ゾロ」を選び、相手は「ロロノア・ゾロ」の
+>    効果で代わりに他の相手のキャラをレストにしました。この場合、この「ロロノア・ゾロ」は
+>    次の相手のリフレッシュフェイズでアクティブにならない状態になりますか？
+> A: **はい、なります。** …代わりにレストになったキャラではなく、この【登場時】効果で
+>    **選ばれた**「ロロノア・ゾロ」が…アクティブにならない状態になります。
+
+> Q: (PRB02-006 側) …「OP06-035 ホーディ・ジョーンズ」の【登場時】でこのキャラとキャラAが
+>    同時に選ばれた時、【相手のターン中】効果で **キャラA を代わりにレスト** にできますか？
+> A: **はい、できます。** この場合、キャラAのみがレストになり、この「ロロノア・ゾロ」は
+>    アクティブのままになります。
+
+**是正 2 点** (2026-08-17):
+
+1. **置換 (replace_rest) を迂回する経路があった** — `rest_multi` と `rest` の
+   `one_opp_chara_or_don` / `one_opp_card_any` inline 分岐は **ドンを扱うために自前実装** で、
+   `try_replace_rest` と 「レストになった時」 トリガーを通っていなかった。
+   → `_rest_opp_chara_with_replacement` に集約して全経路を通した。
+2. **「そのキャラ」 の束縛** — overlay は 2 つの独立した target spec (後半が
+   `filter{rested:true}` の別選択) で、 **実際にレストされた方** に効果が付いていた。
+   → 新 target spec **`just_rest_selected`** (= 直前の `rest` が **選んだ** カード。
+   `state.last_rest_selected_iid` / Rust `state.last_rest_selected`)。
+   記録は **選択した時点** (= 「レスト不能」 保護 / 既レスト の判定より前) で行い、
+   置換の do が別のキャラを rest しても **置換後に記録し直す**。
+
+⭐ **一般則**: 「◯◯を選び、 **その**◯◯は〜」 は **1 回の選択に両方を束ねる**。
+target spec を 2 回解決すると、 置換や状態変化で **別のカードに当たる** (人間なら modal が
+2 度出て実際に割れる)。 既出の同型: `opp_just_negated_any` (OP09-097 闇水)。
+
+## 場 5 枚の差し替え (3-7-6-1) で **トラッシュに置くキャラは持ち主が選ぶ**
+
+**一次情報** (cardqa_op_10 / OP10-017 ロック + OP10-008 スコッチ):
+
+> Q: 「ロック」でも「スコッチ」でもない自分のキャラが4体ある時、「ロック」を登場し【登場時】
+>    効果を発動しました。この時、「スコッチ」を登場させるために **「ロック」をトラッシュに
+>    置いた場合**、その「スコッチ」の【登場時】効果でさらに別の「ロック」を登場させることは
+>    出来ますか？
+> A: **はい、できます。**
+
+**是正前**: 効果による登場での差し替えは `Player.trash_weakest_chara_for_field_full` が
+**最弱 (power, cost) を一律自動 trash**。 人間にも選択が無く、 ロックが最弱でない限り
+この線が **原理的に打てなかった** (旧 escalated b31263935099)。
+
+**是正**: 新 modal **`field_full_sacrifice_pick`** (2026-08-17)。
+- 召喚 primitive が **zone を動かす前に** halt し、 `primitive_value` ごと **replay** する
+  (= 「trash → append → on_play 同期発火」 の順を崩さずに人間の選択を挟む唯一の形。
+  trash 直後に defer すると on_play 自身の modal が pending_choice を clobber して
+  **場 6 体** になる = 2026-06-05 の field-flood hunt で検出済の類型)。
+- 選択は `state.field_full_sacrifice_iids` キューに積み、
+  `trash_weakest_chara_for_field_full` が先頭から消費する。 空 (= AI / 候補 1 枚) なら従来の最弱。
+- 必要な犠牲数 = `max(0, field_count + 登場枚数 - 5)`。
+
+⚠ **未適用の経路が残る**: `summon_from_deck` / `search_top_n` / `reveal_top_play` /
+`reveal_hand_play_split` / `play_from_hand_or_trash` / `play_from_hand_named_set` /
+`play_self` / `replace_ko_complex` は halt 点が **既に zone を動かした後** にあり、
+そのままでは replay が二重適用になる。 これらは現状 最弱自動のまま (= 人間の選択なし)。
+適用済は `play_from_hand` / `play_from_hand_choice` /
+`play_from_hand_named_with_dynamic_cost` / `play_from_trash` / `play_multi_from_trash` /
+`play_self_from_trash` / `reveal_life_top_play`。
+
+⚠ **AI は依然 最弱固定** (= policy)。 公式が問うのは 「その線を打てるか」 なので conformance は
+満たすが、 AI が この連鎖を選べるようにするには 犠牲選択を探索に載せる必要がある (別課題)。

@@ -13165,3 +13165,152 @@ def test_st05_010_battle_attr_pump_accumulates_for_the_turn():
     apply_action(st, AttackCharacter(attacker_iid=a2.instance_id, target_iid=z.instance_id))
     assert z.power == base + 6000, \
         f"2 回バトルしても累積していない (期待 {base + 6000}、 実際 {z.power})"
+
+
+def test_prb02_006_replace_rest_can_pick_a_co_selected_target():
+    """PRB02-006 ゾロ: 同時に選ばれたもう 1 枚を **代わりに** レストにできる。
+
+    一次情報 (cardqa / PRB02-006 × OP06-035 ホーディ):
+      Q: 相手が「ホーディ」の【登場時】効果で、自分のアクティブのこのキャラと、自分のアクティブの
+         他のキャラAを選びました。この時、【相手のターン中】効果で、このキャラと同時に選ばれている
+         キャラAを代わりにレストにすることはできますか？
+      A: **はい、できます。** この場合、**キャラAのみ**がレストになり、この「ロロノア・ゾロ」は
+         **アクティブのまま**になります。
+
+    ⚠ 是正前は `rest_multi` が `one_opp_chara_or_don` の解決を `rest` primitive と
+      **重複実装** しており、そちらだけ replace_rest を迂回していた。
+    """
+    from engine.game import _recompute_static
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    st.turn_player_idx = 1                      # 相手のターン (ゾロの【相手のターン中】gate)
+    me, opp = st.players[0], st.players[1]
+    zoro = InPlay.of(repo.get("PRB02-006"), sickness=False)
+    char_a = InPlay.of(repo.get(_FILLER), sickness=False)
+    me.characters = [zoro, char_a]
+    hordy = InPlay.of(repo.get("OP06-035"), sickness=False)
+    opp.characters = [hordy]
+    opp.don_active, opp.don_rested = 0, 0
+    _recompute_static(st)
+
+    trigger_on_play(st, opp, me, hordy, overlay)
+    resolve_triggers(st)
+
+    assert zoro.rested is False, "置換したのにゾロがレストされている (公式=アクティブのまま)"
+    assert char_a.rested is True, "代わりにレストされるはずのキャラAがレストされていない"
+
+
+def test_st24_004_stay_rested_binds_to_the_selected_character():
+    """ST24-004: 「**そのキャラ**は次の相手のリフレッシュでアクティブにならない」 は
+    **選ばれたキャラ** を指す (置換で代わりにレストされた別のキャラではない)。
+
+    一次情報 (cardqa_st_24):
+      Q: この【登場時】効果で相手の「PRB02-006 ロロノア・ゾロ」を選び、相手は「ロロノア・ゾロ」の
+         効果で代わりに他の相手のキャラをレストにしました。この場合、この「ロロノア・ゾロ」は
+         次の相手のリフレッシュフェイズでアクティブにならない状態になりますか？
+      A: **はい、なります。** この場合、代わりにレストになったキャラではなく、この【登場時】効果で
+         **選ばれた**「ロロノア・ゾロ」が次の相手のリフレッシュでアクティブにならない状態になります。
+
+    ⚠ 是正前は overlay が 2 つの独立した target spec で、後半が **別選択** になっていた
+      (filter{rested:true} = 実際にレストされた方に付く)。
+      → `just_rest_selected` (直前の rest が **選んだ** カード) で束縛する。
+    """
+    from engine.game import _recompute_static
+    repo, overlay = _repo(), _overlay()
+
+    def _run(with_zoro):
+        st = _state(repo, overlay)
+        me, opp = st.players[0], st.players[1]
+        first = InPlay.of(repo.get("PRB02-006" if with_zoro else _FILLER), sickness=False)
+        other = InPlay.of(repo.get(_FILLER), sickness=False)
+        opp.characters = [first, other]
+        src = InPlay.of(repo.get("ST24-004"), sickness=False)
+        me.characters = [src]
+        _recompute_static(st)
+        trigger_on_play(st, me, opp, src, overlay)
+        resolve_triggers(st)
+        return first, other
+
+    # 対照: 置換なし → 選ばれたキャラがレスト + stay
+    first, other = _run(False)
+    assert first.rested is True and first.stay_rested_next_refresh is True
+    assert other.stay_rested_next_refresh is False
+
+    # 本題: ゾロが置換 → other がレストされるが stay は **選ばれたゾロ** に付く
+    zoro, other = _run(True)
+    assert zoro.rested is False, "置換したのにゾロがレストされている"
+    assert zoro.stay_rested_next_refresh is True, \
+        "「そのキャラ」 が選ばれたゾロでなく 代替レストされた方に付いている"
+    assert other.stay_rested_next_refresh is False, \
+        "代わりにレストされたキャラに stay が付いてしまっている"
+
+
+def test_op10_017_field_full_sacrifice_is_a_player_choice_enabling_the_rock_scotch_chain():
+    """場 5 枚での差し替え (公式 3-7-6-1) は **持ち主が選ぶ**。 ロック自身を落とせば連鎖する。
+
+    一次情報 (cardqa_op_10、 OP10-017 ロック / OP10-008 スコッチ):
+      Q: 「ロック」でも「スコッチ」でもない自分のキャラが4体ある時、「ロック」を登場し
+         【登場時】効果を発動しました。この時、「スコッチ」を登場させるために「ロック」を
+         トラッシュに置いた場合、その「スコッチ」の【登場時】効果でさらに別の「ロック」を
+         登場させることは出来ますか？
+      A: **はい、できます。**
+
+    ⚠ 2026-08-13 まで engine は field-full の犠牲を **最弱固定で自動 trash** していたため、
+      ロックが最弱でない限り この線が原理的に打てなかった (旧 escalated b31263935099)。
+      → `field_full_sacrifice_pick` modal (= 召喚 primitive を副作用前に halt → replay) で
+        人間に選択を返した。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def _run(sacrifice_the_rock: bool):
+        st = _state(repo, overlay, human_idx=0)
+        me = st.players[0]
+        me.characters = [InPlay.of(repo.get(_FILLER), sickness=False) for _ in range(4)]
+        rock = InPlay.of(repo.get("OP10-017"), sickness=False)
+        me.characters.append(rock)            # 場 5 枚 = 他4 + ロック
+        me.hand = [repo.get("OP10-008"), repo.get("OP10-017")]   # スコッチ + 別のロック
+        trigger_on_play(st, me, st.players[1], rock, overlay)
+        guard = 0
+        while st.pending_choice is not None and guard < 10:
+            guard += 1
+            pc = st.pending_choice
+            assert pc["kind"] == "field_full_sacrifice_pick", pc["kind"]
+            cands = pc["candidates"]
+            rock_idx = next((i for i, c in enumerate(cands)
+                             if c["iid"] == rock.instance_id), None)
+            if sacrifice_the_rock and rock_idx is not None:
+                resolve_pending_choice(st, [rock_idx])
+            else:
+                # ロック以外 (= フィラー) を落とす
+                other = next(i for i, c in enumerate(cands) if c["iid"] != rock.instance_id)
+                resolve_pending_choice(st, [other])
+        return [ip.card.name for ip in me.characters]
+
+    # ロック自身を差し替えの犠牲にした → スコッチ登場 → 「ロックがいない」 が成立し 別ロックも登場
+    names = _run(True)
+    assert names.count("スコッチ") == 1, f"スコッチが登場していない: {names}"
+    assert names.count("ロック") == 1, f"連鎖で別のロックが登場していない: {names}"
+
+    # 対照: ロックを残して他を落とすと 「自分のロックがいない場合」 が不成立 → 連鎖しない
+    names2 = _run(False)
+    assert names2.count("スコッチ") == 1, f"スコッチが登場していない: {names2}"
+    assert names2.count("ロック") == 1, \
+        f"ロックが場に残っているのに 連鎖で 2 枚目が登場している: {names2}"
+
+
+def test_field_full_sacrifice_auto_picks_weakest_for_ai():
+    """AI (= 人間操作でない) 経路は 従来どおり 最弱を自動 trash (= modal を立てない)。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)          # human_idx=None → AI
+    me = st.players[0]
+    weak = InPlay.of(repo.get(_FILLER), sickness=False)
+    me.characters = [InPlay.of(repo.get("OP10-017"), sickness=False) for _ in range(4)]
+    me.characters.append(weak)
+    me.hand = [repo.get("OP10-008")]
+    expected = min(me.characters, key=lambda ip: (ip.power, ip.card.cost))
+    execute_effect({"play_from_hand": {"filter": {"name": "スコッチ"}, "limit": 1}},
+                   st, me, st.players[1], None)
+    assert st.pending_choice is None, "AI 経路で modal が立っている"
+    assert len(me.characters) == 5
+    assert expected not in me.characters, "最弱が自動 trash されていない"
+    assert any(ip.card.name == "スコッチ" for ip in me.characters)

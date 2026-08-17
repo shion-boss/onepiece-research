@@ -1467,6 +1467,22 @@ fn resolve_target(
             });
             cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
         }
+        // just_rest_selected = 直前の `rest` が **選んだ** カード (effects.py の同名 spec)。
+        // 「相手のキャラ1枚までをレストにし、 **そのキャラは** 次のリフレッシュでアクティブに
+        // ならない」 の後半を 同一の 1 枚 に当てる (ST24-004 ロー&ベポ)。
+        // 一次情報 (cardqa_st_24): ① **既にレスト** のキャラを選んでも成立する ② 選んだキャラが
+        // 置換 (PRB02-006 ゾロ) で **代わりに別のキャラがレスト** された場合でも 「そのキャラ」 は
+        // **選ばれた方** を指す。 → 選択時に記録し、 置換後に記録し直す (rest_char_with_cascade)。
+        "just_rest_selected" => match state.last_rest_selected {
+            Some((pi, Slot::Char(ci))) if ci < state.players[pi].characters.len() => {
+                vec![(pi, Slot::Char(ci))]
+            }
+            Some((pi, Slot::Stage(si))) if si < state.players[pi].stages.len() => {
+                vec![(pi, Slot::Stage(si))]
+            }
+            Some((pi, Slot::Leader)) => vec![(pi, Slot::Leader)],
+            _ => vec![],
+        },
         "opp_just_negated_any" => match state.last_negated {
             Some((pi, Slot::Char(ci)))
                 if pi == opp_idx && ci < state.players[pi].characters.len() =>
@@ -4296,7 +4312,8 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
                     }
                     _ => {
                         // leader/stage: 当該カードが on_self_rested を持てば cascade 未対応で bail (rare)、
-                        // else 単純 rest。
+                        // else 単純 rest。 just_rest_selected 用の記録は Char と同じく選択時点で。
+                        state.last_rest_selected = Some((pi, sl));
                         let cid = get_ip(&state.players[pi], sl).card.card_id.clone();
                         if card_has_when(&cid, "on_self_rested") {
                             return false;
@@ -10250,6 +10267,9 @@ fn rest_char_with_cascade(
     idx: usize,
     src: Slot,
 ) -> Result<(), String> {
+    // ⭐ 「そのキャラ」 (just_rest_selected、 ST24-004) 用に **選択した時点で** 記録する
+    //   (effects.py の一般 rest 経路と同じ位置 = レスト不能保護 / 既レスト の判定より前)。
+    state.last_rest_selected = Some((pi, Slot::Char(idx)));
     {
         let ip = &state.players[pi].characters[idx];
         if ip.cannot_be_rested_buff || ip.static_cannot_be_rested || ip.rested {
@@ -10261,9 +10281,13 @@ fn rest_char_with_cascade(
     if me_board_has_when(state, pi, "replace_rest") {
         let by_opp_chara = pi != me_idx && matches!(src, Slot::Char(_));
         if try_replace_rest(state, pi, me_idx, idx, by_opp_chara)? {
+            // 「そのキャラ」 は **選ばれた方**。 置換の do (= 代わりに別のキャラをレスト) が
+            // 内部で上書きするので、 置換が済んだ **後に** 記録し直す (cardqa_st_24)。
+            state.last_rest_selected = Some((pi, Slot::Char(idx)));
             return Ok(()); // 置換発動 = 本来の rest はキャンセル
         }
     }
+    state.last_rest_selected = Some((pi, Slot::Char(idx)));
     // ⚠ 「**キャラ**が自分の効果でレストになった時」 は 持ち主を修飾していない = **両陣営**
     //   (2026-08-10 に Python `_fire_rested_triggers` を両陣営へ是正)。 発火側 (me_idx) の場に
     //   反応カードがあれば、 レストされたのが どちらの陣営でも 未対応 bail にする。

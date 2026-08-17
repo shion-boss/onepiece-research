@@ -9967,9 +9967,9 @@
   "files": [
    "cardqa_st_24.json"
   ],
-  "note": "ST24-004 登場時が相手 PRB02-006 ゾロ を選び rest→ゾロの replace_rest で代わりに他キャラをレスト。公式: '次の相手リフレッシュでアクティブにならない' は代替レストされたキャラでなく選ばれたゾロに付く。engine の overlay は stay_rested_next_refresh を filter{rested:true} で別選択→代替キャラ(rested)に付き選択ゾロ(非rested)に付かない=乖離。正しくは前段 rest 対象を跨いで束縛が必要=primitive 間の target 束縛(アーキ変更)。かつ rest primitive が replace_rest を経由するかも要検証。escalate。",
+  "note": "ST24-004「そのキャラは次の相手のリフレッシュフェイズでアクティブにならない」の束縛を新 target spec just_rest_selected で実装 (engine/effects.py:_resolve_target + state.last_rest_selected_iid、 Rust は state.last_rest_selected)。overlay の filter{rested:true} 別選択を廃止し、前段 rest が **選んだ** カードを指す様にした。選択時点で記録し、置換 (PRB02-006 replace_rest) の do が別キャラを rest しても記録し直す=公式通り『選ばれたゾロ』に付く。既レスト選択も成立 (cardqa_st_24 のもう1問)。test_effect_interactions.py に 2 本 + 既存 1 本。Rust も追従 (bail 0)。",
   "q": "この【登場時】効果で相手の「PRB02-006 ロロノア・ゾロ」を選び、相手は「ロロノア・ゾロ」の効果で代わりに他の相手のキャラをレストにしました。この場合、この「ロロノア・ゾロ」は次の相手のリフレッシュフェイズでアクティブにならない状態になりますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "b14f323115e3": {
   "a": "はい、発動できます。この場合、リーダーはパワーが-5000になります。",
@@ -10101,9 +10101,9 @@
   "files": [
    "cardqa_op_10.json"
   ],
-  "note": "OP10-017 ロック登場時→OP10-008 スコッチ登場(場5枚で差替)→スコッチ登場時→別ロック登場、の連鎖可否。公式はい(どのキャラを差替トラッシュするか player 選択)。engine は効果召喚の場5枚時に trash_weakest_chara_for_field_full で最弱を自動トラッシュ(clobber回避のため人間でも自動、core.py:863 doc)→ロックが最弱でなければ場に残り後続スコッチの'ロック不在'条件 False=連鎖不能。player 選択の粒度を効果召喚時に持たせるのはアーキ変更(clobberリスク)。escalate。",
+  "note": "場5枚の差し替え (3-7-6-1) で トラッシュに置くキャラを **人間が選べる** ようにした (新 modal field_full_sacrifice_pick)。召喚 primitive を zone 変更前に halt → primitive_value ごと replay し、選択は state.field_full_sacrifice_iids キューへ (trash_weakest_chara_for_field_full が消費、空なら従来の最弱自動)。実測: 他4体+ロック の場でロック登場時→差替でロック自身を選択→スコッチ登場→『自分のロックがいない場合』成立→別ロック登場 = 公式『はい、できます』。対照 (ロックを残す) では連鎖しない。⚠ 適用は play_from_hand / _choice / _named_with_dynamic_cost / play_from_trash / play_multi_from_trash / play_self_from_trash / reveal_life_top_play の 7 primitive。halt 点が zone 変更後にある summon_from_deck / search_top_n / reveal_top_play / reveal_hand_play_split / play_from_hand_or_trash / play_from_hand_named_set / play_self / replace_ko_complex は最弱自動のまま (docs/official_rulings.md に明記)。AI も最弱固定 (policy)。",
   "q": "「ロック」でも「スコッチ」でもない自分のキャラが4体ある時、「ロック」を登場し【登場時】効果を発動しました。この時、「スコッチ」を登場させるために「ロック」をトラッシュに置いた場合、その「スコッチ」の【登場時】効果でさらに別の「ロック」を登場させることは出来ますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "b313633622d2": {
   "a": "はい、できます。",
@@ -12368,9 +12368,9 @@
   "files": [
    "cardqa_prb_02.json"
   ],
-  "note": "PRB02-006: ホーディOP06-035の複数体同時レスト+replace_restの代替対象選択(同時選択の別キャラを代わりにレスト)。同時レスト解決順+置換対象選択の相互作用で専用シナリオ+解決順検証が必要。バッチ範囲外。",
+  "note": "PRB02-006 replace_rest が同時選択の別キャラを代わりにレスト可。rest_multi (と rest の one_opp_chara_or_don / one_opp_card_any inline 分岐) が ドンを扱う為に自前実装しており **置換 (replace_rest) と『レストになった時』トリガーを迂回**していた。新ヘルパー _rest_opp_chara_with_replacement に集約して全経路を通した。実測: ゾロ rested=False / キャラA rested=True = 公式『キャラAのみがレストになり、この「ロロノア・ゾロ」はアクティブのまま』。test_prb02_006_replace_rest_can_pick_a_co_selected_target。",
   "q": "相手のターン中、相手が「OP06-035 ホーディ・ジョーンズ」の【登場時】効果を発動し、自分のアクティブのこのキャラと、自分のアクティブの他のキャラAを選びました。この時、【相手のターン中】効果で、このキャラと同時に選ばれているキャラAを代わりにレストにすることはできますか？",
-  "status": "escalated"
+  "status": "fixed"
  },
  "d8fd4940cd72": {
   "a": "はい、できます。",

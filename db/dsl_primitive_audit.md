@@ -1,6 +1,6 @@
 # DSL Primitive Audit
 
-全 primitive: 385, 実装済: 350, 未実装/未検出: 35
+全 primitive: 386, 実装済: 351, 未実装/未検出: 35
 
 ## Missing (= 未実装 / 検出不可) primitives
 
@@ -71,7 +71,7 @@
 | `attach_rested_don` | 175 | do |
 | `play_self` | 161 | do |
 | `self_turn` | 151 | if |
-| `opp_turn` | 134 | if |
+| `opp_turn` | 131 | if |
 | `add_don` | 130 | do |
 | `trash_self` | 116 | cost |
 | `end_of_turn` | 112 | when |
@@ -81,13 +81,13 @@
 | `discard_hand` | 107 | cost |
 | `untap_don` | 105 | do |
 | `add_rested_don` | 100 | do |
+| `self_life_le` | 98 | if |
 | `return_to_hand` | 97 | do |
-| `self_life_le` | 95 | if |
 | `leader_name` | 92 | if |
 | `by_opp_effect` | 88 | if |
 | `return_to_deck_bottom` | 88 | do |
+| `self_chara_filtered_count_ge` | 84 | if |
 | `opp_attack` | 83 | when |
-| `self_chara_filtered_count_ge` | 81 | if |
 | `play_from_trash` | 71 | do |
 | `untap` | 65 | do |
 | `self_hand_count_le` | 64 | if |

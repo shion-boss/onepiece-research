@@ -680,6 +680,13 @@ pub struct GameState {
     /// opp_just_negated_any (OP09-097 闇水、 リーダーも対象) の解決に使う。
     #[serde(skip)]
     pub last_negated: Option<(usize, crate::effects::Slot)>,
+    /// 直前の `rest` が **選んだ** カード (player_idx, Slot)。 effects.py の
+    /// `state.last_rest_selected_iid` の代替。 just_rest_selected (ST24-004 ロー&ベポ
+    /// 「相手キャラ1枚までをレストにし、 **そのキャラは** 次のリフレッシュでアクティブに
+    /// ならない」) の解決に使う。 ⚠ Python は instance_id、 Rust は位置 index (last_negated
+    /// と同じ制約) — 選択と参照の間に場が動くと表現が食い違いうる。
+    #[serde(skip)]
+    pub last_rest_selected: Option<(usize, crate::effects::Slot)>,
     /// 直前に cost の discard_hand_with_filter で捨てたカード名 (effects.py:8877
     /// `state.last_discarded_names`)。 filter の name_in_last_discarded 解決に使う (EB02-039)。
     #[serde(skip)]

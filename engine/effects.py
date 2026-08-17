@@ -847,6 +847,46 @@ def _maybe_pick_self_chara_cost(state: GameState, me: Player, self_inplay: Optio
     return True
 
 
+def _request_field_full_sacrifice(state: GameState, me: Player, self_inplay: Optional[InPlay],
+                                  n_summons: int, primitive_kind: str, primitive_value) -> bool:
+    """効果による登場で **場 5 枚の差し替え** (公式 3-7-6-1) が起きる時、 どのキャラを
+    トラッシュへ置くかを **人間に選ばせる**。 modal を立てたら True (呼び元は即 return)。
+
+    一次情報 (cardqa_op_10、 OP10-017 ロック × OP10-008 スコッチ): 差し替えで
+    **登場元のロック自身** をトラッシュに置けば スコッチの【登場時】の 「自分の『ロック』が
+    いない場合」 が成立し、 さらに別のロックを登場させられる → 「はい、できます。」
+    engine が最弱を自動 trash していた頃はこの線が原理的に打てなかった (2026-08-17 是正)。
+
+    ⚠ **呼び元は 「まだ何も動かしていない」 時点で呼ぶこと**。 解決は primitive を
+    `primitive_value` ごと **replay** する形なので、 halt 前に副作用があると二重適用になる。
+    (人間の 「どのカードを登場させるか」 選択が先に済んでいる場合、 その結果は
+    `primitive_value["_picks_idx"]` に載っているので replay しても選択は保たれる。)
+
+    n_summons = この primitive がこれから場に出すキャラの枚数。 必要な犠牲数は
+    max(0, field_count + n_summons - MAX) (= 1 枚出す毎に 1 枚落ちるので枚数分)。
+    """
+    if not _should_human_pick(state) or n_summons <= 0:
+        return False
+    if state.field_full_sacrifice_iids:
+        return False      # replay 中 (= 既に選択済) → 二重に訊かない
+    n_sac = max(0, me.field_count() + n_summons - Player.MAX_CHARACTERS)
+    if n_sac <= 0 or len(me.characters) <= n_sac:
+        return False      # 差し替え不要 or 選択の余地なし (= 全部落ちる) → 自動で同じ結果
+    state.pending_choice = {
+        "kind": "field_full_sacrifice_pick",
+        "primitive_kind": primitive_kind,
+        "primitive_value": primitive_value,
+        "candidates": [_chara_cost_cand(c) for c in me.characters],
+        "limit": n_sac,
+        "description": f"キャラエリアが一杯: トラッシュに置く自分のキャラを {n_sac} 枚選択 (3-7-6-1)",
+        "source_iid": self_inplay.instance_id if self_inplay is not None else None,
+    }
+    state.push_log(
+        f"  差替 (3-7-6-1): 登場 {n_summons} 枚 → トラッシュに置くキャラ {n_sac} 枚を 人間 選択 待ち"
+    )
+    return True
+
+
 def _request_self_hand_discard(state: GameState, me: Player, self_inplay: Optional[InPlay], limit: int) -> bool:
     """人間操作中 + 候補 > limit なら self_hand_discard_pick(discard_only)modal を立て True。
     AI/候補<=limit は False(呼び元が従来の random discard)。 = 自手札 discard の人間選択(2026-07-08 監査)。"""
@@ -2877,6 +2917,19 @@ def _resolve_target(
         # state.last_replace_victim を 参照 (= try_replace_ko 等 が セット)。
         vic = getattr(state, "last_replace_victim", None)
         return [vic] if vic is not None else []
+    if target_spec == "just_rest_selected":
+        # ⭐ 直前の `rest` が **選んだ** カード (= 「相手のキャラ1枚までをレストにし、
+        #   **そのキャラは** 〜」 の後半。 ST24-004 ロー&ベポ)。
+        #   一次情報 (cardqa_st_24): 選んだキャラが置換 (PRB02-006 ゾロ) で
+        #   **代わりに別のキャラがレストされた** 場合でも、 「そのキャラ」 は
+        #   **選ばれた方** (= ゾロ) を指す → 「はい、なります」。
+        #   ⚠ target を 2 回解決すると 「実際にレストされた別のキャラ」 に当たってしまう。
+        iid = getattr(state, "last_rest_selected_iid", None)
+        if iid is not None:
+            for ip in [opp.leader, *opp.characters, me.leader, *me.characters]:
+                if ip is not None and ip.instance_id == iid:
+                    return [ip]
+        return []
     if target_spec == "opp_just_negated_any":
         # 直前に negate した相手のリーダー or キャラ (= 「1 枚までを、 効果を無効にし、 パワー-N」 の
         # 後半。 公式は 同一の 1 枚 に 両方 適用する ので、 target を 2 回 解決すると 別カードに
@@ -3734,6 +3787,36 @@ def _char_summon_blocked(me: Player, card: CardDef) -> bool:
     return False
 
 
+def _rest_opp_chara_with_replacement(state, me, opp, t, by_opp_chara_eff: bool) -> bool:
+    """相手キャラ 1 枚を **置換効果を通して** レストにする。 実際にレストしたら True。
+
+    ⚠ `one_opp_chara_or_don` / `one_opp_card_any` の inline 分岐は ドンを扱うために
+      `rest` primitive 内で自前処理しており、 一般 rest 経路の
+      **置換 (replace_rest) と 「レストになった時」 トリガー を迂回** していた
+      (2026-08-17 是正)。 一次情報 (cardqa / PRB02-006 ロロノア・ゾロ × OP06-035 ホーディ):
+      同時に選ばれた 2 枚のうち ゾロの【相手のターン中】置換で **もう 1 枚を代わりにレスト**
+      できる → 「はい。 キャラAのみがレストになり、 この『ロロノア・ゾロ』はアクティブのまま」。
+    """
+    if t.rested:
+        return False
+    if getattr(t, "cannot_be_rested_buff", False) or getattr(t, "static_cannot_be_rested", False):
+        state.push_log(f"  レスト不能保護: {t.card.name}")
+        return False
+    if state.effects_overlay and try_replace_rest(
+        state, opp, me, t, state.effects_overlay, by_opp_chara_eff
+    ):
+        # 「そのキャラ」 は **選ばれた方** (置換の do が内部で上書きするので後から記録し直す)
+        state.last_rest_selected_iid = t.instance_id
+        return False
+    state.last_rest_selected_iid = t.instance_id
+    if t.rested:
+        return False      # 置換の do で既にレストされた
+    t.rested = True
+    if state.effects_overlay:
+        _fire_rested_triggers(state, me, opp, t)
+    return True
+
+
 def execute_effect(
     spec: EffectSpec,
     state: GameState,
@@ -4556,9 +4639,17 @@ def _execute_effect_body_inner(
                     active_charas.sort(key=lambda ip: -ip.power)
                     if active_charas:
                         t = active_charas[0]
-                        t.rested = True
+                        # ⭐ 置換 (replace_rest) を通す。 ⚠ rest_multi は chara_or_don の解決を
+                        #   `rest` primitive と **重複実装** しており、 こちらだけ置換を迂回していた
+                        #   (2026-08-17 是正、 cardqa / PRB02-006 × OP06-035)。
+                        _by_ce = bool(
+                            self_inplay is not None
+                            and str(getattr(self_inplay.card.category, "value",
+                                            self_inplay.card.category)).upper() == "CHARACTER"
+                        )
                         already.add(id(t))
-                        state.push_log(f"  効果: レスト → 相手キャラ {t.card.name}")
+                        if _rest_opp_chara_with_replacement(state, me, opp, t, _by_ce):
+                            state.push_log(f"  効果: レスト → 相手キャラ {t.card.name}")
                     elif opp.don_active > 0:
                         opp.don_active -= 1
                         opp.don_rested += 1
@@ -4581,6 +4672,13 @@ def _execute_effect_body_inner(
                     already.add(id(t))
                     state.push_log(f"  効果: rest {t.card.name}")
         elif k == "rest":
+            # 置換 (replace_rest) の 「相手の **キャラ** の効果で」 gate 用 (一般 rest 経路と同条件)
+            _by_opp_chara_eff = bool(
+                self_inplay is not None
+                and getattr(self_inplay.card, "category", None) is not None
+                and str(getattr(self_inplay.card.category, "value",
+                                self_inplay.card.category)).upper() == "CHARACTER"
+            )
             # 「相手のキャラかドン1枚までを、 レストにする」 用 特殊 target spec。
             # 通常の target spec で相手のドンは表現できないため (ドンは InPlay ではない)、
             # rest primitive 内で one_opp_chara_or_don を分岐処理。
@@ -4616,8 +4714,10 @@ def _execute_effect_body_inner(
                 if iid_picks is not None and iid_picks:
                     target = next((c for c in active_charas if c.instance_id in iid_picks), None)
                     if target is not None:
-                        target.rested = True
-                        state.push_log(f"  効果: レスト → 相手キャラ {target.card.name}")
+                        if _rest_opp_chara_with_replacement(
+                            state, me, opp, target, _by_opp_chara_eff
+                        ):
+                            state.push_log(f"  効果: レスト → 相手キャラ {target.card.name}")
                         return True
                     # iid mismatch (= 不正 pick) は fallthrough
                 # 解決 path: iid_picks が 空 list → DON 側 で 処理 (= human 「キャラ pick せず」)
@@ -4633,8 +4733,10 @@ def _execute_effect_body_inner(
                 active_charas.sort(key=lambda ip: -ip.power)
                 if active_charas:
                     target = active_charas[0]
-                    target.rested = True
-                    state.push_log(f"  効果: レスト → 相手キャラ {target.card.name}")
+                    if _rest_opp_chara_with_replacement(
+                        state, me, opp, target, _by_opp_chara_eff
+                    ):
+                        state.push_log(f"  効果: レスト → 相手キャラ {target.card.name}")
                 elif opp.don_active > 0:
                     opp.don_active -= 1
                     opp.don_rested += 1
@@ -4684,8 +4786,10 @@ def _execute_effect_body_inner(
                         (c for c in ip_cands if c.instance_id in iid_picks), None
                     )
                     if target is not None:
-                        target.rested = True
-                        state.push_log(f"  効果: レスト → 相手 {target.card.name}")
+                        if _rest_opp_chara_with_replacement(
+                            state, me, opp, target, _by_opp_chara_eff
+                        ):
+                            state.push_log(f"  効果: レスト → 相手 {target.card.name}")
                         return True
                     # iid mismatch は fallthrough (AI 順で解決)
                 if iid_picks is not None and not iid_picks:
@@ -4706,8 +4810,8 @@ def _execute_effect_body_inner(
                     key=lambda ip: -ip.power,
                 )
                 if charas:
-                    charas[0].rested = True
-                    state.push_log(f"  効果: レスト → 相手キャラ {charas[0].card.name}")
+                    if _rest_opp_chara_with_replacement(state, me, opp, charas[0], _by_opp_chara_eff):
+                        state.push_log(f"  効果: レスト → 相手キャラ {charas[0].card.name}")
                 elif _restable(opp.leader):
                     opp.leader.rested = True
                     state.push_log(f"  効果: レスト → 相手リーダー {opp.leader.card.name}")
@@ -4765,12 +4869,18 @@ def _execute_effect_body_inner(
                 and self_inplay.card.category == Category.CHARACTER
             )
             for t in targets:
+                # ⭐ 「そのキャラ」 (just_rest_selected) 用に **選択した時点で** 記録する。
+                #   公式 (cardqa_st_24) は 2 つとも 「はい」:
+                #     - **既にレストの** キャラを選んでも 「そのキャラは次のリフレッシュで
+                #       アクティブにならない」 状態にできる (= レストは no-op でも選択は成立)
+                #     - 選んだキャラが置換で **代わりに別のキャラがレスト** された場合でも、
+                #       「そのキャラ」 は **選ばれた方** を指す
+                state.last_rest_selected_iid = t.instance_id
                 # 「レストにできない」 保護 (OP14-033 の buff / OP12-021 の static rest 免疫)
                 if t.cannot_be_rested_buff or t.static_cannot_be_rested:
                     state.push_log(f"  レスト不能保護: {t.card.name}")
                     continue
-                # 既に rested → 効果が no-op (= 観戦コメント由来: 「リーダー既に rested
-                # → trigger 効果使う必要なし」)。 actually_rested に入れず skip 扱い。
+                # 既に rested → レストは no-op (= 選択自体は成立している)。
                 if t.rested:
                     already_rested_skipped.append(t.card.name)
                     continue
@@ -4785,7 +4895,12 @@ def _execute_effect_body_inner(
                 if v_owner is not None and state.effects_overlay and try_replace_rest(
                     state, v_owner, v_actor, t, state.effects_overlay, by_opp_chara_eff
                 ):
+                    # ⭐ 「そのキャラ」 (just_rest_selected) は **選ばれた方** を指す。
+                    #   置換の do (= 代わりに別のキャラをレスト) が内部で上書きするので、
+                    #   置換が済んだ **後に** 選択を記録し直す (ST24-004 × PRB02-006、 cardqa_st_24)。
+                    state.last_rest_selected_iid = t.instance_id
                     continue
+                state.last_rest_selected_iid = t.instance_id
                 t.rested = True
                 actually_rested.append(t)
                 # 「このキャラがレストになった時」 (OP14-027 シャンクス等) +
@@ -5960,6 +6075,26 @@ def _execute_effect_body_inner(
                     [i for i in picks_idx if 0 <= i < len(me.trash)],
                     reverse=True,
                 )
+                if target_category == Category.CHARACTER:
+                # ⭐ 場 5 枚の差し替え (3-7-6-1) = **どのキャラを落とすか は持ち主が選ぶ**
+                #   (cardqa_op_10 / OP10-017)。 まだ zone を動かしていないので replay 安全。
+                    _n_in = 0
+                    _seen_pre: set[str] = set()
+                    for _i in chosen_indexes:
+                        if _n_in >= limit:
+                            break
+                        _c = me.trash[_i]
+                        if _c.category != target_category or not _matches_filter(_c, filt):
+                            continue
+                        if filt.get("no_effect") and not _card_has_no_effect(_c, state):
+                            continue
+                        if unique_name and _c.name in _seen_pre:
+                            continue
+                        _seen_pre.add(_c.name)
+                        _n_in += 1
+                    if _request_field_full_sacrifice(
+                            state, me, self_inplay, _n_in, k, v):
+                        return True
                 played_count = 0
                 seen_names: set[str] = set()
                 for i in chosen_indexes:
@@ -6029,6 +6164,12 @@ def _execute_effect_body_inner(
                     seen_names.add(card.name)
                 else:
                     remaining.append(card)
+                # ⭐ 場 5 枚の差し替え (3-7-6-1) = **どのキャラを落とすか は持ち主が選ぶ**
+                #   (cardqa_op_10 / OP10-017)。 まだ zone を動かしていないので replay 安全。
+            if _request_field_full_sacrifice(
+                    state, me, self_inplay,
+                    sum(1 for _c in to_play if _c.category == Category.CHARACTER), k, v):
+                return True
             me.trash[:] = remaining  # 先に trash 更新 (= 登場でトラッシュを離れる)
             for card in to_play:
                 if target_category == Category.STAGE:
@@ -6218,6 +6359,15 @@ def _execute_effect_body_inner(
                                       if not (c.name in seen_n2 or seen_n2.add(c.name))]
                     chosen = candidates[:limit]
                     chosen_indexes = sorted([i for i, _ in chosen], reverse=True)
+                # ⭐ 場 5 枚の差し替え (3-7-6-1) が起きるなら **どのキャラを落とすか** を人間に
+                #   訊く。 まだ手札を pop していないので replay 安全 (cardqa_op_10 / OP10-017)。
+                _n_chara_in = sum(
+                    1 for _i in chosen_indexes
+                    if 0 <= _i < len(me.hand) and me.hand[_i].category == Category.CHARACTER
+                )
+                if _request_field_full_sacrifice(
+                        state, me, self_inplay, _n_chara_in, "play_from_hand", v):
+                    return True
                 chosen_cards: list[CardDef] = []
                 for idx in chosen_indexes:
                     chosen_cards.append(me.hand.pop(idx))
@@ -6341,6 +6491,11 @@ def _execute_effect_body_inner(
                 candidates.sort(key=lambda t: (-t[1].cost, -t[1].power, t[1].name))
                 chosen = candidates[:limit]
                 chosen_indexes = sorted([i for i, _ in chosen], reverse=True)
+                # ⭐ 場 5 枚の差し替え (3-7-6-1) = **どのキャラを落とすか は持ち主が選ぶ**
+                #   (cardqa_op_10 / OP10-017)。 まだ zone を動かしていないので replay 安全。
+            if _request_field_full_sacrifice(
+                    state, me, self_inplay, len(chosen_indexes), k, v):
+                return True
             chosen_cards: list[CardDef] = []
             for i in chosen_indexes:
                 chosen_cards.append(me.hand.pop(i))
@@ -6394,6 +6549,10 @@ def _execute_effect_body_inner(
             # 「1 枚まで」 = 任意で 1 枚。 ヒューリスティック: cost 降順 → power 降順 → name
             # (= play_from_hand と同じ、 動的上限に最も近い/最も強いキャラを登場)。
             candidates.sort(key=lambda t: (-t[1].cost, -t[1].power, t[1].name))
+                # ⭐ 場 5 枚の差し替え (3-7-6-1) = **どのキャラを落とすか は持ち主が選ぶ**
+                #   (cardqa_op_10 / OP10-017)。 まだ zone を動かしていないので replay 安全。
+            if _request_field_full_sacrifice(state, me, self_inplay, 1, k, v):
+                return True
             idx, card = candidates[0]
             if not me.can_play_character():
                 me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
@@ -7292,11 +7451,20 @@ def _execute_effect_body_inner(
         elif k == "play_self_from_trash":
             # 「このキャラカードをトラッシュから登場させる」 (= OP14-120 クロコダイル on_ko)。
             # on_ko は self_inplay=None だが state.current_source_card_id に この card_id がある。
-            src_cid = getattr(state, "current_source_card_id", None)
+            # ⚠ 発動元 card_id は transient (current_source_card_id)。 差し替え modal を挟むと
+            #   replay 時には失われているので、 modal に載せた `_src_card_id` を優先で読む。
+            src_cid = (v.get("_src_card_id") if isinstance(v, dict) else None) \
+                or getattr(state, "current_source_card_id", None)
             card = next((c for c in me.trash if c.card_id == src_cid), None)
             if card is None:
                 state.push_log(f"  効果: play_self_from_trash 対象なし (trash に {src_cid} なし)")
                 return False
+                # ⭐ 場 5 枚の差し替え (3-7-6-1) = **どのキャラを落とすか は持ち主が選ぶ**
+                #   (cardqa_op_10 / OP10-017)。 まだ zone を動かしていないので replay 安全。
+            _v_replay = dict(v) if isinstance(v, dict) else {}
+            _v_replay["_src_card_id"] = src_cid
+            if _request_field_full_sacrifice(state, me, self_inplay, 1, k, _v_replay):
+                return True
             if not me.can_play_character():
                 me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
             me.trash.remove(card)
@@ -7328,6 +7496,10 @@ def _execute_effect_body_inner(
                     f"  効果: ライフ上1枚公開 → {revealed.name} ({'マッチ' if matched else '不マッチ'})"
                 )
                 if matched:
+                # ⭐ 場 5 枚の差し替え (3-7-6-1) = **どのキャラを落とすか は持ち主が選ぶ**
+                #   (cardqa_op_10 / OP10-017)。 まだ zone を動かしていないので replay 安全。
+                    if _request_field_full_sacrifice(state, me, self_inplay, 1, k, v):
+                        return True
                     me.life.pop(0)
                     me.life_face_up.pop(0)  # ライフと同じ位置の表向きフラグも取り出す
                     if not me.can_play_character():
@@ -11162,36 +11334,6 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         )
         return
 
-    if kind == "field_full_select_trash":
-        # 場 5 体 差替 え 人 間 選 択 (= 公 式 3-7-6-1)。 picks[0] = candidates index。
-        # 既 場 に は 新 chara が append 済 で 6 体 状 態。 picked chara を trash → 5 体 に。
-        candidates = choice.get("candidates", [])
-        owner_idx = choice.get("owner_idx", state.turn_player_idx)
-        owner = state.players[owner_idx]
-        pick_idx = picks[0] if picks else 0
-        if not (0 <= pick_idx < len(candidates)):
-            pick_idx = 0
-        sacrifice_iid = candidates[pick_idx]["iid"]
-        sacrifice = next(
-            (c for c in owner.characters if c.instance_id == sacrifice_iid),
-            None,
-        )
-        state.pending_choice = None
-        if sacrifice is None:
-            state.push_log(
-                f"  差替 (3-7-6-1) skip: target iid={sacrifice_iid} 不 在"
-            )
-            return
-        owner.characters.remove(sacrifice)
-        owner.trash.append(sacrifice.card)
-        if sacrifice.attached_dons > 0:
-            owner.don_rested += sacrifice.attached_dons
-        state.push_log(
-            f"  差替 (3-7-6-1): {sacrifice.card.name} をトラッシュへ "
-            f"(KO ではないため【KO時】不発動)"
-        )
-        return
-
     if kind == "target_pick":
         # target_pick: choices[i] → 該当 iid を 抜き出し、 _iid_picks を 渡して 再実行
         # ⚠ limit で cap + 重複除去 する (= 人間が上限超/重複を送っても防御。 各 target
@@ -11328,6 +11470,36 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         spec["_don_split_done"] = True
         state.push_log(f"  効果: ドン返却割当 = {alloc}")
         execute_effect({"optional_cost_then": spec}, state, me, opp, self_inplay)
+        return
+
+    if kind == "field_full_sacrifice_pick":
+        # 場 5 枚の差し替え (公式 3-7-6-1) で トラッシュに置く自キャラを人間が選択。
+        # 選択を state.field_full_sacrifice_iids (キュー) に積み、 召喚 primitive を
+        # **副作用前の状態から replay** する (= trash_weakest_chara_for_field_full が消費)。
+        cands = choice.get("candidates", [])
+        limit = int(choice.get("limit", 1))
+        picked = [cands[i]["iid"] for i in (picks or []) if 0 <= i < len(cands)][:limit]
+        prim_kind = str(choice.get("primitive_kind") or "")
+        prim_value = choice.get("primitive_value")
+        source_iid = choice.get("source_iid")
+        self_inplay = None
+        if source_iid is not None:
+            for ip in [*me.characters, me.leader, *me.stages,
+                       *opp.characters, opp.leader, *opp.stages]:
+                if ip.instance_id == source_iid:
+                    self_inplay = ip
+                    break
+        state.pending_choice = None
+        if len(picked) < limit:
+            # 足りない分は 最弱 自動 (= 公式は必ず差し替わるので 「選ばない」 は選べない)
+            state.push_log(f"  差替 (3-7-6-1): 選択 {len(picked)}/{limit} → 残りは最弱を自動")
+        state.field_full_sacrifice_iids = list(picked)
+        if not prim_kind:
+            return
+        try:
+            execute_effect({prim_kind: prim_value}, state, me, opp, self_inplay)
+        finally:
+            state.field_full_sacrifice_iids = []
         return
 
     if kind == "self_chara_cost_pick":

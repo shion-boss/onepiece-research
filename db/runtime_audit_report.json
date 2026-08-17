@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-08-13T07:25:30.062113Z",
+  "generated_at": "2026-08-17T07:41:52.229862Z",
   "config": {
-    "n_games": 60,
+    "n_games": 40,
     "deck_a": "cardrush_1342",
     "deck_b": "cardrush_1342",
     "ai_mode": "goal",
@@ -9,7 +9,7 @@
   },
   "summary": {
     "total_violations": 0,
-    "total_effect_events": 2416,
+    "total_effect_events": 1621,
     "by_rule": {}
   },
   "violations": []

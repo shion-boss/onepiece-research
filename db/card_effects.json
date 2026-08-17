@@ -108670,12 +108670,7 @@
      "rest": "one_opponent_character_any"
     },
     {
-     "stay_rested_next_refresh": {
-      "filter": {
-       "rested": true
-      },
-      "type": "one_opponent_character_filtered"
-     }
+     "stay_rested_next_refresh": "just_rest_selected"
     },
     {
      "conditional": {

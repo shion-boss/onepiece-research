@@ -61,6 +61,10 @@ _EXCLUDE = {
                                    #   除外しても 「アタックがどこに向いたか」 は battle 結果 (ライフ/KO) で
                                    #   検証される。 ⚠ 除外前は 効果を単体発火する差分検証 (直接発火 harness)
                                    #   でのみ露見していた (OP14-060、 2026-08-03)
+    "field_full_sacrifice_iids",   # 場 5 枚差し替え (3-7-6-1) で **人間が選んだ** 犠牲キャラの
+                                   #   instance_id キュー。 instance_id 依存 = Rust 再現不可、 かつ
+                                   #   人間 modal 経路でしか埋まらない (AI/self-play では常に空)。
+                                   #   召喚 primitive の replay 内で consume される action 内 transient。
     # --- ルール状態でない meta (AI 評価 / UI / デッキ情報 / human 対話) = 差分対象外 ---
     "action_evals",        # AI 行動品質評価履歴
     "audit_violations",    # audit meta
