@@ -12958,3 +12958,109 @@ def test_op14_036_counter_cost_accepts_don():
     assert (me.don_active, me.don_rested) == (2, 1), \
         f"ドンでコストを払えていない (active={me.don_active} rested={me.don_rested})"
     assert me.leader.power == before + 4000, "コストを払ったのに +4000 が乗っていない"
+
+
+def test_op07_019_opp_attack_resolves_before_nested_on_play():
+    """【相手のアタック時】は 【アタック時】が誘発した【登場時】より **先** に解決する。
+
+    一次情報 (cardqa_op_07、 OP07-019 ボニー):
+      Q: 相手の「OP01-060 ドフラミンゴ」がアタックし、その【アタック時】効果で
+         「OP07-045 ジンベエ」を登場させました。この場合、この【相手のアタック時】効果で、
+         相手のこの「ジンベエ」の【登場時】効果で登場したキャラをレストできますか？
+      A: **いいえ、できません。** まず「ドフラミンゴ」の【アタック時】で「ジンベエ」が登場し、
+         **次にこのカードの【相手のアタック時】効果を発動します。その後**、「ジンベエ」の
+         【登場時】効果で手札からキャラが登場します。
+
+    ⚠ 是正前は event queue の取り出しが **常にターンプレイヤー優先** だったため、
+      解決中に生まれたターンプレイヤーの誘発 (= ジンベエの【登場時】) が
+      **既に積まれている防御側の【相手のアタック時】を追い越して** いた。
+      → resolve_triggers を **バッチ解決** (同時発動の集合を 1 単位、 新規誘発は次バッチ) に。
+    """
+    from engine.game import AttackLeader, _recompute_static
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, leader0="OP01-001", leader1="OP01-060")
+    st.turn_player_idx = 1                      # 相手 (ドフラ) のターン
+    me, opp = st.players[0], st.players[1]
+    opp.deck = [repo.get("OP07-045")] + [repo.get(_FILLER)] * 20   # デッキトップ = ジンベエ
+    opp.hand = [repo.get("EB04-005")]           # ジンベエの【登場時】が出す先 (cost3 王下七武海)
+    opp.leader.attached_dons = 2                # 【ドン!!×2】gate
+    me.characters = [InPlay.of(repo.get("OP04-025"), sickness=False)]  # ジョーラ (costless opp_attack)
+    me.don_active, opp.don_active = 5, 5
+    _recompute_static(st)
+
+    n0 = len(st.log)
+    apply_action(st, AttackLeader(attacker_iid=opp.leader.instance_id))
+    log = st.log[n0:]
+
+    def _idx(needle):
+        for i, line in enumerate(log):
+            if needle in line:
+                return i
+        return -1
+
+    i_jinbe = _idx("デッキ上1枚公開")            # ① ドフラの【アタック時】でジンベエ登場
+    i_joora = _idx("レスト 不発")                # ② ジョーラの【相手のアタック時】
+    if i_joora < 0:
+        i_joora = _idx("自アクティブドン 2 枚をレストへ")
+    i_nested = _idx("手札から登場")              # ③ ジンベエの【登場時】
+    assert i_jinbe >= 0 and i_joora >= 0 and i_nested >= 0, f"想定のログが出ていない: {log}"
+    assert i_jinbe < i_joora < i_nested, (
+        "解決順が公式と違う (期待: アタック時 → 相手のアタック時 → 誘発した登場時)\n"
+        + "\n".join(log)
+    )
+
+
+def test_op02_002_don_attached_trigger_fires_per_don():
+    """「ドン‼が付与された時」 は **付与された 1 枚につき 1 回** 発火する。
+
+    一次情報 (cardqa_op_02、 OP02-002 ガープ × ST01-011 ブルック):
+      Q: 「ブルック」の【登場時】効果で、自分のレストのドン!!2枚をこのリーダーに付与しました。
+         この時、相手のキャラのコストを **-2** することはできますか？
+      A: **はい、できます。**
+
+    ⚠ 是正前は 2 つ欠落していた:
+      ① **効果由来のドン付与** (attach_rested_don 等) が トリガーを一切発火しなかった
+      ② アクション経由でも **付与アクションごとに 1 回** (= 2 枚付与でも -1) だった
+    """
+    from engine.game import AttachDonToLeader, _recompute_static
+    repo, overlay = _repo(), _overlay()
+
+    def _mk():
+        st = _state(repo, overlay, leader0="OP02-002")
+        me, opp = st.players[0], st.players[1]
+        victim = InPlay.of(repo.get("OP02-013"), sickness=False)   # 印刷コスト 7
+        opp.characters = [victim]
+        _recompute_static(st)
+        return st, me, opp, victim
+
+    # ① 効果由来 (ブルックの【登場時】でレストドン 2 枚)
+    st, me, opp, victim = _mk()
+    me.don_rested = 3
+    src = InPlay.of(repo.get("ST01-011"), sickness=False)
+    me.characters = [src]
+    printed = int(victim.card.cost)
+    trigger_on_play(st, me, opp, src, overlay)
+    resolve_triggers(st)
+    _recompute_static(st)
+    assert me.leader.attached_dons == 2, "前提: ドン 2 枚が付与されていない"
+    assert victim.base_cost == printed - 2, \
+        f"効果由来のドン付与でトリガーが 2 回発火していない ({printed} → {victim.base_cost})"
+
+    # ② アクション由来 (AttachDonToLeader n=2)
+    st, me, opp, victim = _mk()
+    me.don_active = 5
+    printed = int(victim.card.cost)
+    apply_action(st, AttachDonToLeader(n=2))
+    resolve_triggers(st)
+    _recompute_static(st)
+    assert victim.base_cost == printed - 2, \
+        f"アクション由来で 2 回発火していない ({printed} → {victim.base_cost})"
+
+    # ③ 対照: 1 枚なら -1
+    st, me, opp, victim = _mk()
+    me.don_active = 5
+    printed = int(victim.card.cost)
+    apply_action(st, AttachDonToLeader(n=1))
+    resolve_triggers(st)
+    _recompute_static(st)
+    assert victim.base_cost == printed - 1

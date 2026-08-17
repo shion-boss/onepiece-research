@@ -948,9 +948,10 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 p.dons_used_count += n;
                 n
             };
-            // 【このリーダーか自分のキャラにドンが付与された時】(game.py:1442、 OP02-002)。
+            // 【このリーダーか自分のキャラにドンが付与された時】(game.py、 OP02-002)。
+            // ⭐ **付与されたドン 1 枚につき 1 回** 発火 (cardqa_op_02、 2026-08-17 是正)。
             if n > 0 {
-                crate::effects::fire_on_self_don_attached(state, me)?;
+                crate::effects::fire_on_self_don_attached_n(state, me, n)?;
             }
             Ok(())
         }
@@ -968,7 +969,7 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 n
             };
             if n > 0 {
-                crate::effects::fire_on_self_don_attached(state, me)?;
+                crate::effects::fire_on_self_don_attached_n(state, me, n)?;
             }
             Ok(())
         }

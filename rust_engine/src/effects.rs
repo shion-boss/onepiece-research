@@ -9187,18 +9187,33 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     Some(mt) => targets.into_iter().take(mt.max(0) as usize).collect::<Vec<_>>(),
                     None => targets,
                 };
+                let mut by_owner: [i32; 2] = [0, 0];
                 for (pi, sl) in targets {
                     let give = take_from_owner(state, count, pi);
                     if give <= 0 {
                         break;
                     }
                     get_ip_mut(&mut state.players[pi], sl).attached_dons += give;
+                    by_owner[pi] += give;
+                }
+                // 「ドン‼が付与された時」 は **付与された側** で **1 枚につき 1 回** (cardqa_op_02)
+                for pi in 0..2usize {
+                    if by_owner[pi] > 0 {
+                        if let Err(e) = fire_on_self_don_attached_n(state, pi, by_owner[pi]) {
+                            note_prim_err(&e);
+                            return false;   // 再現不能 → 明示 bail
+                        }
+                    }
                 }
             } else {
                 let (pi, sl) = targets[0];
                 let give = take_from_owner(state, count, pi);
                 if give > 0 {
                     get_ip_mut(&mut state.players[pi], sl).attached_dons += give;
+                    if let Err(e) = fire_on_self_don_attached_n(state, pi, give) {
+                        note_prim_err(&e);
+                        return false;
+                    }
                 }
             }
             true
@@ -10440,13 +10455,16 @@ pub(crate) fn fire_opp_life_left_by_effect(
 }
 
 /// Python:_pop_next_event = ターンプレイヤー側を優先し、 同 owner 内は FIFO。
-fn pop_next_event(state: &mut GameState) -> Option<PendingTrigger> {
-    if state.rust_event_queue.is_empty() {
+/// バッチ内 (= 先頭 `batch_len` 件) からのみ次のイベントを取り出す (Python _pop_next_event の only_ids 相当)。
+/// ⚠ Python は id() 集合でバッチを識別するが、 Rust は Vec なので **「先頭 batch_len 件」** で表す。
+///   新規 enqueue は必ず末尾に積まれるので、 現バッチは常に先頭側に連続して残る = 等価。
+fn pop_next_event_in_batch(state: &mut GameState, batch_len: usize) -> Option<PendingTrigger> {
+    if batch_len == 0 || state.rust_event_queue.is_empty() {
         return None;
     }
+    let lim = batch_len.min(state.rust_event_queue.len());
     let turn_idx = state.turn_player_idx;
-    let pos = state
-        .rust_event_queue
+    let pos = state.rust_event_queue[..lim]
         .iter()
         .position(|e| e.owner_idx == turn_idx)
         .unwrap_or(0);
@@ -10460,8 +10478,20 @@ pub fn maybe_resolve(state: &mut GameState) -> Result<(), String> {
     }
     state.rust_resolving = true;
     let r = (|| -> Result<(), String> {
-        while let Some(evt) = pop_next_event(state) {
-            execute_pending(state, &evt)?;
+        // ⭐ **バッチ解決** (effects.py resolve_triggers と 1:1、 2026-08-17)。
+        //   公式は 「同時に発動した」 効果の集合を 1 単位として扱い、 その中でターンプレイヤーが
+        //   先に解決する。 解決中に新たに誘発した効果は 「次のバッチ」 で、 現バッチを追い越さない。
+        //   (cardqa_op_07 / OP07-019: 【アタック時】→ 相手の【相手のアタック時】→ 誘発した【登場時】)
+        while !state.rust_event_queue.is_empty() {
+            let mut remaining = state.rust_event_queue.len();
+            while remaining > 0 {
+                let before = state.rust_event_queue.len();
+                let Some(evt) = pop_next_event_in_batch(state, remaining) else { break };
+                execute_pending(state, &evt)?;
+                // 現バッチの残数 = 取り出した 1 件を引く (新規 enqueue は次バッチなので数えない)
+                let _ = before;
+                remaining -= 1;
+            }
         }
         Ok(())
     })();
@@ -12817,6 +12847,19 @@ pub fn fire_on_self_battle_ko(
 
 /// 【このリーダーか自分のキャラにドンが付与された時】(effects.py:12044、 OP02-002)。
 /// 走査対象は me.leader + me.characters (stage は対象外)。 cost 無し前提 (overlay 実績)。
+/// 「このリーダーか自分のキャラにドン‼が付与された時」。
+/// ⭐ **付与されたドン 1 枚につき 1 回** 発火する (cardqa_op_02 / OP02-002、 effects.py と 1:1)。
+/// Python は enqueue → drain だが、 Rust の呼出点はいずれもキューが空 or 直後に drain するので
+/// count 回 inline 発火で等価 (= 他イベントを追い越さない)。
+pub fn fire_on_self_don_attached_n(
+    state: &mut GameState, me_idx: usize, count: i32,
+) -> Result<(), String> {
+    for _ in 0..count.max(0) {
+        fire_on_self_don_attached(state, me_idx)?;
+    }
+    Ok(())
+}
+
 pub fn fire_on_self_don_attached(state: &mut GameState, me_idx: usize) -> Result<(), String> {
     let Some(ov) = overlay() else { return Ok(()) };
     let mut slots: Vec<Slot> = vec![Slot::Leader];

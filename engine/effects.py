@@ -254,22 +254,29 @@ def _fire_rested_triggers(
     _maybe_resolve(state)
 
 
-def _pop_next_event(state: GameState) -> Optional[TriggerEvent]:
+def _pop_next_event(state: GameState, only_ids: Optional[set] = None) -> Optional[TriggerEvent]:
     """次に解決すべきイベントを 1 つ取り出す。
 
     優先順序:
     1. owner_idx == turn_player_idx のものを先に
     2. 同 owner 内では FIFO (= enqueue 順)
     3. event_order_hook があれば 同 owner / 同 when グループ内で AI が再順序付け可能
+
+    only_ids: 指定時は **そのバッチに属するイベントだけ** を対象にする
+      (= 解決中に新たに誘発した効果が現バッチを追い越さないようにする。 resolve_triggers 参照)。
     """
     if not state.event_queue:
         return None
+    _pool = ([e for e in state.event_queue if id(e) in only_ids]
+             if only_ids is not None else list(state.event_queue))
+    if not _pool:
+        return None
     turn_idx = state.turn_player_idx
     # まずアクティブプレイヤー側を探す
-    active_events = [e for e in state.event_queue if e.owner_idx == turn_idx]
+    active_events = [e for e in _pool if e.owner_idx == turn_idx]
     if not active_events:
         # 非アクティブ側のみ → FIFO 先頭
-        evt = state.event_queue[0]
+        evt = _pool[0]
         state.event_queue.remove(evt)
         return evt
     # AI フックがあれば 同 when の連続グループを取り出して順序選択
@@ -303,10 +310,22 @@ def resolve_triggers(state: GameState) -> None:
     state.resolving = True
     try:
         while state.event_queue:
-            evt = _pop_next_event(state)
-            if evt is None:
-                break
-            _execute_event(state, evt)
+            # ⭐ **バッチ解決** (2026-08-17 是正)。 公式は 「同時に発動した」 効果の集合を
+            #   1 単位として扱い、 その中でターンプレイヤーが先に解決する。 解決中に **新たに
+            #   誘発した** 効果は 「次のバッチ」 で、 現バッチを追い越さない。
+            #   ⚠ 旧実装は _pop_next_event が常にターンプレイヤー優先だったため、
+            #     解決中に生まれたターンプレイヤーの誘発 (= 登場時 等) が
+            #     **既に積まれている相手の効果を追い越して** いた。
+            #   一次情報 (cardqa_op_07 / OP07-019): ドフラの【アタック時】でジンベエ登場 →
+            #     **次に** 相手の【相手のアタック時】 → **その後** ジンベエの【登場時】。
+            _batch = {id(e) for e in state.event_queue}
+            while any(id(e) in _batch for e in state.event_queue):
+                evt = _pop_next_event(state, only_ids=_batch)
+                if evt is None:
+                    break
+                _execute_event(state, evt)
+                if state.pending_choice is not None:
+                    break
             if state.pending_choice is not None:
                 # 人間 target pick 待ち → queue drain を halt。 残り event は queue に
                 # 残し、 pick 解決後 (resolve_pending_choice 末尾) に 再 drain する。
@@ -7040,6 +7059,7 @@ def _execute_effect_body_inner(
             target_spec = spec.get("target", "self_leader")
             n = int(spec.get("count", 1))
             per_target = bool(spec.get("per_target", False))
+            _don_attached_total = 0
             targets = _resolve_target(
                 target_spec, state, me, opp, self_inplay,
                 outer_kind="attach_don", outer_value=v,
@@ -7060,6 +7080,7 @@ def _execute_effect_body_inner(
                     me.don_active -= give
                     t.attached_dons += give
                     attached_log.append(f"{t.card.name}+{give}")
+                    _don_attached_total += give
                 state.push_log(f"  効果: ドン付与 (per_target) → {attached_log}")
             else:
                 n = min(n, me.don_active)
@@ -7069,7 +7090,13 @@ def _execute_effect_body_inner(
                 target = targets[0]
                 me.don_active -= n
                 target.attached_dons += n
+                _don_attached_total += n
                 state.push_log(f"  効果: ドン{n}付与 → {target.card.name} (P={target.power})")
+            # 「ドン‼が付与された時」 は **1 枚につき 1 回** 発火 (cardqa_op_02 / OP02-002)
+            if _don_attached_total and state.effects_overlay:
+                trigger_on_self_don_attached(
+                    state, me, opp, state.effects_overlay, count=_don_attached_total
+                )
         elif k == "attach_rested_don":
             # 「自キャラ/リーダーに レストのドン N 枚を付与」 (ST08-001 等)。
             # ソースは me.don_rested。 付与後は attached_dons の一部として保持
@@ -7163,13 +7190,17 @@ def _execute_effect_body_inner(
                 if mt is not None:
                     targets = targets[: int(mt)]
                 attached_log: list[str] = []
+                _rd_by_owner: dict[int, int] = {}
                 for t in targets:
                     give = _take_rested(n, _owner_of(t) if owner_of_target else None)
                     if give <= 0:
                         break
                     t.attached_dons += give
                     attached_log.append(f"{t.card.name}+{give}")
+                    _oidx = 1 if any(t is c for c in opp.characters) or t is opp.leader else 0
+                    _rd_by_owner[_oidx] = _rd_by_owner.get(_oidx, 0) + give
                 state.push_log(f"  効果: レストドン付与 (per_target) → {attached_log}")
+                _fire_don_attached_by_owner(state, me, opp, _rd_by_owner)
             else:
                 target = targets[0]
                 give = _take_rested(n, _owner_of(target) if owner_of_target else None)
@@ -7177,6 +7208,8 @@ def _execute_effect_body_inner(
                     continue
                 target.attached_dons += give
                 state.push_log(f"  効果: レストドン{give}付与 → {target.card.name}")
+                _oidx = 1 if any(target is c for c in opp.characters) or target is opp.leader else 0
+                _fire_don_attached_by_owner(state, me, opp, {_oidx: give})
         elif k == "power_pump_per_target_attached_don":
             # 公式: 「相手のキャラすべては、 そのキャラに付与されているドン‼1枚につき、
             # このターン中、 パワー-1000。」 (OP15-008 クリーク等)。
@@ -7881,6 +7914,8 @@ def _execute_effect_body_inner(
             me.don_active -= n
             target.attached_dons += n
             state.push_log(f"  効果: アクティブドン {n} 枚付与 → {target.card.name}")
+            if state.effects_overlay:
+                trigger_on_self_don_attached(state, me, opp, state.effects_overlay, count=n)
         elif k == "prevent_opp_blocker_for_cost_le":
             # 「相手は、 このバトル中、 コスト N 以下のキャラの【ブロッカー】を発動できない」
             # OP02-061 / OP02-101 等。 cost N 以下のキャラに「ブロック不可」 flag を立てる。
@@ -13590,6 +13625,22 @@ def evaluate_static_effects(
                         state.pending_choice = _prev_pending
 
 
+def _fire_don_attached_by_owner(state, me, opp, by_owner: dict) -> None:
+    """ドン付与の 「付与された側」 ごとに on_self_don_attached を枚数分発火する。
+
+    ⚠ `to_opp` / `owner_of_target` の付与は **相手のカード** に乗るので、
+      その時の 「自分」 は相手プレイヤー (= OP02-002 の効果は 付与された側で判定する)。
+    """
+    if not state.effects_overlay:
+        return
+    for oidx, cnt in by_owner.items():
+        if cnt <= 0:
+            continue
+        owner = opp if oidx == 1 else me
+        other = me if oidx == 1 else opp
+        trigger_on_self_don_attached(state, owner, other, state.effects_overlay, count=cnt)
+
+
 def _enqueue_field_when(
     state: GameState,
     owner: Player,
@@ -14527,22 +14578,26 @@ def trigger_on_self_don_attached(
     me: Player,
     opp: Player,
     effects_overlay: dict[str, CardEffectBundle],
+    count: int = 1,
 ) -> None:
-    """「このリーダーか自分のキャラにドンが付与された時」 (on_self_don_attached)。 OP02-002。
-    me = ドン付与した player。 場の各キャラ/リーダーの on_self_don_attached を発火。"""
-    if not effects_overlay:
+    """「このリーダーか自分のキャラにドン‼が付与された時」 (on_self_don_attached)。 OP02-002 ガープ。
+
+    me = **ドンを付与された側** (= 効果の 「自分」)。
+
+    ⭐ **付与されたドン 1 枚につき 1 回** 発火する (2026-08-17 是正)。
+      一次情報 (cardqa_op_02): 「ST01-011 ブルック」 の【登場時】でレストのドン2枚を
+      このリーダーに付与した時、 相手のキャラのコストを **-2** にできますか → 「はい、できます」。
+      = 2 枚付与 = 2 回発火 (-1 × 2)。 旧実装は付与アクションごとに 1 回だった。
+
+    ⚠ 旧実装は `execute_effect` で **inline 実行** していたので、 対象を取る効果
+      (cost_minus) が人間 modal を立てると 2 回目以降が潰れた。 他の when と同じく
+      **enqueue → _maybe_resolve** に統一する (= modal の逐次解決が queue で成立する)。
+    """
+    if not effects_overlay or count <= 0:
         return
-    for ip in [me.leader, *list(me.characters)]:
-        bundle = effects_overlay.get(ip.card.card_id)
-        if bundle is None:
-            continue
-        for eff in bundle.effects:
-            if eff.get("when") != "on_self_don_attached":
-                continue
-            if not eval_all_conditions(eff, state, me, ip):
-                continue
-            for prim in eff.get("do", []):
-                execute_effect(prim, state, me, opp, ip)
+    for _ in range(count):
+        _enqueue_field_when(state, me, "on_self_don_attached", effects_overlay)
+    _maybe_resolve(state)
 
 
 def trigger_on_self_battled(

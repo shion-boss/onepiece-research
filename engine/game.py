@@ -1625,7 +1625,8 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         state.push_log(f"attach don to leader x{n} (P={me.leader.power})")
         if n > 0 and state.effects_overlay:
             from .effects import trigger_on_self_don_attached
-            trigger_on_self_don_attached(state, me, opp, state.effects_overlay)
+            # 「ドン‼が付与された時」 は **1 枚につき 1 回** (cardqa_op_02 / OP02-002)
+            trigger_on_self_don_attached(state, me, opp, state.effects_overlay, count=n)
         return
 
     if isinstance(action, AttachDonToCharacter):
@@ -1637,7 +1638,8 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         state.push_log(f"attach don to {ch.card.name} x{n} (P={ch.power})")
         if n > 0 and state.effects_overlay:
             from .effects import trigger_on_self_don_attached
-            trigger_on_self_don_attached(state, me, opp, state.effects_overlay)
+            # 「ドン‼が付与された時」 は **1 枚につき 1 回** (cardqa_op_02 / OP02-002)
+            trigger_on_self_don_attached(state, me, opp, state.effects_overlay, count=n)
         return
 
     if isinstance(action, AttackLeader):
@@ -1695,13 +1697,29 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     opp.leader.attached_dons + sum(c.attached_dons for c in opp.characters)
                 )
                 # 7-1-1-3: 【アタック時】と【相手のアタック時】が同時に発動可
-                trigger_on_attack(state, me, opp, attacker, state.effects_overlay)
-                # defended_target = 攻撃されている opp のリーダー (= 過剰防御判定用)
-                trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay,
-                                      defended_target=opp.leader)
-                # defender=リーダー 限定の opp_attack (OP03-001 エース等)
-                trigger_on_opp_attack_on_leader(state, opp, me, attacker, state.effects_overlay,
-                                                defended_target=opp.leader)
+                # ⭐ 公式 7-1-1-3: 【アタック時】と【相手のアタック時】は **同時に発動** する。
+                # → 3 つとも **先に enqueue してから 1 回だけドレイン** する (2026-08-17 是正)。
+                #   旧実装は trigger_on_attack が末尾で _maybe_resolve していたため、
+                #   **攻撃側の【アタック時】が誘発した【登場時】まで解決し切ってから**
+                #   防御側の【相手のアタック時】を積んでいた = 公式と順序が逆。
+                #   一次情報 (cardqa_op_07 / OP07-019): ドフラの【アタック時】でジンベエが登場 →
+                #   **次に**【相手のアタック時】→ **その後** ジンベエの【登場時】。
+                #   = 防御側の効果は 「登場したジンベエ」 は見られるが 「ジンベエが出したキャラ」 は見られない。
+                _prev_resolving = state.resolving
+                state.resolving = True
+                try:
+                    trigger_on_attack(state, me, opp, attacker, state.effects_overlay)
+                    # defended_target = 攻撃されている opp のリーダー (= 過剰防御判定用)
+                    trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay,
+                                          defended_target=opp.leader)
+                    # defender=リーダー 限定の opp_attack (OP03-001 エース等)
+                    trigger_on_opp_attack_on_leader(state, opp, me, attacker, state.effects_overlay,
+                                                    defended_target=opp.leader)
+                finally:
+                    state.resolving = _prev_resolving
+                if not state.resolving:
+                    from .effects import resolve_triggers as _resolve_attack_triggers
+                    _resolve_attack_triggers(state)
         # アタック対象変更チェック (OP14-060 紫ドフラ等。redirect_attack プリミティブが set)
         if state.pending_attack_redirect is not None:
             redirect_iid = state.pending_attack_redirect
@@ -2144,12 +2162,28 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 state._opp_attack_don_snapshot = (
                     opp.leader.attached_dons + sum(c.attached_dons for c in opp.characters)
                 )
-                trigger_on_attack(state, me, opp, attacker, state.effects_overlay)
-                trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay,
-                                      defended_target=_def_chara)
-                # defender=キャラ 限定の opp_attack
-                trigger_on_opp_attack_on_chara(state, opp, me, attacker, state.effects_overlay,
-                                               defended_target=_def_chara)
+                # ⭐ 公式 7-1-1-3: 【アタック時】と【相手のアタック時】は **同時に発動** する。
+                # → 3 つとも **先に enqueue してから 1 回だけドレイン** する (2026-08-17 是正)。
+                #   旧実装は trigger_on_attack が末尾で _maybe_resolve していたため、
+                #   **攻撃側の【アタック時】が誘発した【登場時】まで解決し切ってから**
+                #   防御側の【相手のアタック時】を積んでいた = 公式と順序が逆。
+                #   一次情報 (cardqa_op_07 / OP07-019): ドフラの【アタック時】でジンベエが登場 →
+                #   **次に**【相手のアタック時】→ **その後** ジンベエの【登場時】。
+                #   = 防御側の効果は 「登場したジンベエ」 は見られるが 「ジンベエが出したキャラ」 は見られない。
+                _prev_resolving = state.resolving
+                state.resolving = True
+                try:
+                    trigger_on_attack(state, me, opp, attacker, state.effects_overlay)
+                    trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay,
+                                          defended_target=_def_chara)
+                    # defender=キャラ 限定の opp_attack
+                    trigger_on_opp_attack_on_chara(state, opp, me, attacker, state.effects_overlay,
+                                                   defended_target=_def_chara)
+                finally:
+                    state.resolving = _prev_resolving
+                if not state.resolving:
+                    from .effects import resolve_triggers as _resolve_attack_triggers
+                    _resolve_attack_triggers(state)
         # 対象消失チェック: trigger_on_attack/opp_attack が target を KO してしまうケースに対応 (= 空打ち)
         target = next(
             (c for c in opp.characters if c.instance_id == action.target_iid),
