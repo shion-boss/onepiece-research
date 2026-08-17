@@ -13314,3 +13314,124 @@ def test_field_full_sacrifice_auto_picks_weakest_for_ai():
     assert len(me.characters) == 5
     assert expected not in me.characters, "最弱が自動 trash されていない"
     assert any(ip.card.name == "スコッチ" for ip in me.characters)
+
+
+def test_field_full_sacrifice_choice_covers_every_effect_summon_primitive():
+    """場 5 枚差し替え (3-7-6-1) の犠牲選択が **全ての効果登場 primitive** で人間に返る。
+
+    一次情報 = cardqa_op_10 (OP10-017/OP10-008、 上のロック連鎖テスト参照)。
+    公式は 「効果で登場させる時、 場が 5 枚なら **自分のキャラを 1 枚選んで** トラッシュ」。
+    経路によって 「選べる / 最弱固定」 が変わるのは 同じ裁定が経路依存になる典型なので、
+    登場 primitive を全部押さえる (2026-08-18)。
+
+    ⚠ 判定は 「modal が出た」 だけでなく **auto と違う結果を選べる** ことまで見る
+      (= 選択が実際に効いている証明)。 auto は最弱 (power, cost) 固定。
+    """
+    repo, overlay = _repo(), _overlay()
+    SCOTCH = "OP10-008"
+
+    def _mk():
+        st = _state(repo, overlay, human_idx=0)
+        me = st.players[0]
+        # 4 体の ロック (= power が フィラーより低い) + フィラー 1 体 = 場 5 枚。
+        # auto は最弱 = ロック を落とすので、 人間が **フィラー** を選べば差が出る。
+        me.characters = [InPlay.of(repo.get("OP10-017"), sickness=False) for _ in range(4)]
+        filler = InPlay.of(repo.get(_FILLER), sickness=False)
+        me.characters.append(filler)
+        auto = min(me.characters, key=lambda ip: (ip.power, ip.card.cost))
+        assert auto is not filler, "テスト前提が崩れている (フィラーが最弱)"
+        return st, me, filler
+
+    def _drive(st, victim):
+        """sacrifice modal では victim を選び、 他の modal は 「はい/先頭」 で進める。"""
+        seen = 0
+        for _ in range(12):
+            pc = st.pending_choice
+            if pc is None:
+                break
+            kind = str(pc.get("kind") or "")
+            if kind == "field_full_sacrifice_pick":
+                seen += 1
+                idx = next(i for i, c in enumerate(pc["candidates"])
+                           if c["iid"] == victim.instance_id)
+                resolve_pending_choice(st, [idx])
+            elif kind.endswith("_confirm") or "optional" in kind:
+                resolve_pending_choice(st, [1])
+            else:
+                n = len(pc.get("candidates") or pc.get("cards") or [])
+                resolve_pending_choice(st, [0] if n else [])
+        return seen
+
+    cases = [
+        ("play_from_hand", {"filter": {"name": "スコッチ"}, "limit": 1}, "hand"),
+        ("play_from_hand_choice", {"filter": {"name": "スコッチ"}, "limit": 1}, "hand"),
+        ("play_from_hand_named_set", {"names": ["スコッチ"]}, "hand"),
+        ("play_from_hand_or_trash", {"filter": {"name": "スコッチ"}, "limit": 1}, "hand"),
+        ("play_from_trash", {"filter": {"name": "スコッチ"}, "limit": 1}, "trash"),
+        ("play_self", True, "trash_self"),
+        ("play_self_from_trash", True, "trash_self"),
+        ("summon_from_deck", {"filter": {"name": "スコッチ"}, "limit": 1}, "deck"),
+        ("search_top_n", {"depth": 3, "filter": {"name": "スコッチ"}, "limit": 1,
+                          "destination": "play"}, "deck"),
+        ("reveal_top_play", {"filter": {"name": "スコッチ"}}, "deck"),
+        ("reveal_life_top_play", {"filter": {"name": "スコッチ"}}, "life"),
+    ]
+
+    for prim, spec, zone in cases:
+        st, me, filler = _mk()
+        if zone == "hand":
+            me.hand = [repo.get(SCOTCH)]
+        elif zone == "trash":
+            me.trash = [repo.get(SCOTCH)]
+        elif zone == "trash_self":
+            me.trash = [repo.get(SCOTCH)]
+            st.current_source_card_id = SCOTCH
+        elif zone == "deck":
+            me.deck = [repo.get(SCOTCH)] + [repo.get(_FILLER)] * 20
+        elif zone == "life":
+            me.life = [repo.get(SCOTCH)] + [repo.get(_FILLER)] * 2
+            me.life_face_up = [False] * 3
+        execute_effect({prim: spec}, st, me, st.players[1], None)
+        seen = _drive(st, filler)
+        names = [ip.card.name for ip in me.characters]
+        assert seen >= 1, f"{prim}: 差し替えの犠牲選択 modal が出ていない (= 最弱自動のまま)"
+        assert "スコッチ" in names, f"{prim}: 登場していない ({names})"
+        assert filler not in me.characters, \
+            f"{prim}: 人間が選んだキャラでなく最弱が自動 trash されている ({names})"
+        assert len(me.characters) == 5, f"{prim}: 場が 5 枚でない ({names})"
+
+
+def test_field_full_sacrifice_choice_reveal_hand_play_split():
+    """reveal_hand_play_split (OP10-058 レベッカ型) でも犠牲を選べる。"""
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay, human_idx=0)
+    me = st.players[0]
+    me.characters = [InPlay.of(repo.get("OP10-017"), sickness=False) for _ in range(4)]
+    filler = InPlay.of(repo.get(_FILLER), sickness=False)
+    me.characters.append(filler)
+    me.hand = [repo.get("OP10-008")]
+
+    execute_effect({"reveal_hand_play_split": {"filter": {"name": "スコッチ"},
+                                               "reveal_limit": 1,
+                                               "extra_rested_cost_le": 4}},
+                   st, me, st.players[1], None)
+    seen = 0
+    for _ in range(8):
+        pc = st.pending_choice
+        if pc is None:
+            break
+        if pc["kind"] == "field_full_sacrifice_pick":
+            seen += 1
+            idx = next(i for i, c in enumerate(pc["candidates"])
+                       if c["iid"] == filler.instance_id)
+            resolve_pending_choice(st, [idx])
+        else:
+            # reveal_hand_play_split_pick (= 公開するカードの選択) は先頭を選ぶ
+            resolve_pending_choice(st, [0])
+    assert seen == 1, "差し替えの犠牲選択 modal が出ていない"
+    names = [ip.card.name for ip in me.characters]
+    assert "スコッチ" in names, names
+    assert filler not in me.characters, names
+    # ⚠ 公開ログが replay で二重に出ていないこと (= halt をログの前に置いた根拠)
+    reveals = [l for l in st.log if "手札から公開" in l]
+    assert len(reveals) == 1, f"公開ログが {len(reveals)} 回 (replay で二重化している)"

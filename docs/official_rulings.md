@@ -8703,13 +8703,32 @@ target spec を 2 回解決すると、 置換や状態変化で **別のカー�
   `trash_weakest_chara_for_field_full` が先頭から消費する。 空 (= AI / 候補 1 枚) なら従来の最弱。
 - 必要な犠牲数 = `max(0, field_count + 登場枚数 - 5)`。
 
-⚠ **未適用の経路が残る**: `summon_from_deck` / `search_top_n` / `reveal_top_play` /
-`reveal_hand_play_split` / `play_from_hand_or_trash` / `play_from_hand_named_set` /
-`play_self` / `replace_ko_complex` は halt 点が **既に zone を動かした後** にあり、
-そのままでは replay が二重適用になる。 これらは現状 最弱自動のまま (= 人間の選択なし)。
-適用済は `play_from_hand` / `play_from_hand_choice` /
-`play_from_hand_named_with_dynamic_cost` / `play_from_trash` / `play_multi_from_trash` /
-`play_self_from_trash` / `reveal_life_top_play`。
+### 適用範囲 = **効果登場 15 primitive を全網羅** (2026-08-18 に完了)
+
+`play_from_hand` / `play_from_hand_choice` / `play_from_hand_named_with_dynamic_cost` /
+`play_from_hand_named_set` / `play_from_hand_or_trash` (picks/AI) / `play_from_trash` /
+`play_multi_from_trash` / `play_self` / `play_self_from_trash` / `summon_from_deck` (picks/AI) /
+`search_top_n` (primitive/人間解決) / `reveal_top_play` (人間 confirm) /
+`reveal_hand_play_split` / `reveal_life_top_play`。
+
+**halt 点の作り方は 2 通り**:
+
+1. **primitive replay** — zone を動かす前に halt し、 `primitive_value` ごと再実行する。
+   plan (どのカードを登場させるか) を **mutation より前に確定させてから** 訊くのが要点。
+   ⚠ 「まだ動かしていない」 を作るために、 いくつかの primitive は
+   pop/slice を request の後ろへ寄せた (`search_top_n` の `me.deck = me.deck[depth:]` /
+   `play_self` の `zone.pop`)。 ログも request の後ろに置き、 replay で二重に出さない
+   (`reveal_hand_play_split` の 「手札から公開」)。
+2. **choice replay** (`_replay_choice` / `_replay_picks`) — **既に 1 つ modal を解決した後**に
+   登場へ到達する経路 (= `reveal_top_play_confirm` / `search_top_n` の人間解決)。
+   revealed カードが既に deck から pop 済で primitive を replay できないので、
+   **その choice 自体を再解決** して続きを走らせる。
+   ⚠ `_replay_choice` から `_continuation` を外す (wrapper が新 modal 側へ引き継ぐので、
+   残すと二重実行になる)。
+
+⚠ **transient を読む primitive は replay 時に失う**。 `play_self` / `play_self_from_trash` は
+発動元を `state.current_source_card_id` から取るが、 これは halt を跨ぐと消えるので
+`_src_card_id` を replay 用 spec に載せて優先で読む。
 
 ⚠ **AI は依然 最弱固定** (= policy)。 公式が問うのは 「その線を打てるか」 なので conformance は
 満たすが、 AI が この連鎖を選べるようにするには 犠牲選択を探索に載せる必要がある (別課題)。

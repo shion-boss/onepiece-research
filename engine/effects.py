@@ -848,7 +848,9 @@ def _maybe_pick_self_chara_cost(state: GameState, me: Player, self_inplay: Optio
 
 
 def _request_field_full_sacrifice(state: GameState, me: Player, self_inplay: Optional[InPlay],
-                                  n_summons: int, primitive_kind: str, primitive_value) -> bool:
+                                  n_summons: int, primitive_kind: str, primitive_value,
+                                  *, replay_choice: Optional[dict] = None,
+                                  replay_picks: Optional[list] = None) -> bool:
     """効果による登場で **場 5 枚の差し替え** (公式 3-7-6-1) が起きる時、 どのキャラを
     トラッシュへ置くかを **人間に選ばせる**。 modal を立てたら True (呼び元は即 return)。
 
@@ -881,6 +883,14 @@ def _request_field_full_sacrifice(state: GameState, me: Player, self_inplay: Opt
         "description": f"キャラエリアが一杯: トラッシュに置く自分のキャラを {n_sac} 枚選択 (3-7-6-1)",
         "source_iid": self_inplay.instance_id if self_inplay is not None else None,
     }
+    if replay_choice is not None:
+        # resolver 側からの halt (= 既に modal を 1 つ解決した後で登場に到達する経路。
+        # reveal_top_play_confirm / search_top_n の人間解決)。 primitive の replay ではなく
+        # **その choice の再解決** で続きを走らせる。
+        # ⚠ `_continuation` は外さないと二重実行になる (wrapper が我々の modal へ引き継ぐ)。
+        _rc = {kk: vv for kk, vv in replay_choice.items() if kk != "_continuation"}
+        state.pending_choice["_replay_choice"] = _rc
+        state.pending_choice["_replay_picks"] = list(replay_picks or [])
     state.push_log(
         f"  差替 (3-7-6-1): 登場 {n_summons} 枚 → トラッシュに置くキャラ {n_sac} 枚を 人間 選択 待ち"
     )
@@ -5150,6 +5160,10 @@ def _execute_effect_body_inner(
                     [i for i in picks_idx if 0 <= i < len(me.deck)],
                     reverse=True,
                 )
+                # ⭐ 場 5 枚差し替え (3-7-6-1) の犠牲は持ち主が選ぶ。 zone 未変更 = replay 安全。
+                if _request_field_full_sacrifice(
+                        state, me, self_inplay, len(chosen_indexes[:limit]), k, v):
+                    return True
                 played_count = 0
                 for i in chosen_indexes[:limit]:
                     card = me.deck[i]
@@ -5169,6 +5183,13 @@ def _execute_effect_body_inner(
                     return False
                 continue
             # AI / 候補 <= limit: 既存 挙動 (= 先頭 から filter 一致 を 登場)
+            # ⭐ 場 5 枚差し替え (3-7-6-1) の犠牲は持ち主が選ぶ。 zone 未変更 = replay 安全。
+            if _request_field_full_sacrifice(
+                    state, me, self_inplay,
+                    min(limit, sum(1 for c in me.deck
+                                   if c.category == Category.CHARACTER
+                                   and _matches_filter(c, filt))), k, v):
+                return True
             found = 0
             picked: list[CardDef] = []
             remaining: list[CardDef] = []
@@ -5252,7 +5273,6 @@ def _execute_effect_body_inner(
                 )
                 return True
             seen = me.deck[:depth]
-            me.deck = me.deck[depth:]
             picked: list[CardDef] = []
             remaining: list[CardDef] = []
             for c in seen:
@@ -5260,6 +5280,13 @@ def _execute_effect_body_inner(
                     picked.append(c)
                 else:
                     remaining.append(c)
+            # ⭐ 場 5 枚差し替え (3-7-6-1) の犠牲は持ち主が選ぶ。 **deck を削る前** に訊く
+            #   (= ここで halt すれば replay しても seen/picked が同一に再構成される)。
+            if destination == "play" and _request_field_full_sacrifice(
+                    state, me, self_inplay,
+                    sum(1 for c in picked if c.category == Category.CHARACTER), k, v):
+                return True
+            me.deck = me.deck[depth:]
             # ⭐ destination="play" の【登場時】は 「その後、 残りを (トラッシュ/デッキ下) に
             #   置く」 が完了した **後** に発火する (公式 cardqa_op_03 / OP03-094 空気開扉:
             #   「この【メイン】効果で登場したキャラの【登場時】は、 その後、 残りをトラッシュに
@@ -5668,10 +5695,6 @@ def _execute_effect_body_inner(
                 if not reveal_set:
                     state.push_log("  効果: reveal_hand_play_split 公開 0 枚 (= skip)")
                 else:
-                    # 公開 (= 相手に見える)
-                    state.push_log(
-                        f"  効果: 手札から公開 → {[me.hand[i].name for i in reveal_set]}"
-                    )
                     # active 枠 = コスト超のカード優先 (レストにできない為)、 なければ最良。
                     def _val(i: int) -> tuple[int, int]:
                         c = me.hand[i]
@@ -5680,16 +5703,28 @@ def _execute_effect_body_inner(
                     active_idx = max(big_idxs or reveal_set, key=_val)
                     # 登場する (card, rested) を hand から抜く前に確定
                     plays: list[tuple[int, bool]] = [(active_idx, False)]
+                    _not_rested_names: list[str] = []
                     for i in reveal_set:
                         if i == active_idx:
                             continue
                         if int(me.hand[i].cost or 0) <= rest_cost_le:
                             plays.append((i, True))
                         else:
-                            state.push_log(
-                                f"  効果: {me.hand[i].name} は コスト{rest_cost_le}超で"
-                                f"レスト登場できず 公開のみ (手札に残る)"
-                            )
+                            _not_rested_names.append(me.hand[i].name)
+                    # ⭐ 場 5 枚差し替え (3-7-6-1) の犠牲は持ち主が選ぶ。 **ログと hand.pop の前**
+                    #   に訊く (= replay しても公開ログが二重に出ない / zone 未変更で安全)。
+                    if _request_field_full_sacrifice(
+                            state, me, self_inplay, len(plays), k, v):
+                        return True
+                    # 公開 (= 相手に見える)
+                    state.push_log(
+                        f"  効果: 手札から公開 → {[me.hand[i].name for i in reveal_set]}"
+                    )
+                    for _nm in _not_rested_names:
+                        state.push_log(
+                            f"  効果: {_nm} は コスト{rest_cost_le}超で"
+                            f"レスト登場できず 公開のみ (手札に残る)"
+                        )
                     play_cards = [(me.hand[i], rested) for i, rested in plays]
                     for i in sorted((i for i, _ in plays), reverse=True):
                         me.hand.pop(i)
@@ -6582,6 +6617,22 @@ def _execute_effect_body_inner(
                 extra_filt = {**extra_filt, "cost_eq": spec["cost_eq"]}
             if "cost_le" in spec:
                 extra_filt = {**extra_filt, "cost_le": spec["cost_le"]}
+            # ⭐ 場 5 枚差し替え (3-7-6-1) の犠牲は持ち主が選ぶ。 登場ループの前 (= zone 未変更)
+            #   で 「何枚登場するか」 を同じ規則で先読みして訊く。
+            _pre_consumed: set[int] = set()
+            for _nm in names:
+                for _i, _c in enumerate(me.hand):
+                    if _i in _pre_consumed or _c.category != Category.CHARACTER:
+                        continue
+                    if _char_summon_blocked(me, _c) or _c.name != _nm:
+                        continue
+                    if not _matches_filter(_c, extra_filt):
+                        continue
+                    _pre_consumed.add(_i)
+                    break
+            if _request_field_full_sacrifice(
+                    state, me, self_inplay, len(_pre_consumed), k, v):
+                return True
             played: list[str] = []
             consumed_indexes: set[int] = set()
             for nm in names:
@@ -7732,25 +7783,35 @@ def _execute_effect_body_inner(
             if v is False:
                 continue
             src_cid = (
-                self_inplay.card.card_id if self_inplay
-                else getattr(state, "current_source_card_id", None)
+                (v.get("_src_card_id") if isinstance(v, dict) else None)
+                or (self_inplay.card.card_id if self_inplay else None)
+                or getattr(state, "current_source_card_id", None)
             )
             if not src_cid:
                 continue
             # 既に場に同 iid のものが残っているなら no-op (二重登場防止)
             if self_inplay is not None and self_inplay in me.characters:
                 continue
-            found_card = None
+            _hit: Optional[tuple[str, list, int]] = None
             for zone_name, zone in (("trash", me.trash), ("hand", me.hand)):
                 for i, c in enumerate(zone):
                     if c.card_id == src_cid and c.category in (Category.CHARACTER, Category.STAGE):
-                        found_card = zone.pop(i)
-                        state.push_log(f"  効果: このカードを登場 ({zone_name} → 場)")
+                        _hit = (zone_name, zone, i)
                         break
-                if found_card:
+                if _hit:
                     break
-            if not found_card:
+            if _hit is None:
                 continue
+            # ⭐ 場 5 枚差し替え (3-7-6-1) の犠牲は持ち主が選ぶ。 **pop する前** に訊く。
+            #   ⚠ src_cid は transient (current_source_card_id) なので replay 用に spec へ載せる。
+            if _hit[1][_hit[2]].category == Category.CHARACTER:
+                _v_ps = dict(v) if isinstance(v, dict) else {}
+                _v_ps["_src_card_id"] = src_cid
+                if _request_field_full_sacrifice(state, me, self_inplay, 1, k, _v_ps):
+                    return True
+            _zn, _zone, _zi = _hit
+            found_card = _zone.pop(_zi)
+            state.push_log(f"  効果: このカードを登場 ({_zn} → 場)")
             if found_card.category == Category.STAGE:
                 # STAGE 版 (= OP03-098【トリガー】このステージを登場)。 game.py:1348 と同様、 既存
                 # ステージ (MAX 超) は持ち主のトラッシュへ、 stages へ配置 (sickness/rested 無関係)。
@@ -9560,6 +9621,27 @@ def _execute_effect_body_inner(
                     [p["idx"] for p in picks if p.get("source") == "trash"],
                     reverse=True,
                 )
+                # ⭐ 場 5 枚差し替え (3-7-6-1)。 zone 未変更 = replay 安全 (v に _picks あり)。
+                if target_cat == Category.CHARACTER:
+                    _n_ht = 0
+                    for _i in hand_idxs:
+                        if _n_ht >= limit or not (0 <= _i < len(me.hand)):
+                            continue
+                        _c = me.hand[_i]
+                        if _c.category != target_cat or not _matches_filter(_c, filt):
+                            continue
+                        if _no_play_from_hand_via_effect(_c, state.effects_overlay):
+                            continue
+                        _n_ht += 1
+                    for _i in trash_idxs:
+                        if _n_ht >= limit or not (0 <= _i < len(me.trash)):
+                            continue
+                        _c = me.trash[_i]
+                        if _c.category != target_cat or not _matches_filter(_c, filt):
+                            continue
+                        _n_ht += 1
+                    if _request_field_full_sacrifice(state, me, self_inplay, _n_ht, k, v):
+                        return True
                 played = 0
                 for i in hand_idxs[:limit - played]:
                     if not (0 <= i < len(me.hand)):
@@ -9594,6 +9676,10 @@ def _execute_effect_body_inner(
                         trigger_on_play(state, me, opp, ip, state.effects_overlay)
                 continue
             # AI / 候補 <= limit: 旧 「手札 優先 → トラッシュ」 自動 pick
+            # ⭐ 場 5 枚差し替え (3-7-6-1)。 zone 未変更 = replay 安全。
+            if target_cat == Category.CHARACTER and _request_field_full_sacrifice(
+                    state, me, self_inplay, min(limit, len(hand_cands) + len(trash_cands)), k, v):
+                return True
             found = 0
             new_hand = []
             for card in me.hand:
@@ -11494,7 +11580,16 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             # 足りない分は 最弱 自動 (= 公式は必ず差し替わるので 「選ばない」 は選べない)
             state.push_log(f"  差替 (3-7-6-1): 選択 {len(picked)}/{limit} → 残りは最弱を自動")
         state.field_full_sacrifice_iids = list(picked)
+        replay_choice = choice.get("_replay_choice")
+        if replay_choice is not None:
+            state.pending_choice = replay_choice
+            try:
+                _resolve_pending_choice_inner(state, list(choice.get("_replay_picks") or []))
+            finally:
+                state.field_full_sacrifice_iids = []
+            return
         if not prim_kind:
+            state.field_full_sacrifice_iids = []
             return
         try:
             execute_effect({prim_kind: prim_value}, state, me, opp, self_inplay)
@@ -12471,9 +12566,16 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         rested_flag = bool(choice.get("rested", False))
         rest_remain = choice.get("rest_remain", "bottom")
         do_play = bool(picks and picks[0] == 1)
-        state.pending_choice = None
         if revealed is None:
+            state.pending_choice = None
             return
+        # ⭐ 場 5 枚差し替え (3-7-6-1) の犠牲は持ち主が選ぶ。 revealed は既に deck から
+        #   pop 済 (= primitive の replay 不可) なので、 **この choice の再解決** で続ける。
+        if do_play and revealed.category == Category.CHARACTER and \
+                _request_field_full_sacrifice(state, me, None, 1, "", None,
+                                              replay_choice=choice, replay_picks=picks):
+            return
+        state.pending_choice = None
         if do_play:
             if not me.can_play_character():
                 me.trash_weakest_chara_for_field_full(state, owner_idx=state.players.index(me))
@@ -12609,7 +12711,6 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
     limit = int(choice.get("limit", 1))
     filt = choice.get("filter", {}) or {}
     seen = me.deck[:depth]
-    me.deck = me.deck[depth:]
     # ⚠ 公式: 手札に加えられるのは filter に合致するカードのみ (= 「コストN以上の特徴Xを
     #   1枚まで」)。 範囲内 idx でも _matches_filter を満たさなければ無効 (= 人間が非該当
     #   カードを掴むのを防ぐ)。 AI/auto 経路 (上の search_top_n primitive) は元から filter を
@@ -12626,6 +12727,14 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
             valid_picks.append(i)
     picked = [seen[i] for i in valid_picks]
     remaining = [c for i, c in enumerate(seen) if i not in seen_i]
+    # ⭐ 場 5 枚差し替え (3-7-6-1) の犠牲は持ち主が選ぶ。 **deck を削る前** に訊き、
+    #   選択後は **この choice の再解決** で続ける (= seen/picked が同一に再構成される)。
+    if destination == "play" and _request_field_full_sacrifice(
+            state, me, None,
+            sum(1 for c in picked if c.category == Category.CHARACTER), "", None,
+            replay_choice=choice, replay_picks=picks):
+        return
+    me.deck = me.deck[depth:]
     _human_played_ips: list[InPlay] = []
     for c in picked:
         if destination == "play":
