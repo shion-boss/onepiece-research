@@ -1212,7 +1212,29 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             } else {
                 state.players[me].characters[atk_idx].card.attribute.clone()
             });
-            crate::effects::fire_on_attack(state, me, is_leader, atk_idx)?;
+            // ⭐ **判断はすべて do より前** (Python は `state.resolving = True` で包んで
+            //   trigger_on_attack → trigger_on_opp_attack を enqueue し切ってから drain する)。
+            //   = 【相手のアタック時】の EV/支払い判断は **【アタック時】の do が走る前** の盤面で
+            //   下される。 Rust が on_attack を do まで実行してから判断していたため、
+            //   on_attack が誘発した【KO時】でライフが増えた盤面で防御 EV を測っていた
+            //   (2026-08-22、 全カード掃引の OP07-019 緑ボニーで発覚)。
+            let on_atk_fired = crate::effects::collect_on_attack(state, me, is_leader, atk_idx)?;
+            let ap_pre = if is_leader {
+                state.players[me].leader.power()
+            } else {
+                state.players[me].characters.get(atk_idx).map(|c| c.power()).unwrap_or(0)
+            };
+            let atk_cost_pre = if is_leader {
+                state.players[me].leader.card.cost
+            } else {
+                state.players[me].characters.get(atk_idx).map(|c| c.card.cost).unwrap_or(0)
+            };
+            let dp_pre = state.players[opp].leader.power();
+            let plan_opp = crate::effects::collect_opp_attack(
+                state, opp, "opp_attack", ap_pre, atk_cost_pre, dp_pre)?;
+            let plan_opp_leader = crate::effects::collect_opp_attack(
+                state, opp, "opp_attack_on_leader", ap_pre, atk_cost_pre, dp_pre)?;
+            crate::effects::fire_on_attack_collected(state, me, is_leader, atk_idx, on_atk_fired)?;
             // ⭐ Python は attacker を object 参照で保持するので、 on_attack で自身が場を離れても
             //   そのオブジェクトを読み続けてバトルを解決する。 Rust は fire_gated_do / cost 支払いが
             //   離場直前のスナップショットを state.rust_detached_src に残すので、 それを使う。
@@ -1267,9 +1289,10 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             } else {
                 state.players[me].characters.get(atk_idx).cloned()
             };
-            crate::effects::fire_opp_attack(state, opp, "opp_attack", ap, atk_cost, dp)?;
-            let dp2 = state.players[opp].leader.power();
-            crate::effects::fire_opp_attack(state, opp, "opp_attack_on_leader", ap, atk_cost, dp2)?;
+            let _ = (ap, atk_cost, dp);
+            crate::effects::fire_opp_attack_collected(state, opp, "opp_attack", plan_opp)?;
+            crate::effects::fire_opp_attack_collected(
+                state, opp, "opp_attack_on_leader", plan_opp_leader)?;
             // opp_attack で defender の盤面が動いても、 タグで宣言ブロッカーの現在位置を取り直す
             // (Python の blocker_iid 解決と等価)。 場から消えていれば「ブロッカー消失」= ブロック無効
             // (game.py:1608)。
@@ -1598,7 +1621,28 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             } else {
                 state.players[me].characters[atk_idx].card.attribute.clone()
             });
-            crate::effects::fire_on_attack(state, me, is_leader, atk_idx)?;
+            // ⭐ 判断 (EV/支払い) はすべて do より前 — AttackLeader 側と同じ理由。
+            //   Python は resolving=True で on_attack と opp_attack を enqueue し切ってから drain する。
+            let on_atk_fired = crate::effects::collect_on_attack(state, me, is_leader, atk_idx)?;
+            let ap_pre = if is_leader {
+                state.players[me].leader.power()
+            } else {
+                state.players[me].characters.get(atk_idx).map(|c| c.power()).unwrap_or(0)
+            };
+            let atk_cost_pre = if is_leader {
+                state.players[me].leader.card.cost
+            } else {
+                state.players[me].characters.get(atk_idx).map(|c| c.card.cost).unwrap_or(0)
+            };
+            let dp_pre = match crate::effects::peek_tagged(state, opp, tgt_tok) {
+                crate::effects::Slot::Char(i) => state.players[opp].characters[i].power(),
+                _ => 0,
+            };
+            let plan_opp = crate::effects::collect_opp_attack(
+                state, opp, "opp_attack", ap_pre, atk_cost_pre, dp_pre)?;
+            let plan_opp_chara = crate::effects::collect_opp_attack(
+                state, opp, "opp_attack_on_chara", ap_pre, atk_cost_pre, dp_pre)?;
+            crate::effects::fire_on_attack_collected(state, me, is_leader, atk_idx, on_atk_fired)?;
             // ⭐ Python は attacker を object 参照で保持するので、 on_attack で自身が場を離れても
             //   そのオブジェクトを読み続けてバトルを解決する。 Rust は fire_gated_do / cost 支払いが
             //   離場直前のスナップショットを state.rust_detached_src に残すので、 それを使う。
@@ -1652,12 +1696,10 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             } else {
                 state.players[me].characters.get(atk_idx).cloned()
             };
-            crate::effects::fire_opp_attack(state, opp, "opp_attack", ap, atk_cost, dp)?;
-            let dp2 = match cur_tgt(state) {
-                i if i >= 0 => state.players[opp].characters[i as usize].power(),
-                _ => 0,
-            };
-            crate::effects::fire_opp_attack(state, opp, "opp_attack_on_chara", ap, atk_cost, dp2)?;
+            let _ = (ap, atk_cost, dp);
+            crate::effects::fire_opp_attack_collected(state, opp, "opp_attack", plan_opp)?;
+            crate::effects::fire_opp_attack_collected(
+                state, opp, "opp_attack_on_chara", plan_opp_chara)?;
             // target 存在チェック (on_attack/opp_attack 後、 消失 = 空打ち = reset+Ok、 game.py:1849)。
             // ⚠ 「長さ」 ではなく **タグ** で見る。 対象が KO されて後ろが繰り上がると
             //   index は生きたままなので、 長さ判定だと別のキャラを殴ってしまう。

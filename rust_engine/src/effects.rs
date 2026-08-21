@@ -2673,10 +2673,37 @@ fn matches_filter_ip(ip: &InPlay, filt: Option<&Value>) -> bool {
     //   する効果」)。 CardDef へ丸投げすると印刷値固定になる (cardqa_op_10 / EB01-061 Mr.2:
     //   【アタック時】で元々のパワーが2000以上になったキャラは 「元々2000以下をKO」 の対象外)。
     //   Python `_matches_filter_ip` と同順・同キーで先に判定して strip する。
+    // ⭐ 「アクティブの」/「レストの」 は **盤面の状態** = InPlay でしか判定できない。
+    //   CardDef 版へ委譲すると Python は未知キーを無視して制限が消え、 Rust は不一致扱いで
+    //   0 対象になる (= 同じ overlay から **別々の間違い** が出る)。 公式テキストどおり
+    //   ここで判定して strip する (Python `_matches_filter_ip` と 1:1、 2026-08-22)。
+    let f_rest_owned;
+    let mut f = f;
+    if f.contains_key("rested") || f.contains_key("active") {
+        let mut want_rested: Option<bool> = None;
+        if let Some(b) = f.get("rested").and_then(|x| x.as_bool()) {
+            want_rested = Some(b);
+        }
+        if let Some(b) = f.get("active").and_then(|x| x.as_bool()) {
+            want_rested = Some(!b);
+        }
+        if let Some(w) = want_rested {
+            if ip.rested != w {
+                return false;
+            }
+        }
+        let mut o = f.clone();
+        o.remove("rested");
+        o.remove("active");
+        if o.is_empty() {
+            return true;
+        }
+        f_rest_owned = o;
+        f = &f_rest_owned;
+    }
     const TOP: [&str; 3] = ["truly_original_power_le", "truly_original_power_ge",
                             "truly_original_power_eq"];
     let mut f_owned;
-    let mut f = f;
     if TOP.iter().any(|k| f.contains_key(*k)) {
         let top = ip.truly_original_power() as i64;
         let g = |k: &str| f.get(k).and_then(|x| x.as_i64());
@@ -4312,6 +4339,11 @@ const CHOICE_UNPORTED_PRIMS: &[&str] = &[
     "draw_per_self_chara_then_discard",
     "give_keyword",
     "hand_to_self_life",
+    // ⚠ primitive の移植自体は済んでいるが、 列挙モードでは **まだ解禁しない**:
+    //   解禁すると `fire_self_main` 経由の効果コピー連鎖で Python が
+    //   「前段の選択を上書きして捨てる」 挙動になり、 Rust の replay と噛み合わず
+    //   MISMATCH が出た (2026-08-22)。 Python 側の choice 上書きセマンティクスを
+    //   詰めてから外すこと (bail 削減の最大候補: 候補 bail の約 11%)。
     "optional_discard_hand_for_battle_buff",
     "play_from_hand_choice",
     "play_from_hand_named_set",
@@ -9529,7 +9561,37 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 let me = &state.players[me_idx];
                 (0..me.hand.len()).filter(|&i| matches_filter(&me.hand[i], Some(filt))).collect()
             };
-            let discard_count = (matching.len() as i32).min(max_discard).max(0) as usize;
+            // ⭐ 選択列挙: 公式 「捨てて **もよい**」 = **何枚どれを捨てるかは本人が決める**
+            //   (Python effects.py:10094 の optional_discard_buff_pick)。 0 枚 = 見送りも合法。
+            //   ⚠ 手札を触る前に中断する (Rust は replay 方式なので、 zone を動かしてから
+            //     中断すると再実行で二重に捨てる)。
+            let forced = take_forced_picks();
+            if state.choice_enumeration && !choice_suspended() && forced.is_none()
+                && !matching.is_empty()
+            {
+                note_choice_suspend(
+                    "optional_discard_buff_pick",
+                    matching.len(),
+                    matching.iter().map(|&i| (me_idx, i as i64)).collect(),
+                );
+                return true;
+            }
+            // 再開: picks が指す **手札 index** をそのまま捨てる (Python `_picked_hand_idxs`)。
+            //   範囲外/重複は Python 同様に落とす。 0 枚 = 見送り (buff なし)。
+            let chosen: Vec<usize> = match &forced {
+                Some(p) => {
+                    let mut s: std::collections::BTreeSet<usize> = Default::default();
+                    for &i in p {
+                        if i < state.players[me_idx].hand.len() {
+                            s.insert(i);
+                        }
+                    }
+                    s.into_iter().collect()
+                }
+                // AI 簡易: 先頭 max_discard 枚 (Python の非人間経路と同じ)
+                None => matching[..(matching.len() as i32).min(max_discard).max(0) as usize].to_vec(),
+            };
+            let discard_count = chosen.len();
             if discard_count == 0 {
                 return true; // 見送り = 状態不変
             }
@@ -9540,21 +9602,32 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             let Some(targets) = resolve_target(Some(&target_spec), me_idx, opp_idx, src, state) else {
                 return false;
             };
-            // 先頭 discard_count 枚を捨て。 ⚠ trash への append は index 昇順 (Python discardable 順) に一致させる
-            let remove_set: std::collections::BTreeSet<usize> = matching[..discard_count].iter().copied().collect();
+            // ⚠ **トラッシュへ積む順が経路で違う** (Python effects.py):
+            //   - AI 経路   : `discardable[:n]` を順に remove = **手札 index 昇順**
+            //   - 人間/再開 : `sorted(picks, reverse=True)` で pop = **降順**
+            //   順序は digest に出るので取り違えると MISMATCH。
+            let remove_set: std::collections::BTreeSet<usize> = chosen.iter().copied().collect();
+            let mut order: Vec<usize> = chosen.clone();
+            order.sort_unstable();
+            if forced.is_some() {
+                order.reverse();
+            }
             {
                 let me = &mut state.players[me_idx];
                 let hand = std::mem::take(&mut me.hand);
-                let mut discarded = vec![];
+                let mut picked: std::collections::BTreeMap<usize, crate::state::CardDef> =
+                    Default::default();
                 for (i, c) in hand.into_iter().enumerate() {
                     if remove_set.contains(&i) {
-                        discarded.push(c);
+                        picked.insert(i, c);
                     } else {
                         me.hand.push(c);
                     }
                 }
-                for c in discarded {
-                    me.trash.push(c);
+                for i in order {
+                    if let Some(c) = picked.remove(&i) {
+                        me.trash.push(c);
+                    }
                 }
             }
             let buff = amount_per * discard_count as i32;
@@ -11496,20 +11569,78 @@ fn on_trigger_prim_safe(key: &str) -> bool {
 ///  - cascade を起こす/未対応 primitive → Err
 ///  - draw で me 場に on_self_draw_non_draw_phase → cascade で Err
 /// src = 攻撃者 Slot (self target 解決用)。 発火中に buff/keyword が乗るので呼出側は attacker を再スナップショットする。
+/// 【アタック時】の **支払いフェーズだけ** を行い、 発火する effect index を返す。
+///
+/// ⭐ なぜ分けるか: Python (game.py の攻撃解決) は `state.resolving = True` で包んで
+///   ① `trigger_on_attack` (= コスト支払い + enqueue) ② `trigger_on_opp_attack`
+///   (= コスト支払い + EV 判定 + enqueue) を **両方済ませてから** drain する。
+///   つまり **【相手のアタック時】の発動判断は【アタック時】の do より前の盤面** で下される。
+///   Rust は on_attack を do まで実行してから opp_attack を判断していたため、
+///   on_attack が誘発した【KO時】でライフが増えた盤面で防御 EV を測り、 Python が発動した
+///   効果を Rust が見送っていた (2026-08-22、 全カード掃引の OP07-019 で発覚)。
+pub fn collect_on_attack(
+    state: &mut GameState,
+    me_idx: usize,
+    is_leader: bool,
+    char_idx: usize,
+) -> Result<Vec<usize>, String> {
+    fire_on_attack_impl(state, me_idx, is_leader, char_idx, None)?;
+    Ok(TAKE_ON_ATTACK_FIRED.with(|c| c.borrow_mut().take()).unwrap_or_default())
+}
+
+/// `collect_on_attack` が返した index を **do だけ** 実行する。
+pub fn fire_on_attack_collected(
+    state: &mut GameState,
+    me_idx: usize,
+    is_leader: bool,
+    char_idx: usize,
+    fired: Vec<usize>,
+) -> Result<(), String> {
+    fire_on_attack_impl(state, me_idx, is_leader, char_idx, Some(fired))
+}
+
 pub fn fire_on_attack(
     state: &mut GameState,
     me_idx: usize,
     is_leader: bool,
     char_idx: usize,
 ) -> Result<(), String> {
+    let fired = collect_on_attack(state, me_idx, is_leader, char_idx)?;
+    fire_on_attack_collected(state, me_idx, is_leader, char_idx, fired)
+}
+
+thread_local! {
+    static TAKE_ON_ATTACK_FIRED: std::cell::RefCell<Option<Vec<usize>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// `phase`: None = 支払いフェーズのみ / Some(fired) = 発火フェーズのみ。
+fn fire_on_attack_impl(
+    state: &mut GameState,
+    me_idx: usize,
+    is_leader: bool,
+    char_idx: usize,
+    phase: Option<Vec<usize>>,
+) -> Result<(), String> {
+    let collect_only = phase.is_none();
     let src = if is_leader { Slot::Leader } else { Slot::Char(char_idx) };
-    let Some(ov) = overlay() else { return Ok(()) };
+    let Some(ov) = overlay() else {
+        if collect_only { TAKE_ON_ATTACK_FIRED.with(|c| *c.borrow_mut() = Some(vec![])); }
+        return Ok(());
+    };
     // 発動元が 「効果無効」 なら 【アタック時】 は発動しない (effects.py の gate)。
     if src_effect_negated(state, me_idx, src, "on_attack") {
+        if collect_only { TAKE_ON_ATTACK_FIRED.with(|c| *c.borrow_mut() = Some(vec![])); }
         return Ok(());
     }
     let cid = get_ip(&state.players[me_idx], src).card.card_id.clone();
-    let Some(effs) = ov.get(&cid) else { return Ok(()) };
+    let Some(effs) = ov.get(&cid) else {
+        if collect_only { TAKE_ON_ATTACK_FIRED.with(|c| *c.borrow_mut() = Some(vec![])); }
+        return Ok(());
+    };
+    if let Some(pre) = phase {
+        return fire_on_attack_do(state, me_idx, src, effs, pre);
+    }
     // Python trigger_on_attack: ① 支払いフェーズ (idx 順) で cost を払い once を立てる → 発火 idx 収集
     //   ② 発火は sorted idx 順 (paid_indexes = sorted(set(...)))。 costless と cost 持ちを 1 event に統合。
     let mut fired: Vec<usize> = vec![];
@@ -11568,6 +11699,17 @@ pub fn fire_on_attack(
         }
         fired.push(idx);
     }
+    TAKE_ON_ATTACK_FIRED.with(|c| *c.borrow_mut() = Some(fired));
+    Ok(())
+}
+
+fn fire_on_attack_do(
+    state: &mut GameState,
+    me_idx: usize,
+    src: Slot,
+    effs: &[Value],
+    mut fired: Vec<usize>,
+) -> Result<(), String> {
     // 発火フェーズ: sorted idx 順に条件再評価 + do 発火。
     // ⚠ Python (trigger_on_attack) は on_attack を **enqueue** して return するだけで、
     //   実際の do 実行は resolve_triggers の中 (resolving=true) で走る。 その間に do の中で
@@ -13457,9 +13599,8 @@ pub(crate) fn fire_field_when_with_toks(
     //   (OP07-038 は LEADER = 場を離れない、 OP08-056 は STAGE で下の CHARACTER 判定が弾く)。
     for (tok, cid) in toks {
         fire_field_when_one(state, owner_idx, when, tok, &cid)?;
-        // ⭐ 選択待ちが立ったら **残りの反応カードも発火しない**。 Python はイベント
-        //   キューの drain 自体を止め、 残りをキューに残して選択解決後に再 drain する
-        //   (effects.py:327)。 ここで回し続けると Rust だけ先に進んでしまう。
+        // ⭐ 選択待ちが立ったら **残りの反応カードも発火しない** (Python はイベントキューの
+        //   drain 自体を止め、 残りをキューに残して選択解決後に再 drain する、 effects.py:327)。
         if state.pending_choice.is_some() {
             break;
         }
@@ -14278,6 +14419,26 @@ fn trash_self_do_safe(prim: &Value) -> bool {
     true
 }
 
+/// 【相手のアタック時】の **支払い + 発動判断 (EV) だけ** を済ませた結果。
+///
+/// ⭐ Python は `_enqueue_opp_attack_with_cost` で 「条件 → 【ターン1回】gate → 払えるか →
+///   AI の EV 判定 → 支払い → mark → enqueue」 までを **drain の前** に済ませる。
+///   よって判断材料 (ライフ枚数・パワー・手札) は **【アタック時】の do が走る前** の盤面。
+///   Rust も同じ時点で判断できるよう、 収集と発火を分けて持ち回る。
+/// ⚠ 発動元は **位置 index でなくトークン** で覚える。 収集と発火の間に【アタック時】の
+///   do が盤面を動かす (KO 等) ので、 index のままだと別のカードを発火してしまう。
+#[derive(Default)]
+pub struct OppAttackPlan {
+    fired: Vec<(Option<u64>, usize)>,
+    trash_self: Vec<(Option<u64>, Vec<Value>)>,
+}
+
+impl OppAttackPlan {
+    pub fn is_empty(&self) -> bool {
+        self.fired.is_empty() && self.trash_self.is_empty()
+    }
+}
+
 pub fn fire_opp_attack(
     state: &mut GameState,
     defender_idx: usize,
@@ -14286,7 +14447,20 @@ pub fn fire_opp_attack(
     attacker_cost: i32,
     defended_power: i32,
 ) -> Result<(), String> {
-    let Some(ov) = overlay() else { return Ok(()) };
+    let plan = collect_opp_attack(
+        state, defender_idx, when_key, attacker_power, attacker_cost, defended_power)?;
+    fire_opp_attack_collected(state, defender_idx, when_key, plan)
+}
+
+pub fn collect_opp_attack(
+    state: &mut GameState,
+    defender_idx: usize,
+    when_key: &str,
+    attacker_power: i32,
+    attacker_cost: i32,
+    defended_power: i32,
+) -> Result<OppAttackPlan, String> {
+    let Some(ov) = overlay() else { return Ok(OppAttackPlan::default()) };
     let n_char = state.players[defender_idx].characters.len();
     let n_stage = state.players[defender_idx].stages.len();
     let mut slots: Vec<Slot> = vec![Slot::Leader];
@@ -14298,9 +14472,9 @@ pub fn fire_opp_attack(
     //   これを per-slot 完結にすると、 先に fire した costless(例 OP15-002 の discard)が後続 stage の
     //   discard cost payability を狂わせ MISMATCH になる。 よって collect は全 slot を跨いで行い、
     //   fire は collect 完了後に (slot→idx 順 = source→sorted idx 順で) 実行する。
-    let mut fired: Vec<(Slot, usize)> = vec![];
-    // trash_self cost 効果: (source char index, do 配列)。 Python 順 = pay(=trash 全部)→fire(全部 source-gone)。
-    let mut trash_self_fires: Vec<(usize, Vec<Value>)> = vec![];
+    let mut fired: Vec<(Option<u64>, usize)> = vec![];
+    // trash_self cost 効果: (source token, do 配列)。 Python 順 = pay(=trash 全部)→fire(全部 source-gone)。
+    let mut trash_self_fires: Vec<(Option<u64>, Vec<Value>)> = vec![];
     for slot in slots {
         // ⚠ 「効果無効」 の gate はここ (cost 支払い前) で見ない。 Python (_enqueue_opp_attack_with_cost)
         //   は cost 支払い自体には無効化チェックを一切行わず、 無効化ゲートは enqueue 後の
@@ -14320,7 +14494,8 @@ pub fn fire_opp_attack(
                 if eff.get("once_per_turn").is_some() {
                     return Err("opp_attack costless top-level once 未対応".into());
                 }
-                fired.push((slot, idx)); // 条件は発火フェーズで評価 (_execute_event と一致)
+                // 位置 index でなくトークンで覚える (収集と発火の間に盤面が動くため)
+                fired.push((tag_src(state, defender_idx, slot), idx));
                 continue;
             }
             // cost 持ち (AI 経路): 条件 → once gate → can_pay skip → AI EV skip → 支払い → mark
@@ -14357,7 +14532,7 @@ pub fn fire_opp_attack(
             // 通常通り fire を先に回し (source present、 do prim は非 src 参照で source-gone と同値)、 fire 完了
             // 後に source を trash する (Python は pay=trash→fire=source-gone の順だが、 do/cascade 非依存で
             // 最終 digest 一致)。 それ以外は従来通り try_pay が Err bail。
-            if let Slot::Char(ci) = slot {
+            if let Slot::Char(_ci) = slot {
                 if let Some(o) = cost.as_object() {
                     if o.get("trash_self").map_or(false, json_truthy)
                         && o.keys().all(|k| k == "trash_self" || k == "once_per_turn")
@@ -14371,7 +14546,7 @@ pub fn fire_opp_attack(
                             get_ip_mut(&mut state.players[defender_idx], slot).mark_attack_once(idx as i64);
                         }
                         let dos = eff.get("do").and_then(|v| v.as_array()).cloned().unwrap_or_default();
-                        trash_self_fires.push((ci, dos));
+                        trash_self_fires.push((tag_src(state, defender_idx, slot), dos));
                         continue;
                     }
                 }
@@ -14384,11 +14559,28 @@ pub fn fire_opp_attack(
             if once.and_then(|o| o.as_bool()) == Some(true) {
                 get_ip_mut(&mut state.players[defender_idx], slot).mark_attack_once(idx as i64);
             }
-            fired.push((slot, idx));
+            fired.push((tag_src(state, defender_idx, slot), idx));
         }
     }
+    Ok(OppAttackPlan { fired, trash_self: trash_self_fires })
+}
+
+pub fn fire_opp_attack_collected(
+    state: &mut GameState,
+    defender_idx: usize,
+    when_key: &str,
+    plan: OppAttackPlan,
+) -> Result<(), String> {
+    let Some(ov) = overlay() else { return Ok(()) };
+    let OppAttackPlan { fired, trash_self: trash_self_fires } = plan;
+    let _ = when_key;
     // 発火フェーズ: 収集順 (slot→idx = source→sorted idx) に条件再評価 + do 発火
-    for (slot, idx) in fired {
+    for (tok, idx) in fired {
+        // 収集時に打ったトークンで **現在位置** を引き直す (do で盤面が動いていても取り違えない)。
+        let slot = find_tagged(state, defender_idx, tok);
+        if slot == Slot::Detached {
+            continue; // 発動元が場を離れた = Python も source-gone で do を発火しない
+        }
         // 発動元が 「効果無効」 なら 【相手のアタック時】/【ブロック時】 は発動しない
         // (effects.py:_execute_event の gate、 270行目)。 cost 支払い後・do 発火の直前でのみ効く
         // (上の cost 支払いフェーズでは見ない、 このループ冒頭に移設した理由はそこの comment 参照)。
@@ -14413,13 +14605,19 @@ pub fn fire_opp_attack(
     //   → Rust も source を trash するだけで do は fire しない。 index 降順 remove で shift 回避、 付与ドン→レスト、
     //   KO でなく leave=chara_ko 非加算。 leave cascade は collect 時の guard で無し。
     if !trash_self_fires.is_empty() {
-        trash_self_fires.sort_by_key(|(ci, _)| *ci);
         // ⚠ **昇順** に処理する。 Python は場の並び順 (leader→chars 昇順) にコストを払うので
         //   trash への到着順も昇順。 降順 remove は index shift を避けられるが **トラッシュの順が
         //   逆になる** = digest 不一致 (ST22-002 が 2 体並ぶと露見、 2026-08-04 掃引 MISMATCH)。
-        //   昇順のまま、 除去済み枚数ぶん index を詰めて shift を吸収する。
+        //   トークンで現在位置を引き直すので shift の手計算は不要。
+        let mut idxs: Vec<usize> = vec![];
+        for (tok, _) in trash_self_fires.iter() {
+            if let Slot::Char(i) = find_tagged(state, defender_idx, *tok) {
+                idxs.push(i);
+            }
+        }
+        idxs.sort_unstable();
         let mut shift = 0usize;
-        for (ci, _) in trash_self_fires.iter() {
+        for ci in idxs {
             let i = ci.saturating_sub(shift);
             if i < state.players[defender_idx].characters.len() {
                 let removed = state.players[defender_idx].characters.remove(i);

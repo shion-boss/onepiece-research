@@ -721,8 +721,14 @@ pub fn play_game(
     rollout_plies: usize,
     max_turns: i32,
     collect_traj: bool,
+    choice_enum: bool,
 ) -> Result<Value, String> {
     let mut st = crate::setup::setup_pre_mulligan(d1, d2, rng_state, first_player)?;
+    // ⭐ 選択列挙: 効果解決中の選択を ResolveChoice として **方策に選ばせる** モード。
+    //   legal_actions が選択肢を返すので greedy/beam はそのまま分岐できる (構造変更ゼロ)。
+    //   ⚠ 未移植の選択サイトに当たると apply_action が Err = その試合は中断する
+    //     (黙って別のゲームを進めるより中断が正しい)。 完走率は呼出側で計測する。
+    st.choice_enumeration = choice_enum;
     // マリガン (game.py:182)。 これが無いと初手品質の分布が実戦とズレる (= キーカード依存の
     // control 側が不当に不利)。 判定材料 (keep/prior card_ids) は deck Value 経由で受け取る。
     crate::setup::apply_mulligan(&mut st, d1, d2, first_player);

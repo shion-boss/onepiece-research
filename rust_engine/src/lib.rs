@@ -410,7 +410,7 @@ fn setup_pre_mulligan_blob(
 /// deck{1,2}_json = setup_pre_mulligan と同じ deck Value、 rng_state_json = MT getstate (625 keys)、
 /// mode = "greedy" | "beam"。 返り値 = {winner, turns, game_over, steps} の JSON。
 #[pyfunction]
-#[pyo3(signature = (deck1_json, deck2_json, rng_state_json, first_player, mode="greedy", weights_json=None, beam_width=8, max_depth=12, max_turns=40, collect_traj=false, rollout_plies=80))]
+#[pyo3(signature = (deck1_json, deck2_json, rng_state_json, first_player, mode="greedy", weights_json=None, beam_width=8, max_depth=12, max_turns=40, collect_traj=false, rollout_plies=80, choice_enum=false))]
 #[allow(clippy::too_many_arguments)]
 fn self_play(
     deck1_json: &str,
@@ -424,6 +424,7 @@ fn self_play(
     max_turns: i32,
     collect_traj: bool,
     rollout_plies: usize,
+    choice_enum: bool,
 ) -> PyResult<String> {
     let d1: serde_json::Value = serde_json::from_str(deck1_json)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deck1: {e}")))?;
@@ -440,7 +441,7 @@ fn self_play(
     };
     let res = selfplay::play_game(
         &d1, &d2, &rng_state, first_player, mode, mode, w.as_deref(), w.as_deref(),
-        beam_width, max_depth, rollout_plies, max_turns, collect_traj,
+        beam_width, max_depth, rollout_plies, max_turns, collect_traj, choice_enum,
     )
     .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
     serde_json::to_string(&res).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
@@ -483,7 +484,7 @@ fn eval_ab(
     let w1 = parse_w(weights1_json)?;
     let res = selfplay::play_game(
         &d1, &d2, &rng_state, first_player, mode, mode, w0.as_deref(), w1.as_deref(),
-        beam_width, max_depth, rollout_plies, max_turns, false,
+        beam_width, max_depth, rollout_plies, max_turns, false, false,
     )
     .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
     serde_json::to_string(&res).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
@@ -527,7 +528,7 @@ fn eval_policies(
     let w1 = parse_w(weights1_json)?;
     let res = selfplay::play_game(
         &d1, &d2, &rng_state, first_player, mode0, mode1, w0.as_deref(), w1.as_deref(),
-        beam_width, max_depth, rollout_plies, max_turns, false,
+        beam_width, max_depth, rollout_plies, max_turns, false, false,
     )
     .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
     serde_json::to_string(&res).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))

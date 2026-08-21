@@ -13147,6 +13147,24 @@ def _matches_filter_ip(ip: Any, filt: dict[str, Any]) -> bool:
         if not rest_or:
             return True
         return _matches_filter_ip(ip, rest_or)
+    # ⭐ 公式の 「**アクティブの**キャラ」 / 「**レストの**キャラ」 は **盤面の状態** なので
+    #   InPlay でしか判定できない。 `_matches_filter` は CardDef しか見ず未知キーを黙って
+    #   無視するため、 委譲すると **制限そのものが消える**。
+    #   一次情報 (EB01-028): 「その後、相手は自身の**アクティブの**キャラ1枚を、持ち主の
+    #   手札に戻す」 → engine はレスト済の **アタッカー** を戻していた (= バトル中断)。
+    #   2026-08-22 に 全カード掃引 (Python↔Rust 差分) で発覚。 overlay 27 エントリが該当し、
+    #   全て公式テキストに 「アクティブ」/「レスト」 の語がある (機械照合済)。
+    if "rested" in filt or "active" in filt:
+        want_rested = None
+        if "rested" in filt:
+            want_rested = bool(filt["rested"])
+        if "active" in filt:
+            want_rested = not bool(filt["active"])
+        if want_rested is not None and bool(getattr(ip, "rested", False)) != want_rested:
+            return False
+        filt = {k: v for k, v in filt.items() if k not in ("rested", "active")}
+        if not filt:
+            return True
     # ⭐ 「元々のパワー」 は **効果で書き換わる** (公式 4-9-2-1 「元々のパワーをある数値に
     #   する効果」)。 CardDef 委譲だと印刷値固定になるので、 InPlay がある時は
     #   ip.truly_original_power (= 「元々の」 書き換えを反映) で判定する。

@@ -42,6 +42,33 @@ def test_rust_parity_no_mismatch_broad():
     assert tot["match"] > 3000, f"match={tot['match']} が異常に少ない (ハーネス破損?)"
 
 
+def test_rust_parity_all_card_synthetic_sweep():
+    """**全カードが載る 329 合成デッキ** の per-action bit 比較で MISMATCH=0 を保証 (~4 分)。
+
+    ⭐ なぜ 16 デッキ版と別に要るか: メタ 16 デッキは効果カードの **4.2%** しか通らない。
+    実際 2026-08-22 に、 このスイープでしか出ない乖離が 2 件見つかった
+    (① 【相手のアタック時】の発動判断を Rust が【アタック時】の do の **後** で下していた
+     ② filter の 「アクティブの/レストの」 を Python は無視・Rust は 0 対象にしていた)。
+    どちらも 16 デッキ版・効果スモーク・列挙 ON 差分の **すべてが緑のまま** 通り抜けていた。
+
+    ⚠ subprocess で回す (スクリプトが argparse 前提 + Rust の global overlay を汚さない)。
+    """
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    r = subprocess.run(
+        [sys.executable, str(root / "scripts" / "rust_parity_sweep.py"), "--assert"],
+        cwd=str(root), capture_output=True, text=True, timeout=1800,
+    )
+    tail = "\n".join((r.stdout or "").strip().splitlines()[-25:])
+    assert r.returncode == 0, (
+        f"全カード合成デッキ掃引で Python↔Rust が食い違っている。\n{tail}\n{r.stderr[-2000:]}"
+    )
+    assert "MISMATCH=0" in (r.stdout or ""), f"想定した出力形式でない:\n{tail}"
+
+
 def test_rust_choice_enumeration_no_mismatch():
     """**選択列挙 ON** でも MISMATCH=0 を保証する。
 

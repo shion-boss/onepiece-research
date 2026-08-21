@@ -122,6 +122,29 @@ pending trigger (drain 時の発火元復元) / ko・return_to_hand 系の逐次
 | 列挙 ON 差分 6 game | match 283 / bail 67 / **MISMATCH 0** |
 | 列挙 ON 差分 16 game (別 seed) | match 727 / bail 160 / **MISMATCH 0** |
 
+### ⚠ 「MISMATCH 0」 ≠ 「学習に使える」 — 候補 bail 率を必ず併せて見る (2026-08-22)
+
+`scripts/rust_choice_selfplay_probe.py` で Rust self-play を実測した結果:
+
+| | 完走率 | **候補 action の bail 率** | ms/game |
+|---|---|---|---|
+| 列挙 **OFF** | 100% | **0.00%** (24 / 3,630,932) | 4,085 |
+| 列挙 **ON** | 100% | **27.1%** (12,705 / 46,814) | 143 |
+
+⭐ **完走率だけ見ると罠**。 方策 (`greedy_action` / `defended_move`) は **bail した候補を
+黙って捨てる** (`is_err() → continue`) ので、 試合は最後まで進むが
+**Rust が実行できない手を避けた結果の対局** になる。 bail の過半が `defense |` =
+防御候補なので、 このまま学習を回すと **「無防御への静かな回帰」** を教えてしまう。
+= 列挙 ON はまだ学習データ生成に使えない (OFF は 0.00% なので問題なし)。
+
+bail の内訳 (= 移植の優先順位。 `eng.reset_coverage_stats(True)` + `coverage_stats()`):
+`optional_discard_hand_for_battle_buff` 約 11% / 発動コストの選択 約 7% /
+ResolveChoice の残り do・`redirect_attack`・`on_self_rested`・`attach_rested_don` 各 1-2%。
+
+⚠ `optional_discard_hand_for_battle_buff` は **移植済だが denylist に戻してある**。
+解禁すると `fire_self_main` (効果コピー) 連鎖で Python が 「前段の選択を上書きして捨てる」
+挙動になり MISMATCH が出た。 **Python 側の choice 上書きセマンティクスを確定させるのが先**。
+
 ### 中断・再開のモデル (Python の 2 段構造を写すこと)
 
 - 選択サイトは `note_choice_suspend` で **フラグ + 候補** を残して no-op で返る。
@@ -295,6 +318,13 @@ RNG 依存効果は `rng.rs` (MT19937、 CPython `random` の bit 再現) を使
 | **選択列挙 ON の差分** | `python scripts/rust_choice_parity.py --games 6 [--assert]` |
 | **同 原因分類 (MISMATCH の切り分け)** | `python scripts/rust_choice_diag.py --games 6 --show 10 --check-off` |
 | 乖離局面を単体で ON/OFF 比較 | `rust_choice_diag.py --dump <dir>` → `rust_choice_probe.py <dir>` |
+| **全カード合成デッキ掃引 (最広)** | `python scripts/rust_parity_sweep.py [--assert]` (~4 分、 CI 済) |
+| 掃引の MISMATCH を zone 単位で見る | `python scripts/rust_sweep_mismatch_diag.py` |
+| **学習に使えるか (候補 bail 率)** | `python scripts/rust_choice_selfplay_probe.py --games 40 [--no-choice]` |
+
+⚠ **16 デッキ版だけでは足りない**。 メタ 16 デッキは効果カードの 4.2% しか通らず、
+2026-08-22 に見つかった 2 件はどちらも **329 合成デッキ掃引でしか出なかった**
+(16 デッキ版・効果スモーク・列挙 ON 差分は **すべて緑のまま**)。
 
 ## Rust ソースマップ (機能追加時の追従先)
 
