@@ -268,6 +268,11 @@ fn get_ip_mut(p: &mut Player, s: Slot) -> &mut InPlay {
 /// これを使い、 None なら再現不能として bail する (Slot::Detached で leader に誤解決させない為)。
 /// ⚠ 範囲外 (= 効果解決の途中で場が縮み slot が stale になった) も None を返す。 panic は
 ///    「黙って間違えない」不変条件の外 (プロセスが死んで self-play が止まる) なので許容しない。
+/// `src_ip` の公開版 (rules.rs の ResolveChoice 解決から発動元の状態を見るため)。
+pub(crate) fn src_ip_pub(p: &Player, s: Slot) -> Option<&InPlay> {
+    src_ip(p, s)
+}
+
 fn src_ip(p: &Player, s: Slot) -> Option<&InPlay> {
     match s {
         Slot::Detached => None,
@@ -2208,8 +2213,23 @@ thread_local! {
         const { std::cell::RefCell::new(None) };
 }
 
+thread_local! {
+    /// 診断用: 「選択サイトに到達したか」 を数える (中断が拾われず消えたのか、 そもそも
+    /// 到達していないのかを切り分ける)。 digest には一切影響しない。
+    static SUSPEND_CALLS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+pub fn suspend_call_count() -> u64 {
+    SUSPEND_CALLS.with(|c| c.get())
+}
+
+pub fn reset_suspend_call_count() {
+    SUSPEND_CALLS.with(|c| c.set(0));
+}
+
 /// 選択サイトが中断する時の共通入口。 kind / limit / 候補を残す。
 pub(crate) fn note_choice_suspend(kind: &str, limit: usize, cands: Vec<(usize, i64)>) {
+    SUSPEND_CALLS.with(|c| c.set(c.get() + 1));
     set_choice_suspended(true);
     PENDING_KIND.with(|c| *c.borrow_mut() = kind.to_string());
     PENDING_LIMIT.with(|c| c.set(limit.max(1)));
@@ -8980,6 +9000,17 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             if !should_fire {
                 return true;
             }
+            // ⭐ 任意コスト (公式 「〜できる：」) を **払うか払わないか** は本人の選択
+            //   (effects.py:10807)。 列挙モードではここで 2 択 (発動する/しない) を立てる。
+            //   ⚠ Python は cost 支払い **前** に halt するので、 Rust の replay 前提
+            //     (= 中断時点で zone を動かしていない) も満たしている。
+            if state.choice_enumeration
+                && !choice_suspended()
+                && !v.get("_cost_confirmed").and_then(|x| x.as_bool()).unwrap_or(false)
+            {
+                note_choice_suspend("optional_cost_confirm", 1, vec![]);
+                return true;
+            }
             // (pay_don の on_self_don_returned_to_deck cascade は primitive 側で発火するので guard 不要)
             if effect_cascade_blocked(&effect, state, me_idx) {
                 note_unknown_key("oct_cascade", "effect");
@@ -9910,20 +9941,110 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 if me_ro.deck.is_empty() {
                     return true;
                 }
+                // ⚠ Python (effects.py:5387) の中断条件は **「filter 一致が 1 枚以上」** で、
+                //   候補は 「見た N 枚 **全部**」 (= 非該当も公開情報として見せる)。 かつて
+                //   `一致数 > limit` && 候補=一致のみ にしていたため、 中断の有無も
+                //   選択肢の母数も食い違っていた (MISMATCH ~28 件の主因)。
                 if state.choice_enumeration && !choice_suspended() && forced_picks.is_none() {
                     let d0 = depth.min(me_ro.deck.len());
-                    let match_idxs: Vec<usize> = (0..d0)
-                        .filter(|&i| matches_filter(&me_ro.deck[i], filt))
-                        .collect();
-                    if match_idxs.len() > limit.max(1) {
+                    let has_match = (0..d0).any(|i| matches_filter(&me_ro.deck[i], filt));
+                    if has_match {
                         note_choice_suspend(
                             "search_top_n",
-                            limit.max(1),
-                            match_idxs.iter().map(|&i| (me_idx, i as i64)).collect(),
+                            limit,
+                            (0..d0).map(|i| (me_idx, i as i64)).collect(),
                         );
                         return true;
                     }
                 }
+            }
+            // ⭐ 再開 (replay): Python は **`resolve_pending_choice` の別実装** を通るので、
+            //   auto 経路をそのまま流用できない。 実際に違うのは 3 点:
+            //     ① destination="play" の STAGE は登場せず **手札** へ (auto は stage 登場)
+            //     ② rest_remain="top_or_bottom" は解決経路に無く **一律デッキ底**
+            //     ③ known_bottom_card_ids / known_top_card_ids / public 手札公開を **触らない**
+            //   (effects.py:12862-12967)。 忠実さが不変条件なので、 replay は human 経路を写す。
+            if let Some(fp) = forced_picks.clone() {
+                let me = &mut state.players[me_idx];
+                let d = depth.min(me.deck.len());
+                let seen: Vec<crate::state::CardDef> = me.deck[..d].to_vec();
+                // picks 順に、 範囲内 / 重複なし / filter 一致 のみを limit 枚まで採用
+                let mut valid: Vec<usize> = vec![];
+                let mut seen_i: std::collections::BTreeSet<usize> = Default::default();
+                for i in fp {
+                    if valid.len() >= limit {
+                        break;
+                    }
+                    if i < seen.len() && !seen_i.contains(&i) && matches_filter(&seen[i], filt) {
+                        seen_i.insert(i);
+                        valid.push(i);
+                    }
+                }
+                let picked: Vec<crate::state::CardDef> =
+                    valid.iter().map(|&i| seen[i].clone()).collect();
+                let remaining: Vec<crate::state::CardDef> = seen
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, _)| !seen_i.contains(i))
+                    .map(|(_, c)| c.clone())
+                    .collect();
+                // 場 5 枚差し替えの犠牲選択は Python では人間に訊く (replay_choice 経由)。
+                // Rust は その中断点を持たないので、 起きうる時は明示 bail する。
+                if destination == "play"
+                    && picked.iter().any(|c| c.category == crate::state::Category::Character)
+                    && state.players[me_idx].characters.len() >= 5
+                {
+                    note_prim_err("search_top_n: 場5枚差し替えの犠牲選択 (replay) は Rust 未移植");
+                    return false;
+                }
+                let mut human_played: Vec<usize> = vec![];
+                {
+                    let me = &mut state.players[me_idx];
+                    me.deck.drain(0..d);
+                    for c in picked {
+                        match destination {
+                            "play" => {
+                                if c.category != crate::state::Category::Character {
+                                    me.hand.push(c);
+                                    continue;
+                                }
+                                let mut ip = InPlay::of(c, true);
+                                ip.rested = rested_flag;
+                                me.characters.push(ip);
+                                human_played.push(me.characters.len() - 1);
+                            }
+                            "life" => {
+                                me.life.insert(0, c);
+                                me.life_face_up.insert(0, false);
+                            }
+                            "trash" => me.trash.push(c),
+                            _ => me.hand.push(c),
+                        }
+                    }
+                    if rest_to_trash {
+                        me.trash.extend(remaining.iter().cloned());
+                    }
+                }
+                if rest_to_trash {
+                    for pidx in human_played {
+                        if execute_on_play(state, me_idx, pidx).is_err() {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+                // bottom 系: Python は 登場時を **デッキ底送りの前** に発火する
+                // (reorder halt で remaining 配置が後続 modal に持ち越されるため)
+                for pidx in human_played {
+                    if execute_on_play(state, me_idx, pidx).is_err() {
+                        return false;
+                    }
+                }
+                // ⚠ Python は残り 2 枚以上なら `search_top_n_bottom_reorder` を立てて
+                //   順序を訊くが、 列挙器は order kind に **元順序 1 手だけ** を返す
+                //   (= 状態は identity と同じ)。 Rust は選択点を作らず同順で底へ送る。
+                state.players[me_idx].deck.extend(remaining);
+                return true;
             }
             let me = &mut state.players[me_idx];
             let d = depth.min(me.deck.len());
@@ -12600,6 +12721,75 @@ fn cost_has_multiple_candidates(
     false
 }
 
+/// 起動メインの **発動コスト支払いで Python が選択 modal を立てるか** を厳密に写した述語。
+///
+/// ⭐ なぜ 「複数候補か」 で近似してはいけないか: Python (`_fire_activate_main_inner`) の
+///   halt 条件は cost 種別ごとに **バラバラ** で、 候補 1 件でも立てるものがある。
+///   近似していたため 19 件の MISMATCH (= Rust だけ中断せず先に進む) が出た (2026-08-21)。
+///   条件は effects.py:17473 / 17549 / 17619 / 17682 / 17735 と 1:1 で対応させる。
+fn activate_main_cost_choice_pending(
+    state: &GameState,
+    me_idx: usize,
+    cost: &Value,
+) -> bool {
+    let Some(o) = cost.as_object() else { return false };
+    let me = &state.players[me_idx];
+    // discard_hand N (effects.py:17473): 手札が **1 枚でもあれば** 立てる (枚数は無関係)
+    if o.get("discard_hand").and_then(|v| v.as_i64()).unwrap_or(0) > 0 && !me.hand.is_empty() {
+        return true;
+    }
+    // discard_hand_or_trash_filtered_chara (effects.py:17549): 手札 n 枚以上 **または** 該当キャラあり
+    if let Some(cc) = o.get("discard_hand_or_trash_filtered_chara") {
+        let n = cc.get("n").and_then(|v| v.as_i64()).unwrap_or(1) as usize;
+        let filt = cc.get("filter");
+        let has_chara = me.characters.iter().any(|c| matches_filter_ip(c, filt));
+        if me.hand.len() >= n || has_chara {
+            return true;
+        }
+    }
+    // ko_self_with_filter (effects.py:17619): 該当キャラが 2 枚以上
+    if let Some(kf) = o.get("ko_self_with_filter") {
+        let n = me.characters.iter().filter(|c| matches_filter_ip(c, Some(kf))).count();
+        if n > 1 {
+            return true;
+        }
+    }
+    // rest_self_target_name / rest_self_target (effects.py:17682):
+    //   **キャラ + ステージ** の同名アクティブが 2 枚以上 (Rust は従来キャラだけ見ていた)
+    for key in ["rest_self_target_name", "rest_self_target"] {
+        if let Some(spec) = o.get(key) {
+            let want = spec.get("name").and_then(|v| v.as_str())
+                .or_else(|| spec.as_str()).unwrap_or("");
+            let n = me.characters.iter().chain(me.stages.iter())
+                .filter(|ip| ip.card.name == want && !ip.rested)
+                .count();
+            if n > 1 {
+                return true;
+            }
+        }
+    }
+    // rest_own_card (effects.py:17735): **リーダー含む** アクティブな自分のカードが count より多い
+    if let Some(ro) = o.get("rest_own_card") {
+        let ro_n = if ro.is_object() {
+            ro.get("count").and_then(|v| v.as_i64()).unwrap_or(1) as usize
+        } else {
+            ro.as_i64().unwrap_or(1) as usize
+        };
+        let ro_filt = if ro.is_object() { ro.get("filter") } else { None };
+        let mut pool = 0usize;
+        if !me.leader.rested && matches_filter_ip(&me.leader, ro_filt) {
+            pool += 1;
+        }
+        pool += me.characters.iter().chain(me.stages.iter())
+            .filter(|ip| !ip.rested && matches_filter_ip(ip, ro_filt))
+            .count();
+        if pool > ro_n {
+            return true;
+        }
+    }
+    false
+}
+
 fn try_pay_counter_cost(
     state: &mut GameState,
     me_idx: usize,
@@ -14192,6 +14382,12 @@ pub fn fire_activate_main(
     let mut deferred: Vec<DeferredCostTrigger> = Vec::new();
     // cost 支払い。 未対応 cost 種別 or cascade を起こす cost は bail (黙って間違えない)。
     if let Some(c) = &cost {
+        // ⛔ 列挙モード: Python が **発動コストの選択 modal** を立てる局面は Rust 未移植。
+        //   (Rust の replay は primitive 単位なので、 effect 単位で cost_picks を持って
+        //    `fire_activate_main` を再入する Python の resume 形と噛み合わない)
+        if state.choice_enumeration && activate_main_cost_choice_pending(state, me_idx, c) {
+            return Err("choice_enumeration: 起動メインの発動コスト選択は Rust 未移植".into());
+        }
         if let Some(o) = c.as_object() {
             for k in o.keys() {
                 if !matches!(k.as_str(), "rest_self" | "pay_don" | "rest_self_don" | "once_per_turn" | "rest_own_card" | "ko_self_with_filter" | "trash_self" | "trash_to_deck" | "discard_hand_or_trash_filtered_chara" | "discard_hand" | "return_self_to_hand" | "discard_hand_with_filter" | "reveal_hand_with_filter" | "rest_self_target_name" | "rest_self_target" | "life_to_hand" | "life_top_or_bottom_to_hand") {
@@ -15311,9 +15507,25 @@ fn enumerate_choice_options_rs(pc: &crate::state::PendingChoice) -> Vec<Vec<usiz
         "activate_main_cost_pick" | "activate_main_discard_pick" | "counter_discard_pick"
             | "self_chara_cost_pick" | "field_full_sacrifice_pick"
     );
+    // 順序選択は階乗になるので **元順序 1 手だけ** (Python `_CHOICE_ORDER_KINDS`)。
+    let order = matches!(
+        pc.kind.as_str(),
+        "scry_life_reorder" | "scry_deck_reorder" | "search_top_n_bottom_reorder"
+            | "don_return_pick"
+    );
+    // 2 択 confirm 系は candidates を持たないので [1] / [0] を出す (Python `_CHOICE_BINARY_KINDS`)。
+    let binary = matches!(
+        pc.kind.as_str(),
+        "life_taken_choice" | "on_attack_optional" | "optional_cost_confirm"
+            | "end_of_turn_optional" | "replace_ko_optional" | "reveal_top_play_confirm"
+            | "view_life_top_choose_position" | "opp_optional_play_from_hand"
+    );
     let n = pc.n_candidates;
-    if n == 0 {
-        return vec![vec![]];
+    if order {
+        return if n > 0 { vec![(0..n).collect()] } else { vec![vec![]] };
+    }
+    if binary || n == 0 {
+        return vec![vec![1], vec![0]];
     }
     let limit = pc.limit.max(1).min(n);
     let mut opts: Vec<Vec<usize>> = vec![];

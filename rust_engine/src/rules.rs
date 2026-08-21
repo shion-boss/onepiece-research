@@ -888,19 +888,55 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
             .collect();
         crate::effects::set_forced_picks(Some(idxs));
     }
-    if !crate::effects::execute_effect_pub(&pc.prim, state, pc.me_idx, src) {
-        crate::effects::set_forced_targets(None);
-        crate::effects::set_forced_picks(None);
-        return Err("ResolveChoice: 再実行した primitive が未対応".into());
-    }
-    crate::effects::set_forced_targets(None);
-    crate::effects::set_forced_picks(None);
-    // 退避しておいた残り do を流す (再度中断したら再び pending_choice が立つ)
-    for (ci, prim) in pc.remaining_do.iter().enumerate() {
-        if !crate::effects::execute_effect_pub(prim, state, pc.me_idx, src) {
-            return Err("ResolveChoice: 残り do の primitive が未対応".into());
+    // ⭐ 「再実行する primitive」 + 「退避した残り do」 を **1 本の do 配列** として回す。
+    //   再実行した primitive の中でさらに選択が立つ (= 登場効果が別の選択サイトを踏む) 型が
+    //   あり、 以前は pc.prim の直後に `suspend_if_choice` を通していなかったので
+    //   **残り do を取りこぼしたまま次の中断が立って** 候補が空になっていた (2026-08-21)。
+    let mut dos: Vec<Value> = Vec::with_capacity(pc.remaining_do.len() + 1);
+    dos.push(pc.prim.clone());
+    dos.extend(pc.remaining_do.iter().cloned());
+    // ⭐ 2 択 confirm 系 (optional_cost_confirm) は picks[0] が **発動する/しない**。
+    //   発動 → 同 spec を `_cost_confirmed` 付きで再実行 / 見送り → その primitive を飛ばす
+    //   (残り do は流す)。 Python `resolve_pending_choice` (effects.py:11626) と同形。
+    let mut start = 0usize;
+    if pc.kind == "optional_cost_confirm" {
+        if picks.first().copied() == Some(1) {
+            if let Some(spec) = dos[0].get("optional_cost_then").cloned() {
+                let mut s = spec;
+                if let Some(o) = s.as_object_mut() {
+                    o.insert("_cost_confirmed".into(), Value::Bool(true));
+                }
+                dos[0] = serde_json::json!({"optional_cost_then": s});
+            }
+        } else {
+            // ⚠ 見送りは 【ターン1回】 を **未使用に戻す** (公式 cardqa_op_03)。 Rust は
+            //   「この起動で立てた分か」 を追えないので、 起動済フラグが立っていたら bail。
+            let already_used = match src {
+                crate::effects::Slot::Detached => false,
+                _ => crate::effects::src_ip_pub(&state.players[pc.me_idx], src)
+                    .map(|ip| ip.act_used).unwrap_or(false),
+            };
+            if already_used {
+                return Err("optional_cost_confirm 見送り + 【ターン1回】復元は Rust 未移植".into());
+            }
+            start = 1;
         }
-        if crate::effects::suspend_if_choice(state, &pc.remaining_do, ci, prim, src, pc.me_idx) {
+    }
+    for ci in start..dos.len() {
+        let prim = dos[ci].clone();
+        let ok = crate::effects::execute_effect_pub(&prim, state, pc.me_idx, src);
+        if ci == start {
+            crate::effects::set_forced_targets(None);
+            crate::effects::set_forced_picks(None);
+        }
+        if !ok {
+            return Err(if ci == 0 {
+                "ResolveChoice: 再実行した primitive が未対応".into()
+            } else {
+                "ResolveChoice: 残り do の primitive が未対応".to_string()
+            });
+        }
+        if crate::effects::suspend_if_choice(state, &dos, ci, &prim, src, pc.me_idx) {
             break;
         }
     }
@@ -922,6 +958,10 @@ pub fn apply_action(state: &mut GameState, action: &Value) -> Result<(), String>
     //   退避しておいた残り do を流す (Rust には continuation が無いので replay 方式)。
     if action.get("t").and_then(|v| v.as_str()) == Some("ResolveChoice") {
         let r = resolve_choice_action(state, action);
+        if crate::effects::choice_suspended() && state.pending_choice.is_none() {
+            crate::effects::set_choice_suspended(false);
+            return Err("choice_enumeration: 中断点を拾えない発火経路 (ResolveChoice 中)".into());
+        }
         if r.is_ok() {
             recompute_static(state);
             for p in state.players.iter_mut() {
@@ -932,6 +972,14 @@ pub fn apply_action(state: &mut GameState, action: &Value) -> Result<(), String>
     }
     crate::effects::set_choice_suspended(false);
     let r = apply_action_impl(state, action);
+    // ⭐ 安全弁: 選択サイトが中断フラグを立てたのに **誰も `suspend_if_choice` で拾わなかった**
+    //   場合、 その primitive は 「何もせず true を返した」 = 効果が **黙って消える**。
+    //   これは 「bit 一致か明示 bail か」 の不変条件を破る唯一の抜け道なので Err に落とす
+    //   (= 中断を拾えない発火経路が残っていることの検出器も兼ねる)。
+    if crate::effects::choice_suspended() && state.pending_choice.is_none() {
+        crate::effects::set_choice_suspended(false);
+        return Err("choice_enumeration: 中断点を拾えない発火経路 (残り do を退避できない)".into());
+    }
     if r.is_ok() {
         recompute_static(state); // ownership + 静的効果 (Python _recompute_static)
         for p in state.players.iter_mut() {
