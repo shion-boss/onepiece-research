@@ -1470,6 +1470,10 @@ def apply_action(state: GameState, action: Action, ai=None) -> None:
         from .effects import resolve_pending_choice
         resolve_pending_choice(state, list(action.picks))
         _recompute_static(state)
+        # ⚠ この分岐は下の try/finally を通らないので、 action 境界の transient は
+        #   ここでも落とす。 選択の解決中に立った 「アタック対象変更」 を持ち越すと、
+        #   **別のアタック** が曲げられる (下の finally の説明と同じ罠)。
+        state.pending_attack_redirect = None
         return
     if state.phase != Phase.MAIN:
         raise ValueError("apply_action MAIN only")
@@ -1549,6 +1553,19 @@ def apply_action(state: GameState, action: Action, ai=None) -> None:
                 except Exception:
                     # hook 失敗で apply_action 全体を壊さない
                     pass
+
+        # ⭐ **アタック対象変更は 「そのアタック」 限り** — action を跨いで持ち越さない。
+        #   `pending_attack_redirect` は 【相手のアタック時】効果が **宣言されたその
+        #   アタック** の対象を変えるための transient だが、 消費するのは AttackLeader
+        #   経路だけで、 キャラへのアタック / 途中 return / **action 境界のトリガー
+        #   ドレイン中の発火** では残ったままだった。 その結果 **効果を撃っていない
+        #   後続のアタック** が勝手にキャラへ曲げられていた (2026-08-21、 Python↔Rust
+        #   差分で発覚。 Rust は action 境界で必ず None なので Python 側だけが曲げていた)。
+        #   詳細: docs/official_rulings.md。
+        #   ⚠ 位置は **finally の最後** — 上の `resolve_triggers` が opp_attack 効果を
+        #     解決して立て直すことがあるので、 先頭で消すと漏れる (実測で戻った)。
+        #   ⚠ 「消費側が 1 経路しか無い transient は必ず漏れる」 ので action 境界で落とす。
+        state.pending_attack_redirect = None
 
     # Rust シャドウ検証: 完全正規化後の post-state を Rust の後追い結果と比較し、
     # MISMATCH なら記録 (db/rust_divergence_log.jsonl + 再現 dump)。 実ゲームには影響しない。
@@ -2316,6 +2333,20 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 if not state.resolving:
                     from .effects import resolve_triggers as _resolve_attack_triggers
                     _resolve_attack_triggers(state)
+        # ⚠ **キャラへのアタックで立った 「アタック対象変更」 は、 このアタック内で捨てる**。
+        #   公式 (OP14-060 紫ドフラ 等) は 「**その**アタックの対象を〜にする」 なので、 本来は
+        #   このキャラ戦の対象を差し替えるべきだが、 engine はまだ AttackLeader 経路でしか
+        #   差し替えを実装していない (下の 1851 行)。 問題は 「未実装」 よりも **持ち越し** で、
+        #   ここでクリアしないと `pending_attack_redirect` が action を跨いで残り、
+        #   **後続の別アタック** が勝手に対象変更される (= 効果を撃っていないアタックの
+        #   矛先が変わる)。 実際 2026-08-21 に Python↔Rust 差分でこれが露見した
+        #   (Rust は action 境界で必ず None なので Python だけ redirect していた)。
+        #   → 誤った持ち越しを断つ。 キャラ戦での対象差し替え自体は別途 要実装。
+        if state.pending_attack_redirect is not None:
+            state.push_log(
+                "  アタック対象変更: キャラへのアタックでは未適用 (持ち越さず破棄)"
+            )
+            state.pending_attack_redirect = None
         # 対象消失チェック: trigger_on_attack/opp_attack が target を KO してしまうケースに対応 (= 空打ち)
         target = next(
             (c for c in opp.characters if c.instance_id == action.target_iid),

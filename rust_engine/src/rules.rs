@@ -922,6 +922,17 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
             start = 1;
         }
     }
+    // ⚠ 注入した picks は **必ず** 使い切って捨てる。 「見送り (start=1) かつ残り do が無い」
+    //   経路で消し忘れ、 次の action の search_top_n が **他人の picks を replay と誤認** して
+    //   選択サイトを素通りしていた (2026-08-21、 thread_local_debug で forced_p=true を観測)。
+    struct ForcedGuard;
+    impl Drop for ForcedGuard {
+        fn drop(&mut self) {
+            crate::effects::set_forced_targets(None);
+            crate::effects::set_forced_picks(None);
+        }
+    }
+    let _guard = ForcedGuard;
     for ci in start..dos.len() {
         let prim = dos[ci].clone();
         let ok = crate::effects::execute_effect_pub(&prim, state, pc.me_idx, src);
@@ -957,7 +968,12 @@ pub fn apply_action(state: &mut GameState, action: &Value) -> Result<(), String>
     //   picks を FORCED_TARGETS に注入して **その primitive を再実行** し、 続けて
     //   退避しておいた残り do を流す (Rust には continuation が無いので replay 方式)。
     if action.get("t").and_then(|v| v.as_str()) == Some("ResolveChoice") {
+        let _ = crate::effects::take_choice_bail();
         let r = resolve_choice_action(state, action);
+        if let Some(reason) = crate::effects::take_choice_bail() {
+            crate::effects::set_choice_suspended(false);
+            return Err(format!("choice_enumeration: {reason} は Rust 未移植 (ResolveChoice 中)"));
+        }
         if crate::effects::choice_suspended() && state.pending_choice.is_none() {
             crate::effects::set_choice_suspended(false);
             return Err("choice_enumeration: 中断点を拾えない発火経路 (ResolveChoice 中)".into());
@@ -971,7 +987,13 @@ pub fn apply_action(state: &mut GameState, action: &Value) -> Result<(), String>
         return r;
     }
     crate::effects::set_choice_suspended(false);
+    let _ = crate::effects::take_choice_bail();
     let r = apply_action_impl(state, action);
+    // ⛔ 深い選択サイトが 「Python はここで訊く」 と予約した bail を回収する。
+    if let Some(reason) = crate::effects::take_choice_bail() {
+        crate::effects::set_choice_suspended(false);
+        return Err(format!("choice_enumeration: {reason} は Rust 未移植"));
+    }
     // ⭐ 安全弁: 選択サイトが中断フラグを立てたのに **誰も `suspend_if_choice` で拾わなかった**
     //   場合、 その primitive は 「何もせず true を返した」 = 効果が **黙って消える**。
     //   これは 「bit 一致か明示 bail か」 の不変条件を破る唯一の抜け道なので Err に落とす

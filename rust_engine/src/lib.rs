@@ -213,6 +213,7 @@ fn apply_action_choice_policy_trace(state_json: &str, action_json: &str, policy_
     let act: serde_json::Value = serde_json::from_str(action_json)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
     let mut trace: Vec<serde_json::Value> = Vec::new();
+    let tl_before = effects::thread_local_debug();
     effects::reset_suspend_call_count();
     let enum_on = st.choice_enumeration;
     let res = rules::apply_action(&mut st, &act);
@@ -273,6 +274,7 @@ fn apply_action_choice_policy_trace(state_json: &str, action_json: &str, policy_
     serde_json::to_string(&serde_json::json!({
         "digest": dg, "trace": trace, "fp": fp,
         "enum_on": enum_on, "suspend_calls": effects::suspend_call_count(),
+        "tl_before": tl_before,
     }))
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }

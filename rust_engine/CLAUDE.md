@@ -110,6 +110,47 @@ pending trigger (drain 時の発火元復元) / ko・return_to_hand 系の逐次
 **Rust は任意の action に対し「Python と bit 一致」か「Err で明示 bail」の二択のみ。 黙って間違った状態を作らない
 (= MISMATCH=0)。** bail は「未実装なので降参」であり誤りではない。 差分検証がこれを保証する。
 
+## ⭐ 選択列挙 ON (choice_enumeration) のパリティ (2026-08-21 に MISMATCH=0 到達)
+
+学習は **選択込みの self-play** で回すので、 列挙 ON でも一致を証明しないと
+「公式準拠を検証した Python と違う盤面を学ぶ」 事故になる。 専用ハーネスは
+`scripts/rust_choice_parity.py` (件数) と `scripts/rust_choice_diag.py` (原因分類)。
+`pytest tests/test_rust_parity.py::test_rust_choice_enumeration_no_mismatch` が CI ガード。
+
+| 検証 | 結果 |
+|---|---|
+| 列挙 ON 差分 6 game | match 283 / bail 67 / **MISMATCH 0** |
+| 列挙 ON 差分 16 game (別 seed) | match 727 / bail 160 / **MISMATCH 0** |
+
+### 中断・再開のモデル (Python の 2 段構造を写すこと)
+
+- 選択サイトは `note_choice_suspend` で **フラグ + 候補** を残して no-op で返る。
+- do 配列ループの `suspend_if_choice` が ① フラグが立っていれば `PendingChoice` を確定し
+  **フラグを降ろす** ② 既に確定済 (内側) なら **上書きせず true を返すだけ**。
+  - ⚠ フラグを立てっぱなしにすると後続の選択サイトが全部素通りする。 Python は
+    「選択が立っている」 状態を `state.pending_choice` で持ち、 **後の選択サイトが上書きする**。
+  - ⚠ 逆に毎階層で作り直すと、 候補を消費済の外側が **候補ゼロの幽霊選択** で上書きし、
+    ResolveChoice が同じ primitive を無限に再実行する。
+- `execute_card_effects` の bundle ループは `pending_choice.is_some()` で break
+  (Python `_execute_event` の early return と同形)。
+- **深い所からの bail は `note_choice_bail`** (thread-local) で `apply_action` の出口へ運ぶ。
+  `&mut GameState` しか持てない場所 (場 5 枚差し替え等) から明示 bail を出すため。
+
+### 落とし穴 (この 4 件で MISMATCH 62 → 0)
+
+1. **Python の 「中断するか」 条件を近似しない**。 `search_top_n` は 「filter 一致が 1 枚以上」
+   で中断し候補は **見た N 枚全部**。 起動メインの発動コストは種別ごとに条件がバラバラで、
+   候補 1 件でも訊くものがある (`discard_hand` は手札 1 枚でも / `rest_own_card` は
+   リーダーとステージも数える)。
+2. **再開 (replay) は Python の `resolve_pending_choice` を写す** — auto 経路と違う。
+   `search_top_n` の human 経路は STAGE を登場させず手札へ / `top_or_bottom` は一律デッキ底 /
+   `known_bottom_card_ids` を触らない。
+3. **候補の並び順は Python と同じ 「盤面順」**。 Python は `_maybe_request_target_pick` に
+   **sort 前** の候補を渡し、 AI 評価の sort はその後。 Rust が先に sort していたため
+   「候補数は同じなのに k 番目が別のカード」 になっていた (`board_order`)。
+4. **注入した picks (`FORCED_PICKS`) は必ず使い切って捨てる** (Drop guard)。 残ると次の
+   action の別 primitive が **他人の picks を replay と誤認** して選択サイトを素通りする。
+
 ## Python ↔ Rust を同期させながら更新する手順 (重要)
 
 Python engine (特に `engine/effects.py` / `engine/game.py` / `engine/core.py`) を変更したら:
@@ -251,6 +292,9 @@ RNG 依存効果は `rng.rs` (MT19937、 CPython `random` の bit 再現) を使
 | CI/pre-commit ガード | `python scripts/rust_parity_check.py --assert` (MISMATCH>0 で exit 1) |
 | standalone 完走の壁 観測 | `python scripts/rust_parity_check.py --wall` |
 | pytest 自動ガード | `pytest tests/test_rust_parity.py` |
+| **選択列挙 ON の差分** | `python scripts/rust_choice_parity.py --games 6 [--assert]` |
+| **同 原因分類 (MISMATCH の切り分け)** | `python scripts/rust_choice_diag.py --games 6 --show 10 --check-off` |
+| 乖離局面を単体で ON/OFF 比較 | `rust_choice_diag.py --dump <dir>` → `rust_choice_probe.py <dir>` |
 
 ## Rust ソースマップ (機能追加時の追従先)
 

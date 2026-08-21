@@ -963,6 +963,30 @@ fn eval_effect_conditions(eff: &Value, state: &GameState, me_idx: usize, src: Op
 /// ⭐ Rust の `resolve_target` は dispatch こそ中央だが **絞り込みは各分岐の中**
 /// (`.take(1)` が 23 箇所) なので、 中断はここに置く必要がある。 出口に置くと候補が
 /// 既に 1 件に減っていて中断条件が成立しない (2026-08-21 に実測で判明)。
+/// 選択候補を **Python が modal に載せる順** (= 盤面順) に並べ直す。
+///
+/// ⭐ Python の `_resolve_target` は 「候補を作る → `_maybe_request_target_pick` に
+///   **そのまま** 渡す → (人間/列挙で無ければ) その後に AI 評価で sort」 という順序で、
+///   選択肢は **盤面順のまま** 提示される。 Rust は AI 用の sort を先にやってから
+///   suspend していたため、 候補数は同じなのに **k 番目が別のカード** になっていた
+///   (2026-08-21、 target_pick の 「同形なのに乖離」 の正体)。
+///   プレイヤーの並びは呼出側の渡し順 (= Python の `opp_cands + self_cands`) を保ち、
+///   同一プレイヤー内だけ slot 順 (Leader → Char 昇順 → Stage 昇順) にする。
+fn board_order(cands: &[(usize, Slot)]) -> Vec<(usize, i64)> {
+    let mut player_rank: Vec<usize> = vec![];
+    for &(pi, _) in cands {
+        if !player_rank.contains(&pi) {
+            player_rank.push(pi);
+        }
+    }
+    let mut out: Vec<(usize, i64)> =
+        cands.iter().map(|&(pi, sl)| (pi, slot_to_code(sl))).collect();
+    out.sort_by_key(|&(pi, code)| {
+        (player_rank.iter().position(|&x| x == pi).unwrap_or(usize::MAX), code)
+    });
+    out
+}
+
 fn pick_one_or_suspend(
     state: &GameState,
     cands: Vec<(usize, Slot)>,
@@ -972,11 +996,7 @@ fn pick_one_or_suspend(
     //   ここを `> 1` にしていたため列挙 ON で **MISMATCH 146 件** を出した (2026-08-21、
     //   scripts/rust_choice_parity.py が検出)。 「0 枚を選ぶ」 も公式 1-3-5-1 の権利。
     if state.choice_enumeration && !choice_suspended() && !cands.is_empty() {
-        note_choice_suspend(
-            "target_pick",
-            1,
-            cands.iter().map(|&(pi, sl)| (pi, slot_to_code(sl))).collect(),
-        );
+        note_choice_suspend("target_pick", 1, board_order(&cands));
         return vec![];
     }
     cands.into_iter().take(1).collect()
@@ -1007,12 +1027,21 @@ fn resolve_target(
                 .and_then(|x| x.as_i64())
                 .unwrap_or(1)
                 .max(0) as usize;
-            if cands.len() > limit.max(1) {
-                set_choice_suspended(true);
-                PENDING_CANDS.with(|c| {
-                    *c.borrow_mut() =
-                        Some(cands.iter().map(|&(pi, sl)| (pi, slot_to_code(sl))).collect())
-                });
+            // ⚠ 「すべて」 を対象にする spec (= all_opponent_rested_characters_le_7cost 等) は
+            //   Python が選択を訊かない (公式も 「1枚を選ぶ」 ではなく全体に効く) 。 ここを
+            //   limit=1 とみなして中断すると **Rust だけ 1 枚選ばせる** ことになる
+            //   (2026-08-21、 OP08-036 エレクトリカルルナで発覚)。
+            let sname = spec
+                .and_then(|v| v.as_str().map(|s| s.to_string())
+                    .or_else(|| v.get("type").and_then(|t| t.as_str()).map(|s| s.to_string())))
+                .unwrap_or_default();
+            let is_all = sname.starts_with("all_") || sname.starts_with("each_");
+            if !is_all && cands.len() > limit.max(1) {
+                // ⚠ 中断は必ず `note_choice_suspend` を通す。 フラグと候補だけ直接
+                //   立てると PENDING_KIND / PENDING_LIMIT が **前回の中断の値のまま**
+                //   残り、 選択肢の母数が別の選択サイトのものになる。
+                //   提示順は Python と同じ盤面順に揃える (board_order の doc 参照)。
+                note_choice_suspend("target_pick", limit.max(1), board_order(cands));
                 return Some(vec![]);
             }
         }
@@ -2227,6 +2256,39 @@ pub fn reset_suspend_call_count() {
     SUSPEND_CALLS.with(|c| c.set(0));
 }
 
+thread_local! {
+    /// ⛔ 「Python はここで選択を出すが Rust は未移植」 と判った時に立てる bail 予約。
+    ///   選択サイトが `&mut GameState` しか持たず Result を返せない深い場所 (場 5 枚
+    ///   差し替え等) から、 `apply_action` の出口まで **明示 bail** を伝えるための箱。
+    ///   これが無いと 「黙って別のカードをトラッシュする」 = 不変条件違反になる。
+    static CHOICE_BAIL: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
+}
+
+pub(crate) fn note_choice_bail(reason: &str) {
+    CHOICE_BAIL.with(|c| {
+        if c.borrow().is_none() {
+            *c.borrow_mut() = Some(reason.to_string());
+        }
+    });
+}
+
+pub fn take_choice_bail() -> Option<String> {
+    CHOICE_BAIL.with(|c| c.borrow_mut().take())
+}
+
+/// 診断用: 呼出間で残っている thread-local (中断フラグ / 注入 picks) の状態。
+/// 「同じ JSON を単体で流すと中断するのに、 ハーネスの中では中断しない」 型の切り分け用。
+pub fn thread_local_debug() -> String {
+    format!(
+        "susp={} forced_t={} forced_p={} cands={} kind={}",
+        choice_suspended(),
+        FORCED_TARGETS.with(|c| c.borrow().is_some()),
+        FORCED_PICKS.with(|c| c.borrow().is_some()),
+        PENDING_CANDS.with(|c| c.borrow().is_some()),
+        PENDING_KIND.with(|c| c.borrow().clone()),
+    )
+}
+
 /// 選択サイトが中断する時の共通入口。 kind / limit / 候補を残す。
 pub(crate) fn note_choice_suspend(kind: &str, limit: usize, cands: Vec<(usize, i64)>) {
     SUSPEND_CALLS.with(|c| c.set(c.get() + 1));
@@ -2283,9 +2345,18 @@ pub(crate) fn suspend_if_choice(
     src: Slot,
     me_idx: usize,
 ) -> bool {
+    // ⭐ Python の 2 段構造を写す (effects.py:11445 `run_do_array`):
+    //   ① **新しく立った選択** (= CHOICE_SUSPENDED) は ここで PendingChoice に確定させる。
+    //      確定したらフラグは降ろす — Python では 「選択が立っている」 状態は
+    //      `state.pending_choice` が持ち、 後から別の選択サイトに来れば **上書きされる**
+    //      から (= 中断フラグを立てっぱなしにすると後続の選択サイトが全て素通りする)。
+    //   ② 既に内側で確定済なら **外側は上書きせず抜けるだけ** (Python の
+    //      `if "_continuation" not in state.pending_choice`)。 丸ごと作り直すと、
+    //      候補ゼロの幽霊選択で上書きして ResolveChoice が無限ループする。
     if !choice_suspended() {
-        return false;
+        return state.pending_choice.is_some();
     }
+    set_choice_suspended(false);
     let cands = PENDING_CANDS.with(|c| c.borrow_mut().take()).unwrap_or_default();
     let n = cands.len();
     let kind = PENDING_KIND.with(|c| {
@@ -2395,6 +2466,16 @@ pub(crate) fn find_tagged(state: &mut GameState, me_idx: usize, tok: Option<u64>
 /// 場 5 枚での効果登場時、 最弱キャラ (power→cost 昇順、 tie は先頭) を 1 枚トラッシュ (core.py:762、
 /// 公式 3-7-6-1)。 KO ではない = on_ko trigger 無し (単純除去 + 付与ドン返却)。 満杯でなければ no-op。
 fn trash_weakest_for_field_full(state: &mut GameState, me_idx: usize) {
+    // ⛔ 列挙モード: 場 5 枚差し替え (3-7-6-1) の **犠牲は持ち主が選ぶ**。 Python は
+    //   `_request_field_full_sacrifice` で field_full_sacrifice_pick を立てる
+    //   (effects.py:876-903)。 Rust は最弱固定なので、 選択の余地がある局面は bail する
+    //   (黙って別のキャラをトラッシュしない)。 n_summons=1 前提で n_sac=1。
+    if state.choice_enumeration
+        && state.players[me_idx].characters.len() >= 5
+        && state.players[me_idx].characters.len() > 1
+    {
+        note_choice_bail("場5枚差し替えの犠牲選択 (3-7-6-1)");
+    }
     let me = &mut state.players[me_idx];
     if me.characters.len() < 5 {
         return;
@@ -4271,6 +4352,13 @@ pub(crate) fn execute_effect_pub(prim: &Value, state: &mut GameState, me_idx: us
 }
 
 fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> bool {
+    // ⭐ 選択待ちが立っている間は **何も実行しない**。 Python は選択が立つと各階層が
+    //   早期 return して効果チェーン全体が止まる (effects.py の `pending_choice is not None`
+    //   ガード 20 箇所)。 Rust は break するだけで外側の走査が続きうるので、 ここで
+    //   no-op にして 「中断後に後続 primitive が走る」 乖離を潰す。
+    if choice_suspended() {
+        return true;
+    }
     // ⛔ 列挙モードで未移植の選択 primitive に当たったら bail (= 黙って別のゲームにしない)。
     if state.choice_enumeration {
         if let Some(k) = prim.as_object().and_then(|o| o.keys().next()) {
@@ -9511,6 +9599,19 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             let is_rested_chara_or_don = v.as_str() == Some("one_opp_rested_chara_or_don")
                 || v.get("type").and_then(|x| x.as_str()) == Some("one_opp_rested_chara_or_don");
             if is_rested_chara_or_don {
+                // ⛔ 列挙モード: Python はキャラ候補があり かつ 他にも選択肢がある時
+                //   (= キャラ複数 or レストドンも選べる) に target_pick を立てる
+                //   (effects.py:7267)。 キャラ/ドン混在の単一選択は Rust 未移植 → bail。
+                if state.choice_enumeration {
+                    let opp = &state.players[opp_idx];
+                    let rested_n = opp.characters.iter().filter(|c| c.rested).count();
+                    if rested_n > 0
+                        && (opp.don_rested > opp.next_refresh_kept_rested_don || rested_n > 1)
+                    {
+                        note_choice_bail("レストキャラ/ドンの混在選択 (one_opp_rested_chara_or_don)");
+                        return true;
+                    }
+                }
                 let chosen = {
                     let opp = &state.players[opp_idx];
                     let mut cands: Vec<usize> = (0..opp.characters.len())
@@ -10555,6 +10656,24 @@ fn pay_don_field(state: &mut GameState, me_idx: usize, n: i32) -> bool {
 /// 通す = counter cost と同一機構。 Rust も同じ経路に委譲する (独自実装だと対応 cost 種別がズレる)。
 /// Some(true)=支払い済で発動 / Some(false)=支払い不能で skip / None=未対応 cost 種別で bail。
 /// ⚠ once_per_turn は呼出側 (execute_card_effects) の gate が扱う。
+/// Python `_execute_event` が **効果レベルの発動コストを任意コスト扱いする** when の集合
+/// (effects.py:507-523)。 ここに載っている when だけ 「払う/払わない」 を本人に訊く。
+fn choice_cost_when(when: &str) -> bool {
+    matches!(when,
+        "counter" | "on_play" | "on_ko" | "on_block" | "main" | "trigger"
+        | "on_self_chara_played" | "on_opp_chara_played"
+        | "on_self_chara_ko" | "on_opp_chara_ko"
+        | "on_self_chara_leave_by_self_effect" | "on_self_chara_leave_by_opp_effect"
+        | "on_opp_chara_returned_to_hand_by_self_effect"
+        | "on_self_rested" | "on_self_chara_rested_by_self_effect"
+        | "on_self_hand_discarded" | "on_self_don_returned_to_deck"
+        | "on_self_event_played" | "on_opp_event_or_trigger_fired" | "opp_event_played"
+        | "on_self_life_taken" | "on_opp_life_taken"
+        | "on_self_life_to_hand" | "on_self_life_to_trash"
+        | "on_self_draw_non_draw_phase" | "on_life_zero"
+        | "opp_attack_on_chara" | "opp_attack_on_leader" | "on_opp_blocker_use")
+}
+
 fn pay_on_play_cost(cost: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> Option<bool> {
     let real: Value = match cost {
         Value::Object(o) => Value::Object(
@@ -10675,6 +10794,48 @@ pub fn execute_card_effects(
             }
         }
         if let Some(cost) = eff.get("cost") {
+            // ⭐ 列挙モード: 公式 「〜することができる：効果」 の **発動コストを払うかどうか**
+            //   は本人が決める。 Python (`_execute_event`, effects.py:505-609) は
+            //   once_per_turn を除いた実コストがあると
+            //     ① discard 系 → counter_discard_pick
+            //     ② 非 discard → `optional_cost_then` に包んで optional_cost_confirm
+            //   を立てる。 Rust は ② を **同じ形で包んで** 実装し、 ① は未移植なので bail。
+            if state.choice_enumeration && choice_cost_when(when) {
+                if let Some(o) = cost.as_object() {
+                    let real: Vec<(&String, &Value)> =
+                        o.iter().filter(|(k, _)| k.as_str() != "once_per_turn").collect();
+                    if !real.is_empty() {
+                        let real_obj: Value = Value::Object(
+                            real.iter().map(|(k, v)| ((*k).clone(), (*v).clone())).collect());
+                        if !can_pay_counter_cost_full(state, me_idx, src, &real_obj) {
+                            continue; // 払えない = Python も skip (effects.py:529)
+                        }
+                        // 手札捨てコストは Python が counter_discard_pick を立てる = 未移植
+                        let nondiscard: Vec<&(&String, &Value)> = real.iter().filter(|(k, _)| {
+                            !matches!(k.as_str(), "discard_hand" | "discard_hand_with_filter")
+                        }).collect();
+                        if nondiscard.len() != real.len() {
+                            return Err(format!(
+                                "choice_enumeration: {when} の手札捨てコスト選択は Rust 未移植 ({card_id})"
+                            ));
+                        }
+                        let oct = serde_json::json!({"optional_cost_then": {
+                            "cost": nondiscard.iter()
+                                .map(|(k, v)| serde_json::json!({ (*k).clone(): (*v).clone() }))
+                                .collect::<Vec<_>>(),
+                            "effect": eff.get("do").cloned().unwrap_or(Value::Array(vec![])),
+                        }});
+                        if !execute_effect(&oct, state, me_idx, src) {
+                            return Err(format!("{when} 任意コスト包み込みが未対応 ({card_id})"));
+                        }
+                        // 中断したら残りの bundle entry は走らせない (Python も return)
+                        if suspend_if_choice(state, std::slice::from_ref(&oct), 0, &oct, src, me_idx) {
+                            break;
+                        }
+                        continue; // 効果は optional_cost_then が解決済 → 通常の do-list は流さない
+                    }
+                }
+            }
             match pay_on_play_cost(cost, state, me_idx, src) {
                 Some(true) => {}
                 Some(false) => continue,   // cost 払えない = Python も skip
@@ -10733,6 +10894,11 @@ pub fn execute_card_effects(
                 }
             }
             find_tagged(state, me_idx, tok);
+        }
+        // ⭐ 選択待ちが立ったら **同 bundle の残りエントリも走らせない** (Python
+        //   `_execute_event` は effects.py:653 で return する)。
+        if state.pending_choice.is_some() {
+            break;
         }
     }
     Ok(())
@@ -13291,6 +13457,12 @@ pub(crate) fn fire_field_when_with_toks(
     //   (OP07-038 は LEADER = 場を離れない、 OP08-056 は STAGE で下の CHARACTER 判定が弾く)。
     for (tok, cid) in toks {
         fire_field_when_one(state, owner_idx, when, tok, &cid)?;
+        // ⭐ 選択待ちが立ったら **残りの反応カードも発火しない**。 Python はイベント
+        //   キューの drain 自体を止め、 残りをキューに残して選択解決後に再 drain する
+        //   (effects.py:327)。 ここで回し続けると Rust だけ先に進んでしまう。
+        if state.pending_choice.is_some() {
+            break;
+        }
     }
     Ok(())
 }

@@ -42,6 +42,25 @@ def test_rust_parity_no_mismatch_broad():
     assert tot["match"] > 3000, f"match={tot['match']} が異常に少ない (ハーネス破損?)"
 
 
+def test_rust_choice_enumeration_no_mismatch():
+    """**選択列挙 ON** でも MISMATCH=0 を保証する。
+
+    ⭐ なぜ別テストが要るか: `rust_parity_check` は列挙 OFF でしか回らない (ON だと
+    Python が pending_choice で halt し比較が飛ぶ)。 だが学習は **選択込みの self-play**
+    で回すので、 そのモードで両エンジンが一致することを証明しないと
+    「公式準拠を検証した Python と違う盤面を学ぶ」 事故が起きる。
+    不変条件は通常時と同じ = 「bit 一致」 か 「明示 bail」 の二択。
+    """
+    from scripts.rust_choice_parity import run
+
+    stat = run(games=4, seed=500, max_steps=300)
+    assert stat["MISMATCH"] == 0, (
+        f"選択列挙 ON で Python↔Rust が食い違っている: MISMATCH={stat['MISMATCH']}。 "
+        f"原因分類: python scripts/rust_choice_diag.py --games 6 --show 10 --check-off"
+    )
+    assert stat["match"] > 100, f"match={stat['match']} が異常に少ない (ハーネス破損?)"
+
+
 def test_rust_setup_matches_python_including_mulligan():
     """Rust ネイティブ setup (game_start ステージ登場 + マリガン + ownership) が Python setup_game と
     bit 一致することを保証する。

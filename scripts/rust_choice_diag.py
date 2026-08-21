@@ -3,10 +3,19 @@
 
 ⭐ なぜ要るか: `rust_choice_parity.py` は件数しか出さないが、 列挙 ON の MISMATCH は
    「Python が選択を立てたのに Rust が立てていない (= 中断していない)」 型が支配的で、
-   **両エンジンの選択列 (kind / 候補数) を並べない限り原因が特定できない**。
+   **両エンジンの選択列 (kind / 候補数 / 候補の中身) を並べない限り原因が特定できない**。
+   2026-08-21 の MISMATCH 62 → 0 はこの分類なしには辿り着けなかった。
+
+出すもの:
+  - 原因分類 (中断していない / 候補数が違う / 選択列が違う / 同形なのに乖離 …)
+  - `--check-off`: 同じ局面を **列挙 OFF** でも突合 → 「選択固有」 と 「元からの
+    parity バグ」 を分ける。 実際これで Python 側の実バグ (アタック対象変更の持ち越し) が出た
+  - `--show N`: 個別サンプル (両engineの選択列 + zone 単位の差分 + 直前の盤面 + Python ログ)
+  - `--dump DIR`: 乖離局面の (state, action) を保存 → `rust_choice_probe.py` で
+    Rust 単体の ON/OFF 比較ができる
 
   .venv/bin/python scripts/rust_choice_diag.py --games 6
-  .venv/bin/python scripts/rust_choice_diag.py --games 6 --show 20   # 個別の突合も出す
+  .venv/bin/python scripts/rust_choice_diag.py --games 6 --show 20 --check-off
 """
 from __future__ import annotations
 
@@ -136,6 +145,7 @@ def run(games: int, seed: int, max_steps: int, show: int,
             js = json.dumps(full_dump(st))
             log_before = len(getattr(st, "log", []) or [])
             fp_before = _py_fp(st)
+            redirect_before = getattr(st, "pending_attack_redirect", None)
             st_off = act_off = None
             if check_off:
                 try:
@@ -176,6 +186,7 @@ def run(games: int, seed: int, max_steps: int, show: int,
             #   「選択と無関係の差」 で分類が止まる)。 Python state は full_dump から
             #   復元できないので、 apply の **前** に取った deepcopy を使う。
             off_note = ""
+            off_fp: list[str] = []
             if st_off is not None:
                 try:
                     rs_off = json.loads(eng.apply_action_choice_policy_trace(
@@ -184,8 +195,11 @@ def run(games: int, seed: int, max_steps: int, show: int,
                     if "err" in rs_off:
                         off_note = f"OFF=bail({rs_off['err'][:40]})"
                     else:
-                        off_note = ("OFF=match" if rs_off["digest"] == state_digest(st_off)
-                                    else "OFF=MISMATCH")
+                        if rs_off["digest"] == state_digest(st_off):
+                            off_note = "OFF=match"
+                        else:
+                            off_note = "OFF=MISMATCH"
+                            off_fp = fp_diff(_py_fp(st_off), rs_off.get("fp") or [{}, {}])
                 except Exception as e:  # noqa: BLE001
                     off_note = f"OFF=err({str(e)[:40]})"
             off_stat[off_note] += 1
@@ -204,7 +218,9 @@ def run(games: int, seed: int, max_steps: int, show: int,
                 samples.append({"game": gi, "action": enc, "py": py_tr, "rs": rs_tr, "cause": c,
                                 "off": off_note,
                                 "enum_on": rs.get("enum_on"), "susp": rs.get("suspend_calls"),
+                                "tl": rs.get("tl_before"), "rdr": redirect_before,
                                 "fp": fp_diff(_py_fp(st), rs.get("fp") or [{}, {}]),
+                                "off_fp": off_fp,
                                 "before": [{k: v for k, v in p.items() if k in
                                             ("deck_n", "deck_top", "hand", "chars", "don")}
                                            for p in fp_before],
@@ -226,7 +242,7 @@ def run(games: int, seed: int, max_steps: int, show: int,
         print("\n個別サンプル:")
         for s in samples:
             print(f"  [g{s['game']}] {s['action'].get('t')} :: {s['cause']}"
-                  f"  [{s.get('off') or '-'}] (rust enum_on={s.get('enum_on')} suspend_calls={s.get('susp')})")
+                  f"  [{s.get('off') or '-'}] (rust enum_on={s.get('enum_on')} suspend_calls={s.get('susp')} tl_before={s.get('tl')} redirect_before={s.get('rdr')})")
             print(f"      py={s['py']}")
             print(f"      rs={s['rs']}")
             for pi, b in enumerate(s.get("before", [])):
@@ -234,6 +250,8 @@ def run(games: int, seed: int, max_steps: int, show: int,
                       f"chars={b['chars']} don={b['don']}")
             for d in s.get("fp", []):
                 print(f"      ≠ {d}")
+            for d in s.get("off_fp", []):
+                print(f"      OFF≠ {d}")
             for ln in s.get("log", []):
                 print(f"        | {ln}")
 
