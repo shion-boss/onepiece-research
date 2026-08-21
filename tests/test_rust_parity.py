@@ -316,6 +316,22 @@ def test_rust_unported_choice_primitive_bails():
     unported = tuple(json.loads(eng.choice_unported_prims()))
     assert unported, "未移植 primitive が 0 = 全 kind 移植済ならこのテストは不要"
     target = None
+
+    def _prim_keys(node, out):
+        """効果 dict から **primitive のキー** だけを集める。
+
+        ⚠ blob の部分文字列で判定すると、 target spec 名の中の語に誤ヒットする
+        (実際 `self_inplay_choice` の中の `choice` を拾って 「未移植のはず」 のカードを
+         選んでしまい、 Rust が正しく選択を出した途端にこのテストが落ちた、 2026-08-22)。
+        """
+        if isinstance(node, dict):
+            for k, v in node.items():
+                out.add(k)
+                _prim_keys(v, out)
+        elif isinstance(node, list):
+            for v in node:
+                _prim_keys(v, out)
+
     for cid, bundle in overlay.items():
         if "_p" in cid or "_r" in cid:
             continue
@@ -325,8 +341,9 @@ def test_rust_unported_choice_primitive_bails():
         for e in bundle.effects:
             if e.get("when") != "on_play" or e.get("if") or e.get("cost"):
                 continue
-            blob = json.dumps(e, ensure_ascii=False)
-            if any(u in blob for u in unported):
+            keys: set = set()
+            _prim_keys(e.get("do", []), keys)
+            if keys & set(unported):
                 target = cid
                 break
         if target:

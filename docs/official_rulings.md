@@ -8904,3 +8904,30 @@ KO → OP06-104 菊之丞【KO時】「デッキ上1枚をライフへ」 でラ
 ⭐ **教訓**: 「Python が enqueue して後で drain する」 構造は、 順序だけでなく
 **判断材料をどの時点の盤面から取るか** を決めている。 inline 実行に畳む時は
 実行順を合わせるだけでは足りない ([[reference_rust_mismatch_root_cause_taxonomy]] 2b と同型)。
+
+## 効果コピーの do を **生ループで回すと選択が消える** (2026-08-22)
+
+**engine の一次情報** (公式ルールでなく解決モデル): 効果の do 配列は `run_do_array` で回す。
+これは **選択 (`pending_choice`) が立ったら halt し、 残りを `_continuation` に退避** して
+選択解決後に続きを走らせる (effects.py:11445)。
+
+ところが 「このカードの【メイン】効果を発動する」 系の **効果コピー** は、
+`for prim in eff["do"]: execute_effect(...)` という **生ループ** で回していた。
+そのため:
+
+- do の途中で選択が立っても **止まらず次の primitive へ進む**
+- 次の primitive の選択が `state.pending_choice` を **上書きして前段の選択を消す**
+- **人間には最初の modal が出ないまま、 その効果が失われる**
+
+実例 (OP15-020 火拳、【トリガー】で自身の【メイン】を発動):
+「リーダー +3000 / 相手キャラ1枚を -8000 / その後 手札2枚を捨てて KO」 のうち、
+**-8000 の対象選択が KO の対象選択に潰されていた**。
+
+該当 4 箇所 (`fire_self_main` / `fire_self_effect` / `fire_event_main_from_trash` /
+`conditional`) を `run_do_array` 経由に是正。
+
+⭐ **教訓**: 「do を回す」 コードを新しく書く時は **必ず `run_do_array` を使う**。
+生ループは選択・`_chain` (「その後」/「場合」) の両方を落とす。
+発覚経路は Python↔Rust の選択列挙差分 (Rust が選択を 2 つ提示、 Python は 1 つ)。
+= **差分エンジンが Python の UI バグを検出した** 2 例目
+(1 例目は `pending_attack_redirect` の持ち越し)。

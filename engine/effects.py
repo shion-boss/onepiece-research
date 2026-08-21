@@ -7707,8 +7707,9 @@ def _execute_effect_body_inner(
             spec_val = v if isinstance(v, dict) else {}
             cond = spec_val.get("if", {})
             if eval_condition(cond, state, me, self_inplay):
-                for prim in spec_val.get("do", []):
-                    execute_effect(prim, state, me, opp, self_inplay)
+                # ⚠ 生ループ禁止 (選択が立っても止まらず前段の選択を潰す)。 fire_self_main の
+                #   コメント参照。 run_do_array は halt + _continuation 退避をしてくれる。
+                run_do_array(spec_val.get("do", []), state, me, opp, self_inplay)
         elif k == "set_base_cost_timed":
             # 公式: 「(target) は、 次の相手のターン終了時まで、 コスト+N」 (EB02-041 メリー号等)。
             # spec: {"target": <target_spec>, "delta": 2, "duration": "next_opp_turn_end"}
@@ -7996,8 +7997,15 @@ def _execute_effect_body_inner(
                         continue
                     if not eval_all_conditions(eff, state, me, self_inplay):
                         continue
-                    for prim in eff.get("do", []):
-                        execute_effect(prim, state, me, opp, self_inplay)
+                    # ⚠ **生ループで回してはいけない**。 do の途中で選択 (pending_choice) が
+                    #   立っても止まらず、 後続 primitive の選択が **前段の選択を黙って
+                    #   上書きして消す**。 人間には最初の modal が出ないまま効果が失われ、
+                    #   選択列挙では Python と Rust が別々の選択列を出す (2026-08-22 発覚、
+                    #   OP15-020 火拳: power_pump の対象選択が ko の選択に潰されていた)。
+                    #   `run_do_array` は halt して残りを `_continuation` に退避する。
+                    run_do_array(eff.get("do", []), state, me, opp, self_inplay)
+                    if state.pending_choice is not None:
+                        break
                 state.push_log(f"  効果: 自身の【メイン】効果を発動")
             finally:
                 state._fire_self_depth = depth
@@ -8074,8 +8082,8 @@ def _execute_effect_body_inner(
                     try:
                         for ev in bundle.effects:
                             if ev.get("when") == "main" and eval_all_conditions(ev, state, me, self_inplay):
-                                for prim in ev.get("do", []):
-                                    execute_effect(prim, state, me, opp, self_inplay)
+                                # ⚠ 生ループ禁止 (fire_self_main のコメント参照)
+                                run_do_array(ev.get("do", []), state, me, opp, self_inplay)
                                 break
                     finally:
                         state._fire_self_depth = depth
@@ -8137,8 +8145,10 @@ def _execute_effect_body_inner(
                     if not eval_all_conditions(eff, state, me, self_inplay):
                         continue
                     _fired_any = True
-                    for prim in eff.get("do", []):
-                        execute_effect(prim, state, me, opp, self_inplay)
+                    # ⚠ 生ループ禁止 (fire_self_main のコメント参照)
+                    run_do_array(eff.get("do", []), state, me, opp, self_inplay)
+                    if state.pending_choice is not None:
+                        break
                 if _fired_any:
                     state.push_log(f"  効果: 自身の【{when_kind}】効果を発動")
             finally:

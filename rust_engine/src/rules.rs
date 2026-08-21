@@ -941,10 +941,14 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
             crate::effects::set_forced_picks(None);
         }
         if !ok {
+            // ⚠ どの primitive で落ちたかを出す。 総称メッセージのままだと bail 内訳が
+            //   「残り do が未対応」 に丸まって **移植の優先順位が読めない**。
+            let key = prim.as_object().and_then(|o| o.keys().next())
+                .map(|s| s.as_str()).unwrap_or("?");
             return Err(if ci == 0 {
-                "ResolveChoice: 再実行した primitive が未対応".into()
+                format!("ResolveChoice: 再実行した primitive が未対応: {key}")
             } else {
-                "ResolveChoice: 残り do の primitive が未対応".to_string()
+                format!("ResolveChoice: 残り do の primitive が未対応: {key}")
             });
         }
         if crate::effects::suspend_if_choice(state, &dos, ci, &prim, src, pc.me_idx) {

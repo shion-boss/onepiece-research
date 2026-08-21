@@ -137,13 +137,23 @@ pending trigger (drain 時の発火元復元) / ko・return_to_hand 系の逐次
 防御候補なので、 このまま学習を回すと **「無防御への静かな回帰」** を教えてしまう。
 = 列挙 ON はまだ学習データ生成に使えない (OFF は 0.00% なので問題なし)。
 
-bail の内訳 (= 移植の優先順位。 `eng.reset_coverage_stats(True)` + `coverage_stats()`):
-`optional_discard_hand_for_battle_buff` 約 11% / 発動コストの選択 約 7% /
-ResolveChoice の残り do・`redirect_attack`・`on_self_rested`・`attach_rested_don` 各 1-2%。
+bail の内訳は `eng.reset_coverage_stats(True)` + `coverage_stats()` で原因別に取れる。
 
-⚠ `optional_discard_hand_for_battle_buff` は **移植済だが denylist に戻してある**。
-解禁すると `fire_self_main` (効果コピー) 連鎖で Python が 「前段の選択を上書きして捨てる」
-挙動になり MISMATCH が出た。 **Python 側の choice 上書きセマンティクスを確定させるのが先**。
+⭐ **2026-08-22 に 2 段改善**: ① Python の効果コピー 4 箇所が do を **生ループ** で回して
+おり、 選択が立っても止まらず **前段の選択を上書きして消していた** (= 人間にも modal が
+出ない実バグ)。 `run_do_array` 経由に是正 → `optional_discard_hand_for_battle_buff` を解禁。
+② `attach_rested_don` は **実装済なのに denylist に丸ごと載っていた**。 Python が選択を
+出すのは 「N枚**まで**付与」 (`up_to`) かつ最大 2 枚以上の時だけなので site-specific bail に。
+→ 差分ハーネス bail 67 → 43、 ResolveChoice の bail 2,210 → 29。
+
+⚠ **残る阻害要因は 1 つに収束**: 「発動コストの選択」 (防御 41,385 + 攻撃 8,249)。
+Python は `counter_discard_pick` で **効果単位** に中断・再開するが、 Rust の replay は
+**primitive 単位**。 = 数個の primitive 移植では届かず、 **Rust に効果単位の中断・再開機構**
+を作る必要がある (起動メインの発動コスト選択も同じ壁)。
+
+⚠ **bail 「率」 で進捗を測らない**。 実行できる手が増えると探索が深く進み **候補の総数が
+増える** ので、 改善したのに率が上がって見える (20.4% → 24.5% だが候補は 36,865 → 75,149)。
+原因別の **絶対数** で見ること。
 
 ### 中断・再開のモデル (Python の 2 段構造を写すこと)
 

@@ -1692,10 +1692,8 @@ fn resolve_target_inner(
                 }
             }
             cands.sort_by(|a, b| b.1.cmp(&a.1));
-            match cands.first() {
-                Some(&(sl, _)) => vec![(me_idx, sl)],
-                None => vec![],
-            }
+            // ⚠ Python は選択サイト (上の one_opponent_inplay_any と同じ理由、 2026-08-22 監査)
+            pick_one_or_suspend(state, cands.into_iter().map(|(sl, _)| (me_idx, sl)).collect())
         }
         // 相手リーダー or キャラ 1 枚 (effects.py:2507)。 AI = _opp_value 最大のキャラ → **居なければ
         // リーダー**。 ⚠ 下の one_opponent_ prefix arm はキャラのみ返すので、 キャラ 0 の時に Python の
@@ -1708,10 +1706,15 @@ fn resolve_target_inner(
                     .partial_cmp(&opp_value(&opp.characters[a]))
                     .unwrap_or(std::cmp::Ordering::Equal)
             });
-            match cands.first() {
-                Some(&i) => vec![(opp_idx, Slot::Char(i))],
-                None => vec![(opp_idx, Slot::Leader)],
+            // ⚠ Python は候補を `_maybe_request_target_pick` に渡す = **選択サイト**。
+            //   Rust が自動決定していると 列挙モードで Python だけ選択を出す (2026-08-22 監査)。
+            //   候補が 0 ならリーダー (Python の leader fallback と同順)。
+            let mut all: Vec<(usize, Slot)> =
+                cands.into_iter().map(|i| (opp_idx, Slot::Char(i))).collect();
+            if all.is_empty() {
+                all.push((opp_idx, Slot::Leader));
             }
+            pick_one_or_suspend(state, all)
         }
         // effects.py:2389 alias。 prefix arm は "one_opponent_" 始まりしか拾わないので明示。
         "one_opp_character_any" => {
@@ -1917,8 +1920,16 @@ fn resolve_target_inner(
             Slot::Detached => vec![],
             sl => vec![(opp_idx, sl)],
         },
-        // 自リーダー or キャラ 1 体、 AI はリーダー優先 (effects.py:2948)
-        "self_inplay_choice" => vec![(me_idx, Slot::Leader)],
+        // 自リーダー or キャラ 1 体、 AI はリーダー優先 (effects.py:3821)。
+        // ⚠ Python は候補 (leader + chars) を `_maybe_request_target_pick` に渡す = **選択サイト**。
+        //   Rust は無条件で leader を返しており、 列挙モードで **Python だけ選択を出す** 状態
+        //   だった (2026-08-22、 `attach_rested_don` を denylist から外した途端に露呈)。
+        "self_inplay_choice" => {
+            let p = &state.players[me_idx];
+            let mut cands: Vec<(usize, Slot)> = vec![(me_idx, Slot::Leader)];
+            cands.extend((0..p.characters.len()).map(|i| (me_idx, Slot::Char(i))));
+            pick_one_or_suspend(state, cands)
+        }
         // 自キャラ 1 体、 AI は power 降順 (effects.py:2919)
         "one_self_character_any" => {
             let p = &state.players[me_idx];
@@ -4333,18 +4344,11 @@ const SIMULTANEOUS_LEAVE_PRIMS: &[&str] = &[
 ///   `resolve_target` 経由の選択 (= target_pick) は `pick_one_or_suspend` で実装済なので除く。
 ///   kind を移植するたびにここから外していく = **site-specific bail**。
 const CHOICE_UNPORTED_PRIMS: &[&str] = &[
-    "attach_rested_don",
     "choice",
     "choice_effect",
     "draw_per_self_chara_then_discard",
     "give_keyword",
     "hand_to_self_life",
-    // ⚠ primitive の移植自体は済んでいるが、 列挙モードでは **まだ解禁しない**:
-    //   解禁すると `fire_self_main` 経由の効果コピー連鎖で Python が
-    //   「前段の選択を上書きして捨てる」 挙動になり、 Rust の replay と噛み合わず
-    //   MISMATCH が出た (2026-08-22)。 Python 側の choice 上書きセマンティクスを
-    //   詰めてから外すこと (bail 削減の最大候補: 候補 bail の約 11%)。
-    "optional_discard_hand_for_battle_buff",
     "play_from_hand_choice",
     "play_from_hand_named_set",
     "play_from_hand_named_with_dynamic_cost",
@@ -9790,6 +9794,23 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             // to_opp は片側に up-front 固定する旧 flag なので両陣営 target では使えない。
             let owner_of_target = v.get("owner_of_target").and_then(|x| x.as_bool()).unwrap_or(false);
             let owner = if to_opp { opp_idx } else { me_idx };
+            // ⛔ 列挙モード: 公式 「ドン!!N枚**まで**付与」 (up_to) は **付与枚数を本人が選ぶ**
+            //   (Python effects.py:7492 の option_pick。 kind が nested do を持つ別機構なので
+            //   Rust の replay と形が違う = 未移植)。 ⚠ 逆に **up_to でなければ選択は無い** ので、
+            //   primitive 丸ごと denylist に載せると 実装済なのに大量に bail する
+            //   (実測 候補 bail の約 6% を無駄に捨てていた、 2026-08-22)。
+            if state.choice_enumeration
+                && v.get("up_to").and_then(|x| x.as_bool()).unwrap_or(false)
+                && !per_target
+                && !to_opp
+            {
+                let p = &state.players[owner];
+                let avail = p.don_rested + if from_cost_area { p.don_active } else { 0 };
+                if count.min(avail) >= 2 {
+                    note_prim_err("choice_enumeration: attach_rested_don の付与枚数選択は Rust 未移植");
+                    return false;
+                }
+            }
             let target_val = v.get("target").cloned().unwrap_or(Value::String("self_leader".into()));
             let Some(targets) = resolve_target(Some(&target_val), me_idx, opp_idx, src, state) else { return false };
             if targets.is_empty() {
