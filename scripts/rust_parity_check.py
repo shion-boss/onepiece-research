@@ -182,6 +182,9 @@ def _enc(st, a):
             d["t"] = "AttackCharacter"
             d["target_idx"] = _kidx(opp, a.target_iid)[1]
         return d
+    if type(a).__name__ == "ResolveChoice":
+        # 選択列挙モード: picks は index list なのでそのまま渡せる (Rust も同形)。
+        return {"t": "ResolveChoice", "picks": list(a.picks)}
     return {"t": "?"}
 
 

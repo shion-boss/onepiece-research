@@ -962,7 +962,11 @@ fn pick_one_or_suspend(
     state: &GameState,
     cands: Vec<(usize, Slot)>,
 ) -> Vec<(usize, Slot)> {
-    if state.choice_enumeration && !choice_suspended() && cands.len() > 1 {
+    // ⚠ **候補 1 枚でも中断する** (Python `_maybe_request_target_pick` と同条件)。
+    //   Python は 「候補 ≥ 1 で必ず確認」 = 「相手キャラ 1 枚のみ → 勝手に KO」 を避ける設計。
+    //   ここを `> 1` にしていたため列挙 ON で **MISMATCH 146 件** を出した (2026-08-21、
+    //   scripts/rust_choice_parity.py が検出)。 「0 枚を選ぶ」 も公式 1-3-5-1 の権利。
+    if state.choice_enumeration && !choice_suspended() && !cands.is_empty() {
         note_choice_suspend(
             "target_pick",
             1,
