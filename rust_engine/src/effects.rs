@@ -4208,13 +4208,10 @@ const CHOICE_UNPORTED_PRIMS: &[&str] = &[
     "give_keyword",
     "hand_to_self_life",
     "optional_discard_hand_for_battle_buff",
-    "play_event_from_hand",
     "play_from_hand_choice",
     "play_from_hand_named_set",
     "play_from_hand_named_with_dynamic_cost",
     "play_from_hand_or_trash",
-    "play_from_trash",
-    "play_multi_from_trash",
     "play_self",
     "play_self_from_trash",
     "redirect_attack",
@@ -4232,9 +4229,13 @@ const CHOICE_UNPORTED_PRIMS: &[&str] = &[
     "set_cannot_attack",
     "set_cannot_rest",
     "summon_from_deck",
-    "trash_self_hand_random",
     "view_life_top_choose_position",
 ];
+
+/// 未移植リスト (テストが実態を見るために公開)。
+pub fn choice_unported_list() -> &'static [&'static str] {
+    CHOICE_UNPORTED_PRIMS
+}
 
 /// 列挙モードで未移植の選択 primitive か。
 fn choice_unported(key: &str) -> bool {
@@ -8022,27 +8023,40 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             let unique = spec.and_then(|o| o.get("unique_name")).and_then(|x| x.as_bool()).unwrap_or(false);
             let want_eot = spec.and_then(|o| o.get("return_to_deck_bottom_at_turn_end")).and_then(|x| x.as_bool()).unwrap_or(false);
             let pk = spec.and_then(|o| o.get("played_keyword")).and_then(|x| x.as_str()).map(|s| s.to_string());
-            // AI: 先頭から limit 枚 (category=CHARACTER + filter + unique_name)。 index 収集。
-            let mut chosen: Vec<usize> = vec![];
-            let mut seen: Vec<String> = vec![];
+            // 候補 (= trash 内の登場可能キャラ) を全部集める。 AI 既定は先頭から limit 枚。
+            let mut all_cands: Vec<usize> = vec![];
             {
                 let me = &state.players[me_idx];
+                let mut seen_n: Vec<String> = vec![];
                 for (i, c) in me.trash.iter().enumerate() {
-                    if chosen.len() >= limit {
-                        break;
-                    }
                     if c.category == crate::state::Category::Character
                         && matches_filter(c, filt)
-                        && !(unique && seen.contains(&c.name))
+                        && !(unique && seen_n.contains(&c.name))
                         && !char_summon_blocked(me, c)
                     {
-                        chosen.push(i);
-                        seen.push(c.name.clone());
+                        all_cands.push(i);
+                        seen_n.push(c.name.clone());
                     }
                 }
             }
+            // ⭐ 選択列挙: 「トラッシュのどれを登場させるか」。 **trash を触る前** に中断する。
+            let forced_pft = take_forced_picks();
+            if state.choice_enumeration && !choice_suspended() && forced_pft.is_none()
+                && all_cands.len() > limit.max(1)
+            {
+                note_choice_suspend(
+                    "play_from_trash_pick",
+                    limit.max(1),
+                    all_cands.iter().map(|&i| (me_idx, i as i64)).collect(),
+                );
+                return true;
+            }
+            let chosen: Vec<usize> = match forced_pft {
+                Some(v) => v.into_iter().filter(|i| all_cands.contains(i)).take(limit.max(1)).collect(),
+                None => all_cands.iter().copied().take(limit).collect(),
+            };
             if chosen.is_empty() {
-                return true; // 候補0 = no-op (AI path は何もしない)
+                return true; // 候補0 or 「選ばない」 = no-op
             }
             // 登場カードを先に trash から除去 (公式: 登場でトラッシュを離れて**から** on_play)。
             let cards: Vec<crate::state::CardDef> =
@@ -8382,17 +8396,32 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
         // トラッシュへ送ってから execute_main_event (event main + on_self_event_played + opp_event_or_trigger)。
         "play_event_from_hand" => {
             let filt = v.as_object().and_then(|o| o.get("filter"));
-            let mut chosen: Option<usize> = None;
+            let cands: Vec<usize> = state.players[me_idx]
+                .hand
+                .iter()
+                .enumerate()
+                .filter(|(_, c)| {
+                    c.category == crate::state::Category::Event && matches_filter(c, filt)
+                })
+                .map(|(i, _)| i)
+                .collect();
+            // ⭐ 選択列挙: 「手札のどのイベントを発動するか」。 **hand を触る前** に中断。
+            let forced_ev = take_forced_picks();
+            if state.choice_enumeration && !choice_suspended() && forced_ev.is_none()
+                && cands.len() > 1
             {
-                let me = &state.players[me_idx];
-                for (i, c) in me.hand.iter().enumerate() {
-                    if c.category == crate::state::Category::Event && matches_filter(c, filt) {
-                        chosen = Some(i);
-                        break;
-                    }
-                }
+                note_choice_suspend(
+                    "play_event_from_hand_pick",
+                    1,
+                    cands.iter().map(|&i| (me_idx, i as i64)).collect(),
+                );
+                return true;
             }
-            let Some(i) = chosen else { return true }; // 該当イベントなし = 不発 (no-op)
+            let chosen: Option<usize> = match forced_ev {
+                Some(v) => v.into_iter().find(|i| cands.contains(i)),
+                None => cands.first().copied(),
+            };
+            let Some(i) = chosen else { return true }; // 該当イベントなし / 「選ばない」 = 不発
             let card = state.players[me_idx].hand.remove(i);
             let cid = card.card_id.clone();
             state.players[me_idx].trash.push(card);
@@ -9315,8 +9344,33 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             } else {
                 n
             };
-            // 人間 modal (_picked_hand_idxs) は self-play では無し = AI 経路のみ実装。
+            // ⭐ 選択列挙: 「手札のどれを捨てるか」。 **hand を触る前** に中断する。
+            //   ⚠ Python 側はここが **完全ランダム** だった (実測 56/56 が手札 2 枚以上からの乱択)。
+            //     選択を探索に載せると学習で改善できる箇所。
+            let forced_d = take_forced_picks();
+            if state.choice_enumeration && !choice_suspended() && forced_d.is_none()
+                && n > 0
+                && state.players[me_idx].hand.len() as i64 > n
+            {
+                let cands: Vec<(usize, i64)> =
+                    (0..state.players[me_idx].hand.len()).map(|i| (me_idx, i as i64)).collect();
+                note_choice_suspend("self_hand_discard_pick", n.max(1) as usize, cands);
+                return true;
+            }
             let mut discarded = 0;
+            if let Some(picks) = forced_d {
+                // 再開: 選ばれた hand_idx を降順に除去 (index ずれ防止)
+                let mut ds: Vec<usize> = picks.into_iter().take(n.max(0) as usize).collect();
+                ds.sort_unstable_by(|a, b| b.cmp(a));
+                for i in ds {
+                    let me = &mut state.players[me_idx];
+                    if i < me.hand.len() {
+                        let c = me.hand.remove(i);
+                        me.trash.push(c);
+                        discarded += 1;
+                    }
+                }
+            } else {
             for _ in 0..n {
                 let me = &mut state.players[me_idx];
                 if me.hand.is_empty() {
@@ -9326,6 +9380,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 let c = me.hand.remove(i);
                 me.trash.push(c);
                 discarded += 1;
+            }
             }
             // 「捨てた枚数と同じ枚数」 系 (= OP09-059) が 直後 の do で 読む 実績値。
             state.last_self_hand_discard_amount = discarded as i32;

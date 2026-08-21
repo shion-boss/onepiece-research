@@ -164,6 +164,15 @@ fn choice_e2e_probe(state_json: &str, action_json: &str, pick_index: i64) -> PyR
     serde_json::to_string(&out).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
+/// 選択列挙モードで **まだ Rust に移植していない** 選択 primitive の一覧を返す。
+/// テストがこれを見れば、 移植が進んでもハードコードで陳腐化しない
+/// (実際 2026-08-21 に移植済 kind をハードコードしたテストが陳腐化して落ちた)。
+#[pyfunction]
+fn choice_unported_prims() -> PyResult<String> {
+    serde_json::to_string(effects::choice_unported_list())
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
 /// MT 検証: getstate keys (625) を JSON で受け、 各 k について getrandbits(k) を返す (Python 比較用)。
 #[pyfunction]
 fn mt_getrandbits(keys_json: &str, ks_json: &str) -> PyResult<String> {
@@ -640,5 +649,6 @@ fn optcg_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(apply_action_blob, m)?)?;
     m.add_function(wrap_pyfunction!(legal_actions_json, m)?)?;
     m.add_function(wrap_pyfunction!(choice_e2e_probe, m)?)?;
+    m.add_function(wrap_pyfunction!(choice_unported_prims, m)?)?;
     Ok(())
 }

@@ -265,9 +265,10 @@ def test_rust_unported_choice_primitive_bails():
     overlay = load_effect_overlay(root / "db" / "card_effects.json")
     eng.load_overlay(str(root / "db" / "card_effects.json"))
 
-    # 未移植 primitive (scry_life 等) を on_play で使う低コストキャラを探す
-    unported = ("scry_life", "trash_self_hand_random", "reveal_top_play",
-                "play_from_trash", "summon_from_deck")
+    # ⭐ 未移植リストは **Rust から取る** (ハードコードすると移植が進んだ時に陳腐化して
+    #   落ちる。 2026-08-21 に実際そうなった)。
+    unported = tuple(json.loads(eng.choice_unported_prims()))
+    assert unported, "未移植 primitive が 0 = 全 kind 移植済ならこのテストは不要"
     target = None
     for cid, bundle in overlay.items():
         if "_p" in cid or "_r" in cid:
