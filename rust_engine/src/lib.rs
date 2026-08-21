@@ -128,6 +128,41 @@ fn legal_actions_json(state_json: &str) -> PyResult<String> {
     serde_json::to_string(&acts).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
+/// 選択列挙の end-to-end 検証 (テスト専用)。 state に action を適用 → 選択が立ったら
+/// `legal_actions` を取り、 `pick_index` 番目の ResolveChoice を適用して結果を返す。
+///
+/// ⚠ blob (canonical) は CardDef を card_id に畳むので **Python から再入力できない**。
+///   Rust 内で一連の流れを完結させないと検証できないため、 この probe を置く
+///   (実際の用途 = Rust 内 self-play も state をメモリに保持したまま進む)。
+///
+/// 返り値 JSON: {suspended, n_options, options, result_state_blob}
+#[pyfunction]
+fn choice_e2e_probe(state_json: &str, action_json: &str, pick_index: i64) -> PyResult<String> {
+    let mut st: state::GameState = serde_json::from_str(state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deserialize: {e}")))?;
+    let act: serde_json::Value = serde_json::from_str(action_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+    rules::apply_action(&mut st, &act)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("apply: {e}")))?;
+    let suspended = st.pending_choice.is_some();
+    let opts = effects::legal_actions(&st);
+    let n = opts.len();
+    if suspended && pick_index >= 0 && (pick_index as usize) < n {
+        let chosen = opts[pick_index as usize].clone();
+        rules::apply_action(&mut st, &chosen)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("resolve: {e}")))?;
+    }
+    let out = serde_json::json!({
+        "suspended": suspended,
+        "n_options": n,
+        "options": opts,
+        "opp_chars": st.players[1].characters.iter().map(|c| c.card.card_id.clone())
+            .collect::<Vec<_>>(),
+        "still_pending": st.pending_choice.is_some(),
+    });
+    serde_json::to_string(&out).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
 /// MT 検証: getstate keys (625) を JSON で受け、 各 k について getrandbits(k) を返す (Python 比較用)。
 #[pyfunction]
 fn mt_getrandbits(keys_json: &str, ks_json: &str) -> PyResult<String> {
@@ -603,5 +638,6 @@ fn optcg_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(apply_action_digest, m)?)?;
     m.add_function(wrap_pyfunction!(apply_action_blob, m)?)?;
     m.add_function(wrap_pyfunction!(legal_actions_json, m)?)?;
+    m.add_function(wrap_pyfunction!(choice_e2e_probe, m)?)?;
     Ok(())
 }

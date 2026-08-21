@@ -235,3 +235,73 @@ def test_rust_parity_end_of_turn_cost_batch():
     assert dr == state_digest(st), (
         "【ターン終了時】コスト由来トリガーの解決順で Python↔Rust が乖離"
     )
+
+
+def test_rust_choice_enumeration_bails_by_default():
+    """既定では Rust は選択列挙モードを **明示 bail** する (黙って別のゲームを進めない)。
+
+    ⚠ Rust は pending_choice / continuation を持たず、 自動 pick が 89 箇所インライン。
+      Python が選択を列挙している間 Rust が従来どおり自動解決すると、 self-play の
+      学習データが **静かに汚染される**。 不変条件 「bit 一致 か 明示 bail」 を守る。
+    """
+    import json
+    import os
+    import random
+    from pathlib import Path
+
+    import pytest
+
+    eng = pytest.importorskip("optcg_engine")
+    if os.environ.get("ONEPIECE_RUST_CHOICE"):
+        pytest.skip("ONEPIECE_RUST_CHOICE 指定時は実験経路を通すので対象外")
+
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.state_snapshot import full_dump
+
+    root = Path(__file__).resolve().parent.parent
+    repo = CardRepository.from_json(root / "db" / "cards.json")
+    filler = repo.get("OP01-013")
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    for p in (p0, p1):
+        p.deck = [filler] * 25
+        p.life = [filler] * 3
+        p.life_face_up = [False] * 3
+    st = GameState(players=[p0, p1], phase=Phase.MAIN, rng=random.Random(1))
+    st.turn_number = 9
+    st.choice_enumeration = True
+
+    js = json.dumps(full_dump(st))
+    with pytest.raises(Exception):
+        eng.apply_action_digest(js, json.dumps({"t": "EndPhase"}))
+
+
+def test_rust_choice_flag_is_not_in_the_digest():
+    """`choice_enumeration` は **digest に出さない** (= ゲーム状態でなく探索の設定)。
+
+    ⚠ Rust struct に field を足すと serialize に入り、 **全 state で digest が食い違う**。
+      2026-08-21 に実測で踏んだ (parity static_skip=2138 / effect smoke MISMATCH=5814)。
+      Python は _EXCLUDE で digest から外しているので Rust も skip_serializing が要る。
+    """
+    import random
+
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.state_snapshot import full_dump, state_digest
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    repo = CardRepository.from_json(root / "db" / "cards.json")
+
+    def _mk(flag):
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        st = GameState(players=[p0, p1], phase=Phase.MAIN, rng=random.Random(1))
+        st.choice_enumeration = flag
+        return st
+
+    assert state_digest(_mk(False)) == state_digest(_mk(True)), \
+        "choice_enumeration が digest に漏れている (= parity が全滅する)"
+    # ただし Rust が判定できるよう full_dump には載る
+    assert full_dump(_mk(True))["choice_enumeration"] is True

@@ -859,16 +859,74 @@ pub(crate) fn resolve_life_taken(
 
 /// action を state に適用 (副作用)。 Python apply_action ラッパ相当: impl 後に _recompute_static の
 /// ownership 部分を反映 (静的効果 eval は R3)。
-pub fn apply_action(state: &mut GameState, action: &Value) -> Result<(), String> {
-    // ⛔ **選択列挙モードは Rust 未追従** → 一切処理せず明示 bail。
-    //   Python は効果解決中の選択を pending_choice として立て、 探索が ResolveChoice で
-    //   分岐する。 Rust には pending_choice / continuation 機構が無く (自動 pick が 89 箇所
-    //   インライン)、 そのまま走らせると **黙って別のゲームを進める** (= self-play の学習
-    //   データが静かに汚染される)。 不変条件 「bit 一致 か 明示 bail」 を守るため全面 bail。
-    //   追従は kind 単位で段階的に行い、 実装済 kind が増えたらこの gate を狭めていく。
-    if state.choice_enumeration {
-        return Err("choice_enumeration (選択列挙モード) は Rust 未実装".into());
+/// `ONEPIECE_RUST_CHOICE=1` = Rust 側の選択列挙を **実験的に** 有効化する。
+/// 既定 OFF: target_pick 以外の kind が未実装なので、 通すと Python と食い違う。
+fn rust_choice_enabled() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| {
+        std::env::var("ONEPIECE_RUST_CHOICE")
+            .map(|v| !matches!(v.as_str(), "" | "0" | "off" | "false"))
+            .unwrap_or(false)
+    })
+}
+
+/// ResolveChoice を解決する。 picks で候補を絞って FORCED_TARGETS に注入し、
+/// 中断した primitive を再実行 → 退避した残り do を流す。
+fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), String> {
+    let Some(pc) = state.pending_choice.take() else { return Ok(()) };
+    let picks: Vec<usize> = action
+        .get("picks")
+        .and_then(|v| v.as_array())
+        .map(|a| a.iter().filter_map(|x| x.as_u64().map(|u| u as usize)).collect())
+        .unwrap_or_default();
+    let chosen: Vec<(usize, crate::effects::Slot)> = picks
+        .iter()
+        .filter_map(|&i| pc.cand_slots.get(i))
+        .map(|&(pi, code)| (pi, crate::effects::code_to_slot(code)))
+        .collect();
+    let src = crate::effects::code_to_slot(pc.src_slot);
+    crate::effects::set_choice_suspended(false);
+    crate::effects::set_forced_targets(Some(chosen));
+    if !crate::effects::execute_effect_pub(&pc.prim, state, pc.me_idx, src) {
+        crate::effects::set_forced_targets(None);
+        return Err("ResolveChoice: 再実行した primitive が未対応".into());
     }
+    crate::effects::set_forced_targets(None);
+    // 退避しておいた残り do を流す (再度中断したら再び pending_choice が立つ)
+    for (ci, prim) in pc.remaining_do.iter().enumerate() {
+        if !crate::effects::execute_effect_pub(prim, state, pc.me_idx, src) {
+            return Err("ResolveChoice: 残り do の primitive が未対応".into());
+        }
+        if crate::effects::suspend_if_choice(state, &pc.remaining_do, ci, prim, src, pc.me_idx) {
+            break;
+        }
+    }
+    Ok(())
+}
+
+pub fn apply_action(state: &mut GameState, action: &Value) -> Result<(), String> {
+    // ⛔ 選択列挙モードは **target_pick のみ** 追従済。 他 kind は未実装なので、
+    //   pending_choice が立っていない状態で列挙モードに入るのは まだ許さない…
+    //   ではなく、 「未対応の選択サイトに当たったら中で bail する」 方式に移行した。
+    //   ⚠ 実装済 kind が増えるまでは env `ONEPIECE_RUST_CHOICE=1` を明示した時だけ通す
+    //     (既定は従来どおり全面 bail = 黙って別のゲームを進めない)。
+    if state.choice_enumeration && !rust_choice_enabled() {
+        return Err("choice_enumeration (選択列挙モード) は Rust 未実装 (実験的に通すなら ONEPIECE_RUST_CHOICE=1)".into());
+    }
+    // ⭐ ResolveChoice = 立っている選択を 1 アクションとして解決する (Python と同形)。
+    //   picks を FORCED_TARGETS に注入して **その primitive を再実行** し、 続けて
+    //   退避しておいた残り do を流す (Rust には continuation が無いので replay 方式)。
+    if action.get("t").and_then(|v| v.as_str()) == Some("ResolveChoice") {
+        let r = resolve_choice_action(state, action);
+        if r.is_ok() {
+            recompute_static(state);
+            for p in state.players.iter_mut() {
+                normalize_known_hand(p);
+            }
+        }
+        return r;
+    }
+    crate::effects::set_choice_suspended(false);
     let r = apply_action_impl(state, action);
     if r.is_ok() {
         recompute_static(state); // ownership + 静的効果 (Python _recompute_static)

@@ -952,6 +952,27 @@ fn eval_effect_conditions(eff: &Value, state: &GameState, me_idx: usize, src: Op
 
 
 /// target spec → 対象 (player_idx, Slot) のリスト。 None=未知 target (→ primitive skip)。
+/// 候補列から **1 枚選ぶ**。 選択列挙モードで候補が 2 つ以上あるなら **中断** して空を返す
+/// (= 探索に選ばせる)。 通常モードでは従来どおり先頭 1 件 (既存ヒューリスティック順)。
+///
+/// ⭐ Rust の `resolve_target` は dispatch こそ中央だが **絞り込みは各分岐の中**
+/// (`.take(1)` が 23 箇所) なので、 中断はここに置く必要がある。 出口に置くと候補が
+/// 既に 1 件に減っていて中断条件が成立しない (2026-08-21 に実測で判明)。
+fn pick_one_or_suspend(
+    state: &GameState,
+    cands: Vec<(usize, Slot)>,
+) -> Vec<(usize, Slot)> {
+    if state.choice_enumeration && !choice_suspended() && cands.len() > 1 {
+        set_choice_suspended(true);
+        PENDING_CANDS.with(|c| {
+            *c.borrow_mut() =
+                Some(cands.iter().map(|&(pi, sl)| (pi, slot_to_code(sl))).collect())
+        });
+        return vec![];
+    }
+    cands.into_iter().take(1).collect()
+}
+
 fn resolve_target(
     spec: Option<&Value>,
     me_idx: usize,
@@ -1148,7 +1169,7 @@ fn resolve_target_inner(
                 }
                 // Python は [leader, *characters] の順に集めてから power 降順で stable sort。
                 cands.sort_by(|a, b| b.1.cmp(&a.1));
-                return Some(cands.into_iter().take(1).map(|(sl, _)| (opp_idx, sl)).collect());
+                return Some(pick_one_or_suspend(state, cands.into_iter().map(|(sl, _)| (opp_idx, sl)).collect()));
             }
             // 自キャラ全員 (filter 一致)。 rested / current_power_ge/le / limit を尊重
             // (effects.py:2187、 OP16-001 エース = current_power_ge 8000)。
@@ -1254,7 +1275,7 @@ fn resolve_target_inner(
                     }
                 }
                 cands.sort_by(|&a, &b| get_ip(p, b).power().cmp(&get_ip(p, a).power()));
-                return Some(cands.into_iter().take(1).map(|sl| (me_idx, sl)).collect());
+                return Some(pick_one_or_suspend(state, cands.into_iter().map(|sl| (me_idx, sl)).collect()));
             }
             // 自キャラのみから filter 一致 1 枚 (current_power/rested_required + power 降順、 effects.py:2111)。
             // one_self_character_filtered は one_self_chara_filtered の別名 (effects.py:2097)。
@@ -1292,7 +1313,7 @@ fn resolve_target_inner(
                     })
                     .collect();
                 cands.sort_by(|&a, &b| p.characters[b].power().cmp(&p.characters[a].power()));
-                return Some(cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect());
+                return Some(pick_one_or_suspend(state, cands.into_iter().map(|i| (me_idx, Slot::Char(i))).collect()));
             }
             // 相手キャラから filter 一致 1 枚 (effects.py:2182、 _threat_key=power降順)。 sub-filter:
             //   attached_don_ge / rested / active / blocker / current_power_le / current_cost_eq/le/ge。
@@ -1359,7 +1380,7 @@ fn resolve_target_inner(
                     return Some(vec![]);
                 }
                 cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
-                return Some(cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect());
+                return Some(pick_one_or_suspend(state, cands.into_iter().map(|i| (opp_idx, Slot::Char(i))).collect()));
             }
             return None;
         }
@@ -1396,7 +1417,7 @@ fn resolve_target_inner(
             let src_idx = if let Slot::Char(i) = src { Some(i) } else { None };
             let mut cands: Vec<usize> = (0..p.characters.len()).filter(|&i| Some(i) != src_idx).collect();
             cands.sort_by(|&a, &b| p.characters[b].power().cmp(&p.characters[a].power()));
-            cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect()
+            pick_one_or_suspend(state, cands.into_iter().map(|i| (me_idx, Slot::Char(i))).collect())
         }
         // effects.py:2345 「自リーダーかキャラ1枚」 = src ではなく AI=最高power の自カード (leader/char)。
         // ties は原順 (leader→char0→…) = 安定ソート。 counter event (source-gone) 等で src と別。
@@ -1421,7 +1442,7 @@ fn resolve_target_inner(
                     .partial_cmp(&opp_value(&opp.characters[a]))
                     .unwrap_or(std::cmp::Ordering::Equal)
             });
-            cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
+            pick_one_or_suspend(state, cands.into_iter().map(|i| (opp_idx, Slot::Char(i))).collect())
         }
         // 自分のリーダー or キャラ 1 枚 (effects.py:one_self_team_any、 power 降順)
         // 公式 「リーダーかキャラ1枚に持ち主のレストのドン‼」 = 修飾なし = **両陣営** (cardqa_op_15)。
@@ -1452,7 +1473,7 @@ fn resolve_target_inner(
                 .filter(|&i| cost_of(&me.characters[i]) <= n)
                 .collect();
             cands.sort_by(|&a, &b| me.characters[b].power().cmp(&me.characters[a].power()));
-            cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect()
+            pick_one_or_suspend(state, cands.into_iter().map(|i| (me_idx, Slot::Char(i))).collect())
         }
         // one_self_character_cost_eq_N (effects.py:2803) = 自分の元コスト N ぴったりのキャラ 1 枚 (power 降順)
         os if os.starts_with("one_self_character_cost_eq_") => {
@@ -1462,7 +1483,7 @@ fn resolve_target_inner(
                 .filter(|&i| cost_of(&me.characters[i]) == n)
                 .collect();
             cands.sort_by(|&a, &b| me.characters[b].power().cmp(&me.characters[a].power()));
-            cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect()
+            pick_one_or_suspend(state, cands.into_iter().map(|i| (me_idx, Slot::Char(i))).collect())
         }
         // any_opp_inplay_n_N (effects.py:2816) = 相手のリーダーかキャラ 合計 N 枚まで。
         // AI: キャラを power 降順で優先、 N 体未満ならリーダーを補充。
@@ -1518,7 +1539,7 @@ fn resolve_target_inner(
                     .partial_cmp(&opp_value(&opp.characters[a]))
                     .unwrap_or(std::cmp::Ordering::Equal)
             });
-            cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
+            pick_one_or_suspend(state, cands.into_iter().map(|i| (opp_idx, Slot::Char(i))).collect())
         }
         // just_rest_selected = 直前の `rest` が **選んだ** カード (effects.py の同名 spec)。
         // 「相手のキャラ1枚までをレストにし、 **そのキャラは** 次のリフレッシュでアクティブに
@@ -1663,7 +1684,7 @@ fn resolve_target_inner(
                     .partial_cmp(&opp_value(&opp.characters[a]))
                     .unwrap_or(std::cmp::Ordering::Equal)
             });
-            cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
+            pick_one_or_suspend(state, cands.into_iter().map(|i| (opp_idx, Slot::Char(i))).collect())
         }
         // 相手リーダー (effects.py:2354、 one_opponent_leader は overlay 別名 OP06-023 等)。
         "opponent_leader" | "one_opponent_leader" => vec![(opp_idx, Slot::Leader)],
@@ -1683,7 +1704,7 @@ fn resolve_target_inner(
                 }
             }
             cands.sort_by_key(|&sl| -(src_ip(p, sl).map(|ip| ip.power()).unwrap_or(0)));
-            cands.into_iter().take(1).map(|sl| (me_idx, sl)).collect()
+            pick_one_or_suspend(state, cands.into_iter().map(|sl| (me_idx, sl)).collect())
         }
         // all_self_inplay_feature_X = 自分のリーダーかキャラで 特徴 X を持つ全員 (effects.py:3332)。
         // Python は [leader] + characters の順 (power ソートなし)。
@@ -1749,7 +1770,7 @@ fn resolve_target_inner(
                     .partial_cmp(&opp_value(&opp.characters[a]))
                     .unwrap_or(std::cmp::Ordering::Equal)
             });
-            cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
+            pick_one_or_suspend(state, cands.into_iter().map(|i| (opp_idx, Slot::Char(i))).collect())
         }
         // one_opponent_character_power_le_N = 現パワー N 以下の相手キャラ 1 体 (effects.py:2698、 power 降順)。
         os if os.starts_with("one_opponent_character_power_le_") => {
@@ -1758,7 +1779,7 @@ fn resolve_target_inner(
             let mut cands: Vec<usize> =
                 (0..opp.characters.len()).filter(|&i| power_of(&opp.characters[i]) <= n).collect();
             cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
-            cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
+            pick_one_or_suspend(state, cands.into_iter().map(|i| (opp_idx, Slot::Char(i))).collect())
         }
         // 「相手のドン N 枚以上付与キャラ 1 体」 (effects.py:2717、 OP15-001)。 threat_key = power 降順。
         os if os.starts_with("one_opponent_character_attached_don_ge_") => {
@@ -1767,7 +1788,7 @@ fn resolve_target_inner(
             let mut cands: Vec<usize> =
                 (0..opp.characters.len()).filter(|&i| opp.characters[i].attached_dons >= n).collect();
             cands.sort_by(|&a, &b| opp.characters[b].power().cmp(&opp.characters[a].power()));
-            cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
+            pick_one_or_suspend(state, cands.into_iter().map(|i| (opp_idx, Slot::Char(i))).collect())
         }
         // 「自分の【アタック時】効果を持たないキャラ 1 枚」 (effects.py:2421、 EB03-001)。 power 降順。
         "one_self_chara_no_on_attack_effect" => {
@@ -1776,7 +1797,7 @@ fn resolve_target_inner(
                 .filter(|&i| !card_has_when(&me.characters[i].card.card_id, "on_attack"))
                 .collect();
             cands.sort_by(|&a, &b| me.characters[b].power().cmp(&me.characters[a].power()));
-            cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect()
+            pick_one_or_suspend(state, cands.into_iter().map(|i| (me_idx, Slot::Char(i))).collect())
         }
         // one_self_(character|chara)_named_X = 名前一致の自キャラ 1 枚 (effects.py:2926)。
         os if os.starts_with("one_self_character_named_") || os.starts_with("one_self_chara_named_") => {
@@ -1815,7 +1836,7 @@ fn resolve_target_inner(
             let me = &state.players[me_idx];
             let mut cands: Vec<usize> = (0..me.characters.len()).collect();
             cands.sort_by(|&a, &b| me.characters[b].power().cmp(&me.characters[a].power()));
-            cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect()
+            pick_one_or_suspend(state, cands.into_iter().map(|i| (me_idx, Slot::Char(i))).collect())
         }
         // 「自分のコスト N 以下で【登場時】効果を持たないキャラ 1 枚」 (effects.py:2745、 PRB01-001)。
         os if os.starts_with("one_self_chara_no_on_play_cost_le_") => {
@@ -1827,7 +1848,7 @@ fn resolve_target_inner(
                 })
                 .collect();
             cands.sort_by(|&a, &b| me.characters[b].power().cmp(&me.characters[a].power()));
-            cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect()
+            pick_one_or_suspend(state, cands.into_iter().map(|i| (me_idx, Slot::Char(i))).collect())
         }
         // 「自分の元々の効果のないキャラ 1 枚」 (effects.py:2428、 power 降順)。
         "one_self_chara_no_effect" => {
@@ -1836,7 +1857,7 @@ fn resolve_target_inner(
                 .filter(|&i| card_has_no_effect(&me.characters[i].card.card_id))
                 .collect();
             cands.sort_by(|&a, &b| me.characters[b].power().cmp(&me.characters[a].power()));
-            cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect()
+            pick_one_or_suspend(state, cands.into_iter().map(|i| (me_idx, Slot::Char(i))).collect())
         }
         // 「相手の元々の効果のないキャラ 1 枚」 (effects.py:2443、 opp_value 降順)。
         "one_opp_chara_no_effect" => {
@@ -1849,7 +1870,7 @@ fn resolve_target_inner(
                     .partial_cmp(&opp_value(&opp.characters[a]))
                     .unwrap_or(std::cmp::Ordering::Equal)
             });
-            cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
+            pick_one_or_suspend(state, cands.into_iter().map(|i| (opp_idx, Slot::Char(i))).collect())
         }
         // 「相手のアタックしているリーダーかキャラ」 (effects.py:2460、 OP04-069)。
         // Python は state.current_attacker_iid → opp.leader/characters を走査。 Rust は
@@ -1865,7 +1886,7 @@ fn resolve_target_inner(
             let p = &state.players[me_idx];
             let mut cands: Vec<usize> = (0..p.characters.len()).collect();
             cands.sort_by(|&a, &b| p.characters[b].power().cmp(&p.characters[a].power()));
-            cands.into_iter().take(1).map(|i| (me_idx, Slot::Char(i))).collect()
+            pick_one_or_suspend(state, cands.into_iter().map(|i| (me_idx, Slot::Char(i))).collect())
         }
         "all_self_characters" => (0..state.players[me_idx].characters.len())
             .map(|i| (me_idx, Slot::Char(i)))
@@ -1995,7 +2016,7 @@ fn resolve_target_inner(
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
             }
-            cands.into_iter().take(1).map(|i| (opp_idx, Slot::Char(i))).collect()
+            pick_one_or_suspend(state, cands.into_iter().map(|i| (opp_idx, Slot::Char(i))).collect())
         }
         // any_opponent_character_cost_le_N / _power_le_N = 該当相手キャラ全員 (board 順、 sort 無、
         // effects.py:2618/2632)。 count は呼出側 (rest {target,count} 等) が適用する。
@@ -2196,6 +2217,41 @@ pub(crate) fn code_to_slot(c: i64) -> Slot {
     } else {
         Slot::Char(c as usize)
     }
+}
+
+/// do 配列ループで **中断が起きたか** を判定し、 起きていれば残りを `PendingChoice` に
+/// 退避する。 戻り値 true = 中断した (呼出側は即 return して効果を打ち切る)。
+///
+/// ⭐ Rust には continuation が無いので 「フラグ + replay」 で代用する:
+///   選択サイトが CHOICE_SUSPENDED を立て候補を PENDING_CANDS に残す →
+///   ここで残り do を退避 → `apply_action(ResolveChoice)` が picks を注入して
+///   **その primitive を最初から実行し直し**、 続けて remaining_do を流す。
+///   ⚠ そのため 「選択サイトに到達するまでその primitive が zone を動かしていない」 ことが前提
+///     (Python 側の replay パターンと同じ制約)。
+pub(crate) fn suspend_if_choice(
+    state: &mut GameState,
+    dos: &[Value],
+    idx: usize,
+    prim: &Value,
+    src: Slot,
+    me_idx: usize,
+) -> bool {
+    if !choice_suspended() {
+        return false;
+    }
+    let cands = PENDING_CANDS.with(|c| c.borrow_mut().take()).unwrap_or_default();
+    let n = cands.len();
+    state.pending_choice = Some(crate::state::PendingChoice {
+        kind: "target_pick".to_string(),
+        n_candidates: n,
+        limit: 1,
+        prim: prim.clone(),
+        src_slot: slot_to_code(src),
+        me_idx,
+        remaining_do: dos.get(idx + 1..).map(|r| r.to_vec()).unwrap_or_default(),
+        cand_slots: cands,
+    });
+    true
 }
 
 pub(crate) fn choice_suspended() -> bool {
@@ -4106,6 +4162,11 @@ const SIMULTANEOUS_LEAVE_PRIMS: &[&str] = &[
     "ko", "ko_multi", "ko_all_others", "ko_total_power_le",
     "return_to_hand_multi", "return_to_deck_bottom_multi",
 ];
+
+/// rules.rs (ResolveChoice の再実行) から呼ぶための公開ラッパ。
+pub(crate) fn execute_effect_pub(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> bool {
+    execute_effect(prim, state, me_idx, src)
+}
 
 fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> bool {
     // ⭐ 「キャラの効果でキャラを登場させた時」 (cardqa_op_12 / OP12-081) の判定用。
@@ -7460,9 +7521,13 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 //   Rust だけ乗っていなかった (2026-08-03 全カード差分掃引で発覚)。
                 if let Some(then) = v.get("then").and_then(|x| x.as_array()) {
                     let then = then.clone();
-                    for prim in &then {
+                    for (_ci, prim) in then.iter().enumerate() {
                         if !execute_effect(prim, state, me_idx, src) {
                             return false;
+                        }
+                        // ⭐ 選択列挙: 選択サイトが中断したら残りの do を退避して抜ける
+                        if suspend_if_choice(state, &then, _ci, prim, src, me_idx) {
+                            break;
                         }
                     }
                 }
@@ -8531,12 +8596,16 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                         note_prim_err(&format!("fire_self_effect: 内側 cascade {bk}"));
                         return false;
                     }
-                    for prim in dos {
+                    for (_ci, prim) in dos.iter().enumerate() {
                         if !execute_effect(prim, state, me_idx, src) {
                             let pk = prim.as_object().and_then(|o| o.keys().next()).map(|x| x.as_str()).unwrap_or("?");
                             note_unknown_key("fse", pk);
                             note_prim_err(&format!("fire_self_effect: 内側 prim {pk}"));
                             return false;
+                        }
+                        // ⭐ 選択列挙: 選択サイトが中断したら残りの do を退避して抜ける
+                        if suspend_if_choice(state, dos, _ci, prim, src, me_idx) {
+                            break;
                         }
                     }
                 }
@@ -10030,9 +10099,13 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             if effect_cascade_blocked(dos, state, me_idx) {
                 return false;
             }
-            for prim in dos {
+            for (_ci, prim) in dos.iter().enumerate() {
                 if !execute_effect(prim, state, me_idx, src) {
                     return false;
+                }
+                // ⭐ 選択列挙: 選択サイトが中断したら残りの do を退避して抜ける
+                if suspend_if_choice(state, dos, _ci, prim, src, me_idx) {
+                    break;
                 }
             }
             true
@@ -10302,11 +10375,15 @@ pub fn execute_card_effects(
         //   src は使わない (Python も self_inplay=None で実行)。 AI は 「してもよい」 を行使する。
         if eff.get("actor").and_then(|v| v.as_str()) == Some("opp") {
             if let Some(dos) = eff.get("do").and_then(|v| v.as_array()) {
-                for prim in dos.iter() {
+                for (_ci, prim) in dos.iter().enumerate() {
                     if !execute_effect(prim, state, 1 - me_idx, Slot::Detached) {
                         let k = prim.as_object().and_then(|o| o.keys().next())
                             .map(|s| s.as_str()).unwrap_or("?");
                         return Err(format!("{when} actor:opp primitive 未対応: {k} ({card_id})"));
+                    }
+                    // ⭐ 選択列挙: 選択サイトが中断したら残りの do を退避して抜ける
+                    if suspend_if_choice(state, dos, _ci, prim, Slot::Detached, 1 - me_idx) {
+                        break;
                     }
                 }
             }
@@ -10320,12 +10397,16 @@ pub fn execute_card_effects(
             // (Python の self_inplay object 参照と等価。 場外に出たら Detached)。
             let mut cur = src;
             let mut tok = tag_src(state, me_idx, cur);
-            for prim in dos.iter() {
+            for (_ci, prim) in dos.iter().enumerate() {
                 let snap = src_ip(&state.players[me_idx], cur).cloned();
                 if !execute_effect(prim, state, me_idx, cur) {
                     let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?");
                     find_tagged(state, me_idx, tok);
                     return Err(format!("{when} primitive 未対応: {k} ({card_id})"));
+                }
+                // ⭐ 選択列挙: 選択サイトが中断したら残りの do を退避して抜ける
+                if suspend_if_choice(state, dos, _ci, prim, cur, me_idx) {
+                    break;
                 }
                 cur = find_tagged(state, me_idx, tok);
                 if cur == Slot::Detached {
@@ -10393,9 +10474,13 @@ pub fn fire_on_self_rested_impl(state: &mut GameState, owner_idx: usize, char_id
             if effect_cascade_blocked(dos, state, owner_idx) {
                 return Err("on_self_rested cascade 未対応".into());
             }
-            for prim in dos {
+            for (_ci, prim) in dos.iter().enumerate() {
                 if !execute_effect(prim, state, owner_idx, src) {
                     return Err("on_self_rested primitive 再現不能".into());
+                }
+                // ⭐ 選択列挙: 選択サイトが中断したら残りの do を退避して抜ける
+                if suspend_if_choice(state, dos, _ci, prim, src, owner_idx) {
+                    break;
                 }
             }
         }
@@ -10507,9 +10592,13 @@ fn try_replace_rest(
         }
         // do を holder=victim slot で実行 (rest other_self_chara 等)。 未対応 prim は bail。
         if let Some(dos) = eff.get("do").and_then(|v| v.as_array()) {
-            for prim in dos {
+            for (_ci, prim) in dos.iter().enumerate() {
                 if !execute_effect(prim, state, victim_pi, Slot::Char(victim_idx)) {
                     return Err("replace_rest do 未対応".into());
+                }
+                // ⭐ 選択列挙: 選択サイトが中断したら残りの do を退避して抜ける
+                if suspend_if_choice(state, dos, _ci, prim, Slot::Char(victim_idx), victim_pi) {
+                    break;
                 }
             }
         }
@@ -11059,7 +11148,7 @@ pub fn fire_gated_do(
     //   (= 呼出側 (アタック解決等) が power/cost を読める)。
     let mut cur = src;
     let mut tok = tag_src(state, me_idx, cur);
-    for prim in dos {
+    for (_ci, prim) in dos.iter().enumerate() {
         let snap = src_ip(&state.players[me_idx], cur).cloned();
         if !execute_effect(prim, state, me_idx, cur) {
             find_tagged(state, me_idx, tok);
@@ -11068,6 +11157,10 @@ pub fn fire_gated_do(
             // ⚠ UTF-8 の途中で切ると panic するので char 境界で truncate する
             let spec: String = prim.to_string().chars().take(110).collect();
             return Err(format!("when-effect primitive 再現不能: {k} {spec}"));
+        }
+        // ⭐ 選択列挙: 選択サイトが中断したら残りの do を退避して抜ける
+        if suspend_if_choice(state, dos, _ci, prim, cur, me_idx) {
+            break;
         }
         cur = find_tagged(state, me_idx, tok);
         if cur == Slot::Detached {
@@ -11912,9 +12005,13 @@ pub fn try_replace_ko(
                     used.sort_unstable();
                 }
             }
-            for prim in &dos {
+            for (_ci, prim) in dos.iter().enumerate() {
                 if !execute_effect(prim, state, victim_owner, hslot) {
                     return Err(format!("replace do 再現不能 ({hcid})"));
+                }
+                // ⭐ 選択列挙: 選択サイトが中断したら残りの do を退避して抜ける
+                if suspend_if_choice(state, &dos, _ci, prim, hslot, victim_owner) {
+                    break;
                 }
             }
             return Ok(true); // 置換発動 = 本来の KO/離脱をキャンセル
@@ -12048,10 +12145,14 @@ pub(crate) fn run_on_ko_effects(
             // play_self_from_trash 用に victim の card_id を transient set (Python _execute_event=source)。
             let prev_src = state.current_source_card_id.clone();
             state.current_source_card_id = Some(victim_cid.to_string());
-            for prim in dos {
+            for (_ci, prim) in dos.iter().enumerate() {
                 if !execute_effect(prim, state, owner_idx, Slot::Detached) {
                     state.current_source_card_id = prev_src.clone();
                     return Err(format!("on_ko primitive 再現不能: {}", prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?")));
+                }
+                // ⭐ 選択列挙: 選択サイトが中断したら残りの do を退避して抜ける
+                if suspend_if_choice(state, dos, _ci, prim, Slot::Detached, owner_idx) {
+                    break;
                 }
             }
             state.current_source_card_id = prev_src.clone(); // transient を復元 (action 境界で None)
@@ -12174,7 +12275,7 @@ pub fn fire_life_trigger(
             // (rest の on_self_rested cascade は rest_char_with_cascade が発火する = 外側 guard 不要。
             //  cascade が再現不能なら execute_effect が false を返して bail する。 2026-07-31)
         }
-        for prim in dos {
+        for (_ci, prim) in dos.iter().enumerate() {
             let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("");
             if k == "to_hand_self_trigger" {
                 kept_in_hand = true; // このカードを手札に加える (trash でなく hand へ)
@@ -12184,6 +12285,10 @@ pub fn fire_life_trigger(
                 let inner = LAST_PRIM_ERR.lock().map(|m| m.clone()).unwrap_or_default();
                 return Err(format!("life trigger primitive 再現不能: {} [{}]",
                     prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?"), inner));
+            }
+            // ⭐ 選択列挙: 選択サイトが中断したら残りの do を退避して抜ける
+            if suspend_if_choice(state, dos, _ci, prim, Slot::Detached, defender_idx) {
+                break;
             }
         }
     }
@@ -12942,7 +13047,7 @@ pub fn fire_on_self_battled(
             }
         }
         let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
-        for prim in dos {
+        for (_ci, prim) in dos.iter().enumerate() {
             if !on_trigger_prim_safe(prim.as_object().and_then(|o| o.keys().next()).map(|x| x.as_str()).unwrap_or("")) {
                 return Err(format!(
                     "on_self_battled primitive 未対応: {}",
@@ -12951,6 +13056,10 @@ pub fn fire_on_self_battled(
             }
             if !execute_effect(prim, state, me_idx, src) {
                 return Err("on_self_battled primitive 再現不能".into());
+            }
+            // ⭐ 選択列挙: 選択サイトが中断したら残りの do を退避して抜ける
+            if suspend_if_choice(state, dos, _ci, prim, src, me_idx) {
+                break;
             }
         }
     }
@@ -14300,12 +14409,16 @@ pub fn execute_one_effect(
         }
     }
     let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { return Ok(()) };
-    for prim in dos {
+    for (_ci, prim) in dos.iter().enumerate() {
         if !execute_effect(prim, state, me_idx, src) {
             let k = prim.as_object().and_then(|o| o.keys().next()).map(|s| s.as_str()).unwrap_or("?");
             // 実装済 primitive が spec 変種で落ちるケースを特定できるよう spec も返す (char 境界で truncate)
             let spec: String = prim.to_string().chars().take(120).collect();
             return Err(format!("primitive 未対応/再現不能: {k} {spec}"));
+        }
+        // ⭐ 選択列挙: 選択サイトが中断したら残りの do を退避して抜ける
+        if suspend_if_choice(state, dos, _ci, prim, src, me_idx) {
+            break;
         }
     }
     Ok(())
@@ -14949,14 +15062,62 @@ fn can_pay_activate_cost(state: &GameState, me_idx: usize, ip: &InPlay, on_field
 
 /// game.py:legal_actions の port (canonical action dict の list を返す)。 self-play (human_player_idx=None) の
 /// AI モード相当 (sacrifice は最弱1体)。 ⚠ audit hook は非対象。
+/// `PendingChoice` から探索が分岐すべき picks の候補列を作る
+/// (Python `effects.enumerate_choice_options` のミラー)。
+///
+/// ⚠ **発動コスト系には 「選ばない」 () を出さない**。 公式 4-10 「発動を宣言したら
+///   コストを払う」。 出すと AI が 「宣言 → 払わない → 中止 → また宣言」 を無限に
+///   繰り返す (Python 側で実測、 試合が引き分けで終わった)。
+fn enumerate_choice_options_rs(pc: &crate::state::PendingChoice) -> Vec<Vec<usize>> {
+    const TOPK: usize = 4;
+    let mandatory = matches!(
+        pc.kind.as_str(),
+        "activate_main_cost_pick" | "activate_main_discard_pick" | "counter_discard_pick"
+            | "self_chara_cost_pick" | "field_full_sacrifice_pick"
+    );
+    let n = pc.n_candidates;
+    if n == 0 {
+        return vec![vec![]];
+    }
+    let limit = pc.limit.max(1).min(n);
+    let mut opts: Vec<Vec<usize>> = vec![];
+    if limit <= 1 {
+        for i in 0..n.min(TOPK) {
+            opts.push(vec![i]);
+        }
+    } else {
+        for take in 1..=limit {
+            opts.push((0..take).collect());
+        }
+        for i in 0..n.min(TOPK) {
+            if !opts.iter().any(|o| o.len() == 1 && o[0] == i) {
+                opts.push(vec![i]);
+            }
+        }
+    }
+    if !mandatory {
+        opts.push(vec![]);
+    }
+    if opts.is_empty() {
+        opts.push(vec![]);
+    }
+    opts
+}
+
 pub fn legal_actions(state: &GameState) -> Vec<Value> {
     let mut out: Vec<Value> = vec![];
-    // ⛔ 選択列挙モードは Rust 未追従 (rules.rs:apply_action の gate と対)。
-    //   合法手を返すと呼び出し側が 「Rust も対応済」 と誤認するので **空** を返す。
-    if state.choice_enumeration {
+    if state.game_over {
         return out;
     }
-    if state.game_over || state.phase != Phase::Main {
+    // ⭐ 効果解決の途中で選択が立っている局面では、 **その選択の解決だけが合法手**
+    //   (Python game.py:legal_actions と同形)。 探索はこれを分岐点として使う。
+    if let Some(pc) = state.pending_choice.as_ref() {
+        for picks in enumerate_choice_options_rs(pc) {
+            out.push(json!({"t": "ResolveChoice", "picks": picks}));
+        }
+        return out;
+    }
+    if state.phase != Phase::Main {
         return out;
     }
     let me_idx = state.turn_player_idx;
