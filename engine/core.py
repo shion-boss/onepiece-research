@@ -63,10 +63,17 @@ class CardDef:
             except ValueError:
                 return 0
 
-        color_raw = row.get("color") or ""
-        colors = tuple(c.strip() for c in color_raw.split("/") if c.strip())
-        features_raw = row.get("features") or ""
-        features = tuple(f.strip() for f in features_raw.split("/") if f.strip())
+        # ⚠ 公式サイトの表記ゆれ: 区切りが **全角 ／ (U+FF0F)** のカードがある
+        #   (OP06-057 「ドレスローザ／麦わらの一味」 / OP05-059 「四皇／百獣海賊団」)。
+        #   半角のみで split すると **結合した 1 つの特徴** になり、 素の
+        #   `feature: "麦わらの一味"` filter に一致しなくなる (= 効果が黙って不発)。
+        #   同じ特徴の組を **半角区切りで** 持つカードが 32 枚 / 38 枚あるので分割が正。
+        #   (2026-08-21、 一般FAQ conformance で発見)
+        def _split_multi(raw: str) -> tuple:
+            return tuple(x.strip() for x in raw.replace("／", "/").split("/") if x.strip())
+
+        colors = _split_multi(row.get("color") or "")
+        features = _split_multi(row.get("features") or "")
 
         category_str = (row.get("category") or "CHARACTER").upper()
         try:

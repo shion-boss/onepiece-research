@@ -125,7 +125,12 @@ def test_eb01_034_wednesday_opp_attack_add_don_ai():
 
     do, eff = _do(overlay, "EB01-034", "opp_attack")
     # overlay 条件: リーダー『B・W』/ ターン1回 / ドン-1
-    assert "B・W" in _cond_of(eff).get("leader_features_any", []), \
+    # ⚠ 2026-08-21 是正: 公式は 「『X』を含む特徴を持つ」 (= 部分一致) なので overlay は
+    #   leader_feature_contains を使う。 キー名でなく **意味** を見る (db/faq/base.json)。
+    _lc = _cond_of(eff)
+    assert (_lc.get("leader_feature_contains") == "B・W"
+            or "B・W" in _lc.get("leader_features_any", [])
+            or _lc.get("leader_feature") == "B・W"), \
         "overlay の条件 leader_features_any=B・W が無い"
     assert eff.get("cost", {}).get("once_per_turn") is True, "ターン1回 制約が無い"
     assert eff.get("cost", {}).get("pay_don") == 1, "ドン-1 コストが無い"
@@ -153,7 +158,12 @@ def test_eb01_035_monday_on_play_pump_ai():
     leader_before = me.leader.power
 
     do, eff = _do(overlay, "EB01-035", "on_play")
-    assert "B・W" in _cond_of(eff).get("leader_features_any", []), \
+    # ⚠ 2026-08-21 是正: 公式は 「『X』を含む特徴を持つ」 (= 部分一致) なので overlay は
+    #   leader_feature_contains を使う。 キー名でなく **意味** を見る (db/faq/base.json)。
+    _lc = _cond_of(eff)
+    assert (_lc.get("leader_feature_contains") == "B・W"
+            or "B・W" in _lc.get("leader_features_any", [])
+            or _lc.get("leader_feature") == "B・W"), \
         "overlay の条件 leader_features_any=B・W が無い"
     for prim in do:
         execute_effect(prim, st, me, opp,
@@ -204,7 +214,12 @@ def test_eb01_036_minochihuahua_on_ko_add_rested_don_ai():
     me.don_remaining_in_deck = 8
 
     do, eff = _do(overlay, "EB01-036", "on_ko")
-    assert _cond_of(eff).get("leader_feature") == "インペルダウン", \
+    # ⚠ 2026-08-21 是正: 公式は 「『X』を含む特徴を持つ」 (= 部分一致) なので overlay は
+    #   leader_feature_contains を使う。 キー名でなく **意味** を見る (db/faq/base.json)。
+    _lc = _cond_of(eff)
+    assert (_lc.get("leader_feature_contains") == "インペルダウン"
+            or "インペルダウン" in _lc.get("leader_features_any", [])
+            or _lc.get("leader_feature") == "インペルダウン"), \
         "overlay の条件 leader_feature=インペルダウン が無い"
     for prim in do:
         execute_effect(prim, st, me, opp,
@@ -282,7 +297,12 @@ def test_eb01_038_okamamichi_counter_redirect_human_pick():
     me.characters = [ch]
 
     do, eff = _do(overlay, "EB01-038", "counter")
-    assert "B・W" in _cond_of(eff).get("leader_features_any", []), \
+    # ⚠ 2026-08-21 是正: 公式は 「『X』を含む特徴を持つ」 (= 部分一致) なので overlay は
+    #   leader_feature_contains を使う。 キー名でなく **意味** を見る (db/faq/base.json)。
+    _lc = _cond_of(eff)
+    assert (_lc.get("leader_feature_contains") == "B・W"
+            or "B・W" in _lc.get("leader_features_any", [])
+            or _lc.get("leader_feature") == "B・W"), \
         "overlay の条件 leader_features_any=B・W が無い"
     execute_effect(do[0], st, me, opp, None)
 

@@ -60,7 +60,7 @@
 | `ko` | 356 | do |
 | `conditional` | 318 | do |
 | `counter` | 305 | when |
-| `leader_feature` | 289 | if |
+| `leader_feature` | 283 | if |
 | `give_keyword` | 283 | do |
 | `self_attached_don_ge` | 271 | if |
 | `on_ko` | 247 | when |
@@ -93,6 +93,6 @@
 | `self_hand_count_le` | 64 | if |
 | `put_top_to_life` | 59 | do |
 | `replace_leave` | 59 | when |
+| `leader_feature_contains` | 53 | if |
 | `self_don_ge` | 53 | if |
 | `set_base_cost` | 50 | do |
-| `replace_ko` | 49 | when |

@@ -719,7 +719,7 @@
       "name": "leader_feature",
       "do": 0,
       "cost": 0,
-      "if": 289,
+      "if": 283,
       "when": 0,
       "sample_cards": [
         "EB01-012",
@@ -729,7 +729,7 @@
         "EB01-020"
       ],
       "implemented": true,
-      "total_usage": 289
+      "total_usage": 283
     },
     {
       "name": "give_keyword",
@@ -1244,6 +1244,22 @@
       "total_usage": 59
     },
     {
+      "name": "leader_feature_contains",
+      "do": 0,
+      "cost": 0,
+      "if": 53,
+      "when": 0,
+      "sample_cards": [
+        "EB01-027",
+        "EB01-027_p1",
+        "EB01-035",
+        "EB02-028",
+        "EB02-028_p1"
+      ],
+      "implemented": true,
+      "total_usage": 53
+    },
+    {
       "name": "self_don_ge",
       "do": 0,
       "cost": 0,
@@ -1386,22 +1402,6 @@
       ],
       "implemented": true,
       "total_usage": 44
-    },
-    {
-      "name": "leader_features_any",
-      "do": 0,
-      "cost": 0,
-      "if": 43,
-      "when": 0,
-      "sample_cards": [
-        "EB01-035",
-        "EB02-011",
-        "EB02-011_p1",
-        "EB02-028",
-        "EB02-028_p1"
-      ],
-      "implemented": true,
-      "total_usage": 43
     },
     {
       "name": "stay_rested_next_refresh",
@@ -1754,22 +1754,6 @@
       ],
       "implemented": true,
       "total_usage": 17
-    },
-    {
-      "name": "leader_feature_contains",
-      "do": 0,
-      "cost": 0,
-      "if": 16,
-      "when": 0,
-      "sample_cards": [
-        "EB01-027",
-        "EB01-027_p1",
-        "EB04-048",
-        "EB04-048_p1",
-        "OP03-086"
-      ],
-      "implemented": true,
-      "total_usage": 16
     },
     {
       "name": "play_from_hand_or_trash",
@@ -2135,6 +2119,22 @@
         "EB01-012_p2",
         "EB01-012_r1",
         "OP01-044"
+      ],
+      "implemented": true,
+      "total_usage": 12
+    },
+    {
+      "name": "leader_features_any",
+      "do": 0,
+      "cost": 0,
+      "if": 12,
+      "when": 0,
+      "sample_cards": [
+        "EB02-011",
+        "EB02-011_p1",
+        "OP07-032",
+        "OP07-077",
+        "OP11-031"
       ],
       "implemented": true,
       "total_usage": 12

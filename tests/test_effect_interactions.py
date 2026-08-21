@@ -13435,3 +13435,127 @@ def test_field_full_sacrifice_choice_reveal_hand_play_split():
     # ⚠ 公開ログが replay で二重に出ていないこと (= halt をログの前に置いた根拠)
     reveals = [l for l in st.log if "手札から公開" in l]
     assert len(reveals) == 1, f"公開ログが {len(reveals)} 回 (replay で二重化している)"
+
+
+def test_counter_only_event_cannot_be_played_in_main_phase():
+    """【メイン】を持たないイベントはメインフェイズに発動できない。
+
+    一次情報 (`db/faq/keyword.json`、 公式「よくある質問」):
+      Q: イベントカードの【カウンター】効果を自分のメインフェイズに発動する事はできますか？
+      A: **いいえ、できません。** イベントカードの【カウンター】効果は相手がアタックした
+         バトル中のカウンターステップにのみ発動する事ができます。
+
+    ⚠ 2026-08-21 まで `legal_actions` は EVENT を **無条件に** PlayEvent 候補にしており、
+      【カウンター】専用 38 枚 + 【カウンター】+【トリガー】 176 枚 = 214 枚を メインで
+      プレイできた (= ドンを払って何も起きない非合法手)。 コードのコメントは
+      「overlay に main 効果がある場合のみ」 と書かれていたが実装が無かった。
+    """
+    from engine.core import Category
+    from engine.game import PlayEvent, legal_actions
+
+    repo, overlay = _repo(), _overlay()
+
+    def _hand_state(card_id):
+        st = _state(repo, overlay)
+        me = st.players[0]
+        me.don_active = 10
+        me.hand = [repo.get(card_id)]
+        return st, me
+
+    # overlay 全走査で 「EVENT かつ main 系 when 無し」 を集める (= 全件が非合法であるべき)
+    no_main, with_main = [], []
+    for cid, bundle in overlay.items():
+        c = repo._by_id.get(cid)
+        if c is None or c.category != Category.EVENT or not bundle.effects:
+            continue
+        whens = {e.get("when") for e in bundle.effects}
+        if whens & {"main", "event_main"}:
+            with_main.append(cid)
+        else:
+            no_main.append(cid)
+
+    assert len(no_main) >= 100, f"検査対象が少なすぎる ({len(no_main)}) = 検出力が死んでいる"
+    assert with_main, "対照群 (【メイン】持ち) が空"
+
+    for cid in no_main:
+        st, me = _hand_state(cid)
+        if me.hand[0].cost and me.hand[0].cost > me.don_active:
+            continue
+        acts = [a for a in legal_actions(st) if isinstance(a, PlayEvent)]
+        assert not acts, f"{cid} (when={sorted({e.get('when') for e in overlay[cid].effects})}) がメインで発動可能"
+
+    # 対照: 【メイン】を持つイベントは従来どおり発動できる
+    played = 0
+    for cid in with_main:
+        st, me = _hand_state(cid)
+        if me.hand[0].cost and me.hand[0].cost > me.don_active:
+            continue
+        if [a for a in legal_actions(st) if isinstance(a, PlayEvent)]:
+            played += 1
+    assert played > 0, "【メイン】持ちイベントまで発動できなくなっている (過剰制限)"
+
+
+def test_fire_self_effect_requires_the_copied_effects_activation_cost():
+    """【トリガー】で自身の【メイン】を発動する時も、 その発動コストは支払う。
+
+    一次情報 (`db/faq/keyword_effect.json`、 公式「よくある質問」):
+      Q: 「OP03-074 独楽結び」 の【トリガー】効果 「このカードの【メイン】効果を発動する。」 を
+         発動する場合、【メイン】効果の 「ドン!!-2：」 の発動コストを支払わずに、【メイン】
+         効果を発動できますか？
+      A: **いいえ、発動できません。**
+
+    ⚠ 2026-08-21 まで `fire_self_effect` は コピー先の `cost` を **一切見ていなかった**
+      (= タダ撃ち)。 ドン 0 でも相手キャラを無償でデッキ下へ送れた。
+      該当は OP03-073 (pay_don 1) / OP03-074 (pay_don 2) + パラレル。
+    """
+    repo, overlay = _repo(), _overlay()
+
+    def _run(don: int):
+        st = _state(repo, overlay)
+        me, opp = st.players
+        me.don_active = don
+        me.don_rested = 0
+        victim = InPlay.of(repo.get(_FILLER), sickness=False)
+        opp.characters = [victim]
+        st.current_source_card_id = "OP03-074"   # 発動元 (トリガーは場に InPlay を持たない)
+        execute_effect({"fire_self_effect": {"when_kind": "main"}}, st, me, opp, None)
+        return len(opp.characters), me.don_active + me.don_rested
+
+    # ドン 0 / 1 = 「ドン!!-2」 を払えない → 発動できない (相手キャラは残る、 ドンも減らない)
+    assert _run(0) == (1, 0), "ドン0でタダ撃ちできている"
+    assert _run(1) == (1, 1), "ドン不足でも発動できてしまっている"
+    # ドン 2 = 払える → 発動 (ドン 2 をドンデッキへ戻し、 相手キャラをデッキ下へ)
+    assert _run(2) == (0, 0), "コストを払える時に発動できていない (過剰な gate)"
+
+
+def test_fire_self_effect_cost_cards_are_all_gated():
+    """overlay 全走査: fire_self_effect / fire_self_main でコスト付き when を呼ぶカードは
+    **コストを払えない時に発動しない**。 個別カードの対照だけだと将来の追加を取りこぼす。"""
+    repo, overlay = _repo(), _overlay()
+    import json as _json
+
+    targets = []
+    for cid, bundle in overlay.items():
+        uses_copy = any(
+            ("fire_self_effect" in _json.dumps(e, ensure_ascii=False)
+             or "fire_self_main" in _json.dumps(e, ensure_ascii=False))
+            for e in bundle.effects
+        )
+        if not uses_copy:
+            continue
+        for e in bundle.effects:
+            if e.get("when") == "main" and (e.get("cost") or {}).get("pay_don"):
+                targets.append((cid, int(e["cost"]["pay_don"])))
+                break
+    assert targets, "検査対象が空 = 検出力が死んでいる"
+
+    for cid, need in targets:
+        st = _state(repo, overlay)
+        me, opp = st.players
+        me.don_active = need - 1          # 1 枚足りない
+        me.don_rested = 0
+        opp.characters = [InPlay.of(repo.get(_FILLER), sickness=False)]
+        st.current_source_card_id = cid
+        execute_effect({"fire_self_effect": {"when_kind": "main"}}, st, me, opp, None)
+        assert me.don_active + me.don_rested == need - 1, f"{cid}: 払えないのにドンが減った"
+        assert len(opp.characters) == 1, f"{cid}: 発動コスト未払いなのに効果が発動した (タダ撃ち)"

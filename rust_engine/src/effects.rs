@@ -111,6 +111,21 @@ pub fn card_has_when(card_id: &str, when: &str) -> bool {
     })
 }
 
+/// 【メイン】を持たないイベントはメインフェイズに発動できない (Python game.py:_EVENT_MAIN_WHENS)。
+/// 一次情報 (db/faq/keyword.json、 公式「よくある質問」): 「イベントカードの【カウンター】効果を
+/// 自分のメインフェイズに発動する事はできますか？」 → 「**いいえ、できません。**」
+/// 是正前は Python/Rust とも無条件に候補化しており、 【カウンター】専用 38 枚 +
+/// 【カウンター】+【トリガー】 176 枚 = 214 枚を **メインで撃てた** (2026-08-21 是正)。
+/// ⚠ overlay に効果が 1 つも無いイベントは判定材料が無いので許可 (Python と同じ)。
+fn event_playable_in_main(card_id: &str) -> bool {
+    match overlay().and_then(|m| m.get(card_id)) {
+        Some(effs) if !effs.is_empty() => effs.iter().any(|e| {
+            matches!(e.get("when").and_then(|v| v.as_str()), Some("main") | Some("event_main"))
+        }),
+        _ => true,
+    }
+}
+
 /// 「手札のこのカードは効果で登場できない」(OP12-036 ゾロ、 effects.py:_no_play_from_hand_via_effect)。
 /// overlay の `_no_play_via_effect: true` marker で判定 → play_from_hand 系が候補から除外する。
 fn card_no_play_via_effect(card_id: &str) -> bool {
@@ -2549,11 +2564,17 @@ fn matches_filter(card: &crate::state::CardDef, filt: Option<&Value>) -> bool {
                     .get("feature")
                     .and_then(|x| x.as_str())
                     .map_or(false, |f| card.features.iter().any(|cf| cf == f));
+                // ⭐ feature_contains = 「『X』を含む特徴」 (= 部分一致、 db/faq/base.json)。
+                //   OP08-053 「『白ひげ海賊団』を含む特徴を持つカードか「モンキー・D・ルフィ」」。
+                let feat_c_ok = v
+                    .get("feature_contains")
+                    .and_then(|x| x.as_str())
+                    .map_or(false, |f| card.features.iter().any(|cf| cf.contains(f)));
                 let name_ok = v
                     .get("name")
                     .and_then(|x| x.as_str())
                     .map_or(false, |n| name_matches(card, &norm_card_name(n)));
-                feat_ok || name_ok
+                feat_ok || feat_c_ok || name_ok
             }
             // 「元々のパワー」 = CardDef の印字値 (効果によるバフ / set_base_power を含まない)。
             // Python の _matches_filter も card.power で判定する (effects.py)。
@@ -2635,10 +2656,20 @@ fn apply_static_primitive(prim: &Value, state: &mut GameState, me_idx: usize, sr
                 .or_else(|| spec.get("feature_filter"))
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string());
+            // ⭐ 「『X』を含む特徴を持つ」 (= 部分一致 feature_contains) と 素の 「特徴《X》」
+            //   (= 完全一致 feature) の書き分け。 一次情報 db/faq/base.json:
+            //   「『○○』を含む特徴を持つ」 は 《元○○》 《○○傘下》 も含む → 「はい」。
+            //   (2026-08-21、 一般FAQ conformance。 OP02-019 ラクヨウ 等)
+            let fc = spec.get("feature_contains").and_then(|v| v.as_str()).map(|s| s.to_string());
             let Some(targets) = resolve_target(spec.get("target"), me_idx, opp_idx, src, state) else { return };
             for (pi, sl) in targets {
                 if let Some(f) = &ff {
                     if !get_ip(&state.players[pi], sl).card.features.iter().any(|x| x == f) {
+                        continue;
+                    }
+                }
+                if let Some(f) = &fc {
+                    if !get_ip(&state.players[pi], sl).card.features.iter().any(|x| x.contains(f)) {
                         continue;
                     }
                 }
@@ -4144,6 +4175,8 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
                 .or_else(|| v.get("feature_filter"))
                 .and_then(|x| x.as_str())
                 .map(|s| s.to_string());
+            // ⭐ 「『X』を含む特徴」 = 部分一致 (静的側と同じ。 db/faq/base.json、 2026-08-21)。
+            let fc = v.get("feature_contains").and_then(|x| x.as_str()).map(|s| s.to_string());
             let Some(targets) = resolve_target(v.get("target"), me_idx, opp_idx, src, state) else { return false };
             // soshite (= 「その後、 そのカードを〜」、 target spec self_just_buffed) 用に直近 pump
             // 対象を記録する (effects.py:3616 `last_pumped_iid`)。 対象 0 なら更新しない。
@@ -4165,6 +4198,11 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
             for (pi, sl) in targets {
                 if let Some(f) = &ff {
                     if !get_ip(&state.players[pi], sl).card.features.iter().any(|x| x == f) {
+                        continue;
+                    }
+                }
+                if let Some(f) = &fc {
+                    if !get_ip(&state.players[pi], sl).card.features.iter().any(|x| x.contains(f)) {
                         continue;
                     }
                 }
@@ -8352,6 +8390,35 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             for eff in &effs {
                 if eff.get("when").and_then(|x| x.as_str()) != Some(when_kind.as_str()) {
                     continue;
+                }
+                // ⭐ コピー先の効果に発動コストがあるなら **それも支払う** (Python と同じ)。
+                //   一次情報 (db/faq/keyword_effect.json、 OP03-074 独楽結び):
+                //   「【トリガー】でこのカードの【メイン】効果を発動する場合、 ドン!!-2 の
+                //    発動コストを支払わずに発動できますか？」 → 「いいえ、 発動できません。」
+                //   是正前は両エンジンとも cost を見ておらず **タダ撃ち** だった
+                //   (該当 OP03-073 pay_don1 / OP03-074 pay_don2 + パラレル。 2026-08-21)。
+                let real_cost: Option<Value> = eff.get("cost").and_then(|c| c.as_object()).map(|o| {
+                    Value::Object(
+                        o.iter()
+                            .filter(|(k2, _)| k2.as_str() != "once_per_turn")
+                            .map(|(k2, v2)| (k2.clone(), v2.clone()))
+                            .collect(),
+                    )
+                });
+                if let Some(rc) = real_cost.as_ref() {
+                    if !rc.as_object().map_or(true, |o| o.is_empty()) {
+                        if !can_pay_counter_cost_full(state, me_idx, src, rc) {
+                            continue; // 発動コストを払えない = 発動できない (公式 4-10)
+                        }
+                        match try_pay_counter_cost(state, me_idx, src, rc) {
+                            Ok(true) => {}
+                            Ok(false) => continue,
+                            Err(e) => {
+                                note_prim_err(&format!("fire_self_effect: 内側 cost {e}"));
+                                return false;
+                            }
+                        }
+                    }
                 }
                 match eval_effect_conditions(eff, state, me_idx, Some(src)) {
                     Some(true) => {}
@@ -14841,7 +14908,10 @@ pub fn legal_actions(state: &GameState) -> Vec<Value> {
         if hand_play_blocked {
             break; // OP13-028: 手札からのイベント発動も禁止
         }
-        if c.category == Category::Event && eff_cost(state, me_idx, c) <= me.don_active {
+        if c.category == Category::Event
+            && eff_cost(state, me_idx, c) <= me.don_active
+            && event_playable_in_main(&c.card_id)
+        {
             out.push(json!({"t": "PlayEvent", "hand_idx": i}));
         }
     }

@@ -1325,9 +1325,7 @@
        }
       ],
       "if": {
-       "leader_features_any": [
-        "B・W"
-       ]
+       "leader_feature_contains": "B・W"
       }
      }
     }
@@ -1351,9 +1349,7 @@
        }
       ],
       "if": {
-       "leader_features_any": [
-        "B・W"
-       ]
+       "leader_feature_contains": "B・W"
       }
      }
     }
@@ -1374,9 +1370,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "B・W"
-    ]
+    "leader_feature_contains": "B・W"
    },
    "when": "on_play"
   },
@@ -1437,9 +1431,7 @@
        }
       ],
       "if": {
-       "leader_features_any": [
-        "B・W"
-       ]
+       "leader_feature_contains": "B・W"
       }
      }
     }
@@ -1474,9 +1466,7 @@
        }
       ],
       "if": {
-       "leader_features_any": [
-        "B・W"
-       ]
+       "leader_feature_contains": "B・W"
       }
      }
     }
@@ -1511,9 +1501,7 @@
        }
       ],
       "if": {
-       "leader_features_any": [
-        "B・W"
-       ]
+       "leader_feature_contains": "B・W"
       }
      }
     }
@@ -3718,9 +3706,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -3753,9 +3739,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -10059,7 +10043,7 @@
    ],
    "do": [],
    "if": {
-    "leader_feature": "海軍",
+    "leader_feature_contains": "海軍",
     "target": "self"
    },
    "optional": true,
@@ -10095,7 +10079,7 @@
    ],
    "do": [],
    "if": {
-    "leader_feature": "海軍",
+    "leader_feature_contains": "海軍",
     "target": "self"
    },
    "optional": true,
@@ -10131,7 +10115,7 @@
    ],
    "do": [],
    "if": {
-    "leader_feature": "海軍",
+    "leader_feature_contains": "海軍",
     "target": "self"
    },
    "optional": true,
@@ -16105,7 +16089,7 @@
     }
    ],
    "if": {
-    "leader_feature": "白ひげ海賊団",
+    "leader_feature_contains": "白ひげ海賊団",
     "self_attached_don_ge": 1,
     "self_life_le": 2
    },
@@ -16125,7 +16109,7 @@
     }
    ],
    "if": {
-    "leader_feature": "白ひげ海賊団",
+    "leader_feature_contains": "白ひげ海賊団",
     "self_attached_don_ge": 1,
     "self_life_le": 2
    },
@@ -16145,7 +16129,7 @@
     }
    ],
    "if": {
-    "leader_feature": "白ひげ海賊団",
+    "leader_feature_contains": "白ひげ海賊団",
     "self_attached_don_ge": 1,
     "self_life_le": 2
    },
@@ -16169,9 +16153,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -16192,9 +16174,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -16263,9 +16243,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -16300,9 +16278,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -16337,9 +16313,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -16374,9 +16348,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -16411,9 +16383,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -16448,9 +16418,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -16613,7 +16581,7 @@
     "discard_hand_with_filter": {
      "count": 1,
      "filter": {
-      "feature": "白ひげ海賊団"
+      "feature_contains": "白ひげ海賊団"
      }
     }
    },
@@ -16644,7 +16612,7 @@
     "discard_hand_with_filter": {
      "count": 1,
      "filter": {
-      "feature": "白ひげ海賊団"
+      "feature_contains": "白ひげ海賊団"
      }
     }
    },
@@ -16675,7 +16643,7 @@
     "discard_hand_with_filter": {
      "count": 1,
      "filter": {
-      "feature": "白ひげ海賊団"
+      "feature_contains": "白ひげ海賊団"
      }
     }
    },
@@ -16706,7 +16674,7 @@
     "discard_hand_with_filter": {
      "count": 1,
      "filter": {
-      "feature": "白ひげ海賊団"
+      "feature_contains": "白ひげ海賊団"
      }
     }
    },
@@ -16737,7 +16705,7 @@
     "discard_hand_with_filter": {
      "count": 1,
      "filter": {
-      "feature": "白ひげ海賊団"
+      "feature_contains": "白ひげ海賊団"
      }
     }
    },
@@ -16768,7 +16736,7 @@
     "discard_hand_with_filter": {
      "count": 1,
      "filter": {
-      "feature": "白ひげ海賊団"
+      "feature_contains": "白ひげ海賊団"
      }
     }
    },
@@ -16799,7 +16767,7 @@
     "discard_hand_with_filter": {
      "count": 1,
      "filter": {
-      "feature": "白ひげ海賊団"
+      "feature_contains": "白ひげ海賊団"
      }
     }
    },
@@ -16831,7 +16799,7 @@
      "power_pump": {
       "amount": 1000,
       "duration": "static",
-      "feature": "白ひげ海賊団",
+      "feature_contains": "白ひげ海賊団",
       "target": "all_self_characters"
      }
     }
@@ -16851,7 +16819,7 @@
      "power_pump": {
       "amount": 1000,
       "duration": "static",
-      "feature": "白ひげ海賊団",
+      "feature_contains": "白ひげ海賊団",
       "target": "all_self_characters"
      }
     }
@@ -16873,9 +16841,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "main"
   },
@@ -21611,9 +21577,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "counter"
   },
@@ -21640,9 +21604,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "main"
   }
@@ -29060,7 +29022,7 @@
        }
       ],
       "if": {
-       "leader_feature": "B・W"
+       "leader_feature_contains": "B・W"
       }
      }
     }
@@ -29099,7 +29061,7 @@
        }
       ],
       "if": {
-       "leader_feature": "B・W"
+       "leader_feature_contains": "B・W"
       }
      }
     }
@@ -29292,9 +29254,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "B・W"
-    ]
+    "leader_feature_contains": "B・W"
    },
    "when": "on_play"
   },
@@ -51381,7 +51341,7 @@
     "reveal_hand_with_filter": {
      "count": 2,
      "filter": {
-      "feature": "白ひげ海賊団"
+      "feature_contains": "白ひげ海賊団"
      }
     }
    },
@@ -51399,7 +51359,7 @@
        }
       ],
       "if": {
-       "leader_feature": "白ひげ海賊団"
+       "leader_feature_contains": "白ひげ海賊団"
       }
      }
     }
@@ -51414,7 +51374,7 @@
     "reveal_hand_with_filter": {
      "count": 2,
      "filter": {
-      "feature": "白ひげ海賊団"
+      "feature_contains": "白ひげ海賊団"
      }
     }
    },
@@ -51432,7 +51392,7 @@
        }
       ],
       "if": {
-       "leader_feature": "白ひげ海賊団"
+       "leader_feature_contains": "白ひげ海賊団"
       }
      }
     }
@@ -51706,7 +51666,7 @@
      "reveal_top_play": {
       "filter": {
        "cost_le": 4,
-       "feature": "白ひげ海賊団"
+       "feature_contains": "白ひげ海賊団"
       },
       "rest_remain": "top_or_bottom"
      }
@@ -51723,7 +51683,7 @@
      "reveal_top_play": {
       "filter": {
        "cost_le": 4,
-       "feature": "白ひげ海賊団"
+       "feature_contains": "白ひげ海賊団"
       },
       "rest_remain": "top_or_bottom"
      }
@@ -51742,7 +51702,7 @@
       "destination": "hand",
       "filter": {
        "feature_or_name": {
-        "feature": "白ひげ海賊団",
+        "feature_contains": "白ひげ海賊団",
         "name": "モンキー・D・ルフィ"
        }
       },
@@ -51753,9 +51713,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "main"
   },
@@ -56729,7 +56687,7 @@
          "feature": "クロスギルド"
         },
         {
-         "feature": "B・W"
+         "feature_contains": "B・W"
         }
        ]
       },
@@ -56754,7 +56712,7 @@
          "feature": "クロスギルド"
         },
         {
-         "feature": "B・W"
+         "feature_contains": "B・W"
         }
        ]
       },
@@ -56779,7 +56737,7 @@
          "feature": "クロスギルド"
         },
         {
-         "feature": "B・W"
+         "feature_contains": "B・W"
         }
        ]
       },
@@ -62841,9 +62799,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "ジェルマ"
-    ]
+    "leader_feature_contains": "ジェルマ"
    },
    "when": "on_play"
   }
@@ -72159,9 +72115,7 @@
        }
       ],
       "if": {
-       "leader_features_any": [
-        "B・W"
-       ]
+       "leader_feature_contains": "B・W"
       }
      }
     }
@@ -75785,7 +75739,7 @@
       "count": 1,
       "target": {
        "filter": {
-        "feature": "白ひげ海賊団"
+        "feature_contains": "白ひげ海賊団"
        },
        "type": "one_self_chara_or_leader_filtered"
       }
@@ -75980,7 +75934,7 @@
         "ko_self_chara": {
          "count": 1,
          "filter": {
-          "feature": "白ひげ海賊団"
+          "feature_contains": "白ひげ海賊団"
          }
         }
        }
@@ -76074,9 +76028,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_attack"
   }
@@ -76601,9 +76553,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "ロジャー海賊団"
-    ],
+    "leader_feature_contains": "ロジャー海賊団",
     "self_attached_don_ge": 1
    },
    "when": "on_play"
@@ -76618,9 +76568,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "ロジャー海賊団"
-    ],
+    "leader_feature_contains": "ロジャー海賊団",
     "self_attached_don_ge": 1
    },
    "when": "on_play"
@@ -81684,7 +81632,7 @@
    "_text": "黒クロコダイル 起動メイン: BWキャラKO代償 → 相手キャラ1 コスト-10 turn + デッキ上2 mill (公式: KO全体ではない)",
    "cost": {
     "ko_self_with_filter": {
-     "feature": "B・W"
+     "feature_contains": "B・W"
     },
     "once_per_turn": true
    },
@@ -81721,7 +81669,7 @@
    "_text": "黒クロコダイル 起動メイン: BWキャラKO代償 → 相手キャラ1 コスト-10 turn + デッキ上2 mill (公式: KO全体ではない)",
    "cost": {
     "ko_self_with_filter": {
-     "feature": "B・W"
+     "feature_contains": "B・W"
     },
     "once_per_turn": true
    },
@@ -81909,7 +81857,7 @@
      "play_from_trash": {
       "filter": {
        "cost_le": 4,
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1
      }
@@ -81918,16 +81866,14 @@
      "play_from_trash": {
       "filter": {
        "cost": 1,
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1
      }
     }
    ],
    "if": {
-    "leader_features_any": [
-     "B・W"
-    ]
+    "leader_feature_contains": "B・W"
    },
    "when": "on_play"
   }
@@ -81940,7 +81886,7 @@
      "play_from_trash": {
       "filter": {
        "cost_le": 4,
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1
      }
@@ -81949,16 +81895,14 @@
      "play_from_trash": {
       "filter": {
        "cost": 1,
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1
      }
     }
    ],
    "if": {
-    "leader_features_any": [
-     "B・W"
-    ]
+    "leader_feature_contains": "B・W"
    },
    "when": "on_play"
   }
@@ -82014,7 +81958,7 @@
       "destination": "hand",
       "filter": {
        "exclude_card_id": "OP14-087",
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1,
       "public": true,
@@ -82023,9 +81967,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "B・W"
-    ]
+    "leader_feature_contains": "B・W"
    },
    "when": "on_play"
   }
@@ -82040,7 +81982,7 @@
       "destination": "hand",
       "filter": {
        "exclude_card_id": "OP14-087",
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1,
       "public": true,
@@ -82049,9 +81991,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "B・W"
-    ]
+    "leader_feature_contains": "B・W"
    },
    "when": "on_play"
   }
@@ -82066,7 +82006,7 @@
       "destination": "hand",
       "filter": {
        "exclude_card_id": "OP14-087",
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1,
       "public": true,
@@ -82075,9 +82015,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "B・W"
-    ]
+    "leader_feature_contains": "B・W"
    },
    "when": "on_play"
   }
@@ -82097,9 +82035,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "B・W"
-    ]
+    "leader_feature_contains": "B・W"
    },
    "when": "on_ko"
   }
@@ -82198,7 +82134,7 @@
        "category": "CHARACTER",
        "cost_le": 5,
        "exclude_name": "Mr.2・ボン・クレー(ベンサム)",
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1
      }
@@ -82217,7 +82153,7 @@
        "category": "CHARACTER",
        "cost_le": 5,
        "exclude_name": "Mr.2・ボン・クレー(ベンサム)",
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1
      }
@@ -82433,7 +82369,7 @@
       "destination": "hand",
       "filter": {
        "exclude_card_id": "OP14-099",
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1,
       "public": true,
@@ -82463,7 +82399,7 @@
       "destination": "hand",
       "filter": {
        "exclude_card_id": "OP14-099",
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1,
       "public": true,
@@ -105706,9 +105642,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -105725,9 +105659,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "n": 0,
    "when": "on_attached_don"
@@ -107881,7 +107813,7 @@
       "destination": "hand",
       "filter": {
        "exclude_card_id": "ST22-002",
-       "feature": "白ひげ海賊団"
+       "feature_contains": "白ひげ海賊団"
       },
       "limit": 1,
       "public": true,
@@ -107917,7 +107849,7 @@
       "destination": "hand",
       "filter": {
        "exclude_card_id": "ST22-002",
-       "feature": "白ひげ海賊団"
+       "feature_contains": "白ひげ海賊団"
       },
       "limit": 1,
       "public": true,
@@ -108364,9 +108296,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "main"
   }
@@ -112083,7 +112013,7 @@
      "play_from_trash": {
       "filter": {
        "cost_le": 4,
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1
      }
@@ -112092,16 +112022,14 @@
      "play_from_trash": {
       "filter": {
        "cost": 1,
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1
      }
     }
    ],
    "if": {
-    "leader_features_any": [
-     "B・W"
-    ]
+    "leader_feature_contains": "B・W"
    },
    "when": "on_play"
   }
@@ -113307,9 +113235,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "n": 0,
    "when": "on_attached_don"

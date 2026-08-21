@@ -4437,6 +4437,12 @@ def _execute_effect_body_inner(
             target_spec = v.get("target", "self")
             duration = v.get("duration", "turn")
             feature_filter = v.get("feature")
+            # ⭐ 「『X』を含む特徴を持つ」 (= 部分一致) と 素の 「特徴《X》」 (= 完全一致) の
+            #   書き分け。 一次情報 (db/faq/base.json): 「『○○』を含む特徴を持つ」 とは
+            #   《元○○》 や 《○○傘下》 なども含まれますか → 「はい、含まれます。」
+            #   OP02-019 「自分の『白ひげ海賊団』を含む特徴を持つキャラすべてを、 パワー+1000」
+            #   (2026-08-21、 一般FAQ conformance)
+            feature_contains_filter = v.get("feature_contains")
 
             # 動的計算 (amount_per): source 値 × multiplier // divisor
             amount = int(v.get("amount", 0))
@@ -4489,6 +4495,11 @@ def _execute_effect_body_inner(
                 targets = [
                     t for t in targets
                     if feature_filter in t.card.features
+                ]
+            if feature_contains_filter:
+                targets = [
+                    t for t in targets
+                    if any(feature_contains_filter in f for f in t.card.features)
                 ]
             # 「パワー0にする」 (= 素の) は **現在パワーぶんの固定マイナス** として適用する
             # (公式 cardqa_op_07 / OP07-002 アイン × OP12-070 サンジ: 「パワー8000のサンジを
@@ -7974,14 +7985,36 @@ def _execute_effect_body_inner(
                 bundle = state.effects_overlay.get(src_cid) if state.effects_overlay else None
                 if bundle is None:
                     continue
+                _fired_any = False
                 for eff in bundle.effects:
                     if eff.get("when") != when_kind:
                         continue
+                    # ⭐ **コピー先の効果に発動コストがあるなら、 それも支払う**。
+                    #   一次情報 (db/faq/keyword_effect.json、 OP03-074 独楽結び):
+                    #     Q: 【トリガー】効果 「このカードの【メイン】効果を発動する。」 を発動する
+                    #        場合、【メイン】効果の 「ドン!!-2：」 の発動コストを支払わずに
+                    #        【メイン】効果を発動できますか？
+                    #     A: **いいえ、発動できません。**
+                    #   是正前は cost を一切見ておらず **タダ撃ち** だった (ドン 0 でも
+                    #   相手キャラを無償でデッキ下へ送れた)。 該当 = OP03-073 (pay_don 1) /
+                    #   OP03-074 (pay_don 2) + パラレル。 (2026-08-21、 一般FAQ conformance)
+                    _cost = eff.get("cost") or {}
+                    _real_cost = ({k2: v2 for k2, v2 in _cost.items() if k2 != "once_per_turn"}
+                                  if isinstance(_cost, dict) else {})
+                    if _real_cost:
+                        if not _can_pay_counter_cost(state, me, self_inplay, _real_cost):
+                            state.push_log(
+                                f"  効果コピー: 【{when_kind}】の発動コストを払えない → 発動せず"
+                            )
+                            continue
+                        _pay_counter_cost(state, me, opp, self_inplay, _real_cost)
                     if not eval_all_conditions(eff, state, me, self_inplay):
                         continue
+                    _fired_any = True
                     for prim in eff.get("do", []):
                         execute_effect(prim, state, me, opp, self_inplay)
-                state.push_log(f"  効果: 自身の【{when_kind}】効果を発動")
+                if _fired_any:
+                    state.push_log(f"  効果: 自身の【{when_kind}】効果を発動")
             finally:
                 state._fire_self_depth = depth
         elif k == "rest_opp_don":
@@ -13178,10 +13211,19 @@ def _matches_filter(card: CardDef, filt: dict[str, Any]) -> bool:
             return False
     if "feature_or_name" in filt:
         # feature OR name のいずれかにマッチ
+        # ⭐ feature_contains = 「『X』を含む特徴」 (= 部分一致、 db/faq/base.json)。
+        #   OP08-053 「『白ひげ海賊団』を含む特徴を持つカードか「モンキー・D・ルフィ」」。
+        #   (2026-08-21: feature → feature_contains の是正で **ここが読まずに silent no-op**
+        #    になり、 白ひげカードが 1 枚も引けなくなっていた = key rename の典型的な穴)
         spec = filt["feature_or_name"]
         feat = spec.get("feature")
+        feat_c = spec.get("feature_contains")
         name = spec.get("name")
-        if not ((feat and feat in card.features) or (name and name_matches(card, name))):
+        if not (
+            (feat and feat in card.features)
+            or (feat_c and any(feat_c in f for f in card.features))
+            or (name and name_matches(card, name))
+        ):
             return False
     if "name" in filt and not name_matches(card, filt["name"]):
         return False

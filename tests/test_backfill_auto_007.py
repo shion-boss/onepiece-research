@@ -279,7 +279,12 @@ def test_eb02_028_ace_on_play_search_and_play_ai():
     st = _state(repo, "OP02-001", overlay)  # 白ひげ海賊団 leader
     me, opp = st.players[0], st.players[1]
     do, eff = _do(overlay, "EB02-028", "on_play")
-    assert "白ひげ海賊団" in eff.get("if", {}).get("leader_features_any", []), \
+    # ⚠ 2026-08-21 是正: 公式は 「『X』を含む特徴を持つ」 (= 部分一致) なので overlay は
+    #   leader_feature_contains を使う。 キー名でなく **意味** を見る (db/faq/base.json)。
+    _lc = eff.get("if", {})
+    assert (_lc.get("leader_feature_contains") == "白ひげ海賊団"
+            or "白ひげ海賊団" in _lc.get("leader_features_any", [])
+            or _lc.get("leader_feature") == "白ひげ海賊団"), \
         "overlay の 条件 leader_features_any=白ひげ海賊団 が無い"
     assert eval_condition(eff["if"], st, me) is True, "白ひげ leader で 条件が成立していない"
 

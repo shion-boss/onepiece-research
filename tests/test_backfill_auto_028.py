@@ -177,7 +177,12 @@ def test_op02_021_kaishin_main_ko_power_le3000_ai():
     opp.characters = [victim]
 
     do, eff = _do(overlay, "OP02-021", "main")
-    assert "白ひげ海賊団" in eff.get("if", {}).get("leader_features_any", []), \
+    # ⚠ 2026-08-21 是正: 公式は 「『X』を含む特徴を持つ」 (= 部分一致) なので overlay は
+    #   leader_feature_contains を使う。 キー名でなく **意味** を見る (db/faq/base.json)。
+    _lc = eff.get("if", {})
+    assert (_lc.get("leader_feature_contains") == "白ひげ海賊団"
+            or "白ひげ海賊団" in _lc.get("leader_features_any", [])
+            or _lc.get("leader_feature") == "白ひげ海賊団"), \
         "overlay の リーダー特徴条件 (白ひげ海賊団) が無い"
     for prim in do:
         execute_effect(prim, st, me, opp, None)

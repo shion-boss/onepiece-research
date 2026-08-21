@@ -991,6 +991,12 @@ def play_until_main(state: GameState) -> None:
 # --------------------------------------------------------------------------- #
 # 合法手生成
 # --------------------------------------------------------------------------- #
+# 【メイン】としてハンドから発動できるイベントの when (= 公式 「イベントカードの【カウンター】
+# 効果は…カウンターステップにのみ発動できる」 db/faq/keyword.json)。 ここに無い when
+# (counter / trigger / in_hand) しか持たないイベントは **メインフェイズで発動できない**。
+_EVENT_MAIN_WHENS = {"main", "event_main"}
+
+
 def legal_actions(state: GameState) -> list[Action]:
     if state.game_over or state.phase != Phase.MAIN:
         return []
@@ -1100,7 +1106,23 @@ def legal_actions(state: GameState) -> list[Action]:
             continue  # OP13-028: 手札からのイベント発動も禁止
         if _eff_cost(c) > me.don_active:
             continue
-        # overlay に main 効果がある場合のみ発動候補に (空効果の event でもプレイ可)
+        # ⭐ **【メイン】を持たないイベントはメインフェイズに発動できない**。
+        #   一次情報 (db/faq/keyword.json、 公式「よくある質問」):
+        #     Q: イベントカードの【カウンター】効果を自分のメインフェイズに発動する事は
+        #        できますか？
+        #     A: **いいえ、できません。** イベントカードの【カウンター】効果は相手がアタック
+        #        したバトル中のカウンターステップにのみ発動する事ができます。
+        #   是正前は無条件に候補化しており、 【カウンター】専用 (38 枚) と
+        #   【カウンター】+【トリガー】 (176 枚) の計 214 枚を **メインでプレイできた**
+        #   (= ドンを払って何も起きない非合法手。 AI の資源を無駄に溶かす)。
+        #   コメントは 「main 効果がある場合のみ」 と書かれていたが実装が無かった。
+        #   (2026-08-21、 一般FAQ conformance)
+        #   ⚠ overlay に効果が 1 つも無いイベントは判定材料が無いので従来どおり許可する
+        #     (現状 0 枚。 将来 未実装カードが出た時に silent に撃てなくならないため)。
+        bundle = state.effects_overlay.get(c.card_id) if state.effects_overlay else None
+        if bundle is not None and bundle.effects:
+            if not any(e.get("when") in _EVENT_MAIN_WHENS for e in bundle.effects):
+                continue
         actions.append(PlayEvent(hand_idx=i))
 
     # ステージカード: コスト払えるなら登場可能 (既存ステージは差替)
