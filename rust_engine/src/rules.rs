@@ -859,17 +859,6 @@ pub(crate) fn resolve_life_taken(
 
 /// action を state に適用 (副作用)。 Python apply_action ラッパ相当: impl 後に _recompute_static の
 /// ownership 部分を反映 (静的効果 eval は R3)。
-/// `ONEPIECE_RUST_CHOICE=1` = Rust 側の選択列挙を **実験的に** 有効化する。
-/// 既定 OFF: target_pick 以外の kind が未実装なので、 通すと Python と食い違う。
-fn rust_choice_enabled() -> bool {
-    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ON.get_or_init(|| {
-        std::env::var("ONEPIECE_RUST_CHOICE")
-            .map(|v| !matches!(v.as_str(), "" | "0" | "off" | "false"))
-            .unwrap_or(false)
-    })
-}
-
 /// ResolveChoice を解決する。 picks で候補を絞って FORCED_TARGETS に注入し、
 /// 中断した primitive を再実行 → 退避した残り do を流す。
 fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), String> {
@@ -886,12 +875,26 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
         .collect();
     let src = crate::effects::code_to_slot(pc.src_slot);
     crate::effects::set_choice_suspended(false);
-    crate::effects::set_forced_targets(Some(chosen));
+    // ⭐ 注入先は kind で切り替える:
+    //   target 系 (target_pick) → FORCED_TARGETS ((player, Slot) の組)
+    //   index 系 (search_top_n 等) → FORCED_PICKS (zone 内の元 index)
+    if pc.kind == "target_pick" {
+        crate::effects::set_forced_targets(Some(chosen));
+    } else {
+        let idxs: Vec<usize> = picks
+            .iter()
+            .filter_map(|&i| pc.cand_slots.get(i))
+            .map(|&(_pi, code)| code as usize)
+            .collect();
+        crate::effects::set_forced_picks(Some(idxs));
+    }
     if !crate::effects::execute_effect_pub(&pc.prim, state, pc.me_idx, src) {
         crate::effects::set_forced_targets(None);
+        crate::effects::set_forced_picks(None);
         return Err("ResolveChoice: 再実行した primitive が未対応".into());
     }
     crate::effects::set_forced_targets(None);
+    crate::effects::set_forced_picks(None);
     // 退避しておいた残り do を流す (再度中断したら再び pending_choice が立つ)
     for (ci, prim) in pc.remaining_do.iter().enumerate() {
         if !crate::effects::execute_effect_pub(prim, state, pc.me_idx, src) {
@@ -910,9 +913,10 @@ pub fn apply_action(state: &mut GameState, action: &Value) -> Result<(), String>
     //   ではなく、 「未対応の選択サイトに当たったら中で bail する」 方式に移行した。
     //   ⚠ 実装済 kind が増えるまでは env `ONEPIECE_RUST_CHOICE=1` を明示した時だけ通す
     //     (既定は従来どおり全面 bail = 黙って別のゲームを進めない)。
-    if state.choice_enumeration && !rust_choice_enabled() {
-        return Err("choice_enumeration (選択列挙モード) は Rust 未実装 (実験的に通すなら ONEPIECE_RUST_CHOICE=1)".into());
-    }
+    // ⭐ 選択列挙モードは **site-specific bail** へ移行済:
+    //   - target_pick (= resolve_target 経由 21 サイト) は `pick_one_or_suspend` で実装
+    //   - 未移植の選択 primitive 35 件 / 複数候補の発動コストは **その場で bail**
+    //   なので全面 gate は不要。 「bit 一致 か 明示 bail」 は各サイトが保証する。
     // ⭐ ResolveChoice = 立っている選択を 1 アクションとして解決する (Python と同形)。
     //   picks を FORCED_TARGETS に注入して **その primitive を再実行** し、 続けて
     //   退避しておいた残り do を流す (Rust には continuation が無いので replay 方式)。

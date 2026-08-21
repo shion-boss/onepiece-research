@@ -237,30 +237,55 @@ def test_rust_parity_end_of_turn_cost_batch():
     )
 
 
-def test_rust_choice_enumeration_bails_by_default():
-    """既定では Rust は選択列挙モードを **明示 bail** する (黙って別のゲームを進めない)。
+def test_rust_unported_choice_primitive_bails():
+    """列挙モードで **未移植の選択 primitive** に当たったら Rust は明示 bail する。
 
-    ⚠ Rust は pending_choice / continuation を持たず、 自動 pick が 89 箇所インライン。
-      Python が選択を列挙している間 Rust が従来どおり自動解決すると、 self-play の
-      学習データが **静かに汚染される**。 不変条件 「bit 一致 か 明示 bail」 を守る。
+    ⭐ site-specific bail (2026-08-21)。 全面 gate をやめ、 移植済 kind
+    (target_pick / search_top_n / play_from_hand) は通し、 未移植だけ止める。
+    これで **部分移植でも silent divergence が起きない**。
+
+    ⚠ Rust が黙って自動解決すると Python と別のゲームになり、 self-play の学習データが
+      静かに汚染される。 不変条件 「bit 一致 か 明示 bail」 を守る。
     """
     import json
-    import os
     import random
     from pathlib import Path
 
     import pytest
 
     eng = pytest.importorskip("optcg_engine")
-    if os.environ.get("ONEPIECE_RUST_CHOICE"):
-        pytest.skip("ONEPIECE_RUST_CHOICE 指定時は実験経路を通すので対象外")
 
-    from engine.core import GameState, InPlay, Phase, Player
+    from engine.core import Category, GameState, InPlay, Phase, Player
     from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay
     from engine.state_snapshot import full_dump
 
     root = Path(__file__).resolve().parent.parent
     repo = CardRepository.from_json(root / "db" / "cards.json")
+    overlay = load_effect_overlay(root / "db" / "card_effects.json")
+    eng.load_overlay(str(root / "db" / "card_effects.json"))
+
+    # 未移植 primitive (scry_life 等) を on_play で使う低コストキャラを探す
+    unported = ("scry_life", "trash_self_hand_random", "reveal_top_play",
+                "play_from_trash", "summon_from_deck")
+    target = None
+    for cid, bundle in overlay.items():
+        if "_p" in cid or "_r" in cid:
+            continue
+        c = repo._by_id.get(cid)
+        if c is None or c.category != Category.CHARACTER or (c.cost or 9) > 5:
+            continue
+        for e in bundle.effects:
+            if e.get("when") != "on_play" or e.get("if") or e.get("cost"):
+                continue
+            blob = json.dumps(e, ensure_ascii=False)
+            if any(u in blob for u in unported):
+                target = cid
+                break
+        if target:
+            break
+    assert target, "未移植 primitive を使うテストカードが見つからない = 検出力が死んでいる"
+
     filler = repo.get("OP01-013")
     p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
     p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
@@ -268,13 +293,17 @@ def test_rust_choice_enumeration_bails_by_default():
         p.deck = [filler] * 25
         p.life = [filler] * 3
         p.life_face_up = [False] * 3
-    st = GameState(players=[p0, p1], phase=Phase.MAIN, rng=random.Random(1))
+    p0.don_active = 10
+    p0.hand = [repo.get(target)]
+    st = GameState(players=[p0, p1], phase=Phase.MAIN, rng=random.Random(1),
+                   effects_overlay=overlay)
     st.turn_number = 9
+    st.turn_player_idx = 0
     st.choice_enumeration = True
 
     js = json.dumps(full_dump(st))
     with pytest.raises(Exception):
-        eng.apply_action_digest(js, json.dumps({"t": "EndPhase"}))
+        eng.choice_e2e_probe(js, json.dumps({"t": "PlayCharacter", "hand_idx": 0}), -1)
 
 
 def test_rust_choice_flag_is_not_in_the_digest():

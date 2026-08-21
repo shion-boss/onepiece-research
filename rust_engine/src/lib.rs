@@ -158,6 +158,7 @@ fn choice_e2e_probe(state_json: &str, action_json: &str, pick_index: i64) -> PyR
         "options": opts,
         "opp_chars": st.players[1].characters.iter().map(|c| c.card.card_id.clone())
             .collect::<Vec<_>>(),
+        "my_hand": st.players[0].hand.iter().map(|c| c.card_id.clone()).collect::<Vec<_>>(),
         "still_pending": st.pending_choice.is_some(),
     });
     serde_json::to_string(&out).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))

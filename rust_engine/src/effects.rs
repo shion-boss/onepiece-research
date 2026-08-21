@@ -963,11 +963,11 @@ fn pick_one_or_suspend(
     cands: Vec<(usize, Slot)>,
 ) -> Vec<(usize, Slot)> {
     if state.choice_enumeration && !choice_suspended() && cands.len() > 1 {
-        set_choice_suspended(true);
-        PENDING_CANDS.with(|c| {
-            *c.borrow_mut() =
-                Some(cands.iter().map(|&(pi, sl)| (pi, slot_to_code(sl))).collect())
-        });
+        note_choice_suspend(
+            "target_pick",
+            1,
+            cands.iter().map(|&(pi, sl)| (pi, slot_to_code(sl))).collect(),
+        );
         return vec![];
     }
     cands.into_iter().take(1).collect()
@@ -2195,6 +2195,29 @@ thread_local! {
     /// 中断した選択サイトが残す **候補集合** (= 呼出側が PendingChoice に詰める)。
     static PENDING_CANDS: std::cell::RefCell<Option<Vec<(usize, i64)>>> =
         const { std::cell::RefCell::new(None) };
+    /// 中断した選択の kind / limit (PendingChoice に載せて列挙器が使う)。
+    static PENDING_KIND: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) };
+    static PENDING_LIMIT: std::cell::Cell<usize> = const { std::cell::Cell::new(1) };
+    /// 再開時に **index ベースの選択** (search_top_n の 「見た N 枚のどれを取るか」 等) へ
+    /// 注入する picks。 target ベース (FORCED_TARGETS) と対になる仕組み。
+    static FORCED_PICKS: std::cell::RefCell<Option<Vec<usize>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// 選択サイトが中断する時の共通入口。 kind / limit / 候補を残す。
+pub(crate) fn note_choice_suspend(kind: &str, limit: usize, cands: Vec<(usize, i64)>) {
+    set_choice_suspended(true);
+    PENDING_KIND.with(|c| *c.borrow_mut() = kind.to_string());
+    PENDING_LIMIT.with(|c| c.set(limit.max(1)));
+    PENDING_CANDS.with(|c| *c.borrow_mut() = Some(cands));
+}
+
+pub(crate) fn take_forced_picks() -> Option<Vec<usize>> {
+    FORCED_PICKS.with(|c| c.borrow_mut().take())
+}
+
+pub(crate) fn set_forced_picks(v: Option<Vec<usize>>) {
+    FORCED_PICKS.with(|c| *c.borrow_mut() = v);
 }
 
 /// Slot ↔ i64 code (PendingChoice が serde 非依存で持ち回るため)。
@@ -2241,10 +2264,15 @@ pub(crate) fn suspend_if_choice(
     }
     let cands = PENDING_CANDS.with(|c| c.borrow_mut().take()).unwrap_or_default();
     let n = cands.len();
+    let kind = PENDING_KIND.with(|c| {
+        let k = c.borrow().clone();
+        if k.is_empty() { "target_pick".to_string() } else { k }
+    });
+    let limit = PENDING_LIMIT.with(|c| c.get());
     state.pending_choice = Some(crate::state::PendingChoice {
-        kind: "target_pick".to_string(),
+        kind,
         n_candidates: n,
-        limit: 1,
+        limit,
         prim: prim.clone(),
         src_slot: slot_to_code(src),
         me_idx,
@@ -4164,11 +4192,69 @@ const SIMULTANEOUS_LEAVE_PRIMS: &[&str] = &[
 ];
 
 /// rules.rs (ResolveChoice の再実行) から呼ぶための公開ラッパ。
+/// ⛔ **選択列挙モードで Rust がまだ再現できない primitive**。
+/// Python はこれらの中で `_should_human_pick` により選択を立てる (= 探索が分岐する) が、
+/// Rust は未実装なので **黙って自動解決してしまう** → Python と別のゲームになる。
+/// 不変条件 「bit 一致 か 明示 bail」 を守るため、 列挙モードではここに当たった時点で bail。
+///
+/// ⚠ このリストは `engine/effects.py` から機械抽出した (35 件)。
+///   `resolve_target` 経由の選択 (= target_pick) は `pick_one_or_suspend` で実装済なので除く。
+///   kind を移植するたびにここから外していく = **site-specific bail**。
+const CHOICE_UNPORTED_PRIMS: &[&str] = &[
+    "attach_rested_don",
+    "choice",
+    "choice_effect",
+    "draw_per_self_chara_then_discard",
+    "give_keyword",
+    "hand_to_self_life",
+    "optional_discard_hand_for_battle_buff",
+    "play_event_from_hand",
+    "play_from_hand_choice",
+    "play_from_hand_named_set",
+    "play_from_hand_named_with_dynamic_cost",
+    "play_from_hand_or_trash",
+    "play_from_trash",
+    "play_multi_from_trash",
+    "play_self",
+    "play_self_from_trash",
+    "redirect_attack",
+    "reveal_hand_play_split",
+    "reveal_life_top_play",
+    "reveal_top_play",
+    "scry_all_life_one_to_deck",
+    "scry_all_life_reorder",
+    "scry_deck_reorder",
+    "scry_life",
+    "search",
+    "search_from_trash",
+    "self_hand_to_deck_bottom",
+    "self_hand_to_size",
+    "set_cannot_attack",
+    "set_cannot_rest",
+    "summon_from_deck",
+    "trash_self_hand_random",
+    "view_life_top_choose_position",
+];
+
+/// 列挙モードで未移植の選択 primitive か。
+fn choice_unported(key: &str) -> bool {
+    CHOICE_UNPORTED_PRIMS.contains(&key)
+}
+
 pub(crate) fn execute_effect_pub(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> bool {
     execute_effect(prim, state, me_idx, src)
 }
 
 fn execute_effect(prim: &Value, state: &mut GameState, me_idx: usize, src: Slot) -> bool {
+    // ⛔ 列挙モードで未移植の選択 primitive に当たったら bail (= 黙って別のゲームにしない)。
+    if state.choice_enumeration {
+        if let Some(k) = prim.as_object().and_then(|o| o.keys().next()) {
+            if choice_unported(k.as_str()) {
+                note_prim_err(&format!("choice_enumeration 未移植 primitive: {k}"));
+                return false;
+            }
+        }
+    }
     // ⭐ 「キャラの効果でキャラを登場させた時」 (cardqa_op_12 / OP12-081) の判定用。
     //   いま実行中の効果の発動元が **場のキャラ** かを保持 (入れ子は内側優先で save/restore)。
     //   Python の state._effect_source_ip と同じ役割。
@@ -8145,7 +8231,28 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     }
                 });
             }
-            let chosen: Vec<usize> = cands.iter().take(limit).map(|t| t.0).collect();
+            // ⭐ 選択列挙: 「手札のどれを登場させるか」。 **hand を pop する前** に中断する。
+            //   候補は既存ヒューリスティック順 (cost 降順→power 降順→name) に並んでいるので、
+            //   探索は先頭 K 件 + 「選ばない」 を展開する。
+            let forced = take_forced_picks();
+            if state.choice_enumeration && !choice_suspended() && forced.is_none()
+                && cands.len() > limit.max(1)
+            {
+                note_choice_suspend(
+                    "play_from_hand_pick",
+                    limit.max(1),
+                    cands.iter().map(|t| (me_idx, t.0 as i64)).collect(),
+                );
+                return true;
+            }
+            let chosen: Vec<usize> = match forced {
+                // 再開時: 選ばれた hand_idx をそのまま使う (limit で cap)
+                Some(v) => v.into_iter().take(limit.max(1)).collect(),
+                None => cands.iter().take(limit).map(|t| t.0).collect(),
+            };
+            if chosen.is_empty() {
+                return true; // 「選ばない」 を選んだ = no-op (公式 1-3-5-1)
+            }
             // hand から pop (降順 index で ずれ防止)
             let mut desc = chosen.clone();
             desc.sort_unstable_by(|a, b| b.cmp(a));
@@ -9735,17 +9842,42 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             let limit = v.get("limit").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
             let public = v.get("public").and_then(|x| x.as_bool()).unwrap_or(false);
             let filt = v.get("filter");
-            let me = &mut state.players[me_idx];
-            if me.deck.is_empty() {
-                return true;
+            // ⭐ 選択列挙: 「見た N 枚のどれを取るか」 は **deck を drain する前** に中断する
+            //   (Rust は replay 方式なので、 中断時点で zone を動かしていてはいけない)。
+            //   候補 = seen のうち filter 一致のカード。 再開時は FORCED_PICKS で絞る。
+            let forced_picks = take_forced_picks();
+            {
+                let me_ro = &state.players[me_idx];
+                if me_ro.deck.is_empty() {
+                    return true;
+                }
+                if state.choice_enumeration && !choice_suspended() && forced_picks.is_none() {
+                    let d0 = depth.min(me_ro.deck.len());
+                    let match_idxs: Vec<usize> = (0..d0)
+                        .filter(|&i| matches_filter(&me_ro.deck[i], filt))
+                        .collect();
+                    if match_idxs.len() > limit.max(1) {
+                        note_choice_suspend(
+                            "search_top_n",
+                            limit.max(1),
+                            match_idxs.iter().map(|&i| (me_idx, i as i64)).collect(),
+                        );
+                        return true;
+                    }
+                }
             }
+            let me = &mut state.players[me_idx];
             let d = depth.min(me.deck.len());
             let seen: Vec<crate::state::CardDef> = me.deck.drain(0..d).collect();
+            // 再開時: FORCED_PICKS が指す **deck 上の元 index** だけを取る対象にする。
+            let allow: Option<std::collections::BTreeSet<usize>> =
+                forced_picks.map(|v| v.into_iter().collect());
             let mut picked = 0;
             let mut remaining: Vec<crate::state::CardDef> = vec![];
             let mut to_play: Vec<crate::state::CardDef> = vec![];
-            for c in seen {
-                if picked < limit && matches_filter(&c, filt) {
+            for (si, c) in seen.into_iter().enumerate() {
+                let allowed = allow.as_ref().map_or(true, |a| a.contains(&si));
+                if picked < limit && allowed && matches_filter(&c, filt) {
                     let cid = c.card_id.clone();
                     match destination {
                         "play" => to_play.push(c),
@@ -12370,12 +12502,57 @@ fn json_truthy(v: &Value) -> bool {
 /// 決定的・非 cascade の subset のみ対応。 once_per_turn key は呼出側で処理済 (ここでは無視)。
 /// ⚠ discard_hand / discard_hand_with_filter / trash_self / self_ko / return_self_don_to_deck 等
 ///    (cascade or AI heuristic 依存) は未対応 key として Err で bail。
+/// 発動コストに **選択の余地** があるか (= 候補が複数)。 列挙モードの bail 判定用。
+/// Python は候補 > 1 の時だけ modal を立てるので、 1 件以下なら Rust の自動処理と一致する。
+fn cost_has_multiple_candidates(
+    state: &GameState,
+    me_idx: usize,
+    self_src: Slot,
+    cost: &Value,
+) -> bool {
+    let Some(o) = cost.as_object() else { return false };
+    let me = &state.players[me_idx];
+    for (k, v) in o {
+        match k.as_str() {
+            // 手札を N 枚捨てる: 手札が N より多ければ 「どれを捨てるか」 の選択が生じる
+            "discard_hand" | "discard_hand_with_filter" => {
+                let n = v.as_i64().unwrap_or(1).max(1) as usize;
+                if me.hand.len() > n {
+                    return true;
+                }
+            }
+            // 自キャラを KO/レスト する: 該当キャラが複数なら選択が生じる
+            "ko_self_with_filter" | "rest_own_card" | "rest_self_target_name"
+            | "trash_filtered_chara" => {
+                let filt = v.get("filter").or(Some(v));
+                let n = me
+                    .characters
+                    .iter()
+                    .filter(|c| matches_filter_ip(c, filt))
+                    .count();
+                if n > 1 {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    let _ = self_src;
+    false
+}
+
 fn try_pay_counter_cost(
     state: &mut GameState,
     me_idx: usize,
     self_src: Slot,
     cost: &Value,
 ) -> Result<bool, String> {
+    // ⛔ 列挙モード: **発動コストの選択** (どのカードを捨てる/KO する/レストにする) は
+    //   Python が modal を立てて探索に選ばせるが Rust は未移植。 候補が複数ある時だけ bail
+    //   (候補 1 件なら選択の余地が無く自動 = Python も modal を立てないので一致する)。
+    if state.choice_enumeration && cost_has_multiple_candidates(state, me_idx, self_src, cost) {
+        return Err("choice_enumeration: 発動コストの選択は Rust 未移植".into());
+    }
     let Some(obj) = cost.as_object() else { return Ok(true) };
     // 認識できる key のみ (それ以外は Python では無視だが、 誤発火防止で bail)
     for k in obj.keys() {
