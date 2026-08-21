@@ -959,6 +959,44 @@ fn resolve_target(
     src: Slot,
     state: &GameState,
 ) -> Option<Vec<(usize, Slot)>> {
+    // ⭐ 再開時の注入: 探索/人間が選んだ picks があればそれを返し、 選択サイトを素通りする。
+    //   (Python の `_iid_picks` 注入と同じ役割。 1 回だけ消費する。)
+    if let Some(forced) = take_forced_targets() {
+        return Some(forced);
+    }
+    let r = resolve_target_inner(spec, me_idx, opp_idx, src, state);
+    // ⭐ 選択列挙モード: 候補が limit を超えるなら **選ばずに中断** し、 探索に選ばせる。
+    //   Python `_maybe_request_target_pick` (= _resolve_target 内 69 箇所) の中央版。
+    //   ここで空 vec を返すと primitive は no-op になり、 do 配列ループが
+    //   CHOICE_SUSPENDED を見て残りを退避する。
+    if state.choice_enumeration && !choice_suspended() {
+        if let Some(cands) = r.as_ref() {
+            let limit = spec
+                .and_then(|v| v.as_object())
+                .and_then(|o| o.get("limit"))
+                .and_then(|x| x.as_i64())
+                .unwrap_or(1)
+                .max(0) as usize;
+            if cands.len() > limit.max(1) {
+                set_choice_suspended(true);
+                PENDING_CANDS.with(|c| {
+                    *c.borrow_mut() =
+                        Some(cands.iter().map(|&(pi, sl)| (pi, slot_to_code(sl))).collect())
+                });
+                return Some(vec![]);
+            }
+        }
+    }
+    r
+}
+
+fn resolve_target_inner(
+    spec: Option<&Value>,
+    me_idx: usize,
+    opp_idx: usize,
+    src: Slot,
+    state: &GameState,
+) -> Option<Vec<(usize, Slot)>> {
     // ⭐ 公式 「**相手は**自身の…キャラ1枚を…」 = **選ぶのは相手** (cardqa_op_09)。
     //   相手は自分の損害が最小になる 1 枚を選ぶ = opp_value 昇順。
     //   (Python effects.py:_resolve_target 入口の _chooser_opp と同順)
@@ -2124,6 +2162,56 @@ fn place_played_card(
 
 thread_local! {
     static SRC_TAG_SEQ: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+    /// ⭐ 選択列挙モードの **中断フラグ**。 選択サイトが立てると、 do 配列ループが
+    ///   残りを `pending_choice.remaining_do` へ退避して抜ける。
+    ///   Rust には continuation が無いので 「フラグ + replay」 で代用する。
+    ///   ⚠ 効果の入口 (apply_action) で必ず false に戻すこと (漏れると次の効果が空振る)。
+    static CHOICE_SUSPENDED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    /// 再開時に `resolve_target` へ注入する **確定済ターゲット** (= 人間/探索が選んだ picks)。
+    /// Some の間、 resolve_target はこれを返して選択サイトを素通りする。
+    static FORCED_TARGETS: std::cell::RefCell<Option<Vec<(usize, Slot)>>> =
+        const { std::cell::RefCell::new(None) };
+    /// 中断した選択サイトが残す **候補集合** (= 呼出側が PendingChoice に詰める)。
+    static PENDING_CANDS: std::cell::RefCell<Option<Vec<(usize, i64)>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// Slot ↔ i64 code (PendingChoice が serde 非依存で持ち回るため)。
+pub(crate) fn slot_to_code(s: Slot) -> i64 {
+    match s {
+        Slot::Leader => -1,
+        Slot::Detached => -2,
+        Slot::Char(i) => i as i64,
+        Slot::Stage(i) => 1_000_000 + i as i64,
+    }
+}
+
+pub(crate) fn code_to_slot(c: i64) -> Slot {
+    if c == -1 {
+        Slot::Leader
+    } else if c == -2 {
+        Slot::Detached
+    } else if c >= 1_000_000 {
+        Slot::Stage((c - 1_000_000) as usize)
+    } else {
+        Slot::Char(c as usize)
+    }
+}
+
+pub(crate) fn choice_suspended() -> bool {
+    CHOICE_SUSPENDED.with(|c| c.get())
+}
+
+pub(crate) fn set_choice_suspended(v: bool) {
+    CHOICE_SUSPENDED.with(|c| c.set(v));
+}
+
+pub(crate) fn take_forced_targets() -> Option<Vec<(usize, Slot)>> {
+    FORCED_TARGETS.with(|c| c.borrow_mut().take())
+}
+
+pub(crate) fn set_forced_targets(v: Option<Vec<(usize, Slot)>>) {
+    FORCED_TARGETS.with(|c| *c.borrow_mut() = v);
 }
 
 /// 発動元 InPlay に一意トークンを打つ。 返り値を find_tagged に渡すと現在位置が取れる。
@@ -14863,6 +14951,11 @@ fn can_pay_activate_cost(state: &GameState, me_idx: usize, ip: &InPlay, on_field
 /// AI モード相当 (sacrifice は最弱1体)。 ⚠ audit hook は非対象。
 pub fn legal_actions(state: &GameState) -> Vec<Value> {
     let mut out: Vec<Value> = vec![];
+    // ⛔ 選択列挙モードは Rust 未追従 (rules.rs:apply_action の gate と対)。
+    //   合法手を返すと呼び出し側が 「Rust も対応済」 と誤認するので **空** を返す。
+    if state.choice_enumeration {
+        return out;
+    }
     if state.game_over || state.phase != Phase::Main {
         return out;
     }

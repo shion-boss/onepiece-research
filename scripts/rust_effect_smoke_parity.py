@@ -39,6 +39,12 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 import optcg_engine as eng  # noqa: E402
+
+# ⛔ 選択列挙モード (ONEPIECE_CHOICE_SEARCH) では Rust を使わない。
+#   Rust は pending_choice / continuation 未実装なので Python と別のゲームになる。
+from engine.rust_shadow import assert_rust_safe_for_choice_search  # noqa: E402
+assert_rust_safe_for_choice_search("rust_effect_smoke_parity.py")
+
 import scripts.rust_effect_smoke as S  # noqa: E402
 import scripts.rust_parity_check as P  # noqa: E402
 from engine.core import Category, InPlay, reset_iid  # noqa: E402

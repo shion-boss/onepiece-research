@@ -128,6 +128,14 @@ def state_digest(state: Any) -> str:
     return hashlib.sha1(blob.encode("utf-8")).hexdigest()[:16]
 
 
+# digest からは除外するが **Rust への full dump には載せる** field。
+# 選択列挙モードは 「ゲーム状態」 ではないので digest に入れてはいけないが、 Rust が
+# 「このモードは未対応だから bail する」 と判断するには値が見えている必要がある。
+# ⚠ これが見えないと Rust は Python が選択を列挙している事に気付かず、 従来どおり
+#   自動解決して **黙って別のゲーム** を進める (= 学習データの静かな汚染)。
+_FULL_DUMP_KEEP = {"choice_enumeration"}
+
+
 def _ser_full(obj: Any) -> Any:
     """Rust 取込用の full dump: canonical と同じだが CardDef を **畳まず全 field の dict** で出す
     (Rust の CardDef struct が deserialize できるように)。 instance_id 除外・set→sorted は同じ。"""
@@ -141,7 +149,8 @@ def _ser_full(obj: Any) -> Any:
             "text": obj.text, "trigger": obj.trigger,
         }
     if is_dataclass(obj) and not isinstance(obj, type):
-        return {f.name: _ser_full(getattr(obj, f.name)) for f in fields(obj) if f.name not in _EXCLUDE}
+        return {f.name: _ser_full(getattr(obj, f.name)) for f in fields(obj)
+                if f.name not in _EXCLUDE or f.name in _FULL_DUMP_KEEP}
     if isinstance(obj, Enum):
         return obj.name
     if isinstance(obj, dict):

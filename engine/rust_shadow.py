@@ -20,6 +20,7 @@
 from __future__ import annotations
 import json
 import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -38,9 +39,39 @@ def enabled() -> bool:
     global _ENABLED
     if _ENABLED is None:
         _ENABLED = os.environ.get("ONEPIECE_RUST_SHADOW", "") not in ("", "0", "false", "no")
+        # ⛔ **選択列挙モードでは Rust を使わない**。 Rust には pending_choice / continuation
+        #   機構が無く (= 自動 pick が 89 箇所インライン)、 Python が選択を列挙している間
+        #   Rust は従来どおり自動解決する = **黙って別のゲームを進める**。
+        #   parity は 「bit 一致 か 明示 bail」 が不変条件なので、 追従するまでは経路ごと止める。
+        #   ⚠ ここを外すと self-play の学習データが静かに汚染される。
+        if _ENABLED and choice_search_env_on():
+            print("⚠ ONEPIECE_CHOICE_SEARCH が有効 → Rust シャドウ検証を無効化 "
+                  "(Rust は選択列挙に未追従)", file=sys.stderr)
+            _ENABLED = False
         if _ENABLED:
             _load()
     return _ENABLED
+
+
+def choice_search_env_on() -> bool:
+    """`ONEPIECE_CHOICE_SEARCH` が有効か (= 効果中の選択を探索に載せるモード)。"""
+    v = (os.environ.get("ONEPIECE_CHOICE_SEARCH") or "").strip().lower()
+    return bool(v) and v not in ("0", "off", "false")
+
+
+def assert_rust_safe_for_choice_search(context: str = "") -> None:
+    """Rust 経路を使う前に呼ぶガード。 選択列挙モードなら **例外で止める**。
+
+    Rust は選択列挙に未追従なので、 このモードで Rust self-play / parity を回すと
+    Python と違うゲームを生成する。 学習データが静かに汚染されるより落ちる方が良い。
+    """
+    if choice_search_env_on():
+        raise RuntimeError(
+            f"ONEPIECE_CHOICE_SEARCH が有効な状態で Rust 経路 ({context or '?'}) は使えない。"
+            " Rust は pending_choice / continuation を未実装で、 Python が選択を列挙する間"
+            " Rust は自動解決する = 黙って別のゲームになる。"
+            " 追従するまでは env を外して実行すること。"
+        )
 
 
 def _load() -> None:

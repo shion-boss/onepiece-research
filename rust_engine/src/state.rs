@@ -134,7 +134,32 @@ fn ser_opt_card_id<S: serde::Serializer>(c: &Option<CardDef>, s: S) -> Result<S:
     }
 }
 
-/// 場のカード (core.py InPlay、 71 field。 instance_id は除外)。
+/// 選択列挙モードで立つ **選択待ち**。 Python `state.pending_choice` の Rust 版。
+///
+/// ⭐ Rust には continuation (= do 配列の途中再開) が無いので、 **replay 方式** を採る:
+///   選択サイトは 「まだ zone を動かしていない」 時点で中断し、 再開時に picks を注入して
+///   その primitive を最初から実行し直す。 Python 側の `_picks_idx` / `_replay_choice` と同じ発想。
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PendingChoice {
+    /// Python の pending_choice["kind"] (target_pick / search_top_n / …)。
+    pub kind: String,
+    /// 候補数 (= 探索が展開する選択肢の母数)。
+    pub n_candidates: usize,
+    /// 何枚まで選べるか。
+    pub limit: usize,
+    /// 再実行する primitive ({key: value} の 1 要素 dict)。
+    pub prim: serde_json::Value,
+    /// 発動元 slot (再実行時に同じ src で走らせる)。
+    pub src_slot: i64,
+    /// 効果の owner (= 選ぶプレイヤー)。
+    pub me_idx: usize,
+    /// 同じ do 配列の **残り** (= この primitive の後に実行するはずだった分)。
+    pub remaining_do: Vec<serde_json::Value>,
+    /// 候補の解決結果 (= 再実行時に picks で絞る母集合)。 (player_idx, slot_code)。
+    pub cand_slots: Vec<(usize, i64)>,
+}
+
+/// 場のカード (core.py InPlay、 71 field。 instance_id は除外)。/// 場のカード (core.py InPlay、 71 field。 instance_id は除外)。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct InPlay {
     #[serde(serialize_with = "ser_card_id")]
@@ -687,6 +712,27 @@ pub struct GameState {
     /// と同じ制約) — 選択と参照の間に場が動くと表現が食い違いうる。
     #[serde(skip)]
     pub last_rest_selected: Option<(usize, crate::effects::Slot)>,
+    /// ⛔ **選択列挙モード** (Python `state.choice_enumeration`)。 効果解決中の選択を
+    /// pending_choice として立て、 探索が ResolveChoice で分岐するモード。
+    /// Rust は **未追従** (pending_choice / continuation 機構が無く、 自動 pick が 89 箇所
+    /// インライン) なので、 このフラグが立っている state は **一切処理せず Err で bail** する。
+    /// 追従するまでは 「黙って別のゲームを進める」 (= 学習データの静かな汚染) を防ぐのが最優先。
+    /// digest には含まれない (ゲーム状態でなく探索の設定) が full_dump には載る。
+    /// 効果解決の途中で立った **選択待ち** (Python `state.pending_choice` のミラー)。
+    /// 選択列挙モードでのみ立つ。 `legal_actions` が ResolveChoice を返し、
+    /// `apply_action` が picks を注入して primitive を **再実行** して続きを進める
+    /// (= Python が `_picks_idx` を注入して replay するのと同じ形。 Rust には
+    ///  continuation が無いので replay 一本で通す)。
+    /// ⚠ Python 側も `pending_choice` を digest から除外しているので、 こちらも
+    ///   `skip_serializing` で揃える (= digest parity を壊さない)。
+    #[serde(default, skip_serializing, skip_deserializing)]
+    pub pending_choice: Option<PendingChoice>,
+    /// ⚠ **digest に出さない** (`skip_serializing`)。 Python 側は _EXCLUDE で digest から
+    /// 除外しつつ full_dump にだけ載せているので、 Rust も serialize 側に出すと
+    /// **全 state で digest が食い違う** (実測: parity static_skip=2138 / effect smoke
+    /// MISMATCH=5814 で全滅した)。 deserialize だけ受ける = rng_state と同じ扱い。
+    #[serde(default, skip_serializing)]
+    pub choice_enumeration: bool,
     /// 直前に cost の discard_hand_with_filter で捨てたカード名 (effects.py:8877
     /// `state.last_discarded_names`)。 filter の name_in_last_discarded 解決に使う (EB02-039)。
     #[serde(skip)]

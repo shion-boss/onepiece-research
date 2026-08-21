@@ -860,6 +860,15 @@ pub(crate) fn resolve_life_taken(
 /// action を state に適用 (副作用)。 Python apply_action ラッパ相当: impl 後に _recompute_static の
 /// ownership 部分を反映 (静的効果 eval は R3)。
 pub fn apply_action(state: &mut GameState, action: &Value) -> Result<(), String> {
+    // ⛔ **選択列挙モードは Rust 未追従** → 一切処理せず明示 bail。
+    //   Python は効果解決中の選択を pending_choice として立て、 探索が ResolveChoice で
+    //   分岐する。 Rust には pending_choice / continuation 機構が無く (自動 pick が 89 箇所
+    //   インライン)、 そのまま走らせると **黙って別のゲームを進める** (= self-play の学習
+    //   データが静かに汚染される)。 不変条件 「bit 一致 か 明示 bail」 を守るため全面 bail。
+    //   追従は kind 単位で段階的に行い、 実装済 kind が増えたらこの gate を狭めていく。
+    if state.choice_enumeration {
+        return Err("choice_enumeration (選択列挙モード) は Rust 未実装".into());
+    }
     let r = apply_action_impl(state, action);
     if r.is_ok() {
         recompute_static(state); // ownership + 静的効果 (Python _recompute_static)
