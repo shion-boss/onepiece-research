@@ -13559,3 +13559,110 @@ def test_fire_self_effect_cost_cards_are_all_gated():
         execute_effect({"fire_self_effect": {"when_kind": "main"}}, st, me, opp, None)
         assert me.don_active + me.don_rested == need - 1, f"{cid}: 払えないのにドンが減った"
         assert len(opp.characters) == 1, f"{cid}: 発動コスト未払いなのに効果が発動した (タダ撃ち)"
+
+
+# --------------------------------------------------------------------------- #
+# 選択列挙モード (= 効果中の選択を探索空間に載せる)
+# --------------------------------------------------------------------------- #
+
+def test_choice_enumeration_off_by_default_keeps_ai_auto_resolution():
+    """既定 (OFF) では AI に選択 modal を立てない = 従来の自動解決のまま。
+
+    ⚠ これが崩れると Rust parity / matrix / self-play が全部変わる。 段階導入の要。
+    """
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)          # human_idx=None かつ choice_enumeration 既定
+    assert st.choice_enumeration is False
+    me, opp = st.players
+    opp.characters = [InPlay.of(repo.get(_FILLER), sickness=False) for _ in range(3)]
+    execute_effect({"ko": {"type": "one_opponent_character_filtered",
+                           "filter": {"cost_le": 99}}}, st, me, opp, None)
+    assert st.pending_choice is None, "既定で AI に modal が立っている"
+    assert len(opp.characters) == 2, "自動解決されていない"
+
+
+def test_choice_enumeration_exposes_choices_as_legal_actions():
+    """列挙 ON では選択が `ResolveChoice` として legal_actions に出て、任意の候補を選べる。"""
+    from engine.game import ResolveChoice, apply_action, legal_actions
+
+    repo, overlay = _repo(), _overlay()
+    st = _state(repo, overlay)
+    st.choice_enumeration = True
+    me, opp = st.players
+    opp.characters = [InPlay.of(repo.get(_FILLER), sickness=False) for _ in range(3)]
+    execute_effect({"ko": {"type": "one_opponent_character_filtered",
+                           "filter": {"cost_le": 99}}}, st, me, opp, None)
+    assert st.pending_choice is not None and st.pending_choice["kind"] == "target_pick"
+
+    acts = legal_actions(st)
+    assert acts and all(isinstance(a, ResolveChoice) for a in acts), \
+        "pending_choice 局面では ResolveChoice だけが合法手であるべき"
+    picks = {a.picks for a in acts}
+    assert (0,) in picks and (1,) in picks, f"候補が展開されていない: {picks}"
+    assert () in picks, "「選ばない」 (= 公式 1-3-5-1 「〜まで」) が出ていない"
+
+    apply_action(st, ResolveChoice(picks=(1,)))
+    assert st.pending_choice is None
+    assert len(opp.characters) == 2
+
+
+def test_choice_enumeration_never_offers_skipping_an_activation_cost():
+    """**発動コスト** の選択に 「選ばない」 を出さない (公式 4-10)。
+
+    ⚠ 出すと AI が 「起動メイン宣言 → コスト払わない → 効果中止 → また宣言」 を無限に
+      繰り返し、 試合が引き分けで終わる (2026-08-21 に実測で発覚)。
+      「〜枚まで 0 枚可」 (1-3-5-1) は **効果** の話であってコストには適用されない。
+    """
+    from engine.effects import enumerate_choice_options
+
+    for kind in ("activate_main_cost_pick", "activate_main_discard_pick",
+                 "counter_discard_pick", "self_chara_cost_pick",
+                 "field_full_sacrifice_pick"):
+        opts = enumerate_choice_options({"kind": kind, "candidates": [0, 0, 0], "limit": 1})
+        assert opts, kind
+        assert () not in opts, f"{kind}: コストなのに 「選ばない」 が出ている"
+    # 対照: 効果の対象は 0 枚を選べる
+    assert () in enumerate_choice_options(
+        {"kind": "target_pick", "candidates": [0, 0, 0], "limit": 1})
+
+
+def test_choice_enumeration_survives_a_full_ai_game():
+    """列挙 ON で AI vs AI が **通常のターン数で完走** する (= 無限ループ / 中断がない)。
+
+    ⚠ 過去に 2 件の中断バグを出している経路なので、 常時この形で守る:
+      (1) `_execute_event` の owner 保存漏れ → NameError で 2 ターン終了
+      (2) `play_one_action` の PauseSignal → 列挙モードで試合が止まる
+      どちらも parity / fuzz は素通りし、 **ターン数の比較でしか気づけなかった**。
+    """
+    import random as _r
+    from pathlib import Path as _P
+
+    from engine.deck import DeckList
+    from engine.harness import run_matchup
+
+    repo = _repo()
+    decks = [p for p in sorted((ROOT / "decks").glob("cardrush_*.json"))
+             if ".analysis." not in p.name and ".target_v" not in p.name][:2]
+    d1 = DeckList.from_json(str(decks[0]), repo)
+    d2 = DeckList.from_json(str(decks[1]), repo)
+
+    import engine.game as _G
+    import engine.harness as _H
+    _orig = _G.setup_game
+
+    def _sg(*a, **kw):
+        st = _orig(*a, **kw)
+        st.choice_enumeration = True
+        return st
+
+    _G.setup_game = _sg
+    _H.setup_game = _sg
+    try:
+        rep = run_matchup(d1, d2, n_games=2, seed=11)
+    finally:
+        _G.setup_game = _orig
+        _H.setup_game = _orig
+
+    turns = [g.turns for g in rep.games]
+    assert all(t >= 6 for t in turns), f"列挙 ON で試合が異常終了している: turns={turns}"
+    assert rep.draws == 0, f"列挙 ON で引き分けが出ている (無限ループの兆候): {turns}"

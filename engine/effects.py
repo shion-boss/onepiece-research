@@ -408,6 +408,11 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
     # (= 強制 block)」 で 上書き。 AI-owned event の choice が 人間 に 出ない 様 に。
     # 元値 は finally で 復元。
     prev_forced = getattr(state, "forced_human_actor_idx", None)
+    # ⭐ 選択列挙モード: 「この event の選択を誰が選ぶか」 を記録する。 AI vs AI では
+    #   forced_human_actor_idx が None のままなので、 別 field で owner を持ち回らないと
+    #   相手ターン中に発火した自分の効果の選択を **ターンプレイヤーが選んでしまう**。
+    prev_choice_owner = getattr(state, "choice_owner_idx", None)
+    state.choice_owner_idx = evt.owner_idx
     if state.human_player_idx is None:
         state.forced_human_actor_idx = None  # AI vs AI: 通常挙動
     elif evt.owner_idx == state.human_player_idx:
@@ -678,6 +683,7 @@ def _execute_event(state: GameState, evt: TriggerEvent) -> None:
     finally:
         state.current_source_card_id = prev_src_cid
         state.forced_human_actor_idx = prev_forced
+        state.choice_owner_idx = prev_choice_owner
         if when == "on_ko":
             state.last_ko_by_opp_effect = prev_ko_by_opp
         if "victim_card" in evt.payload:
@@ -2360,14 +2366,134 @@ def eval_condition(
 # --------------------------------------------------------------------------- #
 # 対象選択ヘルパ
 # --------------------------------------------------------------------------- #
+# 選択列挙の上限。 効果中の選択は 1 game で ~62 回起きるので、 全組合せを展開すると
+# beam が破裂する。 候補は **既存の AI ヒューリスティック順** (= payload の candidates 順) で
+# 並んでいるので、 上位 K 件 + 「0 枚 (= 選ばない)」 を出せば探索の質と幅が両立する。
+CHOICE_ENUM_TOPK = 4
+# 順序選択 (scry_*_reorder 等) は組合せが階乗になるので **列挙しない** (= 既定 1 手のみ)。
+_CHOICE_ORDER_KINDS = {
+    "scry_life_reorder", "scry_deck_reorder", "search_top_n_bottom_reorder",
+    "don_return_pick",
+}
+# ⭐ **発動コスト** の選択は 「選ばない」 を出してはいけない。 公式は 「発動を宣言したら
+#   コストを払う」 (4-10) で、 払わない選択は **発動しない** (= そもそも ActivateMain を
+#   選ばない) という別の行動。 ここで () を出すと AI が
+#   「起動メイン宣言 → コスト選ばない → 効果中止 → また宣言」 を無限に繰り返し、
+#   試合が引き分けで終わる (2026-08-21 に実測で発覚)。
+#   「〜枚まで 0 枚可」 (1-3-5-1) は **効果** の話であってコストには適用されない。
+_CHOICE_MANDATORY_KINDS = {
+    "activate_main_cost_pick", "activate_main_discard_pick", "counter_discard_pick",
+    "self_chara_cost_pick", "field_full_sacrifice_pick",
+}
+# 2 択 (発動する/しない、 上/下) の confirm 系。 candidates を持たないので [0]/[1] を出す。
+_CHOICE_BINARY_KINDS = {
+    "life_taken_choice", "on_attack_optional", "optional_cost_confirm",
+    "end_of_turn_optional", "replace_ko_optional", "reveal_top_play_confirm",
+    "view_life_top_choose_position", "opp_optional_play_from_hand",
+}
+
+
+def pending_choice_owner_idx(state: GameState) -> int:
+    """いま立っている `pending_choice` を **誰が選ぶか** の player index。
+
+    優先順:
+      1. payload の owner_idx / _actor_idx / defender_idx (= 明示されている場合)
+      2. state.choice_owner_idx (= _fire_event が記録した効果イベントの owner)
+      3. forced_human_actor_idx (>= 0 の時)
+      4. turn_player_idx (= 大半の効果は自ターンに自分が解決する)
+    """
+    ch = state.pending_choice or {}
+    for key in ("owner_idx", "_actor_idx", "defender_idx"):
+        v = ch.get(key)
+        if isinstance(v, int) and 0 <= v < len(state.players):
+            return v
+    v = getattr(state, "choice_owner_idx", None)
+    if isinstance(v, int) and 0 <= v < len(state.players):
+        return v
+    f = getattr(state, "forced_human_actor_idx", None)
+    if isinstance(f, int) and 0 <= f < len(state.players):
+        return f
+    return state.turn_player_idx
+
+
+def enumerate_choice_options(choice: dict, topk: int = CHOICE_ENUM_TOPK) -> list[tuple[int, ...]]:
+    """`state.pending_choice` から **探索が分岐すべき picks の候補列** を作る。
+
+    ⭐ 全 35 kind の `resolve_pending_choice(state, picks)` は **picks: list[int] で統一** されて
+    いるので、 payload の候補リスト (`candidates` / `cards`) と `limit` から汎用に列挙できる。
+
+    返り値 = picks の tuple のリスト。 呼び元は ResolveChoice(picks=...) に包む。
+    ⚠ 常に **1 件以上** 返す (空だと legal_actions が空になり探索が止まる)。
+    """
+    kind = str(choice.get("kind") or "")
+    cands = choice.get("candidates")
+    if not isinstance(cands, list):
+        cands = choice.get("cards")
+    n = len(cands) if isinstance(cands, list) else 0
+
+    if kind in _CHOICE_ORDER_KINDS:
+        # 順序は階乗 → 既存ヒューリスティック順 (= そのまま) の 1 手のみ
+        return [tuple(range(n))] if n else [()]
+    if kind in _CHOICE_BINARY_KINDS or n == 0:
+        return [(1,), (0,)]
+
+    limit = int(choice.get("limit", 1) or 1)
+    limit = max(0, min(limit, n))
+    idxs = list(range(min(n, max(topk, limit))))
+    allow_none = kind not in _CHOICE_MANDATORY_KINDS
+    opts: list[tuple[int, ...]] = []
+    if limit <= 1:
+        # 1 枚選ぶ: 上位 K 件 (+ コスト以外なら 「選ばない」)
+        opts = [(i,) for i in idxs[:topk]]
+        if allow_none:
+            opts.append(())
+    else:
+        # N 枚まで選ぶ: 先頭から詰めた 1..limit 枚 + 上位 K の単独 (+ 「選ばない」)
+        for take in range(1, limit + 1):
+            opts.append(tuple(idxs[:take]))
+        for i in idxs[:topk]:
+            if (i,) not in opts:
+                opts.append((i,))
+        if allow_none:
+            opts.append(())
+    # 重複除去 (順序保持 = 先頭ほど既存ヒューリスティックに近い)
+    seen: set = set()
+    uniq: list[tuple[int, ...]] = []
+    for o in opts:
+        if o not in seen:
+            seen.add(o)
+            uniq.append(o)
+    return uniq or [()]
+
+
 def _should_human_pick(state: GameState) -> bool:  # noqa: F811
-    """人間 操作中 か (= state.human_player_idx == 現 turn_player_idx)。
+    """**選択を提示すべきか** (= 人間操作中 or 選択列挙モードの AI)。
+
+    ⭐ `state.choice_enumeration` が True の時は AI でも選択を pending_choice として立てる。
+    こうすると `legal_actions` が ResolveChoice を返し、 **探索が選択点を分岐できる**
+    (= 人間と AI が同一の選択肢を持つ。 [[feedback_human_ai_option_parity]])。
+    既定 False = 従来どおり AI は固定ヒューリスティックで自動解決 → Rust parity / matrix /
+    self-play は不変。
+
+    (以下は人間判定の従来ロジック)
+    人間 操作中 か (= state.human_player_idx == 現 turn_player_idx)。
 
     forced_human_actor_idx の 値:
     - = human_player_idx: 強制 True (= counter event 等 自ターン外 で human actor)
     - = -1: 強制 False (= AI-owned event 中、 human の choice modal を 出さない)
     - = None: 通常 (= turn_player_idx 判定)
     """
+    if getattr(state, "choice_enumeration", False):
+        # 片側だけ選択探索させる A/B のため、 適用プレイヤーを絞れる。
+        # 「いま効果を解決しているのは誰か」 = choice_owner_idx (event 発火時に記録) →
+        # 無ければ turn_player。
+        idxs = getattr(state, "choice_enum_idxs", ()) or ()
+        if not idxs:
+            return True
+        actor = getattr(state, "choice_owner_idx", None)
+        if not isinstance(actor, int) or not (0 <= actor < len(state.players)):
+            actor = state.turn_player_idx
+        return actor in idxs
     forced = getattr(state, "forced_human_actor_idx", None)
     if (
         forced is not None

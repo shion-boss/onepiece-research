@@ -74,6 +74,26 @@ class EndPhase:
     pass
 
 
+@dataclass(frozen=True)
+class ResolveChoice:
+    """効果解決の途中で立った `state.pending_choice` を **1 アクションとして** 解決する。
+
+    ⭐ 目的 = **選択点を探索空間に載せる**。 engine には 「人間なら選べるが AI は固定
+    ヒューリスティックで決めている」 箇所が 50 箇所あり、 探索 (plan_search) は
+    `legal_actions` しか分岐源にしていないので、 それらは **探索の外** にあった
+    (実測 24 game で 1,483 件 ≒ 62 件/game。 うち target_pick 198 件 / search_top_n 238 件が
+    「候補 2 枚以上の実質的な選択」)。
+
+    選択を Action にすると:
+      - 探索は **構造変更ゼロ** (beam は legal_actions を見るだけ)
+      - 人間経路も不変 (API は既に picks: list[int] を送っている)
+      - 人間と AI が **同一の選択肢** を持つ ([[feedback_human_ai_option_parity]])
+
+    picks = `resolve_pending_choice(state, picks)` に渡す index list (全 35 kind で統一)。
+    """
+    picks: tuple[int, ...] = ()
+
+
 Action = Union[
     PlayCharacter,
     PlayEvent,
@@ -84,12 +104,42 @@ Action = Union[
     AttackCharacter,
     ActivateMain,
     EndPhase,
+    ResolveChoice,
 ]
 
 
 # --------------------------------------------------------------------------- #
 # セットアップ
 # --------------------------------------------------------------------------- #
+def _apply_choice_search_env(state: GameState) -> None:
+    """`ONEPIECE_CHOICE_SEARCH` で **効果中の選択を探索に載せる** モードを有効化する。
+
+    ⭐ engine には 「人間なら選べるが AI は固定ヒューリスティックで決めている」 箇所が
+    50 箇所あり、 探索 (plan_search) は legal_actions しか分岐源にしていないので、
+    それらは探索の外にあった (実測 24 game で 1,483 件 ≒ 62 件/game)。
+    ON にすると AI にも pending_choice が立ち、 `legal_actions` が ResolveChoice を返して
+    探索・学習が選択点を扱えるようになる (= 人間と AI が同一の選択肢を持つ)。
+
+    値:
+      "1"        → 両プレイヤー
+      "0" / 未設定 → OFF (= 従来どおり。 Rust parity / matrix / self-play が不変)
+      "0"/"1" 以外に "p0" / "p1" を渡すと片側だけ (= A/B 用)
+
+    ⚠ setup_game に置いているので **全経路** (harness / 学習 / matrix / API) で一様に効く。
+    """
+    import os as _os_cs
+    v = (_os_cs.environ.get("ONEPIECE_CHOICE_SEARCH") or "").strip().lower()
+    if not v or v in ("0", "off", "false"):
+        return
+    state.choice_enumeration = True
+    if v in ("p0", "0idx"):
+        state.choice_enum_idxs = (0,)
+    elif v in ("p1", "1idx"):
+        state.choice_enum_idxs = (1,)
+    else:
+        state.choice_enum_idxs = ()
+
+
 def setup_game(
     deck1: DeckList,
     deck2: DeckList,
@@ -174,6 +224,7 @@ def setup_game(
         if human_player_idx is not None:
             state.human_player_idx = human_player_idx
         state._pre_stage_choice_pending = True  # type: ignore[attr-defined]
+        _apply_choice_search_env(state)
         return state
 
     # 公式 5-2 セットアップ 順序: ライフ配置 → 手札 5 枚 → マリガン。
@@ -196,6 +247,7 @@ def setup_game(
         # マリガン skip path: state を 「pre-mulligan」 で 返す。
         # 呼び出し側 が finalize_setup_after_mulligan を 呼んで 完了 する 想定。
         state._pre_mulligan_pending = True  # type: ignore[attr-defined]
+        _apply_choice_search_env(state)
         return state
 
     state.push_log(
@@ -203,6 +255,7 @@ def setup_game(
         f"vs P1={p2.leader.card.name}({p2.leader.card.life}L)"
     )
     _recompute_static(state)
+    _apply_choice_search_env(state)
     return state
 
 
@@ -998,7 +1051,16 @@ _EVENT_MAIN_WHENS = {"main", "event_main"}
 
 
 def legal_actions(state: GameState) -> list[Action]:
-    if state.game_over or state.phase != Phase.MAIN:
+    if state.game_over:
+        return []
+    # ⭐ 効果解決の途中で選択が立っている局面では、 **その選択の解決だけが合法手**。
+    #   これで探索 (plan_search) は構造を変えずに選択点を分岐できる
+    #   (= beam は legal_actions を見るだけ)。 phase は MAIN に限らない
+    #   (相手ターンのカウンター/トリガー選択もここに来る)。
+    if state.pending_choice is not None:
+        from .effects import enumerate_choice_options
+        return [ResolveChoice(picks=p) for p in enumerate_choice_options(state.pending_choice)]
+    if state.phase != Phase.MAIN:
         return []
 
     me = state.turn_player
@@ -1084,6 +1146,15 @@ def legal_actions(state: GameState) -> list[Action]:
                 continue
             if is_human_turn:
                 # 人 間: 全 5 chara を sacrifice 候 補 と し て 個 別 action 生 成
+                for ip in me.characters:
+                    actions.append(
+                        PlayCharacter(hand_idx=i, sacrifice_iid=ip.instance_id)
+                    )
+            elif state.choice_enumeration:
+                # ⭐ 選択列挙モード: AI にも **全 5 候補** を出す (= 場 5 枚での差し替え相手を
+                #   探索が選べる)。 公式 3-7-6-1 は 「持ち主が選ぶ」 なので、 人間と AI が
+                #   同じ選択肢を持つのが正 ([[feedback_human_ai_option_parity]])。
+                #   ⚠ 分岐が 5 倍になるので既定 OFF のまま (= 従来の最弱 1 候補)。
                 for ip in me.characters:
                     actions.append(
                         PlayCharacter(hand_idx=i, sacrifice_iid=ip.instance_id)
@@ -1390,6 +1461,15 @@ def apply_action(state: GameState, action: Action, ai=None) -> None:
             plan_search.fast_clone 内では ai=None で hook skip 推奨 (= sim 中は belief 不更新)。
     """
     if state.game_over:
+        return
+    if isinstance(action, ResolveChoice):
+        # 効果中の選択を 1 アクションとして解決 (= 探索の分岐点)。
+        # ⚠ phase 制限を掛けない: 相手ターンのカウンター/トリガー選択もここを通る。
+        if state.pending_choice is None:
+            return
+        from .effects import resolve_pending_choice
+        resolve_pending_choice(state, list(action.picks))
+        _recompute_static(state)
         return
     if state.phase != Phase.MAIN:
         raise ValueError("apply_action MAIN only")

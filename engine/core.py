@@ -976,6 +976,18 @@ class GameState:
     # frontend が /choice endpoint で 解消 する まで 進行 を 止める。
     # dict 形式: {"kind": "search_top_n", "cards": [...], "limit": N, ...}
     pending_choice: Optional[dict] = None
+    # ⭐ 選択列挙モード: True の間、 効果解決中の選択を **AI に対しても** pending_choice として
+    #   立てる (= 探索が ResolveChoice アクションとして分岐できる)。
+    #   既定 False = 従来どおり AI は固定ヒューリスティックで自動解決する。
+    #   これを段階導入の gate にしている: OFF の間は Rust parity / matrix / self-play が不変。
+    #   ⚠ digest 除外 (_EXCLUDE)。 探索の設定であってゲーム状態ではない。
+    choice_enumeration: bool = False
+    # 選択列挙を **どのプレイヤーに** 適用するか (空 = choice_enumeration の全体設定に従う)。
+    # A/B (= 片側だけ選択探索させて勝率差を測る) に必須。 mirror でも席を入れ替えて測れる。
+    choice_enum_idxs: tuple = ()
+    # 選択列挙モードで 「いま立っている pending_choice を **誰が** 選ぶか」。
+    # 効果イベントの owner_idx を _fire_event が設定/復元する。 None なら turn_player。
+    choice_owner_idx: Optional[int] = None
     # 「自ターン外 で actor が human の effect 発動中」 override。
     # 例: counter event を 防御中 (= AI ターン中) に 発動 する 際、 turn_player_idx は
     # AI だが、 effect の actor は defender=human。 この時 human pick を 有効化 する。

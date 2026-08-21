@@ -61,6 +61,11 @@ _EXCLUDE = {
                                    #   除外しても 「アタックがどこに向いたか」 は battle 結果 (ライフ/KO) で
                                    #   検証される。 ⚠ 除外前は 効果を単体発火する差分検証 (直接発火 harness)
                                    #   でのみ露見していた (OP14-060、 2026-08-03)
+    "choice_enum_idxs",            # 選択列挙を適用するプレイヤー (= A/B 用の設定)。
+    "choice_owner_idx",            # 選択列挙モードで 「その選択を誰が選ぶか」 の transient。
+    "choice_enumeration",          # 選択列挙モード (= 探索が効果中の選択を分岐する) の設定フラグ。
+                                   #   ゲーム状態でなく **探索の設定** なので digest 対象外。
+                                   #   OFF (既定) の間は Rust と挙動が完全一致する。
     "field_full_sacrifice_iids",   # 場 5 枚差し替え (3-7-6-1) で **人間が選んだ** 犠牲キャラの
                                    #   instance_id キュー。 instance_id 依存 = Rust 再現不可、 かつ
                                    #   人間 modal 経路でしか埋まらない (AI/self-play では常に空)。
