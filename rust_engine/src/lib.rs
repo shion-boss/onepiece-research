@@ -239,12 +239,25 @@ fn apply_action_choice_policy_trace(state_json: &str, action_json: &str, policy_
                 effects::Slot::Detached => format!("idx#{code}"),
             }
         }).collect();
+        // ⚠ 候補コードは kind によって **意味が違う** (盤面 slot / 手札 index / デッキ index)。
+        //   slot として描画すると手札系の候補が char#N に化けて 「同形なのに乖離」 に見える
+        //   ので、 生コードと **選ぶ側の手札** も併せて出す (2026-08-22)。
+        let raw_codes: Vec<i64> = pc.cand_slots.iter().map(|&(_pi, c)| c).collect();
+        let owner_hand: Vec<String> = st.players[pc.me_idx].hand.iter()
+            .map(|c| c.card_id.clone()).collect();
+        let cand_hand: Vec<String> = raw_codes.iter()
+            .map(|&c| owner_hand.get(c as usize).cloned()
+                .unwrap_or_else(|| format!("#{c}")))
+            .collect();
         trace.push(serde_json::json!({
             "kind": pc.kind, "n_cands": pc.n_candidates, "limit": pc.limit,
             "n_options": opts.len(),
             "prim": pc.prim.as_object().and_then(|o| o.keys().next().cloned())
                 .unwrap_or_default(),
             "cands": cand_ids,
+            "codes": raw_codes,
+            "cands_as_hand": cand_hand,
+            "owner_hand": owner_hand,
         }));
         if opts.is_empty() {
             st.pending_choice = None;
@@ -271,8 +284,13 @@ fn apply_action_choice_policy_trace(state_json: &str, action_json: &str, policy_
             .collect::<Vec<_>>(),
         "don": [p.don_active, p.don_rested],
     })).collect();
+    // ⭐ canonical blob も返す (Python `diff_canonical` に食わせて **乖離 field を pinpoint**
+    //   できるようにする)。 粗い fp が一致しているのに digest だけ違う型 (= buff / フラグ の
+    //   乖離) は blob 無しでは特定できない (2026-08-22)。
+    let blob = serde_json::to_value(&st)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
     serde_json::to_string(&serde_json::json!({
-        "digest": dg, "trace": trace, "fp": fp,
+        "digest": dg, "trace": trace, "fp": fp, "blob": blob,
         "enum_on": enum_on, "suspend_calls": effects::suspend_call_count(),
         "tl_before": tl_before,
     }))

@@ -875,6 +875,11 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
         .collect();
     let src = crate::effects::code_to_slot(pc.src_slot);
     crate::effects::set_choice_suspended(false);
+    // ⭐ **効果単位の中断** (発動コストの手札捨て) は primitive の replay では再現できない
+    //   (コストは do の外)。 専用の再開経路で 「コスト支払い → 効果 index 指定の再発火」 を行う。
+    if pc.kind == "counter_discard_pick" {
+        return crate::effects::resume_event_cost_discard(state, &pc, &picks);
+    }
     // ⭐ 注入先は kind で切り替える:
     //   target 系 (target_pick) → FORCED_TARGETS ((player, Slot) の組)
     //   index 系 (search_top_n 等) → FORCED_PICKS (zone 内の元 index)
@@ -954,6 +959,13 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
         if crate::effects::suspend_if_choice(state, &dos, ci, &prim, src, pc.me_idx) {
             break;
         }
+    }
+    // ⭐ 選択が解けたら **キューに残しておいたイベントを再 drain** する (Python
+    //   `resolve_pending_choice` 末尾の `if state.pending_choice is None and state.event_queue:
+    //    resolve_triggers(state)` と 1:1)。 選択待ち中は drain を止めているので、 ここで
+    //   流さないと 「選択の後に発動するはずだった効果」 が丸ごと消える。
+    if state.pending_choice.is_none() {
+        crate::effects::maybe_resolve(state)?;
     }
     Ok(())
 }

@@ -1457,8 +1457,12 @@ fn resolve_target_inner(
             cands.sort_by(|&a, &b| p.characters[b].power().cmp(&p.characters[a].power()));
             pick_one_or_suspend(state, cands.into_iter().map(|i| (me_idx, Slot::Char(i))).collect())
         }
-        // effects.py:2345 「自リーダーかキャラ1枚」 = src ではなく AI=最高power の自カード (leader/char)。
+        // effects.py:3126 「自リーダーかキャラ1枚まで」 = src ではなく AI=最高power の自カード (leader/char)。
         // ties は原順 (leader→char0→…) = 安定ソート。 counter event (source-gone) 等で src と別。
+        // ⭐ **選択サイト**: Python は `_maybe_request_target_pick` に候補 (leader + 全キャラ) を
+        //   渡す。 ここで 1 枚に畳んでしまうと中央の中断判定 (cands.len() > limit) が効かず、
+        //   **Rust だけ勝手に最高 power を選ぶ** = 列挙 ON で黙って乖離した (2026-08-22、
+        //   OP15-057 ドレスローザ王国の【相手のアタック時】+2000 で検出)。
         "self_inplay" => {
             let me = &state.players[me_idx];
             let mut cands: Vec<(Slot, i32)> = vec![(Slot::Leader, me.leader.power())];
@@ -1466,7 +1470,7 @@ fn resolve_target_inner(
                 cands.push((Slot::Char(i), c.power()));
             }
             cands.sort_by(|a, b| b.1.cmp(&a.1)); // desc power (stable=ties 原順)
-            vec![(me_idx, cands[0].0)]
+            pick_one_or_suspend(state, cands.into_iter().map(|(sl, _)| (me_idx, sl)).collect())
         }
         "self_leader" => vec![(me_idx, Slot::Leader)],
         // 相手の【ブロッカー】持ちキャラ 1 枚 (effects.py:2504、 opp_value 降順)
@@ -2386,6 +2390,23 @@ pub(crate) fn suspend_if_choice(
         cand_slots: cands,
     });
     true
+}
+
+/// ⛔ **選択待ちが立っている間の inline 発火は Rust 未移植** (= 明示 bail)。
+///
+/// Python は選択待ち中 **イベントを drain しない** (`resolve_triggers` の入口ガード、
+/// 2026-08-22 に是正) ので、 反応効果は **キューに残って選択解決後に発動する**。
+/// Rust は同じ効果を inline 発火する経路が多く、 そのままだと **Python より先に解決** する。
+/// → キューを持つ経路 (`fire_field_when` / `fire_opp_attack_collected` / コスト由来トリガー)
+///   は **退避** に切り替えた。 まだ inline のままの経路 (when-effect / on_ko / life trigger)
+///   は、 「黙って違う盤面を作らない」 の不変条件を守るためここで bail する。
+/// ⚠ この bail を消すには **その経路もキュー退避に寄せる** 必要がある (順序が Python と
+///   ずれるので 「inline でも同じだろう」 は禁物。 [[reference_rust_mismatch_root_cause_taxonomy]] ⑦)。
+pub(crate) fn bail_if_choice_pending(state: &GameState, site: &str) -> Result<(), String> {
+    if state.choice_enumeration && state.pending_choice.is_some() {
+        return Err(format!("choice_enumeration: 選択待ち中の {site} 発火は Rust 未移植"));
+    }
+    Ok(())
 }
 
 pub(crate) fn choice_suspended() -> bool {
@@ -10824,6 +10845,7 @@ pub fn execute_card_effects(
     when: &str,
     src: Slot,
 ) -> Result<(), String> {
+    bail_if_choice_pending(state, "when-effect")?;
     let Some(ov) = overlay() else { return Ok(()) };
     let Some(effs) = ov.get(card_id) else { return Ok(()) };
     // 発動元が 「効果無効」 なら主要 when は発動しない (effects.py:_execute_event の gate)。
@@ -10887,54 +10909,14 @@ pub fn execute_card_effects(
                 used.sort();
             }
         }
-        if let Some(cost) = eff.get("cost") {
-            // ⭐ 列挙モード: 公式 「〜することができる：効果」 の **発動コストを払うかどうか**
-            //   は本人が決める。 Python (`_execute_event`, effects.py:505-609) は
-            //   once_per_turn を除いた実コストがあると
-            //     ① discard 系 → counter_discard_pick
-            //     ② 非 discard → `optional_cost_then` に包んで optional_cost_confirm
-            //   を立てる。 Rust は ② を **同じ形で包んで** 実装し、 ① は未移植なので bail。
-            if state.choice_enumeration && choice_cost_when(when) {
-                if let Some(o) = cost.as_object() {
-                    let real: Vec<(&String, &Value)> =
-                        o.iter().filter(|(k, _)| k.as_str() != "once_per_turn").collect();
-                    if !real.is_empty() {
-                        let real_obj: Value = Value::Object(
-                            real.iter().map(|(k, v)| ((*k).clone(), (*v).clone())).collect());
-                        if !can_pay_counter_cost_full(state, me_idx, src, &real_obj) {
-                            continue; // 払えない = Python も skip (effects.py:529)
-                        }
-                        // 手札捨てコストは Python が counter_discard_pick を立てる = 未移植
-                        let nondiscard: Vec<&(&String, &Value)> = real.iter().filter(|(k, _)| {
-                            !matches!(k.as_str(), "discard_hand" | "discard_hand_with_filter")
-                        }).collect();
-                        if nondiscard.len() != real.len() {
-                            return Err(format!(
-                                "choice_enumeration: {when} の手札捨てコスト選択は Rust 未移植 ({card_id})"
-                            ));
-                        }
-                        let oct = serde_json::json!({"optional_cost_then": {
-                            "cost": nondiscard.iter()
-                                .map(|(k, v)| serde_json::json!({ (*k).clone(): (*v).clone() }))
-                                .collect::<Vec<_>>(),
-                            "effect": eff.get("do").cloned().unwrap_or(Value::Array(vec![])),
-                        }});
-                        if !execute_effect(&oct, state, me_idx, src) {
-                            return Err(format!("{when} 任意コスト包み込みが未対応 ({card_id})"));
-                        }
-                        // 中断したら残りの bundle entry は走らせない (Python も return)
-                        if suspend_if_choice(state, std::slice::from_ref(&oct), 0, &oct, src, me_idx) {
-                            break;
-                        }
-                        continue; // 効果は optional_cost_then が解決済 → 通常の do-list は流さない
-                    }
-                }
-            }
-            match pay_on_play_cost(cost, state, me_idx, src) {
-                Some(true) => {}
-                Some(false) => continue,   // cost 払えない = Python も skip
-                None => return Err(format!("{when} cost 未対応 ({card_id})")),
-            }
+        // ⭐ 発動コストは `_execute_event` の cost 節ミラー (`event_cost_gate`) に委譲する。
+        //   列挙モードで **modal を立てるのはこの経路だけ**。 on_attack / opp_attack /
+        //   効果コピーは Python も `_pay_counter_cost` の auto-pay なので gate を通さない。
+        match event_cost_gate(state, me_idx, src, when, card_id, idx, eff)? {
+            EventCostGate::Paid => {}
+            EventCostGate::SkipEffect => continue,
+            EventCostGate::Resolved => continue, // optional_cost_then が効果まで解決済
+            EventCostGate::Suspended => break,   // 選択待ち (Python も return)
         }
         // ⭐ 公式 「**相手は**…してもよい」 (bundle 直下 actor:"opp") = **相手の側で解決する**
         //   (cardqa_op_12、 OP12-075 ミス・オールサンデー: 「相手がドン!!を追加するかどうかを
@@ -11332,6 +11314,13 @@ pub fn maybe_resolve(state: &mut GameState) -> Result<(), String> {
     if state.rust_resolving || state.rust_event_queue.is_empty() {
         return Ok(());
     }
+    // ⭐ **選択待ちが立っている間は drain しない** (Python `resolve_triggers` の入口ガードと
+    //   1:1、 2026-08-22)。 イベントはキューに残し、 ResolveChoice の解決後に再 drain する。
+    //   ここで drain すると 「選択待ちのまま解決したイベント」 が primitive の pending ガードで
+    //   黙って no-op し、 **コストだけ払って効果が消える**。
+    if state.choice_enumeration && state.pending_choice.is_some() {
+        return Ok(());
+    }
     state.rust_resolving = true;
     let r = (|| -> Result<(), String> {
         // ⭐ **バッチ解決** (effects.py resolve_triggers と 1:1、 2026-08-17)。
@@ -11347,6 +11336,16 @@ pub fn maybe_resolve(state: &mut GameState) -> Result<(), String> {
                 // 現バッチの残数 = 取り出した 1 件を引く (新規 enqueue は次バッチなので数えない)
                 let _ = before;
                 remaining -= 1;
+                // ⭐ 選択列挙: 選択待ちが立ったら drain を止める (Python resolve_triggers も
+                //   `if state.pending_choice is not None: break`)。 残りのイベントはキューに
+                //   残し、 ResolveChoice の解決後に再 drain する。 ここで止めないと
+                //   **Python は halt しているのに Rust だけ次のイベントを解決** して乖離する。
+                if state.pending_choice.is_some() {
+                    break;
+                }
+            }
+            if state.pending_choice.is_some() {
+                break;
             }
         }
         Ok(())
@@ -11363,6 +11362,10 @@ fn execute_pending(state: &mut GameState, evt: &PendingTrigger) -> Result<(), St
         return run_explicit_idx_event(state, evt);
     }
     match evt.when.as_str() {
+        // ⭐ 発動コスト由来の【KO時】を **キューへ退避** した分 (選択待ちで inline 発火できな
+        //   かったもの)。 被 KO の記録 (note_ko_and_should_fire) は支払い時に済んでいるので、
+        //   ここは do の解決だけを行う。
+        "on_ko" => run_on_ko_effects(state, evt.owner_idx, &evt.card_id.clone()),
         "on_play" => {
             let me = evt.owner_idx;
             // enqueue 時に打ったトークンで発火元の現在位置を復元する (Python の source_iid 相当)。
@@ -11731,6 +11734,7 @@ fn fire_on_attack_do(
     effs: &[Value],
     mut fired: Vec<usize>,
 ) -> Result<(), String> {
+    bail_if_choice_pending(state, "on_attack")?;
     // 発火フェーズ: sorted idx 順に条件再評価 + do 発火。
     // ⚠ Python (trigger_on_attack) は on_attack を **enqueue** して return するだけで、
     //   実際の do 実行は resolve_triggers の中 (resolving=true) で走る。 その間に do の中で
@@ -12745,6 +12749,7 @@ pub(crate) fn run_on_ko_effects(
     owner_idx: usize,
     victim_cid: &str,
 ) -> Result<(), String> {
+    bail_if_choice_pending(state, "on_ko")?;
     let Some(ov) = overlay() else { return Ok(()) };
     let Some(effs) = ov.get(victim_cid) else { return Ok(()) };
     // Python (trigger_on_ko) は on_ko を **enqueue** して _maybe_resolve を呼ぶ = do-list は
@@ -12759,7 +12764,7 @@ pub(crate) fn run_on_ko_effects(
     let prev_resolving = state.rust_resolving;
     state.rust_resolving = true;
     let r = (|| -> Result<(), String> {
-        for eff in effs {
+        for (eff_idx, eff) in effs.iter().enumerate() {
             if eff.get("when").and_then(|v| v.as_str()) != Some("on_ko") {
                 continue;
             }
@@ -12772,15 +12777,12 @@ pub(crate) fn run_on_ko_effects(
             if eff.get("once_per_turn").is_some() {
                 return Err("on_ko once_per_turn 未対応 (canonical 未化)".into());
             }
-            // cost: try_pay_counter_cost が扱う型 (pay_don/discard_hand/rest_self_don/life 系/flip 等) のみ対応
-            // (source-gone=Leader placeholder で player-level 安全)。 未対応型は try_pay_counter_cost が Err。
-            if let Some(cost) = eff.get("cost") {
-                if !cost_is_empty(cost) {
-                    match try_pay_counter_cost(state, owner_idx, Slot::Detached, cost)? {
-                        true => {}
-                        false => continue, // 支払い不能 → 効果 skip
-                    }
-                }
+            // cost: `_execute_event` の cost 節ミラー (列挙モードでは modal を立てうる)。
+            match event_cost_gate(state, owner_idx, Slot::Detached, "on_ko", victim_cid, eff_idx, eff)? {
+                EventCostGate::Paid => {}
+                EventCostGate::SkipEffect => continue,
+                EventCostGate::Resolved => continue,
+                EventCostGate::Suspended => break,
             }
             let Some(dos) = eff.get("do").and_then(|v| v.as_array()) else { continue };
             // play_self_from_trash 用に victim の card_id を transient set (Python _execute_event=source)。
@@ -12797,6 +12799,10 @@ pub(crate) fn run_on_ko_effects(
                 }
             }
             state.current_source_card_id = prev_src.clone(); // transient を復元 (action 境界で None)
+            // ⭐ 選択待ちが立ったら同 bundle の残りエントリは走らせない (Python は return)。
+            if state.pending_choice.is_some() {
+                break;
+            }
         }
         Ok(())
     })();
@@ -12819,6 +12825,7 @@ pub fn fire_life_trigger(
     attacker_idx: usize,
     card_id: &str,
 ) -> Result<bool, String> {
+    bail_if_choice_pending(state, "life trigger")?;
     let Some(ov) = overlay() else { return Ok(false) };
     let Some(effs) = ov.get(card_id) else { return Ok(false) };
     crate::selfplay::note_fired(card_id);
@@ -12878,18 +12885,15 @@ pub fn fire_life_trigger(
             }
         }
         // cost 持ちトリガー (overlay 実績: pay_don 16 / discard_hand 1 / once_per_turn 1)。
-        // on_ko と同じく try_pay_counter_cost に委譲する (source-gone = Slot::Detached)。
-        // once_per_turn は iid-keyed で Rust から追跡できないので従来通り bail。
-        if let Some(cost) = eff.get("cost") {
-            if !cost_is_empty(cost) {
-                match try_pay_counter_cost(state, defender_idx, Slot::Detached, cost)? {
-                    true => {}
-                    false => continue, // 支払い不能 → この効果は発動しない
-                }
-            }
-        }
-        if false {
-            return Err("life trigger cost 未対応".into());
+        // ⭐ 【トリガー】は Python では `enqueue_event(when="trigger")` → `_execute_event` 経由
+        //   (trigger_lifecard_trigger) なので、 **cost 節も `_execute_event` のミラー**。
+        //   列挙モードでは 「発動コストを払うか」 「どの札を捨てるか」 が modal になる
+        //   (= ここを auto-pay で素通りさせると Python だけ halt して黙って乖離する)。
+        match event_cost_gate(state, defender_idx, Slot::Detached, "trigger", card_id, eff_idx, eff)? {
+            EventCostGate::Paid => {}
+            EventCostGate::SkipEffect => continue,
+            EventCostGate::Resolved => continue,
+            EventCostGate::Suspended => break,
         }
         if eff.get("once_per_turn").is_some() {
             return Err("life trigger once 未対応".into()); // once_per_turn_used = canonical 除外 依存
@@ -12931,6 +12935,10 @@ pub fn fire_life_trigger(
             if suspend_if_choice(state, dos, _ci, prim, Slot::Detached, defender_idx) {
                 break;
             }
+        }
+        // ⭐ 選択待ちが立ったら同 bundle の残りエントリは走らせない (Python は return)。
+        if state.pending_choice.is_some() {
+            break;
         }
     }
     state.current_source_card_id = None; // action 境界では None に戻す
@@ -13011,45 +13019,6 @@ fn json_truthy(v: &Value) -> bool {
 /// 決定的・非 cascade の subset のみ対応。 once_per_turn key は呼出側で処理済 (ここでは無視)。
 /// ⚠ discard_hand / discard_hand_with_filter / trash_self / self_ko / return_self_don_to_deck 等
 ///    (cascade or AI heuristic 依存) は未対応 key として Err で bail。
-/// 発動コストに **選択の余地** があるか (= 候補が複数)。 列挙モードの bail 判定用。
-/// Python は候補 > 1 の時だけ modal を立てるので、 1 件以下なら Rust の自動処理と一致する。
-fn cost_has_multiple_candidates(
-    state: &GameState,
-    me_idx: usize,
-    self_src: Slot,
-    cost: &Value,
-) -> bool {
-    let Some(o) = cost.as_object() else { return false };
-    let me = &state.players[me_idx];
-    for (k, v) in o {
-        match k.as_str() {
-            // 手札を N 枚捨てる: 手札が N より多ければ 「どれを捨てるか」 の選択が生じる
-            "discard_hand" | "discard_hand_with_filter" => {
-                let n = v.as_i64().unwrap_or(1).max(1) as usize;
-                if me.hand.len() > n {
-                    return true;
-                }
-            }
-            // 自キャラを KO/レスト する: 該当キャラが複数なら選択が生じる
-            "ko_self_with_filter" | "rest_own_card" | "rest_self_target_name"
-            | "trash_filtered_chara" => {
-                let filt = v.get("filter").or(Some(v));
-                let n = me
-                    .characters
-                    .iter()
-                    .filter(|c| matches_filter_ip(c, filt))
-                    .count();
-                if n > 1 {
-                    return true;
-                }
-            }
-            _ => {}
-        }
-    }
-    let _ = self_src;
-    false
-}
-
 /// 起動メインの **発動コスト支払いで Python が選択 modal を立てるか** を厳密に写した述語。
 ///
 /// ⭐ なぜ 「複数候補か」 で近似してはいけないか: Python (`_fire_activate_main_inner`) の
@@ -13119,18 +13088,240 @@ fn activate_main_cost_choice_pending(
     false
 }
 
+/// `_execute_event` の **発動コスト節** (effects.py:505-609) の結果。
+pub(crate) enum EventCostGate {
+    /// コスト無し / 支払い済 → 呼出側は通常どおり do を流す。
+    Paid,
+    /// 払えない → 呼出側は continue (発動できない、 公式 4-10)。
+    SkipEffect,
+    /// 任意コスト包み (`optional_cost_then`) が **効果まで解決した** → do は流さない。
+    Resolved,
+    /// 選択待ちが立った → 呼出側は break (Python も `return` で bundle ループを抜ける)。
+    Suspended,
+}
+
+/// `_execute_event` の発動コスト (手札捨て) で **効果単位の中断** を立てる
+/// (Python `counter_discard_pick`、 effects.py:537/565)。
+///
+/// ⭐ Rust の replay は primitive 単位だが、 **発動コストは do の外** なので primitive を
+///   再実行しても再現できない。 そこで 「どの効果を、 どのコストで発動しようとしていたか」
+///   を `prim` に畳んで持ち、 再開時に **コスト支払い → 効果 index 指定の再発火** を行う
+///   (= Python `resolve_pending_choice` が `enqueue_event(effect_indexes=[idx])` するのと同形)。
+fn suspend_event_cost_discard(
+    state: &mut GameState,
+    me_idx: usize,
+    src: Slot,
+    when: &str,
+    card_id: &str,
+    eff_idx: usize,
+    real_cost: &Value,
+    discard_n: usize,
+    cands: Vec<usize>,
+) {
+    state.pending_choice = Some(crate::state::PendingChoice {
+        kind: "counter_discard_pick".to_string(),
+        n_candidates: cands.len(),
+        limit: discard_n.max(1),
+        prim: serde_json::json!({"__event_cost_discard": {
+            "when": when,
+            "card_id": card_id,
+            "effect_idx": eff_idx,
+            "cost": real_cost.clone(),
+            "discard_n": discard_n,
+        }}),
+        src_slot: slot_to_code(src),
+        me_idx,
+        remaining_do: vec![],
+        cand_slots: cands.into_iter().map(|i| (me_idx, i as i64)).collect(),
+    });
+}
+
+/// `counter_discard_pick` の再開 (Python `resolve_pending_choice`、 effects.py:12455)。
+/// ① 選ばれた手札を捨てる (降順 pop) ② on_self_hand_discarded ③ 残りコストを auto-pay
+/// ④ 効果 index を指定して再発火 (= enqueue + drain)。
+pub(crate) fn resume_event_cost_discard(
+    state: &mut GameState,
+    pc: &crate::state::PendingChoice,
+    picks: &[usize],
+) -> Result<(), String> {
+    let Some(spec) = pc.prim.get("__event_cost_discard") else {
+        return Err("counter_discard_pick: spec 欠落".into());
+    };
+    let when = spec.get("when").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let card_id = spec.get("card_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let eff_idx = spec.get("effect_idx").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+    let discard_n = spec.get("discard_n").and_then(|v| v.as_u64()).unwrap_or(1) as usize;
+    let cost = spec.get("cost").cloned().unwrap_or(Value::Null);
+    let owner = pc.me_idx;
+    let src = code_to_slot(pc.src_slot);
+    // ① Python: hand_idxs = sorted(set(...), reverse=True) → 先頭 discard_n 枚を pop。
+    let mut hand_idxs: Vec<usize> = picks
+        .iter()
+        .filter_map(|&i| pc.cand_slots.get(i))
+        .map(|&(_pi, code)| code as usize)
+        .collect();
+    hand_idxs.sort_unstable();
+    hand_idxs.dedup();
+    hand_idxs.reverse();
+    if hand_idxs.len() < discard_n {
+        return Ok(()); // コスト不払い = 効果 skip (公式 4-10、 Python と同じ)
+    }
+    for &i in hand_idxs.iter().take(discard_n) {
+        if i < state.players[owner].hand.len() {
+            let c = state.players[owner].hand.remove(i);
+            state.players[owner].trash.push(c);
+        }
+    }
+    // ② Python は self_inplay=None で trigger_on_self_hand_discarded を呼ぶ (= 発動元の特徴は
+    //    state.current_source_card 側から拾う) → Rust も Slot::Detached。
+    fire_hand_discarded_n(state, owner, Slot::Detached, discard_n as i32)?;
+    // ③ 残りコスト (discard 系を除く) を auto-pay。 Python も self_inplay=None なので
+    //    **source を参照するコスト** (rest_self / trash_self 等) は Python では no-op になる。
+    //    写し違えると黙って乖離するので、 その組合せは明示 bail する。
+    if let Some(o) = cost.as_object() {
+        let rest: serde_json::Map<String, Value> = o
+            .iter()
+            .filter(|(k, _)| !matches!(k.as_str(), "discard_hand" | "discard_hand_with_filter"))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        if rest.keys().any(|k| matches!(k.as_str(),
+            "rest_self" | "trash_self" | "self_ko" | "return_self_to_hand"
+                | "return_self_to_deck_bottom")) {
+            return Err("counter_discard_pick: source 参照コストの併存は Rust 未移植".into());
+        }
+        if !rest.is_empty() {
+            try_pay_counter_cost(state, owner, Slot::Detached, &Value::Object(rest))?;
+        }
+    }
+    // ④ 効果本体を **index 指定** で再発火 (Python: enqueue_event(effect_indexes=[idx]) →
+    //    _maybe_resolve)。 コストは払い済なので cost 節は通らない。
+    let tok = tag_src(state, owner, src);
+    state.rust_event_queue.push(PendingTrigger {
+        when,
+        owner_idx: owner,
+        card_id,
+        slot: src,
+        tok,
+        eff_idxs: Some(vec![eff_idx]),
+    });
+    maybe_resolve(state)
+}
+
+/// `_execute_event` の cost 節 (effects.py:505-609) の完全ミラー。
+///
+/// ⭐ **列挙モードで発動コストの modal を立てるのはこの経路だけ**。 Python は
+///   - `_execute_event` の通常経路 (= when 一致を全件走査する側) → `_should_human_pick` で
+///     ① 手札捨て → `counter_discard_pick` ② 非 discard → `optional_cost_then` 包みの
+///     `optional_cost_confirm` を立てる。
+///   - `trigger_on_attack` / `_enqueue_opp_attack_with_cost` / `fire_self_effect` (効果コピー) /
+///     `explicit_idxs` 経路 → gate は `is_human_actor` (= 実人間) なので、 AI (= 列挙モード) は
+///     **`_pay_counter_cost` の auto-pay**。 選択は立たない。
+///   以前は `try_pay_counter_cost` の中で一律に 「候補が複数なら bail」 としていたため、
+///   **Python が訊かない所まで bail** して self-play の候補 bail 率が 24% に達していた。
+fn event_cost_gate(
+    state: &mut GameState,
+    me_idx: usize,
+    src: Slot,
+    when: &str,
+    card_id: &str,
+    eff_idx: usize,
+    eff: &Value,
+) -> Result<EventCostGate, String> {
+    let Some(cost) = eff.get("cost") else { return Ok(EventCostGate::Paid) };
+    if cost_is_empty(cost) {
+        return Ok(EventCostGate::Paid);
+    }
+    let auto = |st: &mut GameState| -> Result<EventCostGate, String> {
+        match pay_on_play_cost(cost, st, me_idx, src) {
+            Some(true) => Ok(EventCostGate::Paid),
+            Some(false) => Ok(EventCostGate::SkipEffect),
+            None => Err(format!("{when} cost 未対応 ({card_id})")),
+        }
+    };
+    // 列挙 OFF / modal 対象外の when は従来どおり auto-pay。
+    if !(state.choice_enumeration && choice_cost_when(when)) {
+        return auto(state);
+    }
+    // cost が array (= replace_ko 等の特殊形式) は Python の modal 節 (isinstance dict) を通らない。
+    let Some(o) = cost.as_object() else { return auto(state) };
+    let real: serde_json::Map<String, Value> = o
+        .iter()
+        .filter(|(k, _)| k.as_str() != "once_per_turn")
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    if real.is_empty() {
+        return Ok(EventCostGate::Paid); // once_per_turn のみ = 呼出側の gate で処理済
+    }
+    let real_obj = Value::Object(real.clone());
+    if !can_pay_counter_cost_full(state, me_idx, src, &real_obj) {
+        return Ok(EventCostGate::SkipEffect); // 払えない = Python も skip (effects.py:529)
+    }
+    // ⚠ 【ターン1回】 と手札捨てコストの併存は Python が **効果を失う** (再開時の
+    //   `_check_and_set_once_per_turn` が使用済で False を返す) 経路になるので、 写す価値が
+    //   無い。 overlay 実績 0 件なので明示 bail に倒す (踏んだら設計を見直す合図)。
+    let has_once = eff.get("once_per_turn").is_some()
+        || cost.get("once_per_turn").is_some();
+    // ① 「自分の手札 N 枚を捨てる」 → counter_discard_pick (どの札を捨てるかを選ぶ)。
+    //    ⚠ `_can_pay_counter_cost` を通っている = 手札 >= N なので Python は必ず modal を立てる
+    //    (effects.py:537)。 候補は **手札全部** (index 順)。
+    let dn = real.get("discard_hand").and_then(|v| v.as_i64()).unwrap_or(0);
+    if dn > 0 {
+        if has_once {
+            return Err(format!("{when} 手札捨てコスト + 【ターン1回】 は Rust 未移植 ({card_id})"));
+        }
+        let cands: Vec<usize> = (0..state.players[me_idx].hand.len()).collect();
+        suspend_event_cost_discard(
+            state, me_idx, src, when, card_id, eff_idx, &real_obj, dn as usize, cands);
+        return Ok(EventCostGate::Suspended);
+    }
+    // ② 「該当する手札 N 枚を捨てる」 (discard_hand_with_filter) → 同じく counter_discard_pick。
+    //    候補は **filter 一致の手札だけ** (effects.py:565)。
+    if let Some(dwf) = real.get("discard_hand_with_filter").cloned() {
+        if dwf.is_object() {
+            if has_once {
+                return Err(format!("{when} 該当手札捨てコスト + 【ターン1回】 は Rust 未移植 ({card_id})"));
+            }
+            let (filt, cnt) = filter_and_count(&dwf);
+            let cands: Vec<usize> = state.players[me_idx].hand.iter().enumerate()
+                .filter(|(_, c)| matches_filter(c, Some(&filt)))
+                .map(|(i, _)| i)
+                .collect();
+            suspend_event_cost_discard(
+                state, me_idx, src, when, card_id, eff_idx, &real_obj, cnt, cands);
+            return Ok(EventCostGate::Suspended);
+        }
+    }
+    // ③ 非 discard の任意コスト (pay_don / life_to_hand / rest_self_don 等) は
+    //    `optional_cost_then` に包んで 「払う/払わない」 を本人に訊く (effects.py:597)。
+    let oct = serde_json::json!({"optional_cost_then": {
+        "cost": real.iter()
+            .map(|(k, v)| serde_json::json!({ k.clone(): v.clone() }))
+            .collect::<Vec<_>>(),
+        "effect": eff.get("do").cloned().unwrap_or(Value::Array(vec![])),
+    }});
+    let _ = eff_idx;
+    if !execute_effect(&oct, state, me_idx, src) {
+        return Err(format!("{when} 任意コスト包み込みが未対応 ({card_id})"));
+    }
+    if suspend_if_choice(state, std::slice::from_ref(&oct), 0, &oct, src, me_idx) {
+        return Ok(EventCostGate::Suspended);
+    }
+    Ok(EventCostGate::Resolved)
+}
+
 fn try_pay_counter_cost(
     state: &mut GameState,
     me_idx: usize,
     self_src: Slot,
     cost: &Value,
 ) -> Result<bool, String> {
-    // ⛔ 列挙モード: **発動コストの選択** (どのカードを捨てる/KO する/レストにする) は
-    //   Python が modal を立てて探索に選ばせるが Rust は未移植。 候補が複数ある時だけ bail
-    //   (候補 1 件なら選択の余地が無く自動 = Python も modal を立てないので一致する)。
-    if state.choice_enumeration && cost_has_multiple_candidates(state, me_idx, self_src, cost) {
-        return Err("choice_enumeration: 発動コストの選択は Rust 未移植".into());
-    }
+    // ⭐ ここは Python `_pay_counter_cost` の **auto-pay ミラー**。 列挙モードでも
+    //   **選択は立てない**。 発動コストで modal を立てるのは Python でも
+    //   `_execute_event` の cost 節だけなので、 その判断は **呼出サイト** が持つ
+    //   (`event_cost_gate` を通す)。 on_attack / opp_attack / 効果コピー
+    //   (fire_self_effect) / explicit_idxs 経路は Python も auto-pay なのでここへ直行する。
+    //   ⚠ 新しい呼出を足す時は必ず Python の対応経路を確認し、 `_execute_event` ミラーなら
+    //     `event_cost_gate` を通すこと (tests/test_rust_parity.py の call-site 監査が強制する)。
     let Some(obj) = cost.as_object() else { return Ok(true) };
     // 認識できる key のみ (それ以外は Python では無視だが、 誤発火防止で bail)
     for k in obj.keys() {
@@ -13572,6 +13763,12 @@ pub(crate) fn snapshot_field_toks(state: &mut GameState, owner_idx: usize) -> Ve
 
 pub fn fire_field_when(state: &mut GameState, owner_idx: usize, when: &str) -> Result<(), String> {
     if overlay().is_none() {
+        return Ok(());
+    }
+    // ⭐ 選択待ち中は **キューへ積むだけ** (Python `_enqueue_field_when` + `_maybe_resolve` は
+    //   選択待ちなら drain せずキューに残す)。 inline 発火すると Python より先に解決してしまう。
+    if state.choice_enumeration && state.pending_choice.is_some() {
+        enqueue_field_when(state, owner_idx, when);
         return Ok(());
     }
     // ⚠ Python は走査対象を loop 開始前にリスト化する (= 途中で盤面が動いても元の集合を回す)。
@@ -14097,6 +14294,22 @@ fn run_explicit_idx_event(state: &mut GameState, evt: &PendingTrigger) -> Result
         // 場を離れていても解決する (Python: cost_paid_explicit で self_inplay=None を許容)。
         // ⚠ 複数 index を回すので peek (非消費)。 回収はループ後に 1 回。
         let slot = peek_tagged(state, owner_idx, evt.tok);
+        // ⭐ Python `_execute_event` の 2 gate を写す (effects.py:370-400)。 選択待ち中に退避した
+        //   opp_attack (= cost 既払いの do だけ残っている) をここで drain するので、
+        //   ① 発動元が場を離れたら発火しない (cost_paid_explicit な when は例外)
+        //   ② 発動元が 「効果無効」 なら発火しない
+        //   を通す必要がある (以前は end_of_turn 専用だったので gate が無かった)。
+        let cost_paid_explicit =
+            matches!(when, "activate_main" | "end_of_turn" | "opp_end_of_turn");
+        if slot == Slot::Detached
+            && !cost_paid_explicit
+            && !matches!(when, "on_ko" | "main" | "counter" | "trigger")
+        {
+            continue;
+        }
+        if slot != Slot::Detached && src_effect_negated(state, owner_idx, slot, when) {
+            continue;
+        }
         // cost 既払いなので if 句のみ再評価 (条件変動の可能性に備える) = Python 同順。
         match eval_effect_conditions(eff, state, owner_idx, Some(slot)) {
             Some(true) => {}
@@ -14594,6 +14807,29 @@ pub fn fire_opp_attack_collected(
 ) -> Result<(), String> {
     let Some(ov) = overlay() else { return Ok(()) };
     let OppAttackPlan { fired, trash_self: trash_self_fires } = plan;
+    // ⭐ 選択待ち中は do を **キューへ退避** する。 Python (`_enqueue_opp_attack_with_cost`) は
+    //   コストを払った効果を **常に enqueue** し、 drain は選択解決後に回る。 Rust は inline
+    //   発火なので、 選択が立っている間は同じくキューに積んで順序を合わせる (2026-08-22)。
+    //   ⚠ コスト支払い (collect) は Python も選択待ち中に行うので、 そちらは退避しない。
+    let deferring = state.choice_enumeration && state.pending_choice.is_some();
+    if deferring {
+        for &(tok, idx) in fired.iter() {
+            let slot = peek_tagged(state, defender_idx, tok);
+            if slot == Slot::Detached {
+                continue; // 発動元が場を離れた = Python も do を発火しない
+            }
+            let cid = get_ip(&state.players[defender_idx], slot).card.card_id.clone();
+            state.rust_event_queue.push(PendingTrigger {
+                when: when_key.to_string(),
+                owner_idx: defender_idx,
+                card_id: cid,
+                slot,
+                tok,
+                eff_idxs: Some(vec![idx]),
+            });
+        }
+    }
+    let fired: Vec<(Option<u64>, usize)> = if deferring { vec![] } else { fired };
     let _ = when_key;
     // 発火フェーズ: 収集順 (slot→idx = source→sorted idx) に条件再評価 + do 発火
     for (tok, idx) in fired {
@@ -15130,6 +15366,13 @@ pub fn fire_activate_main(
                     find_tagged(state, me_idx, tok);
                     return Err(format!("activate_main primitive 未対応: {k} ({card_id})"));
                 }
+                // ⭐ 選択列挙: 選択サイトが中断したら **残りの do を退避して抜ける**
+                //   (これが無いと 「コスト-10 の対象選択」 で止まった後の 「その後、 自分の
+                //    デッキ上 2 枚をトラッシュ」 が丸ごと消える = 2026-08-22 の MISMATCH)。
+                if suspend_if_choice(state, &dos, pi_, prim, do_src, me_idx) {
+                    find_tagged(state, me_idx, tok);
+                    break;
+                }
                 // 最終 prim の後は src を参照しないので取り直し不要
                 if pi_ < last {
                     do_src = find_tagged(state, me_idx, tok);
@@ -15142,12 +15385,42 @@ pub fn fire_activate_main(
         // ⭐ 発動コスト由来のトリガー (公式 8-4-1-3〜5 / cardqa_op_14): 本体の解決後に発動。
         //    do が積んだ nested トリガーは **さらに後** (= キューに残っている) = Python 同順。
         for d in std::mem::take(&mut deferred) {
+            // ⭐ 本体が選択待ちで止まっている間は **キューへ退避** する (Python はコスト由来
+            //   トリガーを常に enqueue し、 drain は選択解決後に回る)。 inline 発火すると
+            //   Python より先に解決してしまう。
+            let defer_to_queue = state.choice_enumeration && state.pending_choice.is_some();
             match d {
                 DeferredCostTrigger::OnKo { owner, victim_cid } => {
-                    run_on_ko_effects(state, owner, &victim_cid)?;
+                    if defer_to_queue {
+                        state.rust_event_queue.push(PendingTrigger {
+                            when: "on_ko".to_string(),
+                            owner_idx: owner,
+                            card_id: victim_cid,
+                            slot: Slot::Detached,
+                            tok: None,
+                            eff_idxs: None,
+                        });
+                    } else {
+                        run_on_ko_effects(state, owner, &victim_cid)?;
+                    }
                 }
                 DeferredCostTrigger::FieldWhen { owner, when, toks } => {
-                    fire_field_when_with_toks(state, owner, &when, toks)?;
+                    if defer_to_queue {
+                        for (tok, cid) in toks {
+                            if card_has_when(&cid, &when) {
+                                state.rust_event_queue.push(PendingTrigger {
+                                    when: when.clone(),
+                                    owner_idx: owner,
+                                    card_id: cid,
+                                    slot: Slot::Leader,
+                                    tok,
+                                    eff_idxs: None,
+                                });
+                            }
+                        }
+                    } else {
+                        fire_field_when_with_toks(state, owner, &when, toks)?;
+                    }
                 }
             }
         }
@@ -15160,7 +15433,11 @@ pub fn fire_activate_main(
     }
     // コスト由来の victim 文脈は本体解決まで保持していたので、 ここで畳む (Python:
     // fire_activate_main 末尾で last_chara_ko_victim_card = None)。
-    state.last_chara_ko_victim_card = None;
+    // ⚠ **選択待ちで中断している間は畳まない** (Python も `if state.pending_choice is None:`
+    //   で守っている)。 まだ解決していない【KO時】が victim 文脈を必要とするため。
+    if state.pending_choice.is_none() {
+        state.last_chara_ko_victim_card = None;
+    }
     Ok(())
 }
 

@@ -8931,3 +8931,52 @@ KO → OP06-104 菊之丞【KO時】「デッキ上1枚をライフへ」 でラ
 発覚経路は Python↔Rust の選択列挙差分 (Rust が選択を 2 つ提示、 Python は 1 つ)。
 = **差分エンジンが Python の UI バグを検出した** 2 例目
 (1 例目は `pending_attack_redirect` の持ち越し)。
+
+## 選択待ちのまま **イベントを解決すると効果が黙って消える** (2026-08-22)
+
+**engine の一次情報** (公式ルールでなく解決モデル)。 公式 4-10 は 「発動を宣言したら
+コストを払う」 = **払ったコストに対して効果は解決される** が前提だが、 engine は
+「コストだけ払って効果が消える」 状態を作っていた。
+
+`state.pending_choice` は **1 スロット** しか無い。 そのため各 primitive は
+`if state.pending_choice is not None: return` という **halt ガード** を持つ (**26 箇所**)。
+これは 「自分がその選択を立てた時に後続を止める」 ためのものだが、
+**別の効果が立てた選択が残っている時にも発火** するので、 その効果は **何もせず終わる**。
+
+`resolve_triggers` (イベントキューの drain) は解決後に
+`if state.pending_choice is not None: break` していたが、 **入口ガードが無かった**。
+= 選択待ちのまま次のイベントを解決してしまい、 上記の halt ガードで効果が消えていた。
+
+実例 (Python↔Rust の選択列挙差分で検出):
+
+- 攻撃側 OP15-002 ルーシーの【アタック時】 「イベント/ステージを捨てて +1000/枚」 が
+  **選択待ち** になる
+- その間に防御側 OP11-041 ナミの【相手のアタック時】 (コスト: 手札1枚を捨てる) が
+  解決され、 **手札は捨てられたのにパワー +2000 が乗らなかった**
+
+是正: `resolve_triggers` の入口に `if state.pending_choice is not None: return` を追加。
+残ったイベントはキューに留まり、 `resolve_pending_choice` 末尾の再 drain
+(元から存在) が選択解決後に流す。 これはループ内のコメント
+「残り event は queue に残し、 pick 解決後に 再 drain する」 が元々意図していた挙動。
+
+⚠ 影響範囲は **pending_choice が立つ経路だけ** (= 人間操作 / 選択列挙モード)。
+AI vs AI (列挙 OFF) は pending_choice を立てないので matrix / self-play は不変。
+
+⭐ **教訓**: 単一スロットの中断状態を持つ engine では、 「中断中に別の解決を走らせない」 を
+**入口** で守る必要がある。 出口 (= 解決後の break) だけでは、 **別経路から再入された時**
+に素通りする。 Rust 側も同じモデルに揃え、 選択待ち中の inline 発火は
+**キューへ退避** するか **明示 bail** する (rust_engine/CLAUDE.md 参照)。
+
+## 「N枚まで」 の上限は **engine 側で cap** する (2026-08-22)
+
+公式の 「〜1枚までを、 登場させる」 は **上限**。 ところが人間経路の
+`play_from_trash_pick` / `summon_from_deck_pick` は、 渡された picks を **全部** 登場させる
+実装で、 上限 1 の効果から 2 枚以上を場に出せた (`engine/effects.py:resolve_pending_choice`)。
+
+⚠ **なぜ今まで出なかったか**: 1 枚目の【登場時】が別の選択を立て、 解決ループがそこで
+止まっていた **だけ**。 「選択待ち中はイベントを drain しない」 を入れた途端に露見した
+= 近似・偶然の停止が下のバグを隠していた型 ([[project_approximation_hides_bugs]])。
+
+是正: `valid_picks` を `[:limit]` で cap (同ファイルの `opp_discard_own_choice_pick` は
+元から cap 済だった)。 検出は `tests/test_human_path_conformance.py` (人間経路で
+**全候補を選ぶ** adversarial ハーネス)。 UI が上限で止めていても **engine が最終防衛線**。

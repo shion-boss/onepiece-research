@@ -305,6 +305,18 @@ def resolve_triggers(state: GameState) -> None:
     """
     if state.resolving:
         return
+    # ⭐ **選択待ちが立っている間は drain しない** (2026-08-22 是正)。
+    #   pending_choice は 1 スロットしか無いので、 選択待ちのままイベントを解決すると
+    #   各 primitive の 「if state.pending_choice is not None: return」 ガード (26 箇所) が
+    #   **黙って no-op** する = **発動コストを払ったのに効果が消える**。
+    #   実例: 攻撃側の【アタック時】選択が立っている間に防御側 OP11-041 ナミの
+    #   【相手のアタック時】が解決され、 手札 1 枚を捨てたのに +2000 が乗らなかった
+    #   (Python↔Rust の選択列挙差分で検出)。
+    #   ⚠ このループの中には既に 「解決後に pending が立ったら break」 があり、 コメントも
+    #     「残り event は queue に残し、 pick 解決後に再 drain する」 と書いてあった =
+    #     **入口ガードだけが抜けていた**。 再 drain は resolve_pending_choice 末尾が行う。
+    if state.pending_choice is not None:
+        return
     if not state.event_queue:
         return
     state.resolving = True
@@ -11924,7 +11936,13 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
                 if ip.instance_id == source_iid:
                     self_inplay = ip
                     break
-        valid_picks = [i for i in picks if 0 <= i < len(candidates)]
+        # ⚠ **limit を engine 側で cap する** (2026-08-22 是正)。 UI が上限で止めていても、
+        #   engine は 「渡された picks を全部登場させる」 実装だったため、 上限 1 の効果で
+        #   2 枚以上が場に出せた (= 人間経路 conformance ハーネスが検出)。
+        #   ⭐ 従来は 「1 枚目の【登場時】が別の選択を立てて解決ループが止まる」 のに救われて
+        #     いただけで、 選択待ち中の drain を止めた途端に露見した (= 近似が下のバグを隠す型)。
+        _limit = int(choice.get("limit", 1) or 1)
+        valid_picks = [i for i in picks if 0 <= i < len(candidates)][:max(0, _limit)]
         if kind == "play_from_trash_pick":
             zone_idxs = [int(candidates[i]["trash_idx"]) for i in valid_picks]
             target_primitive = "play_from_trash"

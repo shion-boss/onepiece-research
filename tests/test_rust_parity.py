@@ -398,3 +398,32 @@ def test_rust_choice_flag_is_not_in_the_digest():
         "choice_enumeration が digest に漏れている (= parity が全滅する)"
     # ただし Rust が判定できるよう full_dump には載る
     assert full_dump(_mk(True))["choice_enumeration"] is True
+
+
+def test_try_pay_counter_cost_call_sites_are_classified():
+    """`try_pay_counter_cost` の **呼出サイトを固定** して分類レビューを強制する。
+
+    ⭐ この関数は Python `_pay_counter_cost` の **auto-pay ミラー** で、 列挙モードでも
+    選択を立てない。 発動コストで modal を立てるのは Python でも `_execute_event` の
+    cost 節だけなので、 その判断は **呼出サイト** (`event_cost_gate`) が持つ。
+
+    分類 (2026-08-22 時点、 6 箇所):
+      1. 効果コピー (fire_self_effect)      → auto-pay (Python も `_pay_counter_cost`)
+      2. pay_on_play_cost (gate の内側)     → gate が呼ぶ auto-pay 経路
+      3. on_attack (trigger_on_attack)      → auto-pay (`is_human_actor` gate)
+      4. counter_discard_pick の残りコスト  → auto-pay (Python も self_inplay=None で払う)
+      5. opp_attack (_enqueue_opp_attack..) → auto-pay (`is_human_actor` gate)
+      6. execute_one_effect (スモーク専用)  → 実対戦経路ではない
+
+    ⚠ 増減したら **Python の対応経路を確認** すること。 `_execute_event` ミラーなら
+    `event_cost_gate` を通す (通さないと 「Python は訊くのに Rust は勝手に払う」 = 黙って乖離)。
+    """
+    from pathlib import Path
+    src = (Path(__file__).resolve().parent.parent / "rust_engine" / "src" / "effects.rs").read_text(
+        encoding="utf-8")
+    n = src.count("try_pay_counter_cost(state")
+    assert n == 6, (
+        f"try_pay_counter_cost の呼出が {n} 箇所 (期待 6)。 "
+        "新しいサイトは Python の対応経路 (auto-pay か _execute_event ミラーか) を確認し、 "
+        "この docstring の分類表を更新すること"
+    )

@@ -136,6 +136,7 @@ pending trigger (drain 時の発火元復元) / ko・return_to_hand 系の逐次
 **Rust が実行できない手を避けた結果の対局** になる。 bail の過半が `defense |` =
 防御候補なので、 このまま学習を回すと **「無防御への静かな回帰」** を教えてしまう。
 = 列挙 ON はまだ学習データ生成に使えない (OFF は 0.00% なので問題なし)。
+**→ 2026-08-22 に 27.1% → 9.5% まで下げた (下節)。 残りは未移植 primitive が主因。**
 
 bail の内訳は `eng.reset_coverage_stats(True)` + `coverage_stats()` で原因別に取れる。
 
@@ -146,14 +147,77 @@ bail の内訳は `eng.reset_coverage_stats(True)` + `coverage_stats()` で原�
 出すのは 「N枚**まで**付与」 (`up_to`) かつ最大 2 枚以上の時だけなので site-specific bail に。
 → 差分ハーネス bail 67 → 43、 ResolveChoice の bail 2,210 → 29。
 
-⚠ **残る阻害要因は 1 つに収束**: 「発動コストの選択」 (防御 41,385 + 攻撃 8,249)。
-Python は `counter_discard_pick` で **効果単位** に中断・再開するが、 Rust の replay は
-**primitive 単位**。 = 数個の primitive 移植では届かず、 **Rust に効果単位の中断・再開機構**
-を作る必要がある (起動メインの発動コスト選択も同じ壁)。
+### ⭐ 2026-08-22: 候補 bail 27.1% → **9.5%** (発動コストの選択を解消)
+
+| | 候補 action の bail 率 | 主因 |
+|---|---|---|
+| 改善前 | 27.1% | 発動コストの選択 (防御 41,385 + 攻撃 8,249) |
+| 改善後 | **9.5%** | redirect_attack / life trigger の play_self (= 未移植 primitive) |
+
+**3 つの是正**:
+
+1. **発動コストの modal 判定は 「呼出サイト」 が持つ** (`event_cost_gate`)。 それまでは
+   `try_pay_counter_cost` の中で一律に 「候補が複数なら bail」 としていたが、 Python が
+   modal を立てるのは **`_execute_event` の cost 節だけ**。 `trigger_on_attack` /
+   `_enqueue_opp_attack_with_cost` / `fire_self_effect` (効果コピー) / explicit_idxs 経路は
+   `is_human_actor` gate なので AI (= 列挙モード) は **auto-pay** で選択が立たない。
+   → Python が訊かない所まで bail していた分が丸ごと消えた。
+   ⚠ `try_pay_counter_cost` に新しい呼出を足す時は **必ず Python の対応経路を確認** し、
+   `_execute_event` ミラーなら `event_cost_gate` を通すこと。
+2. **効果単位の中断・再開** (`counter_discard_pick`)。 発動コストは do の外なので primitive の
+   replay では再現できない。 `suspend_event_cost_discard` が 「どの効果を・どのコストで
+   発動しようとしていたか」 を `prim` に畳み、 `resume_event_cost_discard` が
+   「手札を捨てる → on_self_hand_discarded → 残りコスト auto-pay → **effect_indexes 指定で
+   再発火**」 を行う (Python `resolve_pending_choice` の `enqueue_event(effect_indexes=[idx])`
+   と同形)。
+3. **選択待ち中は inline 発火せず キューへ退避** (下節)。
 
 ⚠ **bail 「率」 で進捗を測らない**。 実行できる手が増えると探索が深く進み **候補の総数が
 増える** ので、 改善したのに率が上がって見える (20.4% → 24.5% だが候補は 36,865 → 75,149)。
 原因別の **絶対数** で見ること。
+
+### ⭐ 選択待ち中の 「inline 発火 vs キュー deferral」 (2026-08-22、 Python 側の実バグ由来)
+
+Python `resolve_triggers` には **入口ガードが無く**、 選択待ちのままイベントを解決していた。
+pending_choice は 1 スロットしか無いので、 その状態で効果を解決すると各 primitive の
+`if state.pending_choice is not None: return` ガード (**26 箇所**) が **黙って no-op** し、
+**発動コストを払ったのに効果が消える**。
+
+- 実例: 攻撃側の【アタック時】選択が立っている間に防御側 OP11-041 ナミの
+  【相手のアタック時】が解決され、 **手札 1 枚を捨てたのに +2000 が乗らなかった**。
+- ループ内には既に 「解決後に pending が立ったら break」 があり、 コメントも
+  「残り event は queue に残し pick 解決後に再 drain する」 と書いてあった = **入口ガードだけ**
+  が抜けていた → `engine/effects.py:resolve_triggers` に追加 (再 drain は
+  `resolve_pending_choice` 末尾が元から行っている)。
+
+Rust 側はこれを写すため、 **選択待ち中は inline 発火しないでキューへ積む**:
+
+| 経路 | 選択待ち中の扱い |
+|---|---|
+| `maybe_resolve` | 早期 return (キューに残す) |
+| `fire_field_when` | `enqueue_field_when` して return |
+| `fire_opp_attack_collected` | `eff_idxs` 付き `PendingTrigger` として退避 (**コスト支払い= collect は Python も行うので退避しない**) |
+| 起動メインのコスト由来トリガー | `on_ko` / field-when を `PendingTrigger` として退避 |
+| `execute_card_effects` / `run_on_ko_effects` / `fire_life_trigger` | まだ inline → `bail_if_choice_pending` で **明示 bail** |
+| `resolve_choice_action` の末尾 | 選択が解けたら `maybe_resolve` で再 drain |
+
+⚠ 退避した分は `run_explicit_idx_event` が解決するので、 そこに Python `_execute_event` の
+2 gate (**発動元が場を離れた / 効果無効**) を写してある。
+
+⚠ `fire_activate_main` の本体 do-loop は **生ループ** で `suspend_if_choice` を通していなかった
+ため、 「コスト-10 の対象選択」 で止まった後の 「その後、 デッキ上 2 枚をトラッシュ」 が
+丸ごと消えていた。 do を回す新コードは **必ず `suspend_if_choice` を通す**。
+また、 中断中は `last_chara_ko_victim_card` を **畳まない** (Python も `if state.pending_choice
+is None:` で守っている = 未解決の【KO時】が victim 文脈を必要とする)。
+
+### ⚠ 選択サイトは 「候補を畳んでから返さない」 (self_inplay の実例)
+
+`resolve_target` は **中央** で 「候補が limit を超えたら中断」 を判定する。 そのため
+`resolve_target_inner` の各 arm が **1 枚に畳んで返すと中断判定が効かない**。
+`self_inplay` (= 「自分のリーダーかキャラ1枚まで」) が power 降順の先頭 1 枚を返しており、
+Python が modal を立てる局面で **Rust だけ勝手に最高 power を選んで** いた
+(2026-08-22、 OP15-057 ドレスローザ王国の【相手のアタック時】+2000 で検出)。
+→ arm は候補列を `pick_one_or_suspend` に渡すこと。
 
 ### 中断・再開のモデル (Python の 2 段構造を写すこと)
 
@@ -328,6 +392,7 @@ RNG 依存効果は `rng.rs` (MT19937、 CPython `random` の bit 再現) を使
 | **選択列挙 ON の差分** | `python scripts/rust_choice_parity.py --games 6 [--assert]` |
 | **同 原因分類 (MISMATCH の切り分け)** | `python scripts/rust_choice_diag.py --games 6 --show 10 --check-off` |
 | 乖離局面を単体で ON/OFF 比較 | `rust_choice_diag.py --dump <dir>` → `rust_choice_probe.py <dir>` |
+| **同 field 単位 diff (選択列が同形なのに乖離)** | `python scripts/rust_choice_field_diff.py --games 16` |
 | **全カード合成デッキ掃引 (最広)** | `python scripts/rust_parity_sweep.py [--assert]` (~4 分、 CI 済) |
 | 掃引の MISMATCH を zone 単位で見る | `python scripts/rust_sweep_mismatch_diag.py` |
 | **学習に使えるか (候補 bail 率)** | `python scripts/rust_choice_selfplay_probe.py --games 40 [--no-choice]` |
