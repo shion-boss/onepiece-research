@@ -2250,6 +2250,11 @@ thread_local! {
         const { std::cell::RefCell::new(None) };
     /// 中断した選択の kind / limit (PendingChoice に載せて列挙器が使う)。
     static PENDING_KIND: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) };
+    /// `PendingChoice.prim` の差し替え (= 「再実行する primitive」 ではなく **選択肢そのもの**
+    /// を持ち回る kind 用。 option_pick が該当)。 Some なら suspend_if_choice がこれを使う。
+    static PENDING_PRIM: std::cell::RefCell<Option<Value>> = const { std::cell::RefCell::new(None) };
+    /// 「選ばない」 を出さない選択か (強制の手札捨て等)。 `note_choice_suspend` の後に降ろす。
+    static PENDING_MANDATORY: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
     static PENDING_LIMIT: std::cell::Cell<usize> = const { std::cell::Cell::new(1) };
     /// 再開時に **index ベースの選択** (search_top_n の 「見た N 枚のどれを取るか」 等) へ
     /// 注入する picks。 target ベース (FORCED_TARGETS) と対になる仕組み。
@@ -2305,6 +2310,24 @@ pub fn thread_local_debug() -> String {
 }
 
 /// 選択サイトが中断する時の共通入口。 kind / limit / 候補を残す。
+/// `note_choice_suspend` の prim 差し替え版 (option_pick 等、 「再実行する primitive」 が
+/// 存在しない kind 用)。 remaining_do の退避は `suspend_if_choice` が従来どおり行う。
+pub(crate) fn note_choice_suspend_with_prim(
+    kind: &str,
+    limit: usize,
+    cands: Vec<(usize, i64)>,
+    prim: Value,
+) {
+    PENDING_PRIM.with(|c| *c.borrow_mut() = Some(prim));
+    note_choice_suspend(kind, limit, cands);
+}
+
+/// `note_choice_suspend` の 「選ばない を出さない」 版 (= 強制の選択)。
+pub(crate) fn note_choice_suspend_mandatory(kind: &str, limit: usize, cands: Vec<(usize, i64)>) {
+    PENDING_MANDATORY.with(|c| c.set(true));
+    note_choice_suspend(kind, limit, cands);
+}
+
 pub(crate) fn note_choice_suspend(kind: &str, limit: usize, cands: Vec<(usize, i64)>) {
     SUSPEND_CALLS.with(|c| c.set(c.get() + 1));
     set_choice_suspended(true);
@@ -2379,15 +2402,33 @@ pub(crate) fn suspend_if_choice(
         if k.is_empty() { "target_pick".to_string() } else { k }
     });
     let limit = PENDING_LIMIT.with(|c| c.get());
+    // option_pick 等は 「再実行する primitive」 でなく **選択肢そのもの** を持ち回る。
+    let prim_v = PENDING_PRIM.with(|c| c.borrow_mut().take()).unwrap_or_else(|| prim.clone());
+    // ⭐ target_pick の候補は **中断時のカード** を控える (位置 index が stale 化した時に
+    //   「別のカードに化けた」 のを検出するため。 Python は iid 参照なので化けない)。
+    let cand_cards: Vec<String> = if kind == "target_pick" {
+        cands
+            .iter()
+            .map(|&(pi, code)| {
+                src_ip(&state.players[pi], code_to_slot(code))
+                    .map(|ip| ip.card.card_id.clone())
+                    .unwrap_or_default()
+            })
+            .collect()
+    } else {
+        vec![]
+    };
     state.pending_choice = Some(crate::state::PendingChoice {
         kind,
         n_candidates: n,
         limit,
-        prim: prim.clone(),
+        prim: prim_v,
         src_slot: slot_to_code(src),
         me_idx,
         remaining_do: dos.get(idx + 1..).map(|r| r.to_vec()).unwrap_or_default(),
         cand_slots: cands,
+        cand_cards,
+        mandatory: PENDING_MANDATORY.with(|c| { let v = c.get(); c.set(false); v }),
     });
     true
 }
@@ -4368,15 +4409,11 @@ const CHOICE_UNPORTED_PRIMS: &[&str] = &[
     "choice",
     "choice_effect",
     "draw_per_self_chara_then_discard",
-    "give_keyword",
     "hand_to_self_life",
     "play_from_hand_choice",
     "play_from_hand_named_set",
     "play_from_hand_named_with_dynamic_cost",
     "play_from_hand_or_trash",
-    "play_self",
-    "play_self_from_trash",
-    "redirect_attack",
     "reveal_hand_play_split",
     "reveal_life_top_play",
     "reveal_top_play",
@@ -4388,12 +4425,16 @@ const CHOICE_UNPORTED_PRIMS: &[&str] = &[
     "search_from_trash",
     "self_hand_to_deck_bottom",
     "self_hand_to_size",
-    "set_cannot_attack",
-    "set_cannot_rest",
     "summon_from_deck",
     "view_life_top_choose_position",
 ];
 
+/// ⭐ `play_self` / `play_self_from_trash` は **リストから外した** (2026-08-22)。 Python の
+/// 選択サイトは `_request_field_full_sacrifice` (場 5 枚差し替えの犠牲) **だけ** で、 それは
+/// `trash_weakest_for_field_full` が site-specific に bail する。 primitive 丸ごと denylist に
+/// 載せると 「場が 5 枚でない時」 まで bail して self-play の候補が大量に消える
+/// (実測 2,891 件 = 当時の bail の 3 割)。
+///
 /// 未移植リスト (テストが実態を見るために公開)。
 pub fn choice_unported_list() -> &'static [&'static str] {
     CHOICE_UNPORTED_PRIMS
@@ -4792,8 +4833,13 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
         // (dedup)。 leader → no-op (redirect せず=通常 leader battle)、 char → pending_attack_redirect に
         // 防御側 char index を set (transient、 AttackLeader が読み char battle 再解決)。 iid 不要 (index で代替)。
         "redirect_attack" => {
+            // ⭐ 再開 (replay): 探索/人間が選んだ 1 枚が FORCED_TARGETS に入っている
+            //   (Python の `_iid_picks` 注入と同じ役割)。 候補の再解決は行わない。
+            let forced_rd = take_forced_targets();
             let mut chosen: Option<Slot> = None;
-            if let Some(cands) = v.get("candidates").and_then(|c| c.as_array()) {
+            if let Some(f) = forced_rd {
+                chosen = f.into_iter().find(|(pi, _)| *pi == me_idx).map(|(_, sl)| sl);
+            } else if let Some(cands) = v.get("candidates").and_then(|c| c.as_array()) {
                 let mut seen: Vec<Slot> = vec![];
                 for cand in cands {
                     if let Some(ts) = resolve_target(Some(cand), me_idx, opp_idx, src, state) {
@@ -4803,6 +4849,23 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
                             }
                         }
                     }
+                }
+                // ⛔ 候補 spec の解決自体が中断した場合 (現 overlay には無い形) は、 Python の
+                //   `redirect_attack_candidate` 経路と resume の形が違うので明示 bail。
+                if choice_suspended() {
+                    note_prim_err("redirect_attack: 候補 spec 側の中断は Rust 未移植");
+                    return false;
+                }
+                // ⭐ 列挙モード: **候補が 2 枚以上なら本人が選ぶ** (Python effects.py:7370-7390 は
+                //   `len(all_targets) == 1 or not _should_human_pick` の時だけ自動で先頭を採る)。
+                //   ⚠ 提示順は Python と同じ盤面順 (leader → char idx 昇順)。 Python は
+                //     `_maybe_request_target_pick` に **sort せず** 候補を渡し、 現 overlay の
+                //     候補 spec (self_leader / all_self_chara_filtered) はどちらも盤面順に並ぶ。
+                if state.choice_enumeration && seen.len() > 1 {
+                    let cand_pairs: Vec<(usize, Slot)> =
+                        seen.iter().map(|&sl| (me_idx, sl)).collect();
+                    note_choice_suspend("target_pick", 1, board_order(&cand_pairs));
+                    return true;
                 }
                 chosen = seen.into_iter().next();
             } else {
@@ -9057,6 +9120,16 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
         "give_keyword" => {
             let keyword = if let Some(kws) = v.get("keywords").and_then(|x| x.as_array()) {
                 let kwstrs: Vec<&str> = kws.iter().filter_map(|k| k.as_str()).collect();
+                // ⛔ 列挙モード: **どのキーワードを得るか** の 2 択以上は本人が選ぶ
+                //   (Python `give_keyword_choice`、 effects.py の `len(kws) > 1` 分岐)。 未移植。
+                //   単一キーワードの spec は選択の余地が無いので通す (= denylist を site-specific に)。
+                if state.choice_enumeration
+                    && kwstrs.len() > 1
+                    && v.get("_chosen_keyword").is_none()
+                {
+                    note_prim_err("choice_enumeration: give_keyword の キーワード選択は Rust 未移植");
+                    return false;
+                }
                 let priority = ["ブロッカー", "ダブルアタック", "バニッシュ", "速攻"];
                 priority
                     .iter()
@@ -9212,7 +9285,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             //   object 参照で持つので影響を受けない。 → 段ごとにタグで引き直す。
             let step_tok = tag_src(state, me_idx, src);
             let mut src = src;
-            for es in &effect {
+            for (ei, es) in effect.iter().enumerate() {
                 if !execute_effect(es, state, me_idx, src) {
                     let k = es.as_object().and_then(|o| o.keys().next()).map(|x| x.as_str()).unwrap_or("?");
                     note_unknown_key(
@@ -9221,6 +9294,16 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     );
                     find_tagged(state, me_idx, step_tok); // タグ回収
                     return false;
+                }
+                // ⭐ **生ループ禁止** (2026-08-22)。 effect 側で選択が立ったら、 ここで
+                //   「その primitive + 残り effect」 を退避しないと、 外側の do-loop が
+                //   **optional_cost_then 丸ごと** を再実行対象として記録してしまう。
+                //   すると再開時に先頭の primitive が picks を横取りし、 選択サイトが
+                //   再び中断 → **無限ループ** (実測 200,000 step 上限まで回った)。
+                //   Python (effects.py:11351) も同じ位置で `_continuation` に退避する。
+                if suspend_if_choice(state, &effect, ei, es, src, me_idx) {
+                    find_tagged(state, me_idx, step_tok); // タグ回収
+                    return true;
                 }
                 // 次段のために現在位置を引き直す (場を離れていれば Detached = "self" 0 件)。
                 if !matches!(src, Slot::Detached) {
@@ -9534,7 +9617,12 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             {
                 let cands: Vec<(usize, i64)> =
                     (0..state.players[me_idx].hand.len()).map(|i| (me_idx, i as i64)).collect();
-                note_choice_suspend("self_hand_discard_pick", n.max(1) as usize, cands);
+                if up_to {
+                    note_choice_suspend("self_hand_discard_pick", n.max(1) as usize, cands);
+                } else {
+                    // 「N 枚を捨てる」 = 強制 → 「選ばない」 を出さない (Python と同則)。
+                    note_choice_suspend_mandatory("self_hand_discard_pick", n.max(1) as usize, cands);
+                }
                 return true;
             }
             let mut discarded = 0;
@@ -9820,22 +9908,46 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             //   Rust の replay と形が違う = 未移植)。 ⚠ 逆に **up_to でなければ選択は無い** ので、
             //   primitive 丸ごと denylist に載せると 実装済なのに大量に bail する
             //   (実測 候補 bail の約 6% を無駄に捨てていた、 2026-08-22)。
+            let target_val = v.get("target").cloned().unwrap_or(Value::String("self_leader".into()));
+            let Some(targets) = resolve_target(Some(&target_val), me_idx, opp_idx, src, state) else { return false };
+            if targets.is_empty() {
+                return true; // 対象なし or target 選択で中断 (呼出側の suspend_if_choice が拾う)
+            }
+            // ⭐ 列挙モード: 公式 「ドン!!N枚**まで**付与」 (up_to) は **付与枚数を本人が選ぶ**。
+            //   Python (effects.py:7492) は 「N枚付与 / N-1枚付与 / …」 を option_pick で出す。
+            //   ⚠ **target を解決した後** に立てる (Python と同順)。 対象は確定しているので
+            //     各選択肢に `_iid_picks` 相当 (= forced_target) を載せて再解決させない。
             if state.choice_enumeration
                 && v.get("up_to").and_then(|x| x.as_bool()).unwrap_or(false)
                 && !per_target
                 && !to_opp
+                && !choice_suspended()
             {
                 let p = &state.players[owner];
                 let avail = p.don_rested + if from_cost_area { p.don_active } else { 0 };
-                if count.min(avail) >= 2 {
-                    note_prim_err("choice_enumeration: attach_rested_don の付与枚数選択は Rust 未移植");
-                    return false;
+                let max_n = count.min(avail);
+                if max_n >= 2 {
+                    let (tpi, tsl) = targets[0];
+                    let mut opts: Vec<Value> = vec![];
+                    for cnt in (1..=max_n).rev() {
+                        let mut base = v.clone();
+                        if let Some(o) = base.as_object_mut() {
+                            o.remove("up_to");
+                            o.insert("count".into(), Value::from(cnt));
+                        }
+                        opts.push(serde_json::json!([{ "attach_rested_don": base }]));
+                    }
+                    note_choice_suspend_with_prim(
+                        "option_pick",
+                        1,
+                        vec![],
+                        serde_json::json!({"__option_pick": {
+                            "options": opts,
+                            "forced_target": [tpi, slot_to_code(tsl)],
+                        }}),
+                    );
+                    return true;
                 }
-            }
-            let target_val = v.get("target").cloned().unwrap_or(Value::String("self_leader".into()));
-            let Some(targets) = resolve_target(Some(&target_val), me_idx, opp_idx, src, state) else { return false };
-            if targets.is_empty() {
-                return true;
             }
             let mut take_from_owner = |state: &mut GameState, k: i32, pi_of_target: usize| -> i32 {
                 let src_owner = if owner_of_target { pi_of_target } else { owner };
@@ -10396,6 +10508,11 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             };
             let count = v.get("count").and_then(|x| x.as_i64()).unwrap_or(99) as usize;
             let Some(targets) = resolve_target(Some(&target_val), me_idx, opp_idx, src, state) else { return false };
+            // ⛔ 列挙モード: 「N 枚まで」 の二段目の絞り込みは未移植 (set_cannot_attack と同型)。
+            if state.choice_enumeration && targets.len() > count {
+                note_prim_err("choice_enumeration: set_cannot_rest の N枚まで絞り込みは Rust 未移植");
+                return false;
+            }
             let tn = state.turn_number;
             for (pi, sl) in targets.into_iter().take(count) {
                 let ip = get_ip_mut(&mut state.players[pi], sl);
@@ -10417,6 +10534,13 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 (v.clone(), false, 99)
             };
             let Some(targets) = resolve_target(Some(&target_val), me_idx, opp_idx, src, state) else { return false };
+            // ⛔ 列挙モード: 「N 枚まで」 の **二段目の絞り込み** (effects.py:len(targets) > count で
+            //   `_maybe_request_target_pick`) は未移植。 `count` 未指定 (= 99) の spec は
+            //   中央の target 中断だけで足りるので通す (= primitive 丸ごと denylist にしない)。
+            if state.choice_enumeration && targets.len() > count {
+                note_prim_err("choice_enumeration: set_cannot_attack の N枚まで絞り込みは Rust 未移植");
+                return false;
+            }
             for (pi, sl) in targets.into_iter().take(count) {
                 let ip = get_ip_mut(&mut state.players[pi], sl);
                 if next_opp {
@@ -11366,6 +11490,13 @@ fn execute_pending(state: &mut GameState, evt: &PendingTrigger) -> Result<(), St
         //   かったもの)。 被 KO の記録 (note_ko_and_should_fire) は支払い時に済んでいるので、
         //   ここは do の解決だけを行う。
         "on_ko" => run_on_ko_effects(state, evt.owner_idx, &evt.card_id.clone()),
+        // ⭐ イベント (メイン/カウンター) は Python も enqueue → drain。 選択待ちで退避した分を
+        //   ここで解決する。 発動元はトラッシュ = source-gone (Python も source_iid=None)。
+        "main" | "counter" => {
+            let cid = evt.card_id.clone();
+            let w = evt.when.clone();
+            execute_card_effects(state, evt.owner_idx, &cid, &w, Slot::Detached)
+        }
         "on_play" => {
             let me = evt.owner_idx;
             // enqueue 時に打ったトークンで発火元の現在位置を復元する (Python の source_iid 相当)。
@@ -11734,7 +11865,30 @@ fn fire_on_attack_do(
     effs: &[Value],
     mut fired: Vec<usize>,
 ) -> Result<(), String> {
-    bail_if_choice_pending(state, "on_attack")?;
+    // ⭐ 選択待ち中は **キューへ退避** する (Python `trigger_on_attack` は cost 支払い済の
+    //   effect_indexes を enqueue するだけで、 do は drain で走る = 選択解決後になる)。
+    //   inline 発火すると Python より先に解決してしまう。 opp_attack と同型。
+    if state.choice_enumeration && state.pending_choice.is_some() {
+        let cid = src_ip(&state.players[me_idx], src)
+            .map(|ip| ip.card.card_id.clone())
+            .unwrap_or_default();
+        if cid.is_empty() {
+            return Err("choice_enumeration: 選択待ち中の on_attack 退避 (source 不在)".into());
+        }
+        fired.sort_unstable();
+        for idx in fired {
+            let tok = tag_src(state, me_idx, src);
+            state.rust_event_queue.push(PendingTrigger {
+                when: "on_attack".to_string(),
+                owner_idx: me_idx,
+                card_id: cid.clone(),
+                slot: src,
+                tok,
+                eff_idxs: Some(vec![idx]),
+            });
+        }
+        return Ok(());
+    }
     // 発火フェーズ: sorted idx 順に条件再評価 + do 発火。
     // ⚠ Python (trigger_on_attack) は on_attack を **enqueue** して return するだけで、
     //   実際の do 実行は resolve_triggers の中 (resolving=true) で走る。 その間に do の中で
@@ -13133,6 +13287,8 @@ fn suspend_event_cost_discard(
         me_idx,
         remaining_do: vec![],
         cand_slots: cands.into_iter().map(|i| (me_idx, i as i64)).collect(),
+        cand_cards: vec![],
+        mandatory: true, // 発動コストは 「払わない」 を選べない (公式 4-10)
     });
 }
 
@@ -14894,7 +15050,19 @@ pub fn execute_main_event(state: &mut GameState, me_idx: usize, card_id: &str) -
     let opp = 1 - me_idx;
     // trigger_main_event 順 (turn-first FIFO drain): ① event main 効果 → ② on_self_event_played(me)→
     //   ③ opp_event_or_trigger_fired(opp)。 各段 fire は fidelity 保証 (未対応 cost/once/prim は Err bail)。
-    execute_card_effects(state, me_idx, card_id, "main", Slot::Detached)?;
+    // ⭐ 選択待ち中は **キューへ退避** (Python `trigger_main_event` も enqueue → _maybe_resolve)。
+    if state.choice_enumeration && state.pending_choice.is_some() {
+        state.rust_event_queue.push(PendingTrigger {
+            when: "main".to_string(),
+            owner_idx: me_idx,
+            card_id: card_id.to_string(),
+            slot: Slot::Detached,
+            tok: None,
+            eff_idxs: None,
+        });
+    } else {
+        execute_card_effects(state, me_idx, card_id, "main", Slot::Detached)?;
+    }
     fire_field_when(state, me_idx, "on_self_event_played")?;
     // 「相手がイベントを発動した時」 (OP11-012 フランキー 等) は event-play 経路のみ。
     // opp_event_or_trigger_fired の直前に撃つ (Python: trigger_opp_event_played → …_or_trigger_fired)。
@@ -14940,7 +15108,20 @@ pub fn fire_counter_events(
         state.players[defender_idx].trash.push(card);
         // trigger_counter_event 順 (effects.py:12875): counter 効果 → opp_event_or_trigger_fired(attacker)
         //   → on_self_event_played(defender)。 各 counter event 毎に発火 (per-event、 Python enqueue+drain 準拠)。
-        execute_card_effects(state, defender_idx, &cid, "counter", Slot::Detached)?;
+        // ⭐ 選択待ち中は **キューへ退避** (Python `trigger_counter_event` は enqueue → _maybe_resolve
+        //   なので、 選択が立っていれば drain されずキューに残る)。
+        if state.choice_enumeration && state.pending_choice.is_some() {
+            state.rust_event_queue.push(PendingTrigger {
+                when: "counter".to_string(),
+                owner_idx: defender_idx,
+                card_id: cid.clone(),
+                slot: Slot::Detached,
+                tok: None,
+                eff_idxs: None,
+            });
+        } else {
+            execute_card_effects(state, defender_idx, &cid, "counter", Slot::Detached)?;
+        }
         // カウンターも event-play 経路 = 「相手がイベントを発動した時」 を撃つ (ライフ【トリガー】は別)。
         fire_field_when(state, attacker_idx, "opp_event_played")?;
         fire_field_when(state, attacker_idx, "opp_event_or_trigger_fired")?;
@@ -16170,11 +16351,12 @@ fn can_pay_activate_cost(state: &GameState, me_idx: usize, ip: &InPlay, on_field
 ///   繰り返す (Python 側で実測、 試合が引き分けで終わった)。
 fn enumerate_choice_options_rs(pc: &crate::state::PendingChoice) -> Vec<Vec<usize>> {
     const TOPK: usize = 4;
-    let mandatory = matches!(
-        pc.kind.as_str(),
-        "activate_main_cost_pick" | "activate_main_discard_pick" | "counter_discard_pick"
-            | "self_chara_cost_pick" | "field_full_sacrifice_pick"
-    );
+    let mandatory = pc.mandatory
+        || matches!(
+            pc.kind.as_str(),
+            "activate_main_cost_pick" | "activate_main_discard_pick" | "counter_discard_pick"
+                | "self_chara_cost_pick" | "field_full_sacrifice_pick"
+        );
     // 順序選択は階乗になるので **元順序 1 手だけ** (Python `_CHOICE_ORDER_KINDS`)。
     let order = matches!(
         pc.kind.as_str(),

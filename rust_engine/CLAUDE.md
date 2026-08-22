@@ -147,14 +147,17 @@ bail の内訳は `eng.reset_coverage_stats(True)` + `coverage_stats()` で原�
 出すのは 「N枚**まで**付与」 (`up_to`) かつ最大 2 枚以上の時だけなので site-specific bail に。
 → 差分ハーネス bail 67 → 43、 ResolveChoice の bail 2,210 → 29。
 
-### ⭐ 2026-08-22: 候補 bail 27.1% → **9.5%** (発動コストの選択を解消)
+### ⭐ 2026-08-22: 候補 bail 27.1% → **1.7%**
 
 | | 候補 action の bail 率 | 主因 |
 |---|---|---|
 | 改善前 | 27.1% | 発動コストの選択 (防御 41,385 + 攻撃 8,249) |
-| 改善後 | **9.5%** | redirect_attack / life trigger の play_self (= 未移植 primitive) |
+| 第 1 段 | 9.5% | redirect_attack / life trigger の play_self (= 未移植 primitive) |
+| 第 2 段 | **1.7%** | 起動メインの発動コスト選択 (= `activate_main_cost_pick` 系、 未移植) |
 
-**3 つの是正**:
+⚠ 率は **step 上限に達した病的な 2 game を除いた 38 game** で測る (下の 「無限 no-op ループ」)。
+
+**第 1 段の 3 つの是正**:
 
 1. **発動コストの modal 判定は 「呼出サイト」 が持つ** (`event_cost_gate`)。 それまでは
    `try_pay_counter_cost` の中で一律に 「候補が複数なら bail」 としていたが、 Python が
@@ -175,6 +178,60 @@ bail の内訳は `eng.reset_coverage_stats(True)` + `coverage_stats()` で原�
 ⚠ **bail 「率」 で進捗を測らない**。 実行できる手が増えると探索が深く進み **候補の総数が
 増える** ので、 改善したのに率が上がって見える (20.4% → 24.5% だが候補は 36,865 → 75,149)。
 原因別の **絶対数** で見ること。
+
+### ⭐ 第 2 段: **denylist を site-specific に** + キュー退避の拡張 (2026-08-22)
+
+`CHOICE_UNPORTED_PRIMS` に primitive を丸ごと載せると、 **選択の余地が無い局面まで** bail する。
+Python の選択サイトを読んで **条件付き bail** に落とすと、 同じ不変条件のまま候補が戻る:
+
+| primitive | Python が訊く条件 | 直し方 |
+|---|---|---|
+| `play_self` / `play_self_from_trash` | 場 5 枚差し替えの犠牲選択のみ | denylist から外す (`trash_weakest_for_field_full` が site bail 済) |
+| `set_cannot_attack` / `set_cannot_rest` | `count` 指定で候補 > count の二段目の絞り込み | `targets.len() > count` の時だけ bail |
+| `give_keyword` | `keywords` が 2 つ以上 (= どれを得るか) | keywords.len() > 1 の時だけ bail |
+| `attach_rested_don` | 「N枚**まで**付与」 (up_to) かつ最大 2 枚以上 | option_pick を **移植** (下記) |
+| `redirect_attack` | 候補が 2 枚以上 | 候補列を作って中断、 再開は FORCED_TARGETS |
+
+⭐ **`option_pick` を移植**: 「選択肢そのもの」 を `PendingChoice.prim` に持つ kind。
+`note_choice_suspend_with_prim` で prim を差し替え、 `resolve_choice_action` が
+選ばれた選択肢の do 配列 + 退避した残り do を流す。 Python の
+`_full_options[picks[0]]["do"]` → `run_do_array` と同形。 ⚠ Python の
+`enumerate_choice_options` は **candidates を持たない payload を binary 扱い** にするので
+選択肢は `[1], [0]` の 2 つだけ (= 先頭 2 案)。 Rust も `n_candidates=0` で同じ形にする。
+
+⭐ **キュー退避を on_attack / counter イベント / メインイベントにも拡張**。 Python は
+`trigger_on_attack` (effect_indexes 付き enqueue) / `trigger_counter_event` /
+`trigger_main_event` のいずれも enqueue → drain なので、 選択待ち中は **キューに積むだけ**。
+
+### ⚠ **位置 index の候補は 「中断時のカード」 を控えて照合する** (2026-08-22)
+
+`PendingChoice.cand_slots` は位置 (slot code) なので、 **選択の解決中に盤面が動くと別のカードを
+指す**。 Python は iid 参照なので原理的に起きない。 実例: 【相手のアタック時】の対象選択を
+立てたまま **バトルが解決してそのキャラが KO** され、 再開時に同じ index が空/別カードを指し
+`get_ip_mut` が **panic** した (= self-play プロセスが死ぬ = 不変条件の外)。
+→ `cand_cards` に中断時の card_id を控え、 再開時に照合して食い違えば **明示 bail**。
+
+### ⚠ 生ループ禁止は **Rust 側も同じ** (`optional_cost_then` / `fire_activate_main`)
+
+do 配列を回すコードが `suspend_if_choice` を通していないと、 内側で立った選択を
+**外側の do-loop が 「外側の primitive を再実行対象」 として記録** してしまう。 再開時に
+先頭の primitive が picks を横取りし、 選択サイトが再び中断 → **無限ループ**
+(実測 200,000 step 上限まで空回り)。 Python も同じ位置で `_continuation` に退避している
+(effects.py:11351)。 ⭐ **do を回す新コードは必ず `suspend_if_choice` を通すこと**。
+
+### ⚠ 強制の選択に 「選ばない」 を出さない (= no-op 無限ループの元)
+
+`self_hand_discard_pick` は 「N 枚を捨てる」 (強制) と 「N 枚**まで**捨てる」 (任意) の両方で
+使う。 強制側に空 picks を出すと、 AI が 「起動メイン宣言 → 捨てない → また宣言」 を延々と
+繰り返す (発動コストに () を出さないのと同じ理屈)。 payload の `up_to` を見て
+`allow_none` を落とす (Python `enumerate_choice_options` / Rust `PendingChoice.mandatory`)。
+
+### ⚠ **pre-existing**: 「効果が何も起こさない起動メイン」 を AI が無限に繰り返す
+
+OP15-060 エネルの【起動メイン】 (ドン0・手札0 で発動しても盤面が変わらない) を greedy が
+延々と選び、 **列挙 ON/OFF どちらでも** 200,000 step 上限に達する game がある (40 game 中 2)。
+= **選択列挙とは無関係の pre-existing な policy/legal_actions 側の穴**。 self-play の計算を
+丸ごと空転させるので、 別途 「盤面が変わらない行動を選ばない」 側で塞ぐ必要がある。
 
 ### ⭐ 選択待ち中の 「inline 発火 vs キュー deferral」 (2026-08-22、 Python 側の実バグ由来)
 

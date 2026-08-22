@@ -157,6 +157,14 @@ pub struct PendingChoice {
     pub remaining_do: Vec<serde_json::Value>,
     /// 候補の解決結果 (= 再実行時に picks で絞る母集合)。 (player_idx, slot_code)。
     pub cand_slots: Vec<(usize, i64)>,
+    /// target_pick の候補が **中断時に指していたカード** (card_id)。 位置 index は選択の解決中に
+    /// stale になりうる (バトルで KO された 等) ので、 再開時に照合して 「別のカードに化けて
+    /// いないか」 を確かめる。 Python は iid 参照なので原理的にこの問題が無い。
+    /// target_pick 以外 (= 手札/デッキ index を持つ kind) では空。
+    pub cand_cards: Vec<String>,
+    /// 「選ばない」 (= 空 picks) を **出してはいけない** 選択か (Python `enumerate_choice_options`
+    /// の allow_none=False 側)。 強制の手札捨て等。 出すと AI が no-op を無限に繰り返す。
+    pub mandatory: bool,
 }
 
 /// 場のカード (core.py InPlay、 71 field。 instance_id は除外)。/// 場のカード (core.py InPlay、 71 field。 instance_id は除外)。

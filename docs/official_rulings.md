@@ -8980,3 +8980,23 @@ AI vs AI (列挙 OFF) は pending_choice を立てないので matrix / self-pla
 是正: `valid_picks` を `[:limit]` で cap (同ファイルの `opp_discard_own_choice_pick` は
 元から cap 済だった)。 検出は `tests/test_human_path_conformance.py` (人間経路で
 **全候補を選ぶ** adversarial ハーネス)。 UI が上限で止めていても **engine が最終防衛線**。
+
+## 強制の 「N枚を捨てる」 に 「選ばない」 を出さない (2026-08-22)
+
+公式は 「N 枚**まで**」 (上限のみ、 下限指定なし = 0 枚可、 総合ルール 1-3-5-1) と
+素の 「N 枚を捨てる」 (= 強制) を書き分ける。 engine の選択列挙 (探索が選択肢を分岐する
+モード) は `self_hand_discard_pick` の選択肢に **常に 「選ばない」 (空 picks) を混ぜて** おり、
+強制の捨てでも 0 枚を選べてしまった。
+
+実害は **ルールの逸脱そのもの** に加えて AI の空転:
+OP15-060 エネルの【起動メイン】 「ブロッカーを得る。 その後、 自分の手札1枚を捨てる」 で
+「捨てない」 を選ぶと盤面が変わらないため、 greedy が **同じ起動メインを延々と選び続ける**
+(self-play が 200,000 step 上限に到達)。 発動コストの選択に 「選ばない」 を出さないのと
+同じ理屈 (公式 4-10 「発動を宣言したらコストを払う」)。
+
+是正: payload の `up_to` を見て `allow_none` を落とす
+(`engine/effects.py:enumerate_choice_options` / Rust は `PendingChoice.mandatory`)。
+
+⚠ **別件の pre-existing 問題**: 「ドン0・手札0 で発動しても何も起きない起動メイン」 を
+AI が無限に繰り返すこと自体は **選択列挙と無関係** (列挙 OFF でも起きる)。 これは
+policy / legal_actions 側で 「盤面が変わらない行動」 を塞ぐ必要がある (未着手)。

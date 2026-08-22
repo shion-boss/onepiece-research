@@ -515,6 +515,13 @@ pub fn defended_move(
 /// 1 手適用 (攻撃なら防御側の応手込み)。 返り値 = 実際に適用した action (防御フィールド入り)。
 /// def_w = 防御側の value 重み。 探索内 sim では探索者の weights を渡す (= 相手も自分と同じ value で
 /// 守ると仮定する self-play 標準の相手モデル)。
+/// self-play の手を実況する診断スイッチ (`OPTCG_DEBUG_STEPS=1`、 step 300-340 のみ)。
+/// 「同じ行動を無限に繰り返して step 上限に達する」 型の検出用 (2026-08-22)。
+fn debug_steps() -> bool {
+    static F: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *F.get_or_init(|| std::env::var("OPTCG_DEBUG_STEPS").is_ok())
+}
+
 pub fn apply_move(
     st: &mut GameState,
     action: &Value,
@@ -753,6 +760,14 @@ pub fn play_game(
         let action = choose_move(&st, mode, weights, beam_width, max_depth, rollout_plies);
         // 防御は **実際の防御側の value** で決める (A/B の公平性: 各 player は自分の value で守る)。
         let def_w = if me == 0 { w1 } else { w0 };
+        if debug_steps() && steps > 300 && steps < 340 {
+            eprintln!("[step {}] t={} me={} act={} don={}/{} hand={} pend={}",
+                steps, st.turn_number, me,
+                serde_json::to_string(&action).unwrap_or_default(),
+                st.players[me].don_active, st.players[me].don_rested,
+                st.players[me].hand.len(),
+                st.pending_choice.as_ref().map(|p| p.kind.clone()).unwrap_or_default());
+        }
         let applied = apply_move(&mut st, &action, def_w)?;
         if is_attack(&action) {
             n_attacks += 1;

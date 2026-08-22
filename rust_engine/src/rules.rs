@@ -861,6 +861,14 @@ pub(crate) fn resolve_life_taken(
 /// ownership 部分を反映 (静的効果 eval は R3)。
 /// ResolveChoice を解決する。 picks で候補を絞って FORCED_TARGETS に注入し、
 /// 中断した primitive を再実行 → 退避した残り do を流す。
+/// 選択の解決を 1 行ずつ実況する診断スイッチ (`OPTCG_DEBUG_RESOLVE=1`)。
+/// 「同じ選択が延々と再提示される」 型のループはこれが無いと特定できない (2026-08-22)。
+/// ⚠ env は **一度だけ** 読む (解決は hot path)。
+fn debug_resolve() -> bool {
+    static F: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *F.get_or_init(|| std::env::var("OPTCG_DEBUG_RESOLVE").is_ok())
+}
+
 fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), String> {
     let Some(pc) = state.pending_choice.take() else { return Ok(()) };
     let picks: Vec<usize> = action
@@ -884,7 +892,32 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
     //   target 系 (target_pick) → FORCED_TARGETS ((player, Slot) の組)
     //   index 系 (search_top_n 等) → FORCED_PICKS (zone 内の元 index)
     if pc.kind == "target_pick" {
+        // ⚠ **位置 index は選択の解決中に stale になりうる** (Python は iid 参照なので化けない)。
+        //   例: 【相手のアタック時】の対象選択を立てたまま バトルが解決し、 選んだキャラが KO
+        //   される → 同じ index が別のキャラを指す (or 範囲外で panic)。 中断時の card_id と
+        //   照合し、 食い違ったら **明示 bail** する (黙って別のカードに効果を当てない)。
+        for (k, &pi_idx) in picks.iter().enumerate() {
+            let Some(&(pi, code)) = pc.cand_slots.get(pi_idx) else { continue };
+            let want = pc.cand_cards.get(pi_idx).cloned().unwrap_or_default();
+            if want.is_empty() {
+                continue; // 中断時にも解決できなかった候補 (= 元から場外) は照合しない
+            }
+            let now = crate::effects::src_ip_pub(
+                &state.players[pi], crate::effects::code_to_slot(code))
+                .map(|ip| ip.card.card_id.clone());
+            let _ = k;
+            match now {
+                Some(cid) if cid == want => {}
+                _ => {
+                    return Err(format!(
+                        "choice_enumeration: 選択した対象が解決前に場を離れた/位置がずれた ({want})"
+                    ));
+                }
+            }
+        }
         crate::effects::set_forced_targets(Some(chosen));
+    } else if pc.kind == "option_pick" {
+        // picks は **選択肢の index** (= 盤面/手札の index ではない) なので注入しない。
     } else {
         let idxs: Vec<usize> = picks
             .iter()
@@ -893,12 +926,59 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
             .collect();
         crate::effects::set_forced_picks(Some(idxs));
     }
+    // ⭐ option_pick は 「選択肢そのもの」 を prim に持つ (= 再実行する primitive が無い)。
+    //   選ばれた選択肢の do 配列 + 退避した残り do を流す (Python `resolve_pending_choice`
+    //   の option_pick 分岐 = `run_do_array(chosen_do, ...)` と同形)。
+    let mut option_dos: Option<Vec<Value>> = None;
+    if pc.kind == "option_pick" {
+        let spec = pc.prim.get("__option_pick");
+        let opts = spec
+            .and_then(|o| o.get("options"))
+            .and_then(|o| o.as_array())
+            .cloned()
+            .unwrap_or_default();
+        let chosen = picks.first().copied();
+        match chosen {
+            // 範囲外 / 未選択 = 発動しない (Python: skip して残り do だけ流す)
+            Some(i) if i < opts.len() => {
+                // 対象が確定している選択肢は forced_target で再解決を防ぐ
+                //   (Python は各選択肢の spec に `_iid_picks` を埋めている)。
+                let mut target_gone = false;
+                if let Some(ft) = spec.and_then(|o| o.get("forced_target")).and_then(|x| x.as_array()) {
+                    if ft.len() == 2 {
+                        let pi = ft[0].as_u64().unwrap_or(0) as usize;
+                        let code = ft[1].as_i64().unwrap_or(0);
+                        let slot = crate::effects::code_to_slot(code);
+                        // ⚠ **位置 index は stale になりうる** (選択の解決中に場が動く)。 Python は
+                        //   `_iid_picks` で iid を持つので、 対象が場を離れていれば
+                        //   `_resolve_target` が空を返し **効果は no-op**。 Rust も同じにする
+                        //   (bounds 外を注入すると get_ip_mut が panic して self-play が死ぬ)。
+                        if crate::effects::src_ip_pub(&state.players[pi], slot).is_none() {
+                            target_gone = true;
+                        } else {
+                            crate::effects::set_forced_targets(Some(vec![(pi, slot)]));
+                        }
+                    }
+                }
+                option_dos = Some(if target_gone {
+                    vec![] // 対象が場を離れた = 効果は発動しない (Python も targets 空で continue)
+                } else {
+                    opts[i].as_array().cloned().unwrap_or_default()
+                });
+            }
+            _ => option_dos = Some(vec![]),
+        }
+    }
     // ⭐ 「再実行する primitive」 + 「退避した残り do」 を **1 本の do 配列** として回す。
     //   再実行した primitive の中でさらに選択が立つ (= 登場効果が別の選択サイトを踏む) 型が
     //   あり、 以前は pc.prim の直後に `suspend_if_choice` を通していなかったので
     //   **残り do を取りこぼしたまま次の中断が立って** 候補が空になっていた (2026-08-21)。
     let mut dos: Vec<Value> = Vec::with_capacity(pc.remaining_do.len() + 1);
-    dos.push(pc.prim.clone());
+    if let Some(od) = option_dos {
+        dos.extend(od);
+    } else {
+        dos.push(pc.prim.clone());
+    }
     dos.extend(pc.remaining_do.iter().cloned());
     // ⭐ 2 択 confirm 系 (optional_cost_confirm) は picks[0] が **発動する/しない**。
     //   発動 → 同 spec を `_cost_confirmed` 付きで再実行 / 見送り → その primitive を飛ばす
@@ -940,6 +1020,11 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
     let _guard = ForcedGuard;
     for ci in start..dos.len() {
         let prim = dos[ci].clone();
+        if debug_resolve() {
+            eprintln!("[resolve] kind={} ci={} q={} prim={} src={:?} me={}", pc.kind, ci,
+                state.rust_event_queue.len(),
+                serde_json::to_string(&prim).unwrap_or_default(), src, pc.me_idx);
+        }
         let ok = crate::effects::execute_effect_pub(&prim, state, pc.me_idx, src);
         if ci == start {
             crate::effects::set_forced_targets(None);

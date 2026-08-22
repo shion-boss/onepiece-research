@@ -2453,6 +2453,13 @@ def enumerate_choice_options(choice: dict, topk: int = CHOICE_ENUM_TOPK) -> list
     limit = max(0, min(limit, n))
     idxs = list(range(min(n, max(topk, limit))))
     allow_none = kind not in _CHOICE_MANDATORY_KINDS
+    # ⭐ 「自分の手札 N 枚を捨てる」 (= `up_to` でない **強制**) に 「選ばない」 を出さない。
+    #   出すと AI が 「起動メインを宣言 → 捨てない (= 盤面不変) → また宣言」 を延々繰り返す
+    #   (実測: OP15-060 エネルの【起動メイン】で self-play が 200,000 step 上限まで空回り)。
+    #   発動コストの選択に () を出さないのと同じ理屈 (公式 4-10)。 「N 枚**まで**」 は
+    #   up_to=True なので従来どおり 0 枚を選べる (公式 1-3-5-1)。
+    if allow_none and choice.get("up_to") is False:
+        allow_none = False
     opts: list[tuple[int, ...]] = []
     if limit <= 1:
         # 1 枚選ぶ: 上位 K 件 (+ コスト以外なら 「選ばない」)

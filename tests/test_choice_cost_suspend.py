@@ -147,3 +147,19 @@ def test_play_from_trash_pick_caps_at_limit():
 
     assert len(p0.characters) == 1, "上限 1 枚を超えて登場させない"
     assert len(p0.trash) == 2, "登場したのは 1 枚だけ"
+
+
+def test_mandatory_discard_has_no_skip_option():
+    """強制の 「N枚を捨てる」 に 「選ばない」 を出さない (= AI の no-op 無限ループ防止)。
+
+    「N枚**まで**」 (up_to) は 0 枚を選べる (公式 1-3-5-1) ので従来どおり () を出す。
+    """
+    from engine.effects import enumerate_choice_options
+
+    cands = [{"hand_idx": i, "card_id": "x", "name": "x"} for i in range(3)]
+    forced = {"kind": "self_hand_discard_pick", "candidates": cands, "limit": 1, "up_to": False}
+    optional = {"kind": "self_hand_discard_pick", "candidates": cands, "limit": 1, "up_to": True}
+
+    assert () not in enumerate_choice_options(forced), "強制の捨てに 「選ばない」 は出さない"
+    assert len(enumerate_choice_options(forced)) >= 1
+    assert () in enumerate_choice_options(optional), "「N枚まで」 は 0 枚を選べる"
