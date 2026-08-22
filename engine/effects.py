@@ -17450,18 +17450,19 @@ def _fire_activate_main_inner(
                     me.don_rested += inplay.attached_dons
                     inplay.attached_dons = 0
                 state.push_log(f"  起動メインコスト: 自ステージトラッシュ {inplay.card.name}")
-        # pay_don N: 場のドンを N 枚ドンデッキに戻す (active 優先)
+        # pay_don N: 場のドンを N 枚ドンデッキに戻す (active → rested → **付与ドン**)。
+        # ⭐ 2026-08-22 是正: ここだけ area (active/rested) しか見ておらず、 **付与ドンしか
+        #   残っていない局面で 「払えると判定されたのに 1 枚も払わない」** = タダ撃ちだった。
+        #   払えるか判定 (`_can_pay_activate_main`) は付与ドンを数えるので **判定と支払いが
+        #   食い違って** おり、 AI が 「コスト 0 で同じ起動メインを無限に撃つ」 空転を起こす
+        #   (self-play が 200,000 step 上限に到達した実例: OP15-060 エネル)。
+        #   counter/when-effect 側は元から `_pay_don_from_field` (付与ドン込み) を通っている。
         pay_don = int(cost.get("pay_don", 0))
         if pay_don > 0:
-            taken = min(pay_don, me.don_active)
-            me.don_active -= taken
-            me.don_remaining_in_deck += taken
-            rest_more = min(pay_don - taken, me.don_rested)
-            me.don_rested -= rest_more
-            me.don_remaining_in_deck += rest_more
-            state.push_log(f"  起動メインコスト: ドン-{pay_don}")
-            if (taken + rest_more) > 0 and state.effects_overlay:
-                trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay, count=taken + rest_more)
+            removed = _pay_don_from_field(state, me, pay_don)
+            state.push_log(f"  起動メインコスト: ドン-{removed}")
+            if removed > 0 and state.effects_overlay:
+                trigger_on_self_don_returned_to_deck(state, me, opp, state.effects_overlay, count=removed)
         # rest_self_don N: アクティブドン N 枚を rested に
         rest_self_don = int(cost.get("rest_self_don", 0))
         if rest_self_don > 0:

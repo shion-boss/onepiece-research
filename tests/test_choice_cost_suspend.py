@@ -163,3 +163,29 @@ def test_mandatory_discard_has_no_skip_option():
     assert () not in enumerate_choice_options(forced), "強制の捨てに 「選ばない」 は出さない"
     assert len(enumerate_choice_options(forced)) >= 1
     assert () in enumerate_choice_options(optional), "「N枚まで」 は 0 枚を選べる"
+
+
+def test_activate_main_pay_don_uses_attached_don():
+    """「ドン!!−N」 は **付与ドンからも払う** (公式: 場のドンを戻す)。
+
+    ⚠ 起動メインだけ area (active/rested) しか見ておらず、 判定は付与ドンを数えるのに
+    支払いが数えないため **付与ドンしか無い局面でタダ撃ち** できた。 コスト 0 で何度でも
+    撃てるので AI が同じ起動メインを無限に選び、 self-play が step 上限に達した
+    (OP15-060 エネル)。 counter/登場時側は元から `_pay_don_from_field` で正しい。
+    """
+    from engine.effects import fire_activate_main
+
+    repo, overlay = _repo(), load_effect_overlay(ROOT / "db" / "card_effects.json")
+    st, p0, p1 = _setup(repo, overlay, [])
+    ip = InPlay.of(repo.get("OP15-060"), sickness=False)
+    ip.attached_dons = 2
+    p0.characters.append(ip)
+    p0.don_active = 0
+    p0.don_rested = 0
+    eff = [e for e in overlay["OP15-060"].effects if e.get("when") == "activate_main"][0]
+    deck_don0 = p0.don_remaining_in_deck
+
+    fire_activate_main(st, p0, p1, ip, eff)
+
+    assert ip.attached_dons == 1, "付与ドン 1 枚が支払われる (タダ撃ちにならない)"
+    assert p0.don_remaining_in_deck == deck_don0 + 1, "払ったドンはドン!!デッキへ戻る"

@@ -761,11 +761,15 @@ pub fn play_game(
         // 防御は **実際の防御側の value** で決める (A/B の公平性: 各 player は自分の value で守る)。
         let def_w = if me == 0 { w1 } else { w0 };
         if debug_steps() && steps > 300 && steps < 340 {
-            eprintln!("[step {}] t={} me={} act={} don={}/{} hand={} pend={}",
+            let att: i32 = st.players[me].leader.attached_dons
+                + st.players[me].characters.iter().map(|c| c.attached_dons).sum::<i32>();
+            eprintln!("[step {}] t={} me={} act={} don={}/{} att={} deck_don={} hand={} score={:.1} pend={}",
                 steps, st.turn_number, me,
                 serde_json::to_string(&action).unwrap_or_default(),
-                st.players[me].don_active, st.players[me].don_rested,
+                st.players[me].don_active, st.players[me].don_rested, att,
+                st.players[me].don_remaining_in_deck,
                 st.players[me].hand.len(),
+                eval_with(&st, me, weights),
                 st.pending_choice.as_ref().map(|p| p.kind.clone()).unwrap_or_default());
         }
         let applied = apply_move(&mut st, &action, def_w)?;

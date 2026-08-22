@@ -888,6 +888,11 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
     if pc.kind == "counter_discard_pick" {
         return crate::effects::resume_event_cost_discard(state, &pc, &picks);
     }
+    // ⭐ 起動メインの発動コスト選択も **効果単位** の中断。 選んだ札を picks に足して
+    //   `fire_activate_main_with_picks` を頭から呼び直す (コストは 1 回だけ払われる)。
+    if pc.kind == "activate_main_cost_pick" || pc.kind == "activate_main_discard_pick" {
+        return crate::effects::resume_activate_main_cost(state, &pc, &picks);
+    }
     // ⭐ 注入先は kind で切り替える:
     //   target 系 (target_pick) → FORCED_TARGETS ((player, Slot) の組)
     //   index 系 (search_top_n 等) → FORCED_PICKS (zone 内の元 index)

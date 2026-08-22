@@ -147,15 +147,17 @@ bail の内訳は `eng.reset_coverage_stats(True)` + `coverage_stats()` で原�
 出すのは 「N枚**まで**付与」 (`up_to`) かつ最大 2 枚以上の時だけなので site-specific bail に。
 → 差分ハーネス bail 67 → 43、 ResolveChoice の bail 2,210 → 29。
 
-### ⭐ 2026-08-22: 候補 bail 27.1% → **1.7%**
+### ⭐ 2026-08-22: 候補 bail 27.1% → **0.84%**
 
 | | 候補 action の bail 率 | 主因 |
 |---|---|---|
 | 改善前 | 27.1% | 発動コストの選択 (防御 41,385 + 攻撃 8,249) |
 | 第 1 段 | 9.5% | redirect_attack / life trigger の play_self (= 未移植 primitive) |
-| 第 2 段 | **1.7%** | 起動メインの発動コスト選択 (= `activate_main_cost_pick` 系、 未移植) |
+| 第 2 段 | 1.7% | 起動メインの発動コスト選択 (= `activate_main_cost_pick` 系、 未移植) |
+| 第 3 段 | **0.84%** | 個別 primitive の未移植のみ (play_from_hand_or_trash / choice_effect 等) |
 
-⚠ 率は **step 上限に達した病的な 2 game を除いた 38 game** で測る (下の 「無限 no-op ループ」)。
+⚠ かつては **step 上限に達した病的な game** を除いて測る必要があったが、 その原因
+(「ドン!!−N が付与ドンから払われない」) を是正したので 40/40 game が正常に完走する。
 
 **第 1 段の 3 つの是正**:
 
@@ -226,12 +228,29 @@ do 配列を回すコードが `suspend_if_choice` を通していないと、 �
 繰り返す (発動コストに () を出さないのと同じ理屈)。 payload の `up_to` を見て
 `allow_none` を落とす (Python `enumerate_choice_options` / Rust `PendingChoice.mandatory`)。
 
-### ⚠ **pre-existing**: 「効果が何も起こさない起動メイン」 を AI が無限に繰り返す
+### ⭐ 第 3 段: 起動メインの発動コスト選択を移植 (2026-08-22)
 
-OP15-060 エネルの【起動メイン】 (ドン0・手札0 で発動しても盤面が変わらない) を greedy が
-延々と選び、 **列挙 ON/OFF どちらでも** 200,000 step 上限に達する game がある (40 game 中 2)。
-= **選択列挙とは無関係の pre-existing な policy/legal_actions 側の穴**。 self-play の計算を
-丸ごと空転させるので、 別途 「盤面が変わらない行動を選ばない」 側で塞ぐ必要がある。
+Python は 「auto コストを払う → pick コストで halt → 再開時は払い済をスキップ」
+(`fire_activate_main(cost_picks=...)` で頭から再入) だが、 Rust は
+**1 円も払う前に中断** して、 再開時に picks 込みで **頭から 1 回だけ** 払う。
+最終状態は同じ (同じコストを同じ順で 1 回ずつ) で、 「zone を触る前に中断する」
+Rust の鉄則 (replay 方式) を崩さずに済む。
+
+- 対応 kind: `discard_hand` / `discard_hand_or_trash_filtered_chara` /
+  `ko_self_with_filter` / `rest_self_target(_name)` / `rest_own_card`
+- 候補の並びは Python の `candidates` と同順 (混在 modal は **キャラ → 手札** の順)
+- 複数の pick コストを持つ効果は 1 つずつ順に訊く (`prior` に重ねて再入)
+- 実測: 差分ハーネスの bail 64 → **19**
+
+### ⭐ 「ドン!!−N」 が付与ドンから払われず **タダ撃ち** できた (両エンジン、 2026-08-22)
+
+起動メインの発動コストだけ area (active/rested) しか見ておらず、 **判定は付与ドンを数えるのに
+支払いが数えない** ため、 付与ドンしか残っていない局面で 「払えると判定されて 0 枚しか払わない」
+= コスト 0 で何度でも撃てた。 詳細と一次情報は `docs/official_rulings.md`。
+
+⭐ **これが 「AI が同じ起動メインを無限に繰り返す」 (200,000 step 上限) の正体**。
+「盤面が変わらない行動を選ぶ policy の穴」 に見えたが、 実際は **engine のコスト踏み倒し**
+だった。 ⚠ 症状 (policy の空転) から原因 (ルール実装のバグ) を推定しないこと。
 
 ### ⭐ 選択待ち中の 「inline 発火 vs キュー deferral」 (2026-08-22、 Python 側の実バグ由来)
 
@@ -253,7 +272,8 @@ Rust 側はこれを写すため、 **選択待ち中は inline 発火しない�
 |---|---|
 | `maybe_resolve` | 早期 return (キューに残す) |
 | `fire_field_when` | `enqueue_field_when` して return |
-| `fire_opp_attack_collected` | `eff_idxs` 付き `PendingTrigger` として退避 (**コスト支払い= collect は Python も行うので退避しない**) |
+| `fire_opp_attack_collected` / `fire_on_attack_do` | `eff_idxs` 付き `PendingTrigger` として退避 (**コスト支払い= collect は Python も行うので退避しない**) |
+| カウンターイベント / メインイベント | `when: "counter"` / `"main"` の `PendingTrigger` として退避 |
 | 起動メインのコスト由来トリガー | `on_ko` / field-when を `PendingTrigger` として退避 |
 | `execute_card_effects` / `run_on_ko_effects` / `fire_life_trigger` | まだ inline → `bail_if_choice_pending` で **明示 bail** |
 | `resolve_choice_action` の末尾 | 選択が解けたら `maybe_resolve` で再 drain |
@@ -266,15 +286,6 @@ Rust 側はこれを写すため、 **選択待ち中は inline 発火しない�
 丸ごと消えていた。 do を回す新コードは **必ず `suspend_if_choice` を通す**。
 また、 中断中は `last_chara_ko_victim_card` を **畳まない** (Python も `if state.pending_choice
 is None:` で守っている = 未解決の【KO時】が victim 文脈を必要とする)。
-
-### ⚠ 選択サイトは 「候補を畳んでから返さない」 (self_inplay の実例)
-
-`resolve_target` は **中央** で 「候補が limit を超えたら中断」 を判定する。 そのため
-`resolve_target_inner` の各 arm が **1 枚に畳んで返すと中断判定が効かない**。
-`self_inplay` (= 「自分のリーダーかキャラ1枚まで」) が power 降順の先頭 1 枚を返しており、
-Python が modal を立てる局面で **Rust だけ勝手に最高 power を選んで** いた
-(2026-08-22、 OP15-057 ドレスローザ王国の【相手のアタック時】+2000 で検出)。
-→ arm は候補列を `pick_one_or_suspend` に渡すこと。
 
 ### 中断・再開のモデル (Python の 2 段構造を写すこと)
 
