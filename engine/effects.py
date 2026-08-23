@@ -7734,9 +7734,13 @@ def _execute_effect_body_inner(
                 state.push_log(f"  効果: ライフ公開 → ライフ空 (不発)")
             else:
                 revealed = me.life[0]
+                # ⚠ 「登場できない」 ペナルティ (OP13-023 / OP14-020) は **ライフからの登場にも
+                #   効く** (公式: 場に出る手続きは全て 「登場」)。 reveal_top_play 側は元から
+                #   見ていたのに ここだけ抜けていた (2026-08-24、 Rust との突合で発覚)。
                 matched = (
                     revealed.category == Category.CHARACTER
                     and _matches_filter(revealed, filt)
+                    and not _char_summon_blocked(me, revealed)
                 )
                 state.push_log(
                     f"  効果: ライフ上1枚公開 → {revealed.name} ({'マッチ' if matched else '不マッチ'})"

@@ -203,7 +203,7 @@ def run_one_game(deck_a: dict, deck_b: dict, seed: int, max_turns: int, stats: d
                                 })
                         else:
                             stats["tot"]["bail"] += 1
-                            stats["bail"][str(ex).splitlines()[0][:70]] += 1
+                            stats["bail"][str(ex).splitlines()[0][:200]] += 1
                     else:
                         if dr == dpy:
                             stats["tot"]["match"] += 1

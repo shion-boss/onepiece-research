@@ -127,11 +127,47 @@ fn board_has_when(p: &Player, when: &str) -> bool {
         .any(|ip| crate::effects::card_has_when(&ip.card.card_id, when))
 }
 
+/// 「属性X とバトルする時、 このターン中 +N」 を **turn_buff に積む** (Python
+/// `_apply_battle_attr_pump`、 game.py:610)。 公式 (cardqa / ST05-010 ゼット): 同じ属性のキャラに
+/// **2 回バトルされたら合計 +6000** = **ターン持続 + 累積**。 バトル中だけの補正ではない。
+/// **2026-08-23 に Rust も同じ実装に移行** (それまでは明示 bail)。
+/// 戻り値 = (attacker に積んだ額, defender に積んだ額)。 attacker 側は snapshot 経由で power を
+/// 計算しているので戻り値を足す。 defender は積んだ後に `power()` を読むので足さない。
+fn apply_battle_attr_pump(
+    state: &mut GameState,
+    atk: (usize, crate::effects::Slot),
+    def: (usize, crate::effects::Slot),
+) -> (i32, i32) {
+    let a_bonus = {
+        let a = crate::effects::src_ip_pub(&state.players[atk.0], atk.1);
+        let b = crate::effects::src_ip_pub(&state.players[def.0], def.1);
+        match (a, b) {
+            (Some(a), Some(b)) => battle_attr_bonus(a, b),
+            _ => 0,
+        }
+    };
+    let b_bonus = {
+        let a = crate::effects::src_ip_pub(&state.players[def.0], def.1);
+        let b = crate::effects::src_ip_pub(&state.players[atk.0], atk.1);
+        match (a, b) {
+            (Some(a), Some(b)) => battle_attr_bonus(a, b),
+            _ => 0,
+        }
+    };
+    if a_bonus != 0 {
+        if let Some(ip) = crate::effects::src_ip_mut_pub(&mut state.players[atk.0], atk.1) {
+            ip.turn_buff += a_bonus;
+        }
+    }
+    if b_bonus != 0 {
+        if let Some(ip) = crate::effects::src_ip_mut_pub(&mut state.players[def.0], def.1) {
+            ip.turn_buff += b_bonus;
+        }
+    }
+    (a_bonus, b_bonus)
+}
+
 /// game.py:_battle_attr_bonus = combatant が「属性X とバトルする時 +N」を持ち opponent が属性X の時 N。
-/// ⚠ **バトル中だけの補正ではない**。 公式 (ST05-010 ゼット / cardqa) は 「このターン中 +3000」 で、
-///   2 回バトルすれば **合計 +6000** = 発動のたびに turn_buff に累積する。
-///   Python は `_apply_battle_attr_pump` が turn_buff へ積む。 Rust はこのケースを
-///   **明示 bail** にして 「黙って違う状態を作らない」 を守る (該当 2 枚のみ = self-play 影響は無視できる)。
 fn battle_attr_bonus(combatant: &InPlay, opponent: &InPlay) -> i32 {
     let attr = &opponent.card.attribute;
     if attr.is_empty() {
@@ -1020,6 +1056,19 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
     //   発動 → 同 spec を `_cost_confirmed` 付きで再実行 / 見送り → その primitive を飛ばす
     //   (残り do は流す)。 Python `resolve_pending_choice` (effects.py:11626) と同形。
     let mut start = 0usize;
+    // ⭐ 「デッキ上 1 枚を公開 → 登場させ**てもよい**」 の 2 択 (Python
+    //   `reveal_top_play_confirm`、 effects.py:12796)。 Rust は zone を触る前に中断して
+    //   いるので、 選んだ結果を spec に畳んで **同 primitive を replay** する。
+    if pc.kind == "reveal_top_play_confirm" {
+        let want = i64::from(picks.first().copied() == Some(1));
+        if let Some(o) = dos[0].as_object_mut() {
+            if let Some((_k, sv)) = o.iter_mut().next() {
+                if let Some(so) = sv.as_object_mut() {
+                    so.insert("_confirm".into(), serde_json::Value::from(want));
+                }
+            }
+        }
+    }
     if pc.kind == "optional_cost_confirm" {
         if picks.first().copied() == Some(1) {
             if let Some(spec) = dos[0].get("optional_cost_then").cloned() {
@@ -1612,17 +1661,16 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
 
             if is_blocked {
                 // ブロッカー vs アタッカー (勝てば blocker KO、 負ければ生存、 リーダーへの damage 無)
-                if !attacker.battle_pump_vs_attribute.is_empty()
-                    || !state.players[opp].characters[blk_idx].battle_pump_vs_attribute.is_empty()
-                {
-                    // 「属性X とバトルする時、 このターン中 +N」 は turn_buff への **累積**
-                    // (Python _apply_battle_attr_pump)。 Rust 未追従 → 明示 bail。
-                    return Err("battle_pump_vs_attribute の turn 累積は Rust 未実装".into());
-                }
+                // 「属性X とバトルする時、 このターン中 +N」 は **ターン持続で累積**
+                // (Python game.py:2117 と同位置・同順)。 turn_buff に積み、 このバトルの
+                // power にも反映する。 ⚠ attacker は snapshot なので手動で足す。
+                let atk_slot = crate::effects::peek_tagged(state, me, state.current_attacker_tok);
+                let (bp_atk, _bp_def) = apply_battle_attr_pump(
+                    state, (me, atk_slot), (opp, crate::effects::Slot::Char(blk_idx)));
                 let (atk_power, def_power, immune) = {
                     let blocker = &state.players[opp].characters[blk_idx];
-                    let ap = atk_power_base + battle_attr_bonus(&attacker, blocker);
-                    let dp = blocker.power() + counter_added + battle_attr_bonus(blocker, &attacker);
+                    let ap = atk_power_base + bp_atk;
+                    let dp = blocker.power() + counter_added;
                     let vs_leader_immune = blocker.battle_ko_immune_vs_leader && atk_kind == "leader";
                     let imm = blocker.ko_immune_until_turn_end
                         || battle_ko_immune_by_attribute(blocker, &attacker)
@@ -1957,15 +2005,15 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 return Ok(());
             }
             // === バトル解決 (attr bonus 両方向) ===
-            if !attacker.battle_pump_vs_attribute.is_empty()
-                || !state.players[opp].characters[actual_idx].battle_pump_vs_attribute.is_empty()
-            {
-                return Err("battle_pump_vs_attribute の turn 累積は Rust 未実装".into());
-            }
+            // 「属性X とバトルする時、 このターン中 +N」 は **ターン持続で累積**
+            // (Python game.py:2467 と同位置)。 turn_buff に積み、 このバトルにも反映。
+            let atk_slot2 = crate::effects::peek_tagged(state, me, state.current_attacker_tok);
+            let (bp_atk2, _bp_def2) = apply_battle_attr_pump(
+                state, (me, atk_slot2), (opp, crate::effects::Slot::Char(actual_idx)));
             let (atk_power, def_power, immune) = {
                 let target = &state.players[opp].characters[actual_idx];
-                let ap = attacker.power() + battle_attr_bonus(&attacker, target);
-                let dp = target.power() + counter_added + battle_attr_bonus(target, &attacker);
+                let ap = attacker.power() + bp_atk2;
+                let dp = target.power() + counter_added;
                 let imm = target.ko_immune_until_turn_end || battle_ko_immune_by_attribute(target, &attacker);
                 (ap, dp, imm)
             };

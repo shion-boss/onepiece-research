@@ -4224,6 +4224,16 @@ restriction を設定するカードは **OP13-023 / OP14-020 の 2 枚のみ** 
 `bounce_self_chara_then_play_diff_color` (OP05 系) は Python/Rust **とも** restriction 未参照のまま
 (= 両エンジン一致で parity 維持)。 restriction 保有 2 枚との共起は稀だが要フォロー。
 
+**追補 (2026-08-24)**: `reveal_life_top_play` (= ライフ上 1 枚を公開して登場、 OP10-022 ロー /
+ST13-007 サボ / ST13-010 エース / ST13-014、 14 枚) が **同じ抜けを持っていた**。 デッキ版
+`reveal_top_play` は最初から `_char_summon_blocked` を見ていたのに、 ライフ版だけ
+`category == CHARACTER and _matches_filter(...)` だけで判定していた。 ライフから場に出す
+手続きも 「登場」 なので同じく禁止される。 Python 側 (`engine/effects.py` の
+`reveal_life_top_play` arm) を是正し、 Rust と一致させた。 発覚経路は **Rust への移植中の
+逐条突合** (= 差分ハーネスは両エンジンが同じ抜けを持つ間は沈黙する)。
+恒久ガード: `tests/test_reveal_life_top_play_summon_block.py` (3 ケース: 制限なし=登場 /
+`block_chara_play_until_turn_end` / `block_chara_play_cost_ge_threshold`)。
+
 ### co-fix: 置換コストの手札捨てが Rust で `hand_discarded_by_effect_this_turn` を立てていなかった
 
 上記の是正で Rust を再ビルドしたところ、 `rust_effect_smoke_parity` の **置換パス** に既存の

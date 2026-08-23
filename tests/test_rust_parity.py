@@ -43,7 +43,7 @@ def test_rust_parity_no_mismatch_broad():
 
 
 def test_rust_parity_all_card_synthetic_sweep():
-    """**全カードが載る 329 合成デッキ** の per-action bit 比較で MISMATCH=0 を保証 (~4 分)。
+    """**全カードが載る 332 合成デッキ** の per-action bit 比較で MISMATCH=0 / bail=0 を保証 (~4 分)。
 
     ⭐ なぜ 16 デッキ版と別に要るか: メタ 16 デッキは効果カードの **4.2%** しか通らない。
     実際 2026-08-22 に、 このスイープでしか出ない乖離が 2 件見つかった
@@ -67,6 +67,13 @@ def test_rust_parity_all_card_synthetic_sweep():
         f"全カード合成デッキ掃引で Python↔Rust が食い違っている。\n{tail}\n{r.stderr[-2000:]}"
     )
     assert "MISMATCH=0" in (r.stdout or ""), f"想定した出力形式でない:\n{tail}"
+    # ⭐ bail も 0 で pin する (2026-08-24 に全カード掃引の bail 0 到達)。 bail は
+    #   「黙って違う」 ではないので不変条件違反ではないが、 **Rust が実行できない手を
+    #   方策が黙って避ける** ので self-play/学習の分布を歪める。 新カードや overlay 追加で
+    #   ここが増えたら 「Rust に移植する」 か 「明示的に許容する」 かを判断する。
+    assert "bail(Err)=0" in (r.stdout or ""), (
+        f"全カード掃引に Rust の未移植 (bail) が復活している。\n{tail}"
+    )
 
 
 def test_rust_choice_enumeration_no_mismatch():
@@ -188,6 +195,54 @@ def test_rust_selfplay_meta_pool_no_bail():
     )
     inv = cv.get("invariant_violations") or {}
     assert not inv, f"保存則違反: {dict(list(inv.items())[:5])}"
+
+
+def test_rust_selfplay_choice_enum_no_bail_high_n():
+    """**選択列挙 ON** の Rust self-play で候補 action の bail が 0 であることを 高 N で保証。
+
+    ⚠ **N が小さいと 「たまたま 0」 を掴む**。 2026-08-24 に 16 game の差分ハーネスと
+    40 game の self-play が両方 0 だったのに、 120 game × 3 seed に増やしたら
+    27/111,306 = 0.02% の bail が出た (play_from_hand の場5枚差し替え / reveal_top_play の
+    2 択、 どちらも未移植)。 bail は 「黙って間違える」 ではないが、 **方策が黙って避ける**
+    ので学習分布が歪む (bail の過半が防御候補だった時期がある)。
+    """
+    import json
+    import random
+    from pathlib import Path
+
+    import optcg_engine as eng
+
+    from scripts.rust_parity_check import _load, deck_value
+
+    _load()
+    root = Path(__file__).resolve().parents[1]
+    slugs = [p.stem for p in sorted((root / "decks").glob("cardrush_*.json"))
+             if ".analysis." not in p.name and ".target_v" not in p.name]
+    if len(slugs) < 2:
+        pytest.skip("メタデッキが見つからない")
+
+    eng.reset_coverage_stats(True)
+    games = 60
+    for gi in range(games):
+        seed = 777 + gi
+        a = deck_value(slugs[gi % len(slugs)])
+        b = deck_value(slugs[(gi + 1) % len(slugs)])
+        rng_state = json.dumps(list(random.Random(seed).getstate()[1]))
+        try:
+            eng.self_play(a, b, rng_state, gi % 2, "greedy", None, 8, 12, 40, False, 80, True)
+        except BaseException as e:  # noqa: BLE001 - pyo3 panic は Exception でない
+            raise AssertionError(f"選択列挙 ON の Rust self-play が異常終了: {type(e).__name__}: {e}") from e
+
+    cv = json.loads(eng.coverage_stats())
+    acts = cv.get("actions") or {}
+    bail = sum(v.get("bail", 0) for v in acts.values())
+    total = sum(v.get("ok", 0) + v.get("bail", 0) for v in acts.values())
+    reasons = sorted((cv.get("bail_reasons") or {}).items(), key=lambda kv: -kv[1])[:5]
+    assert total > 10000, f"候補 action が少なすぎる ({total}) = ハーネス破損?"
+    assert bail == 0, (
+        f"選択列挙 ON の self-play に bail が {bail}/{total} 件ある (= 方策が黙って避けた手)。 "
+        f"理由 top: {reasons}。 詳細: python scripts/rust_choice_selfplay_probe.py --games 120"
+    )
 
 
 def _deck_exists(slug: str) -> bool:

@@ -75,7 +75,7 @@ onepiece_research/
 ├── web/            # Next.js フロントエンド (TypeScript, App Router)
 │   └── public/cards/   # 全 4,776 枚キャッシュ済
 ├── examples/       # スモークテスト・デモスクリプト (demo_matchup.py / demo_smoke.py / demo_with_effects.py)
-├── tests/          # pytest テスト (6,026 collected)
+├── tests/          # pytest テスト (6,172 collected)
 └── .venv/          # Python 仮想環境 (gitignore 推奨)
 ```
 

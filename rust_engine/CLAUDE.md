@@ -4,16 +4,23 @@
 > `optcg_engine`) は self-play を 30-100x 高速化するための**忠実ミラー**。 配備 AI・人間対戦・API は
 > Python のまま。 詳細背景は memory `project_rust_engine.md`。
 
-## 現状 (2026-08-10): Python との bit 一致を **効果カード全数** で証明済 + **全ハーネス bail 0**
+## 現状 (2026-08-24): 選択列挙 ON/OFF の **両モードで** bail 0 / MISMATCH 0
 
 | 検証 | 結果 |
 |---|---|
-| 差分ハーネス 16 デッキ (`rust_parity_check --assert`) | match 2,115 / **bail 0** / **MISMATCH 0** / static_skip 0 / py_skip 0 |
-| 差分 全カード合成デッキ 329 (`rust_parity_sweep`) | match 40,708 / **bail 0** / **MISMATCH 0 / PANIC 0** |
-| 効果差分 3 パス (`rust_effect_smoke_parity --assert`) | 直接発火 3,909 + 静的 532 + 置換 108 / bail 0 / **MISMATCH 0** |
-| **効果ありカード 4,262 枚の bit 一致証明** | **100%** |
+| 差分ハーネス 16 デッキ (`rust_parity_check --assert`) | match 2,138 / **bail 0** / **MISMATCH 0** / static_skip 0 / py_skip 0 |
+| 差分 全カード合成デッキ 332 (`rust_parity_sweep`) | match 40,300 / **bail 0** / **MISMATCH 0 / PANIC 0** |
+| 効果差分 3 パス (`rust_effect_smoke_parity --assert`) | 直接発火 3,953 + 静的 547 + 置換 111 / bail 0 / **MISMATCH 0** |
+| **選択列挙 ON の差分 (`rust_choice_parity --games 16`)** | match 855 / **bail 0** / **MISMATCH 0** |
+| **選択列挙 ON の Rust self-play 候補 bail 率 (`rust_choice_selfplay_probe`)** | **0/334,404 = 0.00%** (360 game / 3 seed、 完走率 100%) |
+| 広域 MISMATCH scan (`rust_mismatch_scan --seeds 1-8`) | **0 件** (8 seed × 全デッキ × 3 ペア構成) |
+| **効果ありカード 4,308 枚の bit 一致証明** | **100%** |
 | Rust 単独掃引 (`rust_fullsweep`、 60 デッキ / 360 game) | action 1,505,877 中 **bail 0**、 保存則違反 0、 中断 0 |
 | overlay 網羅 | primitive / condition / when / target spec が **全て実装済 (未対応 0)** |
+
+⚠ **「全ハーネス緑」 は 「完全一致の証明」 ではない**。 証明されたのは
+**サンプルした相互作用の範囲** で bit 一致だったことで、 カード 2 枚の同居の組合せは
+掃引していない ([[feedback_sweep_coverage_is_not_interaction_coverage]])。
 
 ### ⭐ 「意図的な」 bail 2 種を **実装で解消** (2026-08-10)
 
@@ -27,6 +34,12 @@
    スナップショットを走査する。 従来の `board_has_replace_holder` 一律 bail は撤去。
    ⚠ **残る bail は 1 種類だけ**: holder 自身がバッチ内で既に場を離れた場合
    (Python は object 参照で場外 holder も扱えるが Rust は場外 InPlay を持たない) → 明示 Err。
+   ⭐ **2026-08-23: この bail を 「実際に当たる時だけ」 に絞った** (= 全カード掃引 bail 0 の最後の 1 件)。
+   場外 holder でも **victim 側の情報だけで `replace_ko_match` は判定できる** (holder 依存は
+   「victim == holder か」 だけで、 場外なので必ず false)。 当たらない置換は Python も skip するので
+   bail は不要。 実例 = OP05-040 鳥カゴ の 「レストのコスト5以下すべてKO」 で ピーカ (OP05-032、
+   `if.target=self` の replace_ko) が先に場を離れ、 後続 victim ベビー５ に対して bail していた。
+   → 当たらないので skip が正解。 **場外 holder が本当に置換を宣言する時だけ** 明示 Err のまま。
 2. **`on_self_chara_leave_by_self_effect` の 「離脱本人」 発動** (`note_public_departure` +
    `fire_leave_by_self_effect`) — 公式 cardqa_op_08 (OP08-046 シャクヤク): 場を離れた本人も
    **行き先が公開領域 (トラッシュ / 表向きライフ)** なら発動できる。 Python `_note_public_departure`
@@ -260,6 +273,39 @@ Rust の鉄則 (replay 方式) を崩さずに済む。
 - 候補の並びは Python の `candidates` と同順 (混在 modal は **キャラ → 手札** の順)
 - 複数の pick コストを持つ効果は 1 つずつ順に訊く (`prior` に重ねて再入)
 - 実測: 差分ハーネスの bail 64 → **19**
+
+### ⭐ 第 6 段: self-play 候補 bail 0.02% → **0.00%** (2026-08-24)
+
+対戦ハーネス (16 game) が緑でも、 **self-play を 120 game に増やすと bail が出る**
+(実測 27/111,306 = 0.02%)。 「40 game で 0」 は当たっていなかっただけ。 2 件とも潰した:
+
+1. **`play_from_hand` が場 5 枚差し替えの犠牲選択を訊いていなかった** — Python は
+   effects.py:6592 で `_request_field_full_sacrifice` を呼ぶ (= まだ手札を pop していない
+   位置)。 Rust は `trash_weakest_for_field_full` を直に呼んでいたので site bail していた。
+   ⚠ 1 段目 (どの手札を登場させるか) の picks は **明示的に持ち越す**
+   (`request_field_full_sacrifice_carrying`)。 `peek_forced_picks()` 任せにできないのは、
+   primitive 自身が `take_forced_picks()` で既に消費している為 (= LAST_FORCED_PICKS が
+   別 primitive の物かもしれない)。 Python の `primitive_value["_picks_idx"]` と同じ役割。
+2. **`reveal_top_play` の 2 択 (登場させ**てもよい**) を移植** — Python は
+   `reveal_top_play_confirm` (binary kind) を立て、 解決側で field-full を replay_choice で
+   継ぐ。 Rust は **pop する前に中断** し、 選んだ結果を spec の `_confirm` に畳んで
+   **同 primitive を replay** する (zone を触る前に中断する鉄則を維持)。
+   ⚠ ライフ版 (`reveal_life_top_play`) は Python に modal が無い (= 常に登場) ので
+   **2 択を出してはいけない**。 出すと選択の数が食い違って parity が壊れる。
+
+⭐ **副産物 (Python の実バグ)**: `reveal_life_top_play` が 「登場できない」 ペナルティ
+(OP13-023 / OP14-020) を見ていなかった (デッキ版 `reveal_top_play` は元から見ていた)。
+公式上ライフからの登場も 「登場」 なので Python 側を是正して両エンジンを揃えた。
+
+### ⚠ 選択で中断したら **同 bundle の残りエントリ** も continuation に積む (2026-08-23)
+
+Python は選択待ちで `return` する時、 同じカードの **同じ `when` を持つ後続効果エントリ** のうち
+「コスト無し・条件成立」 のものを `_continuation` に足してから抜ける (effects.py:653-682)。
+Rust はそれを落としていたので、 **2 エントリ以上を同じ `when` に持つカード** (実測 80 枚 =
+on_play 28 / counter 13 / main 6 …) で 1 つ目に選択が入ると 2 つ目が丸ごと消えていた。
+→ `append_bundle_continuation` を `execute_card_effects_inner` / `run_on_ko_effects` /
+`fire_life_trigger` の break 直前に入れて Python と同形にした。
+⚠ **コスト付き / 条件不成立の後続は積まない** (Python も積まない = 再開後に改めて判定される)。
 
 ### ⭐ 「ドン!!−N」 が付与ドンから払われず **タダ撃ち** できた (両エンジン、 2026-08-22)
 
