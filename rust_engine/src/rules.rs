@@ -883,6 +883,7 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
         .collect();
     let src = crate::effects::code_to_slot(pc.src_slot);
     crate::effects::set_choice_suspended(false);
+    crate::effects::clear_last_forced_picks();
     // ⭐ **効果単位の中断** (発動コストの手札捨て) は primitive の replay では再現できない
     //   (コストは do の外)。 専用の再開経路で 「コスト支払い → 効果 index 指定の再発火」 を行う。
     if pc.kind == "counter_discard_pick" {
@@ -901,6 +902,7 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
         //   例: 【相手のアタック時】の対象選択を立てたまま バトルが解決し、 選んだキャラが KO
         //   される → 同じ index が別のキャラを指す (or 範囲外で panic)。 中断時の card_id と
         //   照合し、 食い違ったら **明示 bail** する (黙って別のカードに効果を当てない)。
+        let mut stale: Vec<usize> = vec![];
         for (k, &pi_idx) in picks.iter().enumerate() {
             let Some(&(pi, code)) = pc.cand_slots.get(pi_idx) else { continue };
             let want = pc.cand_cards.get(pi_idx).cloned().unwrap_or_default();
@@ -913,16 +915,45 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
             let _ = k;
             match now {
                 Some(cid) if cid == want => {}
-                _ => {
-                    return Err(format!(
-                        "choice_enumeration: 選択した対象が解決前に場を離れた/位置がずれた ({want})"
-                    ));
-                }
+                // ⭐ Python は iid 参照なので 「その札が場を離れた」 = `_resolve_target` が
+                //   空を返し **効果は何も起きない**。 Rust も同じく **その対象を落とす**
+                //   (位置 index が別の札を指していても巻き添えにしない)。
+                _ => stale.push(pi_idx),
             }
         }
-        crate::effects::set_forced_targets(Some(chosen));
+        if !stale.is_empty() {
+            let keep: Vec<(usize, crate::effects::Slot)> = picks
+                .iter()
+                .enumerate()
+                .filter(|(k, _)| !stale.contains(&picks[*k]))
+                .filter_map(|(_, &i)| pc.cand_slots.get(i))
+                .map(|&(pi, code)| (pi, crate::effects::code_to_slot(code)))
+                .collect();
+            crate::effects::set_forced_targets(Some(keep));
+        } else {
+            crate::effects::set_forced_targets(Some(chosen));
+        }
     } else if pc.kind == "option_pick" {
         // picks は **選択肢の index** (= 盤面/手札の index ではない) なので注入しない。
+    } else if pc.kind == "field_full_sacrifice_pick" {
+        // ⭐ 場 5 枚差し替え (3-7-6-1) の犠牲。 FORCED_PICKS ではなく **犠牲キュー** に積み、
+        //   召喚 primitive を replay する (Python `state.field_full_sacrifice_iids` と同形)。
+        state.rust_field_full_sacrifice = picks
+            .iter()
+            .filter_map(|&i| pc.cand_slots.get(i))
+            .filter_map(|&(_pi, code)| {
+                if let crate::effects::Slot::Char(ci) = crate::effects::code_to_slot(code) {
+                    Some(ci)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        // ⭐ 前段の選択で注入されていた picks を **持ち越す** (= 同じ primitive を replay する
+        //   ので、 落とすと 「どれを出すか」 の選択がやり直しになり無限ループする)。
+        if !pc.carried_picks.is_empty() {
+            crate::effects::set_forced_picks(Some(pc.carried_picks.clone()));
+        }
     } else {
         let idxs: Vec<usize> = picks
             .iter()
@@ -999,15 +1030,25 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
                 dos[0] = serde_json::json!({"optional_cost_then": s});
             }
         } else {
-            // ⚠ 見送りは 【ターン1回】 を **未使用に戻す** (公式 cardqa_op_03)。 Rust は
-            //   「この起動で立てた分か」 を追えないので、 起動済フラグが立っていたら bail。
+            // ⭐ 見送りは 【ターン1回】 を **未使用に戻す** (公式 cardqa_op_03: 「発動しない
+            //   ことを選んだ」 なら そのターン中まだ使える)。 「この起動で立てた分か」 は
+            //   `rust_act_used_set_by` (Python `_act_used_set_by_current_fire`) で判定する。
             let already_used = match src {
                 crate::effects::Slot::Detached => false,
                 _ => crate::effects::src_ip_pub(&state.players[pc.me_idx], src)
                     .map(|ip| ip.act_used).unwrap_or(false),
             };
+            let set_by_this = state.rust_act_used_set_by
+                == Some((pc.me_idx, crate::effects::slot_to_code_pub(src)));
             if already_used {
-                return Err("optional_cost_confirm 見送り + 【ターン1回】復元は Rust 未移植".into());
+                if set_by_this {
+                    if let Some(ip) = crate::effects::src_ip_mut_pub(&mut state.players[pc.me_idx], src) {
+                        ip.act_used = false;
+                    }
+                } else {
+                    // この起動で立てた分でない = 戻してはいけない。 追跡できないので明示 bail。
+                    return Err("optional_cost_confirm 見送り: 別経路の【ターン1回】は復元不可".into());
+                }
             }
             start = 1;
         }
@@ -1040,8 +1081,9 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
             //   「残り do が未対応」 に丸まって **移植の優先順位が読めない**。
             let key = prim.as_object().and_then(|o| o.keys().next())
                 .map(|s| s.as_str()).unwrap_or("?");
+            let inner = crate::effects::last_prim_err();
             return Err(if ci == 0 {
-                format!("ResolveChoice: 再実行した primitive が未対応: {key}")
+                format!("ResolveChoice: 再実行した primitive が未対応: {key} [{inner}]")
             } else {
                 format!("ResolveChoice: 残り do の primitive が未対応: {key}")
             });
@@ -1050,6 +1092,7 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
             break;
         }
     }
+    state.rust_field_full_sacrifice.clear(); // Python の finally 相当 (replay 後に畳む)
     // ⭐ 選択が解けたら **キューに残しておいたイベントを再 drain** する (Python
     //   `resolve_pending_choice` 末尾の `if state.pending_choice is None and state.event_queue:
     //    resolve_triggers(state)` と 1:1)。 選択待ち中は drain を止めているので、 ここで
@@ -1093,6 +1136,7 @@ pub fn apply_action(state: &mut GameState, action: &Value) -> Result<(), String>
         return r;
     }
     crate::effects::set_choice_suspended(false);
+    crate::effects::clear_last_forced_picks();
     let _ = crate::effects::take_choice_bail();
     let r = apply_action_impl(state, action);
     // ⛔ 深い選択サイトが 「Python はここで訊く」 と予約した bail を回収する。

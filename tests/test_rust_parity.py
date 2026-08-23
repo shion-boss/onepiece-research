@@ -86,6 +86,14 @@ def test_rust_choice_enumeration_no_mismatch():
         f"原因分類: python scripts/rust_choice_diag.py --games 6 --show 10 --check-off"
     )
     assert stat["match"] > 100, f"match={stat['match']} が異常に少ない (ハーネス破損?)"
+    # ⭐ **bail も 0** が学習の前提 (2026-08-23 到達)。 bail = 「Rust が実行できない手」 で、
+    #   方策はそれを黙って避けるので、 残っていると **学習分布が歪む**
+    #   (= 「Rust が実行できない手を避けた対局」 で学んでしまう)。 MISMATCH=0 だけでは足りない。
+    #   ⚠ 新カード/新デッキで未移植の選択サイトを踏むとここで落ちる = 学習を回す前に潰す合図。
+    assert stat["bail"] == 0, (
+        f"選択列挙 ON で bail={stat['bail']} (= Rust が実行できない手がある)。 "
+        f"内訳: python scripts/rust_choice_parity.py --games 16"
+    )
 
 
 def test_rust_setup_matches_python_including_mulligan():
@@ -315,7 +323,7 @@ def test_rust_unported_choice_primitive_bails():
     #   落ちる。 2026-08-21 に実際そうなった)。
     unported = tuple(json.loads(eng.choice_unported_prims()))
     assert unported, "未移植 primitive が 0 = 全 kind 移植済ならこのテストは不要"
-    target = None
+    targets: list = []
 
     def _prim_keys(node, out):
         """効果 dict から **primitive のキー** だけを集める。
@@ -343,12 +351,14 @@ def test_rust_unported_choice_primitive_bails():
                 continue
             keys: set = set()
             _prim_keys(e.get("do", []), keys)
-            if keys & set(unported):
-                target = cid
+            # ⚠ **選択の裏に隠れた** primitive は数えない (choice_effect / choice を含む効果は
+            #   まず option_pick で中断するので、 未移植 primitive まで到達しない = bail しない)。
+            if (keys & set(unported)) and not (keys & {"choice_effect", "choice"}):
+                targets.append(cid)
                 break
-        if target:
+        if len(targets) >= 8:
             break
-    assert target, "未移植 primitive を使うテストカードが見つからない = 検出力が死んでいる"
+    assert targets, "未移植 primitive を使うテストカードが見つからない = 検出力が死んでいる"
 
     filler = repo.get("OP01-013")
     p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
@@ -358,16 +368,26 @@ def test_rust_unported_choice_primitive_bails():
         p.life = [filler] * 3
         p.life_face_up = [False] * 3
     p0.don_active = 10
-    p0.hand = [repo.get(target)]
-    st = GameState(players=[p0, p1], phase=Phase.MAIN, rng=random.Random(1),
-                   effects_overlay=overlay)
-    st.turn_number = 9
-    st.turn_player_idx = 0
-    st.choice_enumeration = True
 
-    js = json.dumps(full_dump(st))
-    with pytest.raises(Exception):
-        eng.choice_e2e_probe(js, json.dumps({"t": "PlayCharacter", "hand_idx": 0}), -1)
+    # ⭐ 候補を **複数** 試し、 1 枚でも明示 bail すれば検出力あり (= 個別カードの条件で
+    #   到達しないケースに引きずられない)。 移植が進むと候補集合は自然に痩せる。
+    bailed = []
+    for cid in targets:
+        p0.hand = [repo.get(cid)]
+        st = GameState(players=[p0, p1], phase=Phase.MAIN, rng=random.Random(1),
+                       effects_overlay=overlay)
+        st.turn_number = 9
+        st.turn_player_idx = 0
+        st.choice_enumeration = True
+        js = json.dumps(full_dump(st))
+        try:
+            eng.choice_e2e_probe(js, json.dumps({"t": "PlayCharacter", "hand_idx": 0}), -1)
+        except Exception:
+            bailed.append(cid)
+    assert bailed, (
+        f"未移植 primitive を使うカード {targets} のどれも bail しなかった = "
+        "黙って自動解決している疑い (不変条件違反)"
+    )
 
 
 def test_rust_choice_flag_is_not_in_the_digest():

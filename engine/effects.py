@@ -2840,6 +2840,14 @@ def _resolve_target(
         }
         if t in _TYPE_ALIASES:
             t = _TYPE_ALIASES[t]
+        # ⭐ dict 形 {"type": "any_stage_n_N"} も文字列形と同じ扱い (両陣営のステージ)。
+        #   ⚠ dict 分岐は未知 type を **[] (= silent no-op)** で返すので、 ここで拾わないと
+        #     OP15-054 の選択肢② 「ステージ1枚までを、 持ち主の手札に戻す」 が永久に不発。
+        if re.match(r"any_stage_n_\d+$", t):
+            return _resolve_target(
+                t, state, me, opp, self_inplay,
+                outer_kind=outer_kind, outer_value=outer_value,
+            )
         if t == "self_chara_named":
             name = target_spec.get("name", "")
             return [ip for ip in me.characters if name_matches(ip.card, name)][:1]
@@ -3702,6 +3710,26 @@ def _resolve_target(
             ):
                 return []
             cands.sort(key=_threat_key)
+            return cands[:n]
+
+        # ⭐ any_stage_n_N (= 「ステージ N 枚まで」)。 「相手の」 の修飾が **無い** ので
+        #   **両陣営のステージ** が対象 (docs/official_rulings.md の一般則)。 OP15-054 の
+        #   選択肢② 「ステージ1枚までを、 持ち主の手札に戻す」。
+        #   ⚠ 2026-08-23 まで **どちらのエンジンも未対応で silent no-op** だった
+        #     (Python は未知 spec → [] を返す = 何も起きない)。 選択列挙で option 2 を
+        #     選べるようになって初めて露見した。
+        m = re.match(r"any_stage_n_(\d+)$", target_spec)
+        if m:
+            n = int(m.group(1))
+            # AI 順: 相手のステージ優先 (= 妨害価値が高い)、 次に自分。 盤面順は維持。
+            cands: list[InPlay] = [*opp.stages, *me.stages]
+            if not cands:
+                return []
+            if outer_kind and _maybe_request_target_pick(
+                state, cands, n, outer_kind, outer_value, self_inplay,
+                description=f"ステージ から {n} 枚 まで 選択",
+            ):
+                return []
             return cands[:n]
 
         # any_opp_rested_inplay_n_N (= 相手のレスト の リーダー と キャラ 合計 N 枚 まで)
@@ -5191,6 +5219,17 @@ def _execute_effect_body_inner(
                     if t.attached_dons > 0:
                         me.don_rested += t.attached_dons
                     state.push_log(f"  効果: 自キャラを手札に戻す {t.card.name}")
+                    _ret_any = True
+                elif t in opp.stages or t in me.stages:
+                    # ⭐ 「ステージ1枚までを、 持ち主の手札に戻す」 (OP15-054 選択肢②)。
+                    #   ⚠ 2026-08-23 まで **キャラしか戻せず silent no-op** だった
+                    #     (= 選択肢を選んでも何も起きない)。 持ち主の手札へ戻す。
+                    owner = opp if t in opp.stages else me
+                    (opp.stages if t in opp.stages else me.stages).remove(t)
+                    owner.hand.append(t.card)
+                    if t.attached_dons > 0:
+                        owner.don_rested += t.attached_dons
+                    state.push_log(f"  効果: ステージを持ち主の手札に戻す {t.card.name}")
                     _ret_any = True
             # OP13-119 「そうした場合、〜」: 直前 bounce が実際に起きたかを記録 (opp報酬の gate 用)。
             state.last_return_to_hand_success = bool(_ret_any)
@@ -13495,6 +13534,9 @@ def fire_self_life_to_hand(state: GameState, me: Player) -> None:
     OP11-041 ナミ の『自分のターン中 ライフが (離れて) 手札に加わった時』系トリガーが
     これで発火する (= これらは self-effect 経路では従来 silently dead だった)。
     """
+    # ⭐ 自分の効果で自分のライフが離れた時も 「ライフが離れている」 (P-120 の条件は
+    #   相手側だが、 フラグは所有者ごとに持つので対称に立てる)。
+    me.life_lost_this_turn = True
     overlay = getattr(state, "effects_overlay", None)
     if not overlay:
         return
@@ -13715,7 +13757,15 @@ def _fire_opp_life_left_by_effect(
 
     dest: "hand" / "trash" / "other" (= デッキ等。 owner 側トリガーは無し)
     """
-    if n <= 0 or not state.effects_overlay:
+    if n <= 0:
+        return
+    # ⭐ 「相手のライフが**離れている**ターン中」 (P-120 サンジ) は **離れ方を問わない**。
+    #   公式 (cardqa_op_11 Q903 / cardqa_op_12 Q999): 「自分のライフか相手のライフかに
+    #   かかわらず」 「どちらのライフが離れても」 発動する = ライフが離れた事象そのもの。
+    #   ⚠ 従来は **戦闘ダメージ (game.py:2194) でしか** 立てておらず、 効果ダメージや
+    #     効果によるライフ除去では立たなかった (= P-120 のコスト-2 が効かない)。
+    opp.life_lost_this_turn = True
+    if not state.effects_overlay:
         return
     _enqueue_field_when(state, me, "on_opp_life_taken", state.effects_overlay)
     if dest == "hand":

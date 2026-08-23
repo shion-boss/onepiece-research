@@ -162,6 +162,11 @@ pub struct PendingChoice {
     /// いないか」 を確かめる。 Python は iid 参照なので原理的にこの問題が無い。
     /// target_pick 以外 (= 手札/デッキ index を持つ kind) では空。
     pub cand_cards: Vec<String>,
+    /// 中断した時点で **既に注入されていた picks** (= 1 つ前の選択の結果)。
+    /// 同じ primitive の中で選択が 2 段になる型 (例: play_from_trash の 「どれを出すか」 →
+    /// 場 5 枚差し替えの 「どれを落とすか」) で、 replay 時に前段の選択を落とさないため。
+    /// これが無いと 2 つの選択が交互に立ち続けて **無限ループ** する。
+    pub carried_picks: Vec<usize>,
     /// 「選ばない」 (= 空 picks) を **出してはいけない** 選択か (Python `enumerate_choice_options`
     /// の allow_none=False 側)。 強制の手札捨て等。 出すと AI が no-op を無限に繰り返す。
     pub mandatory: bool,
@@ -735,6 +740,16 @@ pub struct GameState {
     ///   `skip_serializing` で揃える (= digest parity を壊さない)。
     #[serde(default, skip_serializing, skip_deserializing)]
     pub pending_choice: Option<PendingChoice>,
+    /// 「いまの起動メインで【ターン1回】を立てた」 発動元 (Python
+    /// `state._act_used_set_by_current_fire`)。 任意コストを **見送った** 時に
+    /// 「発動していない = ターン1回は未使用」 へ戻すために使う (公式 cardqa_op_03)。
+    #[serde(default, skip_serializing, skip_deserializing)]
+    pub rust_act_used_set_by: Option<(usize, i64)>,
+    /// 場 5 枚差し替え (公式 3-7-6-1) で **持ち主が選んだ犠牲** の待ち行列 (キャラ index)。
+    /// Python `state.field_full_sacrifice_iids` のミラー (iid の代わりに位置 index)。
+    /// 選択の解決から召喚 primitive の replay までの間だけ生きる transient。
+    #[serde(default, skip_serializing, skip_deserializing)]
+    pub rust_field_full_sacrifice: Vec<usize>,
     /// ⚠ **digest に出さない** (`skip_serializing`)。 Python 側は _EXCLUDE で digest から
     /// 除外しつつ full_dump にだけ載せているので、 Rust も serialize 側に出すと
     /// **全 state で digest が食い違う** (実測: parity static_skip=2138 / effect smoke

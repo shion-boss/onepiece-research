@@ -122,6 +122,10 @@ onepiece_research/
       「タダ撃ちできること」 を assert していたと判明した。
     → **外部オラクルは公式 Q&A だけ**。 進捗は `db/faq_qa_status.json` を真とする
       ([[project_faq_conformance_routine]])。
+    ⭐ **もう 1 つの検出器 = 選択列挙 (choice_enumeration)** (2026-08-23)。 「効果中の選択を
+      探索に載せる」 と、 **AI が選ばない選択肢が初めて踏まれる** ので、 実装漏れが露見する。
+      実例: OP15-054 選択肢② 「ステージ1枚までを、 持ち主の手札に戻す」 が **両エンジンとも
+      silent no-op** (`any_stage_n_1` 未実装) だった。 = 自己参照監査の穴を別角度から突ける。
   - DSL 条件 (eval_condition): leader_feature/color, self/opp life/hand/don 各種, opp_turn/self_turn,
     self_rested, self_trash_count_ge, self_don_ge, victim_truly_original_power_ge,
     victim_feature_in, played_chara_truly_original_cost_ge, played_self_chara_has_no_effect,

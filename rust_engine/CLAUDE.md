@@ -122,6 +122,25 @@ pending trigger (drain 時の発火元復元) / ko・return_to_hand 系の逐次
 | 列挙 ON 差分 6 game | match 283 / bail 67 / **MISMATCH 0** |
 | 列挙 ON 差分 16 game (別 seed) | match 727 / bail 160 / **MISMATCH 0** |
 
+### 🎯 2026-08-23: **選択列挙 ON でも bail 0 / MISMATCH 0** (= 学習を回せる状態)
+
+| ハーネス | 結果 |
+|---|---|
+| 列挙 ON 差分 24 game | match 1,317 / **bail 0** / **MISMATCH 0** |
+| 列挙 OFF 差分 | match 2,138 / **bail 0** / **MISMATCH 0** |
+| self-play 候補 bail (ON、 4 seed × 20 game) | **0.00%** (約 80,000 候補) |
+| self-play 候補 bail (OFF) | **0.00%** |
+| 効果スモーク (全カード) | match 5,814 / bail 0 / MISMATCH 0 / PANIC 0 |
+| 広域スキャン (8 seed × 全デッキ × 3 構成) | MISMATCH 0 |
+
+⭐ **bail 0 は MISMATCH 0 と別の不変条件**。 bail は 「Rust が実行できない手」 で、
+方策は **黙って避ける** ので、 残っていると学習分布が歪む (= 「Rust が実行できない手を
+避けた対局」 を学ぶ)。 CI ガード `pytest tests/test_rust_parity.py::
+test_rust_choice_enumeration_no_mismatch` が **MISMATCH=0 と bail=0 の両方** を assert する。
+
+⚠ 「今のメタ 16 デッキで 0」 であって、 未収録カードの選択サイトは今後も出る。
+落ちたら **学習を回す前に潰す** (それが CI ガードの役目)。
+
 ### ⚠ 「MISMATCH 0」 ≠ 「学習に使える」 — 候補 bail 率を必ず併せて見る (2026-08-22)
 
 `scripts/rust_choice_selfplay_probe.py` で Rust self-play を実測した結果:
@@ -286,6 +305,29 @@ Rust 側はこれを写すため、 **選択待ち中は inline 発火しない�
 丸ごと消えていた。 do を回す新コードは **必ず `suspend_if_choice` を通す**。
 また、 中断中は `last_chara_ko_victim_card` を **畳まない** (Python も `if state.pending_choice
 is None:` で守っている = 未解決の【KO時】が victim 文脈を必要とする)。
+
+### ⭐ 第 4 段: 残り選択サイトを全部移植 (2026-08-23)
+
+| 移植 | 要点 |
+|---|---|
+| `deal_opp_leader_damage` | 戦闘と同じ `resolve_life_taken(by_effect=true)` に寄せた。 **列挙 OFF に残っていた唯一の bail** |
+| ライフ【トリガー】の deferral | 解決中は本体を **キューへ** (Python の `_maybe_resolve` no-op と同形)。 trash 順が 2 枚入れ替わる MISMATCH の正体 |
+| `play_from_hand_or_trash` | hand=idx / trash=1,000,000+idx で 1 本に畳んで候補提示 |
+| `choice_effect` / `choice` | option_pick へ (Python は candidates 無し payload = **2 択**) |
+| `search` / `search_from_trash` / `summon_from_deck` / `self_hand_to_deck_bottom` / `hand_to_self_life` | index pick (再開の **並び順** が Python と違うと digest がズレるので注意: search は 「picks 順で filter → 降順 pop」) |
+| `one_opp_rested_chara_or_don` | キャラの target_pick + 「選ばない」 = レストドン |
+| 場 5 枚差し替え (`field_full_sacrifice_pick`) | **召喚 primitive の先頭で** 犠牲を訊く (副作用前)。 `state.rust_field_full_sacrifice` を Python の `field_full_sacrifice_iids` と同形に |
+| 起動メインの発動コスト選択 | 「払う前に中断 → 再開で頭から 1 回だけ払う」 |
+| `optional_cost_confirm` 見送りの【ターン1回】復元 | `rust_act_used_set_by` (Python `_act_used_set_by_current_fire`) |
+| `any_stage_n_N` | **両エンジンとも未実装で silent no-op** だった (OP15-054 選択肢②)。 docs/official_rulings.md 参照 |
+
+⚠ **2 段選択のハマり所** (どれも無限ループ or 取りこぼしになる):
+1. **順序**: primitive 自身の pick → 場 5 枚差し替え、 の順に訊く (Python と同順)。 逆にすると
+   両者が交互に立ち続ける。
+2. **持ち越し**: 1 段目で注入された picks は `PendingChoice.carried_picks` で 2 段目に持ち越す
+   (primitive は先頭で `take_forced_picks` してしまうので peek では間に合わない)。
+3. **transient の同梱**: `play_self` 系は `current_source_card_id` から発動元を引くので、
+   replay 用に **spec へ `_card_id` を載せる** (Python の `_src_card_id` と同じ)。
 
 ### 中断・再開のモデル (Python の 2 段構造を写すこと)
 
