@@ -52,19 +52,59 @@ def fetch(sess: requests.Session, url: str) -> str:
     return r.text
 
 
+# 「P-009 トラファルガー・ロー」 「OP01-016 ナミ」 のような qaTit 先頭のカード番号。
+_CARD_ID_RE = re.compile(r"^((?:OP|ST|EB|P|PRB)-?\d{1,3}(?:-\d{1,3})?)\s")
+
+
 def parse_qa_areas(html: str) -> list[dict]:
-    """`<div class="qaArea">` から Q/A を抽出。"""
+    """`<div class="resultItem">` から Q/A と **カード紐付け** を抽出。
+
+    ⭐ 2026-08-12 追加: 従来は `div.qaArea` (= Q/A 本文) だけを見ており、
+      **どのカードの Q&A か** を捨てていた。 公式ページは
+      `div.resultItem > div.titleArea` に
+        `dt.qaNum` = 「Q304」 / `dd.qaTit` = 「P-009 トラファルガー・ロー」 / `dd.qaDate` = 更新日
+      を持つ。 これが無いと台帳 (`db/faq_qa_status.json`) 側で 「この【登場時】効果」 が
+      **どのカードを指すのか特定できず**、 conformance 検査が n/a / escalated に落ちる
+      (実際に P-009 Q304 と OP02-004 の 2 件で発生した)。
+    ⚠ 同じ Q&A が 「シリーズ名」 見出しと 「カード名」 見出しの **2 回** 載ることがある
+      (公式ページの仕様)。 どちらも返し、 利用側で card_id 有りを優先する。
+    """
     soup = BeautifulSoup(html, "html.parser")
     items: list[dict] = []
-    for area in soup.select("div.qaArea"):
+    for res in soup.select("div.resultItem"):
+        area = res.select_one("div.qaArea")
+        if area is None:
+            continue
         q = area.select_one("dl.questions dd")
         a = area.select_one("dl.answer dd")
         if q is None or a is None:
             continue
-        items.append({
+        num = res.select_one("dt.qaNum")
+        tit = res.select_one("dd.qaTit")
+        dat = res.select_one("dd.qaDate")
+        title = _clean_text(tit) if tit is not None else ""
+        m = _CARD_ID_RE.match(title)
+        item = {
             "q": _clean_text(q),
             "a": _clean_text(a),
-        })
+        }
+        if num is not None:
+            item["q_no"] = _clean_text(num)
+        if title:
+            item["title"] = title
+        if m:
+            item["card_id"] = m.group(1)
+        if dat is not None:
+            item["updated"] = _clean_text(dat)
+        items.append(item)
+    # ⚠ resultItem が 1 つも無い旧レイアウト用の保険 (= 従来経路)。
+    if not items:
+        for area in soup.select("div.qaArea"):
+            q = area.select_one("dl.questions dd")
+            a = area.select_one("dl.answer dd")
+            if q is None or a is None:
+                continue
+            items.append({"q": _clean_text(q), "a": _clean_text(a)})
     return items
 
 

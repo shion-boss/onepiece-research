@@ -164,10 +164,14 @@ def test_op09_058_trigger_bounce_opp_cost3_ai():
 #          デッキ上からトラッシュに置く。 【トリガー】カード1枚を引く。
 # --------------------------------------------------------------------------- #
 def test_op09_059_counter_pump_discard_mill_ai():
-    """【カウンター】自リーダー +3000 (battle) → 手札2枚捨て → デッキ上2枚をトラッシュ (AI)。
+    """【カウンター】自リーダー +3000 (battle) → 手札2枚**まで**捨て → **捨てた枚数と同じ**枚数を mill。
 
     target "self_inplay" は 「自リーダーかキャラ1枚まで」 = AI は power 最大を自動選択。
     自キャラ不在なら自リーダーに乗る (= 防御中リーダーへの +3000 を模擬)。
+
+    ⚠ 2026-08-13 是正: 公式は 「自分の手札2枚**まで**を捨てる。**捨てた枚数と同じ枚数**を、
+      自分のデッキの上からトラッシュに置く」。 是正前は ① 常に2枚強制 ② mill が固定2枚
+      (= 0枚捨てても2枚 mill) の2点で違反していた。 AI は見返りが無ければ 0 枚 → mill も 0 枚。
     """
     repo = _repo()
     overlay = _overlay()
@@ -184,12 +188,12 @@ def test_op09_059_counter_pump_discard_mill_ai():
         execute_effect(prim, st, me, opp, None)
     assert me.leader.battle_buff == 3000, \
         f"バトル中 自リーダー +3000 が乗っていない: {me.leader.battle_buff}"
-    assert len(me.hand) == hand_before - 2, \
-        f"手札2枚が捨てられていない: {len(me.hand)}"
-    assert len(me.deck) == deck_before - 2, \
-        f"デッキ上2枚がトラッシュに置かれていない: {len(me.deck)}"
-    assert len(me.trash) == trash_before + 4, \
-        f"トラッシュが (手札2 + デッキ2 =) 4 枚増えていない: {len(me.trash)}"
+    assert len(me.hand) == hand_before, \
+        f"「2枚まで」 で 0 枚を選んだのに手札が減っている: {len(me.hand)}"
+    assert len(me.deck) == deck_before, \
+        f"捨てた枚数 0 なのに mill が走っている: {len(me.deck)}"
+    assert len(me.trash) == trash_before, \
+        f"何も捨てていないのにトラッシュが増えている: {len(me.trash)}"
 
 
 def test_op09_059_counter_pump_human_pick():

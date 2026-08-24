@@ -96,7 +96,8 @@
   "faq_negation"
  ],
  "OP05-109": [
-  "missing_once_per_turn"
+  "missing_once_per_turn",
+  "missing_trigger"
  ],
  "OP04-053": [
   "faq_attention_4",
@@ -147,5 +148,6 @@
   "faq_attention_6",
   "faq_negation"
  ],
- "_acknowledge_note_eb04_038": "2026-08-03 acknowledged: FAQ は 「カード名の異なるキャラ」 の種類数え (別名を数えない) に 関するもの。 engine は printed name のみで数えており (self_distinct_chara_name_count / self_distinct_name_count_filtered_ge)、 公式 Q&A どおり EB04-038 は 1 種類。 別名テーブル 自体は db/card_alt_names.json (overlay とは別ファイル) にあり audit script からは見えない ため faq_attention/faq_negation が立つ = false positive。 回帰テストは tests/test_official_rule_gaps_2026_08.py::test_alt_names_do_not_inflate_distinct_name_count。"
+ "_acknowledge_note_eb04_038": "2026-08-03 acknowledged: FAQ は 「カード名の異なるキャラ」 の種類数え (別名を数えない) に 関するもの。 engine は printed name のみで数えており (self_distinct_chara_name_count / self_distinct_name_count_filtered_ge)、 公式 Q&A どおり EB04-038 は 1 種類。 別名テーブル 自体は db/card_alt_names.json (overlay とは別ファイル) にあり audit script からは見えない ため faq_attention/faq_negation が立つ = false positive。 回帰テストは tests/test_official_rule_gaps_2026_08.py::test_alt_names_do_not_inflate_distinct_name_count。",
+ "_acknowledge_note_op05_109": "OP05-109 パガヤ の公式テキストは 「【ターン1回】**【トリガー】が発動した時**、 カード2枚を引き、 自分の手札2枚を捨てる」 = **場に居る間の反応効果**。 cards.json の trigger 欄は **空** = このカード自身は【トリガー】を持たない。 audit の naive matcher が text 中の 「【トリガー】」 を見て when:\"trigger\" エントリを要求するが、 それは 2026-08-10 に是正した **旧実装の誤り** (自身のライフトリガーとして登録 → 場では何も起きず、 持っていない【トリガー】を捏造していた)。 現 overlay は opp_trigger_fired / on_self_trigger_fired の反応効果として正しい → missing_trigger は intrinsic 除外。"
 }

@@ -1035,14 +1035,15 @@
    "_text": "don×1 on_attack: 自分の手札が1枚以下の場合、コスト3以下のキャラ1枚までを、持ち主の手札に戻す",
    "do": [
     {
-     "return_to_hand": "one_opponent_character_cost_le_3cost"
+     "return_to_hand": "one_character_either_cost_le_3cost"
     }
    ],
    "if": {
     "self_attached_don_ge": 1,
     "self_hand_count_le": 1
    },
-   "when": "on_attack"
+   "when": "on_attack",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only から one_character_either_cost_le に是正。"
   }
  ],
  "EB01-027": [
@@ -1324,9 +1325,7 @@
        }
       ],
       "if": {
-       "leader_features_any": [
-        "B・W"
-       ]
+       "leader_feature_contains": "B・W"
       }
      }
     }
@@ -1350,9 +1349,7 @@
        }
       ],
       "if": {
-       "leader_features_any": [
-        "B・W"
-       ]
+       "leader_feature_contains": "B・W"
       }
      }
     }
@@ -1373,9 +1370,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "B・W"
-    ]
+    "leader_feature_contains": "B・W"
    },
    "when": "on_play"
   },
@@ -1436,9 +1431,7 @@
        }
       ],
       "if": {
-       "leader_features_any": [
-        "B・W"
-       ]
+       "leader_feature_contains": "B・W"
       }
      }
     }
@@ -1473,9 +1466,7 @@
        }
       ],
       "if": {
-       "leader_features_any": [
-        "B・W"
-       ]
+       "leader_feature_contains": "B・W"
       }
      }
     }
@@ -1510,9 +1501,7 @@
        }
       ],
       "if": {
-       "leader_features_any": [
-        "B・W"
-       ]
+       "leader_feature_contains": "B・W"
       }
      }
     }
@@ -1565,17 +1554,31 @@
  ],
  "EB01-040": [
   {
+   "_doc": "2026-08-12: 公式テキストのコロン前 「自分のライフの上から1枚を表向きにできる」 = **発動コスト** が overlay から丸ごと欠落しており、 タダ撃ちできる上に 「一番上が既に表向き」 でも撃てていた (公式 cardqa_eb_01: 「自分のライフの一番上のカードが表向きの時、 この【起動メイン】効果で相手のコスト0のキャラ1枚をKOできますか？」 → 「いいえ、 できません」)。 「できる：」 なので optional_cost_then、 位置は 「上から」 = pos:top (既定)。",
    "_text": "EB01-040 【起動メイン】【ターン1回】自分のライフの上から1枚を表向きにできる：相手のコスト0のキャラ1枚までを、KOする。",
    "cost": {
     "once_per_turn": true
    },
    "do": [
     {
-     "ko": {
-      "filter": {
-       "current_cost_eq": 0
-      },
-      "type": "one_opponent_character_filtered"
+     "optional_cost_then": {
+      "cost": [
+       {
+        "flip_life_face_up": {
+         "pos": "top"
+        }
+       }
+      ],
+      "effect": [
+       {
+        "ko": {
+         "filter": {
+          "current_cost_eq": 0
+         },
+         "type": "one_opponent_character_filtered"
+        }
+       }
+      ]
      }
     }
    ],
@@ -1584,17 +1587,31 @@
  ],
  "EB01-040_p1": [
   {
+   "_doc": "2026-08-12: 公式テキストのコロン前 「自分のライフの上から1枚を表向きにできる」 = **発動コスト** が overlay から丸ごと欠落しており、 タダ撃ちできる上に 「一番上が既に表向き」 でも撃てていた (公式 cardqa_eb_01: 「自分のライフの一番上のカードが表向きの時、 この【起動メイン】効果で相手のコスト0のキャラ1枚をKOできますか？」 → 「いいえ、 できません」)。 「できる：」 なので optional_cost_then、 位置は 「上から」 = pos:top (既定)。",
    "_text": "EB01-040_p1 【起動メイン】【ターン1回】自分のライフの上から1枚を表向きにできる：相手のコスト0のキャラ1枚までを、KOする。",
    "cost": {
     "once_per_turn": true
    },
    "do": [
     {
-     "ko": {
-      "filter": {
-       "current_cost_eq": 0
-      },
-      "type": "one_opponent_character_filtered"
+     "optional_cost_then": {
+      "cost": [
+       {
+        "flip_life_face_up": {
+         "pos": "top"
+        }
+       }
+      ],
+      "effect": [
+       {
+        "ko": {
+         "filter": {
+          "current_cost_eq": 0
+         },
+         "type": "one_opponent_character_filtered"
+        }
+       }
+      ]
      }
     }
    ],
@@ -1603,17 +1620,31 @@
  ],
  "EB01-040_p2": [
   {
+   "_doc": "2026-08-12: 公式テキストのコロン前 「自分のライフの上から1枚を表向きにできる」 = **発動コスト** が overlay から丸ごと欠落しており、 タダ撃ちできる上に 「一番上が既に表向き」 でも撃てていた (公式 cardqa_eb_01: 「自分のライフの一番上のカードが表向きの時、 この【起動メイン】効果で相手のコスト0のキャラ1枚をKOできますか？」 → 「いいえ、 できません」)。 「できる：」 なので optional_cost_then、 位置は 「上から」 = pos:top (既定)。",
    "_text": "EB01-040_p2 【起動メイン】【ターン1回】自分のライフの上から1枚を表向きにできる：相手のコスト0のキャラ1枚までを、KOする。",
    "cost": {
     "once_per_turn": true
    },
    "do": [
     {
-     "ko": {
-      "filter": {
-       "current_cost_eq": 0
-      },
-      "type": "one_opponent_character_filtered"
+     "optional_cost_then": {
+      "cost": [
+       {
+        "flip_life_face_up": {
+         "pos": "top"
+        }
+       }
+      ],
+      "effect": [
+       {
+        "ko": {
+         "filter": {
+          "current_cost_eq": 0
+         },
+         "type": "one_opponent_character_filtered"
+        }
+       }
+      ]
      }
     }
    ],
@@ -3675,9 +3706,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -3710,9 +3739,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -3824,6 +3851,9 @@
    "conditions": [
     {
      "self_turn": true
+    },
+    {
+     "don_diff_le": 0
     }
    ],
    "do": [
@@ -3856,6 +3886,9 @@
    "conditions": [
     {
      "self_turn": true
+    },
+    {
+     "don_diff_le": 0
     }
    ],
    "do": [
@@ -3888,6 +3921,9 @@
    "conditions": [
     {
      "self_turn": true
+    },
+    {
+     "don_diff_le": 0
     }
    ],
    "do": [
@@ -7788,11 +7824,13 @@
  ],
  "EB03-059": [
   {
+   "_doc": "2026-08-12: 公式テキストは 「ライフの上に **表向きで** 加える」。 overlay に face_up が無く engine は常に裏向きで加えていた (= ST13-002 の 「表向きライフ全トラッシュ」 / ST13-003 の ルール置換 / しらほし系の 「表向きのライフがある場合」 がすべて外れる)。",
    "_text": "EB03-059 on_play: 自分のリーダーが特徴《エッグヘッド》を持ち、自分のライフが2枚以上の場合、自分の手札から【トリガー】を持つキャラカード1枚までを、ライフの上に表向きで加える。",
    "do": [
     {
      "hand_to_self_life": {
       "count": 1,
+      "face_up": true,
       "filter": {
        "category": "CHARACTER",
        "has_trigger": true
@@ -10005,7 +10043,7 @@
    ],
    "do": [],
    "if": {
-    "leader_feature": "海軍",
+    "leader_feature_contains": "海軍",
     "target": "self"
    },
    "optional": true,
@@ -10041,7 +10079,7 @@
    ],
    "do": [],
    "if": {
-    "leader_feature": "海軍",
+    "leader_feature_contains": "海軍",
     "target": "self"
    },
    "optional": true,
@@ -10077,7 +10115,7 @@
    ],
    "do": [],
    "if": {
-    "leader_feature": "海軍",
+    "leader_feature_contains": "海軍",
     "target": "self"
    },
    "optional": true,
@@ -10670,6 +10708,7 @@
  ],
  "EB04-060": [
   {
+   "_doc": "2026-08-12: 公式テキストは 「ライフの上に **表向きで** 加える」。 overlay に face_up が無く engine は常に裏向きで加えていた (= ST13-002 の 「表向きライフ全トラッシュ」 / ST13-003 の ルール置換 / しらほし系の 「表向きのライフがある場合」 がすべて外れる)。",
    "_text": "EB04-060 main: 自分のライフの上か下から1枚を手札に加えることができる：自分の手札から特徴《エッグヘッド》を持つキャラカード1枚までを、ライフの上に表向きで加える。その後、相手",
    "do": [
     {
@@ -10683,6 +10722,7 @@
        {
         "hand_to_self_life": {
          "count": 1,
+         "face_up": true,
          "filter": {
           "category": "CHARACTER",
           "feature": "エッグヘッド"
@@ -13111,7 +13151,7 @@
  ],
  "OP01-047": [
   {
-   "_text": "OP01-047 ロー on_play: 自キャラ1枚→手札 cost で 手札コスト3以下キャラ1枚を登場",
+   "_text": "OP01-047 【登場時】自分のキャラ1枚を持ち主の手札に戻すことができる：自分の手札からコスト3以下のキャラカード1枚までを、登場させる。",
    "do": [
     {
      "optional_cost_then": {
@@ -13133,14 +13173,6 @@
         }
        }
       ]
-     }
-    },
-    {
-     "return_to_hand": {
-      "filter": {
-       "cost_le": 3
-      },
-      "type": "one_self_chara_filtered"
      }
     }
    ],
@@ -13149,7 +13181,7 @@
  ],
  "OP01-047_p1": [
   {
-   "_text": "OP01-047 ロー on_play: 自キャラ1枚→手札 cost で 手札コスト3以下キャラ1枚を登場",
+   "_text": "OP01-047 【登場時】自分のキャラ1枚を持ち主の手札に戻すことができる：自分の手札からコスト3以下のキャラカード1枚までを、登場させる。",
    "do": [
     {
      "optional_cost_then": {
@@ -13171,14 +13203,6 @@
         }
        }
       ]
-     }
-    },
-    {
-     "return_to_hand": {
-      "filter": {
-       "cost_le": 3
-      },
-      "type": "one_self_chara_filtered"
      }
     }
    ],
@@ -13187,7 +13211,7 @@
  ],
  "OP01-047_p2": [
   {
-   "_text": "OP01-047 ロー on_play: 自キャラ1枚→手札 cost で 手札コスト3以下キャラ1枚を登場",
+   "_text": "OP01-047 【登場時】自分のキャラ1枚を持ち主の手札に戻すことができる：自分の手札からコスト3以下のキャラカード1枚までを、登場させる。",
    "do": [
     {
      "optional_cost_then": {
@@ -13209,14 +13233,6 @@
         }
        }
       ]
-     }
-    },
-    {
-     "return_to_hand": {
-      "filter": {
-       "cost_le": 3
-      },
-      "type": "one_self_chara_filtered"
      }
     }
    ],
@@ -13225,7 +13241,7 @@
  ],
  "OP01-047_p3": [
   {
-   "_text": "OP01-047 ロー on_play: 自キャラ1枚→手札 cost で 手札コスト3以下キャラ1枚を登場",
+   "_text": "OP01-047 【登場時】自分のキャラ1枚を持ち主の手札に戻すことができる：自分の手札からコスト3以下のキャラカード1枚までを、登場させる。",
    "do": [
     {
      "optional_cost_then": {
@@ -13247,14 +13263,6 @@
         }
        }
       ]
-     }
-    },
-    {
-     "return_to_hand": {
-      "filter": {
-       "cost_le": 3
-      },
-      "type": "one_self_chara_filtered"
      }
     }
    ],
@@ -13263,7 +13271,7 @@
  ],
  "OP01-047_r1": [
   {
-   "_text": "OP01-047 ロー on_play: 自キャラ1枚→手札 cost で 手札コスト3以下キャラ1枚を登場",
+   "_text": "OP01-047 【登場時】自分のキャラ1枚を持ち主の手札に戻すことができる：自分の手札からコスト3以下のキャラカード1枚までを、登場させる。",
    "do": [
     {
      "optional_cost_then": {
@@ -13285,14 +13293,6 @@
         }
        }
       ]
-     }
-    },
-    {
-     "return_to_hand": {
-      "filter": {
-       "cost_le": 3
-      },
-      "type": "one_self_chara_filtered"
      }
     }
    ],
@@ -13883,7 +13883,7 @@
              "cost_le": 4,
              "feature": "王下七武海"
             },
-            "rest_remain": "bottom",
+            "rest_remain": "top",
             "rested": true
            }
           }
@@ -13921,7 +13921,7 @@
              "cost_le": 4,
              "feature": "王下七武海"
             },
-            "rest_remain": "bottom",
+            "rest_remain": "top",
             "rested": true
            }
           }
@@ -13959,7 +13959,7 @@
              "cost_le": 4,
              "feature": "王下七武海"
             },
-            "rest_remain": "bottom",
+            "rest_remain": "top",
             "rested": true
            }
           }
@@ -14859,13 +14859,14 @@
    "_text": "OP01-089 counter: 自分のリーダーが特徴《王下七武海》を持つ場合、コスト5以下のキャラ1枚までを、持ち主の手札に戻す。",
    "do": [
     {
-     "return_to_hand": "one_opponent_character_cost_le_5cost"
+     "return_to_hand": "one_character_either_cost_le_5cost"
     }
    ],
    "if": {
     "leader_feature": "王下七武海"
    },
-   "when": "counter"
+   "when": "counter",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only から one_character_either_cost_le に是正。"
   }
  ],
  "OP01-090": [
@@ -16088,7 +16089,7 @@
     }
    ],
    "if": {
-    "leader_feature": "白ひげ海賊団",
+    "leader_feature_contains": "白ひげ海賊団",
     "self_attached_don_ge": 1,
     "self_life_le": 2
    },
@@ -16108,7 +16109,7 @@
     }
    ],
    "if": {
-    "leader_feature": "白ひげ海賊団",
+    "leader_feature_contains": "白ひげ海賊団",
     "self_attached_don_ge": 1,
     "self_life_le": 2
    },
@@ -16128,7 +16129,7 @@
     }
    ],
    "if": {
-    "leader_feature": "白ひげ海賊団",
+    "leader_feature_contains": "白ひげ海賊団",
     "self_attached_don_ge": 1,
     "self_life_le": 2
    },
@@ -16152,9 +16153,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -16175,9 +16174,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -16246,9 +16243,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -16283,9 +16278,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -16320,9 +16313,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -16357,9 +16348,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -16394,9 +16383,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -16431,9 +16418,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -16596,7 +16581,7 @@
     "discard_hand_with_filter": {
      "count": 1,
      "filter": {
-      "feature": "白ひげ海賊団"
+      "feature_contains": "白ひげ海賊団"
      }
     }
    },
@@ -16627,7 +16612,7 @@
     "discard_hand_with_filter": {
      "count": 1,
      "filter": {
-      "feature": "白ひげ海賊団"
+      "feature_contains": "白ひげ海賊団"
      }
     }
    },
@@ -16658,7 +16643,7 @@
     "discard_hand_with_filter": {
      "count": 1,
      "filter": {
-      "feature": "白ひげ海賊団"
+      "feature_contains": "白ひげ海賊団"
      }
     }
    },
@@ -16689,7 +16674,7 @@
     "discard_hand_with_filter": {
      "count": 1,
      "filter": {
-      "feature": "白ひげ海賊団"
+      "feature_contains": "白ひげ海賊団"
      }
     }
    },
@@ -16720,7 +16705,7 @@
     "discard_hand_with_filter": {
      "count": 1,
      "filter": {
-      "feature": "白ひげ海賊団"
+      "feature_contains": "白ひげ海賊団"
      }
     }
    },
@@ -16751,7 +16736,7 @@
     "discard_hand_with_filter": {
      "count": 1,
      "filter": {
-      "feature": "白ひげ海賊団"
+      "feature_contains": "白ひげ海賊団"
      }
     }
    },
@@ -16782,7 +16767,7 @@
     "discard_hand_with_filter": {
      "count": 1,
      "filter": {
-      "feature": "白ひげ海賊団"
+      "feature_contains": "白ひげ海賊団"
      }
     }
    },
@@ -16814,7 +16799,7 @@
      "power_pump": {
       "amount": 1000,
       "duration": "static",
-      "feature": "白ひげ海賊団",
+      "feature_contains": "白ひげ海賊団",
       "target": "all_self_characters"
      }
     }
@@ -16834,7 +16819,7 @@
      "power_pump": {
       "amount": 1000,
       "duration": "static",
-      "feature": "白ひげ海賊団",
+      "feature_contains": "白ひげ海賊団",
       "target": "all_self_characters"
      }
     }
@@ -16856,9 +16841,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "main"
   },
@@ -18162,7 +18145,7 @@
  ],
  "OP02-059": [
   {
-   "_text": "OP02-059 on_attack: カード1枚を引き、自分の手札1枚を捨てる。その後、自分の手札3枚までを捨てる。 [approx: 手札3枚まで=最大3として trash_self_hand_random:3]",
+   "_text": "OP02-059 on_attack: カード1枚を引き、自分の手札1枚を捨てる。その後、自分の手札3枚までを捨てる。",
    "do": [
     {
      "draw": 1
@@ -18171,7 +18154,10 @@
      "trash_self_hand_random": 1
     },
     {
-     "trash_self_hand_random": 3
+     "trash_self_hand_random": {
+      "amount": 3,
+      "up_to": true
+     }
     }
    ],
    "when": "on_attack"
@@ -18179,7 +18165,7 @@
  ],
  "OP02-059_p1": [
   {
-   "_text": "OP02-059_p1 on_attack: カード1枚を引き、自分の手札1枚を捨てる。その後、自分の手札3枚までを捨てる。 [approx: 手札3枚まで=最大3として trash_self_hand_random:3]",
+   "_text": "OP02-059_p1 on_attack: カード1枚を引き、自分の手札1枚を捨てる。その後、自分の手札3枚までを捨てる。",
    "do": [
     {
      "draw": 1
@@ -18188,7 +18174,10 @@
      "trash_self_hand_random": 1
     },
     {
-     "trash_self_hand_random": 3
+     "trash_self_hand_random": {
+      "amount": 3,
+      "up_to": true
+     }
     }
    ],
    "when": "on_attack"
@@ -18196,7 +18185,7 @@
  ],
  "OP02-059_p2": [
   {
-   "_text": "OP02-059_p2 on_attack: カード1枚を引き、自分の手札1枚を捨てる。その後、自分の手札3枚までを捨てる。 [approx: 手札3枚まで=最大3として trash_self_hand_random:3]",
+   "_text": "OP02-059_p2 on_attack: カード1枚を引き、自分の手札1枚を捨てる。その後、自分の手札3枚までを捨てる。",
    "do": [
     {
      "draw": 1
@@ -18205,7 +18194,10 @@
      "trash_self_hand_random": 1
     },
     {
-     "trash_self_hand_random": 3
+     "trash_self_hand_random": {
+      "amount": 3,
+      "up_to": true
+     }
     }
    ],
    "when": "on_attack"
@@ -18390,7 +18382,7 @@
       ],
       "effect": [
        {
-        "return_to_deck_bottom": "one_opponent_character_cost_le_2"
+        "return_to_deck_bottom": "one_character_either_cost_le_2"
        },
        {
         "schedule_self_return_to_deck_bottom_at_battle_end": true
@@ -18402,7 +18394,8 @@
    "if": {
     "self_attached_don_ge": 1
    },
-   "when": "on_attack"
+   "when": "on_attack",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型パターン、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only spec から one_character_either_cost_le に是正。"
   }
  ],
  "OP02-065": [
@@ -18673,7 +18666,10 @@
         "trash_self_hand_random": 1
        },
        {
-        "trash_self_hand_random": 3
+        "trash_self_hand_random": {
+         "amount": 3,
+         "up_to": true
+        }
        }
       ],
       "if": {
@@ -21581,9 +21577,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "counter"
   },
@@ -21610,9 +21604,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "main"
   }
@@ -22398,7 +22390,14 @@
    "_text": "OP03-040 on_opp_life_taken: 【ドン×1】相手ライフにダメージ→デッキ上1trash(任意)",
    "do": [
     {
-     "mill_self_top": 1
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 1
+       }
+      ]
+     }
     }
    ],
    "if": {
@@ -22422,7 +22421,14 @@
    "_text": "OP03-040 on_opp_life_taken: 【ドン×1】相手ライフにダメージ→デッキ上1trash(任意)",
    "do": [
     {
-     "mill_self_top": 1
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 1
+       }
+      ]
+     }
     }
    ],
    "if": {
@@ -22436,7 +22442,14 @@
    "_text": "OP03-041 【ドン!!×1】このキャラのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から7枚をトラッシュに置いてもよい。",
    "do": [
     {
-     "mill_self_top": 7
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 7
+       }
+      ]
+     }
     }
    ],
    "if": {
@@ -22451,7 +22464,14 @@
    "_text": "OP03-041_p1 【ドン!!×1】このキャラのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から7枚をトラッシュに置いてもよい。",
    "do": [
     {
-     "mill_self_top": 7
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 7
+       }
+      ]
+     }
     }
    ],
    "if": {
@@ -22482,12 +22502,19 @@
   {
    "_doc": "公式は 「このキャラを **トラッシュに置く**」 = KO ではない (【KO時】は発動せず、 被KO数にも数えない)。 2026-08-04 に self_ko → trash_self へ是正 (差分ハーネスの when 拡張で発覚)。",
    "_text": "OP03-043 相手のライフにダメージを与えた時、自分のデッキの上から3枚をトラッシュに置いてもよい。そうした場合、このキャラをトラッシュに置く。",
-   "cost": {
-    "trash_self": true
-   },
    "do": [
     {
-     "mill_self_top": 3
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 3
+       },
+       {
+        "return_self_to_trash": true
+       }
+      ]
+     }
     }
    ],
    "optional": true,
@@ -22607,7 +22634,14 @@
      "return_to_hand": "one_character_either_cost_le_3"
     },
     {
-     "mill_self_top": 2
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 2
+       }
+      ]
+     }
     }
    ],
    "when": "on_play"
@@ -22616,7 +22650,14 @@
    "_text": "OP03-047 【ドン!!×1】このキャラのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から7枚をトラッシュに置いてもよい。",
    "do": [
     {
-     "mill_self_top": 7
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 7
+       }
+      ]
+     }
     }
    ],
    "if": {
@@ -22634,7 +22675,14 @@
      "return_to_hand": "one_character_either_cost_le_3"
     },
     {
-     "mill_self_top": 2
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 2
+       }
+      ]
+     }
     }
    ],
    "when": "on_play"
@@ -22643,7 +22691,14 @@
    "_text": "OP03-047 【ドン!!×1】このキャラのアタックによって、相手のライフにダメージを与えた時、自分のデッキの上から7枚をトラッシュに置いてもよい。",
    "do": [
     {
-     "mill_self_top": 7
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 7
+       }
+      ]
+     }
     }
    ],
    "if": {
@@ -22714,13 +22769,14 @@
    "_text": "OP03-049 on_play: 自分のデッキが20枚以下の場合、コスト3以下のキャラ1枚までを、持ち主の手札に戻す。",
    "do": [
     {
-     "return_to_hand": "one_opponent_character_cost_le_3"
+     "return_to_hand": "one_character_either_cost_le_3"
     }
    ],
    "if": {
     "self_deck_count_le": 20
    },
-   "when": "on_play"
+   "when": "on_play",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型パターン、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only spec から one_character_either_cost_le に是正。"
   }
  ],
  "OP03-050": [
@@ -22728,7 +22784,14 @@
    "_text": "OP03-050 on_ko: 自分のデッキの上から1枚をトラッシュに置いてもよい。",
    "do": [
     {
-     "mill_self_top": 1
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 1
+       }
+      ]
+     }
     }
    ],
    "when": "on_ko"
@@ -22739,7 +22802,14 @@
    "_text": "OP03-051 on_opp_life_taken: 【ドン×1】相手ライフにダメージ→デッキ上7枚trash(任意)",
    "do": [
     {
-     "mill_self_top": 7
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 7
+       }
+      ]
+     }
     }
    ],
    "if": {
@@ -22751,7 +22821,14 @@
    "_text": "OP03-051 on_ko: デッキ上3枚trash(任意)",
    "do": [
     {
-     "mill_self_top": 3
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 3
+       }
+      ]
+     }
     }
    ],
    "when": "on_ko"
@@ -22789,7 +22866,14 @@
      }
     },
     {
-     "mill_self_top": 1
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 1
+       }
+      ]
+     }
     }
    ],
    "when": "counter"
@@ -22801,7 +22885,14 @@
      "draw": 1
     },
     {
-     "mill_self_top": 1
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 1
+       }
+      ]
+     }
     }
    ],
    "when": "trigger"
@@ -28602,7 +28693,16 @@
         }
        },
        {
-        "return_to_deck_bottom": "one_opponent_character_any_cost_le_4"
+        "return_to_deck_bottom": {
+         "filter": {
+          "category_in": [
+           "CHARACTER"
+          ],
+          "cost_le": 4
+         },
+         "mandatory": true,
+         "type": "one_inplay_either_filtered"
+        }
        }
       ],
       "effect": [
@@ -28618,7 +28718,8 @@
      }
     }
    ],
-   "when": "main"
+   "when": "main",
+   "_doc": "2026-08-15 是正 (cardqa_op_04 cd9f7fb15360): 「コスト4以下のキャラ1枚を、持ち主のデッキの下に置く」 は 相手の 修飾なし=両陣営。 公式Q&A「この【メイン】効果で自分のコスト4以下のキャラをデッキの下に置くことはできますか？→はい」。 opp-only spec を either に是正。"
   },
   {
    "_text": "OP04-055 trigger: このカードの【メイン】効果を発動する。",
@@ -28921,7 +29022,7 @@
        }
       ],
       "if": {
-       "leader_feature": "B・W"
+       "leader_feature_contains": "B・W"
       }
      }
     }
@@ -28960,7 +29061,7 @@
        }
       ],
       "if": {
-       "leader_feature": "B・W"
+       "leader_feature_contains": "B・W"
       }
      }
     }
@@ -29153,9 +29254,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "B・W"
-    ]
+    "leader_feature_contains": "B・W"
    },
    "when": "on_play"
   },
@@ -33427,10 +33526,11 @@
    },
    "do": [
     {
-     "return_to_deck_bottom": "one_opponent_character_any_cost_le_2"
+     "return_to_deck_bottom": "one_character_either_cost_le_2"
     }
    ],
-   "when": "activate_main"
+   "when": "activate_main",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型パターン、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only spec から one_character_either_cost_le に是正。"
   }
  ],
  "OP05-046": [
@@ -33833,12 +33933,10 @@
   {
    "_text": "OP05-060 起動メイン(ターン1,ライフ上1手札):自場ドンが0か3以上ならドン1アクティブ追加",
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": true,
+    "life_to_hand": 1
    },
    "do": [
-    {
-     "life_to_hand": 1
-    },
     {
      "conditional": {
       "do": [
@@ -33859,12 +33957,10 @@
   {
    "_text": "OP05-060 起動メイン(ターン1,ライフ上1手札):自場ドンが0か3以上ならドン1アクティブ追加",
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": true,
+    "life_to_hand": 1
    },
    "do": [
-    {
-     "life_to_hand": 1
-    },
     {
      "conditional": {
       "do": [
@@ -33885,12 +33981,10 @@
   {
    "_text": "OP05-060 起動メイン(ターン1,ライフ上1手札):自場ドンが0か3以上ならドン1アクティブ追加",
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": true,
+    "life_to_hand": 1
    },
    "do": [
-    {
-     "life_to_hand": 1
-    },
     {
      "conditional": {
       "do": [
@@ -33911,12 +34005,10 @@
   {
    "_text": "OP05-060 起動メイン(ターン1,ライフ上1手札):自場ドンが0か3以上ならドン1アクティブ追加",
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": true,
+    "life_to_hand": 1
    },
    "do": [
-    {
-     "life_to_hand": 1
-    },
     {
      "conditional": {
       "do": [
@@ -33937,12 +34029,10 @@
   {
    "_text": "OP05-060 起動メイン(ターン1,ライフ上1手札):自場ドンが0か3以上ならドン1アクティブ追加",
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": true,
+    "life_to_hand": 1
    },
    "do": [
-    {
-     "life_to_hand": 1
-    },
     {
      "conditional": {
       "do": [
@@ -37902,12 +37992,13 @@
      "set_base_power_copy": {
       "duration": "next_self_turn_start",
       "from_target": "opponent_leader",
-      "original": false,
+      "original": true,
       "to_target": "self"
      }
     }
    ],
-   "when": "on_attack"
+   "when": "on_attack",
+   "_doc": "2026-08-13 是正 (cardqa Q1085 EB03-004/OP06-009): 「相手のリーダーと同じパワーになる」 は 元々のパワーを書き換える効果 (公式: シュライヤの元々のパワーが6000以上になる)。 旧 overlay は original:false = 現在パワーのみ変更で、 「元々のパワー6000以上のキャラ」 条件 (EB03-004 カリーナ) に反映されず違反していた。 original:true に是正。"
   },
   {
    "_text": "OP06-009 シュライヤ on_block: 同上",
@@ -37919,12 +38010,13 @@
      "set_base_power_copy": {
       "duration": "next_self_turn_start",
       "from_target": "opponent_leader",
-      "original": false,
+      "original": true,
       "to_target": "self"
      }
     }
    ],
-   "when": "on_block"
+   "when": "on_block",
+   "_doc": "2026-08-13 是正 (cardqa Q1085 EB03-004/OP06-009): 「相手のリーダーと同じパワーになる」 は 元々のパワーを書き換える効果 (公式: シュライヤの元々のパワーが6000以上になる)。 旧 overlay は original:false = 現在パワーのみ変更で、 「元々のパワー6000以上のキャラ」 条件 (EB03-004 カリーナ) に反映されず違反していた。 original:true に是正。"
   }
  ],
  "OP06-009_p1": [
@@ -37938,12 +38030,13 @@
      "set_base_power_copy": {
       "duration": "next_self_turn_start",
       "from_target": "opponent_leader",
-      "original": false,
+      "original": true,
       "to_target": "self"
      }
     }
    ],
-   "when": "on_attack"
+   "when": "on_attack",
+   "_doc": "2026-08-13 是正 (cardqa Q1085 EB03-004/OP06-009): 「相手のリーダーと同じパワーになる」 は 元々のパワーを書き換える効果 (公式: シュライヤの元々のパワーが6000以上になる)。 旧 overlay は original:false = 現在パワーのみ変更で、 「元々のパワー6000以上のキャラ」 条件 (EB03-004 カリーナ) に反映されず違反していた。 original:true に是正。"
   },
   {
    "_text": "OP06-009_p1 シュライヤ on_block: 同上",
@@ -37955,12 +38048,13 @@
      "set_base_power_copy": {
       "duration": "next_self_turn_start",
       "from_target": "opponent_leader",
-      "original": false,
+      "original": true,
       "to_target": "self"
      }
     }
    ],
-   "when": "on_block"
+   "when": "on_block",
+   "_doc": "2026-08-13 是正 (cardqa Q1085 EB03-004/OP06-009): 「相手のリーダーと同じパワーになる」 は 元々のパワーを書き換える効果 (公式: シュライヤの元々のパワーが6000以上になる)。 旧 overlay は original:false = 現在パワーのみ変更で、 「元々のパワー6000以上のキャラ」 条件 (EB03-004 カリーナ) に反映されず違反していた。 original:true に是正。"
   }
  ],
  "OP06-010": [
@@ -38316,7 +38410,10 @@
    },
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_3"
+     "rest": {
+      "type": "one_opp_chara_or_don",
+      "cost_le": 3
+     }
     },
     {
      "prevent_self_life_to_hand_turn": true
@@ -38333,7 +38430,10 @@
    },
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_3"
+     "rest": {
+      "type": "one_opp_chara_or_don",
+      "cost_le": 3
+     }
     },
     {
      "prevent_self_life_to_hand_turn": true
@@ -38350,7 +38450,10 @@
    },
    "do": [
     {
-     "rest": "one_opponent_character_cost_le_3"
+     "rest": {
+      "type": "one_opp_chara_or_don",
+      "cost_le": 3
+     }
     },
     {
      "prevent_self_life_to_hand_turn": true
@@ -39837,7 +39940,14 @@
    "_text": "OP06-048 【自分のターン中】相手が【ブロッカー】かイベントを発動した時、自分のリーダーが特徴《東の海》を持つ場合、自分のデッキの上から4枚をトラッシュに置いてもよい。",
    "do": [
     {
-     "mill_self_top": 4
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 4
+       }
+      ]
+     }
     }
    ],
    "if": {
@@ -39851,7 +39961,14 @@
    "_text": "OP06-048 on_opp_blocker_use 版 (同効果): 相手の【ブロッカー】発動時。",
    "do": [
     {
-     "mill_self_top": 4
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 4
+       }
+      ]
+     }
     }
    ],
    "if": {
@@ -44011,7 +44128,10 @@
      "trash_self_hand_random": 1
     }
    ],
-   "when": "trigger"
+   "when": "trigger",
+   "if": {
+    "self_life_le": 0
+   }
   }
  ],
  "OP06-115_p1": [
@@ -44049,7 +44169,10 @@
      "trash_self_hand_random": 1
     }
    ],
-   "when": "trigger"
+   "when": "trigger",
+   "if": {
+    "self_life_le": 0
+   }
   }
  ],
  "OP06-115_r1": [
@@ -44087,7 +44210,10 @@
      "trash_self_hand_random": 1
     }
    ],
-   "when": "trigger"
+   "when": "trigger",
+   "if": {
+    "self_life_le": 0
+   }
   }
  ],
  "OP06-116": [
@@ -45385,14 +45511,11 @@
  ],
  "OP07-026": [
   {
-   "_text": "ジュエリー・ボニー 登場時: 相手レストキャラ1枚は次リフレッシュでアクティブ化されない",
+   "_text": "OP07-026 【登場時】相手の、レストのキャラかドン‼1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
    "do": [
     {
      "stay_rested_next_refresh": {
-      "filter": {
-       "rested": true
-      },
-      "type": "one_opponent_character_filtered"
+      "type": "one_opp_rested_chara_or_don"
      }
     }
    ],
@@ -45401,14 +45524,11 @@
  ],
  "OP07-026_p1": [
   {
-   "_text": "OP07-026_p1: ジュエリー・ボニー 登場時: 相手レストキャラ1枚は次リフレッシュでアクティブ化されない",
+   "_text": "OP07-026_p1 【登場時】相手の、レストのキャラかドン‼1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
    "do": [
     {
      "stay_rested_next_refresh": {
-      "filter": {
-       "rested": true
-      },
-      "type": "one_opponent_character_filtered"
+      "type": "one_opp_rested_chara_or_don"
      }
     }
    ],
@@ -45417,14 +45537,11 @@
  ],
  "OP07-026_r1": [
   {
-   "_text": "OP07-026_r1: ジュエリー・ボニー 登場時: 相手レストキャラ1枚は次リフレッシュでアクティブ化されない",
+   "_text": "OP07-026_r1 【登場時】相手の、レストのキャラかドン‼1枚までは、次の相手のリフレッシュフェイズでアクティブにならない。",
    "do": [
     {
      "stay_rested_next_refresh": {
-      "filter": {
-       "rested": true
-      },
-      "type": "one_opponent_character_filtered"
+      "type": "one_opp_rested_chara_or_don"
      }
     }
    ],
@@ -46655,7 +46772,7 @@
    "_text": "OP07-052 on_play: 自分の場に特徴《アマゾン・リリー》か《九蛇海賊団》を持つキャラが2枚以上いる場合、コスト2以下のキャラ1枚までを、持ち主のデッキの下に置く。",
    "do": [
     {
-     "return_to_deck_bottom": "one_opponent_character_any_cost_le_2"
+     "return_to_deck_bottom": "one_character_either_cost_le_2"
     }
    ],
    "if": {
@@ -46669,7 +46786,8 @@
      }
     }
    },
-   "when": "on_play"
+   "when": "on_play",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型パターン、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only spec から one_character_either_cost_le に是正。"
   }
  ],
  "OP07-053": [
@@ -48398,6 +48516,7 @@
  ],
  "OP07-097": [
   {
+   "_doc": "2026-08-12: 公式テキストは 「ライフの上に **表向きで** 加える」。 overlay に face_up が無く engine は常に裏向きで加えていた (= ST13-002 の 「表向きライフ全トラッシュ」 / ST13-003 の ルール置換 / しらほし系の 「表向きのライフがある場合」 がすべて外れる)。",
    "_text": "OP07-097 activate_main: 【ターン1回】①(コストエリアのドン‼を指定の数レストにできる)：自分の手札からコスト5以下の特徴《エッグヘッド》を持つカード1枚までを、ライフの上に表向きで加",
    "cost": {
     "once_per_turn": true
@@ -48431,6 +48550,7 @@
            {
             "hand_to_self_life": {
              "count": 1,
+             "face_up": true,
              "filter": {
               "cost_le": 5,
               "feature": "エッグヘッド"
@@ -48450,6 +48570,7 @@
  ],
  "OP07-097_p1": [
   {
+   "_doc": "2026-08-12: 公式テキストは 「ライフの上に **表向きで** 加える」。 overlay に face_up が無く engine は常に裏向きで加えていた (= ST13-002 の 「表向きライフ全トラッシュ」 / ST13-003 の ルール置換 / しらほし系の 「表向きのライフがある場合」 がすべて外れる)。",
    "_text": "OP07-097_p1 activate_main: 【ターン1回】①(コストエリアのドン‼を指定の数レストにできる)：自分の手札からコスト5以下の特徴《エッグヘッド》を持つカード1枚までを、ライフの上に表向きで加",
    "cost": {
     "once_per_turn": true
@@ -48483,6 +48604,7 @@
            {
             "hand_to_self_life": {
              "count": 1,
+             "face_up": true,
              "filter": {
               "cost_le": 5,
               "feature": "エッグヘッド"
@@ -48502,6 +48624,7 @@
  ],
  "OP07-097_p2": [
   {
+   "_doc": "2026-08-12: 公式テキストは 「ライフの上に **表向きで** 加える」。 overlay に face_up が無く engine は常に裏向きで加えていた (= ST13-002 の 「表向きライフ全トラッシュ」 / ST13-003 の ルール置換 / しらほし系の 「表向きのライフがある場合」 がすべて外れる)。",
    "_text": "OP07-097_p2 activate_main: 【ターン1回】①(コストエリアのドン‼を指定の数レストにできる)：自分の手札からコスト5以下の特徴《エッグヘッド》を持つカード1枚までを、ライフの上に表向きで加",
    "cost": {
     "once_per_turn": true
@@ -48535,6 +48658,7 @@
            {
             "hand_to_self_life": {
              "count": 1,
+             "face_up": true,
              "filter": {
               "cost_le": 5,
               "feature": "エッグヘッド"
@@ -48554,6 +48678,7 @@
  ],
  "OP07-097_p3": [
   {
+   "_doc": "2026-08-12: 公式テキストは 「ライフの上に **表向きで** 加える」。 overlay に face_up が無く engine は常に裏向きで加えていた (= ST13-002 の 「表向きライフ全トラッシュ」 / ST13-003 の ルール置換 / しらほし系の 「表向きのライフがある場合」 がすべて外れる)。",
    "_text": "OP07-097_p3 activate_main: 【ターン1回】①(コストエリアのドン‼を指定の数レストにできる)：自分の手札からコスト5以下の特徴《エッグヘッド》を持つカード1枚までを、ライフの上に表向きで加",
    "cost": {
     "once_per_turn": true
@@ -48587,6 +48712,7 @@
            {
             "hand_to_self_life": {
              "count": 1,
+             "face_up": true,
              "filter": {
               "cost_le": 5,
               "feature": "エッグヘッド"
@@ -51215,7 +51341,7 @@
     "reveal_hand_with_filter": {
      "count": 2,
      "filter": {
-      "feature": "白ひげ海賊団"
+      "feature_contains": "白ひげ海賊団"
      }
     }
    },
@@ -51233,7 +51359,7 @@
        }
       ],
       "if": {
-       "leader_feature": "白ひげ海賊団"
+       "leader_feature_contains": "白ひげ海賊団"
       }
      }
     }
@@ -51248,7 +51374,7 @@
     "reveal_hand_with_filter": {
      "count": 2,
      "filter": {
-      "feature": "白ひげ海賊団"
+      "feature_contains": "白ひげ海賊団"
      }
     }
    },
@@ -51266,7 +51392,7 @@
        }
       ],
       "if": {
-       "leader_feature": "白ひげ海賊団"
+       "leader_feature_contains": "白ひげ海賊団"
       }
      }
     }
@@ -51436,13 +51562,14 @@
       ],
       "effect": [
        {
-        "return_to_hand": "one_opponent_character_cost_le_6cost"
+        "return_to_hand": "one_character_either_cost_le_6cost"
        }
       ]
      }
     }
    ],
-   "when": "on_play"
+   "when": "on_play",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only から one_character_either_cost_le に是正。"
   }
  ],
  "OP08-047_p1": [
@@ -51458,13 +51585,14 @@
       ],
       "effect": [
        {
-        "return_to_hand": "one_opponent_character_cost_le_6cost"
+        "return_to_hand": "one_character_either_cost_le_6cost"
        }
       ]
      }
     }
    ],
-   "when": "on_play"
+   "when": "on_play",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only から one_character_either_cost_le に是正。"
   }
  ],
  "OP08-048": [],
@@ -51538,7 +51666,7 @@
      "reveal_top_play": {
       "filter": {
        "cost_le": 4,
-       "feature": "白ひげ海賊団"
+       "feature_contains": "白ひげ海賊団"
       },
       "rest_remain": "top_or_bottom"
      }
@@ -51555,7 +51683,7 @@
      "reveal_top_play": {
       "filter": {
        "cost_le": 4,
-       "feature": "白ひげ海賊団"
+       "feature_contains": "白ひげ海賊団"
       },
       "rest_remain": "top_or_bottom"
      }
@@ -51574,7 +51702,7 @@
       "destination": "hand",
       "filter": {
        "feature_or_name": {
-        "feature": "白ひげ海賊団",
+        "feature_contains": "白ひげ海賊団",
         "name": "モンキー・D・ルフィ"
        }
       },
@@ -51585,9 +51713,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "main"
   },
@@ -51643,13 +51769,14 @@
       ],
       "effect": [
        {
-        "return_to_deck_bottom": "one_opponent_character_cost_le_6"
+        "return_to_deck_bottom": "one_character_either_cost_le_6"
        }
       ]
      }
     }
    ],
-   "when": "main"
+   "when": "main",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型パターン、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only spec から one_character_either_cost_le に是正。"
   }
  ],
  "OP08-056": [
@@ -51812,16 +51939,16 @@
  ],
  "OP08-058": [
   {
+   "_doc": "2026-08-12: 公式は 「自分のライフの**上から2枚**を表向きにできる」。 「上から1枚」×2 で書いていたが、 位置指定 (pos:top = 一番上のみ) を入れると 2 個目が 『一番上は既に表向き』 で払えなくなる。 count:2 に畳んで 「上 2 枚が両方とも裏向きの時だけ払える」 を正しく表す。",
    "_text": "OP08-058 on_attack: ライフ上2枚表向き(任意)→ドン1レスト追加 [grind4]",
    "do": [
     {
      "optional_cost_then": {
       "cost": [
        {
-        "flip_life_face_up": true
-       },
-       {
-        "flip_life_face_up": true
+        "flip_life_face_up": {
+         "count": 2
+        }
        }
       ],
       "effect": [
@@ -51837,16 +51964,16 @@
  ],
  "OP08-058_p1": [
   {
+   "_doc": "2026-08-12: 公式は 「自分のライフの**上から2枚**を表向きにできる」。 「上から1枚」×2 で書いていたが、 位置指定 (pos:top = 一番上のみ) を入れると 2 個目が 『一番上は既に表向き』 で払えなくなる。 count:2 に畳んで 「上 2 枚が両方とも裏向きの時だけ払える」 を正しく表す。",
    "_text": "OP08-058 on_attack: ライフ上2枚表向き(任意)→ドン1レスト追加 [grind4]",
    "do": [
     {
      "optional_cost_then": {
       "cost": [
        {
-        "flip_life_face_up": true
-       },
-       {
-        "flip_life_face_up": true
+        "flip_life_face_up": {
+         "count": 2
+        }
        }
       ],
       "effect": [
@@ -51862,16 +51989,16 @@
  ],
  "OP08-058_p2": [
   {
+   "_doc": "2026-08-12: 公式は 「自分のライフの**上から2枚**を表向きにできる」。 「上から1枚」×2 で書いていたが、 位置指定 (pos:top = 一番上のみ) を入れると 2 個目が 『一番上は既に表向き』 で払えなくなる。 count:2 に畳んで 「上 2 枚が両方とも裏向きの時だけ払える」 を正しく表す。",
    "_text": "OP08-058 on_attack: ライフ上2枚表向き(任意)→ドン1レスト追加 [grind4]",
    "do": [
     {
      "optional_cost_then": {
       "cost": [
        {
-        "flip_life_face_up": true
-       },
-       {
-        "flip_life_face_up": true
+        "flip_life_face_up": {
+         "count": 2
+        }
        }
       ],
       "effect": [
@@ -54226,6 +54353,7 @@
  ],
  "OP08-116": [
   {
+   "_doc": "2026-08-12: 公式テキストは 「ライフの上に **表向きで** 加える」。 overlay に face_up が無く engine は常に裏向きで加えていた (= ST13-002 の 「表向きライフ全トラッシュ」 / ST13-003 の ルール置換 / しらほし系の 「表向きのライフがある場合」 がすべて外れる)。",
    "_text": "OP08-116 counter: 自分のリーダーかキャラ1枚までを、このバトル中、パワー+4000。その後、自分のライフの上か下から1枚を手札に加えてもよい。そうした場合、自分の手札から特徴《シ",
    "do": [
     {
@@ -54246,6 +54374,7 @@
        {
         "hand_to_self_life": {
          "count": 1,
+         "face_up": true,
          "filter": {
           "feature": "シャンドラの戦士"
          }
@@ -56558,7 +56687,7 @@
          "feature": "クロスギルド"
         },
         {
-         "feature": "B・W"
+         "feature_contains": "B・W"
         }
        ]
       },
@@ -56583,7 +56712,7 @@
          "feature": "クロスギルド"
         },
         {
-         "feature": "B・W"
+         "feature_contains": "B・W"
         }
        ]
       },
@@ -56608,7 +56737,7 @@
          "feature": "クロスギルド"
         },
         {
-         "feature": "B・W"
+         "feature_contains": "B・W"
         }
        ]
       },
@@ -57301,10 +57430,15 @@
      }
     },
     {
-     "trash_self_hand_random": 2
+     "trash_self_hand_random": {
+      "amount": 2,
+      "up_to": true
+     }
     },
     {
-     "mill_self_top": 2
+     "mill_self_top": {
+      "per_last_discard": true
+     }
     }
    ],
    "when": "counter"
@@ -59820,11 +59954,13 @@
  ],
  "OP09-104": [
   {
+   "_doc": "2026-08-12: 公式テキストは 「ライフの上に **表向きで** 加える」。 overlay に face_up が無く engine は常に裏向きで加えていた (= ST13-002 の 「表向きライフ全トラッシュ」 / ST13-003 の ルール置換 / しらほし系の 「表向きのライフがある場合」 がすべて外れる)。",
    "_text": "OP09-104 on_play: 自分の手札から特徴《革命軍》を持つキャラカード1枚までを、ライフの上に表向きで加える。その後、自分のライフが2枚以上の場合、自分のライフの上か下から1枚を手札に",
    "do": [
     {
      "hand_to_self_life": {
       "count": 1,
+      "face_up": true,
       "filter": {
        "category": "CHARACTER",
        "feature": "革命軍"
@@ -60585,20 +60721,22 @@
  "OP10-003": [
   {
    "_text": "OP10-003 【自分のターン終了時】自分のパワー6000以上の特徴《ドンキホーテ海賊団》を持つキャラがいる場合、自分のドン‼1枚までを、アクティブにする。【相手のターン中】【ターン1回】自分がイベントを発動した時、ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
-   "conditions": [
-    {
-     "opp_turn": true
-    }
-   ],
    "do": [
     {
      "untap_don": 1
     }
    ],
    "if": {
-    "opp_turn": true
+    "self_chara_filtered_count_ge": {
+     "count": 1,
+     "filter": {
+      "feature": "ドンキホーテ海賊団",
+      "current_power_ge": 6000
+     }
+    }
    },
-   "when": "end_of_turn"
+   "when": "end_of_turn",
+   "_doc": "2026-08-15 是正 (cardqa_op_10): 旧 overlay は if:{opp_turn:true} で 自ターン終了時 (end_of_turn = turn_player 視点) に決して発動せず、 かつ 「パワー6000以上の特徴《ドンキホーテ海賊団》キャラがいる場合」 条件が欠落していた。 バフ込み現在パワーで判定 (公式: パワーが元に戻るより前に発動 = trigger_end_of_turn は _reset_turn_buff より前)。"
   },
   {
    "_text": "【相手のターン中】【ターン1回】自分がイベントを発動した時、ドン!!デッキからドン!!1枚までを、アクティブで追加",
@@ -60619,20 +60757,22 @@
  "OP10-003_p1": [
   {
    "_text": "OP10-003_p1 【自分のターン終了時】自分のパワー6000以上の特徴《ドンキホーテ海賊団》を持つキャラがいる場合、自分のドン‼1枚までを、アクティブにする。【相手のターン中】【ターン1回】自分がイベントを発動した時、ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
-   "conditions": [
-    {
-     "opp_turn": true
-    }
-   ],
    "do": [
     {
      "untap_don": 1
     }
    ],
    "if": {
-    "opp_turn": true
+    "self_chara_filtered_count_ge": {
+     "count": 1,
+     "filter": {
+      "feature": "ドンキホーテ海賊団",
+      "current_power_ge": 6000
+     }
+    }
    },
-   "when": "end_of_turn"
+   "when": "end_of_turn",
+   "_doc": "2026-08-15 是正 (cardqa_op_10): 旧 overlay は if:{opp_turn:true} で 自ターン終了時 (end_of_turn = turn_player 視点) に決して発動せず、 かつ 「パワー6000以上の特徴《ドンキホーテ海賊団》キャラがいる場合」 条件が欠落していた。 バフ込み現在パワーで判定 (公式: パワーが元に戻るより前に発動 = trigger_end_of_turn は _reset_turn_buff より前)。"
   },
   {
    "_text": "【相手のターン中】【ターン1回】自分がイベントを発動した時、ドン!!デッキからドン!!1枚までを、アクティブで追加",
@@ -60653,20 +60793,22 @@
  "OP10-003_p2": [
   {
    "_text": "OP10-003_p2 【自分のターン終了時】自分のパワー6000以上の特徴《ドンキホーテ海賊団》を持つキャラがいる場合、自分のドン‼1枚までを、アクティブにする。【相手のターン中】【ターン1回】自分がイベントを発動した時、ドン‼デッキからドン‼1枚までを、アクティブで追加する。",
-   "conditions": [
-    {
-     "opp_turn": true
-    }
-   ],
    "do": [
     {
      "untap_don": 1
     }
    ],
    "if": {
-    "opp_turn": true
+    "self_chara_filtered_count_ge": {
+     "count": 1,
+     "filter": {
+      "feature": "ドンキホーテ海賊団",
+      "current_power_ge": 6000
+     }
+    }
    },
-   "when": "end_of_turn"
+   "when": "end_of_turn",
+   "_doc": "2026-08-15 是正 (cardqa_op_10): 旧 overlay は if:{opp_turn:true} で 自ターン終了時 (end_of_turn = turn_player 視点) に決して発動せず、 かつ 「パワー6000以上の特徴《ドンキホーテ海賊団》キャラがいる場合」 条件が欠落していた。 バフ込み現在パワーで判定 (公式: パワーが元に戻るより前に発動 = trigger_end_of_turn は _reset_turn_buff より前)。"
   },
   {
    "_text": "【相手のターン中】【ターン1回】自分がイベントを発動した時、ドン!!デッキからドン!!1枚までを、アクティブで追加",
@@ -62657,9 +62799,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "ジェルマ"
-    ]
+    "leader_feature_contains": "ジェルマ"
    },
    "when": "on_play"
   }
@@ -64051,6 +64191,7 @@
  ],
  "OP10-103": [
   {
+   "_doc": "2026-08-12: 公式テキストは 「ライフの上に **表向きで** 加える」。 overlay に face_up が無く engine は常に裏向きで加えていた (= ST13-002 の 「表向きライフ全トラッシュ」 / ST13-003 の ルール置換 / しらほし系の 「表向きのライフがある場合」 がすべて外れる)。",
    "_text": "OP10-103 on_play: 自分のライフの上か下から1枚を手札に加えることができる：自分の手札から特徴《超新星》を持つキャラカード1枚までを、ライフの上に表向きで加える。",
    "do": [
     {
@@ -64064,6 +64205,7 @@
        {
         "hand_to_self_life": {
          "count": 1,
+         "face_up": true,
          "filter": {
           "category": "CHARACTER",
           "feature": "超新星"
@@ -64079,6 +64221,7 @@
  ],
  "OP10-103_r1": [
   {
+   "_doc": "2026-08-12: 公式テキストは 「ライフの上に **表向きで** 加える」。 overlay に face_up が無く engine は常に裏向きで加えていた (= ST13-002 の 「表向きライフ全トラッシュ」 / ST13-003 の ルール置換 / しらほし系の 「表向きのライフがある場合」 がすべて外れる)。",
    "_text": "OP10-103 on_play: 自分のライフの上か下から1枚を手札に加えることができる：自分の手札から特徴《超新星》を持つキャラカード1枚までを、ライフの上に表向きで加える。",
    "do": [
     {
@@ -64092,6 +64235,7 @@
        {
         "hand_to_self_life": {
          "count": 1,
+         "face_up": true,
          "filter": {
           "category": "CHARACTER",
           "feature": "超新星"
@@ -64152,6 +64296,7 @@
  ],
  "OP10-107": [
   {
+   "_doc": "2026-08-12: 公式テキストは 「ライフの上に **表向きで** 加える」。 overlay に face_up が無く engine は常に裏向きで加えていた (= ST13-002 の 「表向きライフ全トラッシュ」 / ST13-003 の ルール置換 / しらほし系の 「表向きのライフがある場合」 がすべて外れる)。",
    "_text": "OP10-107 on_play: 自分のライフの上か下から1枚を手札に加えることができる：自分の手札からコスト5の特徴《超新星》を持つキャラカード1枚までを、ライフの上に表向きで加える。",
    "do": [
     {
@@ -64165,6 +64310,7 @@
        {
         "hand_to_self_life": {
          "count": 1,
+         "face_up": true,
          "filter": {
           "category": "CHARACTER",
           "cost_eq": 5,
@@ -64181,6 +64327,7 @@
  ],
  "OP10-107_p1": [
   {
+   "_doc": "2026-08-12: 公式テキストは 「ライフの上に **表向きで** 加える」。 overlay に face_up が無く engine は常に裏向きで加えていた (= ST13-002 の 「表向きライフ全トラッシュ」 / ST13-003 の ルール置換 / しらほし系の 「表向きのライフがある場合」 がすべて外れる)。",
    "_text": "OP10-107_p1 on_play: 自分のライフの上か下から1枚を手札に加えることができる：自分の手札からコスト5の特徴《超新星》を持つキャラカード1枚までを、ライフの上に表向きで加える。",
    "do": [
     {
@@ -64194,6 +64341,7 @@
        {
         "hand_to_self_life": {
          "count": 1,
+         "face_up": true,
          "filter": {
           "category": "CHARACTER",
           "cost_eq": 5,
@@ -66460,9 +66608,10 @@
  ],
  "OP11-041": [
   {
+   "_doc": "2026-08-12: 公式テキストは 「【自分のターン中】ライフが離れた時」 = **自分のライフか相手のライフかを問わない** (cardqa_op_11: 「この【自分のターン中】効果は、 自分のライフが離れた時にも発動できますか？」 → 「はい、 できます。 自分のライフか相手のライフかにかかわらず、 発動できます」)。 overlay は on_self_life_to_hand だけを配線しており、 **相手のライフが離れた時 (= 自分のアタック) と 自分のライフがトラッシュに置かれた時に発動しなかった**。 3 つの when に複製し、 【ターン1回】は 名前付き共有キーで when 横断に束ねる (= 1 ターンに 3 回発動しない)。",
    "_text": "【自分のターン中】【ターン1回】ライフが離れた時、自分の手札が7枚以下の場合、カード1枚を引く",
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": "OP11-041_life_leave"
    },
    "do": [
     {
@@ -66494,13 +66643,48 @@
     "self_attached_don_ge": 1
    },
    "when": "opp_attack"
+  },
+  {
+   "_doc": "2026-08-12: 公式テキストは 「【自分のターン中】ライフが離れた時」 = **自分のライフか相手のライフかを問わない** (cardqa_op_11: 「この【自分のターン中】効果は、 自分のライフが離れた時にも発動できますか？」 → 「はい、 できます。 自分のライフか相手のライフかにかかわらず、 発動できます」)。 overlay は on_self_life_to_hand だけを配線しており、 **相手のライフが離れた時 (= 自分のアタック) と 自分のライフがトラッシュに置かれた時に発動しなかった**。 3 つの when に複製し、 【ターン1回】は 名前付き共有キーで when 横断に束ねる (= 1 ターンに 3 回発動しない)。",
+   "_text": "【自分のターン中】【ターン1回】ライフが離れた時、自分の手札が7枚以下の場合、カード1枚を引く [on_opp_life_taken 複製]",
+   "cost": {
+    "once_per_turn": "OP11-041_life_leave"
+   },
+   "do": [
+    {
+     "draw": 1
+    }
+   ],
+   "if": {
+    "self_hand_count_le": 7,
+    "self_turn": true
+   },
+   "when": "on_opp_life_taken"
+  },
+  {
+   "_doc": "2026-08-12: 公式テキストは 「【自分のターン中】ライフが離れた時」 = **自分のライフか相手のライフかを問わない** (cardqa_op_11: 「この【自分のターン中】効果は、 自分のライフが離れた時にも発動できますか？」 → 「はい、 できます。 自分のライフか相手のライフかにかかわらず、 発動できます」)。 overlay は on_self_life_to_hand だけを配線しており、 **相手のライフが離れた時 (= 自分のアタック) と 自分のライフがトラッシュに置かれた時に発動しなかった**。 3 つの when に複製し、 【ターン1回】は 名前付き共有キーで when 横断に束ねる (= 1 ターンに 3 回発動しない)。",
+   "_text": "【自分のターン中】【ターン1回】ライフが離れた時、自分の手札が7枚以下の場合、カード1枚を引く [on_self_life_to_trash 複製]",
+   "cost": {
+    "once_per_turn": "OP11-041_life_leave"
+   },
+   "do": [
+    {
+     "draw": 1
+    }
+   ],
+   "if": {
+    "self_hand_count_le": 7,
+    "self_turn": true
+   },
+   "when": "on_self_life_to_trash"
   }
  ],
  "OP11-041_p1": [
   {
+   "_doc": "2026-08-12: 公式テキストは 「【自分のターン中】ライフが離れた時」 = **自分のライフか相手のライフかを問わない** (cardqa_op_11: 「この【自分のターン中】効果は、 自分のライフが離れた時にも発動できますか？」 → 「はい、 できます。 自分のライフか相手のライフかにかかわらず、 発動できます」)。 overlay は on_self_life_to_hand だけを配線しており、 **相手のライフが離れた時 (= 自分のアタック) と 自分のライフがトラッシュに置かれた時に発動しなかった**。 3 つの when に複製し、 【ターン1回】は 名前付き共有キーで when 横断に束ねる (= 1 ターンに 3 回発動しない)。",
    "_text": "【自分のターン中】【ターン1回】ライフが離れた時、自分の手札が7枚以下の場合、カード1枚を引く",
    "cost": {
-    "once_per_turn": true
+    "once_per_turn": "OP11-041_life_leave"
    },
    "do": [
     {
@@ -66532,6 +66716,40 @@
     "self_attached_don_ge": 1
    },
    "when": "opp_attack"
+  },
+  {
+   "_doc": "2026-08-12: 公式テキストは 「【自分のターン中】ライフが離れた時」 = **自分のライフか相手のライフかを問わない** (cardqa_op_11: 「この【自分のターン中】効果は、 自分のライフが離れた時にも発動できますか？」 → 「はい、 できます。 自分のライフか相手のライフかにかかわらず、 発動できます」)。 overlay は on_self_life_to_hand だけを配線しており、 **相手のライフが離れた時 (= 自分のアタック) と 自分のライフがトラッシュに置かれた時に発動しなかった**。 3 つの when に複製し、 【ターン1回】は 名前付き共有キーで when 横断に束ねる (= 1 ターンに 3 回発動しない)。",
+   "_text": "【自分のターン中】【ターン1回】ライフが離れた時、自分の手札が7枚以下の場合、カード1枚を引く [on_opp_life_taken 複製]",
+   "cost": {
+    "once_per_turn": "OP11-041_life_leave"
+   },
+   "do": [
+    {
+     "draw": 1
+    }
+   ],
+   "if": {
+    "self_hand_count_le": 7,
+    "self_turn": true
+   },
+   "when": "on_opp_life_taken"
+  },
+  {
+   "_doc": "2026-08-12: 公式テキストは 「【自分のターン中】ライフが離れた時」 = **自分のライフか相手のライフかを問わない** (cardqa_op_11: 「この【自分のターン中】効果は、 自分のライフが離れた時にも発動できますか？」 → 「はい、 できます。 自分のライフか相手のライフかにかかわらず、 発動できます」)。 overlay は on_self_life_to_hand だけを配線しており、 **相手のライフが離れた時 (= 自分のアタック) と 自分のライフがトラッシュに置かれた時に発動しなかった**。 3 つの when に複製し、 【ターン1回】は 名前付き共有キーで when 横断に束ねる (= 1 ターンに 3 回発動しない)。",
+   "_text": "【自分のターン中】【ターン1回】ライフが離れた時、自分の手札が7枚以下の場合、カード1枚を引く [on_self_life_to_trash 複製]",
+   "cost": {
+    "once_per_turn": "OP11-041_life_leave"
+   },
+   "do": [
+    {
+     "draw": 1
+    }
+   ],
+   "if": {
+    "self_hand_count_le": 7,
+    "self_turn": true
+   },
+   "when": "on_self_life_to_trash"
   }
  ],
  "OP11-042": [
@@ -66738,13 +66956,14 @@
       ],
       "effect": [
        {
-        "return_to_hand": "one_opponent_character_cost_le_1"
+        "return_to_hand": "one_character_either_cost_le_1"
        }
       ]
      }
     }
    ],
-   "when": "on_attack"
+   "when": "on_attack",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型パターン、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only spec から one_character_either_cost_le に是正。"
   }
  ],
  "OP11-051": [
@@ -69823,6 +70042,7 @@
  ],
  "OP12-017": [
   {
+   "_doc": "2026-08-12 是正: 公式テキスト 「赤のイベントかコスト3以上のキャラカード」 の 「赤の」 は **両方に係る** (cardqa_op_12: 「赤以外のコスト3以上のキャラカード1枚を手札に加えることは できますか？」 → 「**いいえ。 この効果は『赤のイベント』か『赤のコスト3以上のキャラカード』**」)。 overlay の or_clauses はキャラ側に color が無く、 **青などのコスト3以上キャラを拾えていた**。",
    "_text": "OP12-017 main: 自分の「シルバーズ・レイリー」1枚にアクティブのドン‼1枚を付与することができる：自分のデッキの上から4枚を見て、赤のイベントかコスト3以上のキャラカード1枚ま [cost-gate+filter是正]",
    "do": [
     {
@@ -69848,6 +70068,7 @@
            },
            {
             "category": "CHARACTER",
+            "color": "赤",
             "cost_ge": 3
            }
           ]
@@ -71524,7 +71745,7 @@
        "feature_contains": "白ひげ海賊団"
       },
       "played_keyword": "速攻",
-      "rest_remain": "bottom"
+      "rest_remain": "top"
      }
     }
    ],
@@ -71656,7 +71877,13 @@
    },
    "do": [
     {
-     "reduce_play_cost": 2
+     "reduce_play_cost_filtered_turn": {
+      "amount": 2,
+      "filter": {
+       "name": "トラファルガー・ロー",
+       "cost_ge": 4
+      }
+     }
     }
    ],
    "when": "activate_main"
@@ -71690,7 +71917,13 @@
    },
    "do": [
     {
-     "reduce_play_cost": 2
+     "reduce_play_cost_filtered_turn": {
+      "amount": 2,
+      "filter": {
+       "name": "トラファルガー・ロー",
+       "cost_ge": 4
+      }
+     }
     }
    ],
    "when": "activate_main"
@@ -71882,9 +72115,7 @@
        }
       ],
       "if": {
-       "leader_features_any": [
-        "B・W"
-       ]
+       "leader_feature_contains": "B・W"
       }
      }
     }
@@ -73227,6 +73458,7 @@
  ],
  "OP12-099": [
   {
+   "_doc": "2026-08-12: 公式テキストは 「【自分のターン中】ライフが離れた時」 = **自分のライフか相手のライフかを問わない** (cardqa_op_11: 「この【自分のターン中】効果は、 自分のライフが離れた時にも発動できますか？」 → 「はい、 できます。 自分のライフか相手のライフかにかかわらず、 発動できます」)。 overlay は on_self_life_to_hand だけを配線しており、 **相手のライフが離れた時 (= 自分のアタック) と 自分のライフがトラッシュに置かれた時に発動しなかった**。 3 つの when に複製し、 【ターン1回】は 名前付き共有キーで when 横断に束ねる (= 1 ターンに 3 回発動しない)。",
    "_text": "OP12-099 カルガラ 自ターン中ライフ離れた時: 1ドロー, ターン中 自効果ドロー禁止",
    "do": [
     {
@@ -73240,6 +73472,38 @@
     "self_turn": true
    },
    "when": "on_self_life_to_hand"
+  },
+  {
+   "_doc": "2026-08-12: 公式テキストは 「【自分のターン中】ライフが離れた時」 = **自分のライフか相手のライフかを問わない** (cardqa_op_11: 「この【自分のターン中】効果は、 自分のライフが離れた時にも発動できますか？」 → 「はい、 できます。 自分のライフか相手のライフかにかかわらず、 発動できます」)。 overlay は on_self_life_to_hand だけを配線しており、 **相手のライフが離れた時 (= 自分のアタック) と 自分のライフがトラッシュに置かれた時に発動しなかった**。 3 つの when に複製し、 【ターン1回】は 名前付き共有キーで when 横断に束ねる (= 1 ターンに 3 回発動しない)。",
+   "_text": "OP12-099 カルガラ 自ターン中ライフ離れた時: 1ドロー, ターン中 自効果ドロー禁止 [on_opp_life_taken 複製]",
+   "do": [
+    {
+     "draw": 1
+    },
+    {
+     "block_self_draw_turn": true
+    }
+   ],
+   "if": {
+    "self_turn": true
+   },
+   "when": "on_opp_life_taken"
+  },
+  {
+   "_doc": "2026-08-12: 公式テキストは 「【自分のターン中】ライフが離れた時」 = **自分のライフか相手のライフかを問わない** (cardqa_op_11: 「この【自分のターン中】効果は、 自分のライフが離れた時にも発動できますか？」 → 「はい、 できます。 自分のライフか相手のライフかにかかわらず、 発動できます」)。 overlay は on_self_life_to_hand だけを配線しており、 **相手のライフが離れた時 (= 自分のアタック) と 自分のライフがトラッシュに置かれた時に発動しなかった**。 3 つの when に複製し、 【ターン1回】は 名前付き共有キーで when 横断に束ねる (= 1 ターンに 3 回発動しない)。",
+   "_text": "OP12-099 カルガラ 自ターン中ライフ離れた時: 1ドロー, ターン中 自効果ドロー禁止 [on_self_life_to_trash 複製]",
+   "do": [
+    {
+     "draw": 1
+    },
+    {
+     "block_self_draw_turn": true
+    }
+   ],
+   "if": {
+    "self_turn": true
+   },
+   "when": "on_self_life_to_trash"
   }
  ],
  "OP12-100": [
@@ -75010,7 +75274,7 @@
      "untap_don": "all"
     },
     {
-     "block_chara_play_turn": true
+     "block_hand_play_turn": true
     }
    ],
    "when": "on_play"
@@ -75024,7 +75288,7 @@
      "untap_don": "all"
     },
     {
-     "block_chara_play_turn": true
+     "block_hand_play_turn": true
     }
    ],
    "when": "on_play"
@@ -75475,7 +75739,7 @@
       "count": 1,
       "target": {
        "filter": {
-        "feature": "白ひげ海賊団"
+        "feature_contains": "白ひげ海賊団"
        },
        "type": "one_self_chara_or_leader_filtered"
       }
@@ -75670,7 +75934,7 @@
         "ko_self_chara": {
          "count": 1,
          "filter": {
-          "feature": "白ひげ海賊団"
+          "feature_contains": "白ひげ海賊団"
          }
         }
        }
@@ -75764,9 +76028,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_attack"
   }
@@ -75887,13 +76149,14 @@
       ],
       "effect": [
        {
-        "return_to_hand": "one_opponent_character_cost_le_6"
+        "return_to_hand": "one_character_either_cost_le_6"
        }
       ]
      }
     }
    ],
-   "when": "main"
+   "when": "main",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型パターン、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only spec から one_character_either_cost_le に是正。"
   },
   {
    "_text": "OP13-059 trigger: カード1枚を引く。",
@@ -76290,9 +76553,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "ロジャー海賊団"
-    ],
+    "leader_feature_contains": "ロジャー海賊団",
     "self_attached_don_ge": 1
    },
    "when": "on_play"
@@ -76307,9 +76568,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "ロジャー海賊団"
-    ],
+    "leader_feature_contains": "ロジャー海賊団",
     "self_attached_don_ge": 1
    },
    "when": "on_play"
@@ -77889,12 +78148,16 @@
  ],
  "OP13-109": [
   {
+   "_doc": "2026-08-12 是正: 「代わりに自分のライフの上から1枚を **表向きにできる**」 は置換の **代償** なので、 一番上が既に表向きなら実行できず **置換を選べない** (公式 cardqa_op_13: 「一番上が表向きの場合…できますか？」 → 「いいえ」)。 従来は do に flip_life_face_up_effect を置いており、 既に表向きでも 置換が成立して **KO を免れていた**。 cost の flip_life_face_up (pos:top) に移して payability で gate する。",
    "_text": "this 効果離脱 → 自ライフ1表向き (peek)",
-   "do": [
+   "cost": [
     {
-     "flip_life_face_up_effect": 1
+     "flip_life_face_up": {
+      "pos": "top"
+     }
     }
    ],
+   "do": [],
    "if": {
     "by_opp_effect": true,
     "target": "self"
@@ -80539,10 +80802,11 @@
      "draw": 2
     },
     {
-     "return_to_hand": "one_opponent_character_cost_le_7cost"
+     "return_to_hand": "one_character_either_cost_le_7cost"
     }
    ],
-   "when": "on_play"
+   "when": "on_play",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only から one_character_either_cost_le に是正。"
   },
   {
    "_text": "OP14-049 効果で自分の手札が捨てられた時、このキャラは、このターン中、【速攻】を得る。",
@@ -80569,10 +80833,11 @@
      "draw": 2
     },
     {
-     "return_to_hand": "one_opponent_character_cost_le_7cost"
+     "return_to_hand": "one_character_either_cost_le_7cost"
     }
    ],
-   "when": "on_play"
+   "when": "on_play",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only から one_character_either_cost_le に是正。"
   },
   {
    "_text": "OP14-049_p1 効果で自分の手札が捨てられた時、このキャラは、このターン中、【速攻】を得る。",
@@ -81367,7 +81632,7 @@
    "_text": "黒クロコダイル 起動メイン: BWキャラKO代償 → 相手キャラ1 コスト-10 turn + デッキ上2 mill (公式: KO全体ではない)",
    "cost": {
     "ko_self_with_filter": {
-     "feature": "B・W"
+     "feature_contains": "B・W"
     },
     "once_per_turn": true
    },
@@ -81404,7 +81669,7 @@
    "_text": "黒クロコダイル 起動メイン: BWキャラKO代償 → 相手キャラ1 コスト-10 turn + デッキ上2 mill (公式: KO全体ではない)",
    "cost": {
     "ko_self_with_filter": {
-     "feature": "B・W"
+     "feature_contains": "B・W"
     },
     "once_per_turn": true
    },
@@ -81592,7 +81857,7 @@
      "play_from_trash": {
       "filter": {
        "cost_le": 4,
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1
      }
@@ -81601,16 +81866,14 @@
      "play_from_trash": {
       "filter": {
        "cost": 1,
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1
      }
     }
    ],
    "if": {
-    "leader_features_any": [
-     "B・W"
-    ]
+    "leader_feature_contains": "B・W"
    },
    "when": "on_play"
   }
@@ -81623,7 +81886,7 @@
      "play_from_trash": {
       "filter": {
        "cost_le": 4,
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1
      }
@@ -81632,16 +81895,14 @@
      "play_from_trash": {
       "filter": {
        "cost": 1,
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1
      }
     }
    ],
    "if": {
-    "leader_features_any": [
-     "B・W"
-    ]
+    "leader_feature_contains": "B・W"
    },
    "when": "on_play"
   }
@@ -81697,7 +81958,7 @@
       "destination": "hand",
       "filter": {
        "exclude_card_id": "OP14-087",
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1,
       "public": true,
@@ -81706,9 +81967,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "B・W"
-    ]
+    "leader_feature_contains": "B・W"
    },
    "when": "on_play"
   }
@@ -81723,7 +81982,7 @@
       "destination": "hand",
       "filter": {
        "exclude_card_id": "OP14-087",
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1,
       "public": true,
@@ -81732,9 +81991,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "B・W"
-    ]
+    "leader_feature_contains": "B・W"
    },
    "when": "on_play"
   }
@@ -81749,7 +82006,7 @@
       "destination": "hand",
       "filter": {
        "exclude_card_id": "OP14-087",
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1,
       "public": true,
@@ -81758,9 +82015,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "B・W"
-    ]
+    "leader_feature_contains": "B・W"
    },
    "when": "on_play"
   }
@@ -81780,9 +82035,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "B・W"
-    ]
+    "leader_feature_contains": "B・W"
    },
    "when": "on_ko"
   }
@@ -81881,7 +82134,7 @@
        "category": "CHARACTER",
        "cost_le": 5,
        "exclude_name": "Mr.2・ボン・クレー(ベンサム)",
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1
      }
@@ -81900,7 +82153,7 @@
        "category": "CHARACTER",
        "cost_le": 5,
        "exclude_name": "Mr.2・ボン・クレー(ベンサム)",
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1
      }
@@ -82116,7 +82369,7 @@
       "destination": "hand",
       "filter": {
        "exclude_card_id": "OP14-099",
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1,
       "public": true,
@@ -82146,7 +82399,7 @@
       "destination": "hand",
       "filter": {
        "exclude_card_id": "OP14-099",
-       "feature": "B・W"
+       "feature_contains": "B・W"
       },
       "limit": 1,
       "public": true,
@@ -83123,7 +83376,7 @@
        }
       ],
       "if": {
-       "exists_chara_cost_0_or_ge_8": true
+       "exists_opp_chara_cost_0_or_ge_8": true
       }
      }
     }
@@ -83161,7 +83414,7 @@
        }
       ],
       "if": {
-       "exists_chara_cost_0_or_ge_8": true
+       "exists_opp_chara_cost_0_or_ge_8": true
       }
      }
     }
@@ -84228,6 +84481,7 @@
     {
      "attach_rested_don": {
       "count": 1,
+      "from_cost_area": true,
       "target": "one_opponent_character_any",
       "to_opp": true
      }
@@ -86780,12 +87034,10 @@
   {
    "_text": "OP15-100 on_play: このキャラをトラッシュに置き、自分のライフの上から1枚を手札に加えることができる：相手のコスト6以下のキャラ1枚までを、KOする。",
    "cost": {
-    "trash_self": true
+    "trash_self": true,
+    "life_to_hand": 1
    },
    "do": [
-    {
-     "life_to_hand": 1
-    },
     {
      "ko": "one_opponent_character_cost_le_6cost"
     }
@@ -95026,7 +95278,14 @@
    "_text": "P-117 【ドン‼×1】このリーダーのアタックで相手ライフにダメージを与えた時、自デッキ上1枚をトラッシュ(してもよい)。",
    "do": [
     {
-     "mill_self_top": 1
+     "optional_cost_then": {
+      "cost": [],
+      "effect": [
+       {
+        "mill_self_top": 1
+       }
+      ]
+     }
     }
    ],
    "if": {
@@ -96026,12 +96285,10 @@
   {
    "_text": "PRB02-016 activate_main: このキャラをレストにし、自分のライフの上か下から1枚を手札に加えることができる：自分のリーダーかキャラ1枚までを、このターン中、パワー+3000。",
    "cost": {
-    "rest_self": true
+    "rest_self": true,
+    "life_top_or_bottom_to_hand": 1
    },
    "do": [
-    {
-     "life_top_or_bottom_to_hand": 1
-    },
     {
      "power_pump": {
       "amount": 3000,
@@ -96056,12 +96313,10 @@
   {
    "_text": "PRB02-016_p1 activate_main: このキャラをレストにし、自分のライフの上か下から1枚を手札に加えることができる：自分のリーダーかキャラ1枚までを、このターン中、パワー+3000。",
    "cost": {
-    "rest_self": true
+    "rest_self": true,
+    "life_top_or_bottom_to_hand": 1
    },
    "do": [
-    {
-     "life_top_or_bottom_to_hand": 1
-    },
     {
      "power_pump": {
       "amount": 3000,
@@ -103388,6 +103643,17 @@
  ],
  "ST13-003": [
   {
+   "_doc": "2026-08-11 追加: 公式テキスト冒頭の 「ルール上、 自分の表向きのライフは手札に加わる代わりにデッキの下に置かれる」 が overlay から丸ごと欠落していた。 **置換効果** なので ① ダメージで離れた表向きライフは手札ではなくデッキの下へ = 【トリガー】も発動できない (cardqa_st_13) ② 「ライフ1枚を手札に加える」 コストは **支払えていない** ことになる (cardqa_st_13、 ST13-012 マキノ との相互作用 → 「何も起きません」)。 ⚠ この再現には ライフの **per-card 表向きフラグ** が要る (2026-08-11 に移行)。",
+   "_text": "ST13-003 静的(ルール置換): 自分の表向きのライフは手札に加わる代わりにデッキの下に置かれる。",
+   "do": [
+    {
+     "set_face_up_life_to_deck_bottom_static": true
+    }
+   ],
+   "n": 0,
+   "when": "on_attached_don"
+  },
+  {
    "_text": "ST13-003 起動メイン(ターン1,手札1捨て):自ライフ0の場合、手札かトラッシュのcost5キャラ2枚までをライフ上に表向き [don-gate2] [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "cost": {
     "discard_hand": 1,
@@ -103420,6 +103686,17 @@
   }
  ],
  "ST13-003_p1": [
+  {
+   "_doc": "2026-08-11 追加: 公式テキスト冒頭の 「ルール上、 自分の表向きのライフは手札に加わる代わりにデッキの下に置かれる」 が overlay から丸ごと欠落していた。 **置換効果** なので ① ダメージで離れた表向きライフは手札ではなくデッキの下へ = 【トリガー】も発動できない (cardqa_st_13) ② 「ライフ1枚を手札に加える」 コストは **支払えていない** ことになる (cardqa_st_13、 ST13-012 マキノ との相互作用 → 「何も起きません」)。 ⚠ この再現には ライフの **per-card 表向きフラグ** が要る (2026-08-11 に移行)。",
+   "_text": "ST13-003_p1 静的(ルール置換): 自分の表向きのライフは手札に加わる代わりにデッキの下に置かれる。",
+   "do": [
+    {
+     "set_face_up_life_to_deck_bottom_static": true
+    }
+   ],
+   "n": 0,
+   "when": "on_attached_don"
+  },
   {
    "_text": "ST13-003 起動メイン(ターン1,手札1捨て):自ライフ0の場合、手札かトラッシュのcost5キャラ2枚までをライフ上に表向き [don-gate2] [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",
    "cost": {
@@ -103760,7 +104037,9 @@
   {
    "_text": "ST13-009 on_play: 自分の表向きのライフ1枚を裏向きにできる：相手の手札が7枚以上ある場合、相手のライフの上から1枚までをトラッシュに置く。 [cost-not-gated] 表向きライフ1枚を裏向きにする任意コストを実装 (未実装でタダ撃ちだった)。 コロン後の「相手の手札が7枚以上ある場合」は 効果のみを gate (cardqa_eb_04 の一般則)。",
    "cost": {
-    "flip_life_face_down": true
+    "flip_life_face_down": {
+     "pos": "any"
+    }
    },
    "do": [
     {
@@ -103783,7 +104062,9 @@
   {
    "_text": "ST13-009_p1 on_play: 自分の表向きのライフ1枚を裏向きにできる：相手の手札が7枚以上ある場合、相手のライフの上から1枚までをトラッシュに置く。 [cost-not-gated] 表向きライフ1枚を裏向きにする任意コストを実装 (未実装でタダ撃ちだった)。 コロン後の「相手の手札が7枚以上ある場合」は 効果のみを gate (cardqa_eb_04 の一般則)。",
    "cost": {
-    "flip_life_face_down": true
+    "flip_life_face_down": {
+     "pos": "any"
+    }
    },
    "do": [
     {
@@ -105361,9 +105642,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "on_play"
   }
@@ -105380,9 +105659,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "n": 0,
    "when": "on_attached_don"
@@ -105767,7 +106044,7 @@
         "conditional": {
          "do": [
           {
-           "return_to_hand": "one_opponent_character_cost_le_4cost"
+           "return_to_hand": "one_character_either_cost_le_4cost"
           }
          ],
          "if": {
@@ -105779,7 +106056,8 @@
      }
     }
    ],
-   "when": "on_play"
+   "when": "on_play",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only から one_character_either_cost_le に是正。"
   }
  ],
  "ST17-002_p1": [
@@ -105798,7 +106076,7 @@
         "conditional": {
          "do": [
           {
-           "return_to_hand": "one_opponent_character_cost_le_4cost"
+           "return_to_hand": "one_character_either_cost_le_4cost"
           }
          ],
          "if": {
@@ -105810,7 +106088,8 @@
      }
     }
    ],
-   "when": "on_play"
+   "when": "on_play",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only から one_character_either_cost_le に是正。"
   }
  ],
  "ST17-002_r1": [
@@ -105829,7 +106108,7 @@
         "conditional": {
          "do": [
           {
-           "return_to_hand": "one_opponent_character_cost_le_4cost"
+           "return_to_hand": "one_character_either_cost_le_4cost"
           }
          ],
          "if": {
@@ -105841,7 +106120,8 @@
      }
     }
    ],
-   "when": "on_play"
+   "when": "on_play",
+   "_doc": "2026-08-15 是正 (OP04-055 と同型、 相手の 修飾なし=両陣営): bounce/return 対象を opp-only から one_character_either_cost_le に是正。"
   }
  ],
  "ST17-003": [
@@ -107533,7 +107813,7 @@
       "destination": "hand",
       "filter": {
        "exclude_card_id": "ST22-002",
-       "feature": "白ひげ海賊団"
+       "feature_contains": "白ひげ海賊団"
       },
       "limit": 1,
       "public": true,
@@ -107569,7 +107849,7 @@
       "destination": "hand",
       "filter": {
        "exclude_card_id": "ST22-002",
-       "feature": "白ひげ海賊団"
+       "feature_contains": "白ひげ海賊団"
       },
       "limit": 1,
       "public": true,
@@ -108016,9 +108296,7 @@
     }
    ],
    "if": {
-    "leader_features_any": [
-     "白ひげ海賊団"
-    ]
+    "leader_feature_contains": "白ひげ海賊団"
    },
    "when": "main"
   }
@@ -108322,12 +108600,7 @@
      "rest": "one_opponent_character_any"
     },
     {
-     "stay_rested_next_refresh": {
-      "filter": {
-       "rested": true
-      },
-      "type": "one_opponent_character_filtered"
-     }
+     "stay_rested_next_refresh": "just_rest_selected"
     },
     {
      "conditional": {
@@ -111571,7 +111844,9 @@
   {
    "_text": "ST36-005 ユースタス・キッド 【相手のアタック時】【ターン1回】自分のライフの上か下から1枚を裏向きにできる：アタックの対象を自分の元々のパワー5000以上の「ユースタス・キッド」にする。 (engine のライフモデルは「上か下」 の物理位置を区別せず表向き枚数 face_up_life_count のみ管理。 flip_life_face_down cost = 表向き1枚を裏向きに)",
    "cost": {
-    "flip_life_face_down": true,
+    "flip_life_face_down": {
+     "pos": "top_or_bottom"
+    },
     "once_per_turn": true
    },
    "do": [
@@ -111601,7 +111876,9 @@
      "optional_cost_then": {
       "cost": [
        {
-        "flip_life_face_up": true
+        "flip_life_face_up": {
+         "pos": "top_or_bottom"
+        }
        }
       ],
       "effect": [
@@ -111621,5 +111898,1489 @@
  "_meta": {
   "description": "カード効果オーバーレイ。Phase 2.2 のサンプル。主要カードに手書きで効果を付けていく。",
   "version": "0.2"
- }
+ },
+ "EB04-054_p1": [
+  {
+   "_text": "EB04-054_p1 くま 登場時: 自ライフ2以下なら デッキ上1をライフへ",
+   "do": [
+    {
+     "put_top_to_life": 1
+    }
+   ],
+   "if": {
+    "self_life_le": 2
+   },
+   "when": "on_play"
+  },
+  {
+   "_text": "EB04-054_p1 くま KO時: 相手ライフ上1を相手手札へ",
+   "do": [
+    {
+     "mill_opp_life_to_hand": 1
+    }
+   ],
+   "when": "on_ko"
+  }
+ ],
+ "OP10-045_p2": [
+  {
+   "_text": "OP10-045_p2 キャベ アタック時 (ターン1回): 2ドロー + 1捨て",
+   "cost": {
+    "once_per_turn": true
+   },
+   "do": [
+    {
+     "draw": 2
+    },
+    {
+     "trash_self_hand_random": 1
+    }
+   ],
+   "when": "on_attack"
+  }
+ ],
+ "OP11-067_p2": [
+  {
+   "_text": "OP11-067_p2 end_of_turn: 自分のコスト3以上の特徴《ビッグ・マム海賊団》を持つキャラ2枚までを、アクティブにする。その後、自分のドン‼デッキからドン‼1枚までを、レストで追加する。",
+   "do": [
+    {
+     "untap_chara": {
+      "limit": 2,
+      "target": {
+       "filter": {
+        "cost_ge": 3,
+        "feature": "ビッグ・マム海賊団"
+       },
+       "type": "all_self_chara_filtered"
+      }
+     }
+    },
+    {
+     "add_rested_don": 1
+    }
+   ],
+   "when": "end_of_turn"
+  }
+ ],
+ "OP14-029_p1": [
+  {
+   "_text": "OP14-029_p1 activate_main: 【ターン1回】自分のカード2枚をレストにできる：このキャラは、次の相手のエンドフェイズ終了時まで、パワー+2000。",
+   "cost": {
+    "once_per_turn": true
+   },
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "rest_self_cards": 2
+       }
+      ],
+      "effect": [
+       {
+        "power_pump": {
+         "amount": 2000,
+         "duration": "next_opp_turn_end",
+         "target": "self"
+        }
+       }
+      ]
+     }
+    }
+   ],
+   "when": "activate_main"
+  },
+  {
+   "_text": "【相手のターン中】 効果 場離れ 代替 → 自カード1レスト",
+   "do": [
+    {
+     "rest_self_cards": 1
+    }
+   ],
+   "if": {
+    "by_opp_effect": true,
+    "opp_turn": true,
+    "target": "self"
+   },
+   "when": "replace_leave"
+  }
+ ],
+ "OP14-084_p2": [
+  {
+   "_text": "OP14-084_p2 ミスサンデー 登場時: BWリーダーで trashからBWキャラ cost4以下 と cost1 を1枚ずつ登場",
+   "do": [
+    {
+     "play_from_trash": {
+      "filter": {
+       "cost_le": 4,
+       "feature_contains": "B・W"
+      },
+      "limit": 1
+     }
+    },
+    {
+     "play_from_trash": {
+      "filter": {
+       "cost": 1,
+       "feature_contains": "B・W"
+      },
+      "limit": 1
+     }
+    }
+   ],
+   "if": {
+    "leader_feature_contains": "B・W"
+   },
+   "when": "on_play"
+  }
+ ],
+ "OP15-068_p1": [
+  {
+   "_text": "OP15-068_p1 自分の場のドン‼が6枚以下の場合、このキャラは【ブロッカー】を得る。",
+   "do": [
+    {
+     "give_keyword": {
+      "keyword": "ブロッカー",
+      "target": "self"
+     }
+    }
+   ],
+   "if": {
+    "self_don_le": 6
+   },
+   "n": 0,
+   "when": "on_attached_don"
+  }
+ ],
+ "OP15-113_p2": [
+  {
+   "_text": "OP15-113_p2 ゾロ 登場時: 自手札1捨てで デッキ上1をライフへ",
+   "cost": {
+    "discard_hand": 1
+   },
+   "do": [
+    {
+     "put_top_to_life": 1
+    }
+   ],
+   "when": "on_play"
+  }
+ ],
+ "OP16-001_p1": [
+  {
+   "_text": "OP16-001_p1 ポートガス・D・エース 起動メイン[ターン1回]: 自分のパワー8000以上の、「モンキー・D・ルフィ」か『白ひげ海賊団』を含む特徴を持つキャラ1枚までは、このターン中、【速攻】を得る。",
+   "cost": {
+    "once_per_turn": true
+   },
+   "do": [
+    {
+     "give_rush": {
+      "current_power_ge": 8000,
+      "filter": {
+       "or_clauses": [
+        {
+         "name_in": [
+          "モンキー・D・ルフィ",
+          "モンキー・Ｄ・ルフィ"
+         ]
+        },
+        {
+         "feature_contains": "白ひげ海賊団"
+        }
+       ]
+      },
+      "limit": 1,
+      "type": "all_self_chara_filtered"
+     }
+    }
+   ],
+   "when": "activate_main"
+  }
+ ],
+ "OP16-003_p1": [
+  {
+   "_text": "OP16-003_p1 【自分のターン中】自分のリーダーは【ダブルアタック】を得て、パワー+2000。",
+   "do": [
+    {
+     "give_keyword": {
+      "keyword": "ダブルアタック",
+      "target": "self_leader"
+     }
+    },
+    {
+     "power_pump": {
+      "amount": 2000,
+      "duration": "static",
+      "target": "self_leader"
+     }
+    }
+   ],
+   "if": {
+    "self_turn": true
+   },
+   "n": 0,
+   "when": "on_attached_don"
+  },
+  {
+   "_text": "OP16-003_p1 【登場時】手札からパワー8000のキャラ2枚公開：相手のキャラ1枚までを、このターン中、パワー-6000。",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "reveal_hand_with_filter": {
+         "count": 2,
+         "filter": {
+          "category": "CHARACTER",
+          "power_eq": 8000
+         }
+        }
+       }
+      ],
+      "effect": [
+       {
+        "power_pump": {
+         "amount": -6000,
+         "duration": "turn",
+         "target": "one_opponent_character_any"
+        }
+       }
+      ]
+     }
+    }
+   ],
+   "when": "on_play"
+  }
+ ],
+ "OP16-010_p1": [
+  {
+   "_text": "OP16-010_p1 【登場時】手札からパワー8000のキャラ1枚を公開できる：相手の元々のパワー2000以下のキャラ1枚までをKO。",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "reveal_hand_with_filter": {
+         "count": 1,
+         "filter": {
+          "category": "CHARACTER",
+          "truly_original_power_eq": 8000
+         }
+        }
+       }
+      ],
+      "effect": [
+       {
+        "ko": {
+         "filter": {
+          "truly_original_power_le": 2000
+         },
+         "type": "one_opponent_character_filtered"
+        }
+       }
+      ]
+     }
+    }
+   ],
+   "when": "on_play"
+  }
+ ],
+ "OP16-014_p1": [
+  {
+   "_text": "OP16-014_p1 マルコ replace_leave: 自分のキャラが相手の効果で場を離れる場合、代わりにこのキャラ(マルコ)をKOできる (team-wide leave-redirect、 任意)。",
+   "do": [
+    {
+     "ko_self": true
+    }
+   ],
+   "if": {
+    "by_opp_effect": true,
+    "target": "any_self_chara"
+   },
+   "optional": true,
+   "when": "replace_leave"
+  },
+  {
+   "_text": "OP16-014_p1 【KO時】手札からパワー8000キャラ1枚を捨てる：このキャラをトラッシュから登場させる。",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "discard_hand_with_filter": {
+         "count": 1,
+         "filter": {
+          "category": "CHARACTER",
+          "power_eq": 8000
+         }
+        }
+       }
+      ],
+      "effect": [
+       {
+        "play_self_from_trash": true
+       }
+      ]
+     }
+    }
+   ],
+   "when": "on_ko"
+  }
+ ],
+ "OP16-015_p1": [
+  {
+   "_text": "OP16-015_p1 手札時 コスト-2: リーダーが『エース』を含むカード名で場のドン6以上の場合。",
+   "do": [
+    {
+     "in_hand_cost_minus": 2
+    }
+   ],
+   "if": {
+    "leader_name_contains": "エース",
+    "self_don_count_ge": 6
+   },
+   "when": "in_hand"
+  },
+  {
+   "_text": "OP16-015_p1 【相手のアタック時】手札からパワー8000キャラ1枚を捨てる：自リーダーとこのキャラを、このターン中、元々のパワー7000にする。",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "discard_hand_with_filter": {
+         "count": 1,
+         "filter": {
+          "category": "CHARACTER",
+          "truly_original_power_eq": 8000
+         }
+        }
+       }
+      ],
+      "effect": [
+       {
+        "set_base_power_timed": {
+         "amount": 7000,
+         "duration": "turn",
+         "original": true,
+         "target": "self_leader"
+        }
+       },
+       {
+        "set_base_power_timed": {
+         "amount": 7000,
+         "duration": "turn",
+         "original": true,
+         "target": "self"
+        }
+       }
+      ]
+     }
+    }
+   ],
+   "when": "opp_attack"
+  }
+ ],
+ "OP16-021_p1": [
+  {
+   "_text": "OP16-021_p1 【登場時】リーダーが《白ひげ海賊団》なら、デッキ上3を見て1枚を手札に、残りをデッキ下。",
+   "do": [
+    {
+     "search_top_n": {
+      "depth": 3,
+      "destination": "hand",
+      "filter": {},
+      "limit": 1,
+      "public": false,
+      "rest_remain": "bottom"
+     }
+    }
+   ],
+   "if": {
+    "leader_feature": "白ひげ海賊団"
+   },
+   "when": "on_play"
+  },
+  {
+   "_text": "OP16-021_p1 【起動メイン】このステージをトラッシュ：自分のリーダーかキャラ1枚にレストのドン!!1枚までを付与。",
+   "cost": {
+    "trash_self": true
+   },
+   "do": [
+    {
+     "attach_rested_don": {
+      "count": 1,
+      "target": "self_inplay_choice"
+     }
+    }
+   ],
+   "when": "activate_main"
+  }
+ ],
+ "OP16-022_p1": [
+  {
+   "_text": "OP16-022_p1 モンキー・D・ルフィ 起動メイン[ターン1回]: 自分のキャラが特徴《インペルダウン》を持つキャラのみの場合、自分のドン!!2枚までを、アクティブにする。",
+   "cost": {
+    "once_per_turn": true
+   },
+   "do": [
+    {
+     "untap_don": 2
+    }
+   ],
+   "if": {
+    "self_chara_only_feature": "インペルダウン"
+   },
+   "when": "activate_main"
+  }
+ ],
+ "OP16-024_p1": [
+  {
+   "_text": "OP16-024_p1 【相手効果でKO時】相手のキャラ1枚までをレスト。",
+   "do": [
+    {
+     "rest": "one_opponent_character_any"
+    }
+   ],
+   "if": {
+    "by_opp_effect": true
+   },
+   "when": "on_ko"
+  }
+ ],
+ "OP16-026_p1": [
+  {
+   "_text": "OP16-026_p1 【登場時】デッキ上3を見て《インペルダウン》1を手札、残りデッキ下。その後、手札からコスト2以下のキャラ1枚までを登場。",
+   "do": [
+    {
+     "search_top_n": {
+      "depth": 3,
+      "destination": "hand",
+      "filter": {
+       "feature": "インペルダウン"
+      },
+      "limit": 1,
+      "public": true,
+      "rest_remain": "bottom"
+     }
+    },
+    {
+     "play_from_hand": {
+      "filter": {
+       "cost_le": 2
+      },
+      "limit": 1
+     }
+    }
+   ],
+   "when": "on_play"
+  }
+ ],
+ "OP16-032_p1": [
+  {
+   "_text": "OP16-032_p1 【登場時】相手の「モンキー・Ｄ・ルフィ」以外のキャラ1枚までは、次の相手のエンドフェイズ終了時まで、レストにできない。",
+   "do": [
+    {
+     "set_cannot_rest": {
+      "count": 1,
+      "duration": "next_opp_turn_end",
+      "target": {
+       "filter": {
+        "exclude_name": "モンキー・Ｄ・ルフィ"
+       },
+       "type": "one_opponent_character_filtered"
+      }
+     }
+    }
+   ],
+   "when": "on_play"
+  }
+ ],
+ "OP16-032_p2": [
+  {
+   "_text": "OP16-032_p2 【登場時】相手の「モンキー・Ｄ・ルフィ」以外のキャラ1枚までは、次の相手のエンドフェイズ終了時まで、レストにできない。",
+   "do": [
+    {
+     "set_cannot_rest": {
+      "count": 1,
+      "duration": "next_opp_turn_end",
+      "target": {
+       "filter": {
+        "exclude_name": "モンキー・Ｄ・ルフィ"
+       },
+       "type": "one_opponent_character_filtered"
+      }
+     }
+    }
+   ],
+   "when": "on_play"
+  }
+ ],
+ "OP16-034_p1": [
+  {
+   "_text": "OP16-034_p1 【ドン!!×1】【自分のターン中】自分のカード名の異なるキャラ1枚につき、このキャラのパワー+1000。",
+   "do": [
+    {
+     "power_pump": {
+      "amount_per": {
+       "divisor": 1,
+       "multiplier": 1000,
+       "source": "self_distinct_chara_name_count"
+      },
+      "duration": "static",
+      "target": "self"
+     }
+    }
+   ],
+   "if": {
+    "self_turn": true
+   },
+   "n": 1,
+   "when": "on_attached_don"
+  },
+  {
+   "_text": "OP16-034_p1 【登場時】デッキ上3を見て《インペルダウン》1を手札、残デッキ下。",
+   "do": [
+    {
+     "search_top_n": {
+      "depth": 3,
+      "destination": "hand",
+      "filter": {
+       "feature": "インペルダウン"
+      },
+      "limit": 1,
+      "public": true,
+      "rest_remain": "bottom"
+     }
+    }
+   ],
+   "when": "on_play"
+  }
+ ],
+ "OP16-041_p1": [
+  {
+   "_text": "OP16-041_p1 バギー KO経路: 【ドン!!×1】【ターン1回】自分の特徴《インペルダウン》キャラが KO された時、自分の手札から「インペルダウンの囚人」1枚までを登場。",
+   "cost": {
+    "once_per_turn": "op16-041-leave"
+   },
+   "do": [
+    {
+     "play_from_hand_named_set": {
+      "names": [
+       "インペルダウンの囚人"
+      ]
+     }
+    }
+   ],
+   "if": {
+    "self_attached_don_ge": 1,
+    "victim_feature_in": [
+     "インペルダウン"
+    ]
+   },
+   "when": "on_self_chara_ko"
+  },
+  {
+   "_text": "OP16-041_p1 バギー 相手効果離脱経路: 【ドン!!×1】【ターン1回】自分の特徴《インペルダウン》キャラが相手の効果で場を離れた時、手札から「インペルダウンの囚人」1枚までを登場 (KO 経路と共有のターン1回)。",
+   "cost": {
+    "once_per_turn": "op16-041-leave"
+   },
+   "do": [
+    {
+     "play_from_hand_named_set": {
+      "names": [
+       "インペルダウンの囚人"
+      ]
+     }
+    }
+   ],
+   "if": {
+    "self_attached_don_ge": 1,
+    "victim_feature_in": [
+     "インペルダウン"
+    ]
+   },
+   "when": "on_self_chara_leave_by_opp_effect"
+  },
+  {
+   "_doc": "公式 (cardqa_op_16): 「自分の『虜の矢』などの効果によって、 自分の特徴《インペルダウン》を持つキャラが 手札に戻りました。 この時、 …登場させることはできますか？」 → 「**はい、 できます。** 自分の効果で自分の 特徴《インペルダウン》を持つキャラが場を離れた時も、 この効果を発動することができます」。 victim の特徴は leave_victim_feature_in (= このイベントで場を離れた victim のいずれか) で判定する。 2026-08-10 追加。",
+   "_text": "OP16-041_p1 バギー 自効果離脱経路: 【ドン!!×1】【ターン1回】自分の特徴《インペルダウン》キャラが **自分の効果で** 場を離れた時、 手札から「インペルダウンの囚人」1枚までを登場 (KO/相手効果離脱と共有のターン1回)。",
+   "cost": {
+    "once_per_turn": "op16-041-leave"
+   },
+   "do": [
+    {
+     "play_from_hand_named_set": {
+      "names": [
+       "インペルダウンの囚人"
+      ]
+     }
+    }
+   ],
+   "if": {
+    "leave_victim_feature_in": [
+     "インペルダウン"
+    ],
+    "self_attached_don_ge": 1
+   },
+   "when": "on_self_chara_leave_by_self_effect"
+  }
+ ],
+ "OP16-042_p1": [],
+ "OP16-048_p1": [
+  {
+   "_text": "OP16-048_p1 【登場時】自分のリーダーが《インペルダウン》を持つ場合、カード1枚を引き、手札から「インペルダウンの囚人」1枚までを登場。",
+   "do": [
+    {
+     "draw": 1
+    },
+    {
+     "play_from_hand_named_set": {
+      "names": [
+       "インペルダウンの囚人"
+      ]
+     }
+    }
+   ],
+   "if": {
+    "leader_feature": "インペルダウン"
+   },
+   "when": "on_play"
+  },
+  {
+   "_text": "OP16-048_p1 【ターン1回】相手がアタックした時：自分の「インペルダウンの囚人」1枚までは、このターン中、【ブロッカー】を得る。",
+   "cost": {
+    "once_per_turn": true
+   },
+   "do": [
+    {
+     "give_keyword": {
+      "duration": "turn",
+      "keyword": "ブロッカー",
+      "target": {
+       "filter": {
+        "name": "インペルダウンの囚人"
+       },
+       "limit": 1,
+       "type": "all_self_chara_filtered"
+      }
+     }
+    }
+   ],
+   "when": "opp_attack"
+  }
+ ],
+ "OP16-055_p1": [
+  {
+   "_text": "OP16-055_p1 【登場時】カード1枚を引く。",
+   "do": [
+    {
+     "draw": 1
+    }
+   ],
+   "when": "on_play"
+  },
+  {
+   "_text": "OP16-055_p1 【ドン!!×1】【アタック時】このキャラの元々のパワーは、このターン中、相手のリーダーと同じパワーになる。",
+   "do": [
+    {
+     "set_base_power_copy": {
+      "duration": "turn",
+      "from_target": "opponent_leader",
+      "original": true,
+      "to_target": "self"
+     }
+    }
+   ],
+   "if": {
+    "self_attached_don_ge": 1
+   },
+   "when": "on_attack"
+  }
+ ],
+ "OP16-056_p1": [
+  {
+   "_text": "OP16-056_p1 【起動メイン】このキャラをトラッシュに置く：カード2枚を引き、相手のコスト9以下のキャラ1枚までは、次の相手のエンドフェイズ終了時まで、アタックできない。",
+   "cost": {
+    "trash_self": true
+   },
+   "do": [
+    {
+     "draw": 2
+    },
+    {
+     "set_cannot_attack": {
+      "duration": "next_opp_turn_end",
+      "target": "one_opponent_character_cost_le_9cost"
+     }
+    }
+   ],
+   "when": "activate_main"
+  }
+ ],
+ "OP16-060_p1": [
+  {
+   "_text": "OP16-060_p1 センゴク 起動メイン: 自分のアクティブのドン!!8枚をドン!!デッキに戻すことができる：自分の手札からカード名の異なる特徴《大将》を持つキャラカード3枚までを、登場させる。",
+   "cost": {
+    "pay_don": 8
+   },
+   "do": [
+    {
+     "play_from_hand": {
+      "filter": {
+       "feature": "大将"
+      },
+      "limit": 3,
+      "unique_name": true
+     }
+    }
+   ],
+   "when": "activate_main"
+  }
+ ],
+ "OP16-063_p1": [
+  {
+   "_text": "OP16-063_p1 【登場時】ドン!!デッキからドン!!2枚までをレストで追加。",
+   "do": [
+    {
+     "add_rested_don": 2
+    }
+   ],
+   "when": "on_play"
+  },
+  {
+   "_text": "OP16-063_p1 【起動メイン】【ターン1回】ドン!!-1：相手のキャラ1枚までは、このターン中、【ブロッカー】を発動できない。",
+   "cost": {
+    "once_per_turn": true,
+    "pay_don": 1
+   },
+   "do": [
+    {
+     "disable_blocker": {
+      "duration": "turn",
+      "target": "one_opponent_character_any"
+     }
+    }
+   ],
+   "when": "activate_main"
+  }
+ ],
+ "OP16-063_p2": [
+  {
+   "_text": "OP16-063_p2 【登場時】ドン!!デッキからドン!!2枚までをレストで追加。",
+   "do": [
+    {
+     "add_rested_don": 2
+    }
+   ],
+   "when": "on_play"
+  },
+  {
+   "_text": "OP16-063_p2 【起動メイン】【ターン1回】ドン!!-1：相手のキャラ1枚までは、このターン中、【ブロッカー】を発動できない。",
+   "cost": {
+    "once_per_turn": true,
+    "pay_don": 1
+   },
+   "do": [
+    {
+     "disable_blocker": {
+      "duration": "turn",
+      "target": "one_opponent_character_any"
+     }
+    }
+   ],
+   "when": "activate_main"
+  }
+ ],
+ "OP16-065_p1": [
+  {
+   "_text": "OP16-065_p1 【登場時】ドン!!-1：相手のキャラ1枚までを、次の相手のエンドフェイズ終了時まで、パワー-6000。",
+   "cost": {
+    "pay_don": 1
+   },
+   "do": [
+    {
+     "power_pump": {
+      "amount": -6000,
+      "duration": "next_opp_turn_end",
+      "target": "one_opponent_character_any"
+     }
+    }
+   ],
+   "when": "on_play"
+  },
+  {
+   "_text": "OP16-065_p1 【起動メイン】【ターン1回】自分のドン!!1枚をレスト：リーダーが《海軍》ならドン!!デッキからドン!!2枚までをアクティブで追加。",
+   "cost": {
+    "once_per_turn": true,
+    "rest_self_don": 1
+   },
+   "do": [
+    {
+     "conditional": {
+      "do": [
+       {
+        "add_don": 2
+       }
+      ],
+      "if": {
+       "leader_feature": "海軍"
+      }
+     }
+    }
+   ],
+   "when": "activate_main"
+  }
+ ],
+ "OP16-065_p2": [
+  {
+   "_text": "OP16-065_p2 【登場時】ドン!!-1：相手のキャラ1枚までを、次の相手のエンドフェイズ終了時まで、パワー-6000。",
+   "cost": {
+    "pay_don": 1
+   },
+   "do": [
+    {
+     "power_pump": {
+      "amount": -6000,
+      "duration": "next_opp_turn_end",
+      "target": "one_opponent_character_any"
+     }
+    }
+   ],
+   "when": "on_play"
+  },
+  {
+   "_text": "OP16-065_p2 【起動メイン】【ターン1回】自分のドン!!1枚をレスト：リーダーが《海軍》ならドン!!デッキからドン!!2枚までをアクティブで追加。",
+   "cost": {
+    "once_per_turn": true,
+    "rest_self_don": 1
+   },
+   "do": [
+    {
+     "conditional": {
+      "do": [
+       {
+        "add_don": 2
+       }
+      ],
+      "if": {
+       "leader_feature": "海軍"
+      }
+     }
+    }
+   ],
+   "when": "activate_main"
+  }
+ ],
+ "OP16-073_p1": [
+  {
+   "_text": "OP16-073_p1 【登場時】ドン!!デッキからドン!!1枚までをアクティブで追加し、さらに1枚までをレストで追加。",
+   "do": [
+    {
+     "add_don": 1
+    },
+    {
+     "add_rested_don": 1
+    }
+   ],
+   "when": "on_play"
+  },
+  {
+   "_text": "OP16-073_p1 【自分のターン終了時】ドン!!-2：このキャラをアクティブにする。その後、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。",
+   "cost": {
+    "pay_don": 2
+   },
+   "do": [
+    {
+     "untap_chara": {
+      "target": "self"
+     }
+    },
+    {
+     "give_keyword": {
+      "duration": "next_opp_turn_end",
+      "keyword": "ブロッカー",
+      "target": "self"
+     }
+    }
+   ],
+   "when": "end_of_turn"
+  }
+ ],
+ "OP16-073_p2": [
+  {
+   "_text": "OP16-073_p2 【登場時】ドン!!デッキからドン!!1枚までをアクティブで追加し、さらに1枚までをレストで追加。",
+   "do": [
+    {
+     "add_don": 1
+    },
+    {
+     "add_rested_don": 1
+    }
+   ],
+   "when": "on_play"
+  },
+  {
+   "_text": "OP16-073_p2 【自分のターン終了時】ドン!!-2：このキャラをアクティブにする。その後、次の相手のエンドフェイズ終了時まで、【ブロッカー】を得る。",
+   "cost": {
+    "pay_don": 2
+   },
+   "do": [
+    {
+     "untap_chara": {
+      "target": "self"
+     }
+    },
+    {
+     "give_keyword": {
+      "duration": "next_opp_turn_end",
+      "keyword": "ブロッカー",
+      "target": "self"
+     }
+    }
+   ],
+   "when": "end_of_turn"
+  }
+ ],
+ "OP16-079_p1": [
+  {
+   "_text": "OP16-079_p1 ヤマト: 自分のトラッシュから特徴《ワノ国》を持つキャラが登場した時、そのキャラは、このターン中、【速攻】を得る。",
+   "do": [
+    {
+     "give_rush": {
+      "target": "last_self_played_chara"
+     }
+    }
+   ],
+   "if": {
+    "played_from_trash": true,
+    "played_self_chara_feature_in": [
+     "ワノ国"
+    ]
+   },
+   "when": "on_self_chara_played"
+  }
+ ],
+ "OP16-080_p1": [
+  {
+   "_text": "OP16-080_p1 マーシャル・D・ティーチ: 【相手のターン中】自分のキャラすべてを、コスト+1。",
+   "do": [
+    {
+     "set_base_cost_filtered_static": {
+      "delta": 1,
+      "filter": {},
+      "scope": "self"
+     }
+    }
+   ],
+   "if": {
+    "opp_turn": true
+   },
+   "n": 0,
+   "when": "on_attached_don"
+  },
+  {
+   "_text": "OP16-080_p1 ティーチ: 【相手のアタック時】【ターン1回】自分の手札から【トリガー】を持つカード1枚を捨てることができる：そのアタックの対象をこのリーダーか自分の特徴《黒ひげ海賊団》を持つキャラにする。",
+   "cost": {
+    "once_per_turn": true
+   },
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "discard_hand_with_filter": {
+         "count": 1,
+         "filter": {
+          "trigger": true
+         }
+        }
+       }
+      ],
+      "effect": [
+       {
+        "redirect_attack": {
+         "candidates": [
+          "self_leader",
+          {
+           "filter": {
+            "feature": "黒ひげ海賊団"
+           },
+           "type": "all_self_chara_filtered"
+          }
+         ]
+        }
+       }
+      ]
+     }
+    }
+   ],
+   "when": "opp_attack"
+  }
+ ],
+ "OP16-082_p1": [
+  {
+   "_text": "OP16-082_p1 手札時 コスト+3。",
+   "do": [
+    {
+     "in_hand_cost_plus": 3
+    }
+   ],
+   "when": "in_hand"
+  },
+  {
+   "_text": "OP16-082_p1 【登場時】リーダーが《ワノ国》なら、デッキ上5から《ワノ国》1を手札、残りトラッシュ。",
+   "do": [
+    {
+     "search_top_n": {
+      "depth": 5,
+      "destination": "hand",
+      "filter": {
+       "feature": "ワノ国"
+      },
+      "limit": 1,
+      "public": true,
+      "rest_remain": "trash"
+     }
+    }
+   ],
+   "if": {
+    "leader_feature": "ワノ国"
+   },
+   "when": "on_play"
+  }
+ ],
+ "OP16-085_p1": [
+  {
+   "_text": "OP16-085_p1 【ブロッカー】【登場時】トラッシュから「光月モモの助」以外のコスト6以下の《ワノ国》キャラ1枚までを登場。",
+   "do": [
+    {
+     "play_from_trash": {
+      "filter": {
+       "cost_le": 6,
+       "exclude_name": "光月モモの助",
+       "feature": "ワノ国"
+      }
+     }
+    }
+   ],
+   "when": "on_play"
+  }
+ ],
+ "OP16-092_p1": [
+  {
+   "_text": "OP16-092_p1 【登場時】手札からコスト8以上のキャラ1枚を捨てることができる：カード2枚を引く。",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "discard_hand_with_filter": {
+         "count": 1,
+         "filter": {
+          "category": "CHARACTER",
+          "cost_ge": 8
+         }
+        }
+       }
+      ],
+      "effect": [
+       {
+        "draw": 2
+       }
+      ]
+     }
+    }
+   ],
+   "when": "on_play"
+  }
+ ],
+ "OP16-092_p2": [
+  {
+   "_text": "OP16-092_p2 【登場時】手札からコスト8以上のキャラ1枚を捨てることができる：カード2枚を引く。",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "discard_hand_with_filter": {
+         "count": 1,
+         "filter": {
+          "category": "CHARACTER",
+          "cost_ge": 8
+         }
+        }
+       }
+      ],
+      "effect": [
+       {
+        "draw": 2
+       }
+      ]
+     }
+    }
+   ],
+   "when": "on_play"
+  }
+ ],
+ "OP16-098_p1": [
+  {
+   "_text": "OP16-098_p1 【登場時】カード1枚を引き、自分の手札1枚を捨てる。",
+   "do": [
+    {
+     "draw": 1
+    },
+    {
+     "trash_self_hand_random": 1
+    }
+   ],
+   "when": "on_play"
+  },
+  {
+   "_text": "OP16-098_p1 【起動メイン】このキャラをトラッシュ：トラッシュからコスト8の黒の「ヤマト」1枚までを登場。",
+   "cost": {
+    "trash_self": true
+   },
+   "do": [
+    {
+     "play_from_trash": {
+      "filter": {
+       "category": "CHARACTER",
+       "color": "黒",
+       "cost_eq": 8,
+       "name": "ヤマト"
+      },
+      "limit": 1
+     }
+    }
+   ],
+   "when": "activate_main"
+  }
+ ],
+ "OP16-108_p1": [
+  {
+   "_text": "OP16-108_p1 【登場時】手札1枚を捨てる：トラッシュからコスト6以下の《黒ひげ海賊団》カード1枚までをライフの上に表向きで加える。",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "discard_hand": 1
+       }
+      ],
+      "effect": [
+       {
+        "hand_or_trash_to_self_life": {
+         "count": 1,
+         "face_up": true,
+         "filter": {
+          "cost_le": 6,
+          "feature": "黒ひげ海賊団"
+         },
+         "from_zone": "trash"
+        }
+       }
+      ]
+     }
+    }
+   ],
+   "when": "on_play"
+  },
+  {
+   "_text": "OP16-108_p1 【トリガー】カード2枚を引く。",
+   "do": [
+    {
+     "draw": 2
+    }
+   ],
+   "when": "trigger"
+  }
+ ],
+ "OP16-116_p1": [
+  {
+   "_text": "OP16-116_p1 【メイン】場のドン!!が10枚なら、手札から「マーシャル・Ｄ・ティーチ」1枚までを登場。その後相手のライフ上1枚までを持ち主の手札に加える。",
+   "do": [
+    {
+     "play_from_hand_named_set": {
+      "names": [
+       "マーシャル・Ｄ・ティーチ"
+      ]
+     }
+    },
+    {
+     "mill_opp_life_to_hand": 1
+    }
+   ],
+   "if": {
+    "self_don_count_eq": 10
+   },
+   "when": "main"
+  },
+  {
+   "_text": "OP16-116_p1 【トリガー】カード2枚を引き、自分の手札1枚を捨てる。",
+   "do": [
+    {
+     "draw": 2
+    },
+    {
+     "trash_self_hand_random": 1
+    }
+   ],
+   "when": "trigger"
+  }
+ ],
+ "OP16-118_p1": [
+  {
+   "do": [
+    {
+     "set_hand_counter_boost": {
+      "amount": 2000,
+      "category": "CHARACTER",
+      "power_eq": 8000
+     }
+    }
+   ],
+   "n": 0,
+   "when": "on_attached_don"
+  },
+  {
+   "_text": "OP16-118_p1 【登場時】デッキ上5から「ルフィ」か『白ひげ海賊団』特徴1を手札、残デッキ下。",
+   "do": [
+    {
+     "search_top_n": {
+      "depth": 5,
+      "destination": "hand",
+      "filter": {
+       "or": [
+        {
+         "name": "モンキー・Ｄ・ルフィ"
+        },
+        {
+         "feature_contains": "白ひげ海賊団"
+        }
+       ]
+      },
+      "limit": 1,
+      "public": true,
+      "rest_remain": "bottom"
+     }
+    }
+   ],
+   "when": "on_play"
+  },
+  {
+   "_text": "OP16-118_p1 【KO時】デッキ上5から「ルフィ」か『白ひげ海賊団』特徴1を手札、残デッキ下。",
+   "do": [
+    {
+     "search_top_n": {
+      "depth": 5,
+      "destination": "hand",
+      "filter": {
+       "or": [
+        {
+         "name": "モンキー・Ｄ・ルフィ"
+        },
+        {
+         "feature_contains": "白ひげ海賊団"
+        }
+       ]
+      },
+      "limit": 1,
+      "public": true,
+      "rest_remain": "bottom"
+     }
+    }
+   ],
+   "when": "on_ko"
+  }
+ ],
+ "OP16-119_p1": [
+  {
+   "_text": "OP16-119_p1 【登場時】デッキ上3を見て、カード1枚までをライフの上に加え、残りをデッキ下。",
+   "do": [
+    {
+     "search_top_n": {
+      "depth": 3,
+      "destination": "life",
+      "filter": {},
+      "limit": 1,
+      "rest_remain": "bottom"
+     }
+    }
+   ],
+   "when": "on_play"
+  },
+  {
+   "_text": "OP16-119_p1 【トリガー】相手のキャラ1枚までを、このターン中、効果を無効にする。その後、相手のコスト5以下のキャラ1枚までをKO。",
+   "do": [
+    {
+     "negate_effect": "one_opponent_character_any"
+    },
+    {
+     "ko": "one_opponent_character_cost_le_5cost"
+    }
+   ],
+   "when": "trigger"
+  }
+ ],
+ "ST15-005_p1": [
+  {
+   "_text": "ST15-005_p1 自分のリーダーが『白ひげ海賊団』を含む特徴を持つ場合、このキャラは【速攻】を得る。",
+   "do": [
+    {
+     "give_keyword": {
+      "keyword": "速攻",
+      "target": "self"
+     }
+    }
+   ],
+   "if": {
+    "leader_feature_contains": "白ひげ海賊団"
+   },
+   "n": 0,
+   "when": "on_attached_don"
+  },
+  {
+   "_text": "【ターン1回】このキャラが相手の効果で場を離れる場合、 代わりにこのキャラを、 このターン中、 パワー-2000できる。",
+   "cost": [
+    {
+     "once_per_turn": true
+    }
+   ],
+   "do": [
+    {
+     "power_pump": {
+      "amount": -2000,
+      "duration": "turn",
+      "target": "self"
+     }
+    }
+   ],
+   "if": {
+    "by_opp_effect": true,
+    "target": "self"
+   },
+   "when": "replace_leave"
+  }
+ ],
+ "P-155": [
+  {
+   "_text": "P-155 トラファルガー・ロー 【アタック時】自分の手札から【トリガー】を持つカード1枚を捨てることができる：相手のキャラ1枚までを、このターン中、パワー-2000。",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "discard_hand_with_filter": {
+         "count": 1,
+         "filter": {
+          "has_trigger": true
+         }
+        }
+       }
+      ],
+      "effect": [
+       {
+        "power_pump": {
+         "amount": -2000,
+         "duration": "turn",
+         "target": "one_opponent_character_any"
+        }
+       }
+      ]
+     }
+    }
+   ],
+   "when": "on_attack"
+  },
+  {
+   "_text": "P-155 トリガー: 【トリガー】相手のライフが3枚以下の場合、このカードを登場させる。",
+   "do": [
+    {
+     "conditional": {
+      "do": [
+       {
+        "play_self": true
+       }
+      ],
+      "if": {
+       "opp_life_le": 3
+      }
+     }
+    }
+   ],
+   "when": "trigger"
+  }
+ ],
+ "P-157": [
+  {
+   "_text": "P-157 モンキー・D・ルフィ 【登場時】自分の手札1枚を捨てることができる：自分のトラッシュからコスト4以下の特徴《エルバフ》を持つキャラカード1枚までを、登場させる。",
+   "do": [
+    {
+     "optional_cost_then": {
+      "cost": [
+       {
+        "trash_self_hand_random": 1
+       }
+      ],
+      "effect": [
+       {
+        "play_from_trash": {
+         "filter": {
+          "category": "CHARACTER",
+          "cost_le": 4,
+          "feature": "エルバフ"
+         },
+         "limit": 1
+        }
+       }
+      ]
+     }
+    }
+   ],
+   "when": "on_play"
+  }
+ ],
+ "P-159": [
+  {
+   "_text": "P-159 モンキー・D・ルフィ 【KO時】自分のリーダーに付与されているドン!!がある場合、自分の手札からパワー6000以下の特徴《麦わらの一味》を持つキャラカード1枚までを、登場させる。",
+   "do": [
+    {
+     "play_from_hand": {
+      "filter": {
+       "category": "CHARACTER",
+       "power_le": 6000,
+       "feature": "麦わらの一味"
+      },
+      "limit": 1
+     }
+    }
+   ],
+   "if": {
+    "self_leader_attached_don_ge": 1
+   },
+   "when": "on_ko"
+  }
+ ],
+ "P-159_p1": [
+  {
+   "_text": "P-159_p1 モンキー・D・ルフィ 【KO時】自分のリーダーに付与されているドン!!がある場合、自分の手札からパワー6000以下の特徴《麦わらの一味》を持つキャラカード1枚までを、登場させる。",
+   "do": [
+    {
+     "play_from_hand": {
+      "filter": {
+       "category": "CHARACTER",
+       "power_le": 6000,
+       "feature": "麦わらの一味"
+      },
+      "limit": 1
+     }
+    }
+   ],
+   "if": {
+    "self_leader_attached_don_ge": 1
+   },
+   "when": "on_ko"
+  }
+ ]
 }

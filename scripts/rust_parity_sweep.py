@@ -41,6 +41,12 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 import optcg_engine as eng  # noqa: E402
+
+# ⛔ 選択列挙モード (ONEPIECE_CHOICE_SEARCH) では Rust を使わない。
+#   Rust は pending_choice / continuation 未実装なので Python と別のゲームになる。
+from engine.rust_shadow import assert_rust_safe_for_choice_search  # noqa: E402
+assert_rust_safe_for_choice_search("rust_parity_sweep.py")
+
 import scripts.rust_fullsweep as FS  # noqa: E402
 import scripts.rust_parity_check as P  # noqa: E402
 from engine.ai import GreedyAI  # noqa: E402
@@ -197,7 +203,7 @@ def run_one_game(deck_a: dict, deck_b: dict, seed: int, max_turns: int, stats: d
                                 })
                         else:
                             stats["tot"]["bail"] += 1
-                            stats["bail"][str(ex).splitlines()[0][:70]] += 1
+                            stats["bail"][str(ex).splitlines()[0][:200]] += 1
                     else:
                         if dr == dpy:
                             stats["tot"]["match"] += 1

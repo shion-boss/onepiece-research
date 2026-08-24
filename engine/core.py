@@ -63,10 +63,17 @@ class CardDef:
             except ValueError:
                 return 0
 
-        color_raw = row.get("color") or ""
-        colors = tuple(c.strip() for c in color_raw.split("/") if c.strip())
-        features_raw = row.get("features") or ""
-        features = tuple(f.strip() for f in features_raw.split("/") if f.strip())
+        # ⚠ 公式サイトの表記ゆれ: 区切りが **全角 ／ (U+FF0F)** のカードがある
+        #   (OP06-057 「ドレスローザ／麦わらの一味」 / OP05-059 「四皇／百獣海賊団」)。
+        #   半角のみで split すると **結合した 1 つの特徴** になり、 素の
+        #   `feature: "麦わらの一味"` filter に一致しなくなる (= 効果が黙って不発)。
+        #   同じ特徴の組を **半角区切りで** 持つカードが 32 枚 / 38 枚あるので分割が正。
+        #   (2026-08-21、 一般FAQ conformance で発見)
+        def _split_multi(raw: str) -> tuple:
+            return tuple(x.strip() for x in raw.replace("／", "/").split("/") if x.strip())
+
+        colors = _split_multi(row.get("color") or "")
+        features = _split_multi(row.get("features") or "")
 
         category_str = (row.get("category") or "CHARACTER").upper()
         try:
@@ -616,10 +623,15 @@ class Player:
     stages: list = field(default_factory=list)
     trash: list = field(default_factory=list)
     life: list = field(default_factory=list)
-    # 表向きのライフ枚数 (= しらほし系。 上から数えた face-up 枚数の近似)。
-    # leader/効果でライフを「表向き」 にした枚数を保持し、 「表向きのライフがある場合」
-    # 条件 / 「ライフ上1枚を裏向きにできる」 cost (= face-up を消費) 等で参照する。
-    face_up_life_count: int = 0
+    # ⭐ ライフ **1 枚ごと** の表向き/裏向き (= life と同じ長さ・同じ並び)。
+    #   公式 (cardqa_st_13 / ST13-003 ルフィ 「ルール上、 自分の表向きのライフは手札に加わる
+    #   代わりにデッキの下に置かれる」) を再現するには 「どの札が表向きか」 が要る。
+    #   ⚠ 「表向きは上から N 枚」 の近似は **使えない**: ST13-012 マキノ 「自分のライフすべてを見て、
+    #     好きな順番で置く」 が全体を並べ替えるため、 位置ベースのモデルが壊れる (2026-08-11)。
+    life_face_up: list = field(default_factory=list)
+    # ⭐ 「ルール上、 自分の表向きのライフは手札に加わる代わりにデッキの下に置かれる」
+    #   (ST13-003 モンキー・D・ルフィ(L))。 静的効果なので evaluate_static_effects で毎回再計算する。
+    face_up_life_to_deck_bottom: bool = False
     # Phase 7I (2026-05-14): opp に公開済の手札カード ID リスト。
     # return_to_hand / search 等で「公開してから手札に加える」 経路を経たカードが追加される。
     # 手札からの退場 (= play / counter / discard) で先頭マッチ分が削除される。
@@ -675,6 +687,45 @@ class Player:
         self.known_top_card_ids = out
         return out
 
+    def __setattr__(self, name, value):
+        """`life` を **まるごと差し替え** たら表向きフラグを裏向きで張り直す。
+
+        ⭐ 2026-08-11 の per-card 化で、 ライフは `life` と `life_face_up` の 2 本立てになった。
+        構築 (setup / テスト / clone) は `p.life = [...]` と書くのが自然なので、 その場合は
+        **全部裏向き** で長さを合わせる (= 公式どおり、 ライフは裏向きで置かれるのが既定)。
+
+        ⚠ **表向きを保ったまま並べ替える** 経路 (ST13-012 マキノ 「自分のライフすべてを見て、
+          好きな順番で置く」 等) は、 `life` を代入した **後に** `life_face_up` を明示代入すること。
+          代入順を逆にすると ここで潰れる。
+        """
+        object.__setattr__(self, name, value)
+        if name == "life":
+            object.__setattr__(self, "life_face_up", [False] * len(value))
+
+    @property
+    def face_up_life_count(self) -> int:
+        """表向きのライフ枚数 (= `life_face_up` の True の数)。
+
+        ⚠ 2026-08-11 に **枚数だけ持つモデルから per-card フラグへ移行** した。 読み取り側
+        (「表向きのライフがある場合」 条件 / 「ライフ上1枚を裏向きにできる」 cost 等) を
+        無改修にするため property として残している。 **書き込みは `life_face_up` を直接操作する**。
+        """
+        return sum(1 for x in self.life_face_up if x)
+
+    def life_sync_flags(self) -> None:
+        """`life_face_up` の長さを `life` に揃える (不足は裏向きで埋め、 余りは切る)。
+
+        ⚠ **通常運用で呼ぶ関数ではない**。 ライフを触る各所は `life` と `life_face_up` を
+        **同じ行で対にして** 操作すること (= 片方だけ動かすと表向きが 1 枚ずれる)。
+        これは `ONEPIECE_LIFE_FLAG_LAX=1` の緊急退避 (外部ツールが古い形の state を
+        流し込んだ時) 専用の埋め合わせで、 既定では代わりに AssertionError を投げる。
+        """
+        n = len(self.life)
+        if len(self.life_face_up) < n:
+            self.life_face_up.extend([False] * (n - len(self.life_face_up)))
+        elif len(self.life_face_up) > n:
+            del self.life_face_up[n:]
+
     def normalize_known_hand(self) -> None:
         """known_hand_card_ids を hand との整合性で正規化 (Phase 7I)。
 
@@ -704,7 +755,13 @@ class Player:
     # ターン refresh でクリア。 _eff_cost に加算。
     play_cost_reductions_filtered_turn: list = field(default_factory=list)
     # ターン中、キャラ登場を禁止するフラグ (OP14-020 緑ミホーク等のペナルティ)。Phase.END でリセット
+    # 公式「キャラカードを登場できない」= 通常プレイも効果登場も一律禁止 (_char_summon_blocked 参照)。
     block_chara_play_until_turn_end: bool = False
+    # ターン中、手札からカードを **プレイ (= 通常コスト支払い)** できないフラグ (OP13-028 シャンクス)。
+    # 公式「手札からカードをプレイできない」= 通常プレイ (キャラ/イベント/ステージ) のみ禁止し、
+    # 別の効果による「登場させる」(effect summon) は禁止しない (cardqa_op_13, db0c0c0d2ab9)。
+    # → legal_actions の通常プレイ gate のみで見る。 _char_summon_blocked は **見ない**。Phase.END でリセット
+    block_hand_play_until_turn_end: bool = False
     # 「自分は、 このターン中、 リーダーにアタックできない」 (OP06-026 等)。
     # action 生成で AttackLeader を除外。 ターン開始 refresh でクリア。
     cannot_attack_leader_until_turn_end: bool = False
@@ -735,6 +792,13 @@ class Player:
     # 公式 「ルール上、 自分はデッキが0枚でも敗北せず、 デッキが0枚になったターン終了時に
     # 敗北する」 (OP15-022 ブルック リーダー)。 デッキ切れ敗北を **そのターンの終了時** へ遅延。
     deck_out_defer: bool = False
+    # ⭐ 「デッキが0枚に **なった**」 という **事実** を そのターン中 記憶するフラグ (OP15-022 ブルック)。
+    # 公式 (cardqa_op_15) は 2 つとも 「はい、 敗北します」:
+    #   - デッキ0のターンに **他の効果でデッキが1枚以上に戻っても** そのターン終了時に敗北
+    #   - デッキ0→補充 の後に相手がリーダー効果を無効にしても そのターン終了時に敗北
+    # = 遅延敗北の義務は 「0枚に到達した時点」 で確定し、 後からデッキが戻っても
+    #   リーダー効果が消えても取り消されない。 ターン終了時の判定後にクリアする。
+    deck_hit_zero_this_turn: bool = False
     # 「自分は、 このターン中、 自分の効果でライフを手札に加えられない」 (OP02-023 等)。
     # _reset_turn_buff で False に。 life_to_hand / life_top_or_bottom_to_hand (owner=self) が抑制される。
     prevent_self_life_to_hand_until_turn_end: bool = False
@@ -823,22 +887,41 @@ class Player:
         これは ルール処理 であり KO ではないので 【KO 時】 トリガーは発火しない (3-7-6-1-1)。
         付与ドンはレストでコストエリアに戻る (6-5-5-4 と同様)。
 
-        ⚠ owner_idx は API 互換の ため 残すが **人間でも自動 trash する** (= 旧 2026-05-30 の
-        「人間は field_full_select_trash modal で選ばせる」 defer は撤去)。 理由: この helper は
-        効果召喚 (reveal_top_play / summon_from_deck / play_from_trash 等、 effects.py 19 箇所)
-        専用で、 caller は trash 後に **新 chara を append + trigger_on_play を同期発火** する。
-        defer すると pending_choice=field_full_select_trash を立てた直後に on_play が自身の modal
-        (例: ウソ八 の rest 選択) で **それを clobber** し → trash が永久に失われ **場 6 体** に
-        なる (= 2026-06-05 RuleReferee×人間 field-flood hunt が「キャラエリア超過 6>5」 で検出)。
-        メイン PlayCharacter は action に sacrifice_iid を載せ trash→append→on_play 順で正しく
-        人間に選ばせる (game.py) ので 人間の差替選択は そちらで保持される。
+        ⭐ **差し替えるキャラは 「持ち主が選ぶ」** (公式 3-7-6-1)。 人間の選択は
+        `state.field_full_sacrifice_iids` (= 効果側が **召喚前に** 立てた
+        `field_full_sacrifice_pick` modal の結果) を **キューとして先頭から消費** する。
+        キューが空の時 (= AI / 候補が 1 枚 / 未対応経路) だけ 最弱を自動 trash する。
+
+        一次情報 (cardqa_op_10、 OP10-017 ロック × OP10-008 スコッチ): 「ロック」 でも
+        「スコッチ」 でもない自分のキャラが 4 体ある時、 ロックを登場 → 【登場時】でスコッチを
+        登場させる為に **ロック自身をトラッシュに置いた場合**、 そのスコッチの【登場時】で
+        さらに別のロックを登場させられるか → 「**はい、できます。**」。 最弱自動 trash だけだと
+        ロックが最弱でない限りこの線が **原理的に打てない** ので、 選択を人間に返す
+        (2026-08-17 是正、 旧 escalated b31263935099)。
+
+        ⚠ 選択の modal は **召喚 primitive が副作用を出す前に** 立てる (= その primitive を
+        `primitive_value` ごと replay する)。 ここで defer すると caller が trash 直後に
+        **新 chara を append + trigger_on_play を同期発火** するため、 on_play 自身の modal が
+        pending_choice を **clobber** し trash が失われて **場 6 体** になる
+        (= 2026-06-05 RuleReferee×人間 field-flood hunt が「キャラエリア超過 6>5」 で検出)。
+        メイン PlayCharacter は action に sacrifice_iid を載せる (game.py) ので別経路。
 
         戻り値: trash したキャラ (いなければ None)。
         """
         if self.field_count() < self.MAX_CHARACTERS:
             return None
-        # 効果召喚の field-full は 自動 最 弱 trash (= 人間でも同期 trash で ≤5 を保証、 clobber 回避)
-        sacrifice = min(self.characters, key=lambda ip: (ip.power, ip.card.cost))
+        sacrifice = None
+        if state is not None:
+            queue = getattr(state, "field_full_sacrifice_iids", None)
+            while queue:
+                iid = queue.pop(0)
+                picked = next((ip for ip in self.characters if ip.instance_id == iid), None)
+                if picked is not None:
+                    sacrifice = picked
+                    break
+        if sacrifice is None:
+            # キューが空 (= AI / 候補 1 枚 / 未対応経路) → 最弱を自動 trash
+            sacrifice = min(self.characters, key=lambda ip: (ip.power, ip.card.cost))
         self.characters.remove(sacrifice)
         self.trash.append(sacrifice.card)
         if sacrifice.attached_dons > 0:
@@ -893,6 +976,18 @@ class GameState:
     # frontend が /choice endpoint で 解消 する まで 進行 を 止める。
     # dict 形式: {"kind": "search_top_n", "cards": [...], "limit": N, ...}
     pending_choice: Optional[dict] = None
+    # ⭐ 選択列挙モード: True の間、 効果解決中の選択を **AI に対しても** pending_choice として
+    #   立てる (= 探索が ResolveChoice アクションとして分岐できる)。
+    #   既定 False = 従来どおり AI は固定ヒューリスティックで自動解決する。
+    #   これを段階導入の gate にしている: OFF の間は Rust parity / matrix / self-play が不変。
+    #   ⚠ digest 除外 (_EXCLUDE)。 探索の設定であってゲーム状態ではない。
+    choice_enumeration: bool = False
+    # 選択列挙を **どのプレイヤーに** 適用するか (空 = choice_enumeration の全体設定に従う)。
+    # A/B (= 片側だけ選択探索させて勝率差を測る) に必須。 mirror でも席を入れ替えて測れる。
+    choice_enum_idxs: tuple = ()
+    # 選択列挙モードで 「いま立っている pending_choice を **誰が** 選ぶか」。
+    # 効果イベントの owner_idx を _fire_event が設定/復元する。 None なら turn_player。
+    choice_owner_idx: Optional[int] = None
     # 「自ターン外 で actor が human の effect 発動中」 override。
     # 例: counter event を 防御中 (= AI ターン中) に 発動 する 際、 turn_player_idx は
     # AI だが、 effect の actor は defender=human。 この時 human pick を 有効化 する。
@@ -907,6 +1002,14 @@ class GameState:
     # actor_source_feature_contains 条件と draw_per_self_hand_discarded primitive で使用。
     last_discard_source_inplay: Optional[object] = None
     last_discard_count: int = 0
+    # 直近の trash_self_hand_random が **実際に捨てた枚数** (= 「捨てた枚数と同じ枚数」 参照用、
+    # OP09-059)。 last_discard_count と違い イベント解決後もクリアしない (= 同じ do 配列の
+    # 後続 primitive / 人間 modal を挟んだ continuation から読めるようにするため)。
+    last_self_hand_discard_amount: int = 0
+    # 場 5 枚での差し替え (公式 3-7-6-1) で **人間が選んだ** 犠牲キャラの instance_id キュー。
+    # 効果召喚 primitive が召喚前に field_full_sacrifice_pick modal で埋め、
+    # Player.trash_weakest_chara_for_field_full が先頭から消費する (空 = 最弱 自動)。
+    field_full_sacrifice_iids: list = field(default_factory=list)
     # 直近に「自分の場のドンがドンデッキに戻された」 枚数 (= returned_don_count_ge 条件、 EB02-035/P-077)。
     last_returned_don_count: int = 0
     # 直近の「相手のデッキ上を見た」 私的情報 (= peek_opp_deck_top primitive、 OP11-070 等)。

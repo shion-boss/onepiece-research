@@ -42,6 +42,67 @@ def test_rust_parity_no_mismatch_broad():
     assert tot["match"] > 3000, f"match={tot['match']} が異常に少ない (ハーネス破損?)"
 
 
+def test_rust_parity_all_card_synthetic_sweep():
+    """**全カードが載る 332 合成デッキ** の per-action bit 比較で MISMATCH=0 / bail=0 を保証 (~4 分)。
+
+    ⭐ なぜ 16 デッキ版と別に要るか: メタ 16 デッキは効果カードの **4.2%** しか通らない。
+    実際 2026-08-22 に、 このスイープでしか出ない乖離が 2 件見つかった
+    (① 【相手のアタック時】の発動判断を Rust が【アタック時】の do の **後** で下していた
+     ② filter の 「アクティブの/レストの」 を Python は無視・Rust は 0 対象にしていた)。
+    どちらも 16 デッキ版・効果スモーク・列挙 ON 差分の **すべてが緑のまま** 通り抜けていた。
+
+    ⚠ subprocess で回す (スクリプトが argparse 前提 + Rust の global overlay を汚さない)。
+    """
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    r = subprocess.run(
+        [sys.executable, str(root / "scripts" / "rust_parity_sweep.py"), "--assert"],
+        cwd=str(root), capture_output=True, text=True, timeout=1800,
+    )
+    tail = "\n".join((r.stdout or "").strip().splitlines()[-25:])
+    assert r.returncode == 0, (
+        f"全カード合成デッキ掃引で Python↔Rust が食い違っている。\n{tail}\n{r.stderr[-2000:]}"
+    )
+    assert "MISMATCH=0" in (r.stdout or ""), f"想定した出力形式でない:\n{tail}"
+    # ⭐ bail も 0 で pin する (2026-08-24 に全カード掃引の bail 0 到達)。 bail は
+    #   「黙って違う」 ではないので不変条件違反ではないが、 **Rust が実行できない手を
+    #   方策が黙って避ける** ので self-play/学習の分布を歪める。 新カードや overlay 追加で
+    #   ここが増えたら 「Rust に移植する」 か 「明示的に許容する」 かを判断する。
+    assert "bail(Err)=0" in (r.stdout or ""), (
+        f"全カード掃引に Rust の未移植 (bail) が復活している。\n{tail}"
+    )
+
+
+def test_rust_choice_enumeration_no_mismatch():
+    """**選択列挙 ON** でも MISMATCH=0 を保証する。
+
+    ⭐ なぜ別テストが要るか: `rust_parity_check` は列挙 OFF でしか回らない (ON だと
+    Python が pending_choice で halt し比較が飛ぶ)。 だが学習は **選択込みの self-play**
+    で回すので、 そのモードで両エンジンが一致することを証明しないと
+    「公式準拠を検証した Python と違う盤面を学ぶ」 事故が起きる。
+    不変条件は通常時と同じ = 「bit 一致」 か 「明示 bail」 の二択。
+    """
+    from scripts.rust_choice_parity import run
+
+    stat = run(games=4, seed=500, max_steps=300)
+    assert stat["MISMATCH"] == 0, (
+        f"選択列挙 ON で Python↔Rust が食い違っている: MISMATCH={stat['MISMATCH']}。 "
+        f"原因分類: python scripts/rust_choice_diag.py --games 6 --show 10 --check-off"
+    )
+    assert stat["match"] > 100, f"match={stat['match']} が異常に少ない (ハーネス破損?)"
+    # ⭐ **bail も 0** が学習の前提 (2026-08-23 到達)。 bail = 「Rust が実行できない手」 で、
+    #   方策はそれを黙って避けるので、 残っていると **学習分布が歪む**
+    #   (= 「Rust が実行できない手を避けた対局」 で学んでしまう)。 MISMATCH=0 だけでは足りない。
+    #   ⚠ 新カード/新デッキで未移植の選択サイトを踏むとここで落ちる = 学習を回す前に潰す合図。
+    assert stat["bail"] == 0, (
+        f"選択列挙 ON で bail={stat['bail']} (= Rust が実行できない手がある)。 "
+        f"内訳: python scripts/rust_choice_parity.py --games 16"
+    )
+
+
 def test_rust_setup_matches_python_including_mulligan():
     """Rust ネイティブ setup (game_start ステージ登場 + マリガン + ownership) が Python setup_game と
     bit 一致することを保証する。
@@ -134,6 +195,54 @@ def test_rust_selfplay_meta_pool_no_bail():
     )
     inv = cv.get("invariant_violations") or {}
     assert not inv, f"保存則違反: {dict(list(inv.items())[:5])}"
+
+
+def test_rust_selfplay_choice_enum_no_bail_high_n():
+    """**選択列挙 ON** の Rust self-play で候補 action の bail が 0 であることを 高 N で保証。
+
+    ⚠ **N が小さいと 「たまたま 0」 を掴む**。 2026-08-24 に 16 game の差分ハーネスと
+    40 game の self-play が両方 0 だったのに、 120 game × 3 seed に増やしたら
+    27/111,306 = 0.02% の bail が出た (play_from_hand の場5枚差し替え / reveal_top_play の
+    2 択、 どちらも未移植)。 bail は 「黙って間違える」 ではないが、 **方策が黙って避ける**
+    ので学習分布が歪む (bail の過半が防御候補だった時期がある)。
+    """
+    import json
+    import random
+    from pathlib import Path
+
+    import optcg_engine as eng
+
+    from scripts.rust_parity_check import _load, deck_value
+
+    _load()
+    root = Path(__file__).resolve().parents[1]
+    slugs = [p.stem for p in sorted((root / "decks").glob("cardrush_*.json"))
+             if ".analysis." not in p.name and ".target_v" not in p.name]
+    if len(slugs) < 2:
+        pytest.skip("メタデッキが見つからない")
+
+    eng.reset_coverage_stats(True)
+    games = 60
+    for gi in range(games):
+        seed = 777 + gi
+        a = deck_value(slugs[gi % len(slugs)])
+        b = deck_value(slugs[(gi + 1) % len(slugs)])
+        rng_state = json.dumps(list(random.Random(seed).getstate()[1]))
+        try:
+            eng.self_play(a, b, rng_state, gi % 2, "greedy", None, 8, 12, 40, False, 80, True)
+        except BaseException as e:  # noqa: BLE001 - pyo3 panic は Exception でない
+            raise AssertionError(f"選択列挙 ON の Rust self-play が異常終了: {type(e).__name__}: {e}") from e
+
+    cv = json.loads(eng.coverage_stats())
+    acts = cv.get("actions") or {}
+    bail = sum(v.get("bail", 0) for v in acts.values())
+    total = sum(v.get("ok", 0) + v.get("bail", 0) for v in acts.values())
+    reasons = sorted((cv.get("bail_reasons") or {}).items(), key=lambda kv: -kv[1])[:5]
+    assert total > 10000, f"候補 action が少なすぎる ({total}) = ハーネス破損?"
+    assert bail == 0, (
+        f"選択列挙 ON の self-play に bail が {bail}/{total} 件ある (= 方策が黙って避けた手)。 "
+        f"理由 top: {reasons}。 詳細: python scripts/rust_choice_selfplay_probe.py --games 120"
+    )
 
 
 def _deck_exists(slug: str) -> bool:
@@ -234,4 +343,162 @@ def test_rust_parity_end_of_turn_cost_batch():
     dr = eng.apply_action_digest(dump, json.dumps({"t": "EndPhase"}))  # Err (bail) なら例外 = 失敗
     assert dr == state_digest(st), (
         "【ターン終了時】コスト由来トリガーの解決順で Python↔Rust が乖離"
+    )
+
+
+def test_rust_unported_choice_primitive_bails():
+    """列挙モードで **未移植の選択 primitive** に当たったら Rust は明示 bail する。
+
+    ⭐ site-specific bail (2026-08-21)。 全面 gate をやめ、 移植済 kind
+    (target_pick / search_top_n / play_from_hand) は通し、 未移植だけ止める。
+    これで **部分移植でも silent divergence が起きない**。
+
+    ⚠ Rust が黙って自動解決すると Python と別のゲームになり、 self-play の学習データが
+      静かに汚染される。 不変条件 「bit 一致 か 明示 bail」 を守る。
+    """
+    import json
+    import random
+    from pathlib import Path
+
+    import pytest
+
+    eng = pytest.importorskip("optcg_engine")
+
+    from engine.core import Category, GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.effects import load_effect_overlay
+    from engine.state_snapshot import full_dump
+
+    root = Path(__file__).resolve().parent.parent
+    repo = CardRepository.from_json(root / "db" / "cards.json")
+    overlay = load_effect_overlay(root / "db" / "card_effects.json")
+    eng.load_overlay(str(root / "db" / "card_effects.json"))
+
+    # ⭐ 未移植リストは **Rust から取る** (ハードコードすると移植が進んだ時に陳腐化して
+    #   落ちる。 2026-08-21 に実際そうなった)。
+    unported = tuple(json.loads(eng.choice_unported_prims()))
+    assert unported, "未移植 primitive が 0 = 全 kind 移植済ならこのテストは不要"
+    targets: list = []
+
+    def _prim_keys(node, out):
+        """効果 dict から **primitive のキー** だけを集める。
+
+        ⚠ blob の部分文字列で判定すると、 target spec 名の中の語に誤ヒットする
+        (実際 `self_inplay_choice` の中の `choice` を拾って 「未移植のはず」 のカードを
+         選んでしまい、 Rust が正しく選択を出した途端にこのテストが落ちた、 2026-08-22)。
+        """
+        if isinstance(node, dict):
+            for k, v in node.items():
+                out.add(k)
+                _prim_keys(v, out)
+        elif isinstance(node, list):
+            for v in node:
+                _prim_keys(v, out)
+
+    for cid, bundle in overlay.items():
+        if "_p" in cid or "_r" in cid:
+            continue
+        c = repo._by_id.get(cid)
+        if c is None or c.category != Category.CHARACTER or (c.cost or 9) > 5:
+            continue
+        for e in bundle.effects:
+            if e.get("when") != "on_play" or e.get("if") or e.get("cost"):
+                continue
+            keys: set = set()
+            _prim_keys(e.get("do", []), keys)
+            # ⚠ **選択の裏に隠れた** primitive は数えない (choice_effect / choice を含む効果は
+            #   まず option_pick で中断するので、 未移植 primitive まで到達しない = bail しない)。
+            if (keys & set(unported)) and not (keys & {"choice_effect", "choice"}):
+                targets.append(cid)
+                break
+        if len(targets) >= 8:
+            break
+    assert targets, "未移植 primitive を使うテストカードが見つからない = 検出力が死んでいる"
+
+    filler = repo.get("OP01-013")
+    p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+    for p in (p0, p1):
+        p.deck = [filler] * 25
+        p.life = [filler] * 3
+        p.life_face_up = [False] * 3
+    p0.don_active = 10
+
+    # ⭐ 候補を **複数** 試し、 1 枚でも明示 bail すれば検出力あり (= 個別カードの条件で
+    #   到達しないケースに引きずられない)。 移植が進むと候補集合は自然に痩せる。
+    bailed = []
+    for cid in targets:
+        p0.hand = [repo.get(cid)]
+        st = GameState(players=[p0, p1], phase=Phase.MAIN, rng=random.Random(1),
+                       effects_overlay=overlay)
+        st.turn_number = 9
+        st.turn_player_idx = 0
+        st.choice_enumeration = True
+        js = json.dumps(full_dump(st))
+        try:
+            eng.choice_e2e_probe(js, json.dumps({"t": "PlayCharacter", "hand_idx": 0}), -1)
+        except Exception:
+            bailed.append(cid)
+    assert bailed, (
+        f"未移植 primitive を使うカード {targets} のどれも bail しなかった = "
+        "黙って自動解決している疑い (不変条件違反)"
+    )
+
+
+def test_rust_choice_flag_is_not_in_the_digest():
+    """`choice_enumeration` は **digest に出さない** (= ゲーム状態でなく探索の設定)。
+
+    ⚠ Rust struct に field を足すと serialize に入り、 **全 state で digest が食い違う**。
+      2026-08-21 に実測で踏んだ (parity static_skip=2138 / effect smoke MISMATCH=5814)。
+      Python は _EXCLUDE で digest から外しているので Rust も skip_serializing が要る。
+    """
+    import random
+
+    from engine.core import GameState, InPlay, Phase, Player
+    from engine.deck import CardRepository
+    from engine.state_snapshot import full_dump, state_digest
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    repo = CardRepository.from_json(root / "db" / "cards.json")
+
+    def _mk(flag):
+        p0 = Player(name="P0", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        p1 = Player(name="P1", leader=InPlay.of(repo.get("OP01-001"), sickness=False))
+        st = GameState(players=[p0, p1], phase=Phase.MAIN, rng=random.Random(1))
+        st.choice_enumeration = flag
+        return st
+
+    assert state_digest(_mk(False)) == state_digest(_mk(True)), \
+        "choice_enumeration が digest に漏れている (= parity が全滅する)"
+    # ただし Rust が判定できるよう full_dump には載る
+    assert full_dump(_mk(True))["choice_enumeration"] is True
+
+
+def test_try_pay_counter_cost_call_sites_are_classified():
+    """`try_pay_counter_cost` の **呼出サイトを固定** して分類レビューを強制する。
+
+    ⭐ この関数は Python `_pay_counter_cost` の **auto-pay ミラー** で、 列挙モードでも
+    選択を立てない。 発動コストで modal を立てるのは Python でも `_execute_event` の
+    cost 節だけなので、 その判断は **呼出サイト** (`event_cost_gate`) が持つ。
+
+    分類 (2026-08-22 時点、 6 箇所):
+      1. 効果コピー (fire_self_effect)      → auto-pay (Python も `_pay_counter_cost`)
+      2. pay_on_play_cost (gate の内側)     → gate が呼ぶ auto-pay 経路
+      3. on_attack (trigger_on_attack)      → auto-pay (`is_human_actor` gate)
+      4. counter_discard_pick の残りコスト  → auto-pay (Python も self_inplay=None で払う)
+      5. opp_attack (_enqueue_opp_attack..) → auto-pay (`is_human_actor` gate)
+      6. execute_one_effect (スモーク専用)  → 実対戦経路ではない
+
+    ⚠ 増減したら **Python の対応経路を確認** すること。 `_execute_event` ミラーなら
+    `event_cost_gate` を通す (通さないと 「Python は訊くのに Rust は勝手に払う」 = 黙って乖離)。
+    """
+    from pathlib import Path
+    src = (Path(__file__).resolve().parent.parent / "rust_engine" / "src" / "effects.rs").read_text(
+        encoding="utf-8")
+    n = src.count("try_pay_counter_cost(state")
+    assert n == 6, (
+        f"try_pay_counter_cost の呼出が {n} 箇所 (期待 6)。 "
+        "新しいサイトは Python の対応経路 (auto-pay か _execute_event ミラーか) を確認し、 "
+        "この docstring の分類表を更新すること"
     )

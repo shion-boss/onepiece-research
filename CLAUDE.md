@@ -23,17 +23,36 @@
 **詳細ロードマップは [docs/ROADMAP.md](./docs/ROADMAP.md) を参照**。
 Phase 1-7 完了 (= 全カード実装済 + 配備AI = SmartOpponentAI→ExploitBeam)、 [[project_ai_strengthening_plan]] が現役プロジェクト。
 
-> ⚠ **「公式準拠 100%」 は 2026-08-10 時点で 達成していない (= 目標であって現状ではない)**。
-> 公式 Q&A 全 1,205 件の conformance ([[project_faq_conformance_routine]]) で **検査済 544 件
-> (n/a 60 除く) のうち 93 件 = 約 17% が違反 (fixed)**、 conform 451 件。
+> ⚠ **「公式準拠 100%」 は 2026-08-13 時点で 達成していない (= 目標であって現状ではない)**。
+> 公式 Q&A の conformance ([[project_faq_conformance_routine]]) は **全 1,267 件 決着
+> (pending 0 / escalated 0)**: cardqa 1,205 件 + **一般FAQ (よくある質問タブ) 62 件**
+> (2026-08-21 に台帳へ取込)。 検査済 1,162 件 (n/a 105 除く) のうち
+> **169 件 = 約 14.5% が違反 (fixed)**、 conform 993 件。
 > 壊れていたのは主に **カード個別の効果解釈** (コスト gate 欠落 = タダ撃ち / 対象範囲を片側限定 /
-> 印刷値と現在値の取り違え) で、 中核ルール (ターン進行・DON・ライフ・KO・攻防解決) は概ね正しい。
+> 印刷値と現在値の取り違え / **「〜まで」「〜てもよい」 の任意性を落として強制化**) で、
+> 中核ルール (ターン進行・DON・ライフ・KO・攻防解決) は概ね正しい。
 > 中核の例外はバトル中断 (2026-08-04 是正)、 **発動コスト由来トリガーの解決順** (2026-08-09 是正、
 > 公式 8-4-1-3〜5 / cardqa_op_14)、 **「元々のパワー」 は効果で書き換わる** (2026-08-10 是正、
-> 公式 4-9-2-1 / EB01-061) の 3 件。
-> **escalated (= 要深掘りで保留) は 0 件** (クラウド cron が残した 7 件 + 2 件も全消化)。
-> **未処理 601 件 = 全体の 49.9% は未検査**。
-> 「100%」 と書けるのは台帳が全件 conform/fixed になった時だけ。
+> 公式 4-9-2-1 / EB01-061)、 **ライフの表向き/裏向きは 1 枚ごと** (2026-08-11 是正、
+> cardqa_st_13 / ST13-003 + cardqa_eb_01 / EB01-052)、 **デッキ0枚は 「ドローできない時」 ではなく
+> 「0枚になった時点」 で敗北** (2026-08-13 是正、 公式 9-2-1-2 + 1-2-2 + 9-1-2 / cardqa_st_03。
+> ルール置換 deck_out_wins/defer が静的リセット漏れで永続していたのも同時に是正)、
+> **リーダーのデッキ構築制限が未実装** (2026-08-13 是正、 OP12-001 / OP13-079 / P-117) の 6 件。
+> **pending 0 / escalated 0** = 公式が Q&A にした論点は全件決着した。
+> ⚠ ただし **「台帳 100% = 公式準拠 100%」 ではない**。 台帳の範囲は **公式が Q&A にした論点** だけで、
+> Q&A になっていない挙動は依然として外部オラクル無し (= 自己参照の監査しか無い) 領域。
+> 場 5 枚差し替え (3-7-6-1) の **人間の犠牲選択は効果登場 15 primitive を全網羅** (2026-08-18)。
+> 残るのは AI 側の policy (= 最弱固定) だけで、 ルール上の選択権は人間・AI とも同一
+> (`docs/official_rulings.md` 参照)。
+> ⭐ **一般則の Q&A は 1 件が数百カードに効く** (2026-08-21、 62 件から実バグ 3 件):
+> 「『X』を含む特徴」 を完全一致で実装 (元X/X傘下 が対象外) / **【メイン】を持たない
+> イベント 214 枚をメインで撃てた** / **【トリガー】の自己効果コピーが発動コストを
+> 踏み倒していた** (タダ撃ち)。 恒久監査 `scripts/audit_feature_contains.py` を新設。
+>
+> ⭐ **「〜まで」 「〜てもよい」 は 0 を選べる** (総合ルール **1-3-5-1**: 上限だけが定められ下限指定が
+> 無ければ 0 を選べる)。 overlay がこの任意性を落として強制にしている型が繰り返し見つかっている
+> (2026-08-13: 手札 N 枚まで捨てる 3 枚 / デッキ上 N 枚をトラッシュに置いてもよい 9 枚)。
+> 新しい overlay を書く時は **文末の 「まで」 「てもよい」 「できる」 を必ず spec に落とす**。
 
 ## アーキテクチャ
 
@@ -44,7 +63,7 @@ onepiece_research/
 ├── scraper/        # 公式サイトから全弾スクレイプ (Python)
 ├── engine/         # ルールエンジン + AI + 対戦ハーネス (Python)
 ├── api/            # FastAPI で engine をラップする HTTP API (Python)
-├── db/             # cards.json / cards.sqlite / card_effects.json (4,518 全登録, 効果あり 3,745)
+├── db/             # cards.json / cards.sqlite / card_effects.json (4,776 全登録, 効果あり 4,309)
 │                   #   + rules/ (公式PDF) / faq/ (公式Q&A) / banlist/ (禁止リスト)
 │                   #   + matchup_matrix.json (事前計算 N×N 勝率)
 ├── decks/          # メタ(環境)デッキ JSON、 16 デッキ pool。 メタ判定は `db/meta_decks.json` 登録制
@@ -54,9 +73,9 @@ onepiece_research/
 ├── images/         # 全カード画像 (必要時 scripts/cache_all_images.py で取得)
 ├── scripts/        # 補助スクリプト (scrape / cache / matrix / overlay / audit / weight tuning)
 ├── web/            # Next.js フロントエンド (TypeScript, App Router)
-│   └── public/cards/   # 全 4,518 枚キャッシュ済 (878MB)
+│   └── public/cards/   # 全 4,776 枚キャッシュ済
 ├── examples/       # スモークテスト・デモスクリプト (demo_matchup.py / demo_smoke.py / demo_with_effects.py)
-├── tests/          # pytest テスト (1,074 collected)
+├── tests/          # pytest テスト (6,172 collected)
 └── .venv/          # Python 仮想環境 (gitignore 推奨)
 ```
 
@@ -76,7 +95,7 @@ onepiece_research/
 
 ## 開発フェーズと現状
 
-- [x] **Phase 1 完了**: カードDB(全54弾4,518枚、`cards.json` / `cards.sqlite`)
+- [x] **Phase 1 完了**: カードDB(全61 series / 59 弾 4,776 枚、`cards.json` / `cards.sqlite`)
 - [x] **Phase 2 完了**: ルールエンジン(コアデータ構造、ターン進行、攻防、効果DSL)
   - 主要トリガー (R44-R64 拡張済): 登場/アタック/起動メイン/KO時/ターン終了時/ブロック時/相手アタック時/トリガー/カウンター/メインイベント
     + **on_self_chara_leave_by_self_effect / on_self_rested / on_self_hand_discarded /
@@ -84,15 +103,17 @@ onepiece_research/
       on_opp_life_taken / on_self_life_to_hand/to_trash / on_self_don_returned_to_deck /
       on_opp_blocker_use / on_self_chara_ko / on_opp_chara_ko / opp_attack_on_leader /
       opp_attack_on_chara**
-  - DSL プリミティブ **226 種** (engine/effects.py 内 elif k == "..." パターンで列挙、 [[project_card_implementation_audit]] で 226/226 実装確認済)
-- [x] **Phase 2.5 完了**: カード効果オーバーレイ **全 4,518 カード登録 (100%)** (`db/card_effects.json`)。
-  - 効果あり: 3,745 件 (82.9%) — character 78.6% / event 100% / leader 100% / stage 79.1%
+  - DSL プリミティブ **324 種** (engine/effects.py 内 elif k == "..." パターンで列挙。
+    226 種の時点で [[project_card_implementation_audit]] が 226/226 実装確認済、 以降は公式 Q&A
+    conformance で必要になった分を追加している)
+- [x] **Phase 2.5 完了**: カード効果オーバーレイ **全 4,776 カード登録 (100%)** (`db/card_effects.json`)。
+  - 効果あり: 4,309 件 (90.2%)
   - 効果なし (バニラ/ブロッカーのみ/パラレル空): 773 件 (空配列でマーク済)
   - **`_unimplemented` マーカー: 0 件達成 🎯 (R56 で完全消去、 残:なし)**
   - audit sev≥5 = 0、 sev=3-4 = 0 (R59) — `db/audit_acknowledged.json` で intrinsic 除外
   - engine 厳密化 audit 10/10 pass (`scripts/audit_engine_strictness.py`)
   - cardqa vs overlay 整合性 0 漏れ (X5、 `scripts/verify_overlay_vs_cardqa.py`)
-  - 全 4,518 カード 公式テキストとの **突合作業は完了** (2026-05-22、 [[project_card_implementation_audit]] + [[project_dsl_jp_audit_complete]])
+  - 全カード 公式テキストとの **突合作業は完了** (2026-05-22、 [[project_card_implementation_audit]] + [[project_dsl_jp_audit_complete]])
     ⚠ **「整合 100%」 ではない**。 当時の監査は **すべて自己参照** だった:
       overlay vs cardqa マーカー / overlay vs FAQ 要約 / engine 厳密化 audit /
       **Python↔Rust 差分 (= 同じ overlay を読む 2 実装)** / **backfill テスト (= 現 overlay から生成)**。
@@ -101,6 +122,10 @@ onepiece_research/
       「タダ撃ちできること」 を assert していたと判明した。
     → **外部オラクルは公式 Q&A だけ**。 進捗は `db/faq_qa_status.json` を真とする
       ([[project_faq_conformance_routine]])。
+    ⭐ **もう 1 つの検出器 = 選択列挙 (choice_enumeration)** (2026-08-23)。 「効果中の選択を
+      探索に載せる」 と、 **AI が選ばない選択肢が初めて踏まれる** ので、 実装漏れが露見する。
+      実例: OP15-054 選択肢② 「ステージ1枚までを、 持ち主の手札に戻す」 が **両エンジンとも
+      silent no-op** (`any_stage_n_1` 未実装) だった。 = 自己参照監査の穴を別角度から突ける。
   - DSL 条件 (eval_condition): leader_feature/color, self/opp life/hand/don 各種, opp_turn/self_turn,
     self_rested, self_trash_count_ge, self_don_ge, victim_truly_original_power_ge,
     victim_feature_in, played_chara_truly_original_cost_ge, played_self_chara_has_no_effect,
@@ -196,7 +221,7 @@ onepiece_research/
     カウンター分布 / 特徴Top / activate_main 一覧)
   - `/meta` matchup matrix ビューア
   - `/faq` 公式FAQ + cardqa 検索
-- [x] **画像配信**: 全 4,518 枚を `web/public/cards/` にキャッシュ済 (878MB)。
+- [x] **画像配信**: 全 4,776 枚を `web/public/cards/` にキャッシュ済。
   `<CardImage>` で 404 → 公式 URL フォールバック。
 - [x] **Phase 4.5 完了 (R70+R71)**: **PlanningAI** (ターン全体プラン beam search)
   - `engine/plan_search.py`: beam search + fast_clone (= CardDef/InPlay の __deepcopy__ 共有で 3.3x 高速化)
@@ -320,6 +345,16 @@ onepiece_research/
   `_recompute_static` (= ownership 反映) が更新する。テストで `InPlay.of()` 直接生成時は
   デフォルト True で動くが、ターン跨ぎを伴うシナリオでは必ず `_recompute_static(state)` を
   呼ぶか、`setup_game` 経由で初期化する
+- **ライフの表向き/裏向きは `Player.life_face_up: list[bool]`** (= `life` と同じ index、
+  2026-08-11 に 「表向き枚数」 の count モデルから移行)。 `face_up_life_count` は **導出プロパティ**
+  (書き込み不可)。 ライフを触る時は **必ず両方を同じ行で対にして** 操作する。
+  - 並べ替え/抜き取りは `_life_set_pairs` (Python) / `take_life_pairs`+`set_life_pairs` (Rust) を通す。
+    `pl.life = [...]` の単独代入は `Player.__setattr__` がフラグを全裏向きに張り直すので、
+    **表向きの札を並べ替えると表向きが消える**。 表向きを保つ時は `life` 代入の **後に**
+    `life_face_up` を代入する
+  - `_recompute_static` に長さ検査の AssertionError がある (退避は `ONEPIECE_LIFE_FLAG_LAX=1`)。
+    ⚠ **長さ一致は同期の証明にならない** — 位置ずれは掃引でしか出ない
+    ([[feedback_length_check_is_not_sync_proof]])
 - **公式ルールの一次情報は `db/rules/*.pdf` + `db/faq/*.json` + `db/banlist/master.json`** に集約済み。
   skill は `.claude/skills/onepiece-tcg-rules/SKILL.md`。ルール裁定や engine の不一致を直す時はまず skill を参照、
   個別カード Q&A は `db/faq/cardqa_*.json` を grep する
@@ -372,7 +407,7 @@ onepiece_research/
 主要データ (`db/`):
 
 - `cards.json` / `cards.sqlite`: カード DB (正は cards.json)
-- `card_effects.json`: 効果オーバーレイ (4,518 全カード、 _unimplemented = 0)
+- `card_effects.json`: 効果オーバーレイ (4,776 全カード、 _unimplemented = 0)
 - `audit_acknowledged.json`: audit script で intrinsic 除外する issue リスト (R59 追加)
 - `matchup_matrix.json`: N×N 勝率行列 (16×16 = 256 セル、 mirror 除く 240 セル計算)
   - **方針: 表示用 matrix は 配備 AI (= uniform ExploitBeam + agnostic value + per-deck config) で 計算する** (= /meta で 公開する データを 実際の対戦相手 AI に 揃える)。 ⚠ **現配備 = uniform agnostic value (21dim) + beam** (2026-07-22 c23c939 で per-deck v6 を撤回・退避、 上の value 節参照)。 **matrix は uniform agnostic で要再計算 (現行の `ExploitBeam_v6` 産は stale = v6 は退避済で実際には agnostic に fallback している)**。 再計算: `compute_matchup_matrix.py --ai-mode exploitbeam --incremental --workers 12 --n-games 20` (= 先攻/後攻は cell内で交互、 A vs B と B vs A 両方計算)。 旧 ExploitBeam_v6 / ExploitBeam_vd / SmartOpponentAI_deployed / GoalDirectedAI 産は全て stale。

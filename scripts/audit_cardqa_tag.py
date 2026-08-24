@@ -159,13 +159,21 @@ def main() -> None:
             if not q or not a:
                 continue
             tag_info = _tag_item(q, a)
-            all_items.append({
+            row = {
                 "series": series_slug,
                 "q": q,
                 "a": a,
                 "tags": tag_info["tags"],
                 "derived": tag_info["derived"],
-            })
+            }
+            # ⭐ 2026-08-12: 公式ページ由来の **カード紐付け** を snapshot にも載せる。
+            #   `db/faq/*.json` は Bandai 著作物ゆえ gitignore なので、 クラウド cron は
+            #   この committed snapshot に fallback する。 ここに card_id が無いと
+            #   「この【登場時】効果」 がどのカードか特定できず n/a / escalated に落ちる。
+            for _k in ("card_id", "q_no", "title", "updated"):
+                if item.get(_k):
+                    row[_k] = item[_k]
+            all_items.append(row)
             total_items += 1
             series_stats[series_slug] += 1
             for t in tag_info["tags"]:

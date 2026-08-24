@@ -30,7 +30,7 @@ DECKS = ["cardrush_1342", "cardrush_1385", "cardrush_1392", "cardrush_1399",
 # engine が立てうる全 pending_choice kind (coverage 報告用)
 ALL_KINDS = {
     "activate_main_cost_pick", "activate_main_discard_pick", "counter_discard_pick",
-    "end_of_turn_optional", "field_full_select_trash", "hand_to_life_pick",
+    "end_of_turn_optional", "field_full_sacrifice_pick", "hand_to_life_pick",
     "life_taken_choice", "mulligan_confirm", "mulligan_redrawn", "on_attack_optional",
     "on_opp_attack_optional", "option_pick", "optional_cost_confirm",
     "play_event_from_hand_pick", "play_from_hand_or_trash_pick", "play_from_hand_pick",
@@ -93,7 +93,7 @@ def pick_for(payload, rng):
                 "life_taken_choice", "view_life_top_choose_position", "option_pick"):
         return [rng.choice([0, 1])]
     if kind in ("self_hand_discard_pick", "counter_discard_pick", "activate_main_discard_pick",
-                "field_full_select_trash", "hand_to_life_pick", "activate_main_cost_pick"):
+                "field_full_sacrifice_pick", "hand_to_life_pick", "activate_main_cost_pick"):
         cs = payload.get("candidates", []) or payload.get("cards", [])
         return list(range(min(lim, len(cs)))) if rng.random() < 0.7 else []
     if kind == "search_top_n":

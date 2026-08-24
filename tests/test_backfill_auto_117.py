@@ -259,7 +259,8 @@ def test_op11_117_activate_main_pump_mermaid_ai():
     mermaid = InPlay.of(repo.get(_MERMAID), sickness=False)  # ケイミー 人魚族
     me.characters = [mermaid]
     me.life = [repo.get(_FILLER)] * 2
-    me.face_up_life_count = 0  # 全て裏向き = flip_life_face_up コスト可
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ  # 全て裏向き = flip_life_face_up コスト可
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
 
     power_before = mermaid.power
     opts = [o for o in list_activate_main_effects(st, me, overlay)
@@ -282,7 +283,8 @@ def test_op11_117_no_activate_when_wrong_leader():
     me.stages = [stage]
     me.characters = [InPlay.of(repo.get(_MERMAID), sickness=False)]
     me.life = [repo.get(_FILLER)] * 2
-    me.face_up_life_count = 0
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
 
     opts = [o for o in list_activate_main_effects(st, me, overlay)
             if o[0].card.card_id == "OP11-117"]
@@ -299,7 +301,8 @@ def test_op11_117_activate_main_once_per_turn():
     me.stages = [stage]
     me.characters = [InPlay.of(repo.get(_MERMAID), sickness=False)]
     me.life = [repo.get(_FILLER)] * 3
-    me.face_up_life_count = 0
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
 
     opts1 = [o for o in list_activate_main_effects(st, me, overlay)
              if o[0].card.card_id == "OP11-117"]

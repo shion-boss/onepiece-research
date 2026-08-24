@@ -4,16 +4,23 @@
 > `optcg_engine`) は self-play を 30-100x 高速化するための**忠実ミラー**。 配備 AI・人間対戦・API は
 > Python のまま。 詳細背景は memory `project_rust_engine.md`。
 
-## 現状 (2026-08-10): Python との bit 一致を **効果カード全数** で証明済 + **全ハーネス bail 0**
+## 現状 (2026-08-24): 選択列挙 ON/OFF の **両モードで** bail 0 / MISMATCH 0
 
 | 検証 | 結果 |
 |---|---|
-| 差分ハーネス 16 デッキ (`rust_parity_check --assert`) | match 2,115 / **bail 0** / **MISMATCH 0** / static_skip 0 / py_skip 0 |
-| 差分 全カード合成デッキ 329 (`rust_parity_sweep`) | match 40,708 / **bail 0** / **MISMATCH 0 / PANIC 0** |
-| 効果差分 3 パス (`rust_effect_smoke_parity --assert`) | 直接発火 3,909 + 静的 532 + 置換 108 / bail 0 / **MISMATCH 0** |
-| **効果ありカード 4,262 枚の bit 一致証明** | **100%** |
+| 差分ハーネス 16 デッキ (`rust_parity_check --assert`) | match 2,138 / **bail 0** / **MISMATCH 0** / static_skip 0 / py_skip 0 |
+| 差分 全カード合成デッキ 332 (`rust_parity_sweep`) | match 40,300 / **bail 0** / **MISMATCH 0 / PANIC 0** |
+| 効果差分 3 パス (`rust_effect_smoke_parity --assert`) | 直接発火 3,953 + 静的 547 + 置換 111 / bail 0 / **MISMATCH 0** |
+| **選択列挙 ON の差分 (`rust_choice_parity --games 16`)** | match 855 / **bail 0** / **MISMATCH 0** |
+| **選択列挙 ON の Rust self-play 候補 bail 率 (`rust_choice_selfplay_probe`)** | **0/334,404 = 0.00%** (360 game / 3 seed、 完走率 100%) |
+| 広域 MISMATCH scan (`rust_mismatch_scan --seeds 1-8`) | **0 件** (8 seed × 全デッキ × 3 ペア構成) |
+| **効果ありカード 4,308 枚の bit 一致証明** | **100%** |
 | Rust 単独掃引 (`rust_fullsweep`、 60 デッキ / 360 game) | action 1,505,877 中 **bail 0**、 保存則違反 0、 中断 0 |
 | overlay 網羅 | primitive / condition / when / target spec が **全て実装済 (未対応 0)** |
+
+⚠ **「全ハーネス緑」 は 「完全一致の証明」 ではない**。 証明されたのは
+**サンプルした相互作用の範囲** で bit 一致だったことで、 カード 2 枚の同居の組合せは
+掃引していない ([[feedback_sweep_coverage_is_not_interaction_coverage]])。
 
 ### ⭐ 「意図的な」 bail 2 種を **実装で解消** (2026-08-10)
 
@@ -27,6 +34,12 @@
    スナップショットを走査する。 従来の `board_has_replace_holder` 一律 bail は撤去。
    ⚠ **残る bail は 1 種類だけ**: holder 自身がバッチ内で既に場を離れた場合
    (Python は object 参照で場外 holder も扱えるが Rust は場外 InPlay を持たない) → 明示 Err。
+   ⭐ **2026-08-23: この bail を 「実際に当たる時だけ」 に絞った** (= 全カード掃引 bail 0 の最後の 1 件)。
+   場外 holder でも **victim 側の情報だけで `replace_ko_match` は判定できる** (holder 依存は
+   「victim == holder か」 だけで、 場外なので必ず false)。 当たらない置換は Python も skip するので
+   bail は不要。 実例 = OP05-040 鳥カゴ の 「レストのコスト5以下すべてKO」 で ピーカ (OP05-032、
+   `if.target=self` の replace_ko) が先に場を離れ、 後続 victim ベビー５ に対して bail していた。
+   → 当たらないので skip が正解。 **場外 holder が本当に置換を宣言する時だけ** 明示 Err のまま。
 2. **`on_self_chara_leave_by_self_effect` の 「離脱本人」 発動** (`note_public_departure` +
    `fire_leave_by_self_effect`) — 公式 cardqa_op_08 (OP08-046 シャクヤク): 場を離れた本人も
    **行き先が公開領域 (トラッシュ / 表向きライフ)** なら発動できる。 Python `_note_public_departure`
@@ -109,6 +122,287 @@ pending trigger (drain 時の発火元復元) / ko・return_to_hand 系の逐次
 
 **Rust は任意の action に対し「Python と bit 一致」か「Err で明示 bail」の二択のみ。 黙って間違った状態を作らない
 (= MISMATCH=0)。** bail は「未実装なので降参」であり誤りではない。 差分検証がこれを保証する。
+
+## ⭐ 選択列挙 ON (choice_enumeration) のパリティ (2026-08-21 に MISMATCH=0 到達)
+
+学習は **選択込みの self-play** で回すので、 列挙 ON でも一致を証明しないと
+「公式準拠を検証した Python と違う盤面を学ぶ」 事故になる。 専用ハーネスは
+`scripts/rust_choice_parity.py` (件数) と `scripts/rust_choice_diag.py` (原因分類)。
+`pytest tests/test_rust_parity.py::test_rust_choice_enumeration_no_mismatch` が CI ガード。
+
+| 検証 | 結果 |
+|---|---|
+| 列挙 ON 差分 6 game | match 283 / bail 67 / **MISMATCH 0** |
+| 列挙 ON 差分 16 game (別 seed) | match 727 / bail 160 / **MISMATCH 0** |
+
+### 🎯 2026-08-23: **選択列挙 ON でも bail 0 / MISMATCH 0** (= 学習を回せる状態)
+
+| ハーネス | 結果 |
+|---|---|
+| 列挙 ON 差分 24 game | match 1,317 / **bail 0** / **MISMATCH 0** |
+| 列挙 OFF 差分 | match 2,138 / **bail 0** / **MISMATCH 0** |
+| self-play 候補 bail (ON、 4 seed × 20 game) | **0.00%** (約 80,000 候補) |
+| self-play 候補 bail (OFF) | **0.00%** |
+| 効果スモーク (全カード) | match 5,814 / bail 0 / MISMATCH 0 / PANIC 0 |
+| 広域スキャン (8 seed × 全デッキ × 3 構成) | MISMATCH 0 |
+
+⭐ **bail 0 は MISMATCH 0 と別の不変条件**。 bail は 「Rust が実行できない手」 で、
+方策は **黙って避ける** ので、 残っていると学習分布が歪む (= 「Rust が実行できない手を
+避けた対局」 を学ぶ)。 CI ガード `pytest tests/test_rust_parity.py::
+test_rust_choice_enumeration_no_mismatch` が **MISMATCH=0 と bail=0 の両方** を assert する。
+
+⚠ 「今のメタ 16 デッキで 0」 であって、 未収録カードの選択サイトは今後も出る。
+落ちたら **学習を回す前に潰す** (それが CI ガードの役目)。
+
+### ⚠ 「MISMATCH 0」 ≠ 「学習に使える」 — 候補 bail 率を必ず併せて見る (2026-08-22)
+
+`scripts/rust_choice_selfplay_probe.py` で Rust self-play を実測した結果:
+
+| | 完走率 | **候補 action の bail 率** | ms/game |
+|---|---|---|---|
+| 列挙 **OFF** | 100% | **0.00%** (24 / 3,630,932) | 4,085 |
+| 列挙 **ON** | 100% | **27.1%** (12,705 / 46,814) | 143 |
+
+⭐ **完走率だけ見ると罠**。 方策 (`greedy_action` / `defended_move`) は **bail した候補を
+黙って捨てる** (`is_err() → continue`) ので、 試合は最後まで進むが
+**Rust が実行できない手を避けた結果の対局** になる。 bail の過半が `defense |` =
+防御候補なので、 このまま学習を回すと **「無防御への静かな回帰」** を教えてしまう。
+= 列挙 ON はまだ学習データ生成に使えない (OFF は 0.00% なので問題なし)。
+**→ 2026-08-22 に 27.1% → 9.5% まで下げた (下節)。 残りは未移植 primitive が主因。**
+
+bail の内訳は `eng.reset_coverage_stats(True)` + `coverage_stats()` で原因別に取れる。
+
+⭐ **2026-08-22 に 2 段改善**: ① Python の効果コピー 4 箇所が do を **生ループ** で回して
+おり、 選択が立っても止まらず **前段の選択を上書きして消していた** (= 人間にも modal が
+出ない実バグ)。 `run_do_array` 経由に是正 → `optional_discard_hand_for_battle_buff` を解禁。
+② `attach_rested_don` は **実装済なのに denylist に丸ごと載っていた**。 Python が選択を
+出すのは 「N枚**まで**付与」 (`up_to`) かつ最大 2 枚以上の時だけなので site-specific bail に。
+→ 差分ハーネス bail 67 → 43、 ResolveChoice の bail 2,210 → 29。
+
+### ⭐ 2026-08-22: 候補 bail 27.1% → **0.84%**
+
+| | 候補 action の bail 率 | 主因 |
+|---|---|---|
+| 改善前 | 27.1% | 発動コストの選択 (防御 41,385 + 攻撃 8,249) |
+| 第 1 段 | 9.5% | redirect_attack / life trigger の play_self (= 未移植 primitive) |
+| 第 2 段 | 1.7% | 起動メインの発動コスト選択 (= `activate_main_cost_pick` 系、 未移植) |
+| 第 3 段 | **0.84%** | 個別 primitive の未移植のみ (play_from_hand_or_trash / choice_effect 等) |
+
+⚠ かつては **step 上限に達した病的な game** を除いて測る必要があったが、 その原因
+(「ドン!!−N が付与ドンから払われない」) を是正したので 40/40 game が正常に完走する。
+
+**第 1 段の 3 つの是正**:
+
+1. **発動コストの modal 判定は 「呼出サイト」 が持つ** (`event_cost_gate`)。 それまでは
+   `try_pay_counter_cost` の中で一律に 「候補が複数なら bail」 としていたが、 Python が
+   modal を立てるのは **`_execute_event` の cost 節だけ**。 `trigger_on_attack` /
+   `_enqueue_opp_attack_with_cost` / `fire_self_effect` (効果コピー) / explicit_idxs 経路は
+   `is_human_actor` gate なので AI (= 列挙モード) は **auto-pay** で選択が立たない。
+   → Python が訊かない所まで bail していた分が丸ごと消えた。
+   ⚠ `try_pay_counter_cost` に新しい呼出を足す時は **必ず Python の対応経路を確認** し、
+   `_execute_event` ミラーなら `event_cost_gate` を通すこと。
+2. **効果単位の中断・再開** (`counter_discard_pick`)。 発動コストは do の外なので primitive の
+   replay では再現できない。 `suspend_event_cost_discard` が 「どの効果を・どのコストで
+   発動しようとしていたか」 を `prim` に畳み、 `resume_event_cost_discard` が
+   「手札を捨てる → on_self_hand_discarded → 残りコスト auto-pay → **effect_indexes 指定で
+   再発火**」 を行う (Python `resolve_pending_choice` の `enqueue_event(effect_indexes=[idx])`
+   と同形)。
+3. **選択待ち中は inline 発火せず キューへ退避** (下節)。
+
+⚠ **bail 「率」 で進捗を測らない**。 実行できる手が増えると探索が深く進み **候補の総数が
+増える** ので、 改善したのに率が上がって見える (20.4% → 24.5% だが候補は 36,865 → 75,149)。
+原因別の **絶対数** で見ること。
+
+### ⭐ 第 2 段: **denylist を site-specific に** + キュー退避の拡張 (2026-08-22)
+
+`CHOICE_UNPORTED_PRIMS` に primitive を丸ごと載せると、 **選択の余地が無い局面まで** bail する。
+Python の選択サイトを読んで **条件付き bail** に落とすと、 同じ不変条件のまま候補が戻る:
+
+| primitive | Python が訊く条件 | 直し方 |
+|---|---|---|
+| `play_self` / `play_self_from_trash` | 場 5 枚差し替えの犠牲選択のみ | denylist から外す (`trash_weakest_for_field_full` が site bail 済) |
+| `set_cannot_attack` / `set_cannot_rest` | `count` 指定で候補 > count の二段目の絞り込み | `targets.len() > count` の時だけ bail |
+| `give_keyword` | `keywords` が 2 つ以上 (= どれを得るか) | keywords.len() > 1 の時だけ bail |
+| `attach_rested_don` | 「N枚**まで**付与」 (up_to) かつ最大 2 枚以上 | option_pick を **移植** (下記) |
+| `redirect_attack` | 候補が 2 枚以上 | 候補列を作って中断、 再開は FORCED_TARGETS |
+
+⭐ **`option_pick` を移植**: 「選択肢そのもの」 を `PendingChoice.prim` に持つ kind。
+`note_choice_suspend_with_prim` で prim を差し替え、 `resolve_choice_action` が
+選ばれた選択肢の do 配列 + 退避した残り do を流す。 Python の
+`_full_options[picks[0]]["do"]` → `run_do_array` と同形。 ⚠ Python の
+`enumerate_choice_options` は **candidates を持たない payload を binary 扱い** にするので
+選択肢は `[1], [0]` の 2 つだけ (= 先頭 2 案)。 Rust も `n_candidates=0` で同じ形にする。
+
+⭐ **キュー退避を on_attack / counter イベント / メインイベントにも拡張**。 Python は
+`trigger_on_attack` (effect_indexes 付き enqueue) / `trigger_counter_event` /
+`trigger_main_event` のいずれも enqueue → drain なので、 選択待ち中は **キューに積むだけ**。
+
+### ⚠ **位置 index の候補は 「中断時のカード」 を控えて照合する** (2026-08-22)
+
+`PendingChoice.cand_slots` は位置 (slot code) なので、 **選択の解決中に盤面が動くと別のカードを
+指す**。 Python は iid 参照なので原理的に起きない。 実例: 【相手のアタック時】の対象選択を
+立てたまま **バトルが解決してそのキャラが KO** され、 再開時に同じ index が空/別カードを指し
+`get_ip_mut` が **panic** した (= self-play プロセスが死ぬ = 不変条件の外)。
+→ `cand_cards` に中断時の card_id を控え、 再開時に照合して食い違えば **明示 bail**。
+
+### ⚠ 生ループ禁止は **Rust 側も同じ** (`optional_cost_then` / `fire_activate_main`)
+
+do 配列を回すコードが `suspend_if_choice` を通していないと、 内側で立った選択を
+**外側の do-loop が 「外側の primitive を再実行対象」 として記録** してしまう。 再開時に
+先頭の primitive が picks を横取りし、 選択サイトが再び中断 → **無限ループ**
+(実測 200,000 step 上限まで空回り)。 Python も同じ位置で `_continuation` に退避している
+(effects.py:11351)。 ⭐ **do を回す新コードは必ず `suspend_if_choice` を通すこと**。
+
+### ⚠ 強制の選択に 「選ばない」 を出さない (= no-op 無限ループの元)
+
+`self_hand_discard_pick` は 「N 枚を捨てる」 (強制) と 「N 枚**まで**捨てる」 (任意) の両方で
+使う。 強制側に空 picks を出すと、 AI が 「起動メイン宣言 → 捨てない → また宣言」 を延々と
+繰り返す (発動コストに () を出さないのと同じ理屈)。 payload の `up_to` を見て
+`allow_none` を落とす (Python `enumerate_choice_options` / Rust `PendingChoice.mandatory`)。
+
+### ⭐ 第 3 段: 起動メインの発動コスト選択を移植 (2026-08-22)
+
+Python は 「auto コストを払う → pick コストで halt → 再開時は払い済をスキップ」
+(`fire_activate_main(cost_picks=...)` で頭から再入) だが、 Rust は
+**1 円も払う前に中断** して、 再開時に picks 込みで **頭から 1 回だけ** 払う。
+最終状態は同じ (同じコストを同じ順で 1 回ずつ) で、 「zone を触る前に中断する」
+Rust の鉄則 (replay 方式) を崩さずに済む。
+
+- 対応 kind: `discard_hand` / `discard_hand_or_trash_filtered_chara` /
+  `ko_self_with_filter` / `rest_self_target(_name)` / `rest_own_card`
+- 候補の並びは Python の `candidates` と同順 (混在 modal は **キャラ → 手札** の順)
+- 複数の pick コストを持つ効果は 1 つずつ順に訊く (`prior` に重ねて再入)
+- 実測: 差分ハーネスの bail 64 → **19**
+
+### ⭐ 第 6 段: self-play 候補 bail 0.02% → **0.00%** (2026-08-24)
+
+対戦ハーネス (16 game) が緑でも、 **self-play を 120 game に増やすと bail が出る**
+(実測 27/111,306 = 0.02%)。 「40 game で 0」 は当たっていなかっただけ。 2 件とも潰した:
+
+1. **`play_from_hand` が場 5 枚差し替えの犠牲選択を訊いていなかった** — Python は
+   effects.py:6592 で `_request_field_full_sacrifice` を呼ぶ (= まだ手札を pop していない
+   位置)。 Rust は `trash_weakest_for_field_full` を直に呼んでいたので site bail していた。
+   ⚠ 1 段目 (どの手札を登場させるか) の picks は **明示的に持ち越す**
+   (`request_field_full_sacrifice_carrying`)。 `peek_forced_picks()` 任せにできないのは、
+   primitive 自身が `take_forced_picks()` で既に消費している為 (= LAST_FORCED_PICKS が
+   別 primitive の物かもしれない)。 Python の `primitive_value["_picks_idx"]` と同じ役割。
+2. **`reveal_top_play` の 2 択 (登場させ**てもよい**) を移植** — Python は
+   `reveal_top_play_confirm` (binary kind) を立て、 解決側で field-full を replay_choice で
+   継ぐ。 Rust は **pop する前に中断** し、 選んだ結果を spec の `_confirm` に畳んで
+   **同 primitive を replay** する (zone を触る前に中断する鉄則を維持)。
+   ⚠ ライフ版 (`reveal_life_top_play`) は Python に modal が無い (= 常に登場) ので
+   **2 択を出してはいけない**。 出すと選択の数が食い違って parity が壊れる。
+
+⭐ **副産物 (Python の実バグ)**: `reveal_life_top_play` が 「登場できない」 ペナルティ
+(OP13-023 / OP14-020) を見ていなかった (デッキ版 `reveal_top_play` は元から見ていた)。
+公式上ライフからの登場も 「登場」 なので Python 側を是正して両エンジンを揃えた。
+
+### ⚠ 選択で中断したら **同 bundle の残りエントリ** も continuation に積む (2026-08-23)
+
+Python は選択待ちで `return` する時、 同じカードの **同じ `when` を持つ後続効果エントリ** のうち
+「コスト無し・条件成立」 のものを `_continuation` に足してから抜ける (effects.py:653-682)。
+Rust はそれを落としていたので、 **2 エントリ以上を同じ `when` に持つカード** (実測 80 枚 =
+on_play 28 / counter 13 / main 6 …) で 1 つ目に選択が入ると 2 つ目が丸ごと消えていた。
+→ `append_bundle_continuation` を `execute_card_effects_inner` / `run_on_ko_effects` /
+`fire_life_trigger` の break 直前に入れて Python と同形にした。
+⚠ **コスト付き / 条件不成立の後続は積まない** (Python も積まない = 再開後に改めて判定される)。
+
+### ⭐ 「ドン!!−N」 が付与ドンから払われず **タダ撃ち** できた (両エンジン、 2026-08-22)
+
+起動メインの発動コストだけ area (active/rested) しか見ておらず、 **判定は付与ドンを数えるのに
+支払いが数えない** ため、 付与ドンしか残っていない局面で 「払えると判定されて 0 枚しか払わない」
+= コスト 0 で何度でも撃てた。 詳細と一次情報は `docs/official_rulings.md`。
+
+⭐ **これが 「AI が同じ起動メインを無限に繰り返す」 (200,000 step 上限) の正体**。
+「盤面が変わらない行動を選ぶ policy の穴」 に見えたが、 実際は **engine のコスト踏み倒し**
+だった。 ⚠ 症状 (policy の空転) から原因 (ルール実装のバグ) を推定しないこと。
+
+### ⭐ 選択待ち中の 「inline 発火 vs キュー deferral」 (2026-08-22、 Python 側の実バグ由来)
+
+Python `resolve_triggers` には **入口ガードが無く**、 選択待ちのままイベントを解決していた。
+pending_choice は 1 スロットしか無いので、 その状態で効果を解決すると各 primitive の
+`if state.pending_choice is not None: return` ガード (**26 箇所**) が **黙って no-op** し、
+**発動コストを払ったのに効果が消える**。
+
+- 実例: 攻撃側の【アタック時】選択が立っている間に防御側 OP11-041 ナミの
+  【相手のアタック時】が解決され、 **手札 1 枚を捨てたのに +2000 が乗らなかった**。
+- ループ内には既に 「解決後に pending が立ったら break」 があり、 コメントも
+  「残り event は queue に残し pick 解決後に再 drain する」 と書いてあった = **入口ガードだけ**
+  が抜けていた → `engine/effects.py:resolve_triggers` に追加 (再 drain は
+  `resolve_pending_choice` 末尾が元から行っている)。
+
+Rust 側はこれを写すため、 **選択待ち中は inline 発火しないでキューへ積む**:
+
+| 経路 | 選択待ち中の扱い |
+|---|---|
+| `maybe_resolve` | 早期 return (キューに残す) |
+| `fire_field_when` | `enqueue_field_when` して return |
+| `fire_opp_attack_collected` / `fire_on_attack_do` | `eff_idxs` 付き `PendingTrigger` として退避 (**コスト支払い= collect は Python も行うので退避しない**) |
+| カウンターイベント / メインイベント | `when: "counter"` / `"main"` の `PendingTrigger` として退避 |
+| 起動メインのコスト由来トリガー | `on_ko` / field-when を `PendingTrigger` として退避 |
+| `execute_card_effects` / `run_on_ko_effects` / `fire_life_trigger` | まだ inline → `bail_if_choice_pending` で **明示 bail** |
+| `resolve_choice_action` の末尾 | 選択が解けたら `maybe_resolve` で再 drain |
+
+⚠ 退避した分は `run_explicit_idx_event` が解決するので、 そこに Python `_execute_event` の
+2 gate (**発動元が場を離れた / 効果無効**) を写してある。
+
+⚠ `fire_activate_main` の本体 do-loop は **生ループ** で `suspend_if_choice` を通していなかった
+ため、 「コスト-10 の対象選択」 で止まった後の 「その後、 デッキ上 2 枚をトラッシュ」 が
+丸ごと消えていた。 do を回す新コードは **必ず `suspend_if_choice` を通す**。
+また、 中断中は `last_chara_ko_victim_card` を **畳まない** (Python も `if state.pending_choice
+is None:` で守っている = 未解決の【KO時】が victim 文脈を必要とする)。
+
+### ⭐ 第 4 段: 残り選択サイトを全部移植 (2026-08-23)
+
+| 移植 | 要点 |
+|---|---|
+| `deal_opp_leader_damage` | 戦闘と同じ `resolve_life_taken(by_effect=true)` に寄せた。 **列挙 OFF に残っていた唯一の bail** |
+| ライフ【トリガー】の deferral | 解決中は本体を **キューへ** (Python の `_maybe_resolve` no-op と同形)。 trash 順が 2 枚入れ替わる MISMATCH の正体 |
+| `play_from_hand_or_trash` | hand=idx / trash=1,000,000+idx で 1 本に畳んで候補提示 |
+| `choice_effect` / `choice` | option_pick へ (Python は candidates 無し payload = **2 択**) |
+| `search` / `search_from_trash` / `summon_from_deck` / `self_hand_to_deck_bottom` / `hand_to_self_life` | index pick (再開の **並び順** が Python と違うと digest がズレるので注意: search は 「picks 順で filter → 降順 pop」) |
+| `one_opp_rested_chara_or_don` | キャラの target_pick + 「選ばない」 = レストドン |
+| 場 5 枚差し替え (`field_full_sacrifice_pick`) | **召喚 primitive の先頭で** 犠牲を訊く (副作用前)。 `state.rust_field_full_sacrifice` を Python の `field_full_sacrifice_iids` と同形に |
+| 起動メインの発動コスト選択 | 「払う前に中断 → 再開で頭から 1 回だけ払う」 |
+| `optional_cost_confirm` 見送りの【ターン1回】復元 | `rust_act_used_set_by` (Python `_act_used_set_by_current_fire`) |
+| `any_stage_n_N` | **両エンジンとも未実装で silent no-op** だった (OP15-054 選択肢②)。 docs/official_rulings.md 参照 |
+
+⚠ **2 段選択のハマり所** (どれも無限ループ or 取りこぼしになる):
+1. **順序**: primitive 自身の pick → 場 5 枚差し替え、 の順に訊く (Python と同順)。 逆にすると
+   両者が交互に立ち続ける。
+2. **持ち越し**: 1 段目で注入された picks は `PendingChoice.carried_picks` で 2 段目に持ち越す
+   (primitive は先頭で `take_forced_picks` してしまうので peek では間に合わない)。
+3. **transient の同梱**: `play_self` 系は `current_source_card_id` から発動元を引くので、
+   replay 用に **spec へ `_card_id` を載せる** (Python の `_src_card_id` と同じ)。
+
+### 中断・再開のモデル (Python の 2 段構造を写すこと)
+
+- 選択サイトは `note_choice_suspend` で **フラグ + 候補** を残して no-op で返る。
+- do 配列ループの `suspend_if_choice` が ① フラグが立っていれば `PendingChoice` を確定し
+  **フラグを降ろす** ② 既に確定済 (内側) なら **上書きせず true を返すだけ**。
+  - ⚠ フラグを立てっぱなしにすると後続の選択サイトが全部素通りする。 Python は
+    「選択が立っている」 状態を `state.pending_choice` で持ち、 **後の選択サイトが上書きする**。
+  - ⚠ 逆に毎階層で作り直すと、 候補を消費済の外側が **候補ゼロの幽霊選択** で上書きし、
+    ResolveChoice が同じ primitive を無限に再実行する。
+- `execute_card_effects` の bundle ループは `pending_choice.is_some()` で break
+  (Python `_execute_event` の early return と同形)。
+- **深い所からの bail は `note_choice_bail`** (thread-local) で `apply_action` の出口へ運ぶ。
+  `&mut GameState` しか持てない場所 (場 5 枚差し替え等) から明示 bail を出すため。
+
+### 落とし穴 (この 4 件で MISMATCH 62 → 0)
+
+1. **Python の 「中断するか」 条件を近似しない**。 `search_top_n` は 「filter 一致が 1 枚以上」
+   で中断し候補は **見た N 枚全部**。 起動メインの発動コストは種別ごとに条件がバラバラで、
+   候補 1 件でも訊くものがある (`discard_hand` は手札 1 枚でも / `rest_own_card` は
+   リーダーとステージも数える)。
+2. **再開 (replay) は Python の `resolve_pending_choice` を写す** — auto 経路と違う。
+   `search_top_n` の human 経路は STAGE を登場させず手札へ / `top_or_bottom` は一律デッキ底 /
+   `known_bottom_card_ids` を触らない。
+3. **候補の並び順は Python と同じ 「盤面順」**。 Python は `_maybe_request_target_pick` に
+   **sort 前** の候補を渡し、 AI 評価の sort はその後。 Rust が先に sort していたため
+   「候補数は同じなのに k 番目が別のカード」 になっていた (`board_order`)。
+4. **注入した picks (`FORCED_PICKS`) は必ず使い切って捨てる** (Drop guard)。 残ると次の
+   action の別 primitive が **他人の picks を replay と誤認** して選択サイトを素通りする。
 
 ## Python ↔ Rust を同期させながら更新する手順 (重要)
 
@@ -251,6 +545,17 @@ RNG 依存効果は `rng.rs` (MT19937、 CPython `random` の bit 再現) を使
 | CI/pre-commit ガード | `python scripts/rust_parity_check.py --assert` (MISMATCH>0 で exit 1) |
 | standalone 完走の壁 観測 | `python scripts/rust_parity_check.py --wall` |
 | pytest 自動ガード | `pytest tests/test_rust_parity.py` |
+| **選択列挙 ON の差分** | `python scripts/rust_choice_parity.py --games 6 [--assert]` |
+| **同 原因分類 (MISMATCH の切り分け)** | `python scripts/rust_choice_diag.py --games 6 --show 10 --check-off` |
+| 乖離局面を単体で ON/OFF 比較 | `rust_choice_diag.py --dump <dir>` → `rust_choice_probe.py <dir>` |
+| **同 field 単位 diff (選択列が同形なのに乖離)** | `python scripts/rust_choice_field_diff.py --games 16` |
+| **全カード合成デッキ掃引 (最広)** | `python scripts/rust_parity_sweep.py [--assert]` (~4 分、 CI 済) |
+| 掃引の MISMATCH を zone 単位で見る | `python scripts/rust_sweep_mismatch_diag.py` |
+| **学習に使えるか (候補 bail 率)** | `python scripts/rust_choice_selfplay_probe.py --games 40 [--no-choice]` |
+
+⚠ **16 デッキ版だけでは足りない**。 メタ 16 デッキは効果カードの 4.2% しか通らず、
+2026-08-22 に見つかった 2 件はどちらも **329 合成デッキ掃引でしか出なかった**
+(16 デッキ版・効果スモーク・列挙 ON 差分は **すべて緑のまま**)。
 
 ## Rust ソースマップ (機能追加時の追従先)
 

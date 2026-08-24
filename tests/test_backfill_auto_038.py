@@ -283,7 +283,13 @@ def test_op03_042_on_play_recover_blue_usopp_ai():
 #    そうした場合、このキャラをトラッシュに置く。
 # --------------------------------------------------------------------------- #
 def test_op03_043_gaimon_life_taken_mill3_ai():
-    """【相手ライフダメージ時】自デッキ上3枚をトラッシュ (AI 自動)。"""
+    """【相手ライフダメージ時】自デッキ上3枚をトラッシュ + そうした場合 自身もトラッシュ。
+
+    ⚠ 2026-08-13 是正: 公式は 「…トラッシュに置いて**もよい**。**そうした場合**、この
+      キャラをトラッシュに置く」。 旧 overlay は自身のトラッシュを entry の cost に
+      置いており、 do だけを直接実行するこのテストでは **自身が落ちなかった**。
+      現在は optional_cost_then(cost=[], effect=[mill 3, return_self_to_trash])。
+    """
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, "OP01-001", overlay)
@@ -299,7 +305,8 @@ def test_op03_043_gaimon_life_taken_mill3_ai():
 
     assert len(me.deck) == deck_before - 3, \
         f"デッキ上3枚がトラッシュされていない: {len(me.deck)} (before {deck_before})"
-    assert len(me.trash) == trash_before + 3, "トラッシュが3枚増えていない"
+    assert len(me.trash) == trash_before + 4, \
+        "トラッシュが (デッキ3枚 + このキャラ自身 =) 4 枚増えていない"
 
 
 # --------------------------------------------------------------------------- #

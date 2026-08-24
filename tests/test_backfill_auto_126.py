@@ -531,8 +531,12 @@ def test_op13_028_on_play_untap_all_and_block_play_ai():
 
     assert me.don_active == 5, f"全レストドンがアクティブになっていない: {me.don_active}"
     assert me.don_rested == 0, f"レストドンが0にならない: {me.don_rested}"
-    assert me.block_chara_play_until_turn_end is True, \
+    # OP13-028「手札からカードをプレイできない」= 通常プレイのみ禁止 (block_hand_play_turn)。
+    # 効果登場は禁止しない (cardqa_op_13, db0c0c0d2ab9) ので block_chara_play_until_turn_end とは別フラグ。
+    assert me.block_hand_play_until_turn_end is True, \
         "このターン中 手札プレイ禁止フラグが立っていない"
+    assert me.block_chara_play_until_turn_end is False, \
+        "手札プレイ禁止は登場禁止 (block_chara_play) とは別フラグでなければならない"
 
 
 # --------------------------------------------------------------------------- #

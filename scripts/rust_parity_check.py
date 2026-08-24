@@ -38,6 +38,13 @@ except ImportError:
     print("ERROR: optcg_engine (Rust) 未ビルド。 `.venv/bin/maturin develop --manifest-path rust_engine/Cargo.toml`")
     sys.exit(2)
 
+# ⛔ 選択列挙モード (ONEPIECE_CHOICE_SEARCH) では Rust を使わない。
+#   Rust は pending_choice / continuation 未実装なので Python と別のゲームになる。
+#   ⚠ このモードだと差分ハーネスは 「Python が halt した局面を skip」 して
+#     py_skip が増えるだけで **検証になっていない** (実測 match=40 / py_skip=96)。
+from engine.rust_shadow import assert_rust_safe_for_choice_search  # noqa: E402
+assert_rust_safe_for_choice_search("rust_parity_check.py")
+
 from engine.core import reset_iid
 from engine.deck import CardRepository, make_deck_from_dict
 from engine.effects import load_effect_overlay
@@ -175,6 +182,9 @@ def _enc(st, a):
             d["t"] = "AttackCharacter"
             d["target_idx"] = _kidx(opp, a.target_iid)[1]
         return d
+    if type(a).__name__ == "ResolveChoice":
+        # 選択列挙モード: picks は index list なのでそのまま渡せる (Rust も同形)。
+        return {"t": "ResolveChoice", "picks": list(a.picks)}
     return {"t": "?"}
 
 

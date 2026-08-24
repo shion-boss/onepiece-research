@@ -128,6 +128,184 @@ fn legal_actions_json(state_json: &str) -> PyResult<String> {
     serde_json::to_string(&acts).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
+/// 選択列挙の end-to-end 検証 (テスト専用)。 state に action を適用 → 選択が立ったら
+/// `legal_actions` を取り、 `pick_index` 番目の ResolveChoice を適用して結果を返す。
+///
+/// ⚠ blob (canonical) は CardDef を card_id に畳むので **Python から再入力できない**。
+///   Rust 内で一連の流れを完結させないと検証できないため、 この probe を置く
+///   (実際の用途 = Rust 内 self-play も state をメモリに保持したまま進む)。
+///
+/// 返り値 JSON: {suspended, n_options, options, result_state_blob}
+#[pyfunction]
+fn choice_e2e_probe(state_json: &str, action_json: &str, pick_index: i64) -> PyResult<String> {
+    let mut st: state::GameState = serde_json::from_str(state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deserialize: {e}")))?;
+    let act: serde_json::Value = serde_json::from_str(action_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+    rules::apply_action(&mut st, &act)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("apply: {e}")))?;
+    let suspended = st.pending_choice.is_some();
+    let opts = effects::legal_actions(&st);
+    let n = opts.len();
+    if suspended && pick_index >= 0 && (pick_index as usize) < n {
+        let chosen = opts[pick_index as usize].clone();
+        rules::apply_action(&mut st, &chosen)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("resolve: {e}")))?;
+    }
+    let out = serde_json::json!({
+        "suspended": suspended,
+        "n_options": n,
+        "options": opts,
+        "opp_chars": st.players[1].characters.iter().map(|c| c.card.card_id.clone())
+            .collect::<Vec<_>>(),
+        "my_hand": st.players[0].hand.iter().map(|c| c.card_id.clone()).collect::<Vec<_>>(),
+        "still_pending": st.pending_choice.is_some(),
+    });
+    serde_json::to_string(&out).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
+/// 列挙 ON の差分検証用: action を適用したあと、 立った選択を **決定的な方針** で
+/// 自己解決しきって digest を返す。
+///
+/// ⭐ なぜ要るか: `pending_choice` は Python と Rust で表現が違う (dict vs struct) ため
+/// **state に載せて転送できない**。 per-action で state を往復させる従来の差分ハーネスは
+/// 列挙 ON では成立しない (Rust 側に解決すべき選択が存在しないので no-op になる)。
+/// → 各エンジンが **同じ方針で自己解決** し、 action 境界の状態を比較する形にする。
+///
+/// policy_k = 選択肢の何番目を採るか (n で mod)。 0 は既存ヒューリスティック順の先頭
+/// (= 自動解決とほぼ同じ) なので、 1 以上を使うと選択の差が状態に出る。
+#[pyfunction]
+fn apply_action_choice_policy(state_json: &str, action_json: &str, policy_k: usize)
+    -> PyResult<String>
+{
+    let mut st: state::GameState = serde_json::from_str(state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deserialize: {e}")))?;
+    let act: serde_json::Value = serde_json::from_str(action_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+    rules::apply_action(&mut st, &act)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("apply: {e}")))?;
+    // 立った選択を決定的に解決しきる (連鎖しても同じ方針で)
+    let mut guard = 0;
+    while st.pending_choice.is_some() && guard < 40 {
+        guard += 1;
+        let opts = effects::legal_actions(&st);
+        if opts.is_empty() {
+            st.pending_choice = None;
+            break;
+        }
+        let pick = opts[policy_k % opts.len()].clone();
+        rules::apply_action(&mut st, &pick)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("resolve: {e}")))?;
+    }
+    digest_of(&st).map_err(pyo3::exceptions::PyValueError::new_err)
+}
+
+/// `apply_action_choice_policy` の診断版。 digest に加えて **Rust が立てた選択の列**
+/// (kind / 候補数 / 選択肢数 / 採った index) を返す。 MISMATCH の切り分けは
+/// 「Python が選択を出したのに Rust が出していない (= 中断していない)」 型が支配的なので、
+/// 両者の選択列を並べないと原因が特定できない。
+#[pyfunction]
+fn apply_action_choice_policy_trace(state_json: &str, action_json: &str, policy_k: usize)
+    -> PyResult<String>
+{
+    let mut st: state::GameState = serde_json::from_str(state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deserialize: {e}")))?;
+    let act: serde_json::Value = serde_json::from_str(action_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+    let mut trace: Vec<serde_json::Value> = Vec::new();
+    let tl_before = effects::thread_local_debug();
+    effects::reset_suspend_call_count();
+    let enum_on = st.choice_enumeration;
+    let res = rules::apply_action(&mut st, &act);
+    if let Err(e) = res {
+        return serde_json::to_string(&serde_json::json!({"err": format!("apply: {e}")}))
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()));
+    }
+    let mut guard = 0;
+    while st.pending_choice.is_some() && guard < 40 {
+        guard += 1;
+        let opts = effects::legal_actions(&st);
+        let pc = st.pending_choice.as_ref().unwrap();
+        // 候補の **中身** (card_id) を出す。 「候補数は同じなのに選ばれた札が違う」 =
+        // 並び順の食い違い、 という型が target_pick で出るため。
+        let cand_ids: Vec<String> = pc.cand_slots.iter().map(|&(pi, code)| {
+            let p = &st.players[pi];
+            match effects::code_to_slot(code) {
+                effects::Slot::Leader => p.leader.card.card_id.clone(),
+                effects::Slot::Char(i) => p.characters.get(i)
+                    .map(|c| c.card.card_id.clone()).unwrap_or_else(|| format!("char#{i}")),
+                effects::Slot::Stage(i) => p.stages.get(i)
+                    .map(|c| c.card.card_id.clone()).unwrap_or_else(|| format!("stage#{i}")),
+                effects::Slot::Detached => format!("idx#{code}"),
+            }
+        }).collect();
+        // ⚠ 候補コードは kind によって **意味が違う** (盤面 slot / 手札 index / デッキ index)。
+        //   slot として描画すると手札系の候補が char#N に化けて 「同形なのに乖離」 に見える
+        //   ので、 生コードと **選ぶ側の手札** も併せて出す (2026-08-22)。
+        let raw_codes: Vec<i64> = pc.cand_slots.iter().map(|&(_pi, c)| c).collect();
+        let owner_hand: Vec<String> = st.players[pc.me_idx].hand.iter()
+            .map(|c| c.card_id.clone()).collect();
+        let cand_hand: Vec<String> = raw_codes.iter()
+            .map(|&c| owner_hand.get(c as usize).cloned()
+                .unwrap_or_else(|| format!("#{c}")))
+            .collect();
+        trace.push(serde_json::json!({
+            "kind": pc.kind, "n_cands": pc.n_candidates, "limit": pc.limit,
+            "n_options": opts.len(),
+            "prim": pc.prim.as_object().and_then(|o| o.keys().next().cloned())
+                .unwrap_or_default(),
+            "cands": cand_ids,
+            "codes": raw_codes,
+            "cands_as_hand": cand_hand,
+            "owner_hand": owner_hand,
+        }));
+        if opts.is_empty() {
+            st.pending_choice = None;
+            break;
+        }
+        let pick = opts[policy_k % opts.len()].clone();
+        if let Err(e) = rules::apply_action(&mut st, &pick) {
+            return serde_json::to_string(&serde_json::json!({
+                "err": format!("resolve: {e}"), "trace": trace}))
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()));
+        }
+    }
+    let dg = digest_of(&st).map_err(pyo3::exceptions::PyValueError::new_err)?;
+    // 粗い指紋 (zone ごとの card_id 列)。 digest だけだと 「どこが違うか」 が判らず、
+    // 原因分類が 「選択と無関係の差」 で止まってしまうため。
+    let fp: Vec<serde_json::Value> = st.players.iter().map(|p| serde_json::json!({
+        "hand": p.hand.iter().map(|c| c.card_id.clone()).collect::<Vec<_>>(),
+        "deck_n": p.deck.len(),
+        "deck_top": p.deck.iter().take(5).map(|c| c.card_id.clone()).collect::<Vec<_>>(),
+        "trash": p.trash.iter().map(|c| c.card_id.clone()).collect::<Vec<_>>(),
+        "life_n": p.life.len(),
+        "chars": p.characters.iter()
+            .map(|c| format!("{}{}", c.card.card_id, if c.rested { "(R)" } else { "" }))
+            .collect::<Vec<_>>(),
+        "don": [p.don_active, p.don_rested],
+    })).collect();
+    // ⭐ canonical blob も返す (Python `diff_canonical` に食わせて **乖離 field を pinpoint**
+    //   できるようにする)。 粗い fp が一致しているのに digest だけ違う型 (= buff / フラグ の
+    //   乖離) は blob 無しでは特定できない (2026-08-22)。
+    let blob = serde_json::to_value(&st)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+    serde_json::to_string(&serde_json::json!({
+        "digest": dg, "trace": trace, "fp": fp, "blob": blob,
+        "enum_on": enum_on, "suspend_calls": effects::suspend_call_count(),
+        "tl_before": tl_before,
+    }))
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
+/// 選択列挙モードで **まだ Rust に移植していない** 選択 primitive の一覧を返す。
+/// テストがこれを見れば、 移植が進んでもハードコードで陳腐化しない
+/// (実際 2026-08-21 に移植済 kind をハードコードしたテストが陳腐化して落ちた)。
+#[pyfunction]
+fn choice_unported_prims() -> PyResult<String> {
+    serde_json::to_string(effects::choice_unported_list())
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
 /// MT 検証: getstate keys (625) を JSON で受け、 各 k について getrandbits(k) を返す (Python 比較用)。
 #[pyfunction]
 fn mt_getrandbits(keys_json: &str, ks_json: &str) -> PyResult<String> {
@@ -250,7 +428,7 @@ fn setup_pre_mulligan_blob(
 /// deck{1,2}_json = setup_pre_mulligan と同じ deck Value、 rng_state_json = MT getstate (625 keys)、
 /// mode = "greedy" | "beam"。 返り値 = {winner, turns, game_over, steps} の JSON。
 #[pyfunction]
-#[pyo3(signature = (deck1_json, deck2_json, rng_state_json, first_player, mode="greedy", weights_json=None, beam_width=8, max_depth=12, max_turns=40, collect_traj=false, rollout_plies=80))]
+#[pyo3(signature = (deck1_json, deck2_json, rng_state_json, first_player, mode="greedy", weights_json=None, beam_width=8, max_depth=12, max_turns=40, collect_traj=false, rollout_plies=80, choice_enum=false))]
 #[allow(clippy::too_many_arguments)]
 fn self_play(
     deck1_json: &str,
@@ -264,6 +442,7 @@ fn self_play(
     max_turns: i32,
     collect_traj: bool,
     rollout_plies: usize,
+    choice_enum: bool,
 ) -> PyResult<String> {
     let d1: serde_json::Value = serde_json::from_str(deck1_json)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deck1: {e}")))?;
@@ -280,7 +459,7 @@ fn self_play(
     };
     let res = selfplay::play_game(
         &d1, &d2, &rng_state, first_player, mode, mode, w.as_deref(), w.as_deref(),
-        beam_width, max_depth, rollout_plies, max_turns, collect_traj,
+        beam_width, max_depth, rollout_plies, max_turns, collect_traj, choice_enum,
     )
     .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
     serde_json::to_string(&res).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
@@ -323,7 +502,7 @@ fn eval_ab(
     let w1 = parse_w(weights1_json)?;
     let res = selfplay::play_game(
         &d1, &d2, &rng_state, first_player, mode, mode, w0.as_deref(), w1.as_deref(),
-        beam_width, max_depth, rollout_plies, max_turns, false,
+        beam_width, max_depth, rollout_plies, max_turns, false, false,
     )
     .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
     serde_json::to_string(&res).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
@@ -367,7 +546,7 @@ fn eval_policies(
     let w1 = parse_w(weights1_json)?;
     let res = selfplay::play_game(
         &d1, &d2, &rng_state, first_player, mode0, mode1, w0.as_deref(), w1.as_deref(),
-        beam_width, max_depth, rollout_plies, max_turns, false,
+        beam_width, max_depth, rollout_plies, max_turns, false, false,
     )
     .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
     serde_json::to_string(&res).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
@@ -603,5 +782,9 @@ fn optcg_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(apply_action_digest, m)?)?;
     m.add_function(wrap_pyfunction!(apply_action_blob, m)?)?;
     m.add_function(wrap_pyfunction!(legal_actions_json, m)?)?;
+    m.add_function(wrap_pyfunction!(choice_e2e_probe, m)?)?;
+    m.add_function(wrap_pyfunction!(choice_unported_prims, m)?)?;
+    m.add_function(wrap_pyfunction!(apply_action_choice_policy, m)?)?;
+    m.add_function(wrap_pyfunction!(apply_action_choice_policy_trace, m)?)?;
     Ok(())
 }

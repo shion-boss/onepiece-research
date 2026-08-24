@@ -125,7 +125,12 @@ def test_eb01_034_wednesday_opp_attack_add_don_ai():
 
     do, eff = _do(overlay, "EB01-034", "opp_attack")
     # overlay 条件: リーダー『B・W』/ ターン1回 / ドン-1
-    assert "B・W" in _cond_of(eff).get("leader_features_any", []), \
+    # ⚠ 2026-08-21 是正: 公式は 「『X』を含む特徴を持つ」 (= 部分一致) なので overlay は
+    #   leader_feature_contains を使う。 キー名でなく **意味** を見る (db/faq/base.json)。
+    _lc = _cond_of(eff)
+    assert (_lc.get("leader_feature_contains") == "B・W"
+            or "B・W" in _lc.get("leader_features_any", [])
+            or _lc.get("leader_feature") == "B・W"), \
         "overlay の条件 leader_features_any=B・W が無い"
     assert eff.get("cost", {}).get("once_per_turn") is True, "ターン1回 制約が無い"
     assert eff.get("cost", {}).get("pay_don") == 1, "ドン-1 コストが無い"
@@ -153,7 +158,12 @@ def test_eb01_035_monday_on_play_pump_ai():
     leader_before = me.leader.power
 
     do, eff = _do(overlay, "EB01-035", "on_play")
-    assert "B・W" in _cond_of(eff).get("leader_features_any", []), \
+    # ⚠ 2026-08-21 是正: 公式は 「『X』を含む特徴を持つ」 (= 部分一致) なので overlay は
+    #   leader_feature_contains を使う。 キー名でなく **意味** を見る (db/faq/base.json)。
+    _lc = _cond_of(eff)
+    assert (_lc.get("leader_feature_contains") == "B・W"
+            or "B・W" in _lc.get("leader_features_any", [])
+            or _lc.get("leader_feature") == "B・W"), \
         "overlay の条件 leader_features_any=B・W が無い"
     for prim in do:
         execute_effect(prim, st, me, opp,
@@ -204,7 +214,12 @@ def test_eb01_036_minochihuahua_on_ko_add_rested_don_ai():
     me.don_remaining_in_deck = 8
 
     do, eff = _do(overlay, "EB01-036", "on_ko")
-    assert _cond_of(eff).get("leader_feature") == "インペルダウン", \
+    # ⚠ 2026-08-21 是正: 公式は 「『X』を含む特徴を持つ」 (= 部分一致) なので overlay は
+    #   leader_feature_contains を使う。 キー名でなく **意味** を見る (db/faq/base.json)。
+    _lc = _cond_of(eff)
+    assert (_lc.get("leader_feature_contains") == "インペルダウン"
+            or "インペルダウン" in _lc.get("leader_features_any", [])
+            or _lc.get("leader_feature") == "インペルダウン"), \
         "overlay の条件 leader_feature=インペルダウン が無い"
     for prim in do:
         execute_effect(prim, st, me, opp,
@@ -282,7 +297,12 @@ def test_eb01_038_okamamichi_counter_redirect_human_pick():
     me.characters = [ch]
 
     do, eff = _do(overlay, "EB01-038", "counter")
-    assert "B・W" in _cond_of(eff).get("leader_features_any", []), \
+    # ⚠ 2026-08-21 是正: 公式は 「『X』を含む特徴を持つ」 (= 部分一致) なので overlay は
+    #   leader_feature_contains を使う。 キー名でなく **意味** を見る (db/faq/base.json)。
+    _lc = _cond_of(eff)
+    assert (_lc.get("leader_feature_contains") == "B・W"
+            or "B・W" in _lc.get("leader_features_any", [])
+            or _lc.get("leader_feature") == "B・W"), \
         "overlay の条件 leader_features_any=B・W が無い"
     execute_effect(do[0], st, me, opp, None)
 
@@ -410,11 +430,19 @@ def test_eb01_039_trigger_add_don():
 #     相手のコスト0のキャラ1枚までを、 KOする
 # --------------------------------------------------------------------------- #
 def test_eb01_040_kyros_activate_main_listed_and_once_per_turn():
-    """起動メインが legal に出て、 発動後は【ターン1回】で再度出ない (AI, crash なし)。"""
+    """起動メインが legal に出て、 発動後は【ターン1回】で再度出ない (AI, crash なし)。
+
+    ⚠ 2026-08-12: この効果には 「自分のライフの上から1枚を表向きにできる：」 という
+      **発動コスト** がある (公式 cardqa_eb_01)。 従来この overlay はコストが欠落しており、
+      本テストも 「ライフ 0 枚でも撃てる」 = **タダ撃ちを正解として固定** していた。
+      コストを払える盤面 (= 一番上が裏向きのライフ) を用意する形に是正。
+    """
     repo = _repo()
     overlay = _overlay()
     st = _state(repo, "EB01-040", overlay)
     me, opp = st.players[0], st.players[1]
+    me.life = [repo.get("ST01-004")] * 3          # 既定は全部裏向き = コストを払える
+    me.life_face_up = [False, False, False]
 
     opts = list_activate_main_effects(st, me, overlay)
     mine = [(s, e) for (s, e) in opts if s.card.card_id == "EB01-040"]
@@ -427,6 +455,16 @@ def test_eb01_040_kyros_activate_main_listed_and_once_per_turn():
     opts2 = list_activate_main_effects(st, me, overlay)
     mine2 = [(s, e) for (s, e) in opts2 if s.card.card_id == "EB01-040"]
     assert len(mine2) == 0, "【ターン1回】なのに同ターンで再度 起動メインが出る"
+
+    # 公式 (cardqa_eb_01): 「自分のライフの一番上のカードが表向きの時、 この【起動メイン】効果で
+    # 相手のコスト0のキャラ1枚を KO できますか？」 → 「**いいえ、 できません**」
+    st2 = _state(repo, "EB01-040", overlay)
+    me2 = st2.players[0]
+    me2.life = [repo.get("ST01-004")] * 3
+    me2.life_face_up = [True, False, False]       # 一番上が既に表向き = コストを払えない
+    mine3 = [(s, e) for (s, e) in list_activate_main_effects(st2, me2, overlay)
+             if s.card.card_id == "EB01-040"]
+    assert len(mine3) == 0, "ライフの一番上が表向きなのに 起動メインが発動できる"
 
 
 def test_eb01_040_kyros_ko_cost0_target():
@@ -441,6 +479,10 @@ def test_eb01_040_kyros_ko_cost0_target():
     overlay = _overlay()
     st = _state(repo, "OP01-040", overlay)  # ダミー起動元 (do を直接検証)
     me, opp = st.players[0], st.players[1]
+    # ⚠ do は optional_cost_then (= 「ライフの上から1枚を表向きにできる：」) なので、
+    #   コストを払える盤面が要る (2026-08-12 にコストを overlay へ追加)。
+    me.life = [repo.get("ST01-004")] * 3
+    me.life_face_up = [False, False, False]
     # コスト軽減で実効0 になった相手キャラ (印刷0キャラは存在しないため override で再現)
     victim = InPlay.of(repo.get("OP01-016"), sickness=False)  # 印刷 cost2
     victim.base_cost_override = 0
@@ -454,6 +496,7 @@ def test_eb01_040_kyros_ko_cost0_target():
         execute_effect(prim, st, me, opp,
                        InPlay.of(repo.get("EB01-040"), sickness=False))
 
+    assert me.life_face_up[0] is True, "発動コスト (ライフ上1枚を表向き) が払われていない"
     assert victim not in opp.characters, "実効コスト0の相手キャラが KO されていない"
     assert repo.get("OP01-016") in opp.trash, "KO したキャラが相手トラッシュにない"
     assert bystander in opp.characters, "実効コスト0でないキャラまで KO されている"
@@ -465,6 +508,9 @@ def test_eb01_040_kyros_ko_ignores_printed_cost0_absent():
     overlay = _overlay()
     st = _state(repo, "OP01-040", overlay)
     me, opp = st.players[0], st.players[1]
+    # ⚠ コストを払える盤面にする (= 払えないから KO されない、 では filter を測れていない)。
+    me.life = [repo.get("ST01-004")] * 3
+    me.life_face_up = [False, False, False]
     normal = InPlay.of(repo.get("OP01-016"), sickness=False)  # 印刷 cost2、 軽減なし
     opp.characters = [normal]
 

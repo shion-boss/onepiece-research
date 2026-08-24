@@ -245,7 +245,13 @@ def test_op08_053_leader_feature_gate():
     """overlay の 発動条件が 自リーダー『白ひげ海賊団』(leader_features_any) である。"""
     overlay = _overlay()
     eff = next(e for e in overlay.get("OP08-053").effects if e["when"] == "main")
-    assert "白ひげ海賊団" in _cond_of(eff).get("leader_features_any", []), \
+    # ⚠ 2026-08-21 是正: 公式テキストは 「『X』を含む特徴を持つ」 (= 部分一致) なので
+    #   overlay は leader_feature_contains を使う (db/faq/base.json: 《元X》《X傘下》 も含む)。
+    #   キー名を直接 assert すると書き分けの是正で落ちるため **意味** を見る。
+    _c = _cond_of(eff)
+    assert (_c.get("leader_feature_contains") == "白ひげ海賊団"
+            or "白ひげ海賊団" in _c.get("leader_features_any", [])
+            or _c.get("leader_feature") == "白ひげ海賊団"), \
         "OP08-053 の main に 自リーダー白ひげ海賊団 条件が無い"
 
 

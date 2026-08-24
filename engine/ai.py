@@ -3368,6 +3368,10 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
         }
         # 7-1-1-3: declare 直後 に triggers (人間 defender の cost 持ち は pending_choice → PauseSignal)
         _pre_fire_attack_triggers(attacker, True)
+        # ⭐ 選択列挙モードでは AI が自分で解決する (= 探索の分岐点)。 人間セッションでは
+        #   従来どおり PauseSignal で UI へ返す。
+        if state.pending_choice is not None:
+            resolve_pending_choices_with_ai(state, ai_self, ai_opp)
         if state.pending_choice is not None:
             raise PauseSignal("choice", dict(state.pending_choice))
         # counter event 事前発火 marker: 同 attacker で 既に choose_defense + _fire_counter_events
@@ -3391,6 +3395,10 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
             )
             state._counter_events_fired_for = ce_marker
             state._pending_ai_action["action"] = action
+            # ⭐ 選択列挙モードでは AI が自分で解決する (= 探索の分岐点)。 人間セッションでは
+            #   従来どおり PauseSignal で UI へ返す。
+            if state.pending_choice is not None:
+                resolve_pending_choices_with_ai(state, ai_self, ai_opp)
             if state.pending_choice is not None:
                 # 神避 の discard cost 等 で modal pending → halt
                 raise PauseSignal("choice", dict(state.pending_choice))
@@ -3412,6 +3420,10 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
             "turn_player_idx": state.turn_player_idx,
         }
         _pre_fire_attack_triggers(attacker, False)
+        # ⭐ 選択列挙モードでは AI が自分で解決する (= 探索の分岐点)。 人間セッションでは
+        #   従来どおり PauseSignal で UI へ返す。
+        if state.pending_choice is not None:
+            resolve_pending_choices_with_ai(state, ai_self, ai_opp)
         if state.pending_choice is not None:
             raise PauseSignal("choice", dict(state.pending_choice))
         ce_marker = (state.turn_player_idx, attacker.instance_id, "AttackCharacter", action.target_iid)
@@ -3445,6 +3457,10 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
             )
             state._counter_events_fired_for = ce_marker
             state._pending_ai_action["action"] = action
+            # ⭐ 選択列挙モードでは AI が自分で解決する (= 探索の分岐点)。 人間セッションでは
+            #   従来どおり PauseSignal で UI へ返す。
+            if state.pending_choice is not None:
+                resolve_pending_choices_with_ai(state, ai_self, ai_opp)
             if state.pending_choice is not None:
                 raise PauseSignal("choice", dict(state.pending_choice))
         else:
@@ -3454,6 +3470,10 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
         referee.before_action(state, action)
 
     apply_action(state, action)
+    # ⭐ 選択列挙モード: 効果解決の途中で立った選択を **その所有者の AI** に解決させる。
+    #   legal_actions が ResolveChoice を返すので、 AI 側は通常の choose_action で
+    #   そのまま扱える (= 探索がそのまま選択点を評価する)。
+    resolve_pending_choices_with_ai(state, ai_self, ai_opp)
     # action 適用 成功 → cache + pre-fire flag クリア
     state._pending_ai_action = None
     state._opp_attack_pre_fired_id = None
@@ -3463,3 +3483,99 @@ def play_one_action(state: GameState, ai_self, ai_opp, referee=None) -> Action:
         referee.after_action(state)
 
     return action
+
+
+# 1 アクションの解決で立ちうる選択の上限 (= 無限ループ保険)。 実測 62 選択/game なので
+# 1 アクションで 40 も立てば異常。
+_MAX_CHOICES_PER_ACTION = 40
+
+
+def resolve_pending_choices_with_ai(state: GameState, ai_self, ai_opp) -> int:
+    """`state.pending_choice` が立っている間、 所有者の AI に選ばせて解決する。
+
+    ⭐ 選択列挙モード (`state.choice_enumeration`) 専用。 OFF の時は engine が従来どおり
+    固定ヒューリスティックで自動解決するので pending_choice は立たず、 この関数は no-op。
+
+    所有者は `pending_choice_owner_idx` で決める (payload の owner_idx → event owner →
+    forced actor → turn player)。 所有者が turn player なら ai_self、 相手なら ai_opp。
+
+    戻り値 = 解決した選択の数 (計測用)。
+    """
+    if not getattr(state, "choice_enumeration", False):
+        return 0
+    from .effects import pending_choice_owner_idx
+    from .game import ResolveChoice, legal_actions
+
+    n = 0
+    while state.pending_choice is not None and not state.game_over:
+        if n >= _MAX_CHOICES_PER_ACTION:
+            state.push_log("  ⚠ 選択解決が上限に達した (= 無限ループ保険)")
+            break
+        owner = pending_choice_owner_idx(state)
+        ai = ai_self if owner == state.turn_player_idx else ai_opp
+        opts = legal_actions(state)
+        if not opts:
+            # 列挙できない kind (= 想定外) は engine 側に任せて抜ける
+            state.pending_choice = None
+            break
+        picked = pick_choice_action(state, ai, owner, opts)
+        apply_action(state, picked)
+        n += 1
+    return n
+
+
+def pick_choice_action(state: GameState, ai, owner_idx: int, opts=None):
+    """`pending_choice` の選択肢を **1-ply 先読みで評価して選ぶ**。
+
+    ⭐ ここが 「選択を探索に載せる」 の実体。 各 AI クラスの choose_action は
+    ResolveChoice を扱えない (= 実測で 213 件中 178 件が fallback、 残り 35 件も全部
+    先頭候補 = 何も探索していなかった) ので、 **解決ループ側で共通に評価する**。
+    こうすると Greedy / GoalDirected / ExploitBeam すべてが即座に選択探索を得る。
+
+    評価: 候補ごとに fast_clone → ResolveChoice を適用 → **連鎖した選択は先頭
+    (= 既存ヒューリスティック順) で埋めて** 比較可能な局面まで進め、 owner 視点で採点。
+    AI が value 関数を持つ (`score_state`) ならそれを、 無ければ board_eval を使う。
+
+    ⚠ 「選ばない ()」 も候補に含まれる = 公式の 「〜まで」 (0 枚可) と同じ形。
+    """
+    from .game import ResolveChoice, legal_actions
+    if opts is None:
+        opts = legal_actions(state)
+    if not opts:
+        return ResolveChoice(picks=())
+    if len(opts) == 1:
+        return opts[0]
+
+    scorer = getattr(ai, "score_state", None)
+
+    def _score(st) -> float:
+        if scorer is not None:
+            try:
+                return float(scorer(st, owner_idx))
+            except Exception:
+                pass
+        from . import eval as eval_module
+        return float(eval_module.compute_score(st, owner_idx))
+
+    from .plan_search import fast_clone
+    best, best_score = opts[0], None
+    for opt in opts:
+        try:
+            sim = fast_clone(state)
+            sim.choice_enumeration = False   # 連鎖分は engine の既定 (= 先頭/ヒューリスティック)
+            apply_action(sim, opt)
+            # 連鎖して立った選択は既定順で埋める (= 候補間で条件を揃える)
+            guard = 0
+            while sim.pending_choice is not None and guard < 20:
+                nxt = legal_actions(sim)
+                if not nxt:
+                    sim.pending_choice = None
+                    break
+                apply_action(sim, nxt[0])
+                guard += 1
+            sc = _score(sim)
+        except Exception:
+            continue
+        if best_score is None or sc > best_score:
+            best, best_score = opt, sc
+    return best

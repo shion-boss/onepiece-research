@@ -284,11 +284,13 @@ pub fn check_invariants(st: &GameState, base: &[(usize, i32, u64); 2], ctx: &str
             note_violation("INV-attached-negative", format!("p{i} ({ctx})"));
             n += 1;
         }
-        // 表向きライフは 0 以上 かつ ライフ枚数以下 (公式: ライフの一部を表向きにする効果群)
-        if p.face_up_life_count < 0 || p.face_up_life_count > p.life.len() as i32 {
+        // ⭐ per-card 化 (2026-08-11) で 「表向き枚数 ≤ ライフ枚数」 は導出値ゆえ自明になった。
+        //   代わりに **フラグ列の長さがライフと一致しているか** を保存則として見る
+        //   (= 同期漏れがあれば 「表向きだったはずの札が裏向きになる」 = 黙って壊れる)。
+        if p.life_face_up.len() != p.life.len() {
             note_violation(
                 "INV-face-up-life",
-                format!("p{i} face_up={} / life={} ({ctx})", p.face_up_life_count, p.life.len()),
+                format!("p{i} flags={} / life={} ({ctx})", p.life_face_up.len(), p.life.len()),
             );
             n += 1;
         }
@@ -513,6 +515,13 @@ pub fn defended_move(
 /// 1 手適用 (攻撃なら防御側の応手込み)。 返り値 = 実際に適用した action (防御フィールド入り)。
 /// def_w = 防御側の value 重み。 探索内 sim では探索者の weights を渡す (= 相手も自分と同じ value で
 /// 守ると仮定する self-play 標準の相手モデル)。
+/// self-play の手を実況する診断スイッチ (`OPTCG_DEBUG_STEPS=1`、 step 300-340 のみ)。
+/// 「同じ行動を無限に繰り返して step 上限に達する」 型の検出用 (2026-08-22)。
+fn debug_steps() -> bool {
+    static F: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *F.get_or_init(|| std::env::var("OPTCG_DEBUG_STEPS").is_ok())
+}
+
 pub fn apply_move(
     st: &mut GameState,
     action: &Value,
@@ -719,8 +728,14 @@ pub fn play_game(
     rollout_plies: usize,
     max_turns: i32,
     collect_traj: bool,
+    choice_enum: bool,
 ) -> Result<Value, String> {
     let mut st = crate::setup::setup_pre_mulligan(d1, d2, rng_state, first_player)?;
+    // ⭐ 選択列挙: 効果解決中の選択を ResolveChoice として **方策に選ばせる** モード。
+    //   legal_actions が選択肢を返すので greedy/beam はそのまま分岐できる (構造変更ゼロ)。
+    //   ⚠ 未移植の選択サイトに当たると apply_action が Err = その試合は中断する
+    //     (黙って別のゲームを進めるより中断が正しい)。 完走率は呼出側で計測する。
+    st.choice_enumeration = choice_enum;
     // マリガン (game.py:182)。 これが無いと初手品質の分布が実戦とズレる (= キーカード依存の
     // control 側が不当に不利)。 判定材料 (keep/prior card_ids) は deck Value 経由で受け取る。
     crate::setup::apply_mulligan(&mut st, d1, d2, first_player);
@@ -745,6 +760,18 @@ pub fn play_game(
         let action = choose_move(&st, mode, weights, beam_width, max_depth, rollout_plies);
         // 防御は **実際の防御側の value** で決める (A/B の公平性: 各 player は自分の value で守る)。
         let def_w = if me == 0 { w1 } else { w0 };
+        if debug_steps() && steps > 300 && steps < 340 {
+            let att: i32 = st.players[me].leader.attached_dons
+                + st.players[me].characters.iter().map(|c| c.attached_dons).sum::<i32>();
+            eprintln!("[step {}] t={} me={} act={} don={}/{} att={} deck_don={} hand={} score={:.1} pend={}",
+                steps, st.turn_number, me,
+                serde_json::to_string(&action).unwrap_or_default(),
+                st.players[me].don_active, st.players[me].don_rested, att,
+                st.players[me].don_remaining_in_deck,
+                st.players[me].hand.len(),
+                eval_with(&st, me, weights),
+                st.pending_choice.as_ref().map(|p| p.kind.clone()).unwrap_or_default());
+        }
         let applied = apply_move(&mut st, &action, def_w)?;
         if is_attack(&action) {
             n_attacks += 1;

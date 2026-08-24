@@ -24,6 +24,51 @@ fn each_inplay_mut(p: &mut Player) -> impl Iterator<Item = &mut InPlay> {
 pub fn recompute_static(state: &mut GameState) {
     update_ownership_flags(state);
     crate::effects::evaluate_static_effects(state);
+    // 常在 (= ルール置換) を張り直した **後** に敗北判定 (公式 9-2、 game.py:_check_rule_defeat)。
+    check_rule_defeat(state);
+}
+
+/// 公式 9-2 敗北判定処理のうち **デッキ0枚** (9-2-1-2)。 game.py:_check_rule_defeat のミラー。
+/// 1-2-2 + 9-1-2 = 敗北条件を満たしたら次のルール処理 (= 即座) に敗北する。
+/// ルール置換 deck_out_wins (OP03-040) / deck_out_defer (OP15-022) は静的なので
+/// evaluate_static_effects が毎回張り直す (= 無効化されたら消える)。
+pub fn check_rule_defeat(state: &mut GameState) {
+    if state.game_over {
+        return;
+    }
+    let empty: Vec<usize> = (0..state.players.len())
+        .filter(|&i| state.players[i].deck.is_empty())
+        .collect();
+    // 「デッキが0枚に **なった**」 事実を記録 (OP15-022 の遅延敗北はこれで確定し、
+    // 後からデッキが戻っても取り消されない)。 END フェイズの判定がこのフラグを読む。
+    for &i in &empty {
+        if state.players[i].deck_out_defer {
+            state.players[i].deck_hit_zero_this_turn = true;
+        }
+    }
+    if empty.is_empty() {
+        return;
+    }
+    // 勝利置換が最優先 (= 敗北条件を満たすが敗北せず勝利する)
+    for &i in &empty {
+        if state.players[i].deck_out_wins {
+            declare_winner(state, i);
+            return;
+        }
+    }
+    let losers: Vec<usize> = empty
+        .into_iter()
+        .filter(|&i| !state.players[i].deck_out_defer)
+        .collect();
+    if losers.is_empty() {
+        return;
+    }
+    if losers.len() == 2 {
+        state.game_over = true;
+        state.winner = None;
+        return;
+    }
+    declare_winner(state, 1 - losers[0]);
 }
 
 /// game.py:_update_ownership_flags = 各 InPlay の owner_idx/is_owners_turn を再計算 (DON+1000 ゲート)。
@@ -82,7 +127,47 @@ fn board_has_when(p: &Player, when: &str) -> bool {
         .any(|ip| crate::effects::card_has_when(&ip.card.card_id, when))
 }
 
-/// game.py:_battle_attr_bonus = combatant が「属性X とバトル時+N」を持ち opponent が属性X の時 +N。
+/// 「属性X とバトルする時、 このターン中 +N」 を **turn_buff に積む** (Python
+/// `_apply_battle_attr_pump`、 game.py:610)。 公式 (cardqa / ST05-010 ゼット): 同じ属性のキャラに
+/// **2 回バトルされたら合計 +6000** = **ターン持続 + 累積**。 バトル中だけの補正ではない。
+/// **2026-08-23 に Rust も同じ実装に移行** (それまでは明示 bail)。
+/// 戻り値 = (attacker に積んだ額, defender に積んだ額)。 attacker 側は snapshot 経由で power を
+/// 計算しているので戻り値を足す。 defender は積んだ後に `power()` を読むので足さない。
+fn apply_battle_attr_pump(
+    state: &mut GameState,
+    atk: (usize, crate::effects::Slot),
+    def: (usize, crate::effects::Slot),
+) -> (i32, i32) {
+    let a_bonus = {
+        let a = crate::effects::src_ip_pub(&state.players[atk.0], atk.1);
+        let b = crate::effects::src_ip_pub(&state.players[def.0], def.1);
+        match (a, b) {
+            (Some(a), Some(b)) => battle_attr_bonus(a, b),
+            _ => 0,
+        }
+    };
+    let b_bonus = {
+        let a = crate::effects::src_ip_pub(&state.players[def.0], def.1);
+        let b = crate::effects::src_ip_pub(&state.players[atk.0], atk.1);
+        match (a, b) {
+            (Some(a), Some(b)) => battle_attr_bonus(a, b),
+            _ => 0,
+        }
+    };
+    if a_bonus != 0 {
+        if let Some(ip) = crate::effects::src_ip_mut_pub(&mut state.players[atk.0], atk.1) {
+            ip.turn_buff += a_bonus;
+        }
+    }
+    if b_bonus != 0 {
+        if let Some(ip) = crate::effects::src_ip_mut_pub(&mut state.players[def.0], def.1) {
+            ip.turn_buff += b_bonus;
+        }
+    }
+    (a_bonus, b_bonus)
+}
+
+/// game.py:_battle_attr_bonus = combatant が「属性X とバトルする時 +N」を持ち opponent が属性X の時 N。
 fn battle_attr_bonus(combatant: &InPlay, opponent: &InPlay) -> i32 {
     let attr = &opponent.card.attribute;
     if attr.is_empty() {
@@ -316,6 +401,7 @@ pub fn reset_turn_buff(state: &mut GameState) {
         }
         p.play_cost_reduction = 0;
         p.block_chara_play_until_turn_end = false;
+        p.block_hand_play_until_turn_end = false;
         p.opp_on_play_disabled_through_opp_turn = false;
         p.block_self_draw_until_turn_end = false;
         p.block_chara_effect_untap_don_until_turn_end = false;
@@ -544,9 +630,17 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
         Phase::End => {
             // ⭐ 遅延デッキアウト敗北 (OP15-022): 「デッキが0枚になったターン終了時に敗北」。
             //   両者該当なら **同時敗北** = 引き分け (cardqa_op_15、 game.py と同順)。
+            // ⭐ 「今0枚か」 ではなく 「このターンに0枚になったか」 で判定 (game.py と一致、
+            //    cardqa_op_15: 補充しても / 無効化されても そのターン終了時に敗北)。
+            // ⚠ END フェイズ中に 0 枚になった場合はフラグが立つ前にここへ来るので、
+            //    **今 0 枚か** も併せて見る (game.py と同条件)。
             let deck_out: Vec<usize> = (0..state.players.len())
-                .filter(|&i| state.players[i].deck_out_defer && state.players[i].deck.is_empty())
+                .filter(|&i| state.players[i].deck_hit_zero_this_turn
+                    || (state.players[i].deck_out_defer && state.players[i].deck.is_empty()))
                 .collect();
+            for p in state.players.iter_mut() {
+                p.deck_hit_zero_this_turn = false; // 判定はターンごと
+            }
             if !deck_out.is_empty() && !state.game_over {
                 if deck_out.len() == 2 {
                     state.game_over = true;
@@ -577,34 +671,56 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
                 r?;
             }
             // 2. return_to_deck_bottom_at_turn_end: 一時登場キャラを持ち主デッキ下へ (付与ドン→レスト)。
-            //    trigger 発火なし (単純 cleanup、 effects.py:11424)。 board 順で処理。
+            // ⭐ 「このキャラが場を離れる場合、 代わりに〜」 の置換は **ターン終了時の離脱にも** かかる
+            //    (公式 cardqa_eb_04 / EB04-044 コビー)。 effects.py と同順・同 leave_kind でミラー。
             {
-                let p = &mut state.players[me];
                 let mut i = 0;
-                while i < p.characters.len() {
-                    if p.characters[i].return_to_deck_bottom_at_turn_end {
-                        let ip = p.characters.remove(i);
-                        let don = ip.attached_dons;
-                        p.deck.push(ip.card);
-                        p.don_rested += don;
-                    } else {
+                while i < state.players[me].characters.len() {
+                    if !state.players[me].characters[i].return_to_deck_bottom_at_turn_end {
                         i += 1;
+                        continue;
                     }
+                    if crate::effects::try_replace_ko(state, me, i, false, "return_to_deck_bottom")? {
+                        // 置換成立 = 場に残る。 一時登場の期限は消化済 (Python と一致)。
+                        if i < state.players[me].characters.len() {
+                            state.players[me].characters[i].return_to_deck_bottom_at_turn_end = false;
+                        }
+                        i += 1;
+                        continue;
+                    }
+                    if i >= state.players[me].characters.len() {
+                        continue;   // 置換の do 内で既に場を離れた
+                    }
+                    let p = &mut state.players[me];
+                    let ip = p.characters.remove(i);
+                    let don = ip.attached_dons;
+                    p.deck.push(ip.card);
+                    p.don_rested += don;
                 }
             }
-            // 3. trash_at_self_turn_end: 自己犠牲 (trash、 effects.py:11434)。 trigger 発火なし。
+            // 3. trash_at_self_turn_end: 自己犠牲 (trash、 effects.py:11434)。
             {
-                let p = &mut state.players[me];
                 let mut i = 0;
-                while i < p.characters.len() {
-                    if p.characters[i].trash_at_self_turn_end {
-                        let ip = p.characters.remove(i);
-                        let don = ip.attached_dons;
-                        p.trash.push(ip.card);
-                        p.don_rested += don;
-                    } else {
+                while i < state.players[me].characters.len() {
+                    if !state.players[me].characters[i].trash_at_self_turn_end {
                         i += 1;
+                        continue;
                     }
+                    if crate::effects::try_replace_ko(state, me, i, false, "trash")? {
+                        if i < state.players[me].characters.len() {
+                            state.players[me].characters[i].trash_at_self_turn_end = false;
+                        }
+                        i += 1;
+                        continue;
+                    }
+                    if i >= state.players[me].characters.len() {
+                        continue;
+                    }
+                    let p = &mut state.players[me];
+                    let ip = p.characters.remove(i);
+                    let don = ip.attached_dons;
+                    p.trash.push(ip.card);
+                    p.don_rested += don;
                 }
             }
             // on-field end_of_turn (me) / opp_end_of_turn (opp)。 Python trigger_end_of_turn と同じく
@@ -629,10 +745,462 @@ pub fn advance_phase(state: &mut GameState) -> Result<(), String> {
     Ok(())
 }
 
+/// ライフ 1 枚ぶんの解決 (Python game.py:_resolve_life_taken の port)。
+///
+/// 戦闘ダメージ (rules.rs の damage ループ) と 効果ダメージ (effects.rs の
+/// `deal_opp_leader_damage`) の **両方から呼ぶ**。 2026-08-12 まで効果ダメージ側は
+/// 独自実装で、 【トリガー】が発動する局面を明示 bail していた (play_self の trash routing が
+/// 戦闘経路と揃わないため)。 Python は 1 つの関数を共有しているので、 Rust も共有すれば
+/// 順序ごと一致する。
+///
+/// - `is_banish`  : バニッシュ (= trash 直行、 【トリガー】も life 移動 when も無し)
+/// - `by_effect`  : 効果ダメージ。 `on_self_life_taken` (= 戦闘専用) を発火せず、
+///                  attacker 側は `_fire_opp_life_left_by_effect` と同じ when を使う
+/// - `fire_attacker_side`: 「相手のライフにダメージを与えた時」 は 1 アタック 1 回
+///                  (【ダブルアタック】の 2 発目は false、 公式 cardqa_op_03)
+pub(crate) fn resolve_life_taken(
+    state: &mut GameState,
+    me: usize,
+    opp: usize,
+    is_banish: bool,
+    by_effect: bool,
+    fire_attacker_side: bool,
+) -> Result<(), String> {
+    if state.players[opp].life.is_empty() {
+        return Ok(());
+    }
+    let taken_face_up = state.players[opp].life_face_up.remove(0);
+    let taken = state.players[opp].life.remove(0);
+    state.players[opp].life_lost_this_turn = true;
+    // ⭐ 「ルール上、 自分の表向きのライフは **手札に加わる代わりにデッキの下** に
+    //   置かれる」 (ST13-003、 公式 cardqa_st_13)。 【トリガー】は 「手札に加える
+    //   代わりに公開して発動する」 置換 (10-1-5) なので、 手札に加わらない =
+    //   **発動できない**。 Python game.py:_resolve_life_taken の同位置と対。
+    if taken_face_up && state.players[opp].face_up_life_to_deck_bottom {
+        let fire_zero_r = state.players[opp].life.is_empty();
+        state.players[opp].deck.push(taken);
+        // ⚠ 行き先はデッキの下なので **手札/トラッシュ系 when は発火しない**。
+        //   attacker 側の 「相手のライフが離れた時」 と defender 側の
+        //   「ダメージを受けた時」 は発火する (ライフは離れ、 ダメージも与えた)。
+        if fire_attacker_side {
+            crate::effects::fire_field_when(state, me, "on_opp_life_taken")?;
+        }
+        // ⚠ 「ダメージを受けた時」 は **戦闘ダメージ専用** (Python も by_effect では発火しない)。
+        if !by_effect {
+            crate::effects::fire_field_when(state, opp, "on_self_life_taken")?;
+        }
+        if fire_zero_r {
+            let lcid0 = state.players[opp].leader.card.card_id.clone();
+            if crate::effects::card_has_when(&lcid0, "on_life_zero") {
+                crate::effects::fire_on_life_zero(state, opp)?;
+            }
+        }
+        return Ok(());
+    }
+    // ⭐ 公式 (cardqa_op_05 / OP05-098 エネル): 「自分のライフが0枚になった時」 は
+    //   **0 になった瞬間の事象**。 この後 ライフ札の【トリガー】でライフが戻っても
+    //   発動できる。 ⚠ ただし **発動は ライフ処理が終わってから**
+    //   (公式 cardqa_op_11 / OP11-102 ケイミー × エネル: ターンプレイヤーの効果が先)。
+    //   Python game.py:_resolve_life_taken の **末尾** と同位置で発火する。
+    let fire_zero = state.players[opp].life.is_empty();
+    let cid = taken.card_id.clone();
+    if is_banish {
+        // バニッシュ = trash 直行、 _resolve_life_taken を通らない = life 移動 trigger 無
+        state.players[opp].trash.push(taken);
+        return Ok(());
+    }
+    let went_to_hand = match crate::effects::should_fire_trigger(state, opp, &cid) {
+        Some(false) => {
+            state.players[opp].hand.push(taken); // トリガー不発 → 手札
+            true
+        }
+        Some(true) if crate::effects::trigger_contains_play_self(&cid) => {
+            // play_self trigger (game.py:2117): taken を trash[0] に pre-place してから発火し、
+            // play_self が current_source_card_id で自身を探して登場させる。
+            // ⭐ Python の消費判定は identity (`_c is taken`) だが、 CardDef は **repository 共有
+            //   instance** = 同名カードは全て同一 object。 よって Python の still_in_trash loop
+            //   (`for _c in trash: if _c is taken`) は trash 内の任意の同名 cid に一致し、 先頭を pop
+            //   → routing する。 = position(cid) で先頭を探して routing する position ベースが同名複製
+            //   込みで Python と完全一致 (k≥1 の bail は不要だった)。 見つからない = play_self が全消費
+            //   (played_self=True, went_to_hand=false)。
+            state.players[opp].trash.insert(0, taken);
+            let kept = crate::effects::fire_life_trigger(state, opp, me, &cid)?;
+            match state.players[opp].trash.iter().position(|c| c.card_id == cid) {
+                Some(pos) => {
+                    // still_in_trash → played_self=False → life 札 (共有 object の任意 1 枚) を routing。
+                    let t = state.players[opp].trash.remove(pos);
+                    if kept {
+                        state.players[opp].hand.push(t);
+                        true
+                    } else {
+                        state.players[opp].trash.push(t);
+                        false
+                    }
+                }
+                // trash に cid 無し = play_self が taken を登場させた (played_self、 went_to_hand=false)
+                None => false,
+            }
+        }
+        Some(true) => {
+            // トリガー発火 (kept_in_hand で routing)。 未対応 trigger は Err で bail。
+            let kept = crate::effects::fire_life_trigger(state, opp, me, &cid)?;
+            if kept {
+                state.players[opp].hand.push(taken);
+                true
+            } else {
+                state.players[opp].trash.push(taken);
+                false
+            }
+        }
+        None => return Err("life trigger (unknown) 未対応".into()),
+    };
+    // 公式 10-1-5 直後の life 移動トリガー (trigger_on_opp_life_taken、 went_to_hand で分岐)。
+    // ⭐ 「相手のライフに **ダメージを与えた時**」 は 1 アタックにつき **1 回**
+    //   (公式 cardqa_op_03: 【ダブルアタック】で2ダメージでも 「いいえ、 1回のみ」)。
+    //   defender 側 (ライフが手札/トラッシュへ移動した時) は カードごとの事象なので毎 hit。
+    if by_effect {
+        // 効果ダメージ: Python は `_fire_opp_life_left_by_effect` を通す
+        // (= on_opp_life_taken + on_self_life_to_hand/to_trash、 **on_self_life_taken は無し**)。
+        if crate::effects::fire_opp_life_left_by_effect(
+            state, me, opp, if went_to_hand { "hand" } else { "trash" },
+        )
+        .is_err()
+        {
+            return Err("効果ダメージの life 移動 when 未対応".into());
+        }
+    } else {
+        if fire_attacker_side {
+            crate::effects::fire_field_when(state, me, "on_opp_life_taken")?;
+        }
+        if went_to_hand {
+            crate::effects::fire_field_when(state, opp, "on_self_life_to_hand")?;
+        } else {
+            crate::effects::fire_field_when(state, opp, "on_self_life_to_trash")?;
+        }
+        // ⚠ 「ダメージを受けた時」 は **戦闘ダメージ専用** (Python も by_effect では発火しない)。
+        crate::effects::fire_field_when(state, opp, "on_self_life_taken")?;
+    }
+    // ⭐ 「自分のライフが0枚になった時」 は **ライフ処理の後** に発動する
+    //   (Python game.py:_resolve_life_taken の末尾と同位置)。 ここで発火すると
+    //   【トリガー】 → ターンプレイヤーの反応 → 非ターンプレイヤーの on_life_zero
+    //   の順になり、 公式 (cardqa_op_11) と一致する。
+    if fire_zero {
+        let lcid0 = state.players[opp].leader.card.card_id.clone();
+        if crate::effects::card_has_when(&lcid0, "on_life_zero") {
+            crate::effects::fire_on_life_zero(state, opp)?;
+        }
+    }
+    Ok(())
+}
+
 /// action を state に適用 (副作用)。 Python apply_action ラッパ相当: impl 後に _recompute_static の
 /// ownership 部分を反映 (静的効果 eval は R3)。
+/// ResolveChoice を解決する。 picks で候補を絞って FORCED_TARGETS に注入し、
+/// 中断した primitive を再実行 → 退避した残り do を流す。
+/// 選択の解決を 1 行ずつ実況する診断スイッチ (`OPTCG_DEBUG_RESOLVE=1`)。
+/// 「同じ選択が延々と再提示される」 型のループはこれが無いと特定できない (2026-08-22)。
+/// ⚠ env は **一度だけ** 読む (解決は hot path)。
+fn debug_resolve() -> bool {
+    static F: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *F.get_or_init(|| std::env::var("OPTCG_DEBUG_RESOLVE").is_ok())
+}
+
+fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), String> {
+    let Some(pc) = state.pending_choice.take() else { return Ok(()) };
+    let picks: Vec<usize> = action
+        .get("picks")
+        .and_then(|v| v.as_array())
+        .map(|a| a.iter().filter_map(|x| x.as_u64().map(|u| u as usize)).collect())
+        .unwrap_or_default();
+    let chosen: Vec<(usize, crate::effects::Slot)> = picks
+        .iter()
+        .filter_map(|&i| pc.cand_slots.get(i))
+        .map(|&(pi, code)| (pi, crate::effects::code_to_slot(code)))
+        .collect();
+    let src = crate::effects::code_to_slot(pc.src_slot);
+    crate::effects::set_choice_suspended(false);
+    crate::effects::clear_last_forced_picks();
+    // ⭐ **効果単位の中断** (発動コストの手札捨て) は primitive の replay では再現できない
+    //   (コストは do の外)。 専用の再開経路で 「コスト支払い → 効果 index 指定の再発火」 を行う。
+    if pc.kind == "counter_discard_pick" {
+        return crate::effects::resume_event_cost_discard(state, &pc, &picks);
+    }
+    // ⭐ 起動メインの発動コスト選択も **効果単位** の中断。 選んだ札を picks に足して
+    //   `fire_activate_main_with_picks` を頭から呼び直す (コストは 1 回だけ払われる)。
+    if pc.kind == "activate_main_cost_pick" || pc.kind == "activate_main_discard_pick" {
+        return crate::effects::resume_activate_main_cost(state, &pc, &picks);
+    }
+    // ⭐ 注入先は kind で切り替える:
+    //   target 系 (target_pick) → FORCED_TARGETS ((player, Slot) の組)
+    //   index 系 (search_top_n 等) → FORCED_PICKS (zone 内の元 index)
+    if pc.kind == "target_pick" {
+        // ⚠ **位置 index は選択の解決中に stale になりうる** (Python は iid 参照なので化けない)。
+        //   例: 【相手のアタック時】の対象選択を立てたまま バトルが解決し、 選んだキャラが KO
+        //   される → 同じ index が別のキャラを指す (or 範囲外で panic)。 中断時の card_id と
+        //   照合し、 食い違ったら **明示 bail** する (黙って別のカードに効果を当てない)。
+        let mut stale: Vec<usize> = vec![];
+        for (k, &pi_idx) in picks.iter().enumerate() {
+            let Some(&(pi, code)) = pc.cand_slots.get(pi_idx) else { continue };
+            let want = pc.cand_cards.get(pi_idx).cloned().unwrap_or_default();
+            if want.is_empty() {
+                continue; // 中断時にも解決できなかった候補 (= 元から場外) は照合しない
+            }
+            let now = crate::effects::src_ip_pub(
+                &state.players[pi], crate::effects::code_to_slot(code))
+                .map(|ip| ip.card.card_id.clone());
+            let _ = k;
+            match now {
+                Some(cid) if cid == want => {}
+                // ⭐ Python は iid 参照なので 「その札が場を離れた」 = `_resolve_target` が
+                //   空を返し **効果は何も起きない**。 Rust も同じく **その対象を落とす**
+                //   (位置 index が別の札を指していても巻き添えにしない)。
+                _ => stale.push(pi_idx),
+            }
+        }
+        if !stale.is_empty() {
+            let keep: Vec<(usize, crate::effects::Slot)> = picks
+                .iter()
+                .enumerate()
+                .filter(|(k, _)| !stale.contains(&picks[*k]))
+                .filter_map(|(_, &i)| pc.cand_slots.get(i))
+                .map(|&(pi, code)| (pi, crate::effects::code_to_slot(code)))
+                .collect();
+            crate::effects::set_forced_targets(Some(keep));
+        } else {
+            crate::effects::set_forced_targets(Some(chosen));
+        }
+    } else if pc.kind == "option_pick" {
+        // picks は **選択肢の index** (= 盤面/手札の index ではない) なので注入しない。
+    } else if pc.kind == "field_full_sacrifice_pick" {
+        // ⭐ 場 5 枚差し替え (3-7-6-1) の犠牲。 FORCED_PICKS ではなく **犠牲キュー** に積み、
+        //   召喚 primitive を replay する (Python `state.field_full_sacrifice_iids` と同形)。
+        state.rust_field_full_sacrifice = picks
+            .iter()
+            .filter_map(|&i| pc.cand_slots.get(i))
+            .filter_map(|&(_pi, code)| {
+                if let crate::effects::Slot::Char(ci) = crate::effects::code_to_slot(code) {
+                    Some(ci)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        // ⭐ 前段の選択で注入されていた picks を **持ち越す** (= 同じ primitive を replay する
+        //   ので、 落とすと 「どれを出すか」 の選択がやり直しになり無限ループする)。
+        if !pc.carried_picks.is_empty() {
+            crate::effects::set_forced_picks(Some(pc.carried_picks.clone()));
+        }
+    } else {
+        let idxs: Vec<usize> = picks
+            .iter()
+            .filter_map(|&i| pc.cand_slots.get(i))
+            .map(|&(_pi, code)| code as usize)
+            .collect();
+        crate::effects::set_forced_picks(Some(idxs));
+    }
+    // ⭐ option_pick は 「選択肢そのもの」 を prim に持つ (= 再実行する primitive が無い)。
+    //   選ばれた選択肢の do 配列 + 退避した残り do を流す (Python `resolve_pending_choice`
+    //   の option_pick 分岐 = `run_do_array(chosen_do, ...)` と同形)。
+    let mut option_dos: Option<Vec<Value>> = None;
+    if pc.kind == "option_pick" {
+        let spec = pc.prim.get("__option_pick");
+        let opts = spec
+            .and_then(|o| o.get("options"))
+            .and_then(|o| o.as_array())
+            .cloned()
+            .unwrap_or_default();
+        let chosen = picks.first().copied();
+        match chosen {
+            // 範囲外 / 未選択 = 発動しない (Python: skip して残り do だけ流す)
+            Some(i) if i < opts.len() => {
+                // 対象が確定している選択肢は forced_target で再解決を防ぐ
+                //   (Python は各選択肢の spec に `_iid_picks` を埋めている)。
+                let mut target_gone = false;
+                if let Some(ft) = spec.and_then(|o| o.get("forced_target")).and_then(|x| x.as_array()) {
+                    if ft.len() == 2 {
+                        let pi = ft[0].as_u64().unwrap_or(0) as usize;
+                        let code = ft[1].as_i64().unwrap_or(0);
+                        let slot = crate::effects::code_to_slot(code);
+                        // ⚠ **位置 index は stale になりうる** (選択の解決中に場が動く)。 Python は
+                        //   `_iid_picks` で iid を持つので、 対象が場を離れていれば
+                        //   `_resolve_target` が空を返し **効果は no-op**。 Rust も同じにする
+                        //   (bounds 外を注入すると get_ip_mut が panic して self-play が死ぬ)。
+                        if crate::effects::src_ip_pub(&state.players[pi], slot).is_none() {
+                            target_gone = true;
+                        } else {
+                            crate::effects::set_forced_targets(Some(vec![(pi, slot)]));
+                        }
+                    }
+                }
+                option_dos = Some(if target_gone {
+                    vec![] // 対象が場を離れた = 効果は発動しない (Python も targets 空で continue)
+                } else {
+                    opts[i].as_array().cloned().unwrap_or_default()
+                });
+            }
+            _ => option_dos = Some(vec![]),
+        }
+    }
+    // ⭐ 「再実行する primitive」 + 「退避した残り do」 を **1 本の do 配列** として回す。
+    //   再実行した primitive の中でさらに選択が立つ (= 登場効果が別の選択サイトを踏む) 型が
+    //   あり、 以前は pc.prim の直後に `suspend_if_choice` を通していなかったので
+    //   **残り do を取りこぼしたまま次の中断が立って** 候補が空になっていた (2026-08-21)。
+    let mut dos: Vec<Value> = Vec::with_capacity(pc.remaining_do.len() + 1);
+    if let Some(od) = option_dos {
+        dos.extend(od);
+    } else {
+        dos.push(pc.prim.clone());
+    }
+    dos.extend(pc.remaining_do.iter().cloned());
+    // ⭐ 2 択 confirm 系 (optional_cost_confirm) は picks[0] が **発動する/しない**。
+    //   発動 → 同 spec を `_cost_confirmed` 付きで再実行 / 見送り → その primitive を飛ばす
+    //   (残り do は流す)。 Python `resolve_pending_choice` (effects.py:11626) と同形。
+    let mut start = 0usize;
+    // ⭐ 「デッキ上 1 枚を公開 → 登場させ**てもよい**」 の 2 択 (Python
+    //   `reveal_top_play_confirm`、 effects.py:12796)。 Rust は zone を触る前に中断して
+    //   いるので、 選んだ結果を spec に畳んで **同 primitive を replay** する。
+    if pc.kind == "reveal_top_play_confirm" {
+        let want = i64::from(picks.first().copied() == Some(1));
+        if let Some(o) = dos[0].as_object_mut() {
+            if let Some((_k, sv)) = o.iter_mut().next() {
+                if let Some(so) = sv.as_object_mut() {
+                    so.insert("_confirm".into(), serde_json::Value::from(want));
+                }
+            }
+        }
+    }
+    if pc.kind == "optional_cost_confirm" {
+        if picks.first().copied() == Some(1) {
+            if let Some(spec) = dos[0].get("optional_cost_then").cloned() {
+                let mut s = spec;
+                if let Some(o) = s.as_object_mut() {
+                    o.insert("_cost_confirmed".into(), Value::Bool(true));
+                }
+                dos[0] = serde_json::json!({"optional_cost_then": s});
+            }
+        } else {
+            // ⭐ 見送りは 【ターン1回】 を **未使用に戻す** (公式 cardqa_op_03: 「発動しない
+            //   ことを選んだ」 なら そのターン中まだ使える)。 「この起動で立てた分か」 は
+            //   `rust_act_used_set_by` (Python `_act_used_set_by_current_fire`) で判定する。
+            let already_used = match src {
+                crate::effects::Slot::Detached => false,
+                _ => crate::effects::src_ip_pub(&state.players[pc.me_idx], src)
+                    .map(|ip| ip.act_used).unwrap_or(false),
+            };
+            let set_by_this = state.rust_act_used_set_by
+                == Some((pc.me_idx, crate::effects::slot_to_code_pub(src)));
+            if already_used {
+                if set_by_this {
+                    if let Some(ip) = crate::effects::src_ip_mut_pub(&mut state.players[pc.me_idx], src) {
+                        ip.act_used = false;
+                    }
+                } else {
+                    // この起動で立てた分でない = 戻してはいけない。 追跡できないので明示 bail。
+                    return Err("optional_cost_confirm 見送り: 別経路の【ターン1回】は復元不可".into());
+                }
+            }
+            start = 1;
+        }
+    }
+    // ⚠ 注入した picks は **必ず** 使い切って捨てる。 「見送り (start=1) かつ残り do が無い」
+    //   経路で消し忘れ、 次の action の search_top_n が **他人の picks を replay と誤認** して
+    //   選択サイトを素通りしていた (2026-08-21、 thread_local_debug で forced_p=true を観測)。
+    struct ForcedGuard;
+    impl Drop for ForcedGuard {
+        fn drop(&mut self) {
+            crate::effects::set_forced_targets(None);
+            crate::effects::set_forced_picks(None);
+        }
+    }
+    let _guard = ForcedGuard;
+    for ci in start..dos.len() {
+        let prim = dos[ci].clone();
+        if debug_resolve() {
+            eprintln!("[resolve] kind={} ci={} q={} prim={} src={:?} me={}", pc.kind, ci,
+                state.rust_event_queue.len(),
+                serde_json::to_string(&prim).unwrap_or_default(), src, pc.me_idx);
+        }
+        let ok = crate::effects::execute_effect_pub(&prim, state, pc.me_idx, src);
+        if ci == start {
+            crate::effects::set_forced_targets(None);
+            crate::effects::set_forced_picks(None);
+        }
+        if !ok {
+            // ⚠ どの primitive で落ちたかを出す。 総称メッセージのままだと bail 内訳が
+            //   「残り do が未対応」 に丸まって **移植の優先順位が読めない**。
+            let key = prim.as_object().and_then(|o| o.keys().next())
+                .map(|s| s.as_str()).unwrap_or("?");
+            let inner = crate::effects::last_prim_err();
+            return Err(if ci == 0 {
+                format!("ResolveChoice: 再実行した primitive が未対応: {key} [{inner}]")
+            } else {
+                format!("ResolveChoice: 残り do の primitive が未対応: {key}")
+            });
+        }
+        if crate::effects::suspend_if_choice(state, &dos, ci, &prim, src, pc.me_idx) {
+            break;
+        }
+    }
+    state.rust_field_full_sacrifice.clear(); // Python の finally 相当 (replay 後に畳む)
+    // ⭐ 選択が解けたら **キューに残しておいたイベントを再 drain** する (Python
+    //   `resolve_pending_choice` 末尾の `if state.pending_choice is None and state.event_queue:
+    //    resolve_triggers(state)` と 1:1)。 選択待ち中は drain を止めているので、 ここで
+    //   流さないと 「選択の後に発動するはずだった効果」 が丸ごと消える。
+    if state.pending_choice.is_none() {
+        crate::effects::maybe_resolve(state)?;
+    }
+    Ok(())
+}
+
 pub fn apply_action(state: &mut GameState, action: &Value) -> Result<(), String> {
+    // ⛔ 選択列挙モードは **target_pick のみ** 追従済。 他 kind は未実装なので、
+    //   pending_choice が立っていない状態で列挙モードに入るのは まだ許さない…
+    //   ではなく、 「未対応の選択サイトに当たったら中で bail する」 方式に移行した。
+    //   ⚠ 実装済 kind が増えるまでは env `ONEPIECE_RUST_CHOICE=1` を明示した時だけ通す
+    //     (既定は従来どおり全面 bail = 黙って別のゲームを進めない)。
+    // ⭐ 選択列挙モードは **site-specific bail** へ移行済:
+    //   - target_pick (= resolve_target 経由 21 サイト) は `pick_one_or_suspend` で実装
+    //   - 未移植の選択 primitive 35 件 / 複数候補の発動コストは **その場で bail**
+    //   なので全面 gate は不要。 「bit 一致 か 明示 bail」 は各サイトが保証する。
+    // ⭐ ResolveChoice = 立っている選択を 1 アクションとして解決する (Python と同形)。
+    //   picks を FORCED_TARGETS に注入して **その primitive を再実行** し、 続けて
+    //   退避しておいた残り do を流す (Rust には continuation が無いので replay 方式)。
+    if action.get("t").and_then(|v| v.as_str()) == Some("ResolveChoice") {
+        let _ = crate::effects::take_choice_bail();
+        let r = resolve_choice_action(state, action);
+        if let Some(reason) = crate::effects::take_choice_bail() {
+            crate::effects::set_choice_suspended(false);
+            return Err(format!("choice_enumeration: {reason} は Rust 未移植 (ResolveChoice 中)"));
+        }
+        if crate::effects::choice_suspended() && state.pending_choice.is_none() {
+            crate::effects::set_choice_suspended(false);
+            return Err("choice_enumeration: 中断点を拾えない発火経路 (ResolveChoice 中)".into());
+        }
+        if r.is_ok() {
+            recompute_static(state);
+            for p in state.players.iter_mut() {
+                normalize_known_hand(p);
+            }
+        }
+        return r;
+    }
+    crate::effects::set_choice_suspended(false);
+    crate::effects::clear_last_forced_picks();
+    let _ = crate::effects::take_choice_bail();
     let r = apply_action_impl(state, action);
+    // ⛔ 深い選択サイトが 「Python はここで訊く」 と予約した bail を回収する。
+    if let Some(reason) = crate::effects::take_choice_bail() {
+        crate::effects::set_choice_suspended(false);
+        return Err(format!("choice_enumeration: {reason} は Rust 未移植"));
+    }
+    // ⭐ 安全弁: 選択サイトが中断フラグを立てたのに **誰も `suspend_if_choice` で拾わなかった**
+    //   場合、 その primitive は 「何もせず true を返した」 = 効果が **黙って消える**。
+    //   これは 「bit 一致か明示 bail か」 の不変条件を破る唯一の抜け道なので Err に落とす
+    //   (= 中断を拾えない発火経路が残っていることの検出器も兼ねる)。
+    if crate::effects::choice_suspended() && state.pending_choice.is_none() {
+        crate::effects::set_choice_suspended(false);
+        return Err("choice_enumeration: 中断点を拾えない発火経路 (残り do を退避できない)".into());
+    }
     if r.is_ok() {
         recompute_static(state); // ownership + 静的効果 (Python _recompute_static)
         for p in state.players.iter_mut() {
@@ -698,6 +1266,8 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             p.don_active -= eff_cost;
             let consumed = card.cost - eff_cost;
             p.play_cost_reduction = (p.play_cost_reduction - consumed).max(0);
+            crate::effects::consume_filtered_turn_reduction(state, me, &card); // 「次に」=1枚 (OP02-025)
+            let p = &mut state.players[me];
             let sickness = !card.is_rush();
             p.characters.push(InPlay::of(card.clone(), sickness));
             p.cards_played_count += 1;
@@ -722,9 +1292,10 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 p.dons_used_count += n;
                 n
             };
-            // 【このリーダーか自分のキャラにドンが付与された時】(game.py:1442、 OP02-002)。
+            // 【このリーダーか自分のキャラにドンが付与された時】(game.py、 OP02-002)。
+            // ⭐ **付与されたドン 1 枚につき 1 回** 発火 (cardqa_op_02、 2026-08-17 是正)。
             if n > 0 {
-                crate::effects::fire_on_self_don_attached(state, me)?;
+                crate::effects::fire_on_self_don_attached_n(state, me, n)?;
             }
             Ok(())
         }
@@ -742,7 +1313,7 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 n
             };
             if n > 0 {
-                crate::effects::fire_on_self_don_attached(state, me)?;
+                crate::effects::fire_on_self_don_attached_n(state, me, n)?;
             }
             Ok(())
         }
@@ -840,7 +1411,29 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             } else {
                 state.players[me].characters[atk_idx].card.attribute.clone()
             });
-            crate::effects::fire_on_attack(state, me, is_leader, atk_idx)?;
+            // ⭐ **判断はすべて do より前** (Python は `state.resolving = True` で包んで
+            //   trigger_on_attack → trigger_on_opp_attack を enqueue し切ってから drain する)。
+            //   = 【相手のアタック時】の EV/支払い判断は **【アタック時】の do が走る前** の盤面で
+            //   下される。 Rust が on_attack を do まで実行してから判断していたため、
+            //   on_attack が誘発した【KO時】でライフが増えた盤面で防御 EV を測っていた
+            //   (2026-08-22、 全カード掃引の OP07-019 緑ボニーで発覚)。
+            let on_atk_fired = crate::effects::collect_on_attack(state, me, is_leader, atk_idx)?;
+            let ap_pre = if is_leader {
+                state.players[me].leader.power()
+            } else {
+                state.players[me].characters.get(atk_idx).map(|c| c.power()).unwrap_or(0)
+            };
+            let atk_cost_pre = if is_leader {
+                state.players[me].leader.card.cost
+            } else {
+                state.players[me].characters.get(atk_idx).map(|c| c.card.cost).unwrap_or(0)
+            };
+            let dp_pre = state.players[opp].leader.power();
+            let plan_opp = crate::effects::collect_opp_attack(
+                state, opp, "opp_attack", ap_pre, atk_cost_pre, dp_pre)?;
+            let plan_opp_leader = crate::effects::collect_opp_attack(
+                state, opp, "opp_attack_on_leader", ap_pre, atk_cost_pre, dp_pre)?;
+            crate::effects::fire_on_attack_collected(state, me, is_leader, atk_idx, on_atk_fired)?;
             // ⭐ Python は attacker を object 参照で保持するので、 on_attack で自身が場を離れても
             //   そのオブジェクトを読み続けてバトルを解決する。 Rust は fire_gated_do / cost 支払いが
             //   離場直前のスナップショットを state.rust_detached_src に残すので、 それを使う。
@@ -895,9 +1488,10 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             } else {
                 state.players[me].characters.get(atk_idx).cloned()
             };
-            crate::effects::fire_opp_attack(state, opp, "opp_attack", ap, atk_cost, dp)?;
-            let dp2 = state.players[opp].leader.power();
-            crate::effects::fire_opp_attack(state, opp, "opp_attack_on_leader", ap, atk_cost, dp2)?;
+            let _ = (ap, atk_cost, dp);
+            crate::effects::fire_opp_attack_collected(state, opp, "opp_attack", plan_opp)?;
+            crate::effects::fire_opp_attack_collected(
+                state, opp, "opp_attack_on_leader", plan_opp_leader)?;
             // opp_attack で defender の盤面が動いても、 タグで宣言ブロッカーの現在位置を取り直す
             // (Python の blocker_iid 解決と等価)。 場から消えていれば「ブロッカー消失」= ブロック無効
             // (game.py:1608)。
@@ -1067,10 +1661,16 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
 
             if is_blocked {
                 // ブロッカー vs アタッカー (勝てば blocker KO、 負ければ生存、 リーダーへの damage 無)
+                // 「属性X とバトルする時、 このターン中 +N」 は **ターン持続で累積**
+                // (Python game.py:2117 と同位置・同順)。 turn_buff に積み、 このバトルの
+                // power にも反映する。 ⚠ attacker は snapshot なので手動で足す。
+                let atk_slot = crate::effects::peek_tagged(state, me, state.current_attacker_tok);
+                let (bp_atk, _bp_def) = apply_battle_attr_pump(
+                    state, (me, atk_slot), (opp, crate::effects::Slot::Char(blk_idx)));
                 let (atk_power, def_power, immune) = {
                     let blocker = &state.players[opp].characters[blk_idx];
-                    let ap = atk_power_base + battle_attr_bonus(&attacker, blocker);
-                    let dp = blocker.power() + counter_added + battle_attr_bonus(blocker, &attacker);
+                    let ap = atk_power_base + bp_atk;
+                    let dp = blocker.power() + counter_added;
                     let vs_leader_immune = blocker.battle_ko_immune_vs_leader && atk_kind == "leader";
                     let imm = blocker.ko_immune_until_turn_end
                         || battle_ko_immune_by_attribute(blocker, &attacker)
@@ -1106,87 +1706,11 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 // per-hit 処理 (Python _resolve_life_taken)。 トリガー発火は board を変えうるので hit ごとに
                 // should_fire を再評価 (一括 pre-check 不可)。 発火は fire_life_trigger (source-gone 安全 subset、
                 // 未対応 trigger は Err bail)。 発火成立で kept_in_hand=false → trash、 不発 → hand。
-                for _ in 0..damage {
+                for hit_i in 0..damage {
                     if state.players[opp].life.is_empty() {
                         break;
                     }
-                    let taken = state.players[opp].life.remove(0);
-                    state.players[opp].life_lost_this_turn = true;
-                    // ⭐ 公式 (cardqa_op_05 / OP05-098 エネル): 「自分のライフが0枚になった時」 は
-                    //   **0 になった瞬間の事象**。 この後 ライフ札の【トリガー】でライフが戻っても
-                    //   発動できる。 ⚠ ただし **発動は ライフ処理が終わってから**
-                    //   (公式 cardqa_op_11 / OP11-102 ケイミー × エネル: ターンプレイヤーの効果が先)。
-                    //   Python game.py:_resolve_life_taken の **末尾** と同位置で発火する。
-                    let fire_zero = state.players[opp].life.is_empty();
-                    let cid = taken.card_id.clone();
-                    if is_banish {
-                        // バニッシュ = trash 直行、 _resolve_life_taken を通らない = life 移動 trigger 無
-                        state.players[opp].trash.push(taken);
-                        continue;
-                    }
-                    let went_to_hand = match crate::effects::should_fire_trigger(state, opp, &cid) {
-                        Some(false) => {
-                            state.players[opp].hand.push(taken); // トリガー不発 → 手札
-                            true
-                        }
-                        Some(true) if crate::effects::trigger_contains_play_self(&cid) => {
-                            // play_self trigger (game.py:2117): taken を trash[0] に pre-place してから発火し、
-                            // play_self が current_source_card_id で自身を探して登場させる。
-                            // ⭐ Python の消費判定は identity (`_c is taken`) だが、 CardDef は **repository 共有
-                            //   instance** = 同名カードは全て同一 object。 よって Python の still_in_trash loop
-                            //   (`for _c in trash: if _c is taken`) は trash 内の任意の同名 cid に一致し、 先頭を pop
-                            //   → routing する。 = position(cid) で先頭を探して routing する position ベースが同名複製
-                            //   込みで Python と完全一致 (k≥1 の bail は不要だった)。 見つからない = play_self が全消費
-                            //   (played_self=True, went_to_hand=false)。
-                            state.players[opp].trash.insert(0, taken);
-                            let kept = crate::effects::fire_life_trigger(state, opp, me, &cid)?;
-                            match state.players[opp].trash.iter().position(|c| c.card_id == cid) {
-                                Some(pos) => {
-                                    // still_in_trash → played_self=False → life 札 (共有 object の任意 1 枚) を routing。
-                                    let t = state.players[opp].trash.remove(pos);
-                                    if kept {
-                                        state.players[opp].hand.push(t);
-                                        true
-                                    } else {
-                                        state.players[opp].trash.push(t);
-                                        false
-                                    }
-                                }
-                                // trash に cid 無し = play_self が taken を登場させた (played_self、 went_to_hand=false)
-                                None => false,
-                            }
-                        }
-                        Some(true) => {
-                            // トリガー発火 (kept_in_hand で routing)。 未対応 trigger は Err で bail。
-                            let kept = crate::effects::fire_life_trigger(state, opp, me, &cid)?;
-                            if kept {
-                                state.players[opp].hand.push(taken);
-                                true
-                            } else {
-                                state.players[opp].trash.push(taken);
-                                false
-                            }
-                        }
-                        None => return Err("life trigger (unknown) 未対応".into()),
-                    };
-                    // 公式 10-1-5 直後の life 移動トリガー (trigger_on_opp_life_taken、 went_to_hand で分岐)。
-                    crate::effects::fire_field_when(state, me, "on_opp_life_taken")?;
-                    if went_to_hand {
-                        crate::effects::fire_field_when(state, opp, "on_self_life_to_hand")?;
-                    } else {
-                        crate::effects::fire_field_when(state, opp, "on_self_life_to_trash")?;
-                    }
-                    crate::effects::fire_field_when(state, opp, "on_self_life_taken")?;
-                    // ⭐ 「自分のライフが0枚になった時」 は **ライフ処理の後** に発動する
-                    //   (Python game.py:_resolve_life_taken の末尾と同位置)。 ここで発火すると
-                    //   【トリガー】 → ターンプレイヤーの反応 → 非ターンプレイヤーの on_life_zero
-                    //   の順になり、 公式 (cardqa_op_11) と一致する。
-                    if fire_zero {
-                        let lcid0 = state.players[opp].leader.card.card_id.clone();
-                        if crate::effects::card_has_when(&lcid0, "on_life_zero") {
-                            crate::effects::fire_on_life_zero(state, opp)?;
-                        }
-                    }
+                    resolve_life_taken(state, me, opp, is_banish, false, hit_i == 0)?;
                 }
             }
             reset_battle_buffs(state);
@@ -1295,7 +1819,28 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             } else {
                 state.players[me].characters[atk_idx].card.attribute.clone()
             });
-            crate::effects::fire_on_attack(state, me, is_leader, atk_idx)?;
+            // ⭐ 判断 (EV/支払い) はすべて do より前 — AttackLeader 側と同じ理由。
+            //   Python は resolving=True で on_attack と opp_attack を enqueue し切ってから drain する。
+            let on_atk_fired = crate::effects::collect_on_attack(state, me, is_leader, atk_idx)?;
+            let ap_pre = if is_leader {
+                state.players[me].leader.power()
+            } else {
+                state.players[me].characters.get(atk_idx).map(|c| c.power()).unwrap_or(0)
+            };
+            let atk_cost_pre = if is_leader {
+                state.players[me].leader.card.cost
+            } else {
+                state.players[me].characters.get(atk_idx).map(|c| c.card.cost).unwrap_or(0)
+            };
+            let dp_pre = match crate::effects::peek_tagged(state, opp, tgt_tok) {
+                crate::effects::Slot::Char(i) => state.players[opp].characters[i].power(),
+                _ => 0,
+            };
+            let plan_opp = crate::effects::collect_opp_attack(
+                state, opp, "opp_attack", ap_pre, atk_cost_pre, dp_pre)?;
+            let plan_opp_chara = crate::effects::collect_opp_attack(
+                state, opp, "opp_attack_on_chara", ap_pre, atk_cost_pre, dp_pre)?;
+            crate::effects::fire_on_attack_collected(state, me, is_leader, atk_idx, on_atk_fired)?;
             // ⭐ Python は attacker を object 参照で保持するので、 on_attack で自身が場を離れても
             //   そのオブジェクトを読み続けてバトルを解決する。 Rust は fire_gated_do / cost 支払いが
             //   離場直前のスナップショットを state.rust_detached_src に残すので、 それを使う。
@@ -1349,12 +1894,10 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             } else {
                 state.players[me].characters.get(atk_idx).cloned()
             };
-            crate::effects::fire_opp_attack(state, opp, "opp_attack", ap, atk_cost, dp)?;
-            let dp2 = match cur_tgt(state) {
-                i if i >= 0 => state.players[opp].characters[i as usize].power(),
-                _ => 0,
-            };
-            crate::effects::fire_opp_attack(state, opp, "opp_attack_on_chara", ap, atk_cost, dp2)?;
+            let _ = (ap, atk_cost, dp);
+            crate::effects::fire_opp_attack_collected(state, opp, "opp_attack", plan_opp)?;
+            crate::effects::fire_opp_attack_collected(
+                state, opp, "opp_attack_on_chara", plan_opp_chara)?;
             // target 存在チェック (on_attack/opp_attack 後、 消失 = 空打ち = reset+Ok、 game.py:1849)。
             // ⚠ 「長さ」 ではなく **タグ** で見る。 対象が KO されて後ろが繰り上がると
             //   index は生きたままなので、 長さ判定だと別のキャラを殴ってしまう。
@@ -1462,10 +2005,15 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 return Ok(());
             }
             // === バトル解決 (attr bonus 両方向) ===
+            // 「属性X とバトルする時、 このターン中 +N」 は **ターン持続で累積**
+            // (Python game.py:2467 と同位置)。 turn_buff に積み、 このバトルにも反映。
+            let atk_slot2 = crate::effects::peek_tagged(state, me, state.current_attacker_tok);
+            let (bp_atk2, _bp_def2) = apply_battle_attr_pump(
+                state, (me, atk_slot2), (opp, crate::effects::Slot::Char(actual_idx)));
             let (atk_power, def_power, immune) = {
                 let target = &state.players[opp].characters[actual_idx];
-                let ap = attacker.power() + battle_attr_bonus(&attacker, target);
-                let dp = target.power() + counter_added + battle_attr_bonus(target, &attacker);
+                let ap = attacker.power() + bp_atk2;
+                let dp = target.power() + counter_added;
                 let imm = target.ko_immune_until_turn_end || battle_ko_immune_by_attribute(target, &attacker);
                 (ap, dp, imm)
             };
@@ -1523,6 +2071,8 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             p.don_active -= eff_cost;
             let consumed = card.cost - eff_cost;
             p.play_cost_reduction = (p.play_cost_reduction - consumed).max(0);
+            crate::effects::consume_filtered_turn_reduction(state, me, &card); // 「次に」=1枚 (OP02-025)
+            let p = &mut state.players[me];
             let card_id = card.card_id.clone();
             let ccost = card.cost;
             p.trash.push(card);
@@ -1557,6 +2107,8 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             p.don_active -= eff_cost;
             let consumed = card.cost - eff_cost;
             p.play_cost_reduction = (p.play_cost_reduction - consumed).max(0);
+            crate::effects::consume_filtered_turn_reduction(state, me, &card); // 「次に」=1枚 (OP02-025)
+            let p = &mut state.players[me];
             p.stages.push(InPlay::of(card.clone(), false)); // stage は召喚酔い無
             p.cards_played_count += 1;
             let played_idx = p.stages.len() - 1;

@@ -160,7 +160,12 @@ def fast_clone(state: "GameState") -> "GameState":
     # ⚡ deck/hand/trash/life は CardDef(immutable、 deepcopy が self を返す=共有前提)のリスト。
     # deepcopy は各カードを訪問する overhead(profile: deepcopy が sim の ~37%)。 一時退避して
     # deepcopy 対象外にし、 clone には list()(浅い複製=CardDef 共有・リストは独立)を後付けする。
-    saved_cardlists = [(p.deck, p.hand, p.trash, p.life) for p in state.players]
+    # ⚠ life は per-card の表向きフラグ (life_face_up) と対。 `p.life = ...` の代入は
+    #   Player.__setattr__ が **フラグを裏向きで張り直す** ので、 退避・復元・複製のいずれでも
+    #   フラグを一緒に運ばないと **表向き情報が黙って消える** (長さは一致するので guard では
+    #   検出できない = 2026-08-11 に差分ハーネスが MISMATCH 28 で検出)。
+    saved_cardlists = [(p.deck, p.hand, p.trash, p.life, list(p.life_face_up))
+                       for p in state.players]
     for p in state.players:
         p.deck, p.hand, p.trash, p.life = [], [], [], []
     # ⚡ state.rng(Mersenne Twister)の deepcopy = 625-int state tuple の複製で高コスト
@@ -186,13 +191,15 @@ def fast_clone(state: "GameState") -> "GameState":
             state._battle_events = saved_be  # type: ignore[attr-defined]
         if saved_fired is not None:
             state._fired_target_counts = saved_fired  # type: ignore[attr-defined]
-        for p, (d, h, t, l) in zip(state.players, saved_cardlists):
+        for p, (d, h, t, l, fu) in zip(state.players, saved_cardlists):
             p.deck, p.hand, p.trash, p.life = d, h, t, l
+            p.life_face_up = fu          # ⚠ life 代入の **後** に戻す (順序を逆にすると潰れる)
         if saved_rng is not None:
             state.rng = saved_rng
     # clone 側: CardDef リストを浅く複製(CardDef 共有、 リスト自体は独立=append/remove が原に非影響)
-    for cp, (d, h, t, l) in zip(cloned.players, saved_cardlists):
+    for cp, (d, h, t, l, fu) in zip(cloned.players, saved_cardlists):
         cp.deck, cp.hand, cp.trash, cp.life = list(d), list(h), list(t), list(l)
+        cp.life_face_up = list(fu)       # ⚠ life 代入の **後** に複製する
     # clone に軽い新 Random(決定的 seed)。 探索内 random 効果は固定 determinization で解決。
     if saved_rng is not None:
         global _CLONE_RNG_COUNTER

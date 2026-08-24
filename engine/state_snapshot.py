@@ -61,6 +61,15 @@ _EXCLUDE = {
                                    #   除外しても 「アタックがどこに向いたか」 は battle 結果 (ライフ/KO) で
                                    #   検証される。 ⚠ 除外前は 効果を単体発火する差分検証 (直接発火 harness)
                                    #   でのみ露見していた (OP14-060、 2026-08-03)
+    "choice_enum_idxs",            # 選択列挙を適用するプレイヤー (= A/B 用の設定)。
+    "choice_owner_idx",            # 選択列挙モードで 「その選択を誰が選ぶか」 の transient。
+    "choice_enumeration",          # 選択列挙モード (= 探索が効果中の選択を分岐する) の設定フラグ。
+                                   #   ゲーム状態でなく **探索の設定** なので digest 対象外。
+                                   #   OFF (既定) の間は Rust と挙動が完全一致する。
+    "field_full_sacrifice_iids",   # 場 5 枚差し替え (3-7-6-1) で **人間が選んだ** 犠牲キャラの
+                                   #   instance_id キュー。 instance_id 依存 = Rust 再現不可、 かつ
+                                   #   人間 modal 経路でしか埋まらない (AI/self-play では常に空)。
+                                   #   召喚 primitive の replay 内で consume される action 内 transient。
     # --- ルール状態でない meta (AI 評価 / UI / デッキ情報 / human 対話) = 差分対象外 ---
     "action_evals",        # AI 行動品質評価履歴
     "audit_violations",    # audit meta
@@ -119,6 +128,14 @@ def state_digest(state: Any) -> str:
     return hashlib.sha1(blob.encode("utf-8")).hexdigest()[:16]
 
 
+# digest からは除外するが **Rust への full dump には載せる** field。
+# 選択列挙モードは 「ゲーム状態」 ではないので digest に入れてはいけないが、 Rust が
+# 「このモードは未対応だから bail する」 と判断するには値が見えている必要がある。
+# ⚠ これが見えないと Rust は Python が選択を列挙している事に気付かず、 従来どおり
+#   自動解決して **黙って別のゲーム** を進める (= 学習データの静かな汚染)。
+_FULL_DUMP_KEEP = {"choice_enumeration"}
+
+
 def _ser_full(obj: Any) -> Any:
     """Rust 取込用の full dump: canonical と同じだが CardDef を **畳まず全 field の dict** で出す
     (Rust の CardDef struct が deserialize できるように)。 instance_id 除外・set→sorted は同じ。"""
@@ -132,7 +149,8 @@ def _ser_full(obj: Any) -> Any:
             "text": obj.text, "trigger": obj.trigger,
         }
     if is_dataclass(obj) and not isinstance(obj, type):
-        return {f.name: _ser_full(getattr(obj, f.name)) for f in fields(obj) if f.name not in _EXCLUDE}
+        return {f.name: _ser_full(getattr(obj, f.name)) for f in fields(obj)
+                if f.name not in _EXCLUDE or f.name in _FULL_DUMP_KEEP}
     if isinstance(obj, Enum):
         return obj.name
     if isinstance(obj, dict):

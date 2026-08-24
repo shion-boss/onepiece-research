@@ -484,7 +484,8 @@ def test_eb02_060_going_merry_activate_main_pump_ai():
     merry = InPlay.of(repo.get("EB02-060"), sickness=False)  # STAGE
     me.stages = [merry]
     me.life = [repo.get("ST01-004")] * 2  # 表向きにできる裏ライフあり
-    me.face_up_life_count = 0
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
     friend = InPlay.of(repo.get("OP15-108"), sickness=False)  # ナミ 麦わらの一味
     assert "麦わらの一味" in (friend.card.features or "")
     me.characters = [friend]

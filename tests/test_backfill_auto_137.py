@@ -124,7 +124,13 @@ def test_op14_087_on_play_search_bw_ai():
     me.hand = []
 
     do, eff = _do(overlay, "OP14-087", "on_play")
-    assert eff.get("if", {}).get("leader_features_any") == ["B・W"], \
+    # ⚠ 2026-08-21 是正: 公式テキストは 「『X』を含む特徴を持つ」 (= 部分一致) なので
+    #   overlay は leader_feature_contains を使う (db/faq/base.json: 《元X》《X傘下》 も含む)。
+    #   キー名を直接 assert すると書き分けの是正で落ちるため **意味** を見る。
+    _c = eff.get("if", {})
+    assert (_c.get("leader_feature_contains") == "B・W"
+            or _c.get("leader_features_any") == ["B・W"]
+            or _c.get("leader_feature") == "B・W"), \
         "overlay の leader_features_any=[B・W] ゲートが無い"
     assert eval_condition(eff.get("if", {}), st, me) is True, \
         "B・W リーダーで登場時条件が成立していない"

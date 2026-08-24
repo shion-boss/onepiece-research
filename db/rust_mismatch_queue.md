@@ -6,6 +6,6 @@
 > 消化 = skill `onepiece-rust-parity-fix` の diagnose→fix→verify→commit ループ。
 >   各 MISMATCH は Rust を Python 挙動に bit 一致 or 明示 bail に落として潰す。
 
-**合計: 0 件** (scan seeds=1-30, 30 seeds × 全デッキ × 3 ペア構成)
+**合計: 0 件** (scan seeds=1-8, 8 seeds × 全デッキ × 3 ペア構成)
 
 不一致なし (この広域サンプルでは Python↔Rust 完全一致)。

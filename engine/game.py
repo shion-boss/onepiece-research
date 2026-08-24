@@ -74,6 +74,26 @@ class EndPhase:
     pass
 
 
+@dataclass(frozen=True)
+class ResolveChoice:
+    """効果解決の途中で立った `state.pending_choice` を **1 アクションとして** 解決する。
+
+    ⭐ 目的 = **選択点を探索空間に載せる**。 engine には 「人間なら選べるが AI は固定
+    ヒューリスティックで決めている」 箇所が 50 箇所あり、 探索 (plan_search) は
+    `legal_actions` しか分岐源にしていないので、 それらは **探索の外** にあった
+    (実測 24 game で 1,483 件 ≒ 62 件/game。 うち target_pick 198 件 / search_top_n 238 件が
+    「候補 2 枚以上の実質的な選択」)。
+
+    選択を Action にすると:
+      - 探索は **構造変更ゼロ** (beam は legal_actions を見るだけ)
+      - 人間経路も不変 (API は既に picks: list[int] を送っている)
+      - 人間と AI が **同一の選択肢** を持つ ([[feedback_human_ai_option_parity]])
+
+    picks = `resolve_pending_choice(state, picks)` に渡す index list (全 35 kind で統一)。
+    """
+    picks: tuple[int, ...] = ()
+
+
 Action = Union[
     PlayCharacter,
     PlayEvent,
@@ -84,12 +104,42 @@ Action = Union[
     AttackCharacter,
     ActivateMain,
     EndPhase,
+    ResolveChoice,
 ]
 
 
 # --------------------------------------------------------------------------- #
 # セットアップ
 # --------------------------------------------------------------------------- #
+def _apply_choice_search_env(state: GameState) -> None:
+    """`ONEPIECE_CHOICE_SEARCH` で **効果中の選択を探索に載せる** モードを有効化する。
+
+    ⭐ engine には 「人間なら選べるが AI は固定ヒューリスティックで決めている」 箇所が
+    50 箇所あり、 探索 (plan_search) は legal_actions しか分岐源にしていないので、
+    それらは探索の外にあった (実測 24 game で 1,483 件 ≒ 62 件/game)。
+    ON にすると AI にも pending_choice が立ち、 `legal_actions` が ResolveChoice を返して
+    探索・学習が選択点を扱えるようになる (= 人間と AI が同一の選択肢を持つ)。
+
+    値:
+      "1"        → 両プレイヤー
+      "0" / 未設定 → OFF (= 従来どおり。 Rust parity / matrix / self-play が不変)
+      "0"/"1" 以外に "p0" / "p1" を渡すと片側だけ (= A/B 用)
+
+    ⚠ setup_game に置いているので **全経路** (harness / 学習 / matrix / API) で一様に効く。
+    """
+    import os as _os_cs
+    v = (_os_cs.environ.get("ONEPIECE_CHOICE_SEARCH") or "").strip().lower()
+    if not v or v in ("0", "off", "false"):
+        return
+    state.choice_enumeration = True
+    if v in ("p0", "0idx"):
+        state.choice_enum_idxs = (0,)
+    elif v in ("p1", "1idx"):
+        state.choice_enum_idxs = (1,)
+    else:
+        state.choice_enum_idxs = ()
+
+
 def setup_game(
     deck1: DeckList,
     deck2: DeckList,
@@ -174,6 +224,7 @@ def setup_game(
         if human_player_idx is not None:
             state.human_player_idx = human_player_idx
         state._pre_stage_choice_pending = True  # type: ignore[attr-defined]
+        _apply_choice_search_env(state)
         return state
 
     # 公式 5-2 セットアップ 順序: ライフ配置 → 手札 5 枚 → マリガン。
@@ -196,6 +247,7 @@ def setup_game(
         # マリガン skip path: state を 「pre-mulligan」 で 返す。
         # 呼び出し側 が finalize_setup_after_mulligan を 呼んで 完了 する 想定。
         state._pre_mulligan_pending = True  # type: ignore[attr-defined]
+        _apply_choice_search_env(state)
         return state
 
     state.push_log(
@@ -203,6 +255,7 @@ def setup_game(
         f"vs P1={p2.leader.card.name}({p2.leader.card.life}L)"
     )
     _recompute_static(state)
+    _apply_choice_search_env(state)
     return state
 
 
@@ -213,6 +266,7 @@ def _place_life_and_draw(state: GameState) -> None:
         for _ in range(p.leader.card.life):
             if p.deck:
                 p.life.append(p.deck.pop(0))
+                p.life_face_up.append(False)  # 既定は裏向き
     for p in state.players:
         p.draw(5)
 
@@ -462,18 +516,113 @@ def _recompute_static(state: GameState) -> None:
     overlay の有無に関わらず、所有者ターンフラグ (DON+1000 ゲート用) は更新する。
     """
     _update_ownership_flags(state)
+    # ⭐ ライフの per-card 表向きフラグ (life_face_up) が life と食い違っていないか検査する。
+    #   ⚠ **黙って埋めない**。 埋めると 「表向きだったはずの札が裏向きになる」 誤りを隠すので、
+    #     アクション境界で落として同期漏れの箇所を必ず露出させる (2026-08-11 の per-card 化)。
+    #     env ONEPIECE_LIFE_FLAG_LAX=1 で警告のみに落とせる (外部ツールの緊急退避用)。
+    for _p in state.players:
+        if len(_p.life_face_up) != len(_p.life):
+            import os as _os
+            _msg = (f"life_face_up desync: {_p.name} life={len(_p.life)} "
+                    f"flags={len(_p.life_face_up)} (= ライフを操作した箇所が "
+                    f"life_face_up を同期していない)")
+            if _os.environ.get("ONEPIECE_LIFE_FLAG_LAX"):
+                state.push_log("  ⚠ " + _msg)
+                _p.life_sync_flags()
+            else:
+                raise AssertionError(_msg)
     if state.effects_overlay:
         from .effects import evaluate_static_effects
         evaluate_static_effects(state, state.effects_overlay)
+    # 常在 (= ルール置換) を張り直した **後** に敗北判定処理を回す (公式 9-2)。
+    # 順序が逆だと 「無効化されたリーダーの置換がまだ効いている」 状態で判定してしまう。
+    _check_rule_defeat(state)
+
+
+def _check_rule_defeat(state: GameState) -> None:
+    """公式 9-2 敗北判定処理 (= ルール処理) のうち **デッキ0枚** (9-2-1-2) を解決する。
+
+    一次情報:
+    - 1-2-1-1-2 / 1-2-2-2 / 9-2-1-2: 「いずれかのプレイヤーの**デッキのカードが０枚**の場合、
+      そのプレイヤーはゲームの敗北条件を満たしています」
+    - 1-2-2 + 9-1-2: 敗北条件を満たしたら **次にルール処理を行う時点** で敗北し、 ルール処理は
+      「他の行動の実行中であっても、 それが発生した時点で即座に解決」 する
+    - 9-2-1: 複数プレイヤーが同時に満たしていれば **敗北条件を満たしている全員** が敗北 (= 引き分け)
+    - cardqa_st_03 (ST03-005): 「デッキが0枚となり、 デッキが0枚になったプレイヤーはゲームに敗北します」
+
+    ⚠ 「ドローできなかった時に負ける」 ではない。 2026-08-13 まで engine は ドローフェイズで
+      draw が失敗した時だけ敗北させており、 **デッキを0枚にしてもその場では負けなかった**
+      (= ミルで0枚にされても次の自分のドローまで生き延びた)。
+
+    ルール置換 (= リーダーの常在効果、 evaluate_static_effects が毎回張り直す):
+    - `deck_out_wins`  — OP03-040 ナミ / P-117: 敗北する代わりに **勝利**
+    - `deck_out_defer` — OP15-022 ブルック: 即敗北せず **そのターン終了時** に敗北
+      (END フェイズ側で解決。 公式 「デッキが0枚になったターン終了時に敗北する」)
+
+    ⚠ 呼び出し粒度は **アクション境界 + 人間 modal 解決後** (= `_recompute_static` 経由)。
+      公式の 「即座」 は do 配列の途中も含むが、 途中で止めても止めなくても **勝敗の結果は
+      変わらない** (負ける側がその間に選択を挟めないため) のでこの粒度で足りる。
+    """
+    if state.game_over:
+        return
+    empty = [i for i, p in enumerate(state.players) if not p.deck]
+    # ⭐ 「デッキが0枚に **なった**」 事実を記録する (OP15-022 の遅延敗北はこれで確定し、
+    #   後からデッキが戻っても取り消されない。 END フェイズの判定がこのフラグを読む)。
+    for i in empty:
+        if getattr(state.players[i], "deck_out_defer", False):
+            state.players[i].deck_hit_zero_this_turn = True
+    if not empty:
+        return
+    # 勝利置換が最優先 (= 敗北条件を満たすが敗北せず勝利する)
+    for i in empty:
+        if getattr(state.players[i], "deck_out_wins", False):
+            state.declare_winner(i, f"{state.players[i].name} deckout-win (OP03-040)")
+            return
+    losers = [i for i in empty if not getattr(state.players[i], "deck_out_defer", False)]
+    if not losers:
+        return
+    if len(losers) == 2:
+        state.game_over = True
+        state.winner = None
+        state.push_log("GAME OVER (draw): 両者 デッキ0 → 同時敗北 (公式 9-2-1)")
+        return
+    state.declare_winner(
+        1 - losers[0], f"{state.players[losers[0]].name} deckout (公式 9-2-1-2)"
+    )
 
 
 def _battle_attr_bonus(combatant, opponent) -> int:
-    """ST05-010: combatant が 「属性X とバトル時+N」 を持ち opponent が属性X を持つ場合 +N。"""
+    """combatant が 「属性X とバトルする時 +N」 を持ち opponent が属性X を持つなら N を返す。
+
+    ⚠ **バトル中だけの補正ではない**。 公式テキスト (ST05-010 ゼット) は
+      「属性(打)を持つキャラとバトルする時、 このキャラは、 **このターン中**、 パワー+3000」 で、
+      cardqa は 「属性(打)を持つキャラによって **2回アタックされた** とき、 そのターン中パワーは
+      合計+6000されますか」 → **はい、+6000されます** と裁定している (= 発動のたびに累積)。
+    → 実際の適用は `_apply_battle_attr_pump` が **turn_buff に積む**。 この関数は金額の算出のみ。
+    """
     bpa = getattr(combatant, "battle_pump_vs_attribute", None)
     if not bpa:
         return 0
     opp_attr = opponent.card.attribute or ""
     return int(bpa.get(opp_attr, 0)) if opp_attr else 0
+
+
+def _apply_battle_attr_pump(state, attacker, defender) -> None:
+    """バトル開始時に 「属性X とバトルする時、 このターン中 +N」 を **turn_buff に積む**。
+
+    ⚠ 旧実装は power 計算時に毎回 +N を足す 「バトル中だけの補正」 だったので、
+      同ターンの別バトルに残らず **累積もしなかった** (公式は 2 回で +6000)。
+    """
+    for a, b in ((attacker, defender), (defender, attacker)):
+        if a is None or b is None:
+            continue
+        amount = _battle_attr_bonus(a, b)
+        if amount:
+            a.turn_buff += amount
+            state.push_log(
+                f"  効果: {a.card.name} は 属性({b.card.attribute}) とバトル → "
+                f"このターン中 パワー+{amount} (累積)"
+            )
 
 
 def _battle_ko_immune_by_attribute(defender: InPlay, attacker: InPlay) -> bool:
@@ -556,6 +705,7 @@ def _reset_turn_buff(state: GameState) -> None:
             ip.turn_base_power_override_is_original = False
         player.play_cost_reduction = 0
         player.block_chara_play_until_turn_end = False
+        player.block_hand_play_until_turn_end = False
         # OP09-081 effect: 自ターン 開始 で 「相手 on_play 無効」 flag reset (= 設定 player から 見て 1 周)
         player.opp_on_play_disabled_through_opp_turn = False
         player.block_self_draw_until_turn_end = False
@@ -831,10 +981,20 @@ def advance_phase(state: GameState) -> None:
         #   自分と相手のデッキがどちらも0枚になった場合、 このターンの終了時にどのプレイヤーが
         #   敗北しますか？」 → A「**どちらのプレイヤーも同時にゲームに敗北します。**」
         #   → 両者該当なら引き分け (= winner=None / 両者敗北)。
+        #   ⭐ 判定は **「今デッキが0枚か」 ではなく 「このターンに0枚になったか」** (2026-08-17 是正)。
+        #   公式 (cardqa_op_15) は 「デッキ0のターンに他の効果でデッキが1枚以上に戻っても
+        #   そのターン終了時に敗北しますか」 → 「はい」。 = 遅延敗北の義務は 0 枚到達で確定し、
+        #   後からデッキが戻っても (リーダー効果を無効にされても) 取り消されない。
+        #   ⚠ 旧実装は `not p.deck` を見ていたので **補充されると敗北を免れていた**。
+        #   ⚠ END フェイズ中に 0 枚になった場合 (= ターン終了時効果でミル等) はフラグが立つ前に
+        #     ここへ来るので、 **今 0 枚か** も併せて見る (どちらか成立で敗北)。
         _deck_out = [
             i for i, p in enumerate(state.players)
-            if getattr(p, "deck_out_defer", False) and not p.deck
+            if getattr(p, "deck_hit_zero_this_turn", False)
+            or (getattr(p, "deck_out_defer", False) and not p.deck)
         ]
+        for _p in state.players:
+            _p.deck_hit_zero_this_turn = False   # 判定はターンごと (次ターンへ持ち越さない)
         if _deck_out and not state.game_over:
             if len(_deck_out) == 2:
                 state.game_over = True
@@ -884,8 +1044,23 @@ def play_until_main(state: GameState) -> None:
 # --------------------------------------------------------------------------- #
 # 合法手生成
 # --------------------------------------------------------------------------- #
+# 【メイン】としてハンドから発動できるイベントの when (= 公式 「イベントカードの【カウンター】
+# 効果は…カウンターステップにのみ発動できる」 db/faq/keyword.json)。 ここに無い when
+# (counter / trigger / in_hand) しか持たないイベントは **メインフェイズで発動できない**。
+_EVENT_MAIN_WHENS = {"main", "event_main"}
+
+
 def legal_actions(state: GameState) -> list[Action]:
-    if state.game_over or state.phase != Phase.MAIN:
+    if state.game_over:
+        return []
+    # ⭐ 効果解決の途中で選択が立っている局面では、 **その選択の解決だけが合法手**。
+    #   これで探索 (plan_search) は構造を変えずに選択点を分岐できる
+    #   (= beam は legal_actions を見るだけ)。 phase は MAIN に限らない
+    #   (相手ターンのカウンター/トリガー選択もここに来る)。
+    if state.pending_choice is not None:
+        from .effects import enumerate_choice_options
+        return [ResolveChoice(picks=p) for p in enumerate_choice_options(state.pending_choice)]
+    if state.phase != Phase.MAIN:
         return []
 
     me = state.turn_player
@@ -931,7 +1106,12 @@ def legal_actions(state: GameState) -> list[Action]:
         return max(0, base)
 
     # キャラ登場禁止 (OP14-020 ミホーク等のペナルティでこのターン中ブロック)
-    chara_play_blocked = me.block_chara_play_until_turn_end
+    # block_hand_play_until_turn_end (OP13-028) = 手札からの通常プレイ禁止 (= キャラ通常登場も含む)。
+    # ⚠ 効果登場 (_char_summon_blocked) は block_hand_play_until_turn_end を見ないので許可される。
+    chara_play_blocked = (
+        me.block_chara_play_until_turn_end or me.block_hand_play_until_turn_end
+    )
+    hand_play_blocked = me.block_hand_play_until_turn_end  # OP13-028: イベント/ステージの通常プレイも禁止
     _cost_block = me.block_chara_play_cost_ge_threshold  # 元々コスト≥閾値 を登場禁止 (-1=なし)
 
     def _cost_play_blocked(c) -> bool:
@@ -970,6 +1150,15 @@ def legal_actions(state: GameState) -> list[Action]:
                     actions.append(
                         PlayCharacter(hand_idx=i, sacrifice_iid=ip.instance_id)
                     )
+            elif state.choice_enumeration:
+                # ⭐ 選択列挙モード: AI にも **全 5 候補** を出す (= 場 5 枚での差し替え相手を
+                #   探索が選べる)。 公式 3-7-6-1 は 「持ち主が選ぶ」 なので、 人間と AI が
+                #   同じ選択肢を持つのが正 ([[feedback_human_ai_option_parity]])。
+                #   ⚠ 分岐が 5 倍になるので既定 OFF のまま (= 従来の最弱 1 候補)。
+                for ip in me.characters:
+                    actions.append(
+                        PlayCharacter(hand_idx=i, sacrifice_iid=ip.instance_id)
+                    )
             else:
                 # AI: 最 弱 1 候 補 の み (= plan_search 爆 発 抑 制)
                 sacrifice = min(
@@ -984,15 +1173,35 @@ def legal_actions(state: GameState) -> list[Action]:
     for i, c in enumerate(me.hand):
         if c.category != Category.EVENT:
             continue
+        if hand_play_blocked:
+            continue  # OP13-028: 手札からのイベント発動も禁止
         if _eff_cost(c) > me.don_active:
             continue
-        # overlay に main 効果がある場合のみ発動候補に (空効果の event でもプレイ可)
+        # ⭐ **【メイン】を持たないイベントはメインフェイズに発動できない**。
+        #   一次情報 (db/faq/keyword.json、 公式「よくある質問」):
+        #     Q: イベントカードの【カウンター】効果を自分のメインフェイズに発動する事は
+        #        できますか？
+        #     A: **いいえ、できません。** イベントカードの【カウンター】効果は相手がアタック
+        #        したバトル中のカウンターステップにのみ発動する事ができます。
+        #   是正前は無条件に候補化しており、 【カウンター】専用 (38 枚) と
+        #   【カウンター】+【トリガー】 (176 枚) の計 214 枚を **メインでプレイできた**
+        #   (= ドンを払って何も起きない非合法手。 AI の資源を無駄に溶かす)。
+        #   コメントは 「main 効果がある場合のみ」 と書かれていたが実装が無かった。
+        #   (2026-08-21、 一般FAQ conformance)
+        #   ⚠ overlay に効果が 1 つも無いイベントは判定材料が無いので従来どおり許可する
+        #     (現状 0 枚。 将来 未実装カードが出た時に silent に撃てなくならないため)。
+        bundle = state.effects_overlay.get(c.card_id) if state.effects_overlay else None
+        if bundle is not None and bundle.effects:
+            if not any(e.get("when") in _EVENT_MAIN_WHENS for e in bundle.effects):
+                continue
         actions.append(PlayEvent(hand_idx=i))
 
     # ステージカード: コスト払えるなら登場可能 (既存ステージは差替)
     for i, c in enumerate(me.hand):
         if c.category != Category.STAGE:
             continue
+        if hand_play_blocked:
+            continue  # OP13-028: 手札からのステージ通常登場も禁止
         if _eff_cost(c) > me.don_active:
             continue
         actions.append(PlayStage(hand_idx=i))
@@ -1253,6 +1462,19 @@ def apply_action(state: GameState, action: Action, ai=None) -> None:
     """
     if state.game_over:
         return
+    if isinstance(action, ResolveChoice):
+        # 効果中の選択を 1 アクションとして解決 (= 探索の分岐点)。
+        # ⚠ phase 制限を掛けない: 相手ターンのカウンター/トリガー選択もここを通る。
+        if state.pending_choice is None:
+            return
+        from .effects import resolve_pending_choice
+        resolve_pending_choice(state, list(action.picks))
+        _recompute_static(state)
+        # ⚠ この分岐は下の try/finally を通らないので、 action 境界の transient は
+        #   ここでも落とす。 選択の解決中に立った 「アタック対象変更」 を持ち越すと、
+        #   **別のアタック** が曲げられる (下の finally の説明と同じ罠)。
+        state.pending_attack_redirect = None
+        return
     if state.phase != Phase.MAIN:
         raise ValueError("apply_action MAIN only")
     # Rust シャドウ検証 (ONEPIECE_RUST_SHADOW=1 時のみ): 実ゲームの各手を Rust に後追いさせ、
@@ -1332,6 +1554,19 @@ def apply_action(state: GameState, action: Action, ai=None) -> None:
                     # hook 失敗で apply_action 全体を壊さない
                     pass
 
+        # ⭐ **アタック対象変更は 「そのアタック」 限り** — action を跨いで持ち越さない。
+        #   `pending_attack_redirect` は 【相手のアタック時】効果が **宣言されたその
+        #   アタック** の対象を変えるための transient だが、 消費するのは AttackLeader
+        #   経路だけで、 キャラへのアタック / 途中 return / **action 境界のトリガー
+        #   ドレイン中の発火** では残ったままだった。 その結果 **効果を撃っていない
+        #   後続のアタック** が勝手にキャラへ曲げられていた (2026-08-21、 Python↔Rust
+        #   差分で発覚。 Rust は action 境界で必ず None なので Python 側だけが曲げていた)。
+        #   詳細: docs/official_rulings.md。
+        #   ⚠ 位置は **finally の最後** — 上の `resolve_triggers` が opp_attack 効果を
+        #     解決して立て直すことがあるので、 先頭で消すと漏れる (実測で戻った)。
+        #   ⚠ 「消費側が 1 経路しか無い transient は必ず漏れる」 ので action 境界で落とす。
+        state.pending_attack_redirect = None
+
     # Rust シャドウ検証: 完全正規化後の post-state を Rust の後追い結果と比較し、
     # MISMATCH なら記録 (db/rust_divergence_log.jsonl + 再現 dump)。 実ゲームには影響しない。
     if _shadow_tok is not None:
@@ -1359,6 +1594,26 @@ def _compute_filtered_cost_reduction(me: Player, card: CardDef) -> int:
         if _matches_filter(card, r.get("filter", {})):
             total += int(r.get("amount", 0))
     return total
+
+
+def _consume_filtered_turn_reduction(me: Player, card: CardDef) -> None:
+    """ターン限定 filter 軽減 (`play_cost_reductions_filtered_turn`) を **1 枚分だけ** 消費する。
+
+    ⭐ 公式テキストは 「このターン中、 **次に** 自分が手札から登場させる (filter) キャラカードの
+      支払うコストは N 少なくなる」 (OP02-025 錦えもん) = **1 枚だけ**。
+      ⚠ 2026-08-13 まで primitive のコメントに 「(近似: 当ターン中の該当全play)」 と明記されたまま
+        消費しておらず、 同じターンに 2 枚目・3 枚目の該当キャラも割引されていた。
+      素の `play_cost_reduction` (OP12-061 = 同じく 「次に」) は登場時に消費されており、
+      こちらだけ抜けていた。
+
+    ⚠ 「次に」 の無い恒久軽減 (`play_cost_reductions_filtered` = OP05-097 等) は別リストなので
+      触らない。
+    """
+    from .effects import _matches_filter
+    for i, r in enumerate(me.play_cost_reductions_filtered_turn):
+        if _matches_filter(card, r.get("filter", {})):
+            me.play_cost_reductions_filtered_turn.pop(i)
+            return
 
 
 def _compute_in_hand_cost_minus(state: GameState, me: Player, card: CardDef) -> int:
@@ -1434,6 +1689,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         # 軽減の使用分を消費 (累積値が複数キャラ登場でも次の登場には残る簡略化)
         consumed = card.cost - eff_cost
         me.play_cost_reduction = max(0, me.play_cost_reduction - consumed)
+        _consume_filtered_turn_reduction(me, card)   # 「次に」 = 1 枚だけ (OP02-025)
         ip = InPlay.of(card, rested=False, sickness=not card.is_rush)
         me.characters.append(ip)
         me.cards_played_count += 1
@@ -1459,6 +1715,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         me.don_active -= eff_cost
         consumed = card.cost - eff_cost
         me.play_cost_reduction = max(0, me.play_cost_reduction - consumed)
+        _consume_filtered_turn_reduction(me, card)   # 「次に」 = 1 枚だけ (OP02-025)
         me.trash.append(card)
         me.cards_played_count += 1
         # per-turn イベント最大コスト (= OP15-002 等「このターン中コストN以上のイベント使用」)。
@@ -1490,6 +1747,7 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         me.don_active -= eff_cost
         consumed = card.cost - eff_cost
         me.play_cost_reduction = max(0, me.play_cost_reduction - consumed)
+        _consume_filtered_turn_reduction(me, card)   # 「次に」 = 1 枚だけ (OP02-025)
         ip = InPlay.of(card, rested=False, sickness=False)
         me.stages.append(ip)
         me.cards_played_count += 1
@@ -1511,7 +1769,8 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         state.push_log(f"attach don to leader x{n} (P={me.leader.power})")
         if n > 0 and state.effects_overlay:
             from .effects import trigger_on_self_don_attached
-            trigger_on_self_don_attached(state, me, opp, state.effects_overlay)
+            # 「ドン‼が付与された時」 は **1 枚につき 1 回** (cardqa_op_02 / OP02-002)
+            trigger_on_self_don_attached(state, me, opp, state.effects_overlay, count=n)
         return
 
     if isinstance(action, AttachDonToCharacter):
@@ -1523,7 +1782,8 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
         state.push_log(f"attach don to {ch.card.name} x{n} (P={ch.power})")
         if n > 0 and state.effects_overlay:
             from .effects import trigger_on_self_don_attached
-            trigger_on_self_don_attached(state, me, opp, state.effects_overlay)
+            # 「ドン‼が付与された時」 は **1 枚につき 1 回** (cardqa_op_02 / OP02-002)
+            trigger_on_self_don_attached(state, me, opp, state.effects_overlay, count=n)
         return
 
     if isinstance(action, AttackLeader):
@@ -1581,13 +1841,29 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     opp.leader.attached_dons + sum(c.attached_dons for c in opp.characters)
                 )
                 # 7-1-1-3: 【アタック時】と【相手のアタック時】が同時に発動可
-                trigger_on_attack(state, me, opp, attacker, state.effects_overlay)
-                # defended_target = 攻撃されている opp のリーダー (= 過剰防御判定用)
-                trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay,
-                                      defended_target=opp.leader)
-                # defender=リーダー 限定の opp_attack (OP03-001 エース等)
-                trigger_on_opp_attack_on_leader(state, opp, me, attacker, state.effects_overlay,
-                                                defended_target=opp.leader)
+                # ⭐ 公式 7-1-1-3: 【アタック時】と【相手のアタック時】は **同時に発動** する。
+                # → 3 つとも **先に enqueue してから 1 回だけドレイン** する (2026-08-17 是正)。
+                #   旧実装は trigger_on_attack が末尾で _maybe_resolve していたため、
+                #   **攻撃側の【アタック時】が誘発した【登場時】まで解決し切ってから**
+                #   防御側の【相手のアタック時】を積んでいた = 公式と順序が逆。
+                #   一次情報 (cardqa_op_07 / OP07-019): ドフラの【アタック時】でジンベエが登場 →
+                #   **次に**【相手のアタック時】→ **その後** ジンベエの【登場時】。
+                #   = 防御側の効果は 「登場したジンベエ」 は見られるが 「ジンベエが出したキャラ」 は見られない。
+                _prev_resolving = state.resolving
+                state.resolving = True
+                try:
+                    trigger_on_attack(state, me, opp, attacker, state.effects_overlay)
+                    # defended_target = 攻撃されている opp のリーダー (= 過剰防御判定用)
+                    trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay,
+                                          defended_target=opp.leader)
+                    # defender=リーダー 限定の opp_attack (OP03-001 エース等)
+                    trigger_on_opp_attack_on_leader(state, opp, me, attacker, state.effects_overlay,
+                                                    defended_target=opp.leader)
+                finally:
+                    state.resolving = _prev_resolving
+                if not state.resolving:
+                    from .effects import resolve_triggers as _resolve_attack_triggers
+                    _resolve_attack_triggers(state)
         # アタック対象変更チェック (OP14-060 紫ドフラ等。redirect_attack プリミティブが set)
         if state.pending_attack_redirect is not None:
             redirect_iid = state.pending_attack_redirect
@@ -1834,8 +2110,13 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
             )
         # ブロックされた場合: 勝てばブロッカーが KO、 負ければ生存 (リーダーへのダメージなし)
         if is_blocked:
-            atk_power += _battle_attr_bonus(attacker, actual_target)
-            defender_power += _battle_attr_bonus(actual_target, attacker)
+            # 「属性X とバトルする時、 このターン中 +N」 は **ターン持続で累積** する
+            # (cardqa / ST05-010: 2 回バトルで合計 +6000)。 バトル開始時に turn_buff へ積み、
+            # このバトルの power にも反映する。
+            _pre_atk, _pre_def = attacker.turn_buff, actual_target.turn_buff
+            _apply_battle_attr_pump(state, attacker, actual_target)
+            atk_power += attacker.turn_buff - _pre_atk
+            defender_power += actual_target.turn_buff - _pre_def
             if atk_power >= defender_power:
                 _vs_leader_immune = (
                     actual_target.battle_ko_immune_vs_leader
@@ -1904,11 +2185,12 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     return
             if damage == 2:
                 state.push_log(f"  ダブルアタック: 2 ダメージ")
-            for _ in range(damage):
+            for _hit_i in range(damage):
                 if not opp.life:
                     state.push_log(f"  ライフ尽きた、残り {damage} 発目以降は空打ち")
                     break
                 taken = opp.life.pop(0)
+                taken_face_up = bool(opp.life_face_up.pop(0))  # この 1 枚が表向きだったか
                 opp.life_lost_this_turn = True
                 if is_banish:
                     opp.trash.append(taken)
@@ -1929,6 +2211,10 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                         e.get("when") == "trigger"
                         for e in state.effects_overlay[taken.card_id].effects
                     )
+                    # ST13-003 下の表向きライフは手札に加わらない = 【トリガー】は選べない。
+                    # 人間に 「使いますか？」 と訊いてから握り潰さないようにする。
+                    and not (taken_face_up
+                             and getattr(opp, "face_up_life_to_deck_bottom", False))
                 )
                 if is_human_defender:
                     # 残 damage 計算 (= 既 消化 + 残)
@@ -1943,8 +2229,12 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                         "is_banish": is_banish,
                         "taken_card_id": taken.card_id,
                     }
-                    # taken を 一旦 life の 0 番目 に 戻す (= resolve で 再 pop)
+                    # taken を 一旦 life の 0 番目 に 戻す (= resolve で 再 pop)。
+                    # ⚠ **表向きフラグも元のまま戻す**。 ここで裏向きに潰すと ST13-003 の
+                    #   ルール置換 (表向き→デッキ下 / 【トリガー】不発) が 人間 defender の
+                    #   確認 pause を通った時だけ効かなくなる。
                     opp.life.insert(0, taken)
+                    opp.life_face_up.insert(0, taken_face_up)
                     state.pending_choice = {
                         "kind": "life_taken_choice",
                         "card_id": taken.card_id,
@@ -1958,7 +2248,15 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                     _ = consumed
                     return
                 # AI defender: 旧挙動
-                _resolve_life_taken(state, me, opp, taken)
+                # ⭐ 「相手のライフに **ダメージを与えた時**」 は 1 回のアタックにつき **1 回**
+                #   (公式 cardqa_op_03: 「【ダブルアタック】を持つキャラが相手のライフに2ダメージを
+                #    与えた時に2回発動できますか？」 → 「**いいえ、 1回のみ**」)。
+                #   【ダブルアタック】は 「与えるダメージが 2 になる」 = **1 つのダメージ事象** なので、
+                #   ライフが 2 枚離れても attacker 側の when は 1 回だけ発火させる (2026-08-11 是正、
+                #   従来は hit ごとに発火し OP03-041 ウソップ が 7 枚→14 枚 mill していた)。
+                _resolve_life_taken(state, me, opp, taken,
+                                    fire_opp_life_taken=(_hit_i == 0),
+                                    taken_face_up=taken_face_up)
         else:
             state.push_log("  blocked")
         # 公式 7-1-5-1: バトル終了時に「このバトル中」効果をリセット
@@ -2013,12 +2311,42 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 state._opp_attack_don_snapshot = (
                     opp.leader.attached_dons + sum(c.attached_dons for c in opp.characters)
                 )
-                trigger_on_attack(state, me, opp, attacker, state.effects_overlay)
-                trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay,
-                                      defended_target=_def_chara)
-                # defender=キャラ 限定の opp_attack
-                trigger_on_opp_attack_on_chara(state, opp, me, attacker, state.effects_overlay,
-                                               defended_target=_def_chara)
+                # ⭐ 公式 7-1-1-3: 【アタック時】と【相手のアタック時】は **同時に発動** する。
+                # → 3 つとも **先に enqueue してから 1 回だけドレイン** する (2026-08-17 是正)。
+                #   旧実装は trigger_on_attack が末尾で _maybe_resolve していたため、
+                #   **攻撃側の【アタック時】が誘発した【登場時】まで解決し切ってから**
+                #   防御側の【相手のアタック時】を積んでいた = 公式と順序が逆。
+                #   一次情報 (cardqa_op_07 / OP07-019): ドフラの【アタック時】でジンベエが登場 →
+                #   **次に**【相手のアタック時】→ **その後** ジンベエの【登場時】。
+                #   = 防御側の効果は 「登場したジンベエ」 は見られるが 「ジンベエが出したキャラ」 は見られない。
+                _prev_resolving = state.resolving
+                state.resolving = True
+                try:
+                    trigger_on_attack(state, me, opp, attacker, state.effects_overlay)
+                    trigger_on_opp_attack(state, opp, me, attacker, state.effects_overlay,
+                                          defended_target=_def_chara)
+                    # defender=キャラ 限定の opp_attack
+                    trigger_on_opp_attack_on_chara(state, opp, me, attacker, state.effects_overlay,
+                                                   defended_target=_def_chara)
+                finally:
+                    state.resolving = _prev_resolving
+                if not state.resolving:
+                    from .effects import resolve_triggers as _resolve_attack_triggers
+                    _resolve_attack_triggers(state)
+        # ⚠ **キャラへのアタックで立った 「アタック対象変更」 は、 このアタック内で捨てる**。
+        #   公式 (OP14-060 紫ドフラ 等) は 「**その**アタックの対象を〜にする」 なので、 本来は
+        #   このキャラ戦の対象を差し替えるべきだが、 engine はまだ AttackLeader 経路でしか
+        #   差し替えを実装していない (下の 1851 行)。 問題は 「未実装」 よりも **持ち越し** で、
+        #   ここでクリアしないと `pending_attack_redirect` が action を跨いで残り、
+        #   **後続の別アタック** が勝手に対象変更される (= 効果を撃っていないアタックの
+        #   矛先が変わる)。 実際 2026-08-21 に Python↔Rust 差分でこれが露見した
+        #   (Rust は action 境界で必ず None なので Python だけ redirect していた)。
+        #   → 誤った持ち越しを断つ。 キャラ戦での対象差し替え自体は別途 要実装。
+        if state.pending_attack_redirect is not None:
+            state.push_log(
+                "  アタック対象変更: キャラへのアタックでは未適用 (持ち越さず破棄)"
+            )
+            state.pending_attack_redirect = None
         # 対象消失チェック: trigger_on_attack/opp_attack が target を KO してしまうケースに対応 (= 空打ち)
         target = next(
             (c for c in opp.characters if c.instance_id == action.target_iid),
@@ -2134,8 +2462,11 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 f"  counter +{counter_added} → "
                 f"{actual_target.card.name}(P={defender_power})"
             )
-        atk_power += _battle_attr_bonus(attacker, actual_target)
-        defender_power += _battle_attr_bonus(actual_target, attacker)
+        # 「属性X とバトルする時、 このターン中 +N」 は **ターン持続で累積** (ST05-010)
+        _pre_atk, _pre_def = attacker.turn_buff, actual_target.turn_buff
+        _apply_battle_attr_pump(state, attacker, actual_target)
+        atk_power += attacker.turn_buff - _pre_atk
+        defender_power += actual_target.turn_buff - _pre_def
         if atk_power >= defender_power:
             if actual_target.ko_immune_until_turn_end:
                 state.push_log(f"  KO 耐性: {actual_target.card.name} は KO されない")
@@ -2312,6 +2643,8 @@ def _resolve_life_taken(
     taken: "CardDef",
     use_trigger: Optional[bool] = None,
     by_effect: bool = False,
+    fire_opp_life_taken: bool = True,
+    taken_face_up: bool = False,
 ) -> None:
     """1 hit 分 の life→hand / trigger 処理。
 
@@ -2340,6 +2673,34 @@ def _resolve_life_taken(
     #   ⭐ **発火は この関数の末尾** (= ライフ処理が終わってから)。 ここで即発火すると
     #     非ターンプレイヤーの効果が 【トリガー】 より先に解決してしまう (下記 fire_zero)。
     fire_zero = bool(not opp.life and state.effects_overlay)
+    # ⭐ 「ルール上、 自分の表向きのライフは **手札に加わる代わりにデッキの下** に置かれる」
+    #   (ST13-003 モンキー・D・ルフィ(L))。 【トリガー】は 「ライフを手札に加える代わりに公開して
+    #   効果を発動する」 置換 (公式 10-1-5) なので、 手札に加わらない = **発動できない**
+    #   (公式 cardqa_st_13: 「自分の表向きのライフの【トリガー】効果は発動できますか？」 → 「いいえ」)。
+    #   ⚠ 「この 1 枚が表向きだったか」 は呼出側 (damage ループ) が取り出したフラグで判る。
+    if taken_face_up and getattr(opp, "face_up_life_to_deck_bottom", False):
+        opp.deck.append(taken)
+        state.push_log(
+            f"  hit: {opp.name} 表向きライフ→デッキ下 ({taken.name}) "
+            f"= ルール置換のため【トリガー】は発動しない"
+        )
+        if state.effects_overlay:
+            if by_effect:
+                # 効果ダメージ経路では 「ダメージを受けた時」 (= 戦闘専用) を発火しない。
+                # 行き先がデッキなので dest="other" = attacker 側の 「相手のライフが離れた時」 のみ。
+                from .effects import _fire_opp_life_left_by_effect
+                _fire_opp_life_left_by_effect(state, me, opp, 1, "other")
+            else:
+                from .effects import trigger_on_opp_life_taken
+                trigger_on_opp_life_taken(
+                    state, me, opp, False, state.effects_overlay,
+                    fire_attacker_side=fire_opp_life_taken,
+                    went_to_deck=True,  # 行き先はデッキの下 = 手札/トラッシュ系 when は発火しない
+                )
+        if fire_zero and state.effects_overlay:
+            from .effects import trigger_on_life_zero
+            trigger_on_life_zero(state, opp, me, state.effects_overlay)
+        return
     fired = False
     kept_in_hand = False
     played_self = False
@@ -2427,6 +2788,7 @@ def _resolve_life_taken(
             from .effects import trigger_on_opp_life_taken
             trigger_on_opp_life_taken(
                 state, me, opp, went_to_hand, state.effects_overlay,
+                fire_attacker_side=fire_opp_life_taken,
             )
     # ⭐ 「自分のライフが0枚になった時」 は **ライフ処理 (= 【トリガー】発動 / 手札に加える)
     #   が終わってから** 発動する (公式 cardqa_op_11、 OP11-102 ケイミー × OP05-098 エネル):
@@ -2445,6 +2807,10 @@ def resume_pending_attack_hit(state: GameState, use_trigger: bool) -> None:
     """pending_attack_hits 状態 から user 選択 を 反映 して 1 hit 解決。
 
     use_trigger: True = trigger 使う、 False = 使わない (= 手札 add のみ)。
+
+    ⭐ by_effect=True は **効果ダメージ** 経路 (= effects.deal_effect_damage が pause した)。
+      公式 10-1-5-2 「【トリガー】は発動しないことも選べる」 を効果ダメージでも人間に渡すため
+      (2026-08-13)。 バトルではないので battle_buff のリセットは行わず、 残り発数を続けて解決する。
     """
     pa = state.pending_attack_hits
     if pa is None:
@@ -2452,6 +2818,20 @@ def resume_pending_attack_hit(state: GameState, use_trigger: bool) -> None:
     defender_idx = pa["defender_idx"]
     opp = state.players[defender_idx]
     me = state.players[1 - defender_idx]
+    if pa.get("by_effect"):
+        src_idx = int(pa.get("damage_source_idx", 1 - defender_idx))
+        me = state.players[src_idx]
+        remaining = int(pa.get("remaining_damage", 0))
+        state.pending_attack_hits = None
+        if opp.life:
+            taken = opp.life.pop(0)
+            taken_face_up = bool(opp.life_face_up.pop(0))
+            _resolve_life_taken(state, me, opp, taken, use_trigger=use_trigger,
+                                by_effect=True, taken_face_up=taken_face_up)
+        if remaining > 0 and not state.game_over:
+            from .effects import deal_effect_damage
+            deal_effect_damage(state, me, opp, remaining)
+        return
     if not opp.life:
         state.pending_attack_hits = None
         # 人間 defender の life_taken_choice pause 経路は AttackLeader 本体の末尾
@@ -2462,8 +2842,10 @@ def resume_pending_attack_hit(state: GameState, use_trigger: bool) -> None:
         _reset_battle_buffs(state)
         return
     taken = opp.life.pop(0)
+    taken_face_up = bool(opp.life_face_up.pop(0))  # この 1 枚が表向きだったか
     state.pending_attack_hits = None
-    _resolve_life_taken(state, me, opp, taken, use_trigger=use_trigger)
+    _resolve_life_taken(state, me, opp, taken, use_trigger=use_trigger,
+                        taken_face_up=taken_face_up)
     # バトル終了時 (7-1-5-1): 人間 defender の pause 経路で skip された battle 効果リセットを補完
     _reset_battle_buffs(state)
 

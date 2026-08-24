@@ -134,7 +134,45 @@ fn ser_opt_card_id<S: serde::Serializer>(c: &Option<CardDef>, s: S) -> Result<S:
     }
 }
 
-/// 場のカード (core.py InPlay、 71 field。 instance_id は除外)。
+/// 選択列挙モードで立つ **選択待ち**。 Python `state.pending_choice` の Rust 版。
+///
+/// ⭐ Rust には continuation (= do 配列の途中再開) が無いので、 **replay 方式** を採る:
+///   選択サイトは 「まだ zone を動かしていない」 時点で中断し、 再開時に picks を注入して
+///   その primitive を最初から実行し直す。 Python 側の `_picks_idx` / `_replay_choice` と同じ発想。
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PendingChoice {
+    /// Python の pending_choice["kind"] (target_pick / search_top_n / …)。
+    pub kind: String,
+    /// 候補数 (= 探索が展開する選択肢の母数)。
+    pub n_candidates: usize,
+    /// 何枚まで選べるか。
+    pub limit: usize,
+    /// 再実行する primitive ({key: value} の 1 要素 dict)。
+    pub prim: serde_json::Value,
+    /// 発動元 slot (再実行時に同じ src で走らせる)。
+    pub src_slot: i64,
+    /// 効果の owner (= 選ぶプレイヤー)。
+    pub me_idx: usize,
+    /// 同じ do 配列の **残り** (= この primitive の後に実行するはずだった分)。
+    pub remaining_do: Vec<serde_json::Value>,
+    /// 候補の解決結果 (= 再実行時に picks で絞る母集合)。 (player_idx, slot_code)。
+    pub cand_slots: Vec<(usize, i64)>,
+    /// target_pick の候補が **中断時に指していたカード** (card_id)。 位置 index は選択の解決中に
+    /// stale になりうる (バトルで KO された 等) ので、 再開時に照合して 「別のカードに化けて
+    /// いないか」 を確かめる。 Python は iid 参照なので原理的にこの問題が無い。
+    /// target_pick 以外 (= 手札/デッキ index を持つ kind) では空。
+    pub cand_cards: Vec<String>,
+    /// 中断した時点で **既に注入されていた picks** (= 1 つ前の選択の結果)。
+    /// 同じ primitive の中で選択が 2 段になる型 (例: play_from_trash の 「どれを出すか」 →
+    /// 場 5 枚差し替えの 「どれを落とすか」) で、 replay 時に前段の選択を落とさないため。
+    /// これが無いと 2 つの選択が交互に立ち続けて **無限ループ** する。
+    pub carried_picks: Vec<usize>,
+    /// 「選ばない」 (= 空 picks) を **出してはいけない** 選択か (Python `enumerate_choice_options`
+    /// の allow_none=False 側)。 強制の手札捨て等。 出すと AI が no-op を無限に繰り返す。
+    pub mandatory: bool,
+}
+
+/// 場のカード (core.py InPlay、 71 field。 instance_id は除外)。/// 場のカード (core.py InPlay、 71 field。 instance_id は除外)。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct InPlay {
     #[serde(serialize_with = "ser_card_id")]
@@ -436,7 +474,16 @@ pub struct Player {
     pub trash: Vec<CardDef>,
     #[serde(serialize_with = "ser_card_ids")]
     pub life: Vec<CardDef>,
-    pub face_up_life_count: i32,
+    /// ⭐ ライフ **1 枚ごと** の表向き/裏向き (= life と同じ長さ・同じ並び)。
+    /// Python `Player.life_face_up` の対 (2026-08-11 に 「枚数だけ」 モデルから移行)。
+    /// ⚠ 「表向きは上から N 枚」 の近似は使えない: ST13-012 マキノ 「ライフすべてを見て好きな
+    ///   順番で置く」 が全体を並べ替えるため。
+    #[serde(default)]
+    pub life_face_up: Vec<bool>,
+    /// 「ルール上、 自分の表向きのライフは手札に加わる代わりにデッキの下に置かれる」
+    /// (ST13-003 モンキー・D・ルフィ(L))。 静的効果なので recompute_static で毎回再計算する。
+    #[serde(default)]
+    pub face_up_life_to_deck_bottom: bool,
     pub known_hand_card_ids: Vec<String>,
     pub known_bottom_card_ids: Vec<String>,
     pub known_top_card_ids: Vec<String>,
@@ -448,6 +495,10 @@ pub struct Player {
     pub play_cost_reductions_filtered: Vec<serde_json::Value>,
     pub play_cost_reductions_filtered_turn: Vec<serde_json::Value>,
     pub block_chara_play_until_turn_end: bool,
+    /// 「手札からカードをプレイできない」(OP13-028 シャンクス)。 通常プレイ (キャラ/イベント/ステージ)
+    /// のみ禁止し、 別の効果による effect summon は禁止しない (cardqa_op_13, db0c0c0d2ab9)。
+    #[serde(default)]
+    pub block_hand_play_until_turn_end: bool,
     pub cannot_attack_leader_until_turn_end: bool,
     pub block_chara_play_cost_ge_threshold: i32,
     pub opp_on_play_disabled_through_opp_turn: bool,
@@ -467,6 +518,11 @@ pub struct Player {
     /// デッキが0枚になったターン終了時に敗北する」 (core.py Player.deck_out_defer のミラー)。
     #[serde(default)]
     pub deck_out_defer: bool,
+    /// 「デッキが0枚に **なった**」 事実を そのターン中 記憶する (core.py Player.deck_hit_zero_this_turn)。
+    /// 公式 (cardqa_op_15): デッキ0のターンに補充しても / リーダー効果を無効にされても
+    /// そのターン終了時に敗北する = 遅延敗白の義務は 0 枚到達で確定する。
+    #[serde(default)]
+    pub deck_hit_zero_this_turn: bool,
     pub prevent_self_life_to_hand_until_turn_end: bool,
     pub hand_discarded_by_effect_this_turn: bool,
     pub delayed_at_opp_main_phase_start: Vec<serde_json::Value>,
@@ -494,6 +550,21 @@ pub struct Player {
     pub hand_counter_boost: Option<serde_json::Value>,
 }
 
+impl Player {
+    /// 表向きのライフ枚数 (= `life_face_up` の true の数)。 Python の property と同則。
+    /// ⚠ **書き込みは `life_face_up` を直接操作する** (枚数だけを持つ旧モデルは 2026-08-11 に廃止)。
+    pub fn face_up_life_count(&self) -> i32 {
+        self.life_face_up.iter().filter(|x| **x).count() as i32
+    }
+
+    /// `life_face_up` の長さを `life` に揃える (setup / まるごと差し替えの後に呼ぶ)。
+    pub fn life_sync_flags(&mut self) {
+        let n = self.life.len();
+        self.life_face_up.resize(n, false);
+    }
+}
+
+
 /// ゲーム状態 (core.py GameState の**ルール状態**のみ)。 AI 評価/UI/デッキメタ/human 対話は
 /// 差分対象外 (Python 側 _EXCLUDE と一致)。 last_* トリガー context は action 間では通常 None。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -514,6 +585,10 @@ pub struct GameState {
     // 直近トリガー context (action 間では通常 None)。 card ref は card_id に畳む (Python canonical と一致)
     pub last_discard_source_inplay: Option<InPlay>,
     pub last_discard_count: i32,
+    /// 直近の trash_self_hand_random が **実際に捨てた枚数** (Python `last_self_hand_discard_amount`)。
+    /// 公式 「捨てた枚数と同じ枚数を…」 (OP09-059) が読む。 last_discard_count (= イベント context、
+    /// 発火後 0 に戻す) と違い、 同じ do 配列の後続 primitive が読めるようクリアしない = digest 対象。
+    pub last_self_hand_discard_amount: i32,
     pub last_returned_don_count: i32,
     pub last_peeked_opp_deck_top: Option<serde_json::Value>,
     #[serde(serialize_with = "ser_opt_card_id")]
@@ -643,6 +718,44 @@ pub struct GameState {
     /// opp_just_negated_any (OP09-097 闇水、 リーダーも対象) の解決に使う。
     #[serde(skip)]
     pub last_negated: Option<(usize, crate::effects::Slot)>,
+    /// 直前の `rest` が **選んだ** カード (player_idx, Slot)。 effects.py の
+    /// `state.last_rest_selected_iid` の代替。 just_rest_selected (ST24-004 ロー&ベポ
+    /// 「相手キャラ1枚までをレストにし、 **そのキャラは** 次のリフレッシュでアクティブに
+    /// ならない」) の解決に使う。 ⚠ Python は instance_id、 Rust は位置 index (last_negated
+    /// と同じ制約) — 選択と参照の間に場が動くと表現が食い違いうる。
+    #[serde(skip)]
+    pub last_rest_selected: Option<(usize, crate::effects::Slot)>,
+    /// ⛔ **選択列挙モード** (Python `state.choice_enumeration`)。 効果解決中の選択を
+    /// pending_choice として立て、 探索が ResolveChoice で分岐するモード。
+    /// Rust は **未追従** (pending_choice / continuation 機構が無く、 自動 pick が 89 箇所
+    /// インライン) なので、 このフラグが立っている state は **一切処理せず Err で bail** する。
+    /// 追従するまでは 「黙って別のゲームを進める」 (= 学習データの静かな汚染) を防ぐのが最優先。
+    /// digest には含まれない (ゲーム状態でなく探索の設定) が full_dump には載る。
+    /// 効果解決の途中で立った **選択待ち** (Python `state.pending_choice` のミラー)。
+    /// 選択列挙モードでのみ立つ。 `legal_actions` が ResolveChoice を返し、
+    /// `apply_action` が picks を注入して primitive を **再実行** して続きを進める
+    /// (= Python が `_picks_idx` を注入して replay するのと同じ形。 Rust には
+    ///  continuation が無いので replay 一本で通す)。
+    /// ⚠ Python 側も `pending_choice` を digest から除外しているので、 こちらも
+    ///   `skip_serializing` で揃える (= digest parity を壊さない)。
+    #[serde(default, skip_serializing, skip_deserializing)]
+    pub pending_choice: Option<PendingChoice>,
+    /// 「いまの起動メインで【ターン1回】を立てた」 発動元 (Python
+    /// `state._act_used_set_by_current_fire`)。 任意コストを **見送った** 時に
+    /// 「発動していない = ターン1回は未使用」 へ戻すために使う (公式 cardqa_op_03)。
+    #[serde(default, skip_serializing, skip_deserializing)]
+    pub rust_act_used_set_by: Option<(usize, i64)>,
+    /// 場 5 枚差し替え (公式 3-7-6-1) で **持ち主が選んだ犠牲** の待ち行列 (キャラ index)。
+    /// Python `state.field_full_sacrifice_iids` のミラー (iid の代わりに位置 index)。
+    /// 選択の解決から召喚 primitive の replay までの間だけ生きる transient。
+    #[serde(default, skip_serializing, skip_deserializing)]
+    pub rust_field_full_sacrifice: Vec<usize>,
+    /// ⚠ **digest に出さない** (`skip_serializing`)。 Python 側は _EXCLUDE で digest から
+    /// 除外しつつ full_dump にだけ載せているので、 Rust も serialize 側に出すと
+    /// **全 state で digest が食い違う** (実測: parity static_skip=2138 / effect smoke
+    /// MISMATCH=5814 で全滅した)。 deserialize だけ受ける = rng_state と同じ扱い。
+    #[serde(default, skip_serializing)]
+    pub choice_enumeration: bool,
     /// 直前に cost の discard_hand_with_filter で捨てたカード名 (effects.py:8877
     /// `state.last_discarded_names`)。 filter の name_in_last_discarded 解決に使う (EB02-039)。
     #[serde(skip)]

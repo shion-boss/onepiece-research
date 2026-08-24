@@ -282,7 +282,13 @@ def test_op04_060_crocodile_on_play_put_top_to_life_ai():
     life_before = len(me.life)
 
     do, eff = _do(overlay, "OP04-060", "on_play", needle="put_top_to_life")
-    assert _cond_of(eff).get("leader_feature") == "B・W", \
+    # ⚠ 2026-08-21 是正: 公式テキストは 「『X』を含む特徴を持つ」 (= 部分一致) なので
+    #   overlay は leader_feature_contains を使う (db/faq/base.json: 《元X》《X傘下》 も含む)。
+    #   キー名を直接 assert すると書き分けの是正で落ちるため **意味** を見る。
+    _c = _cond_of(eff)
+    assert (_c.get("leader_feature_contains") == "B・W"
+            or _c.get("leader_feature") == "B・W"
+            or "B・W" in _c.get("leader_features_any", [])), \
         "overlay の 条件 leader_feature=B・W が無い"
     for prim in do:
         execute_effect(prim, st, me, opp,

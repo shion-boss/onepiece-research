@@ -66,8 +66,19 @@ def test_lifecard_play_self_trigger_declined_goes_to_hand():
     assert taken not in opp.trash
 
 
-def test_lifecard_play_self_trigger_condition_unmet_goes_to_hand():
-    """非九蛇リーダーでは ラン の トリガー条件 不成立 → 発動 せず 手札 へ (trash でない)。"""
+def test_lifecard_play_self_trigger_condition_unmet_goes_to_trash_if_declared():
+    """条件不成立でも **発動は選べる**。 発動したら登場せず **トラッシュ** へ。
+
+    一次情報 (cardqa_op_03、 OP03-033 はっちゃん = 同型の 「リーダーが特徴Xを持つ場合、
+    このカードを登場させる」【トリガー】):
+      Q: 自分のリーダーが特徴《東の海》を持たない場合、この【トリガー】を発動できますか？
+      A: **はい、発動できます。**【トリガー】を発動した場合、このカードは登場せず
+         **トラッシュ**に置きます。
+
+    ⚠ 2026-08-13 是正: 旧実装は 「効果の条件不成立」 を **発動できない** 扱いにしており、
+      カードが手札に加わっていた (= 公式より得)。 公式は 「発動コストが払えない」 (= 発動不可)
+      と 「条件不成立」 (= 発動できて何も起きない) を区別する。
+    """
     overlay = _overlay()
     # OP01-001 = ルフィ (九蛇海賊団 を 持たない)
     repo, state = _mk_state("OP01-001", "OP01-013", overlay)
@@ -77,6 +88,19 @@ def test_lifecard_play_self_trigger_condition_unmet_goes_to_hand():
     chars_before = len(opp.characters)
     _resolve_life_taken(state, me, opp, taken, use_trigger=True)
 
-    assert len(opp.characters) == chars_before
+    assert len(opp.characters) == chars_before, "条件不成立なのに登場している"
+    assert taken not in opp.hand, "発動を選んだのに手札に加わっている (公式=トラッシュ)"
+    assert taken in opp.trash, "トラッシュに置かれていない"
+
+
+def test_lifecard_play_self_trigger_condition_unmet_kept_in_hand_if_declined():
+    """対照: 条件不成立で **発動しない** ことを選べば従来どおり手札へ。"""
+    overlay = _overlay()
+    repo, state = _mk_state("OP01-001", "OP01-013", overlay)
+    me, opp = state.players[0], state.players[1]
+    taken = repo.get("OP14-114")
+
+    _resolve_life_taken(state, me, opp, taken, use_trigger=False)
+
     assert taken in opp.hand
     assert taken not in opp.trash

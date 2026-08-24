@@ -182,7 +182,8 @@ def test_op08_063_on_play_flip_life_add_active_don_ai():
     st = _state(repo, overlay=overlay)
     me, opp = st.players[0], st.players[1]
     me.life = [repo.get("OP01-013")] * 3
-    me.face_up_life_count = 2  # 表向きライフ 2 → 1 枚 裏向きに できる
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ  # 表向きライフ 2 → 1 枚 裏向きに できる
+    me.life_face_up = [i < (2) for i in range(len(me.life))]
     me.don_active = 0
     me.don_remaining_in_deck = 10
 
@@ -210,7 +211,8 @@ def test_op08_063_on_play_human_optional_cost_modal():
     st = _state(repo, overlay=overlay, human_idx=0)
     me, opp = st.players[0], st.players[1]
     me.life = [repo.get("OP01-013")] * 3
-    me.face_up_life_count = 2
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (2) for i in range(len(me.life))]
     me.don_active = 0
 
     execute_effect(_do(overlay, "OP08-063", "on_play")[0], st, me, opp,

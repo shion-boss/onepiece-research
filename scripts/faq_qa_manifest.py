@@ -55,8 +55,46 @@ def qid_of(q: str, a: str) -> str:
     return hashlib.sha1((q + "\n" + a).encode("utf-8")).hexdigest()[:12]
 
 
-def collect() -> tuple[dict, bool]:
-    """cardqa 全ファイルから ユニーク Q&A を集める (文言が同じものは 1 件に畳む)。
+# 公式サイト 「よくある質問」 タブ (= cardqa とは別タブ) の 4 カテゴリ。
+# ⭐ カード個別でなく **一般則** の裁定なので 1 件が数百カードに効く (= cardqa より当たりが太い)。
+#   例: detail.json 「”~枚まで” と表記されている場合、 0 枚を選ぶことはできますか？」 → 「はい」
+#   (= 総合ルール 1-3-5-1。 overlay がこの任意性を落とす型が繰り返し出ている)。
+# ⚠ 各ファイルは公式ページの見出し重複でそのまま 2 重掲載されている (items 140 / ユニーク 70)。
+#   qid = 文面ハッシュなので自動的に 1 件へ畳まれる。 8 件は cardqa と文面が同一で共有される。
+GENERAL_FAQ_FILES = ("base.json", "detail.json", "keyword.json", "keyword_effect.json")
+
+
+def _collect_general_faq() -> tuple[dict, bool]:
+    """一般FAQ (よくある質問タブ) から ユニーク Q&A を集める。 (uniq, readable) を返す。
+
+    ⚠ `db/faq/*.json` は Bandai 著作物ゆえ全て gitignore。 一次不在の環境 (fresh clone /
+      公式サイト遮断のクラウドルーティン) では読めないので、 **readable=False の時は
+      prune しない** (cardqa と同じ data-loss 対策。 cardqa と違い snapshot は無い)。
+    """
+    uniq: dict[str, dict] = {}
+    readable = False
+    for fn in GENERAL_FAQ_FILES:
+        path = ROOT / "db" / "faq" / fn
+        try:
+            items = json.loads(path.read_text(encoding="utf-8")).get("items", [])
+        except Exception:  # noqa: BLE001
+            continue
+        readable = True
+        for it in items:
+            q, a = (it.get("q") or "").strip(), (it.get("a") or "").strip()
+            if not q:
+                continue
+            k = qid_of(q, a)
+            if k in uniq:
+                if fn not in uniq[k]["files"]:
+                    uniq[k]["files"].append(fn)
+            else:
+                uniq[k] = {"q": q, "a": a, "files": [fn], "source": "faq"}
+    return uniq, readable
+
+
+def collect() -> tuple[dict, bool, bool]:
+    """cardqa 全ファイル + 一般FAQ から ユニーク Q&A を集める (文言が同じものは 1 件に畳む)。
 
     返り値 = (uniq, from_primary)。
       from_primary = True  → 一次ソース `db/faq/cardqa_*.json` (scraper 産、 全件) を読めた。
@@ -82,13 +120,37 @@ def collect() -> tuple[dict, bool]:
             if not q:
                 continue
             k = qid_of(q, a)
+            # ⭐ 2026-08-12: 公式ページの `dd.qaTit` から拾った **カード紐付け** を持ち回る。
+            #   同じ Q&A は 「シリーズ名」 見出しと 「カード名」 見出しの 2 回載るので、
+            #   card_id が付いている方を採る (= 「この【登場時】効果」 がどのカードか特定できる)。
+            #   これが無いと conformance 検査が 「対象カード特定不能」 で n/a / escalated に落ちる
+            #   (実際に P-009 Q304 / OP02-004 の 2 件で発生した)。
+            #   ⚠ **1 つの Q&A が複数カードにぶら下がる** ことがある (同じ文面の効果を持つカードが
+            #     6 枚並ぶ等)。 台帳キーは文面ハッシュなので 1 件に畳まれる → card_ids は **リスト**
+            #     で持つ (先頭 1 枚だけ採ると、 実際には別カードの裁定を見て誤判定しうる)。
+            cid = it.get("card_id")
             if k in uniq:
                 if fn not in uniq[k]["files"]:
                     uniq[k]["files"].append(fn)
+                if cid and cid not in uniq[k].setdefault("card_ids", []):
+                    uniq[k]["card_ids"].append(cid)
             else:
                 uniq[k] = {"q": q, "a": a, "files": [fn]}
+                if cid:
+                    uniq[k]["card_ids"] = [cid]
     if uniq:
-        return uniq, True
+        for v in uniq.values():
+            v.setdefault("source", "cardqa")
+        gen, gen_readable = _collect_general_faq()
+        for k, v in gen.items():
+            if k in uniq:
+                # cardqa と文面が同一 (8 件) → 一般FAQ 側の pack 名も持たせる
+                for fn in v["files"]:
+                    if fn not in uniq[k]["files"]:
+                        uniq[k]["files"].append(fn)
+            else:
+                uniq[k] = v
+        return uniq, True, gen_readable
 
     # 一次ソース不在 → committed snapshot に fallback (add-only、 prune しない)
     tagged = ROOT / "db" / "cardqa_tagged.json"
@@ -106,8 +168,12 @@ def collect() -> tuple[dict, bool]:
                 if "cardqa_tagged.json" not in uniq[k]["files"]:
                     uniq[k]["files"].append("cardqa_tagged.json")
             else:
-                uniq[k] = {"q": q, "a": a, "files": ["cardqa_tagged.json"]}
-    return uniq, False
+                uniq[k] = {"q": q, "a": a, "files": ["cardqa_tagged.json"], "source": "cardqa"}
+    gen, gen_readable = _collect_general_faq()
+    for k, v in gen.items():
+        if k not in uniq:
+            uniq[k] = v
+    return uniq, False, gen_readable
 
 
 def load_status() -> dict:
@@ -122,7 +188,8 @@ def save(db: dict) -> None:
                    encoding="utf-8")
 
 
-def sync(db: dict, uniq: dict, from_primary: bool = True) -> dict:
+def sync(db: dict, uniq: dict, from_primary: bool = True,
+         general_readable: bool = True) -> dict:
     """新弾で増えた Q&A を pending として取り込む。 既存の status は保持する。
 
     from_primary=True (= 一次ソース `db/faq/cardqa_*.json` を読めた) の時だけ、 cardqa から
@@ -137,12 +204,23 @@ def sync(db: dict, uniq: dict, from_primary: bool = True) -> dict:
             # のみ) ので、 既存エントリの q/a/files は **上書きしない** (一次由来の pack 名を守る)。
             if from_primary:
                 db[k]["q"], db[k]["a"], db[k]["files"] = v["q"], v["a"], sorted(v["files"])
+                if v.get("card_ids"):
+                    db[k]["card_ids"] = sorted(v["card_ids"])
+                db[k].pop("card_id", None)   # 旧 単数フィールドは廃止
         else:
             db[k] = {**v, "files": sorted(v["files"]), "status": "pending", "note": ""}
-    if from_primary:
-        for k in list(db):
-            if k not in uniq:
-                del db[k]
+        db[k].setdefault("source", v.get("source", "cardqa"))
+    # ⚠ prune は **読めたソースの分だけ**。 cardqa 一次不在 or 一般FAQ 不在の環境で
+    #   一括 prune すると、 読めなかった側の処理済 status ごと消える (data-loss)。
+    for k in list(db):
+        if k in uniq:
+            continue
+        src = db[k].get("source", "cardqa")
+        if src == "faq" and not general_readable:
+            continue
+        if src != "faq" and not from_primary:
+            continue
+        del db[k]
     return db
 
 
@@ -156,8 +234,11 @@ def main() -> None:
                     help="1 件の status を更新")
     args = ap.parse_args()
 
-    uniq, from_primary = collect()
-    db = sync(load_status(), uniq, from_primary)
+    uniq, from_primary, general_readable = collect()
+    db = sync(load_status(), uniq, from_primary, general_readable)
+    if not general_readable:
+        print("⚠ 一般FAQ (db/faq/{base,detail,keyword,keyword_effect}.json) 不在 → "
+              "faq 由来エントリは prune しない (add-only)。", file=sys.stderr)
     if not from_primary:
         print("⚠ 一次ソース db/faq/cardqa_*.json 不在 → committed snapshot "
               "db/cardqa_tagged.json に fallback (add-only、 台帳を prune しない)。",
@@ -199,7 +280,10 @@ def main() -> None:
             print(f"⚠ 残 pending {len(pend)} 件 = バッチ 2 本分を切った。 "
                   f"cron (先頭から) と範囲が重なる → cron を止めるか手動を停める")
         for k, v in take:
-            print(f"\n[{k}] ({len(v['files'])} 弾: {', '.join(v['files'][:3])})")
+            _cids = v.get("card_ids") or []
+            _lbl = ", ".join(_cids[:6]) + (f" 他{len(_cids)-6}枚" if len(_cids) > 6 else "")
+            print(f"\n[{k}] ({len(v['files'])} 弾: {', '.join(v['files'][:3])})"
+                  + (f"  ⭐ カード: {_lbl}" if _cids else "  ⚠ カード紐付けなし"))
             print(f"  Q: {v['q']}")
             print(f"  A: {v['a']}")
 

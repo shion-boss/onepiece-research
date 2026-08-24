@@ -153,7 +153,8 @@ def test_st29_008_replace_ko_flips_life_face_up():
     nami = InPlay.of(repo.get("ST29-008"), sickness=False)  # エッグヘッド/麦わらの一味
     me.characters = [nami]
     me.life = [repo.get(_FILLER)] * 2
-    me.face_up_life_count = 0
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
 
     replaced = try_replace_ko(
         st, me, opp, nami, overlay, by_opp_effect=True, leave_kind="ko",
@@ -174,7 +175,8 @@ def test_st29_008_replace_ko_not_by_opp_effect():
     nami = InPlay.of(repo.get("ST29-008"), sickness=False)
     me.characters = [nami]
     me.life = [repo.get(_FILLER)] * 2
-    me.face_up_life_count = 0
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (0) for i in range(len(me.life))]
 
     replaced = try_replace_ko(
         st, me, opp, nami, overlay, by_opp_effect=False, leave_kind="ko",

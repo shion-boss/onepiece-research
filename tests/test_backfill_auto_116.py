@@ -223,7 +223,8 @@ def test_op11_103_shakure_activate_main_ko_ai():
     shakure = InPlay.of(repo.get("OP11-103"), sickness=False)
     me.characters = [shakure]
     me.life = [repo.get(_FILLER)] * 2
-    me.face_up_life_count = 1
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (1) for i in range(len(me.life))]
     victim = InPlay.of(repo.get(_VICTIM), sickness=False)  # cost1 (<=3)
     opp.characters = [victim]
 
@@ -246,7 +247,8 @@ def test_op11_103_shakure_no_activate_when_wrong_leader():
     shakure = InPlay.of(repo.get("OP11-103"), sickness=False)
     me.characters = [shakure]
     me.life = [repo.get(_FILLER)] * 2
-    me.face_up_life_count = 1
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (1) for i in range(len(me.life))]
 
     opts = [o for o in list_activate_main_effects(st, me, overlay)
             if o[0].card.card_id == "OP11-103"]
@@ -263,7 +265,8 @@ def test_op11_103_shakure_activate_main_human_optional_confirm():
     shakure = InPlay.of(repo.get("OP11-103"), sickness=False)
     me.characters = [shakure]
     me.life = [repo.get(_FILLER)] * 2
-    me.face_up_life_count = 1
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (1) for i in range(len(me.life))]
     victim = InPlay.of(repo.get(_VICTIM), sickness=False)
     opp.characters = [victim]
 
@@ -297,7 +300,8 @@ def test_op11_104_shirley_on_play_search_gyojinto_ai():
     me, opp = st.players[0], st.players[1]
     me.deck = [repo.get(_KAIMII)] + [repo.get(_FILLER)] * 10  # 上3枚に魚人島
     me.life = [repo.get(_FILLER)] * 2
-    me.face_up_life_count = 1
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (1) for i in range(len(me.life))]
     src = InPlay.of(repo.get("OP11-104"), sickness=True)
     me.characters = [src]
 
@@ -318,7 +322,8 @@ def test_op11_104_shirley_on_play_human_optional_confirm():
     me, opp = st.players[0], st.players[1]
     me.deck = [repo.get(_KAIMII)] + [repo.get(_FILLER)] * 10
     me.life = [repo.get(_FILLER)] * 2
-    me.face_up_life_count = 1
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (1) for i in range(len(me.life))]
     src = InPlay.of(repo.get("OP11-104"), sickness=True)
     me.characters = [src]
 
@@ -354,7 +359,8 @@ def test_op11_107_chonmage_activate_main_schedule_untap_ai():
     chon = InPlay.of(repo.get("OP11-107"), sickness=False)
     me.characters = [chon]
     me.life = [repo.get(_FILLER)] * 2
-    me.face_up_life_count = 1
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (1) for i in range(len(me.life))]
 
     opts = [o for o in list_activate_main_effects(st, me, overlay)
             if o[0].card.card_id == "OP11-107"]
@@ -375,7 +381,8 @@ def test_op11_107_chonmage_activate_main_once_per_turn():
     chon = InPlay.of(repo.get("OP11-107"), sickness=False)
     me.characters = [chon]
     me.life = [repo.get(_FILLER)] * 3
-    me.face_up_life_count = 2
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (2) for i in range(len(me.life))]
 
     opts1 = [o for o in list_activate_main_effects(st, me, overlay)
              if o[0].card.card_id == "OP11-107"]
@@ -401,7 +408,8 @@ def test_op11_108_neptune_on_play_draw2_discard1_ai():
     me.hand = [repo.get(_FILLER), repo.get(_VICTIM)]
     me.deck = [repo.get(_FILLER)] * 6
     me.life = [repo.get(_FILLER)] * 2
-    me.face_up_life_count = 1
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (1) for i in range(len(me.life))]
     src = InPlay.of(repo.get("OP11-108"), sickness=True)
     me.characters = [src]
 
@@ -425,7 +433,8 @@ def test_op11_108_neptune_on_play_no_effect_when_wrong_leader():
     me.hand = [repo.get(_FILLER), repo.get(_VICTIM)]
     me.deck = [repo.get(_FILLER)] * 6
     me.life = [repo.get(_FILLER)] * 2
-    me.face_up_life_count = 1
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (1) for i in range(len(me.life))]
     src = InPlay.of(repo.get("OP11-108"), sickness=True)
     me.characters = [src]
 
@@ -444,7 +453,8 @@ def test_op11_108_neptune_on_play_human_optional_confirm():
     me.hand = [repo.get(_FILLER), repo.get(_VICTIM)]
     me.deck = [repo.get(_FILLER)] * 6
     me.life = [repo.get(_FILLER)] * 2
-    me.face_up_life_count = 1
+    # 2026-08-11: 表向きライフは per-card フラグ (life_face_up) で持つ
+    me.life_face_up = [i < (1) for i in range(len(me.life))]
     src = InPlay.of(repo.get("OP11-108"), sickness=True)
     me.characters = [src]
 
