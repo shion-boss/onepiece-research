@@ -51511,7 +51511,7 @@
  ],
  "OP08-045": [
   {
-   "_text": "KO される か 相手効果で 場離脱する 時 代わりに トラッシュ + draw 1",
+   "_text": "OP08-045 replace_ko: このキャラが KO される場合 (原因不問) → 代わりにトラッシュ + 1ドロー",
    "cost": [
     {
      "trash_self": true
@@ -51524,6 +51524,24 @@
    ],
    "if": {
     "target": "self"
+   },
+   "when": "replace_ko"
+  },
+  {
+   "_text": "OP08-045 replace_leave: **相手の効果で**場を離れる場合 → 代わりにトラッシュ + 1ドロー (自分の効果での離脱は対象外)",
+   "cost": [
+    {
+     "trash_self": true
+    }
+   ],
+   "do": [
+    {
+     "draw": 1
+    }
+   ],
+   "if": {
+    "target": "self",
+    "by_opp_effect": true
    },
    "when": "replace_leave"
   }

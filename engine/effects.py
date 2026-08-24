@@ -8525,18 +8525,51 @@ def _execute_effect_body_inner(
             ch.turn_base_power_override = ld_base
             state.push_log(f"  効果: 元々パワー入替 リーダー({ld_base}<->{ch_base}){ch.card.name}")
         elif k == "return_self_charas_then_pump_per":
-            # 「自分の場のキャラを任意の枚数手札に戻してもよい。 (target)は戻したキャラ1枚につき+M」
-            # (P-059)。 AI: pump target 以外の自キャラを全戻し -> target を戻し枚数xM で pump。
+            # 「自分の場のキャラを **任意の枚数** 手札に戻して**もよい**。 (target)は戻したキャラ
+            # 1枚につき+M」 (P-059 世界のつづき)。
+            # ⚠ 2026-08-24 是正: 従来は **pump 対象以外を問答無用で全戻し** していた。 公式は
+            #   「任意の枚数」 + 「てもよい」 = **枚数も対象も本人が選ぶ (0 枚も選べる、 総合 1-3-5-1)**。
+            #   自分の盤面を最大限に壊す方向へ固定されていた = 選択権の欠落。
+            # 選択は 2 段 (`transfer_attached_don_to_feature` と同型):
+            #   1 段目 = pump 対象 (「自分のリーダーかキャラ1枚まで」) → 通常の `_iid_picks`
+            #   2 段目 = 手札に戻すキャラ (任意の枚数) → 1 段目の結果を `_pump_iids` で持ち越す
+            #            (replay は `target` を `_iid_picks` で上書きするので、 持ち越し無しでは
+            #             2 段目の picks を pump 対象と取り違える)
             spec_val = v if isinstance(v, dict) else {}
             amount = int(spec_val.get("amount", 2000))
             duration = spec_val.get("duration", "battle")
             pump_target_spec = spec_val.get("target", "self_inplay")
-            pts = _resolve_target(pump_target_spec, state, me, opp, self_inplay,
-                                  outer_kind="return_self_charas_then_pump_per", outer_value=pump_target_spec)
-            pump_target = pts[0] if pts else None
+            pump_iids = spec_val.get("_pump_iids")
+            if pump_iids is None:
+                pts = _resolve_target(pump_target_spec, state, me, opp, self_inplay,
+                                      outer_kind="return_self_charas_then_pump_per",
+                                      outer_value={**spec_val, "target": pump_target_spec})
+                if state.pending_choice is not None:
+                    return True  # 1 段目で中断 (再開時は target に _iid_picks が入る)
+                pump_target = pts[0] if pts else None
+            else:
+                pump_target = next(
+                    (ip for ip in [me.leader, *me.characters, *me.stages]
+                     if ip.instance_id in pump_iids), None)
+            cands = [c for c in me.characters
+                     if pump_target is None or c.instance_id != pump_target.instance_id]
+            return_iids = spec_val.get("_iid_picks") if pump_iids is not None else None
+            if return_iids is not None:
+                chosen = [c for c in cands if c.instance_id in return_iids]
+            else:
+                if cands and _maybe_request_target_pick(
+                    state, cands, len(cands), "return_self_charas_then_pump_per",
+                    {**spec_val,
+                     "_pump_iids": [pump_target.instance_id] if pump_target is not None else []},
+                    self_inplay,
+                    description="手札に戻すキャラ を 任意の枚数 選択 (0 枚 可)",
+                ):
+                    return True  # 2 段目で中断
+                # AI (= 選択を列挙しないモード) の既定は従来どおり全戻し (= pump 最大化)。
+                chosen = list(cands)
             returned = 0
-            for c in list(me.characters):
-                if pump_target is not None and c.instance_id == pump_target.instance_id:
+            for c in chosen:
+                if c not in me.characters:
                     continue
                 me.characters.remove(c)
                 me.hand.append(c.card)
@@ -8544,7 +8577,7 @@ def _execute_effect_body_inner(
                     me.don_rested += c.attached_dons
                 returned += 1
             if pump_target is not None and returned > 0:
-                execute_effect({"power_pump": {"target": pump_target_spec,
+                execute_effect({"power_pump": {"target": {"_iid_picks": [pump_target.instance_id]},
                                                "amount": amount * returned, "duration": duration}},
                                state, me, opp, self_inplay)
             state.push_log(f"  効果: 自キャラ{returned}枚戻し -> +{amount*returned}")

@@ -6918,17 +6918,65 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             let amount = v.get("amount").and_then(|x| x.as_i64()).unwrap_or(2000);
             let duration = v.get("duration").and_then(|x| x.as_str()).unwrap_or("battle").to_string();
             let tspec = v.get("target").cloned().unwrap_or(Value::String("self_inplay".into()));
-            let pump_slot = resolve_target(Some(&tspec), me_idx, opp_idx, src, state)
-                .and_then(|ts| ts.into_iter().next());
-            let keep = match pump_slot {
-                Some((pi, Slot::Char(i))) if pi == me_idx => Some(i),
-                _ => None,
+            // ⭐ 「任意の枚数」 「てもよい」 = **枚数も対象も本人が選ぶ (0 枚も選べる、 総合 1-3-5-1)**。
+            //   Python effects.py と同じ 2 段選択:
+            //     1 段目 = pump 対象 / 2 段目 = 手札に戻すキャラ (1 段目の結果を prim に畳んで持ち越す)
+            //   ⚠ 再実行は primitive の先頭からなので、 持ち越さないと 2 段目の picks を
+            //     1 段目 (pump 対象) が消費してしまう。
+            let staged = v.get("_pump_staged").and_then(|x| x.as_bool()).unwrap_or(false);
+            let pump: Option<(usize, Slot)> = if staged {
+                v.get("_pump_slot").and_then(|x| x.as_i64()).map(|c| (me_idx, code_to_slot(c)))
+            } else {
+                let Some(ts) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else {
+                    return false;
+                };
+                if choice_suspended() {
+                    return true; // 1 段目で中断 (replay 時は FORCED_TARGETS で解決される)
+                }
+                ts.into_iter().find(|&(pi, _)| pi == me_idx)
             };
+            let cands: Vec<(usize, Slot)> = (0..state.players[me_idx].characters.len())
+                .map(|i| (me_idx, Slot::Char(i)))
+                .filter(|&c| Some(c) != pump)
+                .collect();
+            let ret_idx: Vec<usize> = if staged {
+                take_forced_targets(state)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter_map(|(pi, sl)| match sl {
+                        Slot::Char(i) if pi == me_idx => Some(i),
+                        _ => None,
+                    })
+                    .collect()
+            } else if state.choice_enumeration && !cands.is_empty() {
+                let mut spec2 = v.as_object().cloned().unwrap_or_default();
+                spec2.insert("_pump_staged".into(), Value::Bool(true));
+                if let Some((_, sl)) = pump {
+                    spec2.insert("_pump_slot".into(), json!(slot_to_code(sl)));
+                }
+                note_choice_suspend_with_prim(
+                    "target_pick", cands.len(), board_order(&cands),
+                    json!({ "return_self_charas_then_pump_per": Value::Object(spec2) }));
+                return true;
+            } else {
+                // AI (= 選択を列挙しないモード) の既定は従来どおり全戻し (= pump 最大化)。
+                cands.iter()
+                    .filter_map(|&(_, sl)| if let Slot::Char(i) = sl { Some(i) } else { None })
+                    .collect()
+            };
+            // ⚠ pump 対象は除去で位置がずれるのでタグで追う (Python は iid 参照)。
+            let pump_tok = match pump {
+                Some((pi, sl)) => tag_src(state, pi, sl),
+                None => None,
+            };
+            let drop_set: std::collections::BTreeSet<usize> = ret_idx.into_iter().collect();
             let mut returned = 0i64;
             let me = &mut state.players[me_idx];
             let old = std::mem::take(&mut me.characters);
+            // ⚠ 手札へ積む順は **盤面順 (index 昇順)**。 Python は board 順の候補列を
+            //   そのまま回すので、 ここを崩すと手札の並びが食い違う。
             for (i, c) in old.into_iter().enumerate() {
-                if Some(i) == keep {
+                if !drop_set.contains(&i) {
                     me.characters.push(c);
                     continue;
                 }
@@ -6937,12 +6985,18 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 me.don_rested += don;
                 returned += 1;
             }
-            if pump_slot.is_some() && returned > 0 {
+            if pump.is_some() && returned > 0 {
+                if let (Some((pi, sl)), Some(_)) = (pump, pump_tok) {
+                    set_forced_targets(Some(vec![(pi, sl, pump_tok)]));
+                }
                 let prim = json!({"power_pump": {
                     "target": tspec, "amount": amount * returned, "duration": duration
                 }});
-                return execute_effect(&prim, state, me_idx, src);
+                let r = execute_effect(&prim, state, me_idx, src);
+                drop_forced_target_tags(state, &[pump_tok]);
+                return r;
             }
+            drop_forced_target_tags(state, &[pump_tok]);
             true
         }
         // 「手札から (filter) キャラ N 枚までを任意で 0 コスト登場」 (effects.py:5206、 OP11-024)。
