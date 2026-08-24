@@ -4662,10 +4662,6 @@ const SIMULTANEOUS_LEAVE_PRIMS: &[&str] = &[
 ///   `resolve_target` 経由の選択 (= target_pick) は `pick_one_or_suspend` で実装済なので除く。
 ///   kind を移植するたびにここから外していく = **site-specific bail**。
 const CHOICE_UNPORTED_PRIMS: &[&str] = &[
-    "draw_per_self_chara_then_discard",
-    "play_from_hand_choice",
-    "reveal_hand_play_split",
-    "self_hand_to_size",
 ];
 
 /// ⭐ `play_self` / `play_self_from_trash` は **リストから外した** (2026-08-22)。 Python の
@@ -5555,7 +5551,11 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
             // cost 降順 → power 降順 → name 昇順 (effects.py:5323)
             cands.sort_by(|&a, &b| {
                 let (ca, cb) = (&me.hand[a], &me.hand[b]);
-                (-cb.cost, -cb.power, ca.name.clone()).cmp(&(-ca.cost, -ca.power, cb.name.clone()))
+                // ⚠ **cost 降順 → power 降順 → name 昇順** (Python `key=(-cost, -power, name)`)。
+                //   従来の `(-cb.cost, ...).cmp(&(-ca.cost, ...))` は符号と引数を二重に反転させて
+                //   いて **コスト昇順** になっていた (= 一番弱い札を選ぶ)。 実測で Python が
+                //   コスト 3 を選ぶ局面で Rust はコスト 1 を選んでいた (2026-08-24)。
+                (cb.cost, cb.power).cmp(&(ca.cost, ca.power)).then_with(|| ca.name.cmp(&cb.name))
             });
             let idx = cands[0];
             // ⚠ Python は append → pop(idx) の順 (field-full trash が先、 hand 除去は後)。
@@ -5653,6 +5653,43 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
             state.players[me_idx].trash.extend(trashed);
             true
         }
+        // ⭐ `discard_only` の再開専用 (Python `resolve_pending_choice` の
+        //   `if choice.get("discard_only")` 分岐、 effects.py:12129)。 **primitive は再実行しない**
+        //   (= draw 済みの系で再 draw させない) ので、 選んだ手札を捨てるだけの疑似 primitive を
+        //   PendingChoice.prim に載せて replay する。
+        //   ⚠ Python の discard_only は `on_self_hand_discarded` を発火せず
+        //     `hand_discarded_by_effect_this_turn` も立てない。 ここも同じにする。
+        "__discard_only_pick" => {
+            let limit = v.get("limit").and_then(|x| x.as_i64()).unwrap_or(1).max(0) as usize;
+            let picks = take_forced_picks().unwrap_or_default();
+            let mut dc = 0i32;
+            if picks.is_empty() {
+                // 人間が 「選ばない」 を出した時の Python fallback = 最悪札から limit 枚。
+                for _ in 0..limit {
+                    let me = &mut state.players[me_idx];
+                    let Some(i) = worst_hand_idx(&me.hand, &me.known_hand_card_ids) else { break };
+                    let c = me.hand.remove(i);
+                    me.trash.push(c);
+                    dc += 1;
+                }
+            } else {
+                let mut ds: Vec<usize> = picks;
+                ds.sort_unstable();
+                ds.dedup();
+                ds.reverse(); // Python: sorted(set(...), reverse=True)[:limit]
+                ds.truncate(limit);
+                for i in ds {
+                    let me = &mut state.players[me_idx];
+                    if i < me.hand.len() {
+                        let c = me.hand.remove(i);
+                        me.trash.push(c);
+                        dc += 1;
+                    }
+                }
+            }
+            state.last_self_hand_discard_amount = dc;
+            true
+        }
         // 自分の手札が N 枚になるように捨てる (effects.py:5563)。 AI は worst_hand_idx から。
         "self_hand_to_size" => {
             let target = if v.is_object() {
@@ -5660,6 +5697,22 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
             } else {
                 v.as_i64().unwrap_or(5) as usize
             };
+            // ⭐ 選択列挙: Python は `_request_self_hand_discard` で
+            //   「候補 > 捨てる枚数」 の時だけ中断する (effects.py:921)。 discard_only なので
+            //   再開は **primitive を再実行せず** 選んだ札を捨てるだけ。
+            let to_discard = state.players[me_idx].hand.len().saturating_sub(target);
+            if state.choice_enumeration
+                && !choice_suspended()
+                && to_discard > 0
+                && state.players[me_idx].hand.len() > to_discard
+            {
+                let cands: Vec<(usize, i64)> =
+                    (0..state.players[me_idx].hand.len()).map(|i| (me_idx, i as i64)).collect();
+                note_choice_suspend_with_prim(
+                    "self_hand_discard_pick", to_discard, cands,
+                    json!({ "__discard_only_pick": { "limit": to_discard } }));
+                return true;
+            }
             while state.players[me_idx].hand.len() > target {
                 let me = &mut state.players[me_idx];
                 let Some(i) = worst_hand_idx(&me.hand, &me.known_hand_card_ids) else { break };
@@ -6528,10 +6581,28 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             if cnt == 0 {
                 return true;
             }
+            // ⚠ 捨てる枚数は **実際に引けた枚数** (Python `nd = len(drawn)`)。 cnt をそのまま
+            //   使うと 山札不足やドロー禁止の時に Python より多く捨てる。
+            let before = state.players[me_idx].hand.len();
             if !execute_effect(&json!({"draw": cnt}), state, me_idx, src) {
                 return false;
             }
-            for _ in 0..cnt {
+            let nd = state.players[me_idx].hand.len().saturating_sub(before);
+            // ⭐ 選択列挙: Python は draw 済みの状態で `_request_self_hand_discard` を呼ぶ
+            //   (effects.py:8455)。 discard_only なので **再開時に再 draw させない**。
+            if state.choice_enumeration
+                && !choice_suspended()
+                && nd > 0
+                && state.players[me_idx].hand.len() > nd
+            {
+                let cands: Vec<(usize, i64)> =
+                    (0..state.players[me_idx].hand.len()).map(|i| (me_idx, i as i64)).collect();
+                note_choice_suspend_with_prim(
+                    "self_hand_discard_pick", nd, cands,
+                    json!({ "__discard_only_pick": { "limit": nd } }));
+                return true;
+            }
+            for _ in 0..nd {
                 let me = &mut state.players[me_idx];
                 let Some(i) = worst_hand_idx(&me.hand, &me.known_hand_card_ids) else { break };
                 let c = me.hand.remove(i);
@@ -7104,18 +7175,47 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 _ => crate::state::Category::Character,
             };
             let me = &state.players[me_idx];
-            let mut cands: Vec<usize> = (0..me.hand.len())
+            let cands_hand_order: Vec<usize> = (0..me.hand.len())
                 .filter(|&i| {
                     me.hand[i].category == cat
                         && matches_filter(&me.hand[i], filt.as_ref())
                         && !card_no_play_via_effect(&me.hand[i].card_id)
                 })
                 .collect();
-            cands.sort_by(|&a, &b| {
-                let (ca, cb) = (&me.hand[a], &me.hand[b]);
-                (-cb.cost, -cb.power, ca.name.clone()).cmp(&(-ca.cost, -ca.power, cb.name.clone()))
-            });
-            cands.truncate(limit);
+            // ⭐ 選択列挙: Python は 「候補 > limit」 で中断する (effects.py:6686、
+            //   kind="play_from_hand_pick")。 ⚠ Python の候補列は **手札順** (enumerate 順) で、
+            //   ヒューリスティック sort は中断しなかった時だけ掛かる。 ここで sort 済みを渡すと
+            //   「候補数は同じなのに k 番目が別のカード」 になる (2026-08-21 と同じ型)。
+            let forced_pfh = take_forced_picks();
+            if state.choice_enumeration
+                && !choice_suspended()
+                && forced_pfh.is_none()
+                && cands_hand_order.len() > limit
+            {
+                note_choice_suspend(
+                    "play_from_hand_pick", limit.max(1),
+                    cands_hand_order.iter().map(|&i| (me_idx, i as i64)).collect());
+                return true;
+            }
+            let mut cands: Vec<usize> = if let Some(picks) = forced_pfh {
+                // 再開: 候補限定 + limit cap (Python effects.py:6714 と同じ防御)。
+                picks.into_iter()
+                    .filter(|i| cands_hand_order.contains(i))
+                    .take(limit)
+                    .collect()
+            } else {
+                let mut c = cands_hand_order.clone();
+                c.sort_by(|&a, &b| {
+                    let (ca, cb) = (&me.hand[a], &me.hand[b]);
+                    // ⚠ **cost 降順 → power 降順 → name 昇順** (Python `key=(-cost, -power, name)`)。
+                    //   従来の `(-cb.cost, ...).cmp(&(-ca.cost, ...))` は符号と引数を二重に反転させて
+                    //   いて **コスト昇順** になっていた (= 一番弱い札を選ぶ)。 実測で Python が
+                    //   コスト 3 を選ぶ局面で Rust はコスト 1 を選んでいた (2026-08-24)。
+                    (cb.cost, cb.power).cmp(&(ca.cost, ca.power)).then_with(|| ca.name.cmp(&cb.name))
+                });
+                c.truncate(limit);
+                c
+            };
             cands.sort_unstable_by(|a, b| b.cmp(a)); // hand pop は降順
             let cards: Vec<crate::state::CardDef> =
                 cands.iter().map(|&i| state.players[me_idx].hand.remove(i)).collect();
@@ -9109,14 +9209,42 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             if cands.is_empty() {
                 return true; // 該当手札なし = 不発 (Python も log のみ)
             }
-            // (cost, power) 降順。 sort_by は stable = 同値は hand 順 (Python の sorted 同様)。
-            let mut ordered = cands.clone();
-            ordered.sort_by(|a, b| (b.1, b.2).cmp(&(a.1, a.2)));
-            let mut reveal_set: Vec<usize> = vec![ordered[0].0];
-            if let Some(t) = ordered[1..].iter().find(|t| t.1 <= rest_cost_le) {
-                reveal_set.push(t.0);
+            // ⭐ 選択列挙: Python は候補が 1 枚でも **必ず** 公開する札を選ばせる
+            //   (effects.py:5845、 kind="reveal_hand_play_split_pick"、 limit=reveal_limit)。
+            //   ⚠ 候補列は **手札順** (Python の cand_list は enumerate 順)。
+            let forced_rhps = take_forced_picks();
+            if state.choice_enumeration && !choice_suspended() && forced_rhps.is_none() {
+                note_choice_suspend(
+                    "reveal_hand_play_split_pick", reveal_limit,
+                    cands.iter().map(|t| (me_idx, t.0 as i64)).collect());
+                return true;
             }
-            reveal_set.truncate(reveal_limit);
+            let reveal_set: Vec<usize> = if let Some(picks) = forced_rhps {
+                // 再開: filter 通過 hand idx に限定 + 重複除去 + reveal_limit で cap
+                //   (Python effects.py:5870 と同じ防御)。
+                let valid: Vec<usize> = cands.iter().map(|t| t.0).collect();
+                let mut out: Vec<usize> = vec![];
+                for i in picks {
+                    if valid.contains(&i) && !out.contains(&i) {
+                        out.push(i);
+                    }
+                }
+                out.truncate(reveal_limit);
+                out
+            } else {
+                // (cost, power) 降順。 sort_by は stable = 同値は hand 順 (Python の sorted 同様)。
+                let mut ordered = cands.clone();
+                ordered.sort_by(|a, b| (b.1, b.2).cmp(&(a.1, a.2)));
+                let mut rs: Vec<usize> = vec![ordered[0].0];
+                if let Some(t) = ordered[1..].iter().find(|t| t.1 <= rest_cost_le) {
+                    rs.push(t.0);
+                }
+                rs.truncate(reveal_limit);
+                rs
+            };
+            if reveal_set.is_empty() {
+                return true; // 「選ばない」 = 公開なし
+            }
             // active 枠 = コスト超のカードを優先 (レスト登場できない為)、 無ければ reveal_set 全体。
             // ⚠ Python の `max()` は **最初の最大** を返す (Rust の max_by_key は最後) → 手で first-max。
             let active_idx = {

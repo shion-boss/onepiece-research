@@ -428,6 +428,52 @@ Rust が `*_multi` 全体を replay すると ① 別の盤面を作り ② 「�
 **「中断で止まる」 + 「単発 primitive を replay」** の 2 点を必ず対にすること。
 掃引: `grep -n 'outer_kind\s*=' engine/effects.py` (2026-08-24 時点 7 箇所)。
 
+### ⭐ 選択列挙の未移植 primitive は **0 件** に (2026-08-24)
+
+`CHOICE_UNPORTED_PRIMS` は空。 残っていた 9 件を移植した:
+
+| 系統 | primitive | 中断 kind |
+|---|---|---|
+| 並び替え | `scry_deck_reorder` / `scry_all_life_reorder` / `scry_all_life_one_to_deck` / `scry_life` | `scry_life_reorder` / `scry_deck_reorder` (= 順序 kind) |
+| 2 択 | `view_life_top_choose_position` | 同名 (= binary kind) |
+| 手札捨て | `self_hand_to_size` / `draw_per_self_chara_then_discard` | `self_hand_discard_pick` (**discard_only**) |
+| 手札登場 | `play_from_hand_choice` / `reveal_hand_play_split` | `play_from_hand_pick` / `reveal_hand_play_split_pick` |
+
+再開の型は 3 つ:
+1. **順序 kind** — `cand_slots` に `0..depth-1` を詰めると rules.rs の汎用経路が `FORCED_PICKS` へ
+   流す。 spec に `_reorder_staged` を畳んで同 primitive を replay し、 picks を **元 index の
+   並び順** として適用 (範囲外/重複を捨て、 不足は元順序で補完 = Python resolver と同形)。
+   ⚠ 列挙器は順序 kind に **元順序 1 手だけ** を出す。 AI ヒューリスティックを走らせると乖離。
+2. **2 択 kind** — rules.rs が `_pick0` を spec に畳む (`reveal_top_play_confirm` と同型)。
+3. **discard_only** — Python は再開時に **primitive を再実行しない** (= draw 済みの系で再 draw
+   させない)。 Rust も `__discard_only_pick` という疑似 primitive を `PendingChoice.prim` に載せ、
+   選んだ手札を捨てるだけにする。 空 picks の時は Python と同じく 「最悪札から limit 枚」。
+
+⚠ **候補列の順序は Python に合わせる**。 `play_from_hand_choice` / `reveal_hand_play_split` の
+Python 候補は **手札順** (enumerate 順) で、 ヒューリスティック sort は中断しなかった時だけ
+掛かる。 sort 済みを渡すと 「候補数は同じなのに k 番目が別のカード」 になる。
+
+### ⭐ 「掃引が緑」 では primitive の正しさは何も言えない (2026-08-24 の実例)
+
+移植の検証中に **既存の実バグ** が出た。 手札から登場させる候補のソート比較子
+
+```rust
+(-cb.cost, -cb.power, ca.name).cmp(&(-ca.cost, -ca.power, cb.name))   // ← 壊れている
+```
+
+は符号と引数を二重に反転させていて **コスト昇順** (= 一番弱い札を選ぶ) になっていた。
+Python は `key=(-cost, -power, name)` = コスト降順。 実測で手札 [サンジ2 / ナミ1 / ゾロ3] に対し
+**Python はゾロ、 Rust はナミ** を登場させていた。 該当は `play_from_hand_choice` (OP11-024/035) と
+`play_from_hand_named_with_dynamic_cost` (OP08-062 / P-090) の 2 箇所。
+
+⚠ **どちらもメタ 16 デッキに入っていない** ので、 対戦ハーネスでも 40,300 手の掃引でも
+一度も踏まれず、 `bail 0 / MISMATCH 0` の裏で黙って別の札を出し続けていた。
+→ `tests/test_rust_choice_ported_prims.py` のように **primitive を直接撃って突き合わせる**
+テストが無いと、 この型は構造的に見つからない
+([[feedback_sweep_coverage_is_not_interaction_coverage]] の実例)。
+
+正しい形: `(cb.cost, cb.power).cmp(&(ca.cost, ca.power)).then_with(|| ca.name.cmp(&cb.name))`
+
 ### ⭐ 注入ターゲットの同一性は `rust_src_tag` で持つ (card_id 照合は不可)
 
 Python の `_iid_picks` は **盤面全体を iid で走査** (`effects.py:2817-2823`) するので

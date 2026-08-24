@@ -35,6 +35,18 @@ CASES = [
     ("view_life either d1", {"view_life_top_choose_position": {"depth": 1, "owner": "either"}}),
     ("view_life self d2", {"view_life_top_choose_position": {"depth": 2, "owner": "self"}}),
     ("view_life opp d1", {"view_life_top_choose_position": {"depth": 1, "owner": "opp"}}),
+    ("self_hand_to_size 1", {"self_hand_to_size": 1}),
+    ("draw_per_chara_then_discard", {"draw_per_self_chara_then_discard": {}}),
+    ("play_from_hand_choice l1", {"play_from_hand_choice": {"filter": {}, "limit": 1}}),
+    ("play_from_hand_choice l2", {"play_from_hand_choice": {"filter": {}, "limit": 2}}),
+    ("reveal_hand_play_split",
+     {"reveal_hand_play_split": {"filter": {}, "reveal_limit": 2, "extra_rested_cost_le": 4}}),
+    # ⚠ 移植ではなく **既存バグの回帰ガード**: 手札から登場させる候補のソート比較子が
+    #   コスト昇順 (= 一番弱い札) になっていた。 該当 2 primitive はメタ 16 デッキに
+    #   入っていないので、 対戦ハーネスでも掃引でも一度も踏まれない。
+    ("play_from_hand_named_with_dynamic_cost",
+     {"play_from_hand_named_with_dynamic_cost":
+      {"name_filter": {}, "cost_ge": 0, "cost_le_source": "fixed", "cost_le": 99}}),
 ]
 
 
@@ -49,6 +61,9 @@ def _mk(repo, ov, enum: bool):
         p.life = [repo.get(i) for i in DECK[:4]]
         p.life_face_up = [False] * 4
         p.hand = [repo.get(i) for i in DECK[:3]]
+    # draw_per_self_chara_then_discard が 「自キャラ 1 枚につき 1 ドロー」 なので 2 体置く
+    for _ in range(2):
+        p0.characters.append(InPlay.of(repo.get("OP01-016"), sickness=False))
     st = GameState(players=[p0, p1], phase=Phase.MAIN, rng=random.Random(11),
                    effects_overlay=ov)
     st.turn_player_idx = 0
@@ -96,11 +111,11 @@ def test_ported_choice_prim_parity(label, spec, enum):
     )
 
 
-def test_choice_unported_list_shrank():
-    """移植したものが denylist に残っていない (= 残っていると無駄に bail する)。"""
+def test_choice_unported_list_is_empty():
+    """未移植 primitive は **0 件**。 増えたら学習分布が歪むので気付けるようにする。"""
     import optcg_engine as eng
 
     unported = set(json.loads(eng.choice_unported_prims()))
-    ported = {"scry_deck_reorder", "scry_all_life_reorder", "scry_all_life_one_to_deck",
-              "scry_life", "view_life_top_choose_position"}
-    assert not (unported & ported), f"移植済なのに denylist に残っている: {unported & ported}"
+    assert unported == set(), (
+        f"2026-08-24 に未移植 0 件へ到達した。 増えているなら移植漏れ: {sorted(unported)}"
+    )

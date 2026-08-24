@@ -377,7 +377,12 @@ def test_rust_unported_choice_primitive_bails():
     # ⭐ 未移植リストは **Rust から取る** (ハードコードすると移植が進んだ時に陳腐化して
     #   落ちる。 2026-08-21 に実際そうなった)。
     unported = tuple(json.loads(eng.choice_unported_prims()))
-    assert unported, "未移植 primitive が 0 = 全 kind 移植済ならこのテストは不要"
+    if not unported:
+        # 2026-08-24: 残り 9 件 (scry 系 / play_from_hand_choice / reveal_hand_play_split /
+        # self_hand_to_size / draw_per_self_chara_then_discard) を移植して **0 件** に到達。
+        # ⚠ テストは消さない — 将来 denylist に primitive を戻した時、 それが本当に
+        #   「黙って自動解決せず bail する」 ことをここで検査し続ける。
+        pytest.skip("未移植 primitive 0 件 (全 kind 移植済) = 検査対象なし")
     targets: list = []
 
     def _prim_keys(node, out):
