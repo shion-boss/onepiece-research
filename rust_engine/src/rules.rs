@@ -1070,6 +1070,18 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
             }
         }
     }
+    // ⭐ 2 択 (どちらのライフを見るか / 上か下か) を spec に畳んで同 primitive を replay。
+    //   Python resolver (effects.py:12798) と同じ picks 解釈にする。
+    if pc.kind == "view_life_top_choose_position" {
+        let p0 = i64::from(picks.first().copied().unwrap_or(0) as u32);
+        if let Some(o) = dos[0].as_object_mut() {
+            if let Some((_k, sv)) = o.iter_mut().next() {
+                if let Some(so) = sv.as_object_mut() {
+                    so.insert("_pick0".into(), serde_json::Value::from(p0));
+                }
+            }
+        }
+    }
     if pc.kind == "optional_cost_confirm" {
         if picks.first().copied() == Some(1) {
             if let Some(spec) = dos[0].get("optional_cost_then").cloned() {

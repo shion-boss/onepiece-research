@@ -351,8 +351,54 @@ fn apply_raw_effect_digest(state_json: &str, effect_json: &str, me_idx: usize) -
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("state: {e}")))?;
     let eff: serde_json::Value = serde_json::from_str(effect_json)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("effect: {e}")))?;
+    // ⚠ 単発エントリなので **選択まわりの thread-local を入口で必ず落とす**。
+    //   実戦経路は action 境界 (`apply_action`) で落ちるが、 ここは境界が無いので、
+    //   前回の呼び出しで中断フラグや注入 picks が残っていると **次の効果が丸ごと no-op** に
+    //   なる (2026-08-24: primitive 単位の parity テストが偽の MISMATCH を出した)。
+    effects::set_choice_suspended(false);
+    effects::set_forced_targets(None);
+    effects::set_forced_picks(None);
+    let _ = effects::take_choice_bail();
     effects::apply_raw_effect(&eff, &mut st, me_idx);
     digest_of(&st).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+}
+
+/// primitive 単位の **選択列挙 ON** 検証用: raw effect を適用し、 立った選択を
+/// `apply_action_choice_policy` と同じ決定的方針で解決しきってから digest を返す。
+///
+/// ⭐ なぜ要るか: `apply_raw_effect_digest` は効果を撃つだけで中断を解決しないので、
+/// 「Python は選択を解決した後」 と 「Rust は中断したまま」 を比べてしまい、
+/// **解決で盤面が動く primitive** (ライフ 1 枚をデッキへ 等) が偽 MISMATCH になる。
+#[pyfunction]
+#[pyo3(signature = (state_json, effect_json, me_idx, policy_k=0))]
+fn apply_raw_effect_choice_policy(
+    state_json: &str, effect_json: &str, me_idx: usize, policy_k: usize,
+) -> PyResult<String> {
+    let mut st: state::GameState = serde_json::from_str(state_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("state: {e}")))?;
+    let eff: serde_json::Value = serde_json::from_str(effect_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("effect: {e}")))?;
+    effects::set_choice_suspended(false);
+    effects::set_forced_targets(None);
+    effects::set_forced_picks(None);
+    let _ = effects::take_choice_bail();
+    effects::apply_raw_effect(&eff, &mut st, me_idx);
+    // do 配列ループ相当: 中断フラグが立っていれば PendingChoice を確定させる。
+    let dos = vec![eff.clone()];
+    effects::suspend_if_choice(&mut st, &dos, 0, &eff, effects::Slot::Leader, me_idx);
+    let mut guard = 0;
+    while st.pending_choice.is_some() && guard < 40 {
+        guard += 1;
+        let opts = effects::legal_actions(&st);
+        if opts.is_empty() {
+            st.pending_choice = None;
+            break;
+        }
+        let pick = opts[policy_k % opts.len()].clone();
+        rules::apply_action(&mut st, &pick)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("resolve: {e}")))?;
+    }
+    digest_of(&st).map_err(pyo3::exceptions::PyValueError::new_err)
 }
 
 /// standalone setup (pre-mulligan) の digest。 deck JSON = {leader, main, don_deck_size}、 rng_state keys、
@@ -767,6 +813,7 @@ fn optcg_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(setup_full, m)?)?;
     m.add_function(wrap_pyfunction!(fire_effect_smoke, m)?)?;
     m.add_function(wrap_pyfunction!(apply_raw_effect_digest, m)?)?;
+    m.add_function(wrap_pyfunction!(apply_raw_effect_choice_policy, m)?)?;
     m.add_function(wrap_pyfunction!(mt_getrandbits, m)?)?;
     m.add_function(wrap_pyfunction!(mt_randrange, m)?)?;
     m.add_function(wrap_pyfunction!(mt_shuffle, m)?)?;

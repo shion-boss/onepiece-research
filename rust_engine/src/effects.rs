@@ -4665,12 +4665,7 @@ const CHOICE_UNPORTED_PRIMS: &[&str] = &[
     "draw_per_self_chara_then_discard",
     "play_from_hand_choice",
     "reveal_hand_play_split",
-    "scry_all_life_one_to_deck",
-    "scry_all_life_reorder",
-    "scry_deck_reorder",
-    "scry_life",
     "self_hand_to_size",
-    "view_life_top_choose_position",
 ];
 
 /// ⭐ `play_self` / `play_self_from_trash` は **リストから外した** (2026-08-22)。 Python の
@@ -6099,6 +6094,18 @@ if me_board_has_when(state, opp_idx, "on_self_don_returned_to_deck") {
             if state.players[pi].life.is_empty() {
                 return true; // Python は return False = 忠実な no-op
             }
+            let staged = v.get("_reorder_staged").and_then(|x| x.as_bool()).unwrap_or(false);
+            let n_life = state.players[pi].life.len();
+            if state.choice_enumeration && !staged && n_life >= 2 {
+                return suspend_life_reorder(state, pi, n_life, "scry_all_life_reorder", spec_map(v));
+            }
+            if staged {
+                let ordered = staged_order(n_life);
+                let life = take_life_pairs(&mut state.players[pi]);
+                let newlife: Vec<_> = ordered.iter().map(|&i| life[i].clone()).collect();
+                set_life_pairs(&mut state.players[pi], newlife);
+                return true;
+            }
             // ⚠ 並べ替えは **表向きフラグを連れて** 動かす (life と life_face_up は同じ並び)。
             //   カードだけ並べ替えると 「表向きだった札」 が別の札にすり替わる (2026-08-11)。
             let mut life = take_life_pairs(&mut state.players[pi]);
@@ -6738,11 +6745,54 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             } else {
                 v.as_i64().unwrap_or(1) as usize
             };
-            let me = &mut state.players[me_idx];
-            if me.deck.is_empty() {
+            if state.players[me_idx].deck.is_empty() {
                 return true; // Python は return False = 忠実な no-op
             }
-            let d = depth.min(me.deck.len());
+            let d = depth.min(state.players[me_idx].deck.len());
+            // ⭐ 選択列挙: Python は `_should_human_pick && depth >= 1` で **並び替えを本人に委ねる**
+            //   (effects.py:10107、 kind="scry_deck_reorder")。 列挙器は順序 kind に
+            //   **元順序 1 手だけ** を出す (`_CHOICE_ORDER_KINDS`) ので、 実質 「並べ替えない」。
+            //   ⚠ AI ヒューリスティック (価値順ソート) を走らせると Python と別の山になる。
+            let staged = v.get("_reorder_staged").and_then(|x| x.as_bool()).unwrap_or(false);
+            if state.choice_enumeration && !staged && d >= 1 {
+                let cands: Vec<(usize, i64)> = (0..d).map(|i| (me_idx, i as i64)).collect();
+                let mut spec2 = if v.is_object() {
+                    v.as_object().cloned().unwrap_or_default()
+                } else {
+                    let mut m = serde_json::Map::new();
+                    m.insert("depth".into(), json!(depth));
+                    m
+                };
+                spec2.insert("_reorder_staged".into(), Value::Bool(true));
+                note_choice_suspend_with_prim(
+                    "scry_deck_reorder", d, cands,
+                    json!({ "scry_deck_reorder": Value::Object(spec2) }));
+                return true;
+            }
+            if staged {
+                // 再開: 注入された picks が **元 index の並び順** (Python resolver と同形)。
+                //   ⚠ Python は `picks` 長が depth+1 の時だけ最後を 「上/下」 と解釈する。
+                //     列挙器は順序 1 手 (= depth 個) しか出さないので位置は常に 「上」。
+                let picks = take_forced_picks().unwrap_or_default();
+                let mut ordered: Vec<usize> = vec![];
+                for &i in &picks {
+                    if i < d && !ordered.contains(&i) {
+                        ordered.push(i);
+                    }
+                }
+                for i in 0..d {
+                    if !ordered.contains(&i) {
+                        ordered.push(i);
+                    }
+                }
+                let me = &mut state.players[me_idx];
+                let seen: Vec<crate::state::CardDef> = me.deck.drain(..d).collect();
+                for (pos, &i) in ordered.iter().enumerate() {
+                    me.deck.insert(pos, seen[i].clone());
+                }
+                return true;
+            }
+            let me = &mut state.players[me_idx];
             let mut seen: Vec<crate::state::CardDef> = me.deck.drain(..d).collect();
             seen.sort_by(|a, b| {
                 let ka = (!a.trigger.is_empty() as i32, a.counter, a.power);
@@ -6765,6 +6815,49 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             } else {
                 ("self".to_string(), v.as_i64().unwrap_or(1) as usize)
             };
+            // ⭐ 選択列挙: Python は `_should_human_pick` なら **常に** 2 択を立てる
+            //   (effects.py:10143、 kind="view_life_top_choose_position" = `_CHOICE_BINARY_KINDS`)。
+            //   picks は owner="either" なら [owner_pick, position]、 固定なら [position]。
+            //   列挙器は 2 択 ([1]/[0]) しか出さないので position は常に 0 (= 上に戻す)。
+            let staged = v.get("_pick0").is_some();
+            if state.choice_enumeration && !staged {
+                let mut spec2 = if v.is_object() {
+                    v.as_object().cloned().unwrap_or_default()
+                } else {
+                    let mut m = serde_json::Map::new();
+                    m.insert("depth".into(), json!(depth));
+                    m
+                };
+                spec2.insert("owner".into(), Value::String(owner.clone()));
+                note_choice_suspend_with_prim(
+                    "view_life_top_choose_position", 1, vec![],
+                    json!({ "view_life_top_choose_position": Value::Object(spec2) }));
+                return true;
+            }
+            if staged {
+                let p0 = v.get("_pick0").and_then(|x| x.as_i64()).unwrap_or(0);
+                // Python resolver (effects.py:12798): either なら picks[0]=owner_pick /
+                //   picks[1]=position (無ければ 0)。 固定 owner なら picks[0]=position。
+                let (pi, position) = if owner == "either" {
+                    (if p0 == 0 { me_idx } else { opp_idx }, 0i64)
+                } else {
+                    (if owner == "self" { me_idx } else { opp_idx }, p0)
+                };
+                if state.players[pi].life.is_empty() {
+                    return true;
+                }
+                let d = depth.min(state.players[pi].life.len());
+                let mut all = take_life_pairs(&mut state.players[pi]);
+                let rest = all.split_off(d);
+                let seen = all;
+                let newlife = if position == 1 {
+                    let mut x = rest; x.extend(seen); x
+                } else {
+                    let mut x = seen; x.extend(rest); x
+                };
+                set_life_pairs(&mut state.players[pi], newlife);
+                return true;
+            }
             let is_self = owner == "self" || owner == "either";
             let pi = if is_self { me_idx } else { opp_idx };
             if state.players[pi].life.is_empty() {
@@ -7581,6 +7674,26 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 return true; // ライフ空 = 不発
             }
             let to_bottom = v.get("to").and_then(|x| x.as_str()) == Some("bottom");
+            let staged = v.get("_reorder_staged").and_then(|x| x.as_bool()).unwrap_or(false);
+            let n_life = state.players[me_idx].life.len();
+            if state.choice_enumeration && !staged && n_life >= 2 {
+                return suspend_life_reorder(
+                    state, me_idx, n_life, "scry_all_life_one_to_deck", spec_map(v));
+            }
+            if staged {
+                // 並べ替えた **1 枚目** をデッキへ (Python resolver の one_to_deck と同順)。
+                let ordered = staged_order(n_life);
+                let life = take_life_pairs(&mut state.players[me_idx]);
+                let mut newlife: Vec<_> = ordered.iter().map(|&i| life[i].clone()).collect();
+                let top = newlife.remove(0).0;
+                set_life_pairs(&mut state.players[me_idx], newlife);
+                if to_bottom {
+                    state.players[me_idx].deck.push(top);
+                } else {
+                    state.players[me_idx].deck.insert(0, top);
+                }
+                return true;
+            }
             let mut life = take_life_pairs(&mut state.players[me_idx]);
             let key = |c: &crate::state::CardDef| {
                 (if c.trigger.is_empty() { 0 } else { 1 }, c.counter, c.power)
@@ -8447,13 +8560,17 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             }
             .max(0) as usize;
             let is_good = |c: &crate::state::CardDef| !c.trigger.is_empty() || c.counter >= 2000;
+            let staged = v.get("_reorder_staged").and_then(|x| x.as_bool()).unwrap_or(false);
+            // ⚠ Python は `self_or_opp` の相手ライフ妨害を **AI の時だけ** 行う
+            //   (effects.py:10051 `if (not human) and ...`)。 列挙 ON では常に自ライフ。
+            //   ここを見落とすと 「Rust だけ相手ライフを触る」 = 黙って別のゲームになる。
+            let human = state.choice_enumeration;
             let target = match owner.as_str() {
                 "opp" => opp_idx,
                 "self" => me_idx,
                 _ => {
-                    // self_or_opp: 相手の上ライフが強いなら妨害しに行く (Python の AI 分岐)
                     let o = &state.players[opp_idx];
-                    if o.life.first().map_or(false, |c| is_good(c)) { opp_idx } else { me_idx }
+                    if !human && o.life.first().map_or(false, |c| is_good(c)) { opp_idx } else { me_idx }
                 }
             };
             if state.players[target].life.is_empty() {
@@ -8461,6 +8578,23 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             }
             let is_self = target == me_idx;
             let n = depth.min(state.players[target].life.len());
+            // Python: `is_self and human and depth >= 2` で並び替えを委ねる。
+            //   ⚠ 現 overlay は全 16 entry が depth 1 なので通常は通らないが、
+            //     depth ≥ 2 のカードが出た時に黙って乖離しないよう実装しておく。
+            if is_self && human && !staged && n >= 2 {
+                let mut sp = spec_map(v);
+                sp.insert("owner".into(), Value::String("self".into()));
+                sp.insert("depth".into(), json!(n));
+                return suspend_life_reorder(state, target, n, "scry_life", sp);
+            }
+            if staged {
+                let ordered = staged_order(n);
+                let life = take_life_pairs(&mut state.players[target]);
+                let mut newlife: Vec<_> = ordered.iter().map(|&i| life[i].clone()).collect();
+                newlife.extend_from_slice(&life[n..]);
+                set_life_pairs(&mut state.players[target], newlife);
+                return true;
+            }
             let life = take_life_pairs(&mut state.players[target]);
             let (seen, rest) = life.split_at(n);
             let mut top_grp = vec![];
@@ -17283,6 +17417,46 @@ fn flip_life_pay(state: &mut GameState, me_idx: usize, to_face_up: bool, spec: &
 /// 盤面順で処理すると この線が到達不能になるので、 「バッチ内の **他の** victim を救える
 /// 置換 holder」 を後回しにする。
 /// ⚠ 本来は持ち主の選択 (人間 modal は未配線)。 Python と同じ決定的規則で揃える。
+/// 「ライフを好きな順番で置く」 系の **選択列挙 中断** (Python kind="scry_life_reorder")。
+///
+/// Python は `_should_human_pick` かつ 対象ライフ ≥ 2 で並び替えを本人に委ねる
+/// (effects.py: scry_life / scry_all_life_reorder / scry_all_life_one_to_deck の 3 箇所)。
+/// 列挙器は順序 kind に **元順序 1 手だけ** を出す (`_CHOICE_ORDER_KINDS`) ので、
+/// 実質 「並べ替えない」 が、 AI ヒューリスティックを走らせると Python と別の並びになる。
+fn suspend_life_reorder(
+    state: &GameState, pi: usize, depth: usize, key: &str, mut spec: serde_json::Map<String, Value>,
+) -> bool {
+    let cands: Vec<(usize, i64)> = (0..depth).map(|i| (pi, i as i64)).collect();
+    spec.insert("_reorder_staged".into(), Value::Bool(true));
+    let _ = state;
+    note_choice_suspend_with_prim(
+        "scry_life_reorder", depth, cands,
+        json!({ key: Value::Object(spec) }));
+    true
+}
+
+/// 注入された picks を **元 index の並び順** として解釈する (Python resolver と同形:
+/// 範囲外/重複を捨て、 不足は元順序で補完)。
+fn staged_order(depth: usize) -> Vec<usize> {
+    let picks = take_forced_picks().unwrap_or_default();
+    let mut ordered: Vec<usize> = vec![];
+    for &i in &picks {
+        if i < depth && !ordered.contains(&i) {
+            ordered.push(i);
+        }
+    }
+    for i in 0..depth {
+        if !ordered.contains(&i) {
+            ordered.push(i);
+        }
+    }
+    ordered
+}
+
+fn spec_map(v: &Value) -> serde_json::Map<String, Value> {
+    v.as_object().cloned().unwrap_or_default()
+}
+
 fn order_simultaneous_victims(
     state: &GameState,
     owner_idx: usize,
