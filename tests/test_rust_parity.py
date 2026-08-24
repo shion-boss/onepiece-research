@@ -502,3 +502,43 @@ def test_try_pay_counter_cost_call_sites_are_classified():
         "新しいサイトは Python の対応経路 (auto-pay か _execute_event ミラーか) を確認し、 "
         "この docstring の分類表を更新すること"
     )
+
+
+def test_rust_choice_enum_ko_multi_halts_like_python():
+    """`ko_multi` の 2 連 spec で選択が立ったら **その場で止まる** (Python と同じ位置)。
+
+    2026-08-24: Rust に Python `effects.py:9414` の中断ガード
+    (`if state.pending_choice is not None: return True`) が無く、 spec[0] が中断した後も
+    **spec[1] がそのまま KO を実行** していた。 Python は止まっている位置で Rust だけ盤面を
+    動かす = 黙って別のゲーム。 副作用として 中断時に控えた候補の位置 index が spec[1] の KO で
+    詰まり、 再開時に `characters[3]` (len=3) で **panic** = プロセス死していた。
+
+    ⚠ 既存の高 N テスト (60 game) では当たらず、 **200 game で初めて出た**。 当たる盤面は
+    「コスト1以下を2枚まで KO」 系が複数候補に当たる時だけなので、 ここでは **当時 panic した
+    ゲームそのもの** (deck / seed / 先攻) を固定して回す。
+    """
+    import json
+    import random
+
+    import optcg_engine as eng
+
+    from scripts.rust_parity_check import _load, deck_value
+
+    _load()
+    eng.reset_coverage_stats(True)
+    # 当時 panic したゲーム: probe seed 4242 / gi=151 → decks[151%N], decks[152%N] / 後攻始動
+    a = deck_value("cardrush_1607")
+    b = deck_value("cardrush_1608")
+    rng_state = json.dumps(list(random.Random(4242 + 151).getstate()[1]))
+    try:
+        r = json.loads(
+            eng.self_play(a, b, rng_state, 1, "greedy", None, 8, 12, 40, False, 80, True))
+    except BaseException as e:  # noqa: BLE001 - pyo3 の panic は Exception でない
+        raise AssertionError(
+            f"選択列挙 ON の self-play が異常終了 (panic 回帰?): {type(e).__name__}: {e}") from e
+    assert r.get("game_over"), f"決着しない (中断/ループ回帰?): {r}"
+    cv = json.loads(eng.coverage_stats())
+    acts = cv.get("actions") or {}
+    bail = sum(v.get("bail", 0) for v in acts.values())
+    reasons = sorted((cv.get("bail_reasons") or {}).items(), key=lambda kv: -kv[1])[:3]
+    assert bail == 0, f"候補 bail={bail} (上位理由: {reasons})"

@@ -1021,7 +1021,7 @@ fn resolve_target(
 ) -> Option<Vec<(usize, Slot)>> {
     // ⭐ 再開時の注入: 探索/人間が選んだ picks があればそれを返し、 選択サイトを素通りする。
     //   (Python の `_iid_picks` 注入と同じ役割。 1 回だけ消費する。)
-    if let Some(forced) = take_forced_targets() {
+    if let Some(forced) = take_forced_targets(state) {
         return Some(forced);
     }
     let r = resolve_target_inner(spec, me_idx, opp_idx, src, state);
@@ -2296,7 +2296,13 @@ thread_local! {
     static CHOICE_SUSPENDED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
     /// 再開時に `resolve_target` へ注入する **確定済ターゲット** (= 人間/探索が選んだ picks)。
     /// Some の間、 resolve_target はこれを返して選択サイトを素通りする。
-    static FORCED_TARGETS: std::cell::RefCell<Option<Vec<(usize, Slot)>>> =
+    /// ⭐ 3 要素目 = **注入時に打った `rust_src_tag`** (= Python の instance_id 相当)。 Rust は
+    ///   InPlay に iid を持たず位置 index で指すので、 注入から消費までの間に KO 等で位置が
+    ///   ずれると **別の札を指す / 場外を指して panic する**。 Python は `_iid_picks` を
+    ///   **盤面全体から iid で引き直す** (effects.py:2817-2823) ので化けない。 タグで同じ
+    ///   意味論にする (`take_forced_targets`)。 None = 同一性を記録できなかった候補。
+    ///   ⚠ card_id 照合では **同名 2 枚** を区別できず特定不能 bail になる (実測 1/58,852)。
+    static FORCED_TARGETS: std::cell::RefCell<Option<Vec<(usize, Slot, Option<u64>)>>> =
         const { std::cell::RefCell::new(None) };
     /// 中断した選択サイトが残す **候補集合** (= 呼出側が PendingChoice に詰める)。
     static PENDING_CANDS: std::cell::RefCell<Option<Vec<(usize, i64)>>> =
@@ -2570,11 +2576,47 @@ pub(crate) fn set_choice_suspended(v: bool) {
     CHOICE_SUSPENDED.with(|c| c.set(v));
 }
 
-pub(crate) fn take_forced_targets() -> Option<Vec<(usize, Slot)>> {
-    FORCED_TARGETS.with(|c| c.borrow_mut().take())
+/// 注入された確定済ターゲットを **live 盤面へ引き直して** 取り出す。
+///
+/// ⭐ Python `_resolve_target` の `_iid_picks` 分岐 (effects.py:2817-2823) は
+/// `[ip for ip in all_inplay if ip.instance_id in iid_picks]` = **盤面を iid で走査**する。
+/// つまり ① 位置がずれても追える ② 場を離れていれば静かに消える。 Rust は位置 index なので
+/// そのままでは ① で別の札に化け、 ② で場外 index を触って panic する
+/// (2026-08-24: `ko_multi` の 2 連 spec で `characters[3]` len=3 の panic として顕在化)。
+///
+/// `rust_src_tag` (= 「Python の object 参照の代替」、 serde skip なので digest に出ない) で
+/// 引き直して同じ意味論にする:
+/// - タグが見つかった位置を使う (= 位置がずれても追える)
+/// - 見つからない → **落とす** (= 場を離れた。 Python も空を返し効果は起きない)
+pub(crate) fn take_forced_targets(state: &GameState) -> Option<Vec<(usize, Slot)>> {
+    let raw = FORCED_TARGETS.with(|c| c.borrow_mut().take())?;
+    let mut out: Vec<(usize, Slot)> = Vec::with_capacity(raw.len());
+    for (pi, sl, tok) in raw {
+        if tok.is_none() {
+            // 同一性を打てなかった = 注入時点で既に場外 → Python と同じく落とす。
+            // ⚠ ここで **生の位置 index を素通しすると場外を触って panic する**
+            //   (2026-08-24 の tag 化で実際に 44/360 game が落ちた)。
+            continue;
+        }
+        // ⚠ 探すのは **記録した陣営** だけ。 効果の解決中に持ち主が変わる札は無い。
+        match peek_tagged(state, pi, tok) {
+            Slot::Detached => {} // 場を離れた → Python と同じく落とす
+            found => out.push((pi, found)),
+        }
+    }
+    Some(out)
 }
 
-pub(crate) fn set_forced_targets(v: Option<Vec<(usize, Slot)>>) {
+/// 注入したタグを盤面から回収する (消し忘れると InPlay に残り続ける)。
+pub(crate) fn drop_forced_target_tags(state: &mut GameState, toks: &[Option<u64>]) {
+    for &tok in toks {
+        if tok.is_some() {
+            let _ = find_tagged(state, 0, tok);
+        }
+    }
+}
+
+pub(crate) fn set_forced_targets(v: Option<Vec<(usize, Slot, Option<u64>)>>) {
     FORCED_TARGETS.with(|c| *c.borrow_mut() = v);
 }
 
@@ -5062,7 +5104,7 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
         "redirect_attack" => {
             // ⭐ 再開 (replay): 探索/人間が選んだ 1 枚が FORCED_TARGETS に入っている
             //   (Python の `_iid_picks` 注入と同じ役割)。 候補の再解決は行わない。
-            let forced_rd = take_forced_targets();
+            let forced_rd = take_forced_targets(state);
             let mut chosen: Option<Slot> = None;
             if let Some(f) = forced_rd {
                 chosen = f.into_iter().find(|(pi, _)| *pi == me_idx).map(|(_, sl)| sl);
@@ -5127,6 +5169,24 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
                         .unwrap_or(Value::String("one_opponent_character_any".into()))
                 };
                 let Some(mut targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else { return false };
+                // ⭐ **選択が立ったら そこで止める** (Python effects.py:9414
+                //   `if state.pending_choice is not None: return True`)。 この 1 行が
+                //   抜けていたため、 spec[0] が中断した後も spec[1] が **そのまま KO を実行** し、
+                //   Python は止まっている位置で Rust だけ盤面を動かしていた (= 黙って別のゲーム)。
+                //   副作用として 中断時に控える候補の位置 index が spec[1] の KO で詰まり、
+                //   再開時に `characters[3]` len=3 で **panic** していた (2026-08-24)。
+                if choice_suspended() {
+                    // ⭐ 再実行するのは **ko_multi 全体ではなく単発の `ko`**。 Python は
+                    //   `_resolve_target(..., outer_kind="ko", outer_value=target_spec)`
+                    //   (effects.py:9410-9412) で中断するので、 pending_choice に載るのは
+                    //   `{"ko": <その spec>}` 1 本。 = **残りの spec は落ちる**。 ここで
+                    //   ko_multi 全体を replay すると ① Python と違う盤面を作り
+                    //   ② 「選ばない」 を選んだ時に 同じ選択が延々と再提示されて無限ループする。
+                    PENDING_PRIM.with(|c| {
+                        *c.borrow_mut() = Some(serde_json::json!({ "ko": tspec.clone() }))
+                    });
+                    return true;
+                }
                 // 同時 KO は 1 事象。 Python (_reorder_ko_targets) は **免疫フィルタの前** に
                 // 単一陣営の対象列を並べ替えるので、 ここも同じ位置で同じ規則を適用する。
                 if targets.len() > 1 {
@@ -5146,7 +5206,13 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
                 let mut victims: Vec<(usize, usize)> = vec![];
                 for (pi, sl) in targets {
                     let Slot::Char(idx) = sl else { continue };
-                    let t = &mut state.players[pi].characters[idx];
+                    // ⚠ 位置 index は **場外を指しうる** (注入から消費までに KO で詰まる)。
+                    //   `take_forced_targets` が引き直すので通常は起きないが、 添字 panic は
+                    //   プロセス死 = 不変条件の外なので防御的に明示 bail に落とす。
+                    let Some(t) = state.players[pi].characters.get_mut(idx) else {
+                        note_choice_bail("ko_multi の対象位置が場外 (index が stale)");
+                        return false;
+                    };
                     if t.protect_from_opp_effect {
                         continue;
                     }
@@ -5236,6 +5302,15 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
                     note_unknown_key("rtdb_multi", "target 未対応");
                     return false;
                 };
+                // ⭐ 選択が立ったら止める + 再実行は **単発 primitive** (Python effects.py:9562
+                //   `if state.pending_choice is not None: return True` + outer_kind)。 ko_multi と同型:
+                //   ガードが無いと 残りの spec を Rust だけが実行し、 控えた位置 index も KO でずれる。
+                if choice_suspended() {
+                    PENDING_PRIM.with(|c| {
+                        *c.borrow_mut() = Some(serde_json::json!({ "return_to_deck_bottom": tgt_spec.clone() }))
+                    });
+                    return true;
+                }
                 // 除去で index がずれるので、 大きい index から処理する (同一 spec 内の相対順は
                 // Python の逐次 remove と一致する = 各 victim は独立に自陣/敵陣から抜けるだけ)。
                 let mut idxs: Vec<(usize, usize)> = targets
@@ -6471,6 +6546,15 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else {
                     return false;
                 };
+                // ⭐ 選択が立ったら止める + 再実行は **単発 primitive** (Python effects.py:9514
+                //   `if state.pending_choice is not None: return True` + outer_kind)。 ko_multi と同型:
+                //   ガードが無いと 残りの spec を Rust だけが実行し、 控えた位置 index も KO でずれる。
+                if choice_suspended() {
+                    PENDING_PRIM.with(|c| {
+                        *c.borrow_mut() = Some(serde_json::json!({ "return_to_hand": tspec.clone() }))
+                    });
+                    return true;
+                }
                 let toks: Vec<(usize, Option<u64>)> = targets
                     .iter()
                     .filter(|&&(_, sl)| matches!(sl, Slot::Char(_)))
@@ -7320,6 +7404,15 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 let tspec = v.get("target").cloned().unwrap_or(Value::String("any_opponent_character_any".into()));
                 let count = v.get("count").and_then(|x| x.as_i64()).unwrap_or(1) as usize;
                 let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else { return false };
+                // ⭐ 選択が立ったら止める + 再実行は **単発 primitive** (Python effects.py:4801
+                //   `if state.pending_choice is not None: return True` + outer_kind)。 ko_multi と同型:
+                //   ガードが無いと 残りの spec を Rust だけが実行し、 控えた位置 index も KO でずれる。
+                if choice_suspended() {
+                    PENDING_PRIM.with(|c| {
+                        *c.borrow_mut() = Some(serde_json::json!({ "rest": tspec.clone() }))
+                    });
+                    return true;
+                }
                 do_rest(state, targets, count);
                 return true;
             }
@@ -7352,6 +7445,15 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     continue;
                 }
                 let Some(targets) = resolve_target(Some(spec), me_idx, opp_idx, src, state) else { return false };
+                // ⭐ 選択が立ったら止める + 再実行は **単発 primitive** (Python effects.py:4857
+                //   `if state.pending_choice is not None: return True` + outer_kind)。 ko_multi と同型:
+                //   ガードが無いと 残りの spec を Rust だけが実行し、 控えた位置 index も KO でずれる。
+                if choice_suspended() {
+                    PENDING_PRIM.with(|c| {
+                        *c.borrow_mut() = Some(serde_json::json!({ "rest": spec.clone() }))
+                    });
+                    return true;
+                }
                 do_rest(state, targets, 1);
             }
             true
@@ -7904,6 +8006,15 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     spec.get("target").cloned().unwrap_or(Value::String("self".into()))
                 };
                 let Some(targets) = resolve_target(Some(&tspec), me_idx, opp_idx, src, state) else { return false };
+                // ⭐ 選択が立ったら止める + 再実行は **単発 primitive** (Python effects.py:4766
+                //   `if state.pending_choice is not None: return True` + outer_kind)。 ko_multi と同型:
+                //   ガードが無いと 残りの spec を Rust だけが実行し、 控えた位置 index も KO でずれる。
+                if choice_suspended() {
+                    PENDING_PRIM.with(|c| {
+                        *c.borrow_mut() = Some(serde_json::json!({ "power_pump": { "target": tspec.clone(), "amount": amount, "duration": duration.clone() } }))
+                    });
+                    return true;
+                }
                 for (pi, sl) in targets {
                     if already.contains(&(pi, sl)) {
                         continue;
@@ -10378,7 +10489,7 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 //   (= キャラ複数 or レストドンも選べる) に **キャラの target_pick** を立てる
                 //   (effects.py:7286)。 「選ばない」 (空 picks) を選ぶと **レストドン 1 枚** へ。
                 //   候補はレストキャラのみ (盤面順)。 ドンは Slot でないので選択肢に出ない。
-                let forced_rcd = take_forced_targets();
+                let forced_rcd = take_forced_targets(state);
                 if state.choice_enumeration && !choice_suspended() && forced_rcd.is_none() {
                     let opp = &state.players[opp_idx];
                     let rested: Vec<usize> =

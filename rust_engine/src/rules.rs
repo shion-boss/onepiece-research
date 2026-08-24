@@ -912,11 +912,36 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
         .and_then(|v| v.as_array())
         .map(|a| a.iter().filter_map(|x| x.as_u64().map(|u| u as usize)).collect())
         .unwrap_or_default();
-    let chosen: Vec<(usize, crate::effects::Slot)> = picks
-        .iter()
-        .filter_map(|&i| pc.cand_slots.get(i))
-        .map(|&(pi, code)| (pi, crate::effects::code_to_slot(code)))
-        .collect();
+    // ⭐ 注入するターゲットには **`rust_src_tag`** (= Python の instance_id 相当) を打つ。 Rust は
+    //   iid を持たず位置 index で指すので、 注入から消費までに盤面が動くと別の札に化ける /
+    //   場外を指して panic する。 消費側 (`effects::take_forced_targets`) がタグで live 盤面へ
+    //   引き直し、 Python の `_iid_picks` (= iid で盤面走査) と同じ意味論にする。
+    //   ⚠ card_id 照合では **同名 2 枚** を区別できない (実測で特定不能 bail が出た)。
+    // ⚠ タグ打ちは **target_pick の時だけ**。 他 kind の `cand_slots` は手札/デッキの index を
+    //   slot code に詰めたもので、 盤面の位置ではない。 無条件に打つと無関係な InPlay を
+    //   汚したうえ、 早期 return する kind (counter_discard_pick 等) で回収も走らない。
+    let mut chosen: Vec<(usize, crate::effects::Slot, Option<u64>)> = vec![];
+    for &i in &picks {
+        if pc.kind != "target_pick" {
+            break;
+        }
+        let Some(&(pi, code)) = pc.cand_slots.get(i) else { continue };
+        let slot = crate::effects::code_to_slot(code);
+        // ⚠ **中断から注入までの間にも盤面は動く**。 中断時に控えた card_id と違う札が
+        //   そこに居る (or 何も居ない) なら、 選んだ札は既に場を離れている。 Python の
+        //   iid 解決は空を返す = 効果が起きない ので、 ここで落とす。
+        let want = pc.cand_cards.get(i).cloned().unwrap_or_default();
+        let still_there = crate::effects::src_ip_pub(&state.players[pi], slot)
+            .is_some_and(|ip| want.is_empty() || ip.card.card_id == want);
+        if !still_there {
+            continue;
+        }
+        // ここから先 (注入 → 消費) の位置ずれは タグで追う。
+        let Some(tok) = crate::effects::tag_src(state, pi, slot) else { continue };
+        chosen.push((pi, slot, Some(tok)));
+    }
+    // 打ったタグは replay 後に必ず回収する (InPlay に残り続けるため)。
+    let mut injected_toks: Vec<Option<u64>> = chosen.iter().map(|&(_, _, t)| t).collect();
     let src = crate::effects::code_to_slot(pc.src_slot);
     crate::effects::set_choice_suspended(false);
     crate::effects::clear_last_forced_picks();
@@ -934,41 +959,15 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
     //   target 系 (target_pick) → FORCED_TARGETS ((player, Slot) の組)
     //   index 系 (search_top_n 等) → FORCED_PICKS (zone 内の元 index)
     if pc.kind == "target_pick" {
-        // ⚠ **位置 index は選択の解決中に stale になりうる** (Python は iid 参照なので化けない)。
-        //   例: 【相手のアタック時】の対象選択を立てたまま バトルが解決し、 選んだキャラが KO
-        //   される → 同じ index が別のキャラを指す (or 範囲外で panic)。 中断時の card_id と
-        //   照合し、 食い違ったら **明示 bail** する (黙って別のカードに効果を当てない)。
-        let mut stale: Vec<usize> = vec![];
-        for (k, &pi_idx) in picks.iter().enumerate() {
-            let Some(&(pi, code)) = pc.cand_slots.get(pi_idx) else { continue };
-            let want = pc.cand_cards.get(pi_idx).cloned().unwrap_or_default();
-            if want.is_empty() {
-                continue; // 中断時にも解決できなかった候補 (= 元から場外) は照合しない
-            }
-            let now = crate::effects::src_ip_pub(
-                &state.players[pi], crate::effects::code_to_slot(code))
-                .map(|ip| ip.card.card_id.clone());
-            let _ = k;
-            match now {
-                Some(cid) if cid == want => {}
-                // ⭐ Python は iid 参照なので 「その札が場を離れた」 = `_resolve_target` が
-                //   空を返し **効果は何も起きない**。 Rust も同じく **その対象を落とす**
-                //   (位置 index が別の札を指していても巻き添えにしない)。
-                _ => stale.push(pi_idx),
-            }
-        }
-        if !stale.is_empty() {
-            let keep: Vec<(usize, crate::effects::Slot)> = picks
-                .iter()
-                .enumerate()
-                .filter(|(k, _)| !stale.contains(&picks[*k]))
-                .filter_map(|(_, &i)| pc.cand_slots.get(i))
-                .map(|&(pi, code)| (pi, crate::effects::code_to_slot(code)))
-                .collect();
-            crate::effects::set_forced_targets(Some(keep));
-        } else {
-            crate::effects::set_forced_targets(Some(chosen));
-        }
+        // ⚠ **位置 index は stale になりうる** (Python は iid 参照なので化けない)。 例:
+        //   ① 【相手のアタック時】の対象選択を立てたままバトルが解決して選んだキャラが KO
+        //   ② `ko_multi` の 2 連 spec — 再実行は primitive の**先頭から**なので、 2 本目で
+        //      立った選択の picks を 1 本目が消費し、 その間の KO で位置が詰まる
+        //      (2026-08-24 に `characters[3]` len=3 の panic として顕在化)。
+        //   ⭐ 判定は **消費時** (`effects::take_forced_targets`) に寄せた。 ここで先に落とすと
+        //     「注入時は正しく、 消費までの間にずれた」 型を取り逃がすうえ、 位置ずれを
+        //     引き直せる場合まで捨ててしまう。
+        crate::effects::set_forced_targets(Some(chosen));
     } else if pc.kind == "option_pick" {
         // picks は **選択肢の index** (= 盤面/手札の index ではない) なので注入しない。
     } else if pc.kind == "field_full_sacrifice_pick" {
@@ -1028,7 +1027,9 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
                         if crate::effects::src_ip_pub(&state.players[pi], slot).is_none() {
                             target_gone = true;
                         } else {
-                            crate::effects::set_forced_targets(Some(vec![(pi, slot)]));
+                            let tok = crate::effects::tag_src(state, pi, slot);
+                            injected_toks.push(tok);
+                            crate::effects::set_forced_targets(Some(vec![(pi, slot, tok)]));
                         }
                     }
                 }
@@ -1131,6 +1132,7 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
             let key = prim.as_object().and_then(|o| o.keys().next())
                 .map(|s| s.as_str()).unwrap_or("?");
             let inner = crate::effects::last_prim_err();
+            crate::effects::drop_forced_target_tags(state, &injected_toks);
             return Err(if ci == 0 {
                 format!("ResolveChoice: 再実行した primitive が未対応: {key} [{inner}]")
             } else {
@@ -1141,6 +1143,7 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
             break;
         }
     }
+    crate::effects::drop_forced_target_tags(state, &injected_toks);
     state.rust_field_full_sacrifice.clear(); // Python の finally 相当 (replay 後に畳む)
     // ⭐ 選択が解けたら **キューに残しておいたイベントを再 drain** する (Python
     //   `resolve_pending_choice` 末尾の `if state.pending_choice is None and state.event_queue:

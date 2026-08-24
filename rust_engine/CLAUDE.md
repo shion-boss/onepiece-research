@@ -404,6 +404,45 @@ is None:` で守っている = 未解決の【KO時】が victim 文脈を必要
 4. **注入した picks (`FORCED_PICKS`) は必ず使い切って捨てる** (Drop guard)。 残ると次の
    action の別 primitive が **他人の picks を replay と誤認** して選択サイトを素通りする。
 
+### ⭐ `*_multi` 系の中断ガードと 「再実行する primitive」 (2026-08-24、 panic の根治)
+
+`ko_multi` / `rest_multi` / `power_pump_multi` / `return_to_hand_multi` /
+`return_to_deck_bottom_multi` は **spec のリストを順に解決する** 形。 Python は各 spec の
+`_resolve_target` 直後に
+
+```python
+if state.pending_choice is not None:
+    return True          # effects.py:9414 (ko_multi) 他 5 箇所
+```
+
+で **その場で止まる**。 Rust にはこのガードが 5 箇所とも無く、 spec[0] が中断した後も
+**spec[1] 以降がそのまま実行**されていた (= Python が止まっている位置で Rust だけ盤面を動かす)。
+
+さらに Python は中断時に `outer_kind` を **単発 primitive** にして pending_choice に載せる
+(`ko_multi` → `{"ko": <その spec>}` / `rest_multi` → `{"rest": ...}` /
+`power_pump_multi` → `{"power_pump": {target, amount, duration}}`)。 = **残りの spec は落ちる**。
+Rust が `*_multi` 全体を replay すると ① 別の盤面を作り ② 「選ばない」 を選んだ時に
+同じ選択が延々と再提示されて **無限ループ** する。 → `PENDING_PRIM` で単発に差し替える。
+
+⚠ 新しく `outer_kind` を使う Python サイトを見つけたら、 Rust の対応 arm も
+**「中断で止まる」 + 「単発 primitive を replay」** の 2 点を必ず対にすること。
+掃引: `grep -n 'outer_kind\s*=' engine/effects.py` (2026-08-24 時点 7 箇所)。
+
+### ⭐ 注入ターゲットの同一性は `rust_src_tag` で持つ (card_id 照合は不可)
+
+Python の `_iid_picks` は **盤面全体を iid で走査** (`effects.py:2817-2823`) するので
+① 位置がずれても追え ② 場を離れていれば静かに消える。 Rust は位置 index なので、
+注入から消費までに KO が挟まると **別の札に化ける / 場外を触って panic** する。
+
+→ `FORCED_TARGETS` は `(player, Slot, Option<u64>)` で **注入時に打った `rust_src_tag`**
+(= Python の instance_id 相当、 `#[serde(skip)]` なので digest に出ない) を持ち、 消費側
+(`take_forced_targets`) がタグで live 盤面へ引き直す。 見つからなければ **落とす**
+(Python も空を返す = 効果が起きない)。 打ったタグは replay 後に `drop_forced_target_tags` で回収。
+
+⚠ **card_id 照合ではダメ**: 同名 2 枚が場に居ると特定できず bail になる (実測 1/58,852)。
+⚠ **タグを打てなかった候補 (= 注入時点で既に場外) は素通しせず落とす**。 生の位置 index を
+   そのまま渡すと場外を触る (tag 化の初版で 44/360 game が panic した)。
+
 ## Python ↔ Rust を同期させながら更新する手順 (重要)
 
 Python engine (特に `engine/effects.py` / `engine/game.py` / `engine/core.py`) を変更したら:

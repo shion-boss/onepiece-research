@@ -157,10 +157,11 @@ pub struct PendingChoice {
     pub remaining_do: Vec<serde_json::Value>,
     /// 候補の解決結果 (= 再実行時に picks で絞る母集合)。 (player_idx, slot_code)。
     pub cand_slots: Vec<(usize, i64)>,
-    /// target_pick の候補が **中断時に指していたカード** (card_id)。 位置 index は選択の解決中に
-    /// stale になりうる (バトルで KO された 等) ので、 再開時に照合して 「別のカードに化けて
-    /// いないか」 を確かめる。 Python は iid 参照なので原理的にこの問題が無い。
-    /// target_pick 以外 (= 手札/デッキ index を持つ kind) では空。
+    /// 候補が **中断時に指していたカード** (card_id)。 Python の pending_choice は候補ごとに
+    /// card_id を載せる (`_maybe_request_target_pick`) ので、 差分照合のために同じものを持つ。
+    /// ⚠ 「再開時に位置がずれていないか」 の担保は **これではなく `rust_src_tag`**
+    /// (= Python の iid 相当) で行う。 card_id 照合は同名 2 枚を区別できず特定不能になる
+    /// (2026-08-24)。 手札/デッキ index を持つ kind では空。
     pub cand_cards: Vec<String>,
     /// 中断した時点で **既に注入されていた picks** (= 1 つ前の選択の結果)。
     /// 同じ primitive の中で選択が 2 段になる型 (例: play_from_trash の 「どれを出すか」 →
