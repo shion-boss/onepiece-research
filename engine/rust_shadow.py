@@ -60,17 +60,25 @@ def choice_search_env_on() -> bool:
 
 
 def assert_rust_safe_for_choice_search(context: str = "") -> None:
-    """Rust 経路を使う前に呼ぶガード。 選択列挙モードなら **例外で止める**。
+    """**選択列挙 OFF 前提** のハーネスを ON で回さないためのガード。
 
-    Rust は選択列挙に未追従なので、 このモードで Rust self-play / parity を回すと
-    Python と違うゲームを生成する。 学習データが静かに汚染されるより落ちる方が良い。
+    ⚠ 2026-08-24 更新: 以前の文言は 「Rust は選択列挙に未追従」 だったが、 **それは古い**。
+      Rust は選択列挙に追従済 (未移植 primitive 0 / bail 0 / MISMATCH 0)。
+      いまこのガードが守っているのは 「**モードを揃えずに比較しない**」 こと:
+      `rust_parity_check` / `rust_parity_sweep` / `rust_effect_smoke_parity` は
+      **OFF 同士の digest** を比べる設計なので、 env で片方だけ ON になると
+      別モードを比較して偽 MISMATCH を出す。
+
+    ⭐ 選択列挙 ON の比較は専用ハーネス (`rust_choice_parity` /
+      `rust_choice_selfplay_probe`) を使う。 学習ループ (`rust_selfplay_ei`) は
+      `--no-choice-enum` で明示制御し、 **既定 ON**。
     """
     if choice_search_env_on():
         raise RuntimeError(
-            f"ONEPIECE_CHOICE_SEARCH が有効な状態で Rust 経路 ({context or '?'}) は使えない。"
-            " Rust は pending_choice / continuation を未実装で、 Python が選択を列挙する間"
-            " Rust は自動解決する = 黙って別のゲームになる。"
-            " 追従するまでは env を外して実行すること。"
+            f"ONEPIECE_CHOICE_SEARCH が有効な状態で {context or '?'} は使えない。"
+            " このハーネスは **選択列挙 OFF 同士** の digest を比べる設計なので、"
+            " ON で回すとモード違いの比較になり偽 MISMATCH が出る。"
+            " 列挙 ON の比較は scripts/rust_choice_parity.py を使うこと。"
         )
 
 
