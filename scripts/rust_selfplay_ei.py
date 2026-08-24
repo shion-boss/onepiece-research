@@ -37,13 +37,20 @@ sys.path.insert(0, str(ROOT))
 import numpy as np  # noqa: E402
 import optcg_engine as eng  # noqa: E402
 
-# ⛔ 選択列挙モード (ONEPIECE_CHOICE_SEARCH) では Rust を使わない。
-#   Rust は pending_choice / continuation 未実装なので Python と別のゲームになる。
-from engine.rust_shadow import assert_rust_safe_for_choice_search  # noqa: E402
-assert_rust_safe_for_choice_search("rust_selfplay_ei.py")
+# ⭐ 選択列挙モード (= 効果解決中の選択を ResolveChoice として方策に選ばせる) は
+#   **Rust も追従済** (2026-08-24: 未移植 primitive 0 / bail 0 / MISMATCH 0 / PANIC 0)。
+#   従来ここには 「Rust は pending_choice / continuation 未実装なので使えない」 という
+#   ガード (`assert_rust_safe_for_choice_search`) があったが、 前提が解消したので外した。
+#   ⚠ ガード自体は **列挙 OFF 前提の差分ハーネス** (rust_parity_check 等) では今も有効。
+#   このループでは `--choice-enum / --no-choice-enum` で明示制御する (既定 ON)。
 
 import scripts.rust_parity_check as P  # noqa: E402
 from engine.state_snapshot import _ser_full  # noqa: E402
+
+# 選択列挙を使うか (= 効果中の選択を探索・学習に載せる)。 main() で CLI から設定する。
+#   ⚠ モジュール global にしているのは、 生成 (collect) と A/B (eval) の **両方** が
+#     同じ値を見る必要があるため。 片方だけ ON にすると gate が壊れる。
+CHOICE_ENUM = True
 
 WEIGHTS_PATH = ROOT / "db" / "rust_value_weights.json"
 OUT_DIR = ROOT / "db" / "rust_selfplay"
@@ -112,7 +119,8 @@ def generate(weights: list[float] | None, n_games: int, seed0: int) -> dict:
         a, b = _pair(seed)
         first = seed % 2
         r = json.loads(eng.self_play(deck_value(a), deck_value(b), rng_state(seed),
-                                     first, "greedy", wj, 8, 12, 40, True))
+                                     first, "greedy", wj, 8, 12, 40, True,
+                                     rollout_plies=80, choice_enum=CHOICE_ENUM))
         la_id, la_nm = leader_of(a)
         lb_id, lb_nm = leader_of(b)
         games.append({
@@ -306,8 +314,11 @@ def eval_ab(w_new: list[float] | None, w_old: list[float] | None, n_games: int, 
         a, b = _pair(seed)
         new_is_p0 = g % 2 == 0
         w0j, w1j = (wn, wo) if new_is_p0 else (wo, wn)
+        # ⚠ 生成と **同じモード** で A/B する。 選択ありで学習した value を
+        #   選択なしの盤面で評価すると gate が意味を失う。
         r = json.loads(eng.eval_ab(deck_value(a), deck_value(b), rng_state(seed),
-                                   seed % 2, mode, w0j, w1j, 8, 10, 40))
+                                   seed % 2, mode, w0j, w1j, 8, 10, 40,
+                                   rollout_plies=80, choice_enum=CHOICE_ENUM))
         win = r.get("winner")
         if win is None:
             played += 1
@@ -389,10 +400,17 @@ def main():
     ap.add_argument("--eval-games", type=int, default=120, help="A/B 評価ゲーム数")
     ap.add_argument("--gate", type=float, default=0.53, help="採用する勝率下限 (対 前 value)")
     ap.add_argument("--resume", action="store_true", help="既存 weights から再開")
+    ap.add_argument("--no-choice-enum", action="store_true",
+                    help="効果中の選択を探索に載せない (= 2026-08-23 以前の挙動)。 "
+                         "⚠ 既定は ON。 OFF にすると 「選択を選べない value」 を学習する")
     ap.add_argument("--preflight", action="store_true",
                     help="RL 開始前に engine 速度 + heuristic self-play 分散を計測して終了")
     ap.add_argument("--preflight-games", type=int, default=120)
     args = ap.parse_args()
+    global CHOICE_ENUM
+    CHOICE_ENUM = not args.no_choice_enum
+    print(f"[EI] 選択列挙 (効果中の選択を探索・学習に載せる) = "
+          f"{'ON' if CHOICE_ENUM else 'OFF'}")
 
     if args.preflight:
         preflight(args.preflight_games)

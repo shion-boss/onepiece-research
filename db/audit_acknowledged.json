@@ -17,6 +17,7 @@
   "faq_attention_4"
  ],
  "OP01-026": [
+  "faq_attention_6",
   "faq_negation"
  ],
  "OP01-026_p1": [
@@ -44,6 +45,7 @@
   "faq_negation"
  ],
  "P-084": [
+  "faq_attention_4",
   "faq_negation"
  ],
  "OP07-024": [
@@ -149,5 +151,93 @@
   "faq_negation"
  ],
  "_acknowledge_note_eb04_038": "2026-08-03 acknowledged: FAQ は 「カード名の異なるキャラ」 の種類数え (別名を数えない) に 関するもの。 engine は printed name のみで数えており (self_distinct_chara_name_count / self_distinct_name_count_filtered_ge)、 公式 Q&A どおり EB04-038 は 1 種類。 別名テーブル 自体は db/card_alt_names.json (overlay とは別ファイル) にあり audit script からは見えない ため faq_attention/faq_negation が立つ = false positive。 回帰テストは tests/test_official_rule_gaps_2026_08.py::test_alt_names_do_not_inflate_distinct_name_count。",
- "_acknowledge_note_op05_109": "OP05-109 パガヤ の公式テキストは 「【ターン1回】**【トリガー】が発動した時**、 カード2枚を引き、 自分の手札2枚を捨てる」 = **場に居る間の反応効果**。 cards.json の trigger 欄は **空** = このカード自身は【トリガー】を持たない。 audit の naive matcher が text 中の 「【トリガー】」 を見て when:\"trigger\" エントリを要求するが、 それは 2026-08-10 に是正した **旧実装の誤り** (自身のライフトリガーとして登録 → 場では何も起きず、 持っていない【トリガー】を捏造していた)。 現 overlay は opp_trigger_fired / on_self_trigger_fired の反応効果として正しい → missing_trigger は intrinsic 除外。"
+ "_acknowledge_note_op05_109": "OP05-109 パガヤ の公式テキストは 「【ターン1回】**【トリガー】が発動した時**、 カード2枚を引き、 自分の手札2枚を捨てる」 = **場に居る間の反応効果**。 cards.json の trigger 欄は **空** = このカード自身は【トリガー】を持たない。 audit の naive matcher が text 中の 「【トリガー】」 を見て when:\"trigger\" エントリを要求するが、 それは 2026-08-10 に是正した **旧実装の誤り** (自身のライフトリガーとして登録 → 場では何も起きず、 持っていない【トリガー】を捏造していた)。 現 overlay は opp_trigger_fired / on_self_trigger_fired の反応効果として正しい → missing_trigger は intrinsic 除外。",
+ "PRB01-001": [
+  "faq_negation"
+ ],
+ "EB01-052": [
+  "faq_negation"
+ ],
+ "OP15-077": [
+  "faq_negation"
+ ],
+ "OP12-020": [
+  "faq_negation"
+ ],
+ "OP12-081": [
+  "faq_negation"
+ ],
+ "OP09-093": [
+  "faq_negation"
+ ],
+ "OP08-043": [
+  "faq_negation"
+ ],
+ "OP07-045": [
+  "faq_negation"
+ ],
+ "OP06-009": [
+  "faq_negation"
+ ],
+ "OP06-034": [
+  "faq_negation"
+ ],
+ "OP05-005": [
+  "faq_negation"
+ ],
+ "OP05-022": [
+  "faq_negation"
+ ],
+ "OP04-083": [
+  "faq_negation"
+ ],
+ "OP04-089": [
+  "faq_attention_6"
+ ],
+ "OP03-076": [
+  "faq_negation"
+ ],
+ "OP03-088": [
+  "faq_negation"
+ ],
+ "OP02-106": [
+  "faq_attention_6"
+ ],
+ "OP01-008": [
+  "faq_negation"
+ ],
+ "OP01-025": [
+  "faq_negation"
+ ],
+ "OP01-041": [
+  "faq_negation"
+ ],
+ "ST23-001": [
+  "faq_negation"
+ ],
+ "ST09-002": [
+  "faq_negation"
+ ],
+ "ST09-007": [
+  "faq_negation"
+ ],
+ "ST03-004": [
+  "faq_negation"
+ ],
+ "ST01-012": [
+  "faq_negation"
+ ],
+ "OP09-111": [
+  "faq_attention_4"
+ ],
+ "OP07-019": [
+  "faq_attention_4"
+ ],
+ "OP02-049": [
+  "faq_attention_4"
+ ],
+ "ST14-001": [
+  "faq_attention_4"
+ ],
+ "_acknowledge_note_2026_08_24": "2026-08-24 一括 acknowledged: 残っていた sev1-2 の 31 件は すべて `faq_negation` / `faq_attention_N` (= 公式 FAQ 本文に否定表現/注意語があるという **heuristic フラグ**) で、 該当カードの公式 Q&A は `db/faq_qa_status.json` で **全件決着済** (conform/fixed/n-a) であることを機械照合して確認した。 = 未解決の裁定ではない。 ⚠ 新しい issue 種別が出たら acknowledged に無いので sev が上がる = 回帰は検出できる。"
 }

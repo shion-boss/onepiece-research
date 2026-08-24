@@ -93719,42 +93719,6 @@
  ],
  "P-080": [],
  "P-080_p1": [],
- "P-081": [
-  {
-   "_text": "P-081 起動メイン: self手札戻し+ターン1回 + 青クロスギルド3+で 手札 cost5クロスギルドキャラ登場 [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 / cardqa_op_02 / cardqa_st_04 の一般則)。",
-   "cost": {
-    "return_self_to_hand": true
-   },
-   "do": [
-    {
-     "conditional": {
-      "do": [
-       {
-        "play_from_hand": {
-         "filter": {
-          "category": "CHARACTER",
-          "cost_eq": 5,
-          "feature": "クロスギルド"
-         },
-         "limit": 1
-        }
-       }
-      ],
-      "if": {
-       "self_chara_filtered_count_ge": {
-        "count": 3,
-        "filter": {
-         "color": "青",
-         "feature": "クロスギルド"
-        }
-       }
-      }
-     }
-    }
-   ],
-   "when": "activate_main"
-  }
- ],
  "P-081_p1": [
   {
    "_text": "P-081_p1 activate_main: このキャラを持ち主の手札に戻すことができる：自分の青の特徴《クロスギルド》を持つキャラが3枚以上いる場合、自分の手札からコスト5の特徴《クロスギルド》を持つキャ [cost-not-gated] コロン後の条件は効果のみを gate。 任意コストは条件不成立でも 支払える (cardqa_eb_04 の一般則)。",

@@ -2320,7 +2320,12 @@ export function HumanMatchPlay({
             onSubmit={handleChoiceSubmit}
             busy={busy}
           />
-        ) : state.pending_payload.kind === "reveal_top_play_confirm" ? (
+        ) : state.pending_payload.kind === "reveal_top_play_confirm" ||
+          state.pending_payload.kind === "reveal_life_top_play_confirm" ? (
+          /* デッキ版 (reveal_top_play_confirm) と ライフ版 (reveal_life_top_play_confirm) は
+             どちらも「公開した1枚を登場させますか?」の2択で payload の形も同じ。
+             ライフ版は 2026-08-24 に追加 (公式「登場させてもよい」= 任意なのに engine が
+             常に登場させていた)。 */
           <RevealTopPlayConfirmModal
             payload={state.pending_payload}
             onSubmit={handleChoiceSubmit}

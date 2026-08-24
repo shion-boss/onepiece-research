@@ -660,3 +660,24 @@ RNG 依存効果は `rng.rs` (MT19937、 CPython `random` の bit 再現) を使
 - `src/setup.rs` — setup_game (pre-mulligan、 deck build+shuffle+life+deal)。
 - `src/lib.rs` — PyO3 バインディング (apply_action_digest / recompute_static_digest / legal_actions_json /
   setup_pre_mulligan_digest / apply_raw_effect_digest / mt_* テスト関数)。
+
+### ⚠ 既知の未移植 2 件 (2026-08-24 時点、 どちらも **明示 bail** = silent 乖離ではない)
+
+1. **`search_top_n(destination=play)` で場が 5 枚埋まっている登場**
+   Python は 「差替 (3-7-6-1) → 登場 → (残り処理後に) 【登場時】→ その登場時が更に手札から
+   登場 → もう一度差替」 という逐次連鎖を起こす (OP16-059 で実測。 ログに差替が 3 回出る)。
+   Rust はこの順序を再現できず **最終盤面が食い違う**。
+   ⚠ 差替の犠牲選択そのもの (最弱 = `(power, cost)` 最小 / 同値は先頭) は **両エンジン一致**を
+     確認済。 乖離は順序側。
+   ⚠ `card_has_on_play` で bail を絞ろうとしたら **MISMATCH が 3 件復活** した
+     (= on_play を持たないカードでも乖離する別経路がある)。 逐条移植が済むまで一律 bail。
+   → 全カード掃引で bail 3 件。 CI (`test_rust_parity_all_card_synthetic_sweep`) は
+     **この理由だけ** を許容し、 他の bail が出れば落ちる。
+
+2. **`return_self_chara_to_hand` を発動コストに使う経路** (EB01-021 【自分のターン終了時】)
+   Python は 候補 sort (power 昇順) → 人間 modal → **置換効果 (`try_replace_ko`) との相互作用**
+   まで持つ (cardqa_op_05: コストの離脱にも置換がかかる)。 部分移植すると silent 乖離を
+   作りかねないので明示 bail のまま。
+
+⭐ **実戦 self-play (360 game / 335,824 候補) ではどちらも発火せず bail 0 / PANIC 0**。
+   16 メタデッキでの学習には支障しないが、 **未実装であることは事実**。

@@ -306,9 +306,13 @@ def test_p081_requires_blue_crossguild_characters():
 
     再録は色条件が抜けており、 青以外のクロスギルドでも 条件を満たしてしまった。
     また 公式テキストに 【ターン1回】 は無い。
+
+    ⚠ 2026-08-24: 素の `P-081` は **cards.json に存在しない** (実在は _p1/_p2/_r1 の 3 種)
+      ので overlay から削除した。 検査対象を **実在する 3 変種** に置き換える
+      (= カバレッジはむしろ増える)。 詳細は tests/test_overlay_keys_exist.py。
     """
     overlay = _overlay()
-    for cid in ("P-081", "P-081_r1"):
+    for cid in ("P-081_p1", "P-081_p2", "P-081_r1"):
         eff = _eff(overlay, cid, "activate_main")
         cond = _cond_of(eff)["self_chara_filtered_count_ge"]
         assert cond["filter"].get("color") == "青", f"{cid}: 「青の」 条件が抜けている"

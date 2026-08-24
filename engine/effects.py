@@ -2401,6 +2401,7 @@ _CHOICE_MANDATORY_KINDS = {
 _CHOICE_BINARY_KINDS = {
     "life_taken_choice", "on_attack_optional", "optional_cost_confirm",
     "end_of_turn_optional", "replace_ko_optional", "reveal_top_play_confirm",
+    "reveal_life_top_play_confirm",
     "view_life_top_choose_position", "opp_optional_play_from_hand",
 }
 
@@ -7724,8 +7725,11 @@ def _execute_effect_body_inner(
             #   登場させた場合、 <then>」 (= OP10-022 ロー / ST13-007 サボ / ST13-010 エース)。
             # 公開のみ (= 場所変えず)。 マッチ + 登場 した時だけ life から除去 + then 実行。
             # 非マッチ / 未登場 なら life はそのまま (= ライフ枚数不変)。
-            # AI 簡易: マッチなら登場 (公式は「してもよい」 任意だが ライフからの無償登場は期待値プラス)。
-            # TODO: 人間 acting 時は modal で「登場/skip」 を委ねる (= reveal_top_play 同様)。
+            # 公式は 「登場させて**もよい**」 = 任意 → 人間 / 選択列挙モードでは本人が選ぶ
+            # (2026-08-24 実装。 従来は 「AI 簡易: マッチなら必ず登場」 のみで、
+            #  デッキ版 `reveal_top_play` には modal があるのにライフ版だけ無かった)。
+            # 選択を列挙しないモードの既定は従来どおり 「マッチなら登場」
+            # (= ライフからの無償登場は期待値プラス)。
             spec_val = v if isinstance(v, dict) else {}
             filt = spec_val.get("filter", {})
             rested_flag = bool(spec_val.get("rested", False))
@@ -7746,6 +7750,28 @@ def _execute_effect_body_inner(
                     f"  効果: ライフ上1枚公開 → {revealed.name} ({'マッチ' if matched else '不マッチ'})"
                 )
                 if matched:
+                    # ⭐ 「登場させてもよい」 の 2 択を本人に出す (デッキ版 reveal_top_play と同型)。
+                    #   ⚠ ライフ版は **まだ life を pop していない** ので、 再開は
+                    #     「同 primitive を `_confirm` 付きで再実行」 で足りる (デッキ版は pop 済で
+                    #     カードを choice に仮預かりする必要がある)。
+                    if "_confirm" not in spec_val and _should_human_pick(state):
+                        state.pending_choice = {
+                            "kind": "reveal_life_top_play_confirm",
+                            "primitive_value": dict(spec_val),
+                            "card": {
+                                "card_id": revealed.card_id,
+                                "name": revealed.name,
+                                "cost": int(getattr(revealed, "cost", 0) or 0),
+                                "power": int(getattr(revealed, "power", 0) or 0),
+                            },
+                            "self_inplay_iid": (
+                                self_inplay.instance_id if self_inplay else None),
+                            "description": f"{revealed.name} を 登場 させますか?",
+                        }
+                        state.push_log(
+                            f"  効果: ライフから登場 選択 待ち ({revealed.name})"
+                        )
+                        return True
                 # ⭐ 場 5 枚の差し替え (3-7-6-1) = **どのキャラを落とすか は持ち主が選ぶ**
                 #   (cardqa_op_10 / OP10-017)。 まだ zone を動かしていないので replay 安全。
                     if _request_field_full_sacrifice(state, me, self_inplay, 1, k, v):
@@ -12830,6 +12856,28 @@ def _resolve_pending_choice_inner(state: GameState, picks: list[int]) -> None:
         state.pending_choice = None
         return
 
+    if kind == "reveal_life_top_play_confirm":
+        # picks[0] == 1 なら 登場、 0 なら 何もしない (= ライフはそのまま)。
+        # ⚠ life を pop していないので、 登場は **同 primitive を `_confirm` 付きで再実行**
+        #   するだけで足りる (デッキ版と違い仮預かりが不要)。
+        spec = dict(choice.get("primitive_value") or {})
+        source_iid = choice.get("self_inplay_iid")
+        self_inplay = None
+        if source_iid is not None:
+            for ip in [*me.characters, me.leader, *me.stages,
+                       *opp.characters, opp.leader, *opp.stages]:
+                if ip.instance_id == source_iid:
+                    self_inplay = ip
+                    break
+        do_play = bool(picks and picks[0] == 1)
+        state.pending_choice = None
+        if not do_play:
+            state.push_log("  効果: 人間選択 → ライフから登場しない (公式 「してもよい」)")
+            return
+        spec["_confirm"] = 1
+        execute_effect({"reveal_life_top_play": spec}, state, me, opp, self_inplay)
+        return
+
     if kind == "reveal_top_play_confirm":
         # picks[0] が 1 なら 登場、 0 なら skip (= デッキ底/トップへ)
         revealed = choice.get("_revealed_card")
@@ -13530,10 +13578,19 @@ def trigger_on_play(
              or any(c is _src_ip for c in opp.characters))
     )
     # payload-aware context: 自分の場の効果 (= OP02-026 サンジ等) が played カードを参照可
-    state.last_self_chara_played_card = self_inplay.card
-    # 登場した InPlay 自身を指す context (= OP16-079 ヤマト「そのキャラ」 target / トラッシュ起源 gate)。
-    state.last_self_chara_played_iid = self_inplay.instance_id
-    state.last_self_chara_played_from_trash = bool(getattr(self_inplay, "played_from_trash", False))
+    # ⚠ **キャラ限定**。 この 3 つを読むのは `played_self_chara_has_trigger` /
+    #   `played_self_chara_has_no_effect` / `played_self_chara_feature_in` = すべて
+    #   「登場した**キャラ**が〜」 の条件で、 ステージは対象外。
+    #   2026-08-24 是正: `play_from_hand_or_trash` はステージも登場させる (OP16-102 の
+    #   「ハチノス」) ので、 無条件に設定するとステージが 「登場したキャラ」 に化けていた。
+    #   Rust は元からキャラ限定 (place_played_card のキャラ分岐でのみ設定) = Rust が正しく、
+    #   候補リッチ掃引 (rust_effect_choice_sweep) で MISMATCH として露見した。
+    if self_inplay.card.category == Category.CHARACTER:
+        state.last_self_chara_played_card = self_inplay.card
+        # 登場した InPlay 自身を指す context (= OP16-079 ヤマト「そのキャラ」 target / トラッシュ起源 gate)。
+        state.last_self_chara_played_iid = self_inplay.instance_id
+        state.last_self_chara_played_from_trash = bool(
+            getattr(self_inplay, "played_from_trash", False))
     # 自陣営: 登場したカード自身の on_play
     bundle = effects_overlay.get(self_inplay.card.card_id)
     has_self_on_play = bundle is not None and any(e.get("when") == "on_play" for e in bundle.effects)

@@ -3844,8 +3844,24 @@ fn cost_payable_one(cs: &Value, state: &GameState, me_idx: usize, src: Slot) -> 
         "flip_life_face_up" => Some(flip_life_targets(me, true, cv).is_some()),
         "flip_life_face_down" => Some(flip_life_targets(me, false, cv).is_some()),
         "rest_self_chara_filtered" => {
+            // ⚠ **count 枚 必要** (公式 「自分の特徴X のキャラ M 枚をレストにできる：」)。
+            //   従来は `.any()` = 「1 枚でもあれば払える」 だったので、 該当キャラが不足でも
+            //   コストを払って効果を実行していた (Python は `len(avail) >= count` で不発)。
+            //   実例 OP03-021: 「東の海 2 枚をレスト」 が 1 枚しか無い盤面で発動できていた。
+            //   検出は候補リッチ掃引 (rust_effect_choice_sweep、 2026-08-24)。
             let filt = cv.get("filter");
-            Some(me.characters.iter().any(|c| !c.rested && matches_filter_ip(&c, filt)))
+            let need = if cv.is_object() {
+                cv.get("count").and_then(|x| x.as_i64()).unwrap_or(1)
+            } else {
+                cv.as_i64().unwrap_or(1)
+            }
+            .max(0) as usize;
+            let avail = me
+                .characters
+                .iter()
+                .filter(|c| !c.rested && matches_filter_ip(c, filt))
+                .count();
+            Some(avail >= need)
         }
         "reveal_hand_with_filter" | "discard_hand_with_filter" => {
             let (filt, count) = filter_and_count(cv);
@@ -8592,14 +8608,24 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 && matches_filter(&revealed, filt)
                 && !char_summon_blocked(&state.players[me_idx], &revealed);
             // ⭐ 選択列挙: 「登場させるか」 は **任意** (公式 「登場させて**もよい**」)。
-            //   Python は `reveal_top_play_confirm` (2 択) を立てる (effects.py:5698)。
-            //   ⚠ ライフ由来 (`reveal_life_top_play`) は Python に modal が無い (= 常に登場)
-            //     ので 2 択を出さない。 出すと選択の数が食い違って parity が壊れる。
+            //   デッキ由来 = `reveal_top_play_confirm` / ライフ由来 = `reveal_life_top_play_confirm`
+            //   (2026-08-24: ライフ版も Python に modal を実装したので 2 択を出す。
+            //    それまでは Python が常に登場していたので Rust も出していなかった)。
+            //   ⚠ ライフ版は **life を pop する前** に中断する。 再開は 「同 primitive を
+            //     `_confirm` 付きで再実行」 なので zone を触っていないことが前提。
             let confirmed = v.get("_confirm").and_then(|x| x.as_i64());
-            if matched && !from_life && confirmed.is_none()
+            if matched && confirmed.is_none()
                 && state.choice_enumeration && !choice_suspended()
             {
-                note_choice_suspend("reveal_top_play_confirm", 1, vec![]);
+                if from_life {
+                    let mut spec2 = v.as_object().cloned().unwrap_or_default();
+                    spec2.insert("_confirm".into(), json!(1));
+                    note_choice_suspend_with_prim(
+                        "reveal_life_top_play_confirm", 1, vec![],
+                        json!({ "reveal_life_top_play": Value::Object(spec2) }));
+                } else {
+                    note_choice_suspend("reveal_top_play_confirm", 1, vec![]);
+                }
                 return true;
             }
             // 2 択で 「登場しない」 を選んだ = 非マッチと同じ扱い (rest_remain へ)。
@@ -9524,8 +9550,8 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                     let ip = InPlay::of(card, false); // sickness=false (ステージ)
                     state.players[me_idx].stages.push(ip);
                     let played_idx = state.players[me_idx].stages.len() - 1;
-                    state.last_self_chara_played_card = Some(ctx_card);
-                    state.last_self_chara_played_from_trash = false;
+                    // ⚠ ステージでは `last_self_chara_played_*` を立てない (2026-08-24 是正)。
+                    let _ = &ctx_card;
                     if execute_stage_on_play(state, me_idx, played_idx).is_err() {
                         return false;
                     }
@@ -9608,10 +9634,12 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             let ip = InPlay::of(card, false); // sickness=false (ステージ)
             state.players[me_idx].stages.push(ip);
             let played_idx = state.players[me_idx].stages.len() - 1;
-            // trigger_on_play (effects.py:10661) は category 問わず last_self_chara_played_card を更新
-            // (on_self/opp_chara_played 発火のみ CHARACTER 限定)。 通常 PlayStage arm と対称。
-            state.last_self_chara_played_card = Some(ctx_card);
-            state.last_self_chara_played_from_trash = false;
+            // ⚠ **ステージでは `last_self_chara_played_*` を立てない** (2026-08-24 是正)。
+            //   従来コメントは 「trigger_on_play は category 問わず更新」 と書いていたが、 それは
+            //   Python の**旧**挙動を写したもの。 この context を読むのは
+            //   `played_self_chara_has_trigger` / `..._has_no_effect` / `..._feature_in` =
+            //   すべて 「登場した**キャラ**が〜」 で、 ステージは対象外。 Python 側も是正済。
+            let _ = &ctx_card;
             execute_stage_on_play(state, me_idx, played_idx).is_ok()
         }
         // 手札 or トラッシュからキャラ登場 (effects.py:7678 play_from_hand_or_trash、 AI=手札優先→トラッシュ)。
@@ -9807,8 +9835,12 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                 let ip = InPlay::of(card.clone(), false);
                 state.players[me_idx].stages.push(ip);
                 let pidx = state.players[me_idx].stages.len() - 1;
-                state.last_self_chara_played_card = Some(card);
-                state.last_self_chara_played_from_trash = false;
+                // ⚠ **ステージでは `last_self_chara_played_*` を立てない** (2026-08-24 是正)。
+                //   この context を読むのは `played_self_chara_has_trigger` /
+                //   `..._has_no_effect` / `..._feature_in` = すべて 「登場した**キャラ**が〜」 で、
+                //   ステージは対象外。 Rust 自身の `place_played_card` はステージ分岐で
+                //   立てていない = **同じエンジン内で不整合** だった。
+                //   検出は候補リッチ掃引 (rust_effect_choice_sweep) の STAGE 8 枚。
                 return execute_stage_on_play(state, me_idx, pidx).is_ok();
             }
             // CHARACTER: field full → 最弱キャラを trash (effects.py:6220 can_play_character() →
@@ -11491,7 +11523,25 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                         deferred_on_play.push((true, pidx));
                     }
                     crate::state::Category::Character => {
-                        trash_weakest_for_field_full(state, me_idx);
+                        // ⛔ **場が埋まっている時の差し替えは Python と一致していない** (2026-08-24)。
+                        //   Python は `_request_field_full_sacrifice` → (AI なら) 最弱 trash の
+                        //   逐次ループだが、 候補リッチ掃引で **最終盤面が食い違う** ことを実測した
+                        //   (OP16-059: Python は EB02-038 を場に残さず、 Rust は残す)。
+                        //   forced-picks 分岐には既に同じ明示 bail があるので、 auto 経路も
+                        //   揃える。 「黙って別の盤面を作る」 より **明示 bail** (= 不変条件)。
+                        //   ⚠ 乖離の一例は **登場したキャラの【登場時】cascade**: Python は
+                        //     差替 → 登場 → (残り処理後に) 登場時 が走り、 その登場時がさらに
+                        //     手札から登場させて **もう一度差替** が起きる (OP16-059 で実測)。
+                        //     ただし `card_has_on_play` で絞ると **MISMATCH 3 件が復活** した
+                        //     (= on_play を持たないカードでも乖離する別の経路がある) ので、
+                        //     **場が埋まっている登場は一律 bail** にする。 silent 乖離より bail。
+                        //   ⚠ 解消には Python の picked / 差替 / deferred on_play の逐次順序を
+                        //     逐条で移植する必要がある (残作業)。
+                        if state.players[me_idx].characters.len() >= 5 {
+                            note_prim_err(
+                                "search_top_n(play): 場5枚差し替えの犠牲選択が Python と不一致");
+                            return false;
+                        }
                         let mut ip = InPlay::of(c.clone(), true);
                         ip.rested = rested_flag;
                         state.players[me_idx].characters.push(ip);
@@ -17975,6 +18025,7 @@ fn enumerate_choice_options_rs(pc: &crate::state::PendingChoice) -> Vec<Vec<usiz
         pc.kind.as_str(),
         "life_taken_choice" | "on_attack_optional" | "optional_cost_confirm"
             | "end_of_turn_optional" | "replace_ko_optional" | "reveal_top_play_confirm"
+            | "reveal_life_top_play_confirm"
             | "view_life_top_choose_position" | "opp_optional_play_from_hand"
     );
     let n = pc.n_candidates;

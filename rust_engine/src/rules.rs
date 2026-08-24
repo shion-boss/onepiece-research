@@ -1060,6 +1060,13 @@ fn resolve_choice_action(state: &mut GameState, action: &Value) -> Result<(), St
     // ⭐ 「デッキ上 1 枚を公開 → 登場させ**てもよい**」 の 2 択 (Python
     //   `reveal_top_play_confirm`、 effects.py:12796)。 Rust は zone を触る前に中断して
     //   いるので、 選んだ結果を spec に畳んで **同 primitive を replay** する。
+    // ⭐ ライフ版の 「登場させてもよい」。 見送り (picks[0]==0) なら **その primitive を飛ばす**
+    //   (life を pop していないので何もしなければ元のまま = Python resolver と同形)。
+    if pc.kind == "reveal_life_top_play_confirm" {
+        if picks.first().copied() != Some(1) {
+            start = 1;
+        }
+    }
     if pc.kind == "reveal_top_play_confirm" {
         let want = i64::from(picks.first().copied() == Some(1));
         if let Some(o) = dos[0].as_object_mut() {
@@ -2178,9 +2185,8 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             p.stages.push(InPlay::of(card.clone(), false)); // stage は召喚酔い無
             p.cards_played_count += 1;
             let played_idx = p.stages.len() - 1;
-            // trigger_on_play context (effects.py:10640、 stage も trigger_on_play を通る)
-            state.last_self_chara_played_card = Some(card.clone());
-            state.last_self_chara_played_from_trash = false;
+            // ⚠ **ステージでは `last_self_chara_played_*` を立てない** (2026-08-24 是正)。
+            //   読み手は 「登場した**キャラ**が〜」 の 3 条件だけ = ステージは対象外。 Python も同様。
             // 通常のステージ登場も 「キャラの効果による登場」 ではない (cardqa_op_12)。
             state.rust_play_source_is_field_chara = false;
             // stage の on_play 効果 (未対応 primitive は diverge)

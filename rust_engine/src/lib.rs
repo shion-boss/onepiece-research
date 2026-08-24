@@ -514,7 +514,7 @@ fn self_play(
 /// A/B eval: player0 が weights0、 player1 が weights1 の value で対戦し winner を返す (head-to-head)。
 /// 学習 value (weights0) vs heuristic/旧 value (weights1=None/旧) の強さ比較用。 方策は両者同一 (mode)。
 #[pyfunction]
-#[pyo3(signature = (deck1_json, deck2_json, rng_state_json, first_player, mode="beam", weights0_json=None, weights1_json=None, beam_width=8, max_depth=12, max_turns=40, rollout_plies=80))]
+#[pyo3(signature = (deck1_json, deck2_json, rng_state_json, first_player, mode="beam", weights0_json=None, weights1_json=None, beam_width=8, max_depth=12, max_turns=40, rollout_plies=80, choice_enum=false))]
 #[allow(clippy::too_many_arguments)]
 fn eval_ab(
     deck1_json: &str,
@@ -528,6 +528,9 @@ fn eval_ab(
     max_depth: usize,
     max_turns: i32,
     rollout_plies: usize,
+    // ⭐ 学習の生成側と **同じモード** で A/B しないと、 「選択を使える value」 を
+    //   「選択が無い盤面」 で評価してしまう (= gate が意味を失う)。
+    choice_enum: bool,
 ) -> PyResult<String> {
     let d1: serde_json::Value = serde_json::from_str(deck1_json)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deck1: {e}")))?;
@@ -548,7 +551,7 @@ fn eval_ab(
     let w1 = parse_w(weights1_json)?;
     let res = selfplay::play_game(
         &d1, &d2, &rng_state, first_player, mode, mode, w0.as_deref(), w1.as_deref(),
-        beam_width, max_depth, rollout_plies, max_turns, false, false,
+        beam_width, max_depth, rollout_plies, max_turns, false, choice_enum,
     )
     .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
     serde_json::to_string(&res).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))

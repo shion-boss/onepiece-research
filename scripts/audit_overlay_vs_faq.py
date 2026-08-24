@@ -380,6 +380,10 @@ def detect_issues(card: dict, effects: list[dict], qa_list: list[dict]) -> list[
             "self_field_don_zero_or_ge_3", "self_field_don_zero_or_ge_8",
             "returned_don_count_ge", "leader_color_multi", "leader_multicolor",
             "self_attached_don_ge", "opp_don_count_le", "opp_don_count_ge",
+            # 2026-08-24 追加: `self_leader_attached_don_ge` (= 「自分のリーダーに付与されている
+            #   ドン!!がある場合」、 P-159 ルフィ) を認識せず誤検知していた。 条件は
+            #   engine/effects.py:1734 で実装済。
+            "self_leader_attached_don_ge", "self_leader_attached_don_le",
         )
     ):
         # ドン!! 枚数条件の可能性
