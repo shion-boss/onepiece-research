@@ -2361,6 +2361,25 @@ pub(crate) fn cur_prim_key() -> String {
     CUR_PRIM_KEY.with(|c| c.borrow().clone())
 }
 
+thread_local! {
+    /// アタック対象変更で 「キャラ戦 → リーダー戦」 に経路を切り替えた時、
+    /// 【アタック時】/【相手のアタック時】を **再発火させない** ためのフラグ
+    /// (Python `state._attack_triggers_already_fired` と対。 digest には出さない)。
+    static ATTACK_TRIGGERS_FIRED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+pub(crate) fn attack_triggers_already_fired() -> bool {
+    ATTACK_TRIGGERS_FIRED.with(|c| c.get())
+}
+
+pub(crate) fn set_attack_triggers_already_fired(v: bool) -> bool {
+    ATTACK_TRIGGERS_FIRED.with(|c| {
+        let prev = c.get();
+        c.set(v);
+        prev
+    })
+}
+
 pub(crate) fn note_choice_bail(reason: &str) {
     CHOICE_BAIL.with(|c| {
         if c.borrow().is_none() {
@@ -5134,10 +5153,14 @@ fn execute_effect_inner(prim: &Value, state: &mut GameState, me_idx: usize, src:
                     chosen = ts.into_iter().find(|(pi, _)| *pi == me_idx).map(|(_, sl)| sl);
                 }
             }
-            if let Some(Slot::Char(i)) = chosen {
-                state.pending_attack_redirect = Some(i as i32);
+            match chosen {
+                Some(Slot::Char(i)) => state.pending_attack_redirect = Some(i as i32),
+                // ⭐ **リーダーを選んだ時も記録する** (= -1)。 従来は落としていたので、
+                //   キャラへのアタックを 「リーダーに変更」 できず Python と乖離した
+                //   (リーダーへのアタックでは leader → leader = no-op なので露見しなかった)。
+                Some(Slot::Leader) => state.pending_attack_redirect = Some(-1),
+                _ => {} // stage/none → no-op
             }
-            // leader/stage/none → no-op (通常 leader battle 続行)
             true
         }
         // マルチターゲット KO (effects.py:7401、 OP12-038 等)。 v = target spec のリストを順に解決 → KO。

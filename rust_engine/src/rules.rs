@@ -1432,7 +1432,15 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             //   下される。 Rust が on_attack を do まで実行してから判断していたため、
             //   on_attack が誘発した【KO時】でライフが増えた盤面で防御 EV を測っていた
             //   (2026-08-22、 全カード掃引の OP07-019 緑ボニーで発覚)。
-            let on_atk_fired = crate::effects::collect_on_attack(state, me, is_leader, atk_idx)?;
+            // ⭐ 対象変更で 「キャラ戦 → リーダー戦」 に切り替えて再入した時は
+            //   【アタック時】/【相手のアタック時】が **もう発火済** なので集めない
+            //   (Python `state._attack_triggers_already_fired` と対)。
+            let _atk_trig_done = crate::effects::attack_triggers_already_fired();
+            let on_atk_fired = if _atk_trig_done {
+                Default::default()
+            } else {
+                crate::effects::collect_on_attack(state, me, is_leader, atk_idx)?
+            };
             let ap_pre = if is_leader {
                 state.players[me].leader.power()
             } else {
@@ -1444,10 +1452,16 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 state.players[me].characters.get(atk_idx).map(|c| c.card.cost).unwrap_or(0)
             };
             let dp_pre = state.players[opp].leader.power();
-            let plan_opp = crate::effects::collect_opp_attack(
-                state, opp, "opp_attack", ap_pre, atk_cost_pre, dp_pre)?;
-            let plan_opp_leader = crate::effects::collect_opp_attack(
-                state, opp, "opp_attack_on_leader", ap_pre, atk_cost_pre, dp_pre)?;
+            let (plan_opp, plan_opp_leader) = if _atk_trig_done {
+                (Default::default(), Default::default())
+            } else {
+                (
+                    crate::effects::collect_opp_attack(
+                        state, opp, "opp_attack", ap_pre, atk_cost_pre, dp_pre)?,
+                    crate::effects::collect_opp_attack(
+                        state, opp, "opp_attack_on_leader", ap_pre, atk_cost_pre, dp_pre)?,
+                )
+            };
             crate::effects::fire_on_attack_collected(state, me, is_leader, atk_idx, on_atk_fired)?;
             // ⭐ Python は attacker を object 参照で保持するので、 on_attack で自身が場を離れても
             //   そのオブジェクトを読み続けてバトルを解決する。 Rust は fire_gated_do / cost 支払いが
@@ -1549,6 +1563,12 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             // (leader redirect は primitive 側で no-op = None のまま扱う)。
             if let Some(ri) = state.pending_attack_redirect {
                 state.pending_attack_redirect = None;
+                // ⭐ リーダー → リーダー は **no-op** (Python game.py:1872 の `pass`)。
+                //   ⚠ `-1` を `as usize` で潰すと巨大 index になり 「対象消失」 判定に落ちて
+                //     **アタックが丸ごと不発** になる (2026-08-24 に MISMATCH 24 件で顕在化)。
+                if ri < 0 {
+                    // 通常のリーダー戦へフォールスルー
+                } else {
                 let ri = ri as usize;
                 if ri >= state.players[opp].characters.len() {
                     reset_battle_buffs(state); // target 消失 = 空打ち (game.py:1484)
@@ -1599,6 +1619,7 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
                 }
                 reset_battle_buffs(state);
                 return Ok(());
+                }
             }
             // === ブロックステップ (7-1-2) ===
             let blocker_idx: Option<usize> = if no_block { None } else { blocker_now };
@@ -1916,7 +1937,37 @@ fn apply_action_impl(state: &mut GameState, action: &Value) -> Result<(), String
             // target 存在チェック (on_attack/opp_attack 後、 消失 = 空打ち = reset+Ok、 game.py:1849)。
             // ⚠ 「長さ」 ではなく **タグ** で見る。 対象が KO されて後ろが繰り上がると
             //   index は生きたままなので、 長さ判定だと別のキャラを殴ってしまう。
-            let tgt_idx = cur_tgt(state);
+            let mut tgt_idx = cur_tgt(state);
+            // ⭐ **キャラへのアタックでも 「アタック対象変更」 を適用する** (game.py と対、 2026-08-24)。
+            //   公式 (OP14-060 / EB01-038) は 「**その**アタックの対象を、 選んだカードにする」。
+            //   従来 Rust は AttackLeader 側だけで消費し、 ここでは無視していた
+            //   (Python も破棄していたので偶然一致していた)。
+            //   ⚠ どの分岐でも必ず None に落とす (action を跨いで持ち越すと **効果を撃っていない
+            //     後続アタックの矛先が変わる**、 2026-08-21 の実バグ)。
+            if let Some(ri) = state.pending_attack_redirect {
+                state.pending_attack_redirect = None;
+                if ri < 0 {
+                    // キャラ → リーダー。 ライフダメージ解決は AttackLeader 経路が持っているので
+                    // **その経路を再利用** する (複製すると ダブルアタック/バニッシュ/【トリガー】を
+                    // 二重実装することになる)。 トリガーは発火済なので抑止フラグを立てる。
+                    let mut redirected = action.clone();
+                    if let Some(o) = redirected.as_object_mut() {
+                        o.insert("t".into(), Value::String("AttackLeader".into()));
+                        o.remove("target_idx");
+                        // ブロック宣言は 「対象がリーダーになった」 時点で無意味 (宣言は対象決定の後)。
+                        o.insert("blocker".into(), Value::Null);
+                    }
+                    let prev = crate::effects::set_attack_triggers_already_fired(true);
+                    let r = apply_action(state, &redirected);
+                    crate::effects::set_attack_triggers_already_fired(prev);
+                    return r;
+                }
+                if (ri as usize) >= state.players[opp].characters.len() {
+                    reset_battle_buffs(state);
+                    return Ok(());
+                }
+                tgt_idx = ri as i64;
+            }
             if tgt_idx < 0 {
                 reset_battle_buffs(state);
                 return Ok(());

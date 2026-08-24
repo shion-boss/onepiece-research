@@ -1831,6 +1831,10 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
             # play_one_action で 既 pre-fire 済 なら skip (= 二重発火 防止)。
             # play_one_action 経由 でない 呼出 (= 直接 apply_action) では 通常通り 発火。
             opp_pre_fired = getattr(state, "_opp_attack_pre_fired_id", None) == id(attacker)
+            # ⭐ アタック対象変更でキャラ戦 → リーダー戦へ経路を切り替えた時は
+            #   【アタック時】/【相手のアタック時】が **もう発火済** (= 再発火させない)。
+            if getattr(state, "_attack_triggers_already_fired", False):
+                opp_pre_fired = True
             if not opp_pre_fired:
                 from .effects import trigger_on_attack, trigger_on_opp_attack, trigger_on_opp_attack_on_leader
                 # ⭐ 【相手のアタック時】の 【ドン‼×N】 gate は **アタック宣言時点** で判定する
@@ -2298,6 +2302,10 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
             trigger_on_self_rested(state, me, opp, attacker, state.effects_overlay, costless_only=True)
             state.last_ko_by_opp_effect = _prev_ko_by_opp
             opp_pre_fired = getattr(state, "_opp_attack_pre_fired_id", None) == id(attacker)
+            # ⭐ アタック対象変更でキャラ戦 → リーダー戦へ経路を切り替えた時は
+            #   【アタック時】/【相手のアタック時】が **もう発火済** (= 再発火させない)。
+            if getattr(state, "_attack_triggers_already_fired", False):
+                opp_pre_fired = True
             if not opp_pre_fired:
                 from .effects import trigger_on_attack, trigger_on_opp_attack, trigger_on_opp_attack_on_chara
                 # defended_target = 攻撃されている opp のキャラ (= 過剰防御判定用)
@@ -2333,25 +2341,57 @@ def _apply_action_impl(state: GameState, action: Action) -> None:
                 if not state.resolving:
                     from .effects import resolve_triggers as _resolve_attack_triggers
                     _resolve_attack_triggers(state)
-        # ⚠ **キャラへのアタックで立った 「アタック対象変更」 は、 このアタック内で捨てる**。
-        #   公式 (OP14-060 紫ドフラ 等) は 「**その**アタックの対象を〜にする」 なので、 本来は
-        #   このキャラ戦の対象を差し替えるべきだが、 engine はまだ AttackLeader 経路でしか
-        #   差し替えを実装していない (下の 1851 行)。 問題は 「未実装」 よりも **持ち越し** で、
-        #   ここでクリアしないと `pending_attack_redirect` が action を跨いで残り、
-        #   **後続の別アタック** が勝手に対象変更される (= 効果を撃っていないアタックの
-        #   矛先が変わる)。 実際 2026-08-21 に Python↔Rust 差分でこれが露見した
-        #   (Rust は action 境界で必ず None なので Python だけ redirect していた)。
-        #   → 誤った持ち越しを断つ。 キャラ戦での対象差し替え自体は別途 要実装。
-        if state.pending_attack_redirect is not None:
-            state.push_log(
-                "  アタック対象変更: キャラへのアタックでは未適用 (持ち越さず破棄)"
-            )
-            state.pending_attack_redirect = None
         # 対象消失チェック: trigger_on_attack/opp_attack が target を KO してしまうケースに対応 (= 空打ち)
         target = next(
             (c for c in opp.characters if c.instance_id == action.target_iid),
             None,
         )
+        # ⭐ **キャラへのアタックでも 「アタック対象変更」 を適用する** (2026-08-24 実装)。
+        #   公式 (OP14-060 紫ドフラ / EB01-038) は 「**その**アタックの対象を、 選んだカードにする」
+        #   なので、 リーダーへのアタックだけでなく **キャラへのアタック** でも差し替わる。
+        #   従来は 「持ち越すと後続アタックの矛先が変わる」 のを避けるため **破棄** していたが、
+        #   それは公式挙動の欠落だった (2026-08-21 の持ち越しバグ是正の副作用として残っていた)。
+        #   ⚠ 破棄は残さない: どの分岐でも必ず None に落とす (持ち越し再発の防止)。
+        if state.pending_attack_redirect is not None:
+            redirect_iid = state.pending_attack_redirect
+            state.pending_attack_redirect = None
+            if redirect_iid == opp.leader.instance_id:
+                # キャラ → リーダー。 ライフダメージの解決は AttackLeader 経路が持っているので
+                # **その経路を再利用** する (複製するとダブルアタック/バニッシュ/【トリガー】/
+                # 人間の受け確認 の全分岐を二重実装することになる)。
+                # ⚠ 【アタック時】/【相手のアタック時】は **もう発火済** なので再発火させない。
+                state.push_log("  アタック対象変更: キャラ → リーダー")
+                _redirected_leader = AttackLeader(
+                    attacker_iid=action.attacker_iid,
+                    counter_card_idxs=action.counter_card_idxs,
+                    counter_event_idxs=action.counter_event_idxs,
+                    # ブロッカー宣言は 「対象がリーダーになった」 時点で無意味になる
+                    # (ブロック宣言はアタック対象決定の後)。
+                    blocker_iid=None,
+                )
+                _prev_fired = getattr(state, "_attack_triggers_already_fired", False)
+                state._attack_triggers_already_fired = True
+                try:
+                    apply_action(state, _redirected_leader)
+                finally:
+                    state._attack_triggers_already_fired = _prev_fired
+                return
+            _redirect_to = next(
+                (c for c in opp.characters if c.instance_id == redirect_iid), None
+            )
+            if _redirect_to is None:
+                state.push_log(
+                    f"  アタック対象変更 失敗: iid={redirect_iid} は既に場にない"
+                )
+                _reset_battle_buffs(state)
+                return
+            if target is not _redirect_to:
+                state.push_log(
+                    "  アタック対象変更: "
+                    f"{target.card.name if target is not None else '(対象消失)'}"
+                    f" → {_redirect_to.card.name}"
+                )
+                target = _redirect_to
         if target is None:
             state.push_log(
                 f"  対象消失: 攻撃時効果で iid={action.target_iid} は既に場にない (空打ち)"
