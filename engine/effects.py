@@ -781,6 +781,22 @@ def _can_pay_counter_cost(
     if cost.get("flip_life_face_up"):
         if _flip_life_targets(me, True, cost["flip_life_face_up"]) is None:
             return False
+    # ⭐ 「自分の (filter) キャラ N 枚を手札に戻す」 = 候補が N 枚未満なら **払えない**
+    #   (公式 cardqa_st_06: 「発動コストはその一部のみを支払うことはできません。 …
+    #    一部あるいは全部が支払えない場合、 その効果を発動することができません」)。
+    #   ⚠ 2026-08-24 追加: この判定が **ここに無く**、 候補 0 でも 「払える」 と答えていた。
+    #     支払い側も未実装だったので 「払えると答えて何も払わず効果だけ発動」 = タダ撃ち。
+    #     Rust 側 (`return_self_chara_to_hand` の payability) には元からあり、 Rust に
+    #     支払いを実装した時に **Rust だけが払う** ので露見した。
+    _rsc = cost.get("return_self_chara_to_hand")
+    if _rsc:
+        if isinstance(_rsc, dict):
+            _n = int(_rsc.get("count", 1))
+            _f = _rsc.get("filter", {}) or {}
+        else:
+            _n, _f = int(_rsc), {}
+        if sum(1 for c in me.characters if _matches_filter_ip(c, _f)) < _n:
+            return False
     return True
 
 
@@ -1243,6 +1259,42 @@ def _pay_counter_cost(
     if cost.get("flip_life_face_up"):
         _flip_life_pay(state, me, True, cost["flip_life_face_up"], "cost")
     # trash_self / self_ko: source 自身を 場から除去 → トラッシュ。
+    # ⭐ 「自分の (filter) キャラ N 枚を持ち主の手札に戻す」 (EB01-021 【自分のターン終了時】)。
+    #   ⚠ 2026-08-24 是正: `_can_pay_counter_cost` は **このコストを検査していた** のに
+    #     ここに支払いが無く、 **キャラを戻さずに効果だけ発動** していた (= タダ撃ち)。
+    #     [[feedback_check_and_apply_must_share_impl]] 「判定と支払いを別実装にすると
+    #     タダ撃ちになる」 の実例。 Rust 側に実装した時、 Rust だけが払うので露見した。
+    #   実装は `optional_cost_then` 側 (effects.py の同キー節) と同じ意味論:
+    #     power 昇順で count 枚 → 1 枚ずつ置換 (`try_replace_ko`) を通す → 手札へ。
+    rsc_cost = cost.get("return_self_chara_to_hand")
+    if rsc_cost:
+        if isinstance(rsc_cost, dict):
+            _rc_n = int(rsc_cost.get("count", 1))
+            _rc_filt = rsc_cost.get("filter", {}) or {}
+        else:
+            _rc_n, _rc_filt = int(rsc_cost), {}
+        _rc_cands = [c for c in me.characters if _matches_filter_ip(c, _rc_filt)]
+        _rc_cands.sort(key=lambda c: c.power)
+        _rc_before = len(me.characters)
+        for c in list(_rc_cands[:_rc_n]):
+            if c not in me.characters:
+                continue
+            # 発動コストによる離脱にも置換効果はかかる (公式 cardqa_op_05)。
+            if state.effects_overlay and try_replace_ko(
+                state, me, opp, c, state.effects_overlay,
+                by_opp_effect=False, leave_kind="return_to_hand",
+            ):
+                state.push_log(
+                    f"  counter コスト: 自キャラ→手札 が置換された → {c.card.name} は場に残る")
+                continue
+            me.characters.remove(c)
+            me.hand.append(c.card)
+            if c.attached_dons > 0:
+                me.don_rested += c.attached_dons
+            state.push_log(f"  counter コスト: 自キャラ → 手札 ({c.card.name})")
+        # 「自分の効果で自分のキャラが場を離れた」 (cardqa_op_16 / OP16-041)。
+        if state.effects_overlay and len(me.characters) != _rc_before:
+            trigger_on_self_chara_leave_by_self_effect(state, me, opp, state.effects_overlay)
     if (cost.get("trash_self") or cost.get("self_ko")) and self_inplay is not None:
         is_ko = bool(cost.get("self_ko"))
         src = self_inplay

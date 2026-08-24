@@ -728,6 +728,15 @@ fn fire_effect_smoke(
         i if i >= 0 => effects::Slot::Char(i as usize),
         _ => effects::Slot::Detached,
     };
+    // ⚠ 単発エントリなので **選択まわりの thread-local を入口で必ず落とす**。
+    //   実戦経路は action 境界で落ちるが、 ここは境界が無いので前回の呼び出しの中断フラグや
+    //   注入 picks が残ると **この効果が丸ごと no-op** になる。 単体では通るのに
+    //   pytest 全件では落ちる = テスト間汚染 として現れる (2026-08-24 に実際に踏んだ。
+    //   `apply_raw_effect_digest` では既に対処済で、 こちらが漏れていた)。
+    effects::set_choice_suspended(false);
+    effects::set_forced_targets(None);
+    effects::set_forced_picks(None);
+    let _ = effects::take_choice_bail();
     // 実経路 (fire_life_trigger / fire_on_ko / counter) は発火前に current_source_card_id を立てる。
     // スモークで立てないと play_self 等が「source 不明」で bail し、 未実装と誤計上される。
     st.current_source_card_id = Some(card_id.to_string());

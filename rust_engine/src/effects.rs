@@ -11507,7 +11507,14 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             //   登場位置 (Slot) を溜めておき、 remaining 処理後にまとめて発火する。 全 overlay で
             //   destination=play の limit は 1 なので、 remaining 処理は characters/stages を
             //   触らず pidx は不変 (= 位置退避で十分)。
+            // ⚠ **位置 index で覚えない**。 同じ effect 内の後続の登場が
+            //   `trash_weakest_for_field_full` で 1 体減らすと index がずれ、
+            //   【登場時】が **別のキャラで発火 / 不発** になる (OP16-059 で実測、
+            //   limit≥2 かつ場が埋まっている時に顕在化)。 forced target と同じく
+            //   `rust_src_tag` (= Python の object 参照相当) で追う。
+            //   ⚠ ステージは差替で位置がずれないので従来どおり index。
             let mut deferred_on_play: Vec<(bool, usize)> = vec![];
+            let mut deferred_chara_toks: Vec<(Option<u64>, crate::state::CardDef)> = vec![];
             for c in to_play {
                 match c.category {
                     crate::state::Category::Stage => {
@@ -11529,26 +11536,22 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
                         //   (OP16-059: Python は EB02-038 を場に残さず、 Rust は残す)。
                         //   forced-picks 分岐には既に同じ明示 bail があるので、 auto 経路も
                         //   揃える。 「黙って別の盤面を作る」 より **明示 bail** (= 不変条件)。
-                        //   ⚠ 乖離の一例は **登場したキャラの【登場時】cascade**: Python は
-                        //     差替 → 登場 → (残り処理後に) 登場時 が走り、 その登場時がさらに
-                        //     手札から登場させて **もう一度差替** が起きる (OP16-059 で実測)。
-                        //     ただし `card_has_on_play` で絞ると **MISMATCH 3 件が復活** した
-                        //     (= on_play を持たないカードでも乖離する別の経路がある) ので、
-                        //     **場が埋まっている登場は一律 bail** にする。 silent 乖離より bail。
-                        //   ⚠ 解消には Python の picked / 差替 / deferred on_play の逐次順序を
-                        //     逐条で移植する必要がある (残作業)。
-                        if state.players[me_idx].characters.len() >= 5 {
-                            note_prim_err(
-                                "search_top_n(play): 場5枚差し替えの犠牲選択が Python と不一致");
-                            return false;
-                        }
+                        // ⭐ 場 5 枚差し替え (3-7-6-1)。 Python (effects.py:5516) と同位置・同順:
+                        //   **差替 → 登場** (登場したカード自身は犠牲候補にならない)。
+                        //   ⚠ 2026-08-24 に bail ガードを足した時、 この呼出を消してしまい
+                        //     **6 体の盤面** を作っていた (= 自作バグ)。 掃引の MISMATCH 3 件は
+                        //     それが原因で、 「on_play 無しでも乖離する別経路」 は存在しなかった。
+                        trash_weakest_for_field_full(state, me_idx);
                         let mut ip = InPlay::of(c.clone(), true);
                         ip.rested = rested_flag;
                         state.players[me_idx].characters.push(ip);
                         let pidx = state.players[me_idx].characters.len() - 1;
-                        state.last_self_chara_played_card = Some(c);
-                        state.last_self_chara_played_from_trash = false;
-                        deferred_on_play.push((false, pidx));
+                        // ⚠ `last_self_chara_played_*` は **push 時ではなく deferred な
+                        //   【登場時】の直前** に立てる (Python は `trigger_on_play` の中で
+                        //   立てるため)。 push 時に立てると、 先に走った登場時が cascade で
+                        //   別のキャラを登場させた時に **その cascade が最終値になる**
+                        //   (OP16-059: Python=EB01-036 / Rust=EB01-026 で実測)。
+                        deferred_chara_toks.push((tag_src(state, me_idx, Slot::Char(pidx)), c));
                     }
                     _ => state.players[me_idx].hand.push(c),
                 }
@@ -11588,12 +11591,30 @@ if me_board_has_when(state, me_idx, "on_self_don_returned_to_deck") {
             // ⭐ remaining を配置した後に【登場時】を発火 (公式 cardqa_op_03、 上の
             //   deferred_on_play コメント参照)。
             for (is_stage, pidx) in deferred_on_play {
-                if is_stage {
-                    if execute_stage_on_play(state, me_idx, pidx).is_err() {
-                        return false;
+                debug_assert!(is_stage);
+                if execute_stage_on_play(state, me_idx, pidx).is_err() {
+                    return false;
+                }
+            }
+            for (tok, played_card) in deferred_chara_toks {
+                match peek_tagged(state, me_idx, tok) {
+                    Slot::Char(i) => {
+                        let _ = find_tagged(state, me_idx, tok); // タグを回収
+                        // Python `trigger_on_play` と同位置で context を立てる。
+                        state.last_self_chara_played_card = Some(played_card);
+                        state.last_self_chara_played_from_trash = false;
+                        if execute_on_play(state, me_idx, i).is_err() {
+                            return false;
+                        }
                     }
-                } else {
-                    if execute_on_play(state, me_idx, pidx).is_err() {
+                    _ => {
+                        // ⛔ 登場したキャラが **同じ effect 内の差替で場を離れた**。 Python は
+                        //   InPlay を object で持つので離場後も【登場時】を発火する
+                        //   (OP16-059 の実測ログ: 差替でトラッシュした マゼラン の登場時が走る)。
+                        //   Rust は場外 InPlay を持てないので明示 bail (黙って不発にしない)。
+                        let _ = find_tagged(state, me_idx, tok);
+                        note_prim_err(
+                            "search_top_n(play): 登場キャラが同 effect 内の差替で離場 (登場時が再現不能)");
                         return false;
                     }
                 }
@@ -14790,6 +14811,8 @@ fn try_pay_counter_cost(
                 // return_self_don_to_deck: 場のドン N 枚をドンデッキへ (effects.py:889)。
                 // ⭐ rested を優先して返す (active DON を温存 = 常に tempo 同等以上)。
                 | "return_self_don_to_deck"
+                // 「自分の (filter) キャラ N 枚を手札に戻す」 (EB01-021 【自分のターン終了時】)。
+                | "return_self_chara_to_hand"
         ) {
             return Err(format!("counter cost 未対応: {k}"));
         }
@@ -14981,6 +15004,12 @@ fn try_pay_counter_cost(
     // trash_self / self_ko / return_self_to_hand: source 自身を場から除去 (effects.py:934)。
     // ⚠ self_ko は KO 扱いで【KO時】/on_self_chara_ko、 trash_self は on_self_chara_leave_by_self_effect
     //   が発火する。 該当 when を持つ盤面は cascade 再現不能なので bail (黙って発火漏れにしない)。
+    if let Some(rsc) = obj.get("return_self_chara_to_hand") {
+        let rsc = rsc.clone();
+        if !pay_return_self_chara_to_hand(state, me_idx, &rsc)? {
+            return Ok(false); // コスト未payment = 効果は発動しない (公式 4-10)
+        }
+    }
     if trash_self || self_ko || ret_self_hand {
         if self_ko
             && (crate::effects::me_board_has_when(state, me_idx, "on_self_chara_ko")
@@ -17656,6 +17685,65 @@ fn staged_order(depth: usize) -> Vec<usize> {
 
 fn spec_map(v: &Value) -> serde_json::Map<String, Value> {
     v.as_object().cloned().unwrap_or_default()
+}
+
+/// 「自分の (filter) キャラ N 枚を持ち主の手札に戻す」 コストの支払い
+/// (Python `_pay_counter_cost` / `optional_cost_then` の `return_self_chara_to_hand` 節と 1:1)。
+///
+/// Python 準拠の要点:
+/// - 候補は **power 昇順** (stable = 同値は盤面順)。 手札への追加も **その順**
+///   (盤面順で append すると count≥2 で手札の並びが食い違う)。
+/// - 1 枚ずつ `try_replace_ko(leave_kind="return_to_hand")` を通す。 置換されたら
+///   **場に残り、 その 1 枚は支払われていない** (公式 cardqa_op_05)。
+/// - 支払い枚数が count に満たなければ **コスト未payment → 効果は発動しない** (公式 4-10)。
+/// - 盤面が動いたら `on_self_chara_leave_by_self_effect` を発火 (cardqa_op_16 / OP16-041)。
+///
+/// 返り値: Ok(true)=払えた / Ok(false)=払えなかった (= 効果を発動しない)。
+fn pay_return_self_chara_to_hand(
+    state: &mut GameState, me_idx: usize, cv: &Value,
+) -> Result<bool, String> {
+    let (count, filt) = count_and_filter(cv);
+    let mut cands: Vec<(usize, i32)> = state.players[me_idx]
+        .characters
+        .iter()
+        .enumerate()
+        .filter(|(_, c)| matches_filter_ip(c, filt))
+        .map(|(i, c)| (i, c.power()))
+        .collect();
+    cands.sort_by(|a, b| a.1.cmp(&b.1)); // stable = 同値は盤面順 (Python の list.sort と同じ)
+    // ⚠ 置換や離脱で index がずれるので **タグで追う** (位置 index は stale 化する)。
+    let toks: Vec<Option<u64>> = cands
+        .iter()
+        .take(count)
+        .map(|&(i, _)| tag_src(state, me_idx, Slot::Char(i)))
+        .collect();
+    let before = state.players[me_idx].characters.len();
+    let mut done = 0usize;
+    for tok in toks {
+        let idx = match find_tagged(state, me_idx, tok) {
+            Slot::Char(i) => i,
+            _ => continue, // 既に場を離れている (Python: `if c not in me.characters: continue`)
+        };
+        match try_replace_ko(state, me_idx, idx, false, "return_to_hand") {
+            Ok(true) => continue, // 置換された = 場に残る = この 1 枚は未payment
+            Ok(false) => {}
+            Err(e) => return Err(e),
+        }
+        let me = &mut state.players[me_idx];
+        if idx >= me.characters.len() {
+            continue;
+        }
+        let removed = me.characters.remove(idx);
+        let don = removed.attached_dons;
+        me.hand.push(removed.card);
+        me.don_rested += don;
+        done += 1;
+    }
+    let moved = state.players[me_idx].characters.len() != before;
+    if moved {
+        fire_leave_by_self_effect(state, me_idx)?;
+    }
+    Ok(done >= count)
 }
 
 fn order_simultaneous_victims(

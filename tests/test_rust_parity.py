@@ -71,22 +71,15 @@ def test_rust_parity_all_card_synthetic_sweep():
     #   「黙って違う」 ではないので不変条件違反ではないが、 **Rust が実行できない手を
     #   方策が黙って避ける** ので self-play/学習の分布を歪める。 新カードや overlay 追加で
     #   ここが増えたら 「Rust に移植する」 か 「明示的に許容する」 かを判断する。
-    # ⚠ 2026-08-24: **既知の 1 理由だけ** 明示的に許容する。
-    #   `search_top_n(destination=play)` で **場が 5 枚埋まった状態の登場** は、 Python の
-    #   「差替 → 登場 → (残り処理後に) 登場時 → その登場時が更に登場 → もう一度差替」 の
-    #   逐次順序を Rust がまだ再現できない (OP16-059 で実測)。 黙って別の盤面を作るより
-    #   **明示 bail** を選んだ (MISMATCH=0 は維持)。
-    #   ⚠ `card_has_on_play` で絞ろうとしたら MISMATCH が 3 件復活した = on_play を持たない
-    #     カードでも乖離する別経路がある。 逐条移植が済むまでは一律 bail。
-    _ALLOWED_BAIL = "search_top_n(play): 場5枚差し替え"
-    if "bail(Err)=0" not in (r.stdout or ""):
-        reasons = (r.stdout or "").split("bail 理由")[-1]
-        bad = [ln for ln in reasons.splitlines()
-               if ln.strip().startswith(tuple("0123456789")) and _ALLOWED_BAIL not in ln]
-        assert not bad, (
-            "全カード掃引に **既知以外の** bail が出ている (= Rust の未移植が増えた)。\n"
-            f"許容しているのは {_ALLOWED_BAIL!r} のみ。\n" + "\n".join(bad[:5]) + f"\n{tail}"
-        )
+    # ⭐ bail も 0 で pin する。 bail は 「黙って違う」 ではないが、 **Rust が実行できない手を
+    #   方策が黙って避ける** ので self-play/学習の分布を歪める。
+    #   ⚠ 2026-08-24: 一度 `search_top_n(play)` の場5枚差し替えで bail を 3 件許容しかけたが、
+    #     原因は ①ガード追加時に `trash_weakest_for_field_full` の呼出を消した自作バグ
+    #     ②deferred【登場時】を位置 index で覚えていた ③context を push 時に立てていた の 3 つで、
+    #     **すべて実装で解消** した。 安易に許容せず原因を潰すこと。
+    assert "bail(Err)=0" in (r.stdout or ""), (
+        f"全カード掃引に Rust の未移植 (bail) が復活している。\n{tail}"
+    )
 
 
 def test_rust_choice_enumeration_no_mismatch():
